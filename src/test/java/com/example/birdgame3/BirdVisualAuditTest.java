@@ -28,7 +28,8 @@ class BirdVisualAuditTest {
             BirdGame3.BirdType.TITMOUSE,
             BirdGame3.BirdType.BAT,
             BirdGame3.BirdType.PELICAN,
-            BirdGame3.BirdType.HEISENBIRD
+            BirdGame3.BirdType.HEISENBIRD,
+            BirdGame3.BirdType.RAVEN
     );
 
     private static BirdGame3 freshGame() {
@@ -2095,6 +2096,178 @@ class BirdVisualAuditTest {
                     assertEquals(3, geometry.bodyPartCount(Bird.VisualBodyPart.HEISEN_FLANK_CRYSTAL),
                             label + " special pose detached a flank crystal");
                     assertHeisenHatFollowsHead(geometry, label + " special pose");
+                    assertFeatureGeometryIsSafe(geometry, label + " special pose");
+                }
+            }
+        }
+    }
+
+    @Test
+    void ravenKeepsItsCompleteAttachedAnatomyAcrossEverySkinPoseAndDirection() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.RAVEN)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (Bird.VisualAuditPose pose : Bird.VisualAuditPose.values()) {
+                Bird.VisualFeatureGeometry right = game.inspectVisualAuditCombatFeatures(entry, pose, true);
+                Bird.VisualFeatureGeometry left = game.inspectVisualAuditCombatFeatures(entry, pose, false);
+                String label = entry.name() + " / " + pose;
+                for (Bird.VisualFeatureGeometry geometry : List.of(right, left)) {
+                    assertEquals(3, geometry.bodyPartCount(Bird.VisualBodyPart.RAVEN_TAIL_FEATHER),
+                            label + " must retain all three layered tail feathers");
+                    assertEquals(2, geometry.bodyPartCount(Bird.VisualBodyPart.RAVEN_WING),
+                            label + " must retain both articulated wings");
+                    assertEquals(2, geometry.bodyPartCount(Bird.VisualBodyPart.RAVEN_LEG),
+                            label + " must retain both legs");
+                    assertEquals(3, geometry.bodyPartCount(Bird.VisualBodyPart.RAVEN_CREST_FEATHER),
+                            label + " must root all three crest feathers in the skull");
+                    assertEquals(4, geometry.bodyPartCount(Bird.VisualBodyPart.RAVEN_THROAT_FEATHER),
+                            label + " must retain all four throat hackles");
+                    assertTrue(geometry.ravenTorso() != null,
+                            label + " did not report the authored torso");
+                    if ("VOID_HERALD_RAVEN".equals(entry.key())) {
+                        assertTrue(geometry.ravenMask() != null,
+                                label + " must draw the promised attached cracked mask");
+                        assertTrue(geometry.ravenMask().contains(geometry.eye(), 0.01),
+                                label + " lets the mask or its violet eye separate from the skull");
+                    } else {
+                        assertTrue(geometry.ravenMask() == null,
+                                label + " incorrectly gives a non-Herald skin the bone mask");
+                    }
+                    assertFeatureGeometryIsSafe(geometry, label);
+                }
+                assertMirrored(right, left, label);
+            }
+        }
+    }
+
+    @Test
+    void ravenGroundedFeetMeetTheCollisionFloorAcrossEverySkinAndDirection() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.RAVEN)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (boolean facingRight : List.of(true, false)) {
+                Bird.VisualFeatureGeometry idle = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.IDLE, facingRight);
+                assertEquals(80.0, idle.ravenFootBaseline(), 0.15,
+                        entry.name() + " facing " + (facingRight ? "right" : "left")
+                                + " must place both feet on the collision floor");
+            }
+        }
+    }
+
+    @Test
+    void ravenFaceAndMaskTrackFlightAndHitDirections() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.RAVEN)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (boolean facingRight : List.of(true, false)) {
+                String label = entry.name() + " facing " + (facingRight ? "right" : "left");
+                Bird.VisualFeatureGeometry idle = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.IDLE, facingRight);
+                Bird.VisualFeatureGeometry flap = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.FLAP, facingRight);
+                Bird.VisualFeatureGeometry hit = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.HIT, facingRight);
+
+                assertTrue(Math.abs(beakVectorY(flap)) > Math.abs(beakVectorX(flap)) * 2.0,
+                        label + " must aim its complete face upward while climbing");
+                assertTrue(beakVectorX(hit) * beakVectorX(idle) < 0.0,
+                        label + " must turn its complete face away from impact in hitstun");
+                for (Bird.VisualFeatureGeometry geometry : List.of(idle, flap, hit)) {
+                    if ("VOID_HERALD_RAVEN".equals(entry.key())) {
+                        assertTrue(geometry.ravenMask() != null
+                                        && geometry.ravenMask().contains(geometry.eye(), 0.01),
+                                label + " lets the cracked mask float away during motion");
+                    }
+                    assertFeatureGeometryIsSafe(geometry, label);
+                }
+            }
+        }
+    }
+
+    @Test
+    void ravenSpecialsUseDistinctCompleteWingAndBillCycles() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.RAVEN)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (boolean facingRight : List.of(true, false)) {
+                String label = entry.name() + " facing " + (facingRight ? "right" : "left");
+                Bird.VisualFeatureGeometry idle = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.IDLE, facingRight);
+                Bird.VisualFeatureGeometry quillStart = game.inspectVisualAuditRavenActionFeatures(
+                        entry, Bird.VisualAuditRavenAction.NEUTRAL, 1, facingRight);
+                Bird.VisualFeatureGeometry quillFull = game.inspectVisualAuditRavenActionFeatures(
+                        entry, Bird.VisualAuditRavenAction.NEUTRAL,
+                        Bird.RAVEN_QUILL_CHARGE_FAN_FRAMES, facingRight);
+                Bird.VisualFeatureGeometry warpStart = game.inspectVisualAuditRavenActionFeatures(
+                        entry, Bird.VisualAuditRavenAction.SIDE, Bird.RAVEN_SIDE_FRAMES, facingRight);
+                Bird.VisualFeatureGeometry warpOpen = game.inspectVisualAuditRavenActionFeatures(
+                        entry, Bird.VisualAuditRavenAction.SIDE, 7, facingRight);
+                Bird.VisualFeatureGeometry warpClose = game.inspectVisualAuditRavenActionFeatures(
+                        entry, Bird.VisualAuditRavenAction.SIDE, 1, facingRight);
+                Bird.VisualFeatureGeometry lift = game.inspectVisualAuditRavenActionFeatures(
+                        entry, Bird.VisualAuditRavenAction.UP, Bird.RAVEN_LIFT_FRAMES - 7, facingRight);
+                Bird.VisualFeatureGeometry place = game.inspectVisualAuditRavenActionFeatures(
+                        entry, Bird.VisualAuditRavenAction.DOWN_PLACE, 12, facingRight);
+                Bird.VisualFeatureGeometry swap = game.inspectVisualAuditRavenActionFeatures(
+                        entry, Bird.VisualAuditRavenAction.DOWN_SWAP, 12, facingRight);
+                Bird.VisualFeatureGeometry windup = game.inspectVisualAuditRavenActionFeatures(
+                        entry, Bird.VisualAuditRavenAction.ULTIMATE_WINDUP,
+                        Bird.RAVEN_ULTIMATE_WINDUP_FRAMES, facingRight);
+                Bird.VisualFeatureGeometry route = game.inspectVisualAuditRavenActionFeatures(
+                        entry, Bird.VisualAuditRavenAction.ULTIMATE_ROUTE,
+                        Bird.RAVEN_ULTIMATE_ROUTE_LIFE_FRAMES - 10, facingRight);
+
+                assertTrue(idle.ravenWingOpenness() <= 0.09,
+                        label + " must fold both idle wings");
+                assertTrue(quillStart.ravenWingOpenness() >= 0.30
+                                && quillStart.ravenWingOpenness() <= 0.36,
+                        label + " must begin Black Quill in a restrained charging stance");
+                assertTrue(quillFull.ravenWingOpenness() >= 0.86,
+                        label + " must fan both wings at full Black Quill charge");
+                assertTrue(quillFull.ravenBillGape() > idle.ravenBillGape() + 5.0,
+                        label + " must visibly open the bill at full Black Quill charge");
+                assertTrue(warpStart.ravenWingOpenness() <= 0.10,
+                        label + " must begin Shadow Warp with folded wings");
+                assertTrue(warpOpen.ravenWingOpenness() >= 0.74,
+                        label + " must burst both wings open inside Shadow Warp");
+                assertTrue(warpClose.ravenWingOpenness() <= 0.10,
+                        label + " must close both wings before Shadow Warp ends");
+                assertTrue(lift.ravenWingOpenness() >= 0.90,
+                        label + " must fully spread both wings during Murder Lift");
+                assertTrue(place.ravenWingOpenness() >= 0.40 && place.ravenWingOpenness() <= 0.46,
+                        label + " must brace both wings while placing Nevermore");
+                assertTrue(swap.ravenWingOpenness() >= 0.68,
+                        label + " must flare both wings while swapping with Nevermore");
+                assertTrue(windup.ravenWingOpenness() >= 0.96,
+                        label + " must hold both wings open during The Unkindness windup");
+                assertTrue(route.ravenWingOpenness() >= 0.84,
+                        label + " must keep both wings spread through The Unkindness route");
+                for (Bird.VisualFeatureGeometry geometry : List.of(
+                        quillStart, quillFull, warpStart, warpOpen, warpClose,
+                        lift, place, swap, windup, route)) {
+                    assertEquals(2, geometry.bodyPartCount(Bird.VisualBodyPart.RAVEN_WING),
+                            label + " special pose lost a wing");
+                    assertEquals(3, geometry.bodyPartCount(Bird.VisualBodyPart.RAVEN_TAIL_FEATHER),
+                            label + " special pose detached a tail feather");
+                    assertEquals(3, geometry.bodyPartCount(Bird.VisualBodyPart.RAVEN_CREST_FEATHER),
+                            label + " special pose detached a crest feather");
                     assertFeatureGeometryIsSafe(geometry, label + " special pose");
                 }
             }

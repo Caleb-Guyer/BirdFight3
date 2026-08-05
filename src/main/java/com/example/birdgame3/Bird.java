@@ -400,7 +400,12 @@ public class Bird {
         HEISEN_HAT_BRIM,
         HEISEN_HAT_CROWN,
         HEISEN_GOATEE,
-        HEISEN_FLANK_CRYSTAL
+        HEISEN_FLANK_CRYSTAL,
+        RAVEN_TAIL_FEATHER,
+        RAVEN_WING,
+        RAVEN_LEG,
+        RAVEN_CREST_FEATHER,
+        RAVEN_THROAT_FEATHER
     }
 
     record VisualFeatureGeometry(VisualFeatureBounds head, VisualFeatureCircle eye, VisualBeakAxis beak,
@@ -444,6 +449,11 @@ public class Bird {
                                  VisualFeatureBounds heisenTorso,
                                  VisualFeatureBounds heisenHat,
                                  VisualFeatureBounds heisenTear,
+                                 double ravenWingOpenness,
+                                 double ravenFootBaseline,
+                                 double ravenBillGape,
+                                 VisualFeatureBounds ravenTorso,
+                                 VisualFeatureBounds ravenMask,
                                  Map<VisualBodyPart, Integer> bodyPartCounts) {
         boolean complete() {
             return head != null && eye != null && beak != null;
@@ -657,6 +667,11 @@ public class Bird {
     private VisualFeatureBounds lastVisualHeisenTorso;
     private VisualFeatureBounds lastVisualHeisenHat;
     private VisualFeatureBounds lastVisualHeisenTear;
+    private double lastVisualRavenWingOpenness;
+    private double lastVisualRavenFootBaseline = Double.NaN;
+    private double lastVisualRavenBillGape;
+    private VisualFeatureBounds lastVisualRavenTorso;
+    private VisualFeatureBounds lastVisualRavenMask;
     private final EnumMap<VisualBodyPart, Integer> lastVisualBodyPartCounts =
             new EnumMap<>(VisualBodyPart.class);
     /** The skin key applied to this bird (null = default); selects per-skin sprite sheets. */
@@ -1035,19 +1050,19 @@ public class Bird {
     private static final int RAVEN_PORTENT_ULTIMATE_LIFE_FRAMES = 540;
     private static final int RAVEN_MARK_LIFE_FRAMES = 360;
     private static final int RAVEN_MARK_ULTIMATE_LIFE_FRAMES = 480;
-    private static final int RAVEN_QUILL_CHARGE_FAN_FRAMES = 18;
+    static final int RAVEN_QUILL_CHARGE_FAN_FRAMES = 18;
     private static final int RAVEN_QUILL_LIFE_FRAMES = 72;
     private static final int RAVEN_QUILL_ULTIMATE_LIFE_FRAMES = 86;
-    private static final int RAVEN_NEUTRAL_REUSE_FRAMES = 22;
-    private static final int RAVEN_SIDE_FRAMES = 14;
+    static final int RAVEN_NEUTRAL_REUSE_FRAMES = 22;
+    static final int RAVEN_SIDE_FRAMES = 14;
     private static final int RAVEN_SIDE_REUSE_FRAMES = 34;
-    private static final int RAVEN_LIFT_FRAMES = 24;
+    static final int RAVEN_LIFT_FRAMES = 24;
     private static final int RAVEN_LIFT_ULTIMATE_FRAMES = 30;
     private static final int RAVEN_DECOY_LIFE_FRAMES = 180;
     private static final int RAVEN_DECOY_ULTIMATE_LIFE_FRAMES = 240;
-    private static final int RAVEN_DOWN_REUSE_FRAMES = 38;
-    private static final int RAVEN_ULTIMATE_WINDUP_FRAMES = 30;
-    private static final int RAVEN_ULTIMATE_ROUTE_LIFE_FRAMES = 42;
+    static final int RAVEN_DOWN_REUSE_FRAMES = 38;
+    static final int RAVEN_ULTIMATE_WINDUP_FRAMES = 30;
+    static final int RAVEN_ULTIMATE_ROUTE_LIFE_FRAMES = 42;
     private static final int RAVEN_ULTIMATE_PORTAL_LIFE_FRAMES = 86;
     private static final int RAVEN_ULTIMATE_FLOCK_DELAY_FRAMES = 12;
     private static final int RAVEN_ULTIMATE_VOID_RAVEN_COUNT = 6;
@@ -2265,6 +2280,16 @@ public class Bird {
         DOWN,
         ULTIMATE_ORBIT,
         ULTIMATE_VOLLEY
+    }
+
+    enum VisualAuditRavenAction {
+        NEUTRAL,
+        SIDE,
+        UP,
+        DOWN_PLACE,
+        DOWN_SWAP,
+        ULTIMATE_WINDUP,
+        ULTIMATE_ROUTE
     }
 
     enum VisualAuditTitmouseAction {
@@ -11608,6 +11633,11 @@ public class Bird {
             attackAnimationTimer = (int)Math.max(0, attackAnimationTimer - gameSpeed);
             if (attackAnimationTimer == 0) {
                 clearAerialAttackState();
+                if (ravenDecoy != null) {
+                    // The swap flag identifies Nevermore's brief authored pose;
+                    // it must not leak into an unrelated later attack animation.
+                    ravenDecoy.swapped = false;
+                }
             }
         }
         leanCooldown = Math.max(0, (int)(leanCooldown - gameSpeed));
@@ -12027,6 +12057,51 @@ public class Bird {
                     remainingFrames, 1, HEISEN_ULTIMATE_FRAMES);
             case ULTIMATE_VOLLEY -> heisenUltimateVolleyTimer = Math.clamp(
                     remainingFrames, 1, HEISEN_ULTIMATE_VOLLEY_FRAMES);
+        }
+        attackAnimationTimer = Math.max(attackAnimationTimer, 14);
+        displayPose = null;
+    }
+
+    /** Positions Raven at deterministic frames of its complete omen kit. */
+    void prepareVisualAuditRavenAction(
+            VisualAuditRavenAction action, int remainingFrames, boolean faceRight) {
+        prepareVisualAuditPose(action == VisualAuditRavenAction.UP
+                ? VisualAuditPose.FLAP : VisualAuditPose.ATTACK);
+        facingRight = faceRight;
+        ravenQuillCharging = false;
+        ravenQuillChargeFrames = 0;
+        ravenSideTimer = 0;
+        ravenLiftTimer = 0;
+        ravenDownReuseTimer = 0;
+        ravenUltimateWindupTimer = 0;
+        ravenUltimateTimer = 0;
+        ravenDecoy = null;
+        switch (action) {
+            case NEUTRAL -> {
+                ravenQuillCharging = true;
+                ravenQuillChargeFrames = Math.clamp(
+                        remainingFrames, 1, RAVEN_QUILL_CHARGE_FAN_FRAMES);
+            }
+            case SIDE -> {
+                ravenSideDirection = faceRight ? 1 : -1;
+                ravenSideTimer = Math.clamp(remainingFrames, 1, RAVEN_SIDE_FRAMES);
+            }
+            case UP -> {
+                ravenLiftUsed = true;
+                ravenLiftTimer = Math.clamp(remainingFrames, 1, RAVEN_LIFT_FRAMES);
+            }
+            case DOWN_PLACE -> {
+                ravenDownReuseTimer = RAVEN_DOWN_REUSE_FRAMES;
+                ravenDecoy = new RavenDecoy(bodyCenterX(), bodyCenterY(), false);
+            }
+            case DOWN_SWAP -> {
+                ravenDecoy = new RavenDecoy(bodyCenterX(), bodyCenterY(), false);
+                ravenDecoy.swapped = true;
+            }
+            case ULTIMATE_WINDUP -> ravenUltimateWindupTimer = Math.clamp(
+                    remainingFrames, 1, RAVEN_ULTIMATE_WINDUP_FRAMES);
+            case ULTIMATE_ROUTE -> ravenUltimateTimer = Math.clamp(
+                    remainingFrames, 1, RAVEN_ULTIMATE_ROUTE_LIFE_FRAMES);
         }
         attackAnimationTimer = Math.max(attackAnimationTimer, 14);
         displayPose = null;
@@ -17501,7 +17576,14 @@ public class Bird {
     private boolean ravenSpecialPoseActive() {
         return type == BirdGame3.BirdType.RAVEN
                 && (ravenQuillCharging || ravenSideTimer > 0 || ravenLiftTimer > 0
+                || ravenDownPoseActive()
                 || ravenUltimateWindupTimer > 0 || ravenUltimateTimer > 0);
+    }
+
+    private boolean ravenDownPoseActive() {
+        return ravenDecoy != null && attackAnimationTimer > 0
+                && (ravenDecoy.swapped
+                || ravenDownReuseTimer > RAVEN_DOWN_REUSE_FRAMES - 13);
     }
 
     private double turkeySpecialPhase(int timer, int totalFrames) {
@@ -18742,6 +18824,23 @@ public class Bird {
 
     private AttackVisualPose currentRavenSpecialPose() {
         double dir = facingRight ? 1.0 : -1.0;
+        if (ravenDownPoseActive()) {
+            boolean swapping = ravenDecoy.swapped;
+            return new AttackVisualPose(
+                    -dir * (swapping ? 5.0 : 2.0),
+                    swapping ? -9.0 : 2.0,
+                    dir * (swapping ? 7.0 : 3.0),
+                    swapping ? normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.24)
+                            : (facingRight ? 0.12 : Math.PI - 0.12),
+                    swapping ? 18.0 : 11.0,
+                    swapping ? -13.0 : 4.0,
+                    swapping ? 16.0 : 10.0,
+                    swapping ? 1.12 : 1.02,
+                    swapping ? -17.0 : 5.0,
+                    swapping ? 1.08 : 0.96,
+                    swapping ? 1.06 : 1.02
+            );
+        }
         if (ravenLiftTimer > 0) {
             double phase = pigeonSpecialPhase(ravenLiftTimer,
                     ravenLiftUltimate ? RAVEN_LIFT_ULTIMATE_FRAMES : RAVEN_LIFT_FRAMES);
@@ -22568,6 +22667,11 @@ public class Bird {
                 lastVisualHeisenTorso,
                 lastVisualHeisenHat,
                 lastVisualHeisenTear,
+                lastVisualRavenWingOpenness,
+                lastVisualRavenFootBaseline,
+                lastVisualRavenBillGape,
+                lastVisualRavenTorso,
+                lastVisualRavenMask,
                 Map.copyOf(lastVisualBodyPartCounts)
         );
     }
@@ -22616,6 +22720,11 @@ public class Bird {
         lastVisualHeisenTorso = null;
         lastVisualHeisenHat = null;
         lastVisualHeisenTear = null;
+        lastVisualRavenWingOpenness = 0.0;
+        lastVisualRavenFootBaseline = Double.NaN;
+        lastVisualRavenBillGape = 0.0;
+        lastVisualRavenTorso = null;
+        lastVisualRavenMask = null;
         lastVisualBodyPartCounts.clear();
     }
 
@@ -34796,85 +34905,483 @@ public class Bird {
                 facingRight ? 204 : -24, 102, ArcType.OPEN);
     }
 
+    /**
+     * Raven is a narrow, angular corvid assembled from attached feather groups.
+     * The old renderer was an 80x80 circle with one pasted-on oval wing; this rig
+     * keeps the eye, bill, crest, throat, wings, tail, and feet coherent through
+     * every aim direction and gives Void Herald its promised cracked bone mask.
+     */
     private void drawRavenBody(GraphicsContext g, double drawSize, AttackVisualPose pose) {
         double s = sizeMultiplier;
-        HeadPose headPose = standardHeadPose(pose);
-        double headW = 50.0 * s;
-        double headH = 40.0 * s;
-        double headX = headPose.centerX() - headW / 2.0;
-        double headY = headPose.centerY() - headH / 2.0;
-        boolean voidHerald = isVoidHeraldSkin;
-        Color body = voidHerald ? Color.web("#0B0712") : Color.web("#151A20");
-        Color head = voidHerald ? Color.web("#171020") : Color.web("#202833");
-        Color wing = voidHerald ? Color.web("#21172F") : Color.web("#242E38");
-        Color edge = voidHerald ? Color.web("#8C73C8") : Color.web("#70808C");
-        Color sheen = voidHerald ? Color.web("#513A72") : Color.web("#354451");
-        Color eye = voidHerald ? Color.web("#B388FF") : Color.web("#D50000");
+        double dir = facingRight ? 1.0 : -1.0;
+        double cx = x + drawSize * 0.50;
+        BirdAnimationState state = currentBirdAnimationState();
+        boolean herald = isVoidHeraldSkin;
+        boolean nightshade = isClassicSkin;
+        boolean faction = isCampaignFactionSkin();
 
-        double tailBaseX = x + (facingRight ? 15.0 : 65.0) * s;
-        double tailDir = facingRight ? -1.0 : 1.0;
-        g.setFill(wing.deriveColor(0, 1, 0.86, 0.76));
-        for (int i = -1; i <= 1; i++) {
-            double spread = i * 8.0 * s;
+        Color back;
+        Color body;
+        Color breast;
+        Color wing;
+        Color edge;
+        Color head;
+        Color bill;
+        Color billShade;
+        Color leg;
+        Color iris;
+        Color mask = Color.web("#E8E1D2");
+        if (faction) {
+            back = campaignFactionPrimaryColor().darker();
+            body = campaignFactionPrimaryColor();
+            breast = campaignFactionSecondaryColor();
+            wing = campaignFactionPrimaryColor().darker();
+            edge = campaignFactionAccentColor();
+            head = campaignFactionSecondaryColor().darker();
+            bill = campaignFactionPrimaryColor().darker().darker();
+            billShade = campaignFactionPrimaryColor().darker().darker().darker();
+            leg = campaignFactionAccentColor().darker();
+            iris = campaignFactionAccentColor();
+        } else if (herald) {
+            back = Color.web("#08060C");
+            body = Color.web("#120D18");
+            breast = Color.web("#24162F");
+            wing = Color.web("#1B1226");
+            edge = Color.web("#8C73C8");
+            head = Color.web("#100B17");
+            bill = Color.web("#2B213A");
+            billShade = Color.web("#100B16");
+            leg = Color.web("#7C6A8B");
+            iris = Color.web("#B388FF");
+        } else if (nightshade) {
+            back = Color.web("#182126");
+            body = Color.web("#263238");
+            breast = Color.web("#455A64");
+            wing = Color.web("#1B272D");
+            edge = Color.web("#B0BEC5");
+            head = Color.web("#202D34");
+            bill = Color.web("#39474E");
+            billShade = Color.web("#11191D");
+            leg = Color.web("#81939C");
+            iris = Color.web("#FF5252");
+        } else {
+            back = Color.web("#090E13");
+            body = Color.web("#151D24");
+            breast = Color.web("#293843");
+            wing = Color.web("#101820");
+            edge = Color.web("#637887");
+            head = Color.web("#111A21");
+            bill = Color.web("#29343C");
+            billShade = Color.web("#080D11");
+            leg = Color.web("#667783");
+            iris = Color.web("#D50000");
+        }
+
+        double wingOpenness = ravenWingOpenness(state);
+        if (visualAuditBodyOnly) {
+            lastVisualRavenWingOpenness = wingOpenness;
+        }
+
+        // A graduated three-feather wedge reads as a real corvid tail in both
+        // profiles instead of three disconnected triangles behind a sphere.
+        for (int i = 0; i < 3; i++) {
+            double rootX = cx - dir * (14.0 - i * 1.8) * s;
+            double rootY = y + (48.0 + i * 5.8) * s;
+            double tipX = rootX - dir * (34.0 - i * 3.2) * s;
+            double tipY = y + (37.0 + i * 11.5) * s;
+            g.setFill((i == 1 ? body : wing).deriveColor(i * 2.0, 0.92, 0.92, 0.98));
             g.fillPolygon(
-                    new double[]{tailBaseX, tailBaseX + tailDir * (34.0 + Math.abs(i) * 5.0) * s,
-                            tailBaseX + tailDir * 11.0 * s},
-                    new double[]{y + 43.0 * s, y + 39.0 * s + spread,
-                            y + 62.0 * s + spread * 0.25},
-                    3
-            );
+                    new double[]{rootX + dir * 4.0 * s, tipX, rootX - dir * 5.0 * s},
+                    new double[]{rootY - 4.5 * s, tipY, rootY + 4.5 * s}, 3);
+            g.setStroke(edge.deriveColor(0, 0.72, 1.0, 0.52));
+            g.setLineWidth(0.85 * s);
+            g.strokeLine(rootX, rootY, tipX + dir * 2.0 * s, tipY);
+            recordVisualBodyPart(VisualBodyPart.RAVEN_TAIL_FEATHER);
         }
 
+        drawRavenLegs(g, state, leg, edge);
+        drawRavenWing(g, cx - dir * 4.0 * s, y + 36.0 * s,
+                dir, wingOpenness, wing, edge, back, true, herald);
+        recordVisualBodyPart(VisualBodyPart.RAVEN_WING);
+
+        // Long shoulders, a tapered keel, and a raised breast replace the old
+        // circular torso while preserving the original collision footprint.
+        g.setFill(back);
+        g.beginPath();
+        g.moveTo(cx - dir * 23.0 * s, y + 35.0 * s);
+        g.bezierCurveTo(cx - dir * 18.0 * s, y + 20.0 * s,
+                cx + dir * 13.0 * s, y + 18.0 * s, cx + dir * 24.0 * s, y + 34.0 * s);
+        g.bezierCurveTo(cx + dir * 25.0 * s, y + 49.0 * s,
+                cx + dir * 10.0 * s, y + 68.0 * s, cx - dir * 3.0 * s, y + 71.0 * s);
+        g.bezierCurveTo(cx - dir * 17.0 * s, y + 67.0 * s,
+                cx - dir * 29.0 * s, y + 51.0 * s, cx - dir * 23.0 * s, y + 35.0 * s);
+        g.closePath();
+        g.fill();
         g.setFill(body);
-        g.fillOval(x, y, drawSize, drawSize);
-        g.setFill(sheen.deriveColor(0, 1, 1, 0.22));
-        g.fillOval(x + 21.0 * s, y + 31.0 * s, 38.0 * s, 30.0 * s);
-
-        double wingX = x + (facingRight ? 8.0 : 40.0) * s;
-        double wingY = y + 27.0 * s;
-        g.setFill(wing.deriveColor(0, 1, 1, 0.54));
-        g.fillOval(wingX, wingY, 32.0 * s, 43.0 * s);
-        g.setStroke(edge.deriveColor(0, 1, 1, 0.42));
-        g.setLineCap(StrokeLineCap.ROUND);
-        g.setLineWidth(1.45 * s);
-        g.strokeArc(x + 16.0 * s, y + 33.0 * s, 48.0 * s, 34.0 * s,
-                facingRight ? 204 : -24, 108, ArcType.OPEN);
-        for (int i = 0; i < 4; i++) {
-            double featherY = wingY + (10.0 + i * 7.0) * s;
-            g.strokeLine(wingX + 8.0 * s, featherY, wingX + 27.0 * s, featherY + (i - 1.5) * 2.0 * s);
+        g.beginPath();
+        g.moveTo(cx - dir * 18.0 * s, y + 35.0 * s);
+        g.bezierCurveTo(cx - dir * 13.0 * s, y + 25.0 * s,
+                cx + dir * 11.0 * s, y + 23.0 * s, cx + dir * 19.0 * s, y + 36.0 * s);
+        g.bezierCurveTo(cx + dir * 20.0 * s, y + 50.0 * s,
+                cx + dir * 8.0 * s, y + 63.0 * s, cx - dir * 3.0 * s, y + 66.0 * s);
+        g.bezierCurveTo(cx - dir * 14.0 * s, y + 62.0 * s,
+                cx - dir * 23.0 * s, y + 49.0 * s, cx - dir * 18.0 * s, y + 35.0 * s);
+        g.closePath();
+        g.fill();
+        g.setFill(breast.deriveColor(0, 0.86, 1.0, herald ? 0.52 : 0.66));
+        g.fillOval(cx + dir * 1.0 * s - 11.5 * s, y + 37.0 * s, 23.0 * s, 28.0 * s);
+        if (visualAuditBodyOnly) {
+            lastVisualRavenTorso = new VisualFeatureBounds(
+                    cx - 29.0 * s, y + 18.0 * s, cx + 29.0 * s, y + 71.0 * s);
         }
 
+        drawRavenWing(g, cx + dir * 3.0 * s, y + 38.0 * s,
+                -dir, wingOpenness, wing, edge, back, false, herald);
+        recordVisualBodyPart(VisualBodyPart.RAVEN_WING);
+
+        double aim = pose == null ? (facingRight ? 0.0 : Math.PI) : pose.aimAngleRadians();
+        double aimX = Math.cos(aim);
+        double aimY = Math.sin(aim);
+        double normalX = -aimY;
+        double normalY = aimX;
+        if ((Math.abs(normalY) >= Math.abs(normalX) && normalY < 0.0)
+                || (Math.abs(normalX) > Math.abs(normalY) && normalX * dir < 0.0)) {
+            normalX = -normalX;
+            normalY = -normalY;
+        }
+        double headReach = (21.0 + (pose == null ? 0.0 : pose.headReachBonus() * 0.38)) * s;
+        double headCx = cx + aimX * headReach + dir * 3.0 * s;
+        double headCy = y + 31.0 * s + aimY * headReach
+                + (pose == null ? 0.0 : pose.headLift() * 0.33 * s);
+        double neckRootX = cx + dir * 16.0 * s;
+        double neckRootY = y + 34.0 * s;
+        double neckEndX = headCx - aimX * 10.0 * s;
+        double neckEndY = headCy - aimY * 10.0 * s + normalY * 2.0 * s;
+        g.setStroke(back);
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setLineWidth(14.0 * s);
+        g.strokeLine(neckRootX, neckRootY, neckEndX, neckEndY);
+        g.setStroke(head);
+        g.setLineWidth(9.0 * s);
+        g.strokeLine(neckRootX, neckRootY, neckEndX, neckEndY);
+
+        drawRavenThroatHackles(g, headCx, headCy, aimX, aimY, normalX, normalY, head, edge);
+        drawRavenCrest(g, headCx, headCy, aimX, aimY, normalX, normalY, head, edge);
+
+        double headW = 36.0 * s;
+        double headH = 29.0 * s;
+        g.setFill(head.darker());
+        g.fillOval(headCx - headW * 0.53, headCy - headH * 0.53,
+                headW * 1.06, headH * 1.06);
         g.setFill(head);
-        g.fillOval(headX, headY, headW, headH);
-        g.setFill(sheen.deriveColor(0, 1, 1, 0.18));
-        g.fillOval(headX + (facingRight ? 9.0 : 16.0) * s, headY + 8.0 * s, 25.0 * s, 18.0 * s);
-        drawVectorBodyLighting(g, drawSize, body, head, headPose);
+        g.fillOval(headCx - headW * 0.50, headCy - headH * 0.50, headW, headH);
+        g.setFill(breast.deriveColor(0, 0.78, 1.10, herald ? 0.24 : 0.32));
+        g.fillOval(headCx + aimX * 2.5 * s - 10.0 * s,
+                headCy + aimY * 2.5 * s - 7.0 * s, 20.0 * s, 14.0 * s);
+        lastVisualHeadBounds = new VisualFeatureBounds(
+                headCx - headW * 0.5, headCy - headH * 0.5,
+                headCx + headW * 0.5, headCy + headH * 0.5);
 
-        double crestBaseX = headX + (facingRight ? 18.0 : 32.0) * s;
-        double crestDir = facingRight ? -1.0 : 1.0;
-        g.setFill(head.deriveColor(0, 1, 0.86, 1.0));
-        g.fillPolygon(
-                new double[]{crestBaseX - 5.0 * s, crestBaseX, crestBaseX + 5.0 * s},
-                new double[]{headY + 3.0 * s, headY - 17.0 * s, headY + 5.0 * s},
-                3
-        );
-        g.fillPolygon(
-                new double[]{crestBaseX + crestDir * 5.0 * s, crestBaseX + crestDir * 18.0 * s,
-                        crestBaseX + crestDir * 8.0 * s},
-                new double[]{headY + 6.0 * s, headY - 8.0 * s, headY + 10.0 * s},
-                3
-        );
+        if (herald) {
+            drawRavenHeraldMask(g, headCx, headCy, aimX, aimY, normalX, normalY, mask, edge);
+        }
 
-        double eyeX = headX + (facingRight ? 0.0 : 40.0) * s;
-        double eyeY = headY;
-        g.setFill(eye.deriveColor(0, 1, 1, 0.22));
-        g.fillOval(eyeX - 3.0 * s, eyeY - 3.0 * s, 31.0 * s, 31.0 * s);
-        g.setFill(Color.WHITE);
-        g.fillOval(eyeX, eyeY, 25.0 * s, 25.0 * s);
-        g.setFill(eye);
-        g.fillOval(headX + (facingRight ? 5.0 : 45.0) * s, eyeY + 5.0 * s, 15.0 * s, 15.0 * s);
-        drawVectorEyeGlint(g, headX + (facingRight ? 5.0 : 45.0) * s, eyeY + 5.0 * s, s, true);
-        drawVectorBirdStateAccents(g, drawSize, headPose);
+        double eyeCx = headCx + aimX * 4.0 * s - normalX * 4.1 * s;
+        double eyeCy = headCy + aimY * 4.0 * s - normalY * 4.1 * s;
+        double eyeRadius = 6.4 * s;
+        double irisRadius = 3.6 * s;
+        lastVisualEye = new VisualFeatureCircle(eyeCx, eyeCy, eyeRadius);
+        g.setFill(herald ? Color.web("#F4EFE4") : Color.web("#EDF3F5"));
+        g.fillOval(eyeCx - eyeRadius, eyeCy - eyeRadius, eyeRadius * 2.0, eyeRadius * 2.0);
+        g.setFill(iris);
+        g.fillOval(eyeCx - irisRadius + aimX * 1.0 * s,
+                eyeCy - irisRadius + aimY * 1.0 * s, irisRadius * 2.0, irisRadius * 2.0);
+        g.setFill(Color.web("#08080A"));
+        g.fillOval(eyeCx - 1.8 * s + aimX * 1.4 * s,
+                eyeCy - 1.8 * s + aimY * 1.4 * s, 3.6 * s, 3.6 * s);
+        g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.94));
+        g.fillOval(eyeCx - normalX * 1.5 * s - 0.8 * s,
+                eyeCy - normalY * 1.5 * s - 0.8 * s, 1.9 * s, 1.9 * s);
+
+        drawRavenBill(g, pose, headCx, headCy, aimX, aimY, normalX, normalY,
+                bill, billShade, edge);
+        drawVectorBirdStateAccents(g, drawSize, new HeadPose(headCx, headCy, aim));
+    }
+
+    private double ravenWingOpenness(BirdAnimationState state) {
+        if (ravenUltimateWindupTimer > 0) return 0.98;
+        if (ravenUltimateTimer > 0) return 0.86;
+        if (ravenLiftTimer > 0) return 0.93;
+        if (ravenSideTimer > 0) {
+            double phase = (RAVEN_SIDE_FRAMES - ravenSideTimer)
+                    / (double) Math.max(1, RAVEN_SIDE_FRAMES - 1);
+            return 0.08 + 0.70 * Math.sin(phase * Math.PI);
+        }
+        if (ravenQuillCharging) {
+            double ratio = Math.clamp(ravenQuillChargeFrames
+                    / (double) RAVEN_QUILL_CHARGE_FAN_FRAMES, 0.0, 1.0);
+            return 0.30 + ratio * 0.58;
+        }
+        if (ravenDownPoseActive()) return ravenDecoy.swapped ? 0.70 : 0.43;
+        return switch (state) {
+            case FLAP -> 0.58 + 0.39 * Math.abs(Math.sin(
+                    (animationGlobalFrame + playerIndex * 23.0) * 0.72));
+            case FALL -> 0.68;
+            case ATTACK -> 0.50;
+            case HITSTUN -> 0.18;
+            case KO -> 0.10;
+            case DODGE -> 0.24;
+            case SHIELD -> 0.08;
+            case IDLE -> 0.07;
+        };
+    }
+
+    private void drawRavenWing(
+            GraphicsContext g, double shoulderX, double shoulderY,
+            double side, double openness, Color wing, Color edge,
+            Color shadow, boolean farSide, boolean herald) {
+        double s = sizeMultiplier;
+        double open = smoothStep(Math.clamp(openness, 0.0, 1.0));
+        double layer = farSide ? -1.0 : 1.0;
+        double foldedTipX = shoulderX - side * (farSide ? 13.0 : 10.0) * s;
+        double foldedTipY = y + (farSide ? 58.0 : 61.0) * s;
+        double spreadTipX = shoulderX - side * (25.0 + open * 24.0) * s;
+        double spreadTipY = y + (farSide ? 30.0 - open * 37.0 : 42.0 + open * 30.0) * s;
+        double tipX = foldedTipX + (spreadTipX - foldedTipX) * open;
+        double tipY = foldedTipY + (spreadTipY - foldedTipY) * open;
+        double dx = tipX - shoulderX;
+        double dy = tipY - shoulderY;
+        double length = Math.max(0.001, Math.hypot(dx, dy));
+        double perpendicularX = -dy / length * layer * side;
+        double perpendicularY = dx / length * layer * side;
+        double rootWidth = (6.5 + open * 2.0) * s;
+        double midX = shoulderX + dx * 0.54;
+        double midY = shoulderY + dy * 0.54;
+        double midWidth = (9.5 + open * 4.5) * s;
+        double alpha = farSide ? 0.70 : 0.98;
+        double[] wingX = {
+                shoulderX + perpendicularX * rootWidth,
+                midX + perpendicularX * midWidth,
+                tipX,
+                midX - perpendicularX * midWidth,
+                shoulderX - perpendicularX * rootWidth
+        };
+        double[] wingY = {
+                shoulderY + perpendicularY * rootWidth,
+                midY + perpendicularY * midWidth,
+                tipY,
+                midY - perpendicularY * midWidth,
+                shoulderY - perpendicularY * rootWidth
+        };
+        g.setFill(wing.deriveColor(0, 0.94, farSide ? 0.82 : 1.0, alpha));
+        g.fillPolygon(wingX, wingY, wingX.length);
+        g.setStroke(edge.deriveColor(0, 0.78, 1.0, alpha * 0.82));
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setLineJoin(StrokeLineJoin.ROUND);
+        g.setLineWidth((herald ? 1.55 : 1.25) * s);
+        g.strokePolyline(wingX, wingY, wingX.length);
+        for (int feather = 0; feather < 5; feather++) {
+            double offset = (feather - 2.0) * (2.8 + open * 1.8) * s;
+            g.setLineWidth((0.70 + feather * 0.07) * s);
+            g.strokeLine(shoulderX + perpendicularX * offset,
+                    shoulderY + perpendicularY * offset,
+                    tipX + perpendicularX * offset * 0.34 + side * feather * 2.4 * s,
+                    tipY + perpendicularY * offset * 0.34 + feather * layer * 1.4 * s);
+        }
+        g.setStroke(shadow.deriveColor(0, 0.72, 1.0, alpha * 0.48));
+        g.setLineWidth(0.8 * s);
+        g.strokeLine(shoulderX, shoulderY, tipX + side * 2.0 * s, tipY);
+    }
+
+    private void drawRavenLegs(GraphicsContext g, BirdAnimationState state, Color leg, Color edge) {
+        double s = sizeMultiplier;
+        double dir = facingRight ? 1.0 : -1.0;
+        boolean airborne = state == BirdAnimationState.FLAP || state == BirdAnimationState.FALL
+                || ravenLiftTimer > 0 || ravenUltimateWindupTimer > 0 || ravenUltimateTimer > 0;
+        double runAmount = state == BirdAnimationState.IDLE
+                ? Math.clamp(Math.abs(vx) / 6.0, 0.0, 1.0) : 0.0;
+        double stride = Math.sin((animationGlobalFrame + playerIndex * 17.0) * 0.36)
+                * 3.5 * runAmount;
+        for (int i = 0; i < 2; i++) {
+            double hipX = x + 40.0 * s + dir * (i == 0 ? -6.5 : 6.5) * s;
+            double hipY = y + 60.0 * s;
+            double step = (i == 0 ? stride : -stride) * dir * s;
+            double ankleX = airborne ? hipX - dir * (4.0 + i * 1.5) * s : hipX + step;
+            double ankleY = y + (airborne ? 68.0 + i * 1.5 : 75.0) * s;
+            double toeY = airborne ? ankleY + 4.0 * s : y + 80.0 * s;
+            g.setStroke(leg.deriveColor(0, 0.90, i == 0 ? 0.80 : 1.0, i == 0 ? 0.74 : 0.98));
+            g.setLineCap(StrokeLineCap.ROUND);
+            g.setLineWidth(2.0 * s);
+            g.strokeLine(hipX, hipY, ankleX, ankleY);
+            g.setLineWidth(1.5 * s);
+            double toeDir = airborne ? -dir : dir;
+            for (int toe = -1; toe <= 1; toe++) {
+                double toeLength = (toe == 0 ? 8.5 : 6.5) * s;
+                g.strokeLine(ankleX, ankleY,
+                        ankleX + toeDir * toeLength + toe * 1.2 * s,
+                        toeY - Math.abs(toe) * 0.7 * s);
+            }
+            g.setStroke(edge.deriveColor(0, 0.54, 1.0, 0.25));
+            g.setLineWidth(0.6 * s);
+            g.strokeLine(hipX, hipY, ankleX, ankleY);
+            if (!airborne && visualAuditBodyOnly) {
+                lastVisualRavenFootBaseline = Math.max(
+                        Double.isNaN(lastVisualRavenFootBaseline)
+                                ? Double.NEGATIVE_INFINITY : lastVisualRavenFootBaseline,
+                        80.0);
+            }
+            recordVisualBodyPart(VisualBodyPart.RAVEN_LEG);
+        }
+    }
+
+    private void drawRavenCrest(
+            GraphicsContext g, double headCx, double headCy,
+            double aimX, double aimY, double normalX, double normalY,
+            Color head, Color edge) {
+        double s = sizeMultiplier;
+        for (int i = 0; i < 3; i++) {
+            double rootX = headCx - aimX * (7.0 + i * 1.8) * s - normalX * 9.0 * s;
+            double rootY = headCy - aimY * (7.0 + i * 1.8) * s - normalY * 9.0 * s;
+            double tipX = rootX - aimX * (8.0 + i * 3.0) * s
+                    - normalX * (5.0 - i * 1.0) * s;
+            double tipY = rootY - aimY * (8.0 + i * 3.0) * s
+                    - normalY * (5.0 - i * 1.0) * s;
+            g.setFill(head.deriveColor(i * 3.0, 0.96, 0.88 - i * 0.05, 0.98));
+            g.fillPolygon(
+                    new double[]{rootX - normalX * 2.7 * s, tipX, rootX + normalX * 2.7 * s},
+                    new double[]{rootY - normalY * 2.7 * s, tipY, rootY + normalY * 2.7 * s}, 3);
+            g.setStroke(edge.deriveColor(0, 0.65, 1.0, 0.34));
+            g.setLineWidth(0.55 * s);
+            g.strokeLine(rootX, rootY, tipX, tipY);
+            recordVisualBodyPart(VisualBodyPart.RAVEN_CREST_FEATHER);
+        }
+    }
+
+    private void drawRavenThroatHackles(
+            GraphicsContext g, double headCx, double headCy,
+            double aimX, double aimY, double normalX, double normalY,
+            Color head, Color edge) {
+        double s = sizeMultiplier;
+        for (int i = 0; i < 4; i++) {
+            double lane = (i - 1.5) * 3.2 * s;
+            double rootX = headCx - aimX * 7.0 * s + normalX * (8.0 * s + lane);
+            double rootY = headCy - aimY * 7.0 * s + normalY * (8.0 * s + lane);
+            double tipX = rootX - aimX * (8.0 + i * 1.3) * s + normalX * 3.0 * s;
+            double tipY = rootY - aimY * (8.0 + i * 1.3) * s + normalY * 3.0 * s;
+            g.setFill(head.deriveColor(0, 0.94, 0.82 + i * 0.035, 0.94));
+            g.fillPolygon(
+                    new double[]{rootX - normalX * 2.3 * s, tipX, rootX + normalX * 2.3 * s},
+                    new double[]{rootY - normalY * 2.3 * s, tipY, rootY + normalY * 2.3 * s}, 3);
+            g.setStroke(edge.deriveColor(0, 0.65, 1.0, 0.26));
+            g.setLineWidth(0.45 * s);
+            g.strokeLine(rootX, rootY, tipX, tipY);
+            recordVisualBodyPart(VisualBodyPart.RAVEN_THROAT_FEATHER);
+        }
+    }
+
+    private void drawRavenHeraldMask(
+            GraphicsContext g, double headCx, double headCy,
+            double aimX, double aimY, double normalX, double normalY,
+            Color bone, Color violet) {
+        double s = sizeMultiplier;
+        double frontX = headCx + aimX * 5.0 * s - normalX * 1.0 * s;
+        double frontY = headCy + aimY * 5.0 * s - normalY * 1.0 * s;
+        double aimExtent = 12.5 * s;
+        double normalExtent = 10.5 * s;
+        double[] maskX = {
+                frontX - aimX * 9.0 * s - normalX * 8.0 * s,
+                frontX + aimX * 8.5 * s - normalX * 9.5 * s,
+                frontX + aimX * 12.5 * s - normalX * 2.0 * s,
+                frontX + aimX * 8.0 * s + normalX * 9.0 * s,
+                frontX - aimX * 6.5 * s + normalX * 7.5 * s
+        };
+        double[] maskY = {
+                frontY - aimY * 9.0 * s - normalY * 8.0 * s,
+                frontY + aimY * 8.5 * s - normalY * 9.5 * s,
+                frontY + aimY * 12.5 * s - normalY * 2.0 * s,
+                frontY + aimY * 8.0 * s + normalY * 9.0 * s,
+                frontY - aimY * 6.5 * s + normalY * 7.5 * s
+        };
+        g.setFill(bone.deriveColor(0, 0.72, 0.98, 0.94));
+        g.fillPolygon(maskX, maskY, maskX.length);
+        g.setStroke(violet.deriveColor(0, 0.70, 1.0, 0.72));
+        g.setLineWidth(0.9 * s);
+        g.strokePolyline(maskX, maskY, maskX.length);
+        // Three asymmetrical fractures are mirrored with the skull basis and
+        // terminate before the semantic eye, which is painted over the mask.
+        double crackRootX = frontX - aimX * 4.0 * s + normalX * 2.0 * s;
+        double crackRootY = frontY - aimY * 4.0 * s + normalY * 2.0 * s;
+        g.setStroke(Color.web("#62586D").deriveColor(0, 0.82, 1.0, 0.86));
+        g.setLineWidth(0.85 * s);
+        g.strokeLine(crackRootX, crackRootY,
+                crackRootX - aimX * 3.0 * s + normalX * 5.0 * s,
+                crackRootY - aimY * 3.0 * s + normalY * 5.0 * s);
+        g.strokeLine(crackRootX - aimX * 3.0 * s + normalX * 5.0 * s,
+                crackRootY - aimY * 3.0 * s + normalY * 5.0 * s,
+                crackRootX - aimX * 7.0 * s + normalX * 7.0 * s,
+                crackRootY - aimY * 7.0 * s + normalY * 7.0 * s);
+        g.strokeLine(crackRootX, crackRootY,
+                crackRootX + aimX * 4.0 * s - normalX * 3.0 * s,
+                crackRootY + aimY * 4.0 * s - normalY * 3.0 * s);
+        if (visualAuditBodyOnly) {
+            double extentX = Math.abs(aimX) * aimExtent + Math.abs(normalX) * normalExtent;
+            double extentY = Math.abs(aimY) * aimExtent + Math.abs(normalY) * normalExtent;
+            lastVisualRavenMask = new VisualFeatureBounds(
+                    frontX - extentX, frontY - extentY,
+                    frontX + extentX, frontY + extentY);
+        }
+    }
+
+    private void drawRavenBill(
+            GraphicsContext g, AttackVisualPose pose, double headCx, double headCy,
+            double aimX, double aimY, double normalX, double normalY,
+            Color bill, Color shade, Color edge) {
+        double s = sizeMultiplier;
+        double openScale = pose == null ? 1.0 : pose.beakOpenScale();
+        double gape = ravenQuillCharging ? 2.0 + 4.8 * Math.clamp(
+                ravenQuillChargeFrames / (double) RAVEN_QUILL_CHARGE_FAN_FRAMES, 0.0, 1.0)
+                : ravenUltimateWindupTimer > 0 ? 5.8
+                : ravenUltimateTimer > 0 ? 4.8
+                : ravenSideTimer > 0 ? 3.0
+                : ravenLiftTimer > 0 ? 2.3
+                : ravenDownPoseActive() ? (ravenDecoy.swapped ? 4.6 : 3.8)
+                : attackAnimationTimer > 0 ? 3.2 : 0.8;
+        gape *= openScale;
+        if (visualAuditBodyOnly) {
+            lastVisualRavenBillGape = gape;
+        }
+        double length = (25.0 + (pose == null ? 0.0 : pose.beakLengthBonus() * 0.40)) * s;
+        double rootX = headCx + aimX * 12.0 * s + normalX * 0.7 * s;
+        double rootY = headCy + aimY * 12.0 * s + normalY * 0.7 * s;
+        double tipX = rootX + aimX * length;
+        double tipY = rootY + aimY * length;
+        double halfRoot = 5.4 * s;
+        recordVisualBeak(rootX, rootY, tipX, tipY);
+        g.setFill(bill);
+        g.fillPolygon(
+                new double[]{rootX - normalX * halfRoot,
+                        tipX - normalX * gape * 0.28 * s,
+                        tipX + aimX * 1.8 * s + normalX * 0.5 * s,
+                        rootX + normalX * 0.8 * s},
+                new double[]{rootY - normalY * halfRoot,
+                        tipY - normalY * gape * 0.28 * s,
+                        tipY + aimY * 1.8 * s + normalY * 0.5 * s,
+                        rootY + normalY * 0.8 * s}, 4);
+        g.setFill(shade);
+        g.fillPolygon(
+                new double[]{rootX + normalX * 0.8 * s,
+                        tipX - aimX * 1.4 * s + normalX * gape * s,
+                        rootX + normalX * halfRoot},
+                new double[]{rootY + normalY * 0.8 * s,
+                        tipY - aimY * 1.4 * s + normalY * gape * s,
+                        rootY + normalY * halfRoot}, 3);
+        g.setStroke(edge.deriveColor(0, 0.76, 1.0, 0.58));
+        g.setLineWidth(0.9 * s);
+        g.strokeLine(rootX, rootY, tipX - aimX * 2.0 * s, tipY - aimY * 2.0 * s);
+        g.setFill(edge.deriveColor(0, 0.50, 0.86, 0.66));
+        g.fillOval(rootX + aimX * 5.0 * s - normalX * 1.8 * s - 1.1 * s,
+                rootY + aimY * 5.0 * s - normalY * 1.8 * s - 1.1 * s,
+                2.2 * s, 2.2 * s);
     }
 
     private void drawLoreAccurateHummingbirdBody(GraphicsContext g, double drawSize, AttackVisualPose pose) {
@@ -35035,7 +35542,8 @@ public class Bird {
                 || type == BirdGame3.BirdType.TITMOUSE
                 || type == BirdGame3.BirdType.BAT
                 || type == BirdGame3.BirdType.PELICAN
-                || type == BirdGame3.BirdType.HEISENBIRD) return;
+                || type == BirdGame3.BirdType.HEISENBIRD
+                || type == BirdGame3.BirdType.RAVEN) return;
         Color accent = game.classicSkinAccentColor(type);
         g.setStroke(accent.deriveColor(0, 1, 1, 0.9));
         g.setLineWidth(3.2 * sizeMultiplier);
@@ -35222,13 +35730,6 @@ public class Bird {
             }
             g.setFill(Color.web("#E0FFFF").deriveColor(0, 1, 1, 0.32));
             g.fillOval(x + (facingRight ? 52.0 : 20.0) * s, y + 25.0 * s, 9.0 * s, 5.0 * s);
-        }
-        if (type == BirdGame3.BirdType.RAVEN && isVoidHeraldSkin) {
-            g.setStroke(Color.web("#B388FF").deriveColor(0, 1, 1, 0.66));
-            g.setLineWidth(2.6 * s);
-            g.strokeArc(x - 10 * s, y + 2 * s, drawSize + 20 * s, drawSize + 18 * s, 216, 108, ArcType.OPEN);
-            g.setFill(Color.web("#E8E1D2").deriveColor(0, 1, 1, 0.18));
-            g.fillOval(x + 16 * s, y + 34 * s, 48 * s, 20 * s);
         }
     }
 
@@ -36752,52 +37253,7 @@ public class Bird {
             return;
         }
         if (type == BirdGame3.BirdType.RAVEN) {
-            HeadPose headPose = standardHeadPose(pose);
-            boolean isAttacking = attackAnimationTimer > 0 || ravenQuillCharging || ravenSideTimer > 0
-                    || ravenLiftTimer > 0 || ravenUltimateWindupTimer > 0 || ravenUltimateTimer > 0;
-            double openAmount = (isAttacking ? 6.0 + Math.sin(attackAnimationTimer * 0.7) * 2.0 : 2.4)
-                    * s * openScale;
-            double beakLength = (23.0 + (pose == null ? 0.0 : pose.beakLengthBonus() * 0.35)) * s;
-            double aimAngle = headPose.aimAngleRadians();
-            double dirX = Math.cos(aimAngle);
-            double dirY = Math.sin(aimAngle);
-            double perpendicularAngle = aimAngle + Math.PI * 0.5;
-            double normalX = Math.cos(perpendicularAngle);
-            double normalY = Math.sin(perpendicularAngle);
-            if (Math.abs(normalY) > Math.abs(normalX) && normalY < 0.0) {
-                normalX = -normalX;
-                normalY = -normalY;
-            }
-            double mouthCenterX = headPose.centerX() + dirX * 5.0 * s;
-            double mouthCenterY = headPose.centerY() + dirY * 5.0 * s + 5.0 * s;
-            double baseUpperX = mouthCenterX - normalX * 8.0 * s;
-            double baseUpperY = mouthCenterY - normalY * 8.0 * s;
-            double baseLowerX = mouthCenterX + normalX * 8.0 * s;
-            double baseLowerY = mouthCenterY + normalY * 8.0 * s;
-            double tipBaseX = mouthCenterX + dirX * beakLength;
-            double tipBaseY = mouthCenterY + dirY * beakLength;
-            double upperTipX = tipBaseX - normalX * openAmount;
-            double upperTipY = tipBaseY - normalY * openAmount;
-            double lowerTipX = tipBaseX + normalX * openAmount * 1.25;
-            double lowerTipY = tipBaseY + normalY * openAmount * 1.25;
-            Color upper = isVoidHeraldSkin ? Color.web("#2B213A") : Color.web("#252C34");
-            Color lower = isVoidHeraldSkin ? Color.web("#17111F") : Color.web("#11161C");
-            g.setFill(upper);
-            g.fillPolygon(
-                    new double[]{baseUpperX, upperTipX, baseLowerX},
-                    new double[]{baseUpperY, upperTipY, baseLowerY},
-                    3
-            );
-            g.setFill(lower);
-            g.fillPolygon(
-                    new double[]{baseUpperX, lowerTipX, baseLowerX},
-                    new double[]{baseUpperY, lowerTipY, baseLowerY},
-                    3
-            );
-            g.setStroke(Color.web("#CFD8DC").deriveColor(0, 1, 1, isVoidHeraldSkin ? 0.34 : 0.22));
-            g.setLineWidth(0.8 * s);
-            g.strokeLine(mouthCenterX - normalX * 1.0 * s, mouthCenterY - normalY * 1.0 * s,
-                    tipBaseX - dirX * 4.0 * s, tipBaseY - dirY * 4.0 * s);
+            // Raven's hooked bill opens with its dedicated corvid head rig.
             return;
         }
         if (type == BirdGame3.BirdType.VULTURE) {
