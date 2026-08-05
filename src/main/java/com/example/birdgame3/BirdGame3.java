@@ -17540,6 +17540,14 @@ public class BirdGame3 {
         return preview;
     }
 
+    double campaignCutsceneActorSkinScale(Bird actor) {
+        if (actor == null || actor.type == null) return 1.0;
+        String skinKey = skinKeyForBird(actor);
+        double baseExtent = rosterSpriteExtentFactor(actor.type, null);
+        double skinExtent = rosterSpriteExtentFactor(actor.type, skinKey);
+        return Math.clamp(baseExtent / Math.max(0.01, skinExtent), 0.42, 1.18);
+    }
+
     Bird createCampaignEscapeBird(String skinKey) {
         Bird playable = new Bird(0, BirdType.PIGEON, 0, this);
         applyPreviewSkinChoiceToBird(playable, BirdType.PIGEON, skinKey);
@@ -17874,6 +17882,96 @@ public class BirdGame3 {
 
     void drawVisualAuditRosterSprite(Canvas canvas, VisualAuditSkin skin) {
         drawRosterSprite(canvas, skin.bird, skin.key, false, true);
+    }
+
+    void drawVisualAuditVictorySprite(Canvas canvas, VisualAuditSkin skin, boolean winnerPose) {
+        double productionSize = winnerPose ? 420.0 : 236.0;
+        Canvas production = new Canvas(productionSize, productionSize);
+        drawVictoryRosterSprite(production, skin.bird, skin.key, winnerPose);
+        drawVisualAuditScaledCanvas(canvas, production);
+    }
+
+    void drawVisualAuditCinematicVictorySprite(Canvas canvas, VisualAuditSkin skin) {
+        double productionSize = 520.0;
+        Canvas production = new Canvas(productionSize, productionSize);
+        Bird winner = new Bird(0, skin.bird, 0, this);
+        applyPreviewSkinChoiceToBird(winner, skin.bird, skin.key);
+        drawCinematicVictorySprite(production, winner, productionSize);
+        drawVisualAuditScaledCanvas(canvas, production);
+    }
+
+    void drawVisualAuditStorySprite(Canvas canvas, VisualAuditSkin skin) {
+        double productionSize = 420.0;
+        Canvas production = new Canvas(productionSize, productionSize);
+        GraphicsContext g = production.getGraphicsContext2D();
+        g.clearRect(0, 0, productionSize, productionSize);
+
+        Bird actor = createCampaignCutsceneBird(skin.bird, skin.key);
+        double sceneScale = 1.0;
+        actor.sizeMultiplier = 2.2 * sceneScale * campaignCutsceneActorSkinScale(actor);
+        double drawSize = 80.0 * actor.sizeMultiplier;
+        actor.x = productionSize * 0.5 - drawSize * 0.5;
+        actor.y = productionSize * 0.67 - 66.0 * sceneScale - drawSize * 0.5;
+        actor.facingRight = false;
+        actor.resetCutsceneVisualPose();
+        actor.draw(g);
+        drawVisualAuditScaledCanvas(canvas, production);
+    }
+
+    private void drawVisualAuditScaledCanvas(Canvas target, Canvas source) {
+        GraphicsContext g = target.getGraphicsContext2D();
+        g.clearRect(0, 0, target.getWidth(), target.getHeight());
+        SnapshotParameters parameters = new SnapshotParameters();
+        parameters.setFill(Color.TRANSPARENT);
+        WritableImage image = source.snapshot(parameters, null);
+        g.drawImage(image, 0.0, 0.0, target.getWidth(), target.getHeight());
+    }
+
+    void drawVisualAuditCombatIntegration(Canvas canvas, VisualAuditSkin skin) {
+        GraphicsContext g = canvas.getGraphicsContext2D();
+        double w = canvas.getWidth();
+        double h = canvas.getHeight();
+        g.clearRect(0, 0, w, h);
+
+        Bird preview = new Bird(0.0, skin.bird, 0, this);
+        applyPreviewSkinChoiceToBird(preview, skin.bird, skin.key);
+        preview.sizeMultiplier = Math.min(0.36, rosterSpriteMaxScale(skin.bird, skin.key));
+        preview.prepareVisualAuditPose(Bird.VisualAuditPose.ATTACK);
+        preview.facingRight = true;
+        Bird.VisualCombatEnvelope envelope = preview.visualAuditSideAttackEnvelope();
+        double tx = w * 0.5 - envelope.bodyCenterX();
+        double ty = h * 0.52 - envelope.bodyCenterY();
+
+        g.save();
+        g.translate(tx, ty);
+        g.setFill(Color.web("#FFB74D", 0.13));
+        g.fillRoundRect(
+                envelope.attackCenterX() - envelope.attackHalfWidth(),
+                envelope.attackCenterY() - envelope.attackHalfHeight(),
+                envelope.attackHalfWidth() * 2.0,
+                envelope.attackHalfHeight() * 2.0,
+                14.0,
+                14.0);
+        preview.drawVisualAuditBody(g);
+        g.setStroke(Color.web("#FFB74D", 0.86));
+        g.setLineWidth(2.0);
+        g.strokeRoundRect(
+                envelope.attackCenterX() - envelope.attackHalfWidth(),
+                envelope.attackCenterY() - envelope.attackHalfHeight(),
+                envelope.attackHalfWidth() * 2.0,
+                envelope.attackHalfHeight() * 2.0,
+                14.0,
+                14.0);
+        g.setStroke(Color.web("#4DD0E1", 0.95));
+        g.setLineWidth(2.5);
+        g.strokeRect(
+                envelope.bodyCenterX() - envelope.bodyHalfWidth(),
+                envelope.bodyCenterY() - envelope.bodyHalfHeight(),
+                envelope.bodyHalfWidth() * 2.0,
+                envelope.bodyHalfHeight() * 2.0);
+        g.setFill(Color.web("#FFEE58"));
+        g.fillOval(envelope.attackCenterX() - 3.0, envelope.attackCenterY() - 3.0, 6.0, 6.0);
+        g.restore();
     }
 
     void drawVisualAuditCombatPose(Canvas canvas, VisualAuditSkin skin, Bird.VisualAuditPose pose) {
@@ -18724,10 +18822,9 @@ public class BirdGame3 {
         preview.suppressSelectEffects = true;
         applyPreviewSkinChoiceToBird(preview, type, skinKey);
 
-        VictoryPortraitLayout layout = victoryPortraitLayout(type, winnerPose);
+        VictoryPortraitLayout layout = victoryPortraitLayout(type, skinKey, winnerPose);
         double baseSize = Math.min(w, h);
         double pad = Math.max(12.0, baseSize * (winnerPose ? 0.06 : 0.07));
-        assert layout != null;
         preview.sizeMultiplier = Math.clamp((baseSize - pad * 2) / (80.0 * layout.extentFactor()),
                 layout.minScale(),
                 layout.maxScale());
@@ -49710,10 +49807,18 @@ public class BirdGame3 {
         preview.attackCooldown = 18;
         preview.facingRight = true;
         preview.health = Bird.STARTING_HEALTH;
-        preview.sizeMultiplier = cinematicVictoryScale(bird.type, size);
+        String skinKey = skinKeyForBird(bird);
+        double baseExtent = rosterSpriteExtentFactor(bird.type, null);
+        double skinExtent = rosterSpriteExtentFactor(bird.type, skinKey);
+        double extentRatio = Math.max(0.35, skinExtent / Math.max(0.01, baseExtent));
+        preview.sizeMultiplier = cinematicVictoryScale(bird.type, size) / extentRatio;
         double drawSize = 80.0 * preview.sizeMultiplier;
-        preview.x = size * 0.50 - drawSize * 0.50 + cinematicVictoryXOffset(bird.type, size);
-        preview.y = size * 0.51 - drawSize * 0.50 + cinematicVictoryYOffset(bird.type, size);
+        double skinXBias = rosterSpriteXBias(bird.type, skinKey) - rosterSpriteXBias(bird.type, null);
+        double skinYBias = rosterSpriteYBias(bird.type, skinKey) - rosterSpriteYBias(bird.type, null);
+        preview.x = size * 0.50 - drawSize * 0.50 + cinematicVictoryXOffset(bird.type, size)
+                + size * skinXBias;
+        preview.y = size * 0.51 - drawSize * 0.50 + cinematicVictoryYOffset(bird.type, size)
+                + size * skinYBias;
         preview.draw(g);
     }
 
@@ -49722,7 +49827,7 @@ public class BirdGame3 {
         if (type == null) return base;
         return switch (type) {
             case BAT -> base * 0.82;
-            case HUMMINGBIRD, TITMOUSE -> base * 1.16;
+            case HUMMINGBIRD, TITMOUSE -> base * 1.08;
             case TURKEY, GOOSE, PELICAN, VULTURE -> base * 0.92;
             case SHOEBILL, PENGUIN -> base * 0.98;
             case PHOENIX, FALCON, RAVEN -> base * 1.06;
@@ -50136,10 +50241,10 @@ public class BirdGame3 {
         return frame;
     }
 
-    private record VictoryPortraitLayout(double extentFactor, double minScale, double maxScale, double xBias, double yBias) {
+    record VictoryPortraitLayout(double extentFactor, double minScale, double maxScale, double xBias, double yBias) {
     }
 
-    private VictoryPortraitLayout victoryPortraitLayout(BirdType type, boolean winnerPose) {
+    VictoryPortraitLayout victoryPortraitLayout(BirdType type, String skinKey, boolean winnerPose) {
         double extentFactor = winnerPose ? 0.92 : 1.00;
         double minScale = winnerPose ? 1.45 : 1.10;
         double maxScale = winnerPose ? 2.15 : 1.70;
@@ -50154,7 +50259,7 @@ public class BirdGame3 {
                 winnerPose ? 2.00 : 1.60,
                 0.00,
                 0.00);
-        return switch (type) {
+        VictoryPortraitLayout baseLayout = switch (type) {
             case BAT -> new VictoryPortraitLayout(winnerPose ? 1.48 : 1.60,
                     winnerPose ? 1.05 : 0.92,
                     winnerPose ? 1.60 : 1.28,
@@ -50193,14 +50298,18 @@ public class BirdGame3 {
             case HUMMINGBIRD -> new VictoryPortraitLayout(winnerPose ? 0.85 : 0.92,
                     winnerPose ? 1.60 : 1.25,
                     winnerPose ? 2.30 : 1.85,
-                    0.00,
+                    -0.04,
                     0.00);
             case ROOSTER -> new VictoryPortraitLayout(winnerPose ? 1.00 : 1.08,
                     winnerPose ? 1.35 : 1.05,
                     winnerPose ? 1.95 : 1.55,
                     0.00,
                     0.00);
-            case ROADRUNNER -> null;
+            case ROADRUNNER -> new VictoryPortraitLayout(winnerPose ? 1.18 : 1.26,
+                    winnerPose ? 1.22 : 0.96,
+                    winnerPose ? 1.78 : 1.42,
+                    -0.02,
+                    0.0);
             case PENGUIN -> new VictoryPortraitLayout(winnerPose ? 1.02 : 1.10,
                     winnerPose ? 1.30 : 1.00,
                     winnerPose ? 1.85 : 1.48,
@@ -50238,6 +50347,22 @@ public class BirdGame3 {
                     0.00,
                     0.02);
         };
+
+        double baseExtent = rosterSpriteExtentFactor(type, null);
+        double skinExtent = rosterSpriteExtentFactor(type, skinKey);
+        double extentRatio = Math.max(0.35, skinExtent / Math.max(0.01, baseExtent));
+        double skinXBias = rosterSpriteXBias(type, skinKey) - rosterSpriteXBias(type, null);
+        double skinYBias = rosterSpriteYBias(type, skinKey) - rosterSpriteYBias(type, null);
+        double surfaceScale = winnerPose ? 1.0 : switch (type) {
+            case HUMMINGBIRD, ROOSTER, SHOEBILL, PELICAN -> 0.80;
+            default -> 0.88;
+        };
+        return new VictoryPortraitLayout(
+                baseLayout.extentFactor() * extentRatio / surfaceScale,
+                baseLayout.minScale() * surfaceScale / extentRatio,
+                baseLayout.maxScale() * surfaceScale / extentRatio,
+                baseLayout.xBias() + skinXBias,
+                baseLayout.yBias() + skinYBias);
     }
 
     private void drawVictoryPoseOverlay(Canvas canvas, Bird bird) {

@@ -186,7 +186,7 @@ final class StillSkyCreditsPlayer {
             g.setLineWidth(5);
             g.strokeRoundRect(-225, -165, 450, 330, 18, 18);
             Bird bird = game.createCampaignCutsceneBird(type, skinKey);
-            bird.setBaseMultipliers(2.25, 1.0, 1.0);
+            bird.setBaseMultipliers(2.25 * game.campaignCutsceneActorSkinScale(bird), 1.0, 1.0);
             bird.x = -bird.bodyWidth() * 0.5;
             bird.y = -bird.bodyHeight() * 0.56 + Math.sin(seconds * 2.0 + i) * 8.0;
             bird.facingRight = i != 2;

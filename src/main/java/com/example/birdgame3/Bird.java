@@ -485,6 +485,12 @@ public class Bird {
         }
     }
 
+    record VisualCombatEnvelope(double bodyCenterX, double bodyCenterY,
+                                double bodyHalfWidth, double bodyHalfHeight,
+                                double attackCenterX, double attackCenterY,
+                                double attackHalfWidth, double attackHalfHeight) {
+    }
+
     private record AIKitProfile(
             double preferredRange,
             double threatRange,
@@ -2652,6 +2658,30 @@ public class Bird {
         return Math.max(combatHalfWidth(), combatHalfHeight()) * 0.82;
     }
 
+    /** Read-only geometry used to keep the authored side-attack pose aligned with live combat collision. */
+    VisualCombatEnvelope visualAuditSideAttackEnvelope() {
+        NormalAttackProfile profile = normalAttackProfile(NormalAttackVariant.SIDE_TILT);
+        return normalAttackEnvelope(
+                profile,
+                profile.horizontalReach() * sizeMultiplier,
+                profile.verticalReach() * sizeMultiplier);
+    }
+
+    private VisualCombatEnvelope normalAttackEnvelope(
+            NormalAttackProfile profile, double attackHalfWidth, double attackHalfHeight) {
+        double attackCenterX = bodyCenterX() + profile.centerOffsetX() * sizeMultiplier;
+        double attackCenterY = bodyCenterY() + profile.centerOffsetY() * sizeMultiplier;
+        if (isNullRockForm()) {
+            attackHalfWidth *= 0.86;
+            attackHalfHeight *= 0.88;
+            attackCenterX += (facingRight ? 1.0 : -1.0) * combatHalfWidth() * 0.88;
+            attackCenterY -= combatHalfHeight() * 0.08;
+        }
+        return new VisualCombatEnvelope(
+                bodyCenterX(), bodyCenterY(), combatHalfWidth(), combatHalfHeight(),
+                attackCenterX, attackCenterY, attackHalfWidth, attackHalfHeight);
+    }
+
     private boolean overlapsPowerUp(PowerUp powerUp) {
         double pickupHalfSize = BASE_BODY_SIZE / 2.0;
         double dx = Math.abs(powerUp.x - bodyCenterX());
@@ -3551,14 +3581,11 @@ public class Bird {
             range *= 1.0 + chargeRatio * 0.16;
             verticalRange *= 1.0 + chargeRatio * 0.12;
         }
-        double attackCenterX = bodyCenterX() + profile.centerOffsetX() * sizeMultiplier;
-        double attackCenterY = bodyCenterY() + profile.centerOffsetY() * sizeMultiplier;
-        if (isNullRockForm()) {
-            range *= 0.86;
-            verticalRange *= 0.88;
-            attackCenterX += (facingRight ? 1.0 : -1.0) * combatHalfWidth() * 0.88;
-            attackCenterY -= combatHalfHeight() * 0.08;
-        }
+        VisualCombatEnvelope attackEnvelope = normalAttackEnvelope(profile, range, verticalRange);
+        double attackCenterX = attackEnvelope.attackCenterX();
+        double attackCenterY = attackEnvelope.attackCenterY();
+        range = attackEnvelope.attackHalfWidth();
+        verticalRange = attackEnvelope.attackHalfHeight();
         int dmg = (int) Math.round(normalAttackPowerStat() * powerMultiplier
                 * profile.damageMultiplier()
                 * batAmbushScale

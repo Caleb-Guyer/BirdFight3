@@ -678,7 +678,7 @@ final class StoryCutscenePlayer {
     private void drawBirdActor(GraphicsContext g, Bird actor, double x, double y,
                                boolean facingRight, double scale) {
         if (actor == null) return;
-        actor.sizeMultiplier = ACTOR_SCREEN_SIZE * scale;
+        actor.sizeMultiplier = ACTOR_SCREEN_SIZE * scale * game.campaignCutsceneActorSkinScale(actor);
         double drawSize = 80 * actor.sizeMultiplier;
         actor.x = x - drawSize / 2.0;
         actor.y = y - 66 * scale - drawSize / 2.0;

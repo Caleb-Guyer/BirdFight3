@@ -12,6 +12,25 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class BirdPresentationPolicyTest {
 
     @Test
+    void localAndNetworkCharacterSelectsShareThePolishedRosterIconBuilder() throws IOException {
+        String source = Files.readString(Path.of(
+                "src", "main", "java", "com", "example", "birdgame3", "BirdGame3.java"));
+        String declaration = "private Node buildRosterSelectionIcon";
+        int builderStart = source.indexOf(declaration);
+        int builderEnd = source.indexOf("private void showFightSetup", builderStart);
+        assertTrue(builderStart >= 0 && builderEnd > builderStart,
+                "Could not locate the shared character-select icon builder");
+
+        String builder = source.substring(builderStart, builderEnd);
+        assertTrue(builder.contains("drawRosterSprite(icon, type, null, randomPick)"),
+                "Every select screen must render the polished bird model");
+        assertTrue(builder.contains("drawRosterSprite(baseIcon, echoBase, null, false)"),
+                "Echo fighters must keep the inset icon of their base bird");
+        assertTrue(countOccurrences(source, "buildRosterSelectionIcon(") >= 5,
+                "Local, network, and alternate select screens must keep using the shared icon path");
+    }
+
+    @Test
     void worldSpaceCooldownRendererDoesNotReconnectDirectedSpecialReadinessPanels() throws IOException {
         String source = Files.readString(Path.of(
                 "src", "main", "java", "com", "example", "birdgame3", "Bird.java"));
@@ -31,5 +50,15 @@ class BirdPresentationPolicyTest {
                 "Roadrunner must remain excluded from the legacy world-space cooldown bar");
         assertTrue(renderer.contains("type == BirdGame3.BirdType.VULTURE"),
                 "Vulture and Null Rock must remain excluded from the legacy world-space cooldown bar");
+    }
+
+    private static int countOccurrences(String source, String needle) {
+        int count = 0;
+        int offset = 0;
+        while ((offset = source.indexOf(needle, offset)) >= 0) {
+            count++;
+            offset += needle.length();
+        }
+        return count;
     }
 }

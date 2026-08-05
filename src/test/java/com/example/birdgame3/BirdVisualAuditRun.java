@@ -48,6 +48,11 @@ class BirdVisualAuditRun {
     private enum View {
         PORTRAIT,
         HUD,
+        CHAMPION,
+        RUNNER_UP,
+        CINEMATIC,
+        STORY,
+        COMBAT_BOX,
         IDLE,
         RUN,
         FLAP,
@@ -364,13 +369,18 @@ class BirdVisualAuditRun {
     private static RenderedView renderView(BirdGame3 game, BirdGame3.VisualAuditSkin entry, View view) {
         int size = view == View.HUD ? HUD_SIZE : ART_SIZE;
         Canvas canvas = new Canvas(size, size);
-        if (view == View.PORTRAIT || view == View.HUD) {
-            game.drawVisualAuditRosterSprite(canvas, entry);
-        } else {
-            game.drawVisualAuditCombatPose(canvas, entry, Bird.VisualAuditPose.valueOf(view.name()));
+        switch (view) {
+            case PORTRAIT, HUD -> game.drawVisualAuditRosterSprite(canvas, entry);
+            case CHAMPION -> game.drawVisualAuditVictorySprite(canvas, entry, true);
+            case RUNNER_UP -> game.drawVisualAuditVictorySprite(canvas, entry, false);
+            case CINEMATIC -> game.drawVisualAuditCinematicVictorySprite(canvas, entry);
+            case STORY -> game.drawVisualAuditStorySprite(canvas, entry);
+            case COMBAT_BOX -> game.drawVisualAuditCombatIntegration(canvas, entry);
+            default -> game.drawVisualAuditCombatPose(
+                    canvas, entry, Bird.VisualAuditPose.valueOf(view.name()));
         }
         BufferedImage image = snapshot(canvas);
-        if (view == View.PORTRAIT || view == View.HUD) {
+        if (isPresentationView(view) || view == View.COMBAT_BOX) {
             return new RenderedView(image, measure(image));
         }
 
@@ -387,7 +397,7 @@ class BirdVisualAuditRun {
                 .filter(entry -> entry.bird() == BirdGame3.BirdType.OPIUMBIRD)
                 .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
                 .toList();
-        BufferedImage page = createPage(opiumEntries.size());
+        BufferedImage page = createPage(opiumEntries.size(), OpiumView.values().length);
         Graphics2D graphics = page.createGraphics();
         configureGraphics(graphics);
         graphics.setColor(new Color(26, 36, 48));
@@ -443,7 +453,7 @@ class BirdVisualAuditRun {
                 .filter(entry -> entry.bird() == BirdGame3.BirdType.TITMOUSE)
                 .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
                 .toList();
-        BufferedImage page = createPage(titmouseEntries.size());
+        BufferedImage page = createPage(titmouseEntries.size(), TitmouseView.values().length);
         Graphics2D graphics = page.createGraphics();
         configureGraphics(graphics);
         graphics.setColor(new Color(26, 36, 48));
@@ -929,7 +939,7 @@ class BirdVisualAuditRun {
         if (bounds.borderPixels > 0) {
             String finding = label + " touches the " + touchedEdges(bounds, image)
                     + " canvas edge and may be clipped (" + bounds.borderPixels + " border pixels).";
-            if (view == View.PORTRAIT || view == View.HUD || requiresCleanCombatFraming(entry)) {
+            if (isPresentationView(view) || requiresCleanCombatFraming(entry)) {
                 failures.add(finding);
             } else {
                 warnings.add(finding);
@@ -941,14 +951,23 @@ class BirdVisualAuditRun {
 
         double offsetX = Math.abs(bounds.centerX() - (image.getWidth() - 1) * 0.5) / image.getWidth();
         double offsetY = Math.abs(bounds.centerY() - (image.getHeight() - 1) * 0.5) / image.getHeight();
-        if ((view == View.PORTRAIT || view == View.HUD) && (offsetX > 0.30 || offsetY > 0.30)) {
+        if (isPresentationView(view) && (offsetX > 0.30 || offsetY > 0.30)) {
             failures.add(label + " is severely off-center (x=" + percent(offsetX) + ", y=" + percent(offsetY) + ").");
-        } else if ((view == View.PORTRAIT || view == View.HUD) && (offsetX > 0.18 || offsetY > 0.18)) {
+        } else if (isPresentationView(view) && (offsetX > 0.18 || offsetY > 0.18)) {
             warnings.add(label + " may need centering review (x=" + percent(offsetX) + ", y=" + percent(offsetY) + ").");
         }
         if (bounds.width() > image.getWidth() * 0.94 || bounds.height() > image.getHeight() * 0.94) {
             warnings.add(label + " uses over 94% of the frame and has little safety padding.");
         }
+    }
+
+    private static boolean isPresentationView(View view) {
+        return view == View.PORTRAIT
+                || view == View.HUD
+                || view == View.CHAMPION
+                || view == View.RUNNER_UP
+                || view == View.CINEMATIC
+                || view == View.STORY;
     }
 
     private static boolean requiresCleanCombatFraming(BirdGame3.VisualAuditSkin entry) {
@@ -1086,7 +1105,7 @@ class BirdVisualAuditRun {
                 .append("- Result: **").append(!failures.isEmpty() ? "FAIL"
                         : warnings.isEmpty() ? "PASS" : "PASS WITH REVIEW FINDINGS").append("**\n\n")
                 .append("Checks: visible pixels, authored-body clipping (excluding transient combat FX), ")
-                .append("severe portrait/HUD centering, minimum scale, ")
+                .append("selection, HUD, champion, runner-up, cinematic victory, story, live hurtbox/attack-box alignment, minimum scale, ")
                 .append("and exact idle-image fallback to base art. Edge contact and tight padding remain review findings ")
                 .append("for other entries; completed Pigeon, Eagle, Falcon, Phoenix, Hummingbird, Turkey, Rooster, Roadrunner, Penguin, Shoebill, Charles, Razorbill, Grinch-Hawk, Vulture, Opium Bird, Tufted Titmouse, Bat, Pelican, Heisenbird, Raven, Goose, Kiwi Bird, and Null Rock combat entries ")
                 .append("treat edge contact as a failure; ")

@@ -8,6 +8,8 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.UUID;
+import java.util.prefs.Preferences;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -69,5 +71,41 @@ class MatchSummaryPresentationTest {
         String networkResultsBody = source.substring(methodStart, nextMethod);
         assertTrue(networkResultsBody.contains("showMatchSummary(stage, winner);"));
         assertFalse(networkResultsBody.contains("new Scene("));
+    }
+
+    @Test
+    void everyBirdAndSkinHasFiniteChampionAndRunnerUpFraming() {
+        BirdGame3 game = new BirdGame3(Preferences.userRoot().node(
+                "/birdfight3-tests/results-framing/" + UUID.randomUUID()));
+
+        for (BirdGame3.VisualAuditSkin skin : game.visualAuditSkins()) {
+            for (boolean champion : new boolean[]{true, false}) {
+                BirdGame3.VictoryPortraitLayout layout =
+                        game.victoryPortraitLayout(skin.bird(), skin.key(), champion);
+                String label = skin.name() + (champion ? " champion" : " runner-up");
+                assertNotNull(layout, label + " framing must exist");
+                assertTrue(Double.isFinite(layout.extentFactor()) && layout.extentFactor() > 0.0,
+                        label + " extent must be positive and finite");
+                assertTrue(Double.isFinite(layout.minScale()) && layout.minScale() > 0.0,
+                        label + " minimum scale must be positive and finite");
+                assertTrue(Double.isFinite(layout.maxScale()) && layout.maxScale() >= layout.minScale(),
+                        label + " scale range must be ordered and finite");
+                assertTrue(Double.isFinite(layout.xBias()) && Double.isFinite(layout.yBias()),
+                        label + " offsets must be finite");
+            }
+        }
+    }
+
+    @Test
+    void oversizedVictorySkinsReduceTheirScaleInsteadOfUsingBaseBirdFraming() {
+        BirdGame3 game = new BirdGame3(Preferences.userRoot().node(
+                "/birdfight3-tests/results-skin-framing/" + UUID.randomUUID()));
+        BirdGame3.VictoryPortraitLayout base =
+                game.victoryPortraitLayout(BirdGame3.BirdType.VULTURE, null, true);
+        BirdGame3.VictoryPortraitLayout nullRock = game.victoryPortraitLayout(
+                BirdGame3.BirdType.VULTURE, "NULL_ROCK_VULTURE", true);
+
+        assertTrue(nullRock.extentFactor() > base.extentFactor());
+        assertTrue(nullRock.maxScale() < base.maxScale());
     }
 }
