@@ -1188,6 +1188,60 @@ class BirdStateTest {
     }
 
     @Test
+    void titmouseAiHoldsDownSpecialToDetonateAFullSeedRoute() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird titmouse = new Bird(180.0, BirdGame3.BirdType.TITMOUSE, 0, game);
+        Bird target = new Bird(900.0, BirdGame3.BirdType.PIGEON, 1, game);
+        titmouse.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = titmouse;
+        game.players[1] = target;
+        for (int i = 0; i < Bird.TITMOUSE_MAX_STASHES - 1; i++) {
+            titmouse.titmouseSeedStashes.add(new Bird.TitmouseSeedStash(
+                    target.bodyCenterX() + i * 8.0,
+                    BirdGame3.GROUND_Y,
+                    false));
+        }
+        titmouse.titmouseStashCharging = true;
+        assertFalse(titmouse.maintainAIHeldSpecialInputs(),
+                "A partial route should remain a quick placement tap instead of detonating early.");
+        titmouse.titmouseStashCharging = false;
+        titmouse.titmouseSeedStashes.clear();
+
+        for (int i = 0; i < Bird.TITMOUSE_MAX_STASHES; i++) {
+            titmouse.titmouseSeedStashes.add(new Bird.TitmouseSeedStash(
+                    target.bodyCenterX() + i * 8.0,
+                    BirdGame3.GROUND_Y,
+                    false));
+        }
+        double distance = Math.hypot(
+                target.bodyCenterX() - titmouse.bodyCenterX(),
+                target.bodyCenterY() - titmouse.bodyCenterY());
+
+        assertTrue(titmouse.shouldTitmouseAIUseSpecial(target, distance, true, false),
+                "CPU Titmouse should consider a remote detonation even when the opponent is outside its normal attack range.");
+        assertEquals(Bird.DirectionalSpecialInput.DOWN,
+                titmouse.chooseTitmouseAISpecialInput(target, distance, true, false, false),
+                "A target inside a full stash route should make CPU Titmouse choose the detonation input.");
+
+        TitmouseSpecials.down(titmouse);
+        double healthBefore = target.health;
+        for (int frame = 0; frame < Bird.TITMOUSE_STASH_HOLD_FRAMES; frame++) {
+            assertTrue(titmouse.maintainAIHeldSpecialInputs(),
+                    "CPU Titmouse must keep holding Special and Down until the route detonates.");
+            TitmouseSpecials.handleState(titmouse);
+        }
+
+        assertFalse(titmouse.titmouseStashCharging);
+        assertTrue(titmouse.titmouseSeedStashes.isEmpty(),
+                "A completed CPU hold should detonate and consume the armed route.");
+        assertTrue(target.health < healthBefore,
+                "The CPU-triggered route detonation should damage an opponent inside its blast radius.");
+    }
+
+    @Test
     void mockingbirdAiUsesItsKitInsteadOfEmptyNeutral() {
         assertEquals(20, Bird.aiSpecialDecisionCooldownFor(BirdGame3.BirdType.MOCKINGBIRD),
                 "Charles needs the same setup cadence as the other technical fighters.");

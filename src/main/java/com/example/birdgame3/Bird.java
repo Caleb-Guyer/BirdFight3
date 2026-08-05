@@ -8962,8 +8962,15 @@ public class Bird {
         game.setAiControlKey(playerIndex, blockKey(), false);
     }
 
-    private boolean maintainAIHeldSpecialInputs() {
+    boolean maintainAIHeldSpecialInputs() {
         if (type == BirdGame3.BirdType.PELICAN && pelicanDownCharging) {
+            game.setAiControlKey(playerIndex, specialKey(), true);
+            game.setAiControlKey(playerIndex, blockKey(), true);
+            return true;
+        }
+        if (type == BirdGame3.BirdType.TITMOUSE
+                && titmouseStashCharging
+                && titmouseSeedStashes.size() >= TITMOUSE_MAX_STASHES) {
             game.setAiControlKey(playerIndex, specialKey(), true);
             game.setAiControlKey(playerIndex, blockKey(), true);
             return true;
@@ -10027,13 +10034,7 @@ public class Bird {
                 if (dist > 135.0 && dist < 340.0 && opiumSideReuseTimer <= 0) yield DirectionalSpecialInput.SIDE;
                 yield DirectionalSpecialInput.NEUTRAL;
             }
-            case TITMOUSE -> {
-                if (!onGround && targetAbove && !titmouseVaultUsed) yield DirectionalSpecialInput.UP;
-                if (onGround && titmouseSeedStashes.size() < TITMOUSE_MAX_STASHES
-                        && (dist > 145.0 || targetSettingUp) && titmouseStashReuseTimer <= 0) yield DirectionalSpecialInput.DOWN;
-                if (!titmouseSeedStashes.isEmpty() && (target.isTitmouseMarkedBy(this) || dist > 170.0)) yield DirectionalSpecialInput.SIDE;
-                yield DirectionalSpecialInput.NEUTRAL;
-            }
+            case TITMOUSE -> chooseTitmouseAISpecialInput(target, dist, onGround, targetAbove, targetSettingUp);
             case BAT -> {
                 if (!onGround && targetAbove && !batMoonriseUsed) yield DirectionalSpecialInput.UP;
                 if (!onGround && targetBelow && batSilentReuseTimer <= 0) yield DirectionalSpecialInput.DOWN;
@@ -10166,6 +10167,47 @@ public class Bird {
         return (owned < ROOSTER_MAX_CHICKS && (dist < 500.0 || lowHealth))
                 || (hasFollower && dist < 460.0 && Math.abs(dy) < 210.0)
                 || needsRecall;
+    }
+
+    DirectionalSpecialInput chooseTitmouseAISpecialInput(Bird target, double dist, boolean onGround,
+                                                         boolean targetAbove, boolean targetSettingUp) {
+        if (!onGround && targetAbove && !titmouseVaultUsed) {
+            return DirectionalSpecialInput.UP;
+        }
+        if (onGround && titmouseStashReuseTimer <= 0 && shouldTitmouseAIDetonateSeedStashes(target)) {
+            return DirectionalSpecialInput.DOWN;
+        }
+        if (onGround && titmouseSeedStashes.size() < TITMOUSE_MAX_STASHES
+                && (dist > 145.0 || targetSettingUp) && titmouseStashReuseTimer <= 0) {
+            return DirectionalSpecialInput.DOWN;
+        }
+        if (!titmouseSeedStashes.isEmpty()
+                && (target.isTitmouseMarkedBy(this) || dist > 170.0)) {
+            return DirectionalSpecialInput.SIDE;
+        }
+        return DirectionalSpecialInput.NEUTRAL;
+    }
+
+    private boolean shouldTitmouseAIDetonateSeedStashes(Bird target) {
+        if (target == null || titmouseSeedStashes.size() < TITMOUSE_MAX_STASHES) {
+            return false;
+        }
+        for (TitmouseSeedStash stash : titmouseSeedStashes) {
+            double radius = (stash.ultimate ? 112.0 : 92.0) * sizeMultiplier;
+            double dx = target.bodyCenterX() - stash.x;
+            double dy = target.bodyCenterY() - (stash.y - 18.0 * sizeMultiplier);
+            if (Math.hypot(dx, dy) <= radius + target.combatRadius()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    boolean shouldTitmouseAIUseSpecial(Bird target, double dist, boolean onGround, boolean enemySetup) {
+        return (dist > 125.0 && dist < 590.0)
+                || (onGround && titmouseSeedStashes.size() < TITMOUSE_MAX_STASHES
+                && (dist > 135.0 || enemySetup))
+                || (onGround && shouldTitmouseAIDetonateSeedStashes(target));
     }
 
     private DirectionalSpecialInput aiUltimateSpecialInput(Bird target, double dist, boolean onGround, boolean lowHealth,
@@ -10438,8 +10480,7 @@ public class Bird {
                         || (onGround && opiumResourceMeter < OPIUM_RESOURCE_MAX * 0.45)
                         || enemySetup;
             case TITMOUSE:
-                return (dist > 125 && dist < 590)
-                        || (onGround && titmouseSeedStashes.size() < TITMOUSE_MAX_STASHES && (dist > 135 || enemySetup));
+                return shouldTitmouseAIUseSpecial(target, dist, onGround, enemySetup);
             case BAT:
                 return dist < 360 && (Math.abs(dy) < 220 || !onGround || targetVulnerable);
             case PELICAN:
