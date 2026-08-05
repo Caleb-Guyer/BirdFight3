@@ -75,6 +75,25 @@ class BirdVisualAuditRun {
         }
     }
 
+    private enum TitmouseView {
+        IDLE(null, 0),
+        NEUTRAL(Bird.VisualAuditTitmouseAction.NEUTRAL, 7),
+        SIDE_START(Bird.VisualAuditTitmouseAction.SIDE, Bird.TITMOUSE_BARKSKIP_FRAMES),
+        SIDE_OPEN(Bird.VisualAuditTitmouseAction.SIDE, Bird.TITMOUSE_BARKSKIP_FRAMES - 4),
+        SIDE_CLOSE(Bird.VisualAuditTitmouseAction.SIDE, 1),
+        UP(Bird.VisualAuditTitmouseAction.UP, Bird.TITMOUSE_VAULT_FRAMES - 4),
+        DOWN(Bird.VisualAuditTitmouseAction.DOWN, 14),
+        ULTIMATE(Bird.VisualAuditTitmouseAction.ULTIMATE, 6);
+
+        private final Bird.VisualAuditTitmouseAction action;
+        private final int remainingFrames;
+
+        TitmouseView(Bird.VisualAuditTitmouseAction action, int remainingFrames) {
+            this.action = action;
+            this.remainingFrames = remainingFrames;
+        }
+    }
+
     private record PixelBounds(int minX, int minY, int maxX, int maxY, int opaquePixels,
                                int borderPixels, long signature) {
         int width() {
@@ -169,7 +188,8 @@ class BirdVisualAuditRun {
 
                 if ((entry.bird() == BirdGame3.BirdType.VULTURE
                         && !"NULL_ROCK_VULTURE".equals(entry.key()))
-                        || entry.bird() == BirdGame3.BirdType.OPIUMBIRD) {
+                        || entry.bird() == BirdGame3.BirdType.OPIUMBIRD
+                        || entry.bird() == BirdGame3.BirdType.TITMOUSE) {
                     checkPolishedFacingMirror(game, entry, failures);
                 }
 
@@ -191,6 +211,7 @@ class BirdVisualAuditRun {
         }
 
         renderCount += renderOpiumSpecialSheet(game, entries, outputDir, failures);
+        renderCount += renderTitmouseSpecialSheet(game, entries, outputDir, failures);
 
         writeReport(outputDir, entries.size(), pages, renderCount, failures, warnings);
         return new AuditResult(outputDir, pages, renderCount, List.copyOf(failures), List.copyOf(warnings));
@@ -268,6 +289,62 @@ class BirdVisualAuditRun {
         }
         graphics.dispose();
         ImageIO.write(page, "png", outputDir.resolve("opium-special-audit.png").toFile());
+        return renders;
+    }
+
+    private static int renderTitmouseSpecialSheet(
+            BirdGame3 game, List<BirdGame3.VisualAuditSkin> entries,
+            Path outputDir, List<String> failures) throws IOException {
+        List<BirdGame3.VisualAuditSkin> titmouseEntries = entries.stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.TITMOUSE)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+        BufferedImage page = createPage(titmouseEntries.size());
+        Graphics2D graphics = page.createGraphics();
+        configureGraphics(graphics);
+        graphics.setColor(new Color(26, 36, 48));
+        graphics.fillRect(0, 0, LABEL_WIDTH + TitmouseView.values().length * CELL_WIDTH, HEADER_HEIGHT);
+        graphics.setColor(new Color(240, 244, 248));
+        graphics.setFont(new Font("Segoe UI", Font.BOLD, 17));
+        graphics.drawString("TUFTED TITMOUSE SPECIALS", 18, 25);
+        graphics.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        graphics.setColor(new Color(148, 163, 184));
+        graphics.drawString("Opening, active, and recovery silhouettes", 18, 45);
+        graphics.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        for (TitmouseView view : TitmouseView.values()) {
+            int columnX = LABEL_WIDTH + view.ordinal() * CELL_WIDTH;
+            graphics.setColor(new Color(240, 244, 248));
+            String label = view.name().replace('_', ' ');
+            int textWidth = graphics.getFontMetrics().stringWidth(label);
+            graphics.drawString(label, columnX + (CELL_WIDTH - textWidth) / 2, 34);
+        }
+
+        int renders = 0;
+        for (int row = 0; row < titmouseEntries.size(); row++) {
+            BirdGame3.VisualAuditSkin entry = titmouseEntries.get(row);
+            int rowY = HEADER_HEIGHT + row * ROW_HEIGHT;
+            drawRowLabel(graphics, entry, rowY);
+            for (TitmouseView view : TitmouseView.values()) {
+                Canvas canvas = new Canvas(ART_SIZE, ART_SIZE);
+                if (view.action == null) {
+                    game.drawVisualAuditCombatSilhouette(canvas, entry, Bird.VisualAuditPose.IDLE);
+                } else {
+                    game.drawVisualAuditTitmouseActionPose(
+                            canvas, entry, view.action, view.remainingFrames, true);
+                }
+                BufferedImage art = snapshot(canvas);
+                PixelBounds bounds = measure(art);
+                if (bounds.borderPixels > 0) {
+                    failures.add(entry.name() + " / " + view.name()
+                            + " touches the " + touchedEdges(bounds, art)
+                            + " canvas edge in the Titmouse special audit.");
+                }
+                drawCell(graphics, art, view.ordinal(), rowY, bounds.borderPixels > 0);
+                renders++;
+            }
+        }
+        graphics.dispose();
+        ImageIO.write(page, "png", outputDir.resolve("titmouse-special-audit.png").toFile());
         return renders;
     }
 
@@ -409,6 +486,7 @@ class BirdVisualAuditRun {
                 || entry.bird() == BirdGame3.BirdType.RAZORBILL
                 || entry.bird() == BirdGame3.BirdType.GRINCHHAWK
                 || entry.bird() == BirdGame3.BirdType.VULTURE
+                || entry.bird() == BirdGame3.BirdType.TITMOUSE
                 || "NULL_ROCK_VULTURE".equals(entry.key());
     }
 
@@ -545,6 +623,7 @@ class BirdVisualAuditRun {
                 String name = file.getFileName().toString();
                 return name.startsWith("bird-skin-audit-") && name.endsWith(".png")
                         || name.equals("opium-special-audit.png")
+                        || name.equals("titmouse-special-audit.png")
                         || name.equals("visual-audit-report.md");
             }).toList()) {
                 Files.deleteIfExists(path);

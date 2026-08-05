@@ -24,7 +24,8 @@ class BirdVisualAuditTest {
             BirdGame3.BirdType.SHOEBILL,
             BirdGame3.BirdType.MOCKINGBIRD,
             BirdGame3.BirdType.VULTURE,
-            BirdGame3.BirdType.OPIUMBIRD
+            BirdGame3.BirdType.OPIUMBIRD,
+            BirdGame3.BirdType.TITMOUSE
     );
 
     private static BirdGame3 freshGame() {
@@ -1489,6 +1490,159 @@ class BirdVisualAuditTest {
                 for (Bird.VisualFeatureGeometry geometry :
                         List.of(neutral, sideStart, sideSpread, sideClosing, upSpread, down, ultimate)) {
                     assertEquals(2, geometry.bodyPartCount(Bird.VisualBodyPart.OPIUM_WING),
+                            label + " special pose lost a wing");
+                    assertFeatureGeometryIsSafe(geometry, label + " special pose");
+                }
+            }
+        }
+    }
+
+    @Test
+    void titmouseKeepsTailWingsTalonsCrestAndAttachedFlankAcrossEverySkinAndPose() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.TITMOUSE)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (Bird.VisualAuditPose pose : Bird.VisualAuditPose.values()) {
+                Bird.VisualFeatureGeometry right =
+                        game.inspectVisualAuditCombatFeatures(entry, pose, true);
+                Bird.VisualFeatureGeometry left =
+                        game.inspectVisualAuditCombatFeatures(entry, pose, false);
+                String label = entry.name() + " / " + pose;
+
+                for (Bird.VisualFeatureGeometry geometry : List.of(right, left)) {
+                    assertEquals(3, geometry.bodyPartCount(Bird.VisualBodyPart.TITMOUSE_TAIL_FEATHER),
+                            label + " must retain all three long tail feathers");
+                    assertEquals(2, geometry.bodyPartCount(Bird.VisualBodyPart.TITMOUSE_WING),
+                            label + " must retain both articulated wings");
+                    assertEquals(2, geometry.bodyPartCount(Bird.VisualBodyPart.TITMOUSE_LEG),
+                            label + " must retain both legs");
+                    assertEquals(3, geometry.bodyPartCount(Bird.VisualBodyPart.TITMOUSE_CREST_FEATHER),
+                            label + " must retain all three crown feathers");
+                    assertEquals(1, geometry.bodyPartCount(Bird.VisualBodyPart.TITMOUSE_FLANK_PATCH),
+                            label + " must draw one species-defining flank patch");
+                    assertTrue(geometry.titmouseTorso() != null,
+                            label + " did not report the authored torso");
+                    assertTrue(geometry.titmouseTorso().contains(geometry.titmouseFlankPatch(), 0.01),
+                            label + " lets the flank patch float outside the torso");
+                    assertFeatureGeometryIsSafe(geometry, label);
+                }
+
+                assertMirrored(right, left, label);
+                double centerX = (right.titmouseTorso().left() + right.titmouseTorso().right()) * 0.5;
+                assertEquals(centerX * 2.0,
+                        right.titmouseFlankPatch().left() + left.titmouseFlankPatch().right(), 0.01,
+                        label + " does not mirror the flank patch's rear edge");
+                assertEquals(centerX * 2.0,
+                        right.titmouseFlankPatch().right() + left.titmouseFlankPatch().left(), 0.01,
+                        label + " does not mirror the flank patch's front edge");
+            }
+        }
+    }
+
+    @Test
+    void titmouseGroundedTalonsMeetTheGameplayFloorAcrossSkinsAndDirections() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.TITMOUSE)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (Bird.VisualAuditPose pose : List.of(Bird.VisualAuditPose.IDLE, Bird.VisualAuditPose.RUN)) {
+                for (boolean facingRight : List.of(true, false)) {
+                    Bird.VisualFeatureGeometry geometry =
+                            game.inspectVisualAuditCombatFeatures(entry, pose, facingRight);
+                    String label = entry.name() + " / " + pose + " facing "
+                            + (facingRight ? "right" : "left");
+                    assertTrue(Double.isFinite(geometry.titmouseFootBaseline()),
+                            label + " did not report a grounded foot baseline");
+                    assertEquals(80.0, geometry.titmouseFootBaseline(), 0.15,
+                            label + " must place both feet on the 80-unit collision floor");
+                }
+            }
+        }
+    }
+
+    @Test
+    void titmouseFaceAndShortBillFollowFlightAndHitAnimationsWithoutObstruction() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.TITMOUSE)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (boolean facingRight : List.of(true, false)) {
+                Bird.VisualFeatureGeometry idle = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.IDLE, facingRight);
+                Bird.VisualFeatureGeometry flap = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.FLAP, facingRight);
+                Bird.VisualFeatureGeometry hit = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.HIT, facingRight);
+                String label = entry.name() + " facing " + (facingRight ? "right" : "left");
+
+                assertTrue(Math.abs(beakVectorY(flap) - beakVectorY(idle)) >= 13.0,
+                        label + " must aim its bill upward during flight");
+                assertTrue(beakVectorX(hit) * beakVectorX(idle) < 0.0,
+                        label + " must turn its head and bill backward during hitstun");
+                assertFeatureGeometryIsSafe(idle, label + " idle");
+                assertFeatureGeometryIsSafe(flap, label + " flap");
+                assertFeatureGeometryIsSafe(hit, label + " hit");
+            }
+        }
+    }
+
+    @Test
+    void titmouseSpecialsUseAuthoredWingGesturesAndCompleteOpenCloseCycles() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.TITMOUSE)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (boolean facingRight : List.of(true, false)) {
+                String label = entry.name() + " facing " + (facingRight ? "right" : "left");
+                Bird.VisualFeatureGeometry idle = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.IDLE, facingRight);
+                Bird.VisualFeatureGeometry neutral = game.inspectVisualAuditTitmouseActionFeatures(
+                        entry, Bird.VisualAuditTitmouseAction.NEUTRAL, 7, facingRight);
+                Bird.VisualFeatureGeometry sideStart = game.inspectVisualAuditTitmouseActionFeatures(
+                        entry, Bird.VisualAuditTitmouseAction.SIDE, Bird.TITMOUSE_BARKSKIP_FRAMES, facingRight);
+                Bird.VisualFeatureGeometry sideSpread = game.inspectVisualAuditTitmouseActionFeatures(
+                        entry, Bird.VisualAuditTitmouseAction.SIDE, Bird.TITMOUSE_BARKSKIP_FRAMES - 4, facingRight);
+                Bird.VisualFeatureGeometry sideClosing = game.inspectVisualAuditTitmouseActionFeatures(
+                        entry, Bird.VisualAuditTitmouseAction.SIDE, 1, facingRight);
+                Bird.VisualFeatureGeometry upSpread = game.inspectVisualAuditTitmouseActionFeatures(
+                        entry, Bird.VisualAuditTitmouseAction.UP, Bird.TITMOUSE_VAULT_FRAMES - 4, facingRight);
+                Bird.VisualFeatureGeometry down = game.inspectVisualAuditTitmouseActionFeatures(
+                        entry, Bird.VisualAuditTitmouseAction.DOWN, 14, facingRight);
+                Bird.VisualFeatureGeometry ultimate = game.inspectVisualAuditTitmouseActionFeatures(
+                        entry, Bird.VisualAuditTitmouseAction.ULTIMATE, 6, facingRight);
+
+                assertTrue(idle.titmouseWingOpenness() <= 0.07,
+                        label + " must keep relaxed idle wings folded");
+                assertTrue(neutral.titmouseWingOpenness() >= 0.72,
+                        label + " must spread both wings while calling Scold Chorus");
+                assertTrue(sideStart.titmouseWingOpenness() <= 0.10,
+                        label + " must begin Barkskip with folded wings");
+                assertTrue(sideSpread.titmouseWingOpenness() >= 0.76,
+                        label + " must spread both wings during Barkskip");
+                assertTrue(sideClosing.titmouseWingOpenness() <= 0.22,
+                        label + " must fold both wings before Barkskip ends");
+                assertTrue(upSpread.titmouseWingOpenness() >= 0.96,
+                        label + " must fully open both wings during Tuft Vault");
+                assertTrue(down.titmouseWingOpenness() >= 0.54,
+                        label + " must gesture with both wings while arming Seed Stash");
+                assertTrue(ultimate.titmouseWingOpenness() >= 0.88,
+                        label + " must hold both wings open during Mobbing Run");
+                for (Bird.VisualFeatureGeometry geometry :
+                        List.of(neutral, sideStart, sideSpread, sideClosing, upSpread, down, ultimate)) {
+                    assertEquals(2, geometry.bodyPartCount(Bird.VisualBodyPart.TITMOUSE_WING),
                             label + " special pose lost a wing");
                     assertFeatureGeometryIsSafe(geometry, label + " special pose");
                 }

@@ -18012,6 +18012,28 @@ public class BirdGame3 {
                 action, remainingFrames);
     }
 
+    Bird.VisualFeatureGeometry inspectVisualAuditTitmouseActionFeatures(
+            VisualAuditSkin skin, Bird.VisualAuditTitmouseAction action,
+            int remainingFrames, boolean facingRight) {
+        Bird.VisualAuditPose pose = action == Bird.VisualAuditTitmouseAction.UP
+                ? Bird.VisualAuditPose.FLAP : Bird.VisualAuditPose.ATTACK;
+        return drawVisualAuditCombatPose(
+                new Canvas(160, 160), skin, pose,
+                true, facingRight, null, null, null, null, null, null, null, null, null, null, null, null,
+                null, null, action, remainingFrames);
+    }
+
+    void drawVisualAuditTitmouseActionPose(
+            Canvas canvas, VisualAuditSkin skin, Bird.VisualAuditTitmouseAction action,
+            int remainingFrames, boolean facingRight) {
+        Bird.VisualAuditPose pose = action == Bird.VisualAuditTitmouseAction.UP
+                ? Bird.VisualAuditPose.FLAP : Bird.VisualAuditPose.ATTACK;
+        drawVisualAuditCombatPose(
+                canvas, skin, pose, true, facingRight,
+                null, null, null, null, null, null, null, null, null, null, null, null,
+                null, null, action, remainingFrames);
+    }
+
     private Bird.VisualFeatureGeometry drawVisualAuditCombatPose(
             Canvas canvas, VisualAuditSkin skin, Bird.VisualAuditPose pose,
             boolean bodyOnly, boolean facingRight) {
@@ -18030,6 +18052,25 @@ public class BirdGame3 {
              Integer razorbillCliffShearTimer, Integer grinchhawkChimneyFlapTimer,
              Integer vultureGlideTimer, Bird.VisualAuditOpiumAction opiumAction,
              Integer opiumActionTimer) {
+        return drawVisualAuditCombatPose(canvas, skin, pose, bodyOnly, facingRight,
+                verticalVelocity, turkeyPanicFlapTimer, roosterCoopBoostTimer,
+                roadrunnerDustDevilTimer, penguinRocketTimer, penguinBellySlideTimer,
+                shoebillMarshLiftTimer, shoebillThrustTimer, charlesForestLiftTimer,
+                razorbillCliffShearTimer, grinchhawkChimneyFlapTimer, vultureGlideTimer,
+                opiumAction, opiumActionTimer, null, null);
+    }
+
+    private Bird.VisualFeatureGeometry drawVisualAuditCombatPose(
+            Canvas canvas, VisualAuditSkin skin, Bird.VisualAuditPose pose,
+            boolean bodyOnly, boolean facingRight, Double verticalVelocity,
+            Integer turkeyPanicFlapTimer, Integer roosterCoopBoostTimer,
+            Integer roadrunnerDustDevilTimer, Integer penguinRocketTimer,
+            Integer penguinBellySlideTimer, Integer shoebillMarshLiftTimer,
+            Integer shoebillThrustTimer, Integer charlesForestLiftTimer,
+            Integer razorbillCliffShearTimer, Integer grinchhawkChimneyFlapTimer,
+            Integer vultureGlideTimer, Bird.VisualAuditOpiumAction opiumAction,
+            Integer opiumActionTimer, Bird.VisualAuditTitmouseAction titmouseAction,
+            Integer titmouseActionTimer) {
         GraphicsContext g = canvas.getGraphicsContext2D();
         double w = canvas.getWidth();
         double h = canvas.getHeight();
@@ -18060,9 +18101,15 @@ public class BirdGame3 {
             // both crown and wings. Frame the complete special silhouette rather
             // than letting the audit camera crop valid in-world animation.
             preview.sizeMultiplier *= 0.80;
+        } else if (titmouseAction != null) {
+            // Tuft Vault and fully opened songbird wings extend beyond the
+            // compact idle body, so frame the complete action silhouette.
+            preview.sizeMultiplier *= 0.82;
         }
         preview.x = 0.0;
-        if (opiumAction != null && opiumActionTimer != null) {
+        if (titmouseAction != null && titmouseActionTimer != null) {
+            preview.prepareVisualAuditTitmouseAction(titmouseAction, titmouseActionTimer, facingRight);
+        } else if (opiumAction != null && opiumActionTimer != null) {
             preview.prepareVisualAuditOpiumAction(opiumAction, opiumActionTimer, facingRight);
         } else if (vultureGlideTimer != null) {
             preview.prepareVisualAuditVultureGlide(vultureGlideTimer);
@@ -18101,6 +18148,8 @@ public class BirdGame3 {
         double targetCenterX = w * 0.5;
         if (opiumAction == Bird.VisualAuditOpiumAction.SIDE) {
             targetCenterX -= (facingRight ? 1.0 : -1.0) * w * 0.10;
+        } else if (titmouseAction == Bird.VisualAuditTitmouseAction.SIDE) {
+            targetCenterX -= (facingRight ? 1.0 : -1.0) * w * 0.08;
         }
         g.save();
         g.translate(targetCenterX - preview.bodyCenterX(), targetCenterY - preview.bodyCenterY());

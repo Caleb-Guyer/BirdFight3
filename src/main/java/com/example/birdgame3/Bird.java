@@ -377,7 +377,12 @@ public class Bird {
         OPIUM_WING,
         OPIUM_LEG,
         OPIUM_CREST_PETAL,
-        OPIUM_CHARM
+        OPIUM_CHARM,
+        TITMOUSE_TAIL_FEATHER,
+        TITMOUSE_WING,
+        TITMOUSE_LEG,
+        TITMOUSE_CREST_FEATHER,
+        TITMOUSE_FLANK_PATCH
     }
 
     record VisualFeatureGeometry(VisualFeatureBounds head, VisualFeatureCircle eye, VisualBeakAxis beak,
@@ -402,6 +407,10 @@ public class Bird {
                                  double opiumFootBaseline,
                                  VisualFeatureBounds opiumTorso,
                                  VisualFeatureBounds opiumCharm,
+                                 double titmouseWingOpenness,
+                                 double titmouseFootBaseline,
+                                 VisualFeatureBounds titmouseTorso,
+                                 VisualFeatureBounds titmouseFlankPatch,
                                  Map<VisualBodyPart, Integer> bodyPartCounts) {
         boolean complete() {
             return head != null && eye != null && beak != null;
@@ -596,6 +605,10 @@ public class Bird {
     private double lastVisualOpiumFootBaseline = Double.NaN;
     private VisualFeatureBounds lastVisualOpiumTorso;
     private VisualFeatureBounds lastVisualOpiumCharm;
+    private double lastVisualTitmouseWingOpenness;
+    private double lastVisualTitmouseFootBaseline = Double.NaN;
+    private VisualFeatureBounds lastVisualTitmouseTorso;
+    private VisualFeatureBounds lastVisualTitmouseFlankPatch;
     private final EnumMap<VisualBodyPart, Integer> lastVisualBodyPartCounts =
             new EnumMap<>(VisualBodyPart.class);
     /** The skin key applied to this bird (null = default); selects per-skin sprite sheets. */
@@ -2190,6 +2203,14 @@ public class Bird {
     }
 
     enum VisualAuditOpiumAction {
+        NEUTRAL,
+        SIDE,
+        UP,
+        DOWN,
+        ULTIMATE
+    }
+
+    enum VisualAuditTitmouseAction {
         NEUTRAL,
         SIDE,
         UP,
@@ -11900,6 +11921,42 @@ public class Bird {
         displayPose = null;
     }
 
+    /** Positions Tufted Titmouse at a deterministic frame of each authored special pose. */
+    void prepareVisualAuditTitmouseAction(
+            VisualAuditTitmouseAction action, int remainingFrames, boolean faceRight) {
+        prepareVisualAuditPose(action == VisualAuditTitmouseAction.UP
+                ? VisualAuditPose.FLAP : VisualAuditPose.ATTACK);
+        facingRight = faceRight;
+        titmouseScoldTimer = 0;
+        titmouseBarkskipTimer = 0;
+        titmouseVaultTimer = 0;
+        titmouseStashCharging = false;
+        titmouseStashHoldFrames = 0;
+        titmouseMobbingTimer = 0;
+        switch (action) {
+            case NEUTRAL -> titmouseScoldTimer = Math.clamp(
+                    remainingFrames, 1, TITMOUSE_SCOLD_ACTIVE_FRAMES);
+            case SIDE -> {
+                titmouseBarkskipDirection = faceRight ? 1 : -1;
+                titmouseBarkskipTimer = Math.clamp(remainingFrames, 1, TITMOUSE_BARKSKIP_FRAMES);
+            }
+            case UP -> {
+                titmouseVaultUsed = true;
+                titmouseVaultTimer = Math.clamp(remainingFrames, 1, TITMOUSE_VAULT_FRAMES);
+            }
+            case DOWN -> {
+                titmouseStashCharging = true;
+                titmouseStashHoldFrames = Math.clamp(remainingFrames, 1, TITMOUSE_STASH_HOLD_FRAMES);
+            }
+            case ULTIMATE -> {
+                titmouseMobbingTimer = Math.clamp(remainingFrames, 1, TITMOUSE_MOBBING_STEP_FRAMES);
+                isZipping = true;
+            }
+        }
+        attackAnimationTimer = Math.max(attackAnimationTimer, 14);
+        displayPose = null;
+    }
+
     private void clearActiveDodge() {
         dodgeType = DodgeType.NONE;
         dodgeTimer = 0;
@@ -17211,6 +17268,10 @@ public class Bird {
                 && opiumDownReuseTimer > OPIUM_DOWN_REUSE_FRAMES - 16;
     }
 
+    private boolean titmouseSpecialPoseActive() {
+        return type == BirdGame3.BirdType.TITMOUSE && titmouseSpecialActive();
+    }
+
     private boolean ravenSpecialPoseActive() {
         return type == BirdGame3.BirdType.RAVEN
                 && (ravenQuillCharging || ravenSideTimer > 0 || ravenLiftTimer > 0
@@ -18184,6 +18245,68 @@ public class Bird {
         }
         return new AttackVisualPose(0.0, 0.0, 0.0, facingRight ? 0.0 : Math.PI,
                 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0);
+    }
+
+    private AttackVisualPose currentTitmouseSpecialPose() {
+        double dir = facingRight ? 1.0 : -1.0;
+        if (titmouseMobbingTimer > 0) {
+            double dart = 0.5 + 0.5 * Math.sin(titmouseMobbingTimer * 0.88);
+            return new AttackVisualPose(
+                    dir * (9.0 + dart * 8.0), -7.0 - dart * 3.0,
+                    dir * (10.0 + dart * 7.0),
+                    facingRight ? -0.12 : Math.PI + 0.12,
+                    14.0, -7.0, 10.0, 1.18,
+                    dir * (13.0 + dart * 6.0), 1.12, 0.88);
+        }
+        if (titmouseVaultTimer > 0) {
+            double phase = pigeonSpecialPhase(titmouseVaultTimer, TITMOUSE_VAULT_FRAMES);
+            double lift = Math.sin(phase * Math.PI);
+            return new AttackVisualPose(
+                    dir * phase * 2.0, -16.0 - lift * 11.0,
+                    dir * (2.0 + lift * 5.0),
+                    normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.08),
+                    11.0 + lift * 6.0, -17.0 - lift * 6.0,
+                    8.0 + lift * 4.0, 1.02,
+                    -22.0 - lift * 8.0, 0.96, 1.16);
+        }
+        if (titmouseBarkskipTimer > 0) {
+            double sideDir = titmouseBarkskipDirection == 0
+                    ? dir : Math.signum(titmouseBarkskipDirection);
+            double phase = pigeonSpecialPhase(titmouseBarkskipTimer, TITMOUSE_BARKSKIP_FRAMES);
+            double surge = Math.sin(phase * Math.PI);
+            return new AttackVisualPose(
+                    sideDir * (8.0 + surge * 11.0), -4.0 - surge * 3.0,
+                    sideDir * (9.0 + surge * 8.0),
+                    sideDir > 0 ? -0.10 : Math.PI + 0.10,
+                    12.0 + surge * 6.0, -6.0 - surge * 3.0,
+                    10.0 + surge * 5.0, 0.94,
+                    sideDir * (11.0 + surge * 7.0), 1.14, 0.86);
+        }
+        if (titmouseScoldTimer > 0) {
+            double phase = pigeonSpecialPhase(titmouseScoldTimer,
+                    titmouseScoldUltimate ? TITMOUSE_SCOLD_ACTIVE_FRAMES + 4
+                            : TITMOUSE_SCOLD_ACTIVE_FRAMES);
+            double call = Math.sin(phase * Math.PI);
+            return new AttackVisualPose(
+                    -dir * call * 2.0, -4.0 - call * 3.0,
+                    -dir * (2.0 + call * 4.0),
+                    facingRight ? -0.05 : Math.PI + 0.05,
+                    9.0 + call * 4.0, -7.0 - call * 3.0,
+                    7.0 + call * 4.0, 1.38,
+                    -dir * (4.0 + call * 4.0), 1.04, 0.96);
+        }
+        if (titmouseStashCharging) {
+            double plant = smoothStep(Math.clamp(
+                    titmouseStashHoldFrames / (double) TITMOUSE_STASH_HOLD_FRAMES, 0.0, 1.0));
+            return new AttackVisualPose(
+                    -dir * plant * 2.0, 4.0 + plant * 4.0,
+                    -dir * (4.0 + plant * 5.0),
+                    normalizeAngleRadians(dir * 0.30),
+                    3.0 + plant * 3.0, 4.0 + plant * 3.0,
+                    3.0, 0.92,
+                    -dir * (5.0 + plant * 4.0), 1.10, 0.86);
+        }
+        return neutralVisualPose();
     }
 
     private AttackVisualPose currentVultureSpecialPose() {
@@ -21475,6 +21598,9 @@ public class Bird {
         if (opiumSpecialPoseActive()) {
             return currentOpiumSpecialPose();
         }
+        if (titmouseSpecialPoseActive()) {
+            return currentTitmouseSpecialPose();
+        }
         if (grinchhawkSpecialPoseActive()) {
             return currentGrinchhawkSpecialPose();
         }
@@ -22029,6 +22155,10 @@ public class Bird {
                 lastVisualOpiumFootBaseline,
                 lastVisualOpiumTorso,
                 lastVisualOpiumCharm,
+                lastVisualTitmouseWingOpenness,
+                lastVisualTitmouseFootBaseline,
+                lastVisualTitmouseTorso,
+                lastVisualTitmouseFlankPatch,
                 Map.copyOf(lastVisualBodyPartCounts)
         );
     }
@@ -22058,6 +22188,10 @@ public class Bird {
         lastVisualOpiumFootBaseline = Double.NaN;
         lastVisualOpiumTorso = null;
         lastVisualOpiumCharm = null;
+        lastVisualTitmouseWingOpenness = 0.0;
+        lastVisualTitmouseFootBaseline = Double.NaN;
+        lastVisualTitmouseTorso = null;
+        lastVisualTitmouseFlankPatch = null;
         lastVisualBodyPartCounts.clear();
     }
 
@@ -29363,6 +29497,10 @@ public class Bird {
             drawOpiumBirdBody(g, drawSize, pose);
             return;
         }
+        if (type == BirdGame3.BirdType.TITMOUSE) {
+            drawTitmouseBody(g, drawSize, pose);
+            return;
+        }
         if (type == BirdGame3.BirdType.BAT) {
             drawBatBody(g);
             return;
@@ -30358,6 +30496,486 @@ public class Bird {
         }
         if (state == BirdAnimationState.ATTACK) {
             return 0.24;
+        }
+        if (state == BirdAnimationState.HITSTUN || state == BirdAnimationState.KO) {
+            return 0.14;
+        }
+        return 0.06;
+    }
+
+    /**
+     * Tufted Titmouse is a compact, sharp little songbird instead of a generic
+     * circle with a crest pasted on top. The tail, paired wings, flank patch,
+     * cheek, crown, feet, eye, and bill all belong to one mirrored rig.
+     */
+    private void drawTitmouseBody(GraphicsContext g, double drawSize, AttackVisualPose pose) {
+        double s = sizeMultiplier;
+        double dir = facingRight ? 1.0 : -1.0;
+        double rear = -dir;
+        double cx = x + drawSize * 0.5;
+        BirdAnimationState state = currentBirdAnimationState();
+        HeadPose headPose = standardHeadPose(pose);
+        boolean oldSparrow = BirdGame3.OLD_SPARROW_SKIN.equals(appliedSkinKey);
+        boolean circuit = isCircuitSkin;
+        boolean faction = isCampaignFactionSkin();
+
+        Color back;
+        Color body;
+        Color belly;
+        Color wing;
+        Color wingEdge;
+        Color flank;
+        Color head;
+        Color cheek;
+        Color crown;
+        Color forehead;
+        Color leg;
+        Color iris;
+        Color beak;
+        Color beakShade;
+        if (faction) {
+            back = campaignFactionPrimaryColor().darker();
+            body = campaignFactionPrimaryColor();
+            belly = campaignFactionSecondaryColor().brighter();
+            wing = campaignFactionPrimaryColor().darker();
+            wingEdge = campaignFactionAccentColor();
+            flank = campaignFactionSecondaryColor();
+            head = campaignFactionSecondaryColor();
+            cheek = campaignFactionSecondaryColor().brighter();
+            crown = campaignFactionAccentColor();
+            forehead = campaignFactionPrimaryColor().darker();
+            leg = campaignFactionPrimaryColor().darker();
+            iris = campaignFactionAccentColor().darker();
+            beak = campaignFactionAccentColor();
+            beakShade = campaignFactionPrimaryColor().darker();
+        } else if (isClassicSkin) {
+            back = Color.web("#3A2C12");
+            body = game.classicSkinPrimaryColor(type);
+            belly = Color.web("#FFF8D0");
+            wing = Color.web("#7B5A13");
+            wingEdge = game.classicSkinAccentColor(type);
+            flank = Color.web("#F28C28");
+            head = Color.web("#E7AF24");
+            cheek = Color.web("#FFFDE7");
+            crown = Color.web("#FFE66D");
+            forehead = Color.web("#332814");
+            leg = Color.web("#725A31");
+            iris = Color.web("#37220B");
+            beak = Color.web("#FF9F1C");
+            beakShade = Color.web("#9A4F0A");
+        } else if (circuit) {
+            back = Color.web("#102027");
+            body = Color.web("#37474F");
+            belly = Color.web("#CFD8DC");
+            wing = Color.web("#1C313A");
+            wingEdge = Color.web("#00E5FF");
+            flank = Color.web("#FF8A65");
+            head = Color.web("#455A64");
+            cheek = Color.web("#ECEFF1");
+            crown = Color.web("#90A4AE");
+            forehead = Color.web("#0A171D");
+            leg = Color.web("#78909C");
+            iris = Color.web("#FF4081");
+            beak = Color.web("#FFB74D");
+            beakShade = Color.web("#B44D35");
+        } else if (oldSparrow) {
+            back = Color.web("#332820");
+            body = Color.web("#685343");
+            belly = Color.web("#D6C9B5");
+            wing = Color.web("#49392E");
+            wingEdge = Color.web("#B8AAA0");
+            flank = Color.web("#8D6E54");
+            head = Color.web("#77685B");
+            cheek = Color.web("#E0D8CC");
+            crown = Color.web("#DEDAD4");
+            forehead = Color.web("#493C33");
+            leg = Color.web("#8B725D");
+            iris = Color.web("#33261E");
+            beak = Color.web("#C7A16A");
+            beakShade = Color.web("#7A5A39");
+        } else {
+            back = Color.web("#3B454C");
+            body = Color.web("#7D8990");
+            belly = Color.web("#F4F5F2");
+            wing = Color.web("#59666D");
+            wingEdge = Color.web("#C7D0D4");
+            flank = Color.web("#D49A73");
+            head = Color.web("#929DA2");
+            cheek = Color.web("#FAFAF7");
+            crown = Color.web("#8E999F");
+            forehead = Color.web("#20262A");
+            leg = Color.web("#62594F");
+            iris = Color.web("#171A1C");
+            beak = Color.web("#D5A15B");
+            beakShade = Color.web("#835D32");
+        }
+
+        double wingOpenness = titmouseWingOpenness(state);
+        if (visualAuditBodyOnly) {
+            lastVisualTitmouseWingOpenness = wingOpenness;
+        }
+
+        // A real titmouse tail is long and narrow; three separated vanes keep
+        // it legible during the fast Barkskip and Mobbing Run silhouettes.
+        for (int i = 0; i < 3; i++) {
+            double rootX = cx - dir * (18.0 - i * 1.4) * s;
+            double rootY = y + (41.0 + i * 6.5) * s;
+            double tailSweep = state == BirdAnimationState.FLAP ? -5.0
+                    : state == BirdAnimationState.FALL ? 5.0 : 0.0;
+            double tipX = rootX + rear * (34.0 - i * 5.0) * s;
+            double tipY = y + (35.0 + i * 15.0 + tailSweep) * s;
+            Color tailColor = (i == 1 ? body : wing)
+                    .deriveColor(i * 2.0, 0.92, 0.88 + i * 0.05, 0.96);
+            g.setFill(tailColor);
+            g.fillPolygon(
+                    new double[]{rootX + dir * 4.0 * s, tipX,
+                            rootX - dir * (3.8 + i * 0.5) * s},
+                    new double[]{rootY - 4.5 * s, tipY, rootY + 4.5 * s}, 3);
+            g.setStroke(wingEdge.deriveColor(0, 0.68, 1.0, 0.48));
+            g.setLineWidth(0.8 * s);
+            g.strokeLine(rootX, rootY, tipX + dir * 1.5 * s, tipY);
+            recordVisualBodyPart(VisualBodyPart.TITMOUSE_TAIL_FEATHER);
+        }
+
+        drawTitmouseLegs(g, state, leg, oldSparrow);
+        drawTitmouseWing(g, cx, dir, wingOpenness, wing, wingEdge, back, true);
+        recordVisualBodyPart(VisualBodyPart.TITMOUSE_WING);
+
+        // Pear-shaped torso: broad shoulders for the wing roots, then a tiny
+        // belly that meets the collision floor through the authored legs.
+        g.setFill(back);
+        g.beginPath();
+        g.moveTo(cx - dir * 23.0 * s, y + 34.0 * s);
+        g.bezierCurveTo(cx - dir * 18.0 * s, y + 18.0 * s,
+                cx + dir * 11.0 * s, y + 15.0 * s,
+                cx + dir * 24.0 * s, y + 31.0 * s);
+        g.bezierCurveTo(cx + dir * 31.0 * s, y + 43.0 * s,
+                cx + dir * 18.0 * s, y + 67.0 * s, cx, y + 70.0 * s);
+        g.bezierCurveTo(cx - dir * 17.0 * s, y + 69.0 * s,
+                cx - dir * 29.0 * s, y + 53.0 * s,
+                cx - dir * 23.0 * s, y + 34.0 * s);
+        g.closePath();
+        g.fill();
+
+        g.setFill(body);
+        g.beginPath();
+        g.moveTo(cx - dir * 19.0 * s, y + 34.0 * s);
+        g.bezierCurveTo(cx - dir * 14.0 * s, y + 22.0 * s,
+                cx + dir * 9.0 * s, y + 20.0 * s,
+                cx + dir * 20.0 * s, y + 32.0 * s);
+        g.bezierCurveTo(cx + dir * 25.0 * s, y + 44.0 * s,
+                cx + dir * 13.0 * s, y + 62.0 * s, cx, y + 66.0 * s);
+        g.bezierCurveTo(cx - dir * 13.0 * s, y + 64.0 * s,
+                cx - dir * 23.0 * s, y + 51.0 * s,
+                cx - dir * 19.0 * s, y + 34.0 * s);
+        g.closePath();
+        g.fill();
+
+        g.setFill(belly.deriveColor(0, 0.88, 1.0, circuit ? 0.68 : 0.88));
+        g.beginPath();
+        g.moveTo(cx + dir * 1.0 * s, y + 31.0 * s);
+        g.bezierCurveTo(cx + dir * 18.0 * s, y + 36.0 * s,
+                cx + dir * 13.0 * s, y + 60.0 * s, cx, y + 65.0 * s);
+        g.bezierCurveTo(cx - dir * 9.0 * s, y + 58.0 * s,
+                cx - dir * 10.0 * s, y + 40.0 * s,
+                cx + dir * 1.0 * s, y + 31.0 * s);
+        g.closePath();
+        g.fill();
+
+        double flankCenterX = cx - dir * 8.0 * s;
+        double flankCenterY = y + 49.0 * s;
+        double flankW = 17.0 * s;
+        double flankH = 19.0 * s;
+        g.setFill(flank.deriveColor(0, 0.90, 1.0, circuit ? 0.70 : 0.76));
+        g.fillOval(flankCenterX - flankW * 0.5, flankCenterY - flankH * 0.5, flankW, flankH);
+        if (visualAuditBodyOnly) {
+            lastVisualTitmouseTorso = new VisualFeatureBounds(
+                    cx - 31.0 * s, y + 15.0 * s, cx + 31.0 * s, y + 70.0 * s);
+            lastVisualTitmouseFlankPatch = new VisualFeatureBounds(
+                    flankCenterX - flankW * 0.5, flankCenterY - flankH * 0.5,
+                    flankCenterX + flankW * 0.5, flankCenterY + flankH * 0.5);
+        }
+        recordVisualBodyPart(VisualBodyPart.TITMOUSE_FLANK_PATCH);
+
+        drawTitmouseWing(g, cx, dir, wingOpenness, wing, wingEdge, back, false);
+        recordVisualBodyPart(VisualBodyPart.TITMOUSE_WING);
+
+        double aimX = Math.cos(headPose.aimAngleRadians());
+        double aimY = Math.sin(headPose.aimAngleRadians());
+        double upX = -aimY;
+        double upY = aimX;
+        if (upY > 0.0) {
+            upX = -upX;
+            upY = -upY;
+        }
+
+        double neckStartX = cx + dir * 17.0 * s;
+        double neckStartY = y + 30.0 * s;
+        double neckEndX = headPose.centerX() - aimX * 11.0 * s;
+        double neckEndY = headPose.centerY() - aimY * 11.0 * s + 2.0 * s;
+        g.setStroke(head.darker());
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setLineWidth(14.0 * s);
+        g.strokeLine(neckStartX, neckStartY, neckEndX, neckEndY);
+        g.setStroke(head);
+        g.setLineWidth(10.0 * s);
+        g.strokeLine(neckStartX, neckStartY, neckEndX, neckEndY);
+
+        double headW = 40.0 * s;
+        double headH = 34.0 * s;
+        double headX = headPose.centerX() - headW * 0.5;
+        double headY = headPose.centerY() - headH * 0.5;
+        g.setFill(head.darker());
+        g.fillOval(headX - 1.4 * s, headY - 1.2 * s, headW + 2.8 * s, headH + 2.4 * s);
+        g.setFill(head);
+        g.fillOval(headX, headY, headW, headH);
+
+        double cheekCenterX = headPose.centerX() + aimX * 2.0 * s - upX * 2.0 * s;
+        double cheekCenterY = headPose.centerY() + aimY * 2.0 * s - upY * 2.0 * s;
+        g.setFill(cheek.deriveColor(0, 0.90, 1.0, 0.92));
+        g.fillOval(cheekCenterX - 11.5 * s, cheekCenterY - 8.5 * s,
+                23.0 * s, 17.0 * s);
+
+        g.setFill(forehead.deriveColor(0, 0.96, 1.0, 0.96));
+        double browCenterX = headPose.centerX() + aimX * 7.0 * s + upX * 8.0 * s;
+        double browCenterY = headPose.centerY() + aimY * 7.0 * s + upY * 8.0 * s;
+        g.fillOval(browCenterX - 8.5 * s, browCenterY - 4.5 * s, 17.0 * s, 9.0 * s);
+
+        // Three crown feathers grow backward from the skull; their roots stay
+        // behind the eye in every aim direction instead of crossing the face.
+        for (int i = 0; i < 3; i++) {
+            double rootX = headPose.centerX() - aimX * (3.0 + i * 3.0) * s + upX * 13.0 * s;
+            double rootY = headPose.centerY() - aimY * (3.0 + i * 3.0) * s + upY * 13.0 * s;
+            double tipX = rootX - aimX * (7.0 + i * 4.0) * s + upX * (8.0 - i * 1.5) * s;
+            double tipY = rootY - aimY * (7.0 + i * 4.0) * s + upY * (8.0 - i * 1.5) * s;
+            g.setFill(crown.deriveColor(i * 2.0, 0.92, 0.98 - i * 0.06, 0.98));
+            g.fillPolygon(
+                    new double[]{rootX - upX * 3.0 * s, tipX, rootX + upX * 3.0 * s},
+                    new double[]{rootY - upY * 3.0 * s, tipY, rootY + upY * 3.0 * s}, 3);
+            recordVisualBodyPart(VisualBodyPart.TITMOUSE_CREST_FEATHER);
+        }
+
+        double eyeCenterX = headPose.centerX() + aimX * 4.0 * s + upX * 2.8 * s;
+        double eyeCenterY = headPose.centerY() + aimY * 4.0 * s + upY * 2.8 * s;
+        double eyeRadius = 7.4 * s;
+        double irisRadius = 4.2 * s;
+        lastVisualHeadBounds = new VisualFeatureBounds(
+                headPose.centerX() - headW * 0.5, headPose.centerY() - headH * 0.5,
+                headPose.centerX() + headW * 0.5, headPose.centerY() + headH * 0.5);
+        lastVisualEye = new VisualFeatureCircle(eyeCenterX, eyeCenterY, eyeRadius);
+        g.setFill(Color.web("#FFFDF7"));
+        g.fillOval(eyeCenterX - eyeRadius, eyeCenterY - eyeRadius,
+                eyeRadius * 2.0, eyeRadius * 2.0);
+        double glance = state == BirdAnimationState.IDLE
+                ? Math.sin((animationGlobalFrame + playerIndex * 29.0) * 0.056) * 0.8 : 0.0;
+        double irisX = eyeCenterX + aimX * (1.3 + glance) * s;
+        double irisY = eyeCenterY + aimY * (1.3 + glance) * s;
+        g.setFill(iris);
+        g.fillOval(irisX - irisRadius, irisY - irisRadius,
+                irisRadius * 2.0, irisRadius * 2.0);
+        g.setFill(circuit ? Color.web("#260817") : Color.web("#111417"));
+        g.fillOval(irisX - 2.1 * s, irisY - 2.1 * s, 4.2 * s, 4.2 * s);
+        g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.94));
+        g.fillOval(irisX - 1.4 * s + upX * 0.5 * s,
+                irisY - 1.4 * s + upY * 0.5 * s, 2.4 * s, 2.4 * s);
+
+        drawTitmouseBeak(g, pose, headPose, aimX, aimY, upX, upY, beak, beakShade);
+        if (circuit) {
+            drawTitmouseCircuitLines(g, cx, dir, wingEdge, iris);
+        }
+        drawVectorBirdStateAccents(g, drawSize, headPose);
+    }
+
+    private void drawTitmouseLegs(GraphicsContext g, BirdAnimationState state,
+                                   Color leg, boolean oldSparrow) {
+        double s = sizeMultiplier;
+        double dir = facingRight ? 1.0 : -1.0;
+        boolean airborne = state == BirdAnimationState.FLAP || state == BirdAnimationState.FALL
+                || titmouseBarkskipTimer > 0 || titmouseVaultTimer > 0 || titmouseMobbingTimer > 0;
+        double runAmount = state == BirdAnimationState.IDLE
+                ? Math.clamp(Math.abs(vx) / 6.0, 0.0, 1.0) : 0.0;
+        double stride = Math.sin((animationGlobalFrame + playerIndex * 19.0) * 0.42)
+                * 4.5 * runAmount;
+        for (int i = 0; i < 2; i++) {
+            double hipX = x + 40.0 * s + dir * (i == 0 ? -6.0 : 6.0) * s;
+            double hipY = y + 59.0 * s;
+            double step = (i == 0 ? stride : -stride) * dir * s;
+            double ankleX = airborne ? hipX - dir * (4.0 + i * 2.0) * s : hipX + step;
+            double ankleY = y + (airborne ? 68.0 + i * 2.0 : 75.0) * s;
+            g.setStroke(leg.deriveColor(0, 0.92, i == 0 ? 0.82 : 1.0, i == 0 ? 0.76 : 0.98));
+            g.setLineCap(StrokeLineCap.ROUND);
+            g.setLineWidth(2.0 * s);
+            g.strokeLine(hipX, hipY, ankleX, ankleY);
+            double toeY = airborne ? ankleY + 4.0 * s : y + 79.0 * s;
+            double toeDir = airborne ? -dir : dir;
+            g.setLineWidth(1.6 * s);
+            for (int toe = -1; toe <= 1; toe++) {
+                double length = (toe == 0 ? 8.0 : 6.0) * s;
+                g.strokeLine(ankleX, ankleY,
+                        ankleX + toeDir * length + toe * 1.1 * s,
+                        toeY - Math.abs(toe) * 0.4 * s);
+            }
+            if (oldSparrow && i == 1) {
+                g.setStroke(Color.web("#C9A96A"));
+                g.setLineWidth(2.8 * s);
+                g.strokeLine(ankleX - dir * 2.0 * s, ankleY - 2.0 * s,
+                        ankleX + dir * 2.0 * s, ankleY - 2.0 * s);
+            }
+            if (!airborne && visualAuditBodyOnly) {
+                lastVisualTitmouseFootBaseline = Math.max(
+                        Double.isNaN(lastVisualTitmouseFootBaseline)
+                                ? Double.NEGATIVE_INFINITY : lastVisualTitmouseFootBaseline,
+                        80.0);
+            }
+            recordVisualBodyPart(VisualBodyPart.TITMOUSE_LEG);
+        }
+    }
+
+    private void drawTitmouseWing(GraphicsContext g, double cx, double dir, double openness,
+                                   Color wing, Color edge, Color shadow, boolean farSide) {
+        double s = sizeMultiplier;
+        double open = smoothStep(Math.clamp(openness, 0.0, 1.0));
+        double layer = farSide ? -1.0 : 1.0;
+        double shoulderX = cx - dir * (farSide ? 3.0 : -1.0) * s;
+        double shoulderY = y + (farSide ? 34.0 : 37.0) * s;
+        double foldedTipX = cx - dir * (farSide ? 17.0 : 14.0) * s;
+        double foldedTipY = y + (farSide ? 57.0 : 59.0) * s;
+        double spreadTipX = cx - dir * (20.0 + open * 12.0) * s;
+        double spreadTipY = y + (farSide
+                ? 32.0 - open * 38.0
+                : 42.0 + open * 30.0) * s;
+        double tipX = foldedTipX + (spreadTipX - foldedTipX) * open;
+        double tipY = foldedTipY + (spreadTipY - foldedTipY) * open;
+        double dx = tipX - shoulderX;
+        double dy = tipY - shoulderY;
+        double length = Math.max(0.001, Math.hypot(dx, dy));
+        // Multiplying both perpendicular components by facing direction makes
+        // the entire vane basis a true horizontal mirror when the bird turns.
+        double normalX = -dy / length * layer * dir;
+        double normalY = dx / length * layer * dir;
+        double rootWidth = (6.5 + open * 1.8) * s;
+        double midX = shoulderX + dx * 0.55;
+        double midY = shoulderY + dy * 0.55;
+        double midWidth = (9.0 + open * 3.5) * s;
+        double alpha = farSide ? 0.76 : 0.97;
+        g.setFill(wing.deriveColor(0, 0.94, farSide ? 0.80 : 1.0, alpha));
+        g.fillPolygon(
+                new double[]{shoulderX + normalX * rootWidth,
+                        midX + normalX * midWidth, tipX,
+                        midX - normalX * midWidth,
+                        shoulderX - normalX * rootWidth},
+                new double[]{shoulderY + normalY * rootWidth,
+                        midY + normalY * midWidth, tipY,
+                        midY - normalY * midWidth,
+                        shoulderY - normalY * rootWidth}, 5);
+        g.setStroke(edge.deriveColor(0, 0.72, 1.0, alpha * 0.82));
+        g.setLineCap(StrokeLineCap.ROUND);
+        for (int feather = 0; feather < 3; feather++) {
+            double offset = (feather - 1.0) * (3.1 + open * 2.1) * s;
+            g.setLineWidth((0.9 + feather * 0.10) * s);
+            g.strokeLine(shoulderX + normalX * offset,
+                    shoulderY + normalY * offset,
+                    tipX + normalX * offset * 0.34 + dir * feather * 3.0 * s,
+                    tipY + normalY * offset * 0.34 + feather * layer * 1.6 * s);
+        }
+        g.setStroke(shadow.deriveColor(0, 0.66, 1.0, alpha * 0.45));
+        g.setLineWidth(0.8 * s);
+        g.strokeLine(shoulderX, shoulderY, tipX + dir * 2.0 * s, tipY);
+    }
+
+    private void drawTitmouseBeak(GraphicsContext g, AttackVisualPose pose, HeadPose headPose,
+                                   double aimX, double aimY, double upX, double upY,
+                                   Color upper, Color lower) {
+        double s = sizeMultiplier;
+        double openScale = pose == null ? 1.0 : pose.beakOpenScale();
+        boolean calling = titmouseScoldTimer > 0;
+        boolean attacking = attackAnimationTimer > 0 || titmouseSpecialPoseActive();
+        double open = (calling ? 4.2 : attacking ? 2.4 : 0.55) * s * openScale;
+        double length = (18.5 + (pose == null ? 0.0 : pose.beakLengthBonus() * 0.28)) * s;
+        double rootX = headPose.centerX() + aimX * 13.0 * s;
+        double rootY = headPose.centerY() + aimY * 13.0 * s;
+        double tipX = rootX + aimX * length;
+        double tipY = rootY + aimY * length;
+        recordVisualBeak(rootX, rootY, tipX, tipY);
+        g.setFill(upper);
+        g.fillPolygon(
+                new double[]{rootX + upX * 5.0 * s,
+                        tipX + upX * 0.8 * s,
+                        rootX - upX * 0.6 * s},
+                new double[]{rootY + upY * 5.0 * s,
+                        tipY + upY * 0.8 * s,
+                        rootY - upY * 0.6 * s}, 3);
+        g.setFill(lower);
+        g.fillPolygon(
+                new double[]{rootX - upX * 0.4 * s,
+                        tipX - aimX * 1.5 * s - upX * open,
+                        rootX - upX * 4.3 * s},
+                new double[]{rootY - upY * 0.4 * s,
+                        tipY - aimY * 1.5 * s - upY * open,
+                        rootY - upY * 4.3 * s}, 3);
+        g.setStroke(upper.brighter().deriveColor(0, 0.70, 1.0, 0.58));
+        g.setLineWidth(0.75 * s);
+        g.strokeLine(rootX + upX * 1.4 * s, rootY + upY * 1.4 * s,
+                tipX - aimX * 2.2 * s, tipY - aimY * 2.2 * s);
+        g.setFill(lower.darker().deriveColor(0, 0.82, 1.0, 0.66));
+        g.fillOval(rootX + aimX * 4.5 * s + upX * 1.4 * s - 1.1 * s,
+                rootY + aimY * 4.5 * s + upY * 1.4 * s - 1.1 * s,
+                2.2 * s, 2.2 * s);
+    }
+
+    private void drawTitmouseCircuitLines(GraphicsContext g, double cx, double dir,
+                                           Color circuit, Color node) {
+        double s = sizeMultiplier;
+        g.setStroke(circuit.deriveColor(0, 0.90, 1.0, 0.86));
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setLineWidth(1.45 * s);
+        double startX = cx - dir * 17.0 * s;
+        double turnX = cx - dir * 3.0 * s;
+        double endX = cx + dir * 13.0 * s;
+        g.strokeLine(startX, y + 45.0 * s, turnX, y + 41.0 * s);
+        g.strokeLine(turnX, y + 41.0 * s, turnX, y + 55.0 * s);
+        g.strokeLine(turnX, y + 55.0 * s, endX, y + 51.0 * s);
+        g.setFill(node);
+        g.fillOval(endX - 2.8 * s, y + 48.2 * s, 5.6 * s, 5.6 * s);
+    }
+
+    /** Returns Titmouse's paired-wing pose for movement and all five specials. */
+    private double titmouseWingOpenness(BirdAnimationState state) {
+        if (titmouseMobbingTimer > 0) {
+            return 0.90;
+        }
+        if (titmouseVaultTimer > 0) {
+            double elapsed = Math.max(0.0, TITMOUSE_VAULT_FRAMES - titmouseVaultTimer);
+            double open = smoothStep(Math.clamp(elapsed / 3.0, 0.0, 1.0));
+            double close = smoothStep(Math.clamp(titmouseVaultTimer / 4.0, 0.0, 1.0));
+            return 0.12 + open * close * 0.88;
+        }
+        if (titmouseBarkskipTimer > 0) {
+            double elapsed = Math.max(0.0, TITMOUSE_BARKSKIP_FRAMES - titmouseBarkskipTimer);
+            double open = smoothStep(Math.clamp(elapsed / 3.0, 0.0, 1.0));
+            double close = smoothStep(Math.clamp(titmouseBarkskipTimer / 4.0, 0.0, 1.0));
+            return 0.08 + open * close * 0.72;
+        }
+        if (titmouseScoldTimer > 0) {
+            int total = titmouseScoldUltimate
+                    ? TITMOUSE_SCOLD_ACTIVE_FRAMES + 4 : TITMOUSE_SCOLD_ACTIVE_FRAMES;
+            double phase = pigeonSpecialPhase(titmouseScoldTimer, total);
+            return 0.12 + Math.sin(phase * Math.PI) * 0.66;
+        }
+        if (titmouseStashCharging) {
+            double plant = smoothStep(Math.clamp(
+                    titmouseStashHoldFrames / (double) TITMOUSE_STASH_HOLD_FRAMES, 0.0, 1.0));
+            return 0.10 + plant * 0.52;
+        }
+        if (state == BirdAnimationState.FLAP || isFlying) {
+            double phase = positiveModulo(animationGlobalFrame + playerIndex * 7.0, 16.0) / 16.0;
+            return 0.62 + smoothStep(0.5 + 0.5 * Math.cos(phase * Math.PI * 2.0)) * 0.38;
+        }
+        if (state == BirdAnimationState.FALL) {
+            return 0.52;
+        }
+        if (state == BirdAnimationState.ATTACK) {
+            return 0.30;
         }
         if (state == BirdAnimationState.HITSTUN || state == BirdAnimationState.KO) {
             return 0.14;
@@ -33508,7 +34126,8 @@ public class Bird {
                 || type == BirdGame3.BirdType.RAZORBILL
                 || type == BirdGame3.BirdType.GRINCHHAWK
                 || type == BirdGame3.BirdType.VULTURE
-                || type == BirdGame3.BirdType.OPIUMBIRD) return;
+                || type == BirdGame3.BirdType.OPIUMBIRD
+                || type == BirdGame3.BirdType.TITMOUSE) return;
         Color accent = game.classicSkinAccentColor(type);
         g.setStroke(accent.deriveColor(0, 1, 1, 0.9));
         g.setLineWidth(3.2 * sizeMultiplier);
@@ -33617,38 +34236,6 @@ public class Bird {
 
     private void drawSpecialSkinAccent(GraphicsContext g, double drawSize) {
         double s = sizeMultiplier;
-        if (type == BirdGame3.BirdType.TITMOUSE
-                && BirdGame3.OLD_SPARROW_SKIN.equals(appliedSkinKey)) {
-            Color silver = Color.web("#E0DDD7");
-            Color feather = Color.web("#3F3027");
-            g.setStroke(feather.deriveColor(0, 1, 1, 0.74));
-            g.setLineCap(StrokeLineCap.ROUND);
-            g.setLineWidth(1.6 * s);
-            for (int i = 0; i < 4; i++) {
-                double featherY = y + (38.0 + i * 7.0) * s;
-                g.strokeLine(x + (facingRight ? 16.0 : 64.0) * s, featherY,
-                        x + (facingRight ? 50.0 - i * 2.0 : 30.0 + i * 2.0) * s,
-                        featherY - (4.0 - i) * s);
-            }
-            HeadPose headPose = currentHeadPose();
-            double crestX = headPose.centerX() + (facingRight ? -5.0 : 5.0) * s;
-            double crestY = headPose.centerY() - 20.0 * s;
-            g.setFill(silver.deriveColor(0, 1, 1, 0.94));
-            g.fillPolygon(
-                    new double[]{crestX - 12.0 * s, crestX - 4.0 * s, crestX + 2.0 * s},
-                    new double[]{crestY + 5.0 * s, crestY - 17.0 * s, crestY + 5.0 * s},
-                    3);
-            g.fillPolygon(
-                    new double[]{crestX - 2.0 * s, crestX + 7.0 * s, crestX + 11.0 * s},
-                    new double[]{crestY + 4.0 * s, crestY - 12.0 * s, crestY + 7.0 * s},
-                    3);
-            g.setStroke(Color.web("#A98242").deriveColor(0, 1, 1, 0.88));
-            g.setLineWidth(2.6 * s);
-            g.strokeLine(x + (facingRight ? 59.0 : 21.0) * s, y + 57.0 * s,
-                    x + (facingRight ? 63.0 : 17.0) * s, y + 69.0 * s);
-            g.setFill(Color.web("#C9A96A"));
-            g.fillOval(x + (facingRight ? 58.0 : 14.0) * s, y + 64.0 * s, 8.0 * s, 7.0 * s);
-        }
         if (type == BirdGame3.BirdType.FALCON && isDuneSkin) {
             g.setStroke(Color.web("#8D6E63").deriveColor(0, 1, 1, 0.7));
             g.setLineWidth(2.2 * s);
@@ -33676,14 +34263,6 @@ public class Bird {
             g.strokeLine(x + 34 * s, y + 38 * s, x + 24 * s, y + 62 * s);
             g.setStroke(Color.web("#CFD8DC").deriveColor(0, 1, 1, 0.55));
             g.strokeArc(x - 4 * s, y + 8 * s, drawSize + 8 * s, drawSize * 0.54, 210, 120, ArcType.OPEN);
-        }
-        if (type == BirdGame3.BirdType.TITMOUSE && isCircuitSkin) {
-            g.setStroke(Color.web("#00E5FF").deriveColor(0, 1, 1, 0.85));
-            g.setLineWidth(2.4 * s);
-            g.strokeLine(x + 18 * s, y + 46 * s, x + 62 * s, y + 30 * s);
-            g.strokeLine(x + 26 * s, y + 30 * s, x + 26 * s, y + 64 * s);
-            g.setFill(Color.web("#FF4081"));
-            g.fillOval(x + 58 * s, y + 26 * s, 6 * s, 6 * s);
         }
         if (type == BirdGame3.BirdType.PELICAN && isAuroraSkin) {
             g.setFill(Color.web("#80DEEA").deriveColor(0, 1, 1, 0.35));
@@ -34575,6 +35154,10 @@ public class Bird {
         }
         if (type == BirdGame3.BirdType.OPIUMBIRD) {
             // Opium Bird's small hooked bill is part of his dedicated model.
+            return;
+        }
+        if (type == BirdGame3.BirdType.TITMOUSE) {
+            // Titmouse's short songbird bill opens with its authored call pose.
             return;
         }
         if (type == BirdGame3.BirdType.RAVEN) {
