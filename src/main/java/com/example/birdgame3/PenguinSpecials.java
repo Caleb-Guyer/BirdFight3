@@ -582,7 +582,7 @@ final class PenguinSpecials {
         if (guardedDistance > (fort.ultimate ? 150.0 : 128.0) * bird.sizeMultiplier) {
             return scaledDamage;
         }
-        double reduction = fort.ultimate ? 0.32 : 0.22;
+        double reduction = fort.ultimate ? 0.32 : 0.28;
         double absorbed = scaledDamage * reduction;
         fort.health = Math.max(0, fort.health - Math.max(1, (int) Math.ceil(absorbed * 1.35)));
         fort.damageFlash = Math.max(fort.damageFlash, 8);
@@ -977,7 +977,7 @@ final class PenguinSpecials {
         if (attacker.playerIndex >= 0 && attacker.playerIndex < fort.hitCooldown.length) {
             fort.hitCooldown[attacker.playerIndex] = 8;
         }
-        int damage = Math.max(8, (int) Math.round(rawDamage * 0.95));
+        int damage = snowFortAttackDamage(owner, attacker, rawDamage);
         fort.health = Math.max(0, fort.health - damage);
         fort.damageFlash = Math.max(fort.damageFlash, 10);
         double dir = Math.signum(fort.x - attackCenterX);
@@ -987,6 +987,17 @@ final class PenguinSpecials {
         emitIceBurst(owner, fort.x + dir * halfWidth * 0.75, fort.y - height * 0.48,
                 (int) dir, fort.ultimate ? 16 : 11, fort.ultimate ? Color.GOLD : Color.WHITE);
         owner.game.shakeIntensity = Math.max(owner.game.shakeIntensity, fort.ultimate ? 5 : 3);
+    }
+
+    static int snowFortAttackDamage(Bird owner, Bird attacker, double rawDamage) {
+        double damage = Math.max(8.0, rawDamage * 0.95);
+        if (attacker != null && attacker.type != null) {
+            damage *= attacker.type.damageDealtMult;
+        }
+        if (owner != null && owner.type != null) {
+            damage *= owner.type.damageTakenMult;
+        }
+        return Math.max(1, (int) Math.round(damage));
     }
 
     private static void updateIceObjects(Bird bird) {

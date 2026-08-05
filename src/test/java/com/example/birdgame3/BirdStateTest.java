@@ -4835,6 +4835,48 @@ class BirdStateTest {
     }
 
     @Test
+    void penguinSnowFortDamageUsesBothFightersTuning() {
+        double originalEagleDamage = BirdGame3.BirdType.EAGLE.damageDealtMult;
+        double originalPenguinDamageTaken = BirdGame3.BirdType.PENGUIN.damageTakenMult;
+        try {
+            BirdGame3.BirdType.EAGLE.damageDealtMult = 0.5;
+            BirdGame3.BirdType.PENGUIN.damageTakenMult = 0.8;
+            BirdGame3 game = new BirdGame3();
+            Bird penguin = new Bird(120.0, BirdGame3.BirdType.PENGUIN, 0, game);
+            Bird eagle = new Bird(300.0, BirdGame3.BirdType.EAGLE, 1, game);
+
+            assertEquals(8, PenguinSpecials.snowFortAttackDamage(penguin, eagle, 20.0),
+                    "Deployables should inherit the same outgoing and incoming tuning as their fighters.");
+        } finally {
+            BirdGame3.BirdType.EAGLE.damageDealtMult = originalEagleDamage;
+            BirdGame3.BirdType.PENGUIN.damageTakenMult = originalPenguinDamageTaken;
+        }
+    }
+
+    @Test
+    void penguinSnowFortGuardKeepsUltimateAdvantage() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+        Bird penguin = new Bird(120.0, BirdGame3.BirdType.PENGUIN, 0, game);
+        Bird attacker = new Bird(300.0, BirdGame3.BirdType.EAGLE, 1, game);
+        penguin.y = BirdGame3.GROUND_Y - penguin.bodyHeight();
+        attacker.y = BirdGame3.GROUND_Y - attacker.bodyHeight();
+        penguin.facingRight = true;
+        game.players[0] = penguin;
+        game.players[1] = attacker;
+
+        PenguinSpecials.down(penguin, false);
+        assertEquals(14.4, PenguinSpecials.adjustDamageForSnowFort(penguin, attacker, 20.0), 0.0001,
+                "A correctly positioned normal fort should intercept 28% of incoming damage.");
+        assertEquals(Bird.PENGUIN_SNOW_FORT_HEALTH - 8, penguin.penguinSnowFort.health);
+
+        PenguinSpecials.down(penguin, true);
+        assertEquals(13.6, PenguinSpecials.adjustDamageForSnowFort(penguin, attacker, 20.0), 0.0001,
+                "The ultimate fort should retain its stronger 32% guard.");
+        assertEquals(Bird.PENGUIN_SNOW_FORT_HEALTH + 34 - 9, penguin.penguinSnowFort.health);
+    }
+
+    @Test
     void penguinSnowFortDoesNotExpireByTimerAndClearsOnDeath() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 1;
