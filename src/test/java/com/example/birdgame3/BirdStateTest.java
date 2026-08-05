@@ -1242,6 +1242,59 @@ class BirdStateTest {
     }
 
     @Test
+    void pelicanAiKeepsCommittedSpecialsOverSafeLandingLanes() {
+        BirdGame3 game = new BirdGame3();
+        game.harnessPrepareMatch(
+                BirdGame3.BirdType.PELICAN,
+                BirdGame3.BirdType.PIGEON,
+                0x5AFE1ADEL,
+                BirdGame3.MapType.BATTLEFIELD);
+        Bird pelican = game.players[0];
+        Bird target = game.players[1];
+        Platform mainStage = null;
+        for (Platform platform : game.platforms) {
+            if (mainStage == null || platform.w > mainStage.w) {
+                mainStage = platform;
+            }
+        }
+        assertNotNull(mainStage);
+
+        pelican.x = mainStage.x + mainStage.w * 0.5 - pelican.bodyWidth() * 0.5;
+        pelican.y = mainStage.y - 360.0;
+        pelican.vx = 0.0;
+        target.x = pelican.x + 180.0;
+        target.y = pelican.y - 170.0;
+        double distance = pelican.combatDistanceTo(target);
+        assertEquals(Bird.DirectionalSpecialInput.UP,
+                pelican.choosePelicanAISpecialInput(target, distance, false, true, false, false),
+                "Thermal Sail should remain available when its forced Keel Dive has solid ground below.");
+
+        pelican.x = mainStage.x - 520.0;
+        target.x = pelican.x + 180.0;
+        distance = pelican.combatDistanceTo(target);
+        assertNotEquals(Bird.DirectionalSpecialInput.UP,
+                pelican.choosePelicanAISpecialInput(target, distance, false, true, false, false),
+                "CPU Pelican must not start a forced Keel Dive over the lower blast zone.");
+
+        pelican.pelicanCargoCount = 2;
+        pelican.y = mainStage.y - pelican.bodyHeight();
+        pelican.x = mainStage.x + mainStage.w * 0.5 - pelican.bodyWidth() * 0.5;
+        target.x = pelican.x + 280.0;
+        target.y = pelican.y;
+        distance = pelican.combatDistanceTo(target);
+        assertEquals(Bird.DirectionalSpecialInput.SIDE,
+                pelican.choosePelicanAISpecialInput(target, distance, true, false, false, false),
+                "Breakwater Run should remain available when its full route stays above the island.");
+
+        pelican.x = mainStage.x + mainStage.w - pelican.bodyWidth() - 30.0;
+        target.x = pelican.x + 280.0;
+        distance = pelican.combatDistanceTo(target);
+        assertNotEquals(Bird.DirectionalSpecialInput.SIDE,
+                pelican.choosePelicanAISpecialInput(target, distance, true, false, false, false),
+                "CPU Pelican must not spend cargo on a Breakwater Run that carries him beyond every landing lane.");
+    }
+
+    @Test
     void mockingbirdAiUsesItsKitInsteadOfEmptyNeutral() {
         assertEquals(20, Bird.aiSpecialDecisionCooldownFor(BirdGame3.BirdType.MOCKINGBIRD),
                 "Charles needs the same setup cadence as the other technical fighters.");

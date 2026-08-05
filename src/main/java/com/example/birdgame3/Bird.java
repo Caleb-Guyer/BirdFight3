@@ -10058,27 +10058,7 @@ public class Bird {
                 if (dist > 130.0 && dist < 330.0 && batWingcutReuseTimer <= 0) yield DirectionalSpecialInput.SIDE;
                 yield DirectionalSpecialInput.NEUTRAL;
             }
-            case PELICAN -> {
-                double horizontalGap = Math.abs(target.bodyCenterX() - bodyCenterX());
-                if (!onGround && targetAbove && !pelicanUpSpecialUsed) yield DirectionalSpecialInput.UP;
-                if (pelicanCargoCount <= 0) {
-                    if (onGround && dist > 255.0 && dist < 560.0 && !enemyActive && pelicanDownReuseTimer <= 0) {
-                        yield DirectionalSpecialInput.DOWN;
-                    }
-                    if (dist < 188.0 && Math.abs(dy) < 130.0 && pelicanNeutralReuseTimer <= 0) {
-                        yield DirectionalSpecialInput.NEUTRAL;
-                    }
-                    if (dist > 120.0 && dist < 390.0 && Math.abs(dy) < 190.0 && pelicanSideReuseTimer <= 0) {
-                        yield DirectionalSpecialInput.SIDE;
-                    }
-                    yield DirectionalSpecialInput.NEUTRAL;
-                }
-                if (!onGround && targetBelow && horizontalGap < 230.0 && pelicanDownReuseTimer <= 0) yield DirectionalSpecialInput.DOWN;
-                if (dist > 108.0 && dist < 415.0 && Math.abs(dy) < 200.0 && pelicanSideReuseTimer <= 0) yield DirectionalSpecialInput.SIDE;
-                if ((horizontalGap < 260.0 || enemyActive) && Math.abs(dy) < 175.0 && pelicanDownReuseTimer <= 0) yield DirectionalSpecialInput.DOWN;
-                if (dist < 205.0 && Math.abs(dy) < 145.0 && pelicanNeutralReuseTimer <= 0) yield DirectionalSpecialInput.NEUTRAL;
-                yield DirectionalSpecialInput.NEUTRAL;
-            }
+            case PELICAN -> choosePelicanAISpecialInput(target, dist, onGround, targetAbove, targetBelow, enemyActive);
             case RAVEN -> {
                 boolean targetMarked = target.ravenPortentOwnerIndex == playerIndex && target.ravenPortentTimer > 0;
                 if (!onGround && targetAbove && !ravenLiftUsed) yield DirectionalSpecialInput.UP;
@@ -10103,6 +10083,71 @@ public class Bird {
                 yield DirectionalSpecialInput.NEUTRAL;
             }
         };
+    }
+
+    DirectionalSpecialInput choosePelicanAISpecialInput(Bird target, double dist, boolean onGround,
+                                                        boolean targetAbove, boolean targetBelow,
+                                                        boolean enemyActive) {
+        double dy = target.bodyCenterY() - bodyCenterY();
+        double horizontalGap = Math.abs(target.bodyCenterX() - bodyCenterX());
+        int dir = target.bodyCenterX() >= bodyCenterX() ? 1 : -1;
+        if (!onGround && targetAbove && !pelicanUpSpecialUsed && canPelicanAIKeelDiveSafely()) {
+            return DirectionalSpecialInput.UP;
+        }
+        if (pelicanCargoCount <= 0) {
+            if (onGround && dist > 255.0 && dist < 560.0 && !enemyActive && pelicanDownReuseTimer <= 0) {
+                return DirectionalSpecialInput.DOWN;
+            }
+            if (dist < 188.0 && Math.abs(dy) < 130.0 && pelicanNeutralReuseTimer <= 0) {
+                return DirectionalSpecialInput.NEUTRAL;
+            }
+            if (dist > 120.0 && dist < 390.0 && Math.abs(dy) < 190.0
+                    && pelicanSideReuseTimer <= 0 && canPelicanAIBreakwaterSafely(dir)) {
+                return DirectionalSpecialInput.SIDE;
+            }
+            return DirectionalSpecialInput.NEUTRAL;
+        }
+        if (!onGround && targetBelow && horizontalGap < 230.0 && pelicanDownReuseTimer <= 0) {
+            return DirectionalSpecialInput.DOWN;
+        }
+        if (dist > 108.0 && dist < 415.0 && Math.abs(dy) < 200.0
+                && pelicanSideReuseTimer <= 0 && canPelicanAIBreakwaterSafely(dir)) {
+            return DirectionalSpecialInput.SIDE;
+        }
+        if ((horizontalGap < 260.0 || enemyActive) && Math.abs(dy) < 175.0 && pelicanDownReuseTimer <= 0) {
+            return DirectionalSpecialInput.DOWN;
+        }
+        return DirectionalSpecialInput.NEUTRAL;
+    }
+
+    private boolean canPelicanAIKeelDiveSafely() {
+        double projectedCenterX = bodyCenterX() + vx * 8.0;
+        return hasPelicanAILandingLane(projectedCenterX);
+    }
+
+    private boolean canPelicanAIBreakwaterSafely(int dir) {
+        int effectiveCargo = pelicanEffectiveCargo();
+        boolean empowered = pelicanFullHoldActive();
+        int activeFrames = empowered ? PELICAN_SIDE_FRAMES + 5 : PELICAN_SIDE_FRAMES;
+        double speed = 11.8 + effectiveCargo * 2.8 + (empowered ? 2.8 : 0.0);
+        double projectedCenterX = bodyCenterX() + Integer.signum(dir) * speed * activeFrames;
+        return hasPelicanAILandingLane(projectedCenterX);
+    }
+
+    private boolean hasPelicanAILandingLane(double centerX) {
+        if (!isVoidMap()) {
+            return true;
+        }
+        double minimumLandingY = bodyBottomY() - 12.0 * sizeMultiplier;
+        for (Platform platform : game.platforms) {
+            if (isBoundaryPlatform(platform)) continue;
+            double edgeInset = Math.min(24.0 * sizeMultiplier, platform.w * 0.18);
+            if (centerX < platform.x + edgeInset || centerX > platform.x + platform.w - edgeInset) continue;
+            if (platform.y >= minimumLandingY) {
+                return true;
+            }
+        }
+        return false;
     }
 
     DirectionalSpecialInput chooseMockingbirdAISpecialInput(Bird target, double dist, boolean onGround,
