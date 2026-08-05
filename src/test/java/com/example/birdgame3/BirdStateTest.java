@@ -1295,6 +1295,39 @@ class BirdStateTest {
     }
 
     @Test
+    void heisenbirdAiWaitsForCrystalMeterInsteadOfSpendingScraps() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+        Bird heisenbird = new Bird(240.0, BirdGame3.BirdType.HEISENBIRD, 0, game);
+        Bird target = new Bird(440.0, BirdGame3.BirdType.PIGEON, 1, game);
+        heisenbird.y = target.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = heisenbird;
+        game.players[1] = target;
+        double distance = heisenbird.combatDistanceTo(target);
+
+        assertEquals(Bird.DirectionalSpecialInput.SIDE,
+                heisenbird.chooseHeisenbirdAISpecialInput(distance, true, false, false),
+                "CPU Heisenbird should retain its established Blue Rush priority with a funded crystal meter.");
+
+        heisenbird.opiumResourceMeter = Bird.HEISEN_SIDE_RESOURCE_COST - 1.0;
+        heisenbird.opiumDownReuseTimer = 20;
+        assertEquals(Bird.DirectionalSpecialInput.DOWN,
+                heisenbird.chooseHeisenbirdAISpecialInput(distance, true, false, false),
+                "A depleted CPU Heisenbird should wait for its refill node instead of powering Blue Rush with scraps.");
+
+        heisenbird.opiumResourceMeter = Bird.HEISEN_SIDE_RESOURCE_COST + 1.0;
+        assertEquals(Bird.DirectionalSpecialInput.SIDE,
+                heisenbird.chooseHeisenbirdAISpecialInput(distance, true, false, false),
+                "A funded Blue Rush should remain available while the refill node cools down.");
+
+        heisenbird.opiumUpSpecialUsed = false;
+        heisenbird.opiumResourceMeter = 0.0;
+        assertEquals(Bird.DirectionalSpecialInput.UP,
+                heisenbird.chooseHeisenbirdAISpecialInput(distance, false, true, false),
+                "Crystal Column must remain available as an unfueled recovery when the meter is empty.");
+    }
+
+    @Test
     void mockingbirdAiUsesItsKitInsteadOfEmptyNeutral() {
         assertEquals(20, Bird.aiSpecialDecisionCooldownFor(BirdGame3.BirdType.MOCKINGBIRD),
                 "Charles needs the same setup cadence as the other technical fighters.");

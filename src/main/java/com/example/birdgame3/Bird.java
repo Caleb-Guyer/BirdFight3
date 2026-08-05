@@ -10043,7 +10043,7 @@ public class Bird {
                 if (dist < 300.0 && vultureSideReuseTimer <= 0) yield DirectionalSpecialInput.SIDE;
                 yield DirectionalSpecialInput.NEUTRAL;
             }
-            case OPIUMBIRD, HEISENBIRD -> {
+            case OPIUMBIRD -> {
                 if (!onGround && targetBelow && !opiumUpSpecialUsed) yield DirectionalSpecialInput.UP;
                 if (onGround && opiumDownReuseTimer <= 0 && (opiumResourceMeter < OPIUM_RESOURCE_MAX * 0.42 || dist < 180.0 || targetSettingUp)) {
                     yield DirectionalSpecialInput.DOWN;
@@ -10051,6 +10051,8 @@ public class Bird {
                 if (dist > 135.0 && dist < 340.0 && opiumSideReuseTimer <= 0) yield DirectionalSpecialInput.SIDE;
                 yield DirectionalSpecialInput.NEUTRAL;
             }
+            case HEISENBIRD -> chooseHeisenbirdAISpecialInput(
+                    dist, onGround, targetBelow, targetSettingUp);
             case TITMOUSE -> chooseTitmouseAISpecialInput(target, dist, onGround, targetAbove, targetSettingUp);
             case BAT -> {
                 if (!onGround && targetAbove && !batMoonriseUsed) yield DirectionalSpecialInput.UP;
@@ -10246,6 +10248,31 @@ public class Bird {
         if (!titmouseSeedStashes.isEmpty()
                 && (target.isTitmouseMarkedBy(this) || dist > 170.0)) {
             return DirectionalSpecialInput.SIDE;
+        }
+        return DirectionalSpecialInput.NEUTRAL;
+    }
+
+    DirectionalSpecialInput chooseHeisenbirdAISpecialInput(double dist, boolean onGround,
+                                                            boolean targetBelow, boolean targetSettingUp) {
+        if (!onGround && targetBelow && !opiumUpSpecialUsed) {
+            return DirectionalSpecialInput.UP;
+        }
+
+        if (onGround && opiumDownReuseTimer <= 0
+                && (opiumResourceMeter < OPIUM_RESOURCE_MAX * 0.42
+                || dist < 180.0
+                || targetSettingUp)) {
+            return DirectionalSpecialInput.DOWN;
+        }
+        if (dist > 135.0 && dist < 340.0
+                && opiumSideReuseTimer <= 0
+                && opiumResourceMeter >= HEISEN_SIDE_RESOURCE_COST) {
+            return DirectionalSpecialInput.SIDE;
+        }
+        if (opiumResourceMeter < HEISEN_NEUTRAL_RESOURCE_COST) {
+            // Selecting the cooling-down node makes the readiness gate wait
+            // instead of converting a nearly empty meter into a fueled move.
+            return DirectionalSpecialInput.DOWN;
         }
         return DirectionalSpecialInput.NEUTRAL;
     }
