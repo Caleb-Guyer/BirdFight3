@@ -3743,6 +3743,14 @@ class BirdStateTest {
     }
 
     @Test
+    void eagleAiUsesIndependentRaptorSpecialCadence() {
+        assertEquals(20, Bird.aiSpecialDecisionCooldownFor(BirdGame3.BirdType.EAGLE),
+                "Eagle's independent raptor reuse timers should use the technical-kit CPU decision cadence.");
+        assertEquals(26, Bird.aiSpecialDecisionCooldownFor(BirdGame3.BirdType.FALCON),
+                "Falcon's established decision cadence should remain unchanged by Eagle's pass.");
+    }
+
+    @Test
     void eagleNeutralSpecialUsesHuntersCryConeAndStartsInvisibleReuseTimer() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;

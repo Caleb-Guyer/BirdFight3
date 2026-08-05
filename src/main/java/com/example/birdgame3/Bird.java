@@ -6842,7 +6842,7 @@ public class Bird {
             return 16;
         }
         return switch (birdType) {
-            case SHOEBILL, MOCKINGBIRD, RAZORBILL, OPIUMBIRD, HEISENBIRD, RAVEN, GOOSE -> 20;
+            case EAGLE, SHOEBILL, MOCKINGBIRD, RAZORBILL, OPIUMBIRD, HEISENBIRD, RAVEN, GOOSE -> 20;
             default -> 26;
         };
     }
