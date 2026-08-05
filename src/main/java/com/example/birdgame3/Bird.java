@@ -6837,6 +6837,16 @@ public class Bird {
         };
     }
 
+    static int aiSpecialDecisionCooldownFor(BirdGame3.BirdType birdType) {
+        if (birdType == BirdGame3.BirdType.PIGEON) {
+            return 16;
+        }
+        return switch (birdType) {
+            case SHOEBILL, MOCKINGBIRD, RAZORBILL, OPIUMBIRD, HEISENBIRD, RAVEN, GOOSE -> 20;
+            default -> 26;
+        };
+    }
+
     private int dashCooldown = 0;
     private int dashTimer = 0;
     private int lastTapDir = 0;
@@ -7428,12 +7438,7 @@ public class Bird {
                 configureKitAwareAISpecialInputs(target, targetDist, onGround, lowHealth);
                 if (canAIStartSelectedSpecialOrUltimate()) {
                     game.setAiControlKey(playerIndex, specialKey(), true);
-                    aiSpecialCooldown = type == BirdGame3.BirdType.PIGEON ? 16
-                            : (type == BirdGame3.BirdType.SHOEBILL
-                            || type == BirdGame3.BirdType.RAZORBILL
-                            || type == BirdGame3.BirdType.RAVEN
-                            || type == BirdGame3.BirdType.GOOSE
-                            || isOpiumEchoPair() ? 20 : 26);
+                    aiSpecialCooldown = aiSpecialDecisionCooldownFor(type);
                 } else {
                     clearAISpecialModifierInputs();
                 }
@@ -9986,12 +9991,7 @@ public class Bird {
                 if (dist > 145.0 && dist < 340.0 && Math.abs(dy) < 140.0 && shoebillThrustReuseTimer <= 0) yield DirectionalSpecialInput.SIDE;
                 yield DirectionalSpecialInput.NEUTRAL;
             }
-            case MOCKINGBIRD -> {
-                if (!onGround && targetAbove && !mockingbirdUpSpecialUsed) yield DirectionalSpecialInput.UP;
-                if (onGround && (!loungeActive || lowHealth) && mockingbirdSpecialReady(MockingbirdSpecialVariant.DOWN)) yield DirectionalSpecialInput.DOWN;
-                if (dist > 130.0 && dist < 330.0 && mockingbirdSideReuseTimer <= 0) yield DirectionalSpecialInput.SIDE;
-                yield DirectionalSpecialInput.NEUTRAL;
-            }
+            case MOCKINGBIRD -> chooseMockingbirdAISpecialInput(target, dist, onGround, lowHealth, targetAbove);
             case RAZORBILL -> {
                 if (enemyActive && dist < 215.0 && razorbillCounterReuseTimer <= 0) yield DirectionalSpecialInput.DOWN;
                 if (!onGround && targetAbove && !razorbillUpSpecialUsed) yield DirectionalSpecialInput.UP;
@@ -10092,6 +10092,36 @@ public class Bird {
                 yield DirectionalSpecialInput.NEUTRAL;
             }
         };
+    }
+
+    DirectionalSpecialInput chooseMockingbirdAISpecialInput(Bird target, double dist, boolean onGround,
+                                                            boolean lowHealth, boolean targetAbove) {
+        if (!onGround && targetAbove && !mockingbirdUpSpecialUsed) {
+            return DirectionalSpecialInput.UP;
+        }
+        if (onGround && (!loungeActive || lowHealth)) {
+            return DirectionalSpecialInput.DOWN;
+        }
+        if (onGround && mockingbirdCapturedType == null && target != null
+                && dist < 145.0 && !isInsideMockingbirdLounge(target)) {
+            return DirectionalSpecialInput.DOWN;
+        }
+        if (mockingbirdCapturedType != null
+                && mockingbirdSpecialReady(MockingbirdSpecialVariant.NEUTRAL)) {
+            return DirectionalSpecialInput.NEUTRAL;
+        }
+        if (target != null
+                && dist > 60.0 && dist < 275.0
+                && Math.abs(target.bodyCenterY() - bodyCenterY()) < 135.0) {
+            return DirectionalSpecialInput.SIDE;
+        }
+
+        // An empty neutral is only a question-mark tell. Selecting SIDE while
+        // Mimic Call is unavailable lets the readiness gate decline the action
+        // instead of making the CPU repeatedly spend offense decisions on a no-op.
+        return mockingbirdCapturedType == null
+                ? DirectionalSpecialInput.SIDE
+                : DirectionalSpecialInput.NEUTRAL;
     }
 
     private DirectionalSpecialInput aiUltimateSpecialInput(Bird target, double dist, boolean onGround, boolean lowHealth,
@@ -10334,8 +10364,9 @@ public class Bird {
                         || (onGround && dist < 220 && enemyActive && shoebillStatueReuseTimer <= 0);
             case MOCKINGBIRD:
                 return (onGround && (!loungeActive || lowHealth || enemySetup))
-                        || (dist > 130 && dist < 340)
-                        || (mockingbirdCapturedType != null && dist < 330);
+                        || (mockingbirdCapturedType != null && dist < 330)
+                        || (mockingbirdCapturedType == null
+                        && dist > 60 && dist < 275 && Math.abs(dy) < 135);
             case RAZORBILL:
                 return (dist < 290 && Math.abs(dy) < 150)
                         || (enemyActive && dist < 230 && razorbillCounterReuseTimer <= 0)

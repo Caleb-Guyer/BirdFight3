@@ -1142,6 +1142,65 @@ class BirdStateTest {
     }
 
     @Test
+    void mockingbirdAiUsesItsKitInsteadOfEmptyNeutral() {
+        assertEquals(20, Bird.aiSpecialDecisionCooldownFor(BirdGame3.BirdType.MOCKINGBIRD),
+                "Charles needs the same setup cadence as the other technical fighters.");
+        assertEquals(16, Bird.aiSpecialDecisionCooldownFor(BirdGame3.BirdType.PIGEON));
+        assertEquals(26, Bird.aiSpecialDecisionCooldownFor(BirdGame3.BirdType.PHOENIX));
+
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird charles = new Bird(220.0, BirdGame3.BirdType.MOCKINGBIRD, 0, game);
+        Bird target = new Bird(390.0, BirdGame3.BirdType.PIGEON, 1, game);
+        charles.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = charles;
+        game.players[1] = target;
+        double distance = Math.hypot(
+                target.bodyCenterX() - charles.bodyCenterX(),
+                target.bodyCenterY() - charles.bodyCenterY());
+
+        assertEquals(Bird.DirectionalSpecialInput.DOWN,
+                charles.chooseMockingbirdAISpecialInput(target, distance, true, false, false),
+                "Charles should establish the Lounge before trying to fight through his setup kit.");
+
+        charles.loungeActive = true;
+        charles.loungeHealth = Bird.LOUNGE_MAX_HEALTH;
+        charles.loungeX = 1000.0;
+        charles.loungeY = charles.bodyCenterY();
+        target.x = charles.x + 90.0;
+        distance = Math.hypot(
+                target.bodyCenterX() - charles.bodyCenterX(),
+                target.bodyCenterY() - charles.bodyCenterY());
+        assertEquals(Bird.DirectionalSpecialInput.DOWN,
+                charles.chooseMockingbirdAISpecialInput(target, distance, true, false, false),
+                "CPU Charles should move a distant Lounge onto a nearby opponent so he can capture their neutral.");
+
+        target.x = 390.0;
+        distance = Math.hypot(
+                target.bodyCenterX() - charles.bodyCenterX(),
+                target.bodyCenterY() - charles.bodyCenterY());
+        assertEquals(Bird.DirectionalSpecialInput.SIDE,
+                charles.chooseMockingbirdAISpecialInput(target, distance, true, false, false),
+                "Without a captured neutral, the CPU should use Mimic Call instead of the empty question-mark tell.");
+
+        charles.mockingbirdSideReuseTimer = 20;
+        assertEquals(Bird.DirectionalSpecialInput.SIDE,
+                charles.chooseMockingbirdAISpecialInput(target, distance, true, false, false),
+                "When Mimic Call is recharging, its readiness gate should decline the action rather than falling back to empty neutral.");
+
+        charles.mockingbirdCapturedType = BirdGame3.BirdType.PIGEON;
+        assertEquals(Bird.DirectionalSpecialInput.NEUTRAL,
+                charles.chooseMockingbirdAISpecialInput(target, distance, true, false, false),
+                "Once Charles earns a copied neutral, the CPU should actually use it before another Mimic Call.");
+
+        assertEquals(Bird.DirectionalSpecialInput.DOWN,
+                charles.chooseMockingbirdAISpecialInput(target, distance, true, true, false),
+                "Low-health Charles should still move the Lounge to his current position for healing.");
+    }
+
+    @Test
     void mockingbirdLoungeCaptureUsesBodyOverlapForLargeBirds() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;
