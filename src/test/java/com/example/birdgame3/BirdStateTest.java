@@ -1328,6 +1328,58 @@ class BirdStateTest {
     }
 
     @Test
+    void ravenAiChargesBlackQuillOnlyAtSafeZoningRange() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+        Bird raven = new Bird(240.0, BirdGame3.BirdType.RAVEN, 0, game);
+        Bird distantTarget = new Bird(680.0, BirdGame3.BirdType.PIGEON, 1, game);
+        raven.y = distantTarget.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = raven;
+        game.players[1] = distantTarget;
+        game.isAI[0] = true;
+        setPrivateInt(raven, "aiLockedTargetIndex", 1);
+
+        raven.specialRavenBlackQuill(false);
+        assertTrue(raven.shouldRavenAIChargeBlackQuill(),
+                "A distant inactive target should give CPU Raven room to charge the fan.");
+        for (int frame = 0; frame < Bird.RAVEN_QUILL_CHARGE_FAN_FRAMES; frame++) {
+            raven.update(1.0);
+        }
+
+        assertTrue(raven.ravenQuillCharging,
+                "CPU Raven should keep holding Black Quill through its authored fan threshold.");
+        assertEquals(Bird.RAVEN_QUILL_CHARGE_FAN_FRAMES, raven.ravenQuillChargeFrames);
+
+        raven.update(1.0);
+
+        assertFalse(raven.ravenQuillCharging,
+                "CPU Raven should release as soon as the three-quill fan is ready.");
+        List<?> quills = (List<?>) getPrivateObject(raven, "ravenQuills");
+        assertEquals(3, quills.size(),
+                "The completed CPU charge should fire Raven's full three-projectile fan.");
+
+        BirdGame3 pressureGame = new BirdGame3();
+        pressureGame.activePlayers = 2;
+        Bird pressuredRaven = new Bird(240.0, BirdGame3.BirdType.RAVEN, 0, pressureGame);
+        Bird closeTarget = new Bird(350.0, BirdGame3.BirdType.PIGEON, 1, pressureGame);
+        pressuredRaven.y = closeTarget.y = BirdGame3.GROUND_Y - 80.0;
+        pressureGame.players[0] = pressuredRaven;
+        pressureGame.players[1] = closeTarget;
+        pressureGame.isAI[0] = true;
+        setPrivateInt(pressuredRaven, "aiLockedTargetIndex", 1);
+
+        pressuredRaven.specialRavenBlackQuill(false);
+        assertFalse(pressuredRaven.shouldRavenAIChargeBlackQuill(),
+                "CPU Raven should not stand still charging while an opponent is already in close range.");
+        pressuredRaven.update(1.0);
+
+        assertFalse(pressuredRaven.ravenQuillCharging);
+        List<?> quickQuills = (List<?>) getPrivateObject(pressuredRaven, "ravenQuills");
+        assertEquals(1, quickQuills.size(),
+                "Under close pressure CPU Raven should release the fast single-quill shot.");
+    }
+
+    @Test
     void mockingbirdAiUsesItsKitInsteadOfEmptyNeutral() {
         assertEquals(20, Bird.aiSpecialDecisionCooldownFor(BirdGame3.BirdType.MOCKINGBIRD),
                 "Charles needs the same setup cadence as the other technical fighters.");

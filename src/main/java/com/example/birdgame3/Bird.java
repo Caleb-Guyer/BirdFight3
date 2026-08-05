@@ -8985,6 +8985,13 @@ public class Bird {
             game.setAiControlKey(playerIndex, blockKey(), true);
             return true;
         }
+        if (type == BirdGame3.BirdType.RAVEN
+                && ravenQuillCharging
+                && ravenQuillChargeFrames < RAVEN_QUILL_CHARGE_FAN_FRAMES
+                && shouldRavenAIChargeBlackQuill()) {
+            game.setAiControlKey(playerIndex, specialKey(), true);
+            return true;
+        }
         if (type == BirdGame3.BirdType.TITMOUSE
                 && titmouseStashCharging
                 && titmouseSeedStashes.size() >= TITMOUSE_MAX_STASHES) {
@@ -8993,6 +9000,13 @@ public class Bird {
             return true;
         }
         return false;
+    }
+
+    boolean shouldRavenAIChargeBlackQuill() {
+        Bird target = currentAILockedTarget();
+        return target != null
+                && combatDistanceTo(target) > 225.0
+                && !aiTargetHasActiveThreat(target);
     }
 
     private void resetAIDropCommit() {
