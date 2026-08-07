@@ -1870,6 +1870,8 @@ public class Bird {
     double roadrunnerRedlineLastEndY = 0.0;
     final boolean[] roadrunnerRedlineCaught = new boolean[4];
     static final int GRINCH_HEART_SNATCH_FRAMES = 18;
+    static final int GRINCH_HEART_SNATCH_STARTUP_FRAMES = 5;
+    static final int GRINCH_HEART_SNATCH_ACTIVE_FRAMES = 2;
     static final int GRINCH_SLEIGH_LIFE_FRAMES = 180;
     static final double GRINCH_SLEIGH_SPEED = 18.0;
     static final int GRINCH_CHIMNEY_FLAP_FRAMES = 24;

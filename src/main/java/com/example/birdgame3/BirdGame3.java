@@ -10467,7 +10467,7 @@ public class BirdGame3 {
         GRINCHHAWK_DRILL(
                 "Grinch-Hawk Gift Route",
                 "Land Heart Snatch, hit with Sleigh Crash, hit Chimney Flap, then place Fake Present.",
-                "Neutral steals health. Side rides or launches the sleigh. Up covers vertical space. Down leaves the present trap.",
+                "Neutral flashes, then pulls foes in while stealing health. Follow that pull with Side Sleigh Crash. Up covers vertical space. Down leaves the present trap.",
                 MapType.BATTLEFIELD,
                 BirdType.GRINCHHAWK,
                 BirdType.PIGEON,

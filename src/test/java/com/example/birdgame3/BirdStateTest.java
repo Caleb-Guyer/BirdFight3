@@ -5011,6 +5011,89 @@ class BirdStateTest {
     }
 
     @Test
+    void grinchhawkHeartSnatchTelegraphsBeforeItsActiveWindow() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird grinch = new Bird(300.0, BirdGame3.BirdType.GRINCHHAWK, 0, game);
+        Bird target = new Bird(370.0, BirdGame3.BirdType.PIGEON, 1, game);
+        grinch.y = BirdGame3.GROUND_Y - grinch.bodyHeight();
+        target.y = BirdGame3.GROUND_Y - target.bodyHeight();
+        game.players[0] = grinch;
+        game.players[1] = target;
+
+        double healthBefore = target.health;
+        GrinchhawkSpecials.neutral(grinch, false);
+
+        assertEquals(Bird.GRINCH_HEART_SNATCH_FRAMES, grinch.grinchHeartSnatchTimer);
+        assertFalse(GrinchhawkSpecials.heartSnatchActive(grinch));
+        assertEquals(healthBefore, target.health, 0.0001,
+                "Heart Snatch must show its claw before the hitbox becomes active.");
+
+        for (int frame = 1; frame < Bird.GRINCH_HEART_SNATCH_STARTUP_FRAMES; frame++) {
+            GrinchhawkSpecials.handleState(grinch, false, 1.0, false, false);
+            assertEquals(healthBefore, target.health, 0.0001,
+                    "Heart Snatch must remain harmless throughout startup.");
+        }
+
+        GrinchhawkSpecials.handleState(grinch, false, 1.0, false, false);
+        assertTrue(GrinchhawkSpecials.heartSnatchActive(grinch));
+        assertTrue(target.health < healthBefore,
+                "Heart Snatch should connect when its readable active window begins.");
+    }
+
+    @Test
+    void grinchhawkHeartSnatchPullsTargetsIntoTheSleighRoute() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird grinch = new Bird(300.0, BirdGame3.BirdType.GRINCHHAWK, 0, game);
+        Bird target = new Bird(390.0, BirdGame3.BirdType.PIGEON, 1, game);
+        grinch.y = BirdGame3.GROUND_Y - grinch.bodyHeight();
+        target.y = BirdGame3.GROUND_Y - target.bodyHeight();
+        game.players[0] = grinch;
+        game.players[1] = target;
+
+        GrinchhawkSpecials.neutral(grinch, false);
+        for (int frame = 0; frame < Bird.GRINCH_HEART_SNATCH_STARTUP_FRAMES; frame++) {
+            GrinchhawkSpecials.handleState(grinch, false, 1.0, false, false);
+        }
+
+        assertTrue(grinch.grinchHeartSnatchHit[target.playerIndex]);
+        assertTrue(target.vx < 0.0,
+                "A target in front of right-facing Grinch-Hawk should be pulled inward, not launched away.");
+        assertTrue(game.hitstopFrames >= 4,
+                "The confirmed catch should have enough impact pause to read clearly.");
+    }
+
+    @Test
+    void grinchhawkHeartSnatchActiveWindowDoesNotLinger() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird grinch = new Bird(300.0, BirdGame3.BirdType.GRINCHHAWK, 0, game);
+        Bird target = new Bird(700.0, BirdGame3.BirdType.PIGEON, 1, game);
+        grinch.y = BirdGame3.GROUND_Y - grinch.bodyHeight();
+        target.y = BirdGame3.GROUND_Y - target.bodyHeight();
+        game.players[0] = grinch;
+        game.players[1] = target;
+
+        GrinchhawkSpecials.neutral(grinch, false);
+        for (int frame = 0; frame < Bird.GRINCH_HEART_SNATCH_STARTUP_FRAMES
+                + Bird.GRINCH_HEART_SNATCH_ACTIVE_FRAMES; frame++) {
+            GrinchhawkSpecials.handleState(grinch, false, 1.0, false, false);
+        }
+
+        assertFalse(GrinchhawkSpecials.heartSnatchActive(grinch));
+        double healthBefore = target.health;
+        target.x = 370.0;
+        GrinchhawkSpecials.handleState(grinch, false, 1.0, false, false);
+
+        assertEquals(healthBefore, target.health, 0.0001,
+                "Heart Snatch must not become a lingering proximity hitbox after its catch window closes.");
+    }
+
+    @Test
     void grinchhawkForcedSleighEjectionFallsFromItsCurrentPosition() {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 1;

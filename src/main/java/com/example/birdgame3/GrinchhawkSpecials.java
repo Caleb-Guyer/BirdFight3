@@ -48,6 +48,9 @@ final class GrinchhawkSpecials {
 
         if (bird.grinchHeartSnatchTimer > 0) {
             bird.grinchHeartSnatchTimer--;
+            if (heartSnatchActive(bird)) {
+                applyHeartSnatchHit(bird);
+            }
         }
 
         if (bird.type != BirdGame3.BirdType.GRINCHHAWK) {
@@ -618,10 +621,21 @@ final class GrinchhawkSpecials {
         bird.specialMaxCooldown = 0;
         bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, ultimate ? 18 : 14);
         bird.vx *= bird.isOnGround() ? 0.46 : 0.68;
-        applyHeartSnatchHit(bird);
         emitBurst(bird, bird.bodyCenterX() + bird.facingDirection() * 48.0 * bird.sizeMultiplier,
                 bird.bodyCenterY() - 4.0 * bird.sizeMultiplier, bird.facingDirection(),
                 ultimate ? 26 : 16, ultimate ? Color.GOLD : Color.web("#AED581"));
+    }
+
+    static boolean heartSnatchActive(Bird bird) {
+        if (bird == null || bird.grinchHeartSnatchTimer <= 0) {
+            return false;
+        }
+        int totalFrames = bird.grinchHeartSnatchUltimate
+                ? Bird.GRINCH_HEART_SNATCH_FRAMES + 6
+                : Bird.GRINCH_HEART_SNATCH_FRAMES;
+        int elapsed = totalFrames - bird.grinchHeartSnatchTimer;
+        return elapsed >= Bird.GRINCH_HEART_SNATCH_STARTUP_FRAMES
+                && elapsed < Bird.GRINCH_HEART_SNATCH_STARTUP_FRAMES + Bird.GRINCH_HEART_SNATCH_ACTIVE_FRAMES;
     }
 
     static void applyHeartSnatchHit(Bird bird) {
@@ -643,14 +657,18 @@ final class GrinchhawkSpecials {
                     bird,
                     other,
                     bird.grinchHeartSnatchUltimate ? 12 : 8,
-                    dir * (bird.grinchHeartSnatchUltimate ? 9.5 : 6.5),
-                    bird.grinchHeartSnatchUltimate ? -5.5 : -3.4,
+                    -dir * (bird.grinchHeartSnatchUltimate ? 8.5 : 6.0),
+                    bird.grinchHeartSnatchUltimate ? -4.2 : -2.8,
                     true,
                     "snatched",
                     bird.grinchHeartSnatchUltimate ? Color.GOLD : Color.web("#8BC34A")
             );
             if (dealt > 0) {
                 bird.heal(Math.max(2.0, dealt * (bird.grinchHeartSnatchUltimate ? 0.90 : 0.65)));
+                bird.game.hitstopFrames = Math.max(bird.game.hitstopFrames,
+                        bird.grinchHeartSnatchUltimate ? 6 : 4);
+                bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity,
+                        bird.grinchHeartSnatchUltimate ? 10 : 7);
             }
         }
     }
