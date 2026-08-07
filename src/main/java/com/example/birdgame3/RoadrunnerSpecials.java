@@ -12,6 +12,8 @@ final class RoadrunnerSpecials {
     static final double MOMENTUM_STUN_DECAY_PER_FRAME = 0.75;
     static final double MOMENTUM_GROUND_DECAY_PER_FRAME = 0.22;
     static final double MOMENTUM_AIR_DECAY_PER_FRAME = 0.12;
+    static final double MAX_MOMENTUM_DAMAGE_REDUCTION = 0.18;
+    static final double MAX_MOMENTUM_DAMAGE_BONUS = 0.12;
     static final double CORE_SPECIAL_KNOCKBACK_MULTIPLIER = 1.15;
 
     private RoadrunnerSpecials() {
@@ -108,6 +110,20 @@ final class RoadrunnerSpecials {
 
     static double momentumRatio(Bird bird) {
         return Math.clamp(bird.roadrunnerMomentum / Bird.ROADRUNNER_MOMENTUM_MAX, 0.0, 1.0);
+    }
+
+    static double incomingDamageMultiplier(Bird bird) {
+        if (bird == null || bird.type != BirdGame3.BirdType.ROADRUNNER) {
+            return 1.0;
+        }
+        return 1.0 - momentumRatio(bird) * MAX_MOMENTUM_DAMAGE_REDUCTION;
+    }
+
+    static double outgoingDamageMultiplier(Bird bird) {
+        if (bird == null || bird.type != BirdGame3.BirdType.ROADRUNNER) {
+            return 1.0;
+        }
+        return 1.0 + momentumRatio(bird) * MAX_MOMENTUM_DAMAGE_BONUS;
     }
 
     static void addMomentum(Bird bird, double amount) {

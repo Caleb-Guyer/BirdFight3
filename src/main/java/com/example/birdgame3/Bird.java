@@ -14372,6 +14372,7 @@ public class Bird {
         if (type == BirdGame3.BirdType.PELICAN) {
             mult *= 1.0 - pelicanEffectiveCargo() * 0.08;
         }
+        mult *= RoadrunnerSpecials.incomingDamageMultiplier(this);
         if (titanActive && titanTimer > 0) mult *= 0.75;
         if (shrinkTimer > 0) mult *= 1.22;
         if (type == BirdGame3.BirdType.RAZORBILL && razorbillCounterWhiffTimer > 0) mult *= 1.30;
@@ -14450,6 +14451,7 @@ public class Bird {
         if (type == BirdGame3.BirdType.PHOENIX && phoenixRebornActive) mult *= PHOENIX_REBORN_DAMAGE_SCALE;
         if (type == BirdGame3.BirdType.PHOENIX && phoenixRebirthNovaBuffTimer > 0) mult *= 1.08;
         if (type == BirdGame3.BirdType.PELICAN) mult *= 1.0 + pelicanEffectiveCargo() * 0.06;
+        mult *= RoadrunnerSpecials.outgoingDamageMultiplier(this);
         return mult;
     }
 

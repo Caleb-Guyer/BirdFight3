@@ -1898,6 +1898,69 @@ class BirdStateTest {
     }
 
     @Test
+    void roadrunnerMomentumSoftensDamageWithoutProtectingAnIdleRunner() {
+        double originalDamageTaken = BirdGame3.BirdType.ROADRUNNER.damageTakenMult;
+        try {
+            BirdGame3.BirdType.ROADRUNNER.damageTakenMult = 1.0;
+            BirdGame3 game = new BirdGame3();
+            game.activePlayers = 2;
+
+            Bird movingRunner = new Bird(220.0, BirdGame3.BirdType.ROADRUNNER, 0, game);
+            Bird idleRunner = new Bird(420.0, BirdGame3.BirdType.ROADRUNNER, 1, game);
+            movingRunner.roadrunnerMomentum = Bird.ROADRUNNER_MOMENTUM_MAX;
+            game.players[0] = movingRunner;
+            game.players[1] = idleRunner;
+
+            assertEquals(1.0 - RoadrunnerSpecials.MAX_MOMENTUM_DAMAGE_REDUCTION,
+                    RoadrunnerSpecials.incomingDamageMultiplier(movingRunner), 0.0001);
+            assertEquals(8.2, movingRunner.receiveExternalDamage(10.0), 0.0001,
+                    "Maximum momentum should earn Roadrunner's full damage reduction.");
+            assertTrue(movingRunner.roadrunnerMomentum < Bird.ROADRUNNER_MOMENTUM_MAX,
+                    "Taking the softened hit should still cost momentum.");
+
+            assertEquals(1.0, RoadrunnerSpecials.incomingDamageMultiplier(idleRunner), 0.0001);
+            assertEquals(10.0, idleRunner.receiveExternalDamage(10.0), 0.0001,
+                    "An idle Roadrunner should keep his full glass-cannon vulnerability.");
+        } finally {
+            BirdGame3.BirdType.ROADRUNNER.damageTakenMult = originalDamageTaken;
+        }
+    }
+
+    @Test
+    void roadrunnerMomentumPowersHitsWithoutBuffingAnIdleRunner() {
+        double originalDamageDealt = BirdGame3.BirdType.ROADRUNNER.damageDealtMult;
+        double originalDamageTaken = BirdGame3.BirdType.PIGEON.damageTakenMult;
+        try {
+            BirdGame3.BirdType.ROADRUNNER.damageDealtMult = 1.0;
+            BirdGame3.BirdType.PIGEON.damageTakenMult = 1.0;
+            BirdGame3 game = new BirdGame3();
+            game.activePlayers = 4;
+
+            Bird movingRunner = new Bird(220.0, BirdGame3.BirdType.ROADRUNNER, 0, game);
+            Bird idleRunner = new Bird(420.0, BirdGame3.BirdType.ROADRUNNER, 1, game);
+            Bird movingTarget = new Bird(620.0, BirdGame3.BirdType.PIGEON, 2, game);
+            Bird idleTarget = new Bird(820.0, BirdGame3.BirdType.PIGEON, 3, game);
+            movingRunner.roadrunnerMomentum = Bird.ROADRUNNER_MOMENTUM_MAX;
+            game.players[0] = movingRunner;
+            game.players[1] = idleRunner;
+            game.players[2] = movingTarget;
+            game.players[3] = idleTarget;
+
+            assertEquals(1.0 + RoadrunnerSpecials.MAX_MOMENTUM_DAMAGE_BONUS,
+                    RoadrunnerSpecials.outgoingDamageMultiplier(movingRunner), 0.0001);
+            assertEquals(11.2, movingRunner.applyDamageTo(movingTarget, 10.0), 0.0001,
+                    "Maximum momentum should earn Roadrunner's full outgoing damage bonus.");
+
+            assertEquals(1.0, RoadrunnerSpecials.outgoingDamageMultiplier(idleRunner), 0.0001);
+            assertEquals(10.0, idleRunner.applyDamageTo(idleTarget, 10.0), 0.0001,
+                    "An idle Roadrunner should not receive free damage.");
+        } finally {
+            BirdGame3.BirdType.ROADRUNNER.damageDealtMult = originalDamageDealt;
+            BirdGame3.BirdType.PIGEON.damageTakenMult = originalDamageTaken;
+        }
+    }
+
+    @Test
     void roadrunnerSideRicochetUsesInvisibleReuseAndHitsFast() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;
