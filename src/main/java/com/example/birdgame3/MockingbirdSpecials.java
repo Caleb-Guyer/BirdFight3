@@ -252,13 +252,22 @@ final class MockingbirdSpecials {
     }
 
     static void down(Bird bird, boolean ultimate) {
+        if (!ultimate && bird.mockingbirdLoungeReuseTimer > 0) {
+            return;
+        }
+        boolean relocatingLivingLounge = bird.loungeActive && bird.loungeHealth > 0;
+        int preservedHealth = bird.loungeHealth;
+        boolean royalLounge = ultimate || (relocatingLivingLounge && bird.loungeRoyal);
         bird.loungeActive = true;
         bird.loungeX = bird.x + 40;
         bird.loungeY = bird.y + 40;
-        bird.loungeMaxHealth = ultimate ? 200 : Bird.LOUNGE_MAX_HEALTH;
-        bird.loungeRoyal = ultimate;
-        bird.loungeHealth = bird.loungeMaxHealth;
+        bird.loungeMaxHealth = royalLounge ? 200 : Bird.LOUNGE_MAX_HEALTH;
+        bird.loungeRoyal = royalLounge;
+        bird.loungeHealth = relocatingLivingLounge
+                ? Math.min(preservedHealth, bird.loungeMaxHealth)
+                : bird.loungeMaxHealth;
         bird.mockingbirdUncaptureTimer = 0;
+        bird.mockingbirdLoungeReuseTimer = ultimate ? 30 : Bird.MOCKINGBIRD_LOUNGE_REUSE_FRAMES;
         bird.specialCooldown = 0;
         bird.specialMaxCooldown = 0;
         bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, 12);

@@ -10449,7 +10449,7 @@ public class BirdGame3 {
         MOCKINGBIRD_DRILL(
                 "Mockingbird Lounge Route",
                 "Place Lounge, capture the dummy's neutral, use the copied neutral, then land a route hit.",
-                "Down places Lounge. Bring the dummy inside to capture. Neutral spends the copied move; Side or Up gives the follow-up.",
+                "Down plants or relocates Lounge; relocating keeps its current health. Bring the dummy inside to capture. Neutral spends the copied move; Side or Up follows up.",
                 MapType.BATTLEFIELD,
                 BirdType.MOCKINGBIRD,
                 BirdType.PIGEON,

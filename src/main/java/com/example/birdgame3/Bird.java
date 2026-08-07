@@ -1379,6 +1379,7 @@ public class Bird {
     public int loungeDamageFlash = 0;
     boolean loungeRoyal = false;
     private static final int MOCKINGBIRD_LOUNGE_UNCAPTURE_FRAMES = 180;
+    static final int MOCKINGBIRD_LOUNGE_REUSE_FRAMES = 90;
     static final int MOCKINGBIRD_QUESTION_FRAMES = 44;
     static final int MOCKINGBIRD_SIDE_FX_FRAMES = 18;
     static final int MOCKINGBIRD_SIDE_REUSE_FRAMES = 30;
@@ -1387,6 +1388,7 @@ public class Bird {
     BirdGame3.BirdType mockingbirdCapturedType = null;
     BirdGame3.BirdType mockingbirdCopiedNeutralSource = null;
     int mockingbirdUncaptureTimer = 0;
+    int mockingbirdLoungeReuseTimer = 0;
     int mockingbirdQuestionTimer = 0;
     int mockingbirdSideFxTimer = 0;
     int mockingbirdSideReuseTimer = 0;
@@ -6105,13 +6107,14 @@ public class Bird {
     }
 
     private boolean mockingbirdSpecialReady(MockingbirdSpecialVariant variant) {
+        boolean ultimateReady = isUltimateReady();
         return switch (variant) {
-            case NEUTRAL -> mockingbirdCapturedType == null
+            case NEUTRAL -> ultimateReady || (mockingbirdCapturedType == null
                     ? mockingbirdQuestionTimer <= 0
-                    : mockingbirdCopiedNeutralActive() && mockingbirdCopiedNeutralReady(mockingbirdCapturedType);
-            case SIDE -> mockingbirdSideReuseTimer <= 0 && mockingbirdSideFxTimer <= 0;
-            case UP -> !mockingbirdUpSpecialUsed && mockingbirdUpReuseTimer <= 0 && mockingbirdUpFxTimer <= 0;
-            case DOWN -> true;
+                    : mockingbirdCopiedNeutralActive() && mockingbirdCopiedNeutralReady(mockingbirdCapturedType));
+            case SIDE -> ultimateReady || (mockingbirdSideReuseTimer <= 0 && mockingbirdSideFxTimer <= 0);
+            case UP -> ultimateReady || (!mockingbirdUpSpecialUsed && mockingbirdUpReuseTimer <= 0 && mockingbirdUpFxTimer <= 0);
+            case DOWN -> ultimateReady || mockingbirdLoungeReuseTimer <= 0;
         };
     }
 
@@ -10233,10 +10236,11 @@ public class Bird {
         if (!onGround && targetAbove && !mockingbirdUpSpecialUsed) {
             return DirectionalSpecialInput.UP;
         }
-        if (onGround && (!loungeActive || lowHealth)) {
+        if (onGround && mockingbirdLoungeReuseTimer <= 0 && (!loungeActive || lowHealth)) {
             return DirectionalSpecialInput.DOWN;
         }
-        if (onGround && mockingbirdCapturedType == null && target != null
+        if (onGround && mockingbirdLoungeReuseTimer <= 0
+                && mockingbirdCapturedType == null && target != null
                 && dist < 145.0 && !isInsideMockingbirdLounge(target)) {
             return DirectionalSpecialInput.DOWN;
         }
@@ -11781,6 +11785,7 @@ public class Bird {
         roosterSideReuseTimer = Math.max(0, (int)(roosterSideReuseTimer - gameSpeed));
         roosterDownReuseTimer = Math.max(0, (int)(roosterDownReuseTimer - gameSpeed));
         roosterCommandFxTimer = Math.max(0, (int)(roosterCommandFxTimer - gameSpeed));
+        mockingbirdLoungeReuseTimer = Math.max(0, (int)(mockingbirdLoungeReuseTimer - gameSpeed));
         mockingbirdQuestionTimer = Math.max(0, (int)(mockingbirdQuestionTimer - gameSpeed));
         mockingbirdSideFxTimer = Math.max(0, (int)(mockingbirdSideFxTimer - gameSpeed));
         mockingbirdSideReuseTimer = Math.max(0, (int)(mockingbirdSideReuseTimer - gameSpeed));
@@ -16382,6 +16387,7 @@ public class Bird {
         loungeRoyal = false;
         loungeDamageFlash = 0;
         clearMockingbirdCapturedAbility(false);
+        mockingbirdLoungeReuseTimer = 0;
         mockingbirdQuestionTimer = 0;
         mockingbirdSideFxTimer = 0;
         mockingbirdSideReuseTimer = 0;
@@ -16466,6 +16472,7 @@ public class Bird {
         state.mockingbirdCapturedTypeOrdinal = mockingbirdCapturedType == null ? -1 : mockingbirdCapturedType.ordinal();
         state.mockingbirdCopiedNeutralSourceOrdinal = mockingbirdCopiedNeutralSource == null ? -1 : mockingbirdCopiedNeutralSource.ordinal();
         state.mockingbirdUncaptureTimer = mockingbirdUncaptureTimer;
+        state.mockingbirdLoungeReuseTimer = mockingbirdLoungeReuseTimer;
         state.mockingbirdQuestionTimer = mockingbirdQuestionTimer;
         state.mockingbirdSideFxTimer = mockingbirdSideFxTimer;
         state.mockingbirdSideReuseTimer = mockingbirdSideReuseTimer;
@@ -17104,6 +17111,7 @@ public class Bird {
                 ? types[state.mockingbirdCopiedNeutralSourceOrdinal]
                 : null;
         this.mockingbirdUncaptureTimer = Math.max(0, state.mockingbirdUncaptureTimer);
+        this.mockingbirdLoungeReuseTimer = Math.max(0, state.mockingbirdLoungeReuseTimer);
         this.mockingbirdQuestionTimer = Math.max(0, state.mockingbirdQuestionTimer);
         this.mockingbirdSideFxTimer = Math.max(0, state.mockingbirdSideFxTimer);
         this.mockingbirdSideReuseTimer = Math.max(0, state.mockingbirdSideReuseTimer);

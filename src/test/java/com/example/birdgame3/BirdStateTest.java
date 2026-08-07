@@ -1517,6 +1517,12 @@ class BirdStateTest {
                 charles.chooseMockingbirdAISpecialInput(target, distance, true, false, false),
                 "CPU Charles should move a distant Lounge onto a nearby opponent so he can capture their neutral.");
 
+        charles.mockingbirdLoungeReuseTimer = 20;
+        assertEquals(Bird.DirectionalSpecialInput.SIDE,
+                charles.chooseMockingbirdAISpecialInput(target, distance, true, false, false),
+                "While Lounge relocation is committed, CPU Charles should fight instead of requesting an unavailable move.");
+        charles.mockingbirdLoungeReuseTimer = 0;
+
         target.x = 390.0;
         distance = Math.hypot(
                 target.bodyCenterX() - charles.bodyCenterX(),
@@ -1538,6 +1544,70 @@ class BirdStateTest {
         assertEquals(Bird.DirectionalSpecialInput.DOWN,
                 charles.chooseMockingbirdAISpecialInput(target, distance, true, true, false),
                 "Low-health Charles should still move the Lounge to his current position for healing.");
+    }
+
+    @Test
+    void mockingbirdLoungeRelocationPreservesDamageAndHasCommitment() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        Bird charles = new Bird(220.0, BirdGame3.BirdType.MOCKINGBIRD, 0, game);
+        charles.y = BirdGame3.GROUND_Y - charles.bodyHeight();
+        game.players[0] = charles;
+
+        MockingbirdSpecials.down(charles, false);
+        double originalLoungeX = charles.loungeX;
+        double originalLoungeY = charles.loungeY;
+        assertEquals(Bird.LOUNGE_MAX_HEALTH, charles.loungeHealth);
+        assertEquals(Bird.MOCKINGBIRD_LOUNGE_REUSE_FRAMES, charles.mockingbirdLoungeReuseTimer);
+
+        charles.loungeHealth = 37;
+        charles.x += 240.0;
+        MockingbirdSpecials.down(charles, false);
+        assertEquals(originalLoungeX, charles.loungeX,
+                "Repeated Down Special must not instantly drag Lounge across the arena.");
+        assertEquals(originalLoungeY, charles.loungeY);
+        assertEquals(37, charles.loungeHealth,
+                "An unavailable relocation must not erase damage opponents dealt to Lounge.");
+
+        charles.mockingbirdLoungeReuseTimer = 0;
+        MockingbirdSpecials.down(charles, false);
+        assertEquals(charles.x + 40.0, charles.loungeX,
+                "Lounge should relocate once its short commitment window expires.");
+        assertEquals(charles.y + 40.0, charles.loungeY);
+        assertEquals(37, charles.loungeHealth,
+                "Relocating a living Lounge must preserve its remaining health.");
+        assertEquals(Bird.MOCKINGBIRD_LOUNGE_REUSE_FRAMES, charles.mockingbirdLoungeReuseTimer);
+    }
+
+    @Test
+    void mockingbirdUltimateBypassesEveryDirectionalReuseLock() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        Bird charles = new Bird(220.0, BirdGame3.BirdType.MOCKINGBIRD, 0, game);
+        charles.y = BirdGame3.GROUND_Y - charles.bodyHeight();
+        charles.mockingbirdQuestionTimer = 20;
+        charles.mockingbirdSideReuseTimer = 20;
+        charles.mockingbirdUpSpecialUsed = true;
+        charles.mockingbirdLoungeReuseTimer = 20;
+        game.players[0] = charles;
+        setPrivateDouble(charles, "ultimateMeter", 100.0);
+
+        assertTrue(charles.canStartMockingbirdSpecial(),
+                "Shadow Court must bypass an unavailable empty neutral.");
+
+        game.pressedKeys.add(game.leftKeyForPlayer(0));
+        assertTrue(charles.canStartMockingbirdSpecial(),
+                "Shadow Court must bypass Mimic Call's reuse lock.");
+        game.pressedKeys.clear();
+
+        game.pressedKeys.add(game.jumpKeyForPlayer(0));
+        assertTrue(charles.canStartMockingbirdSpecial(),
+                "Shadow Court must bypass a spent Forest Lift.");
+        game.pressedKeys.clear();
+
+        game.pressedKeys.add(game.blockKeyForPlayer(0));
+        assertTrue(charles.canStartMockingbirdSpecial(),
+                "Shadow Court must bypass Lounge's relocation commitment.");
     }
 
     @Test
