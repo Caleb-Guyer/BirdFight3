@@ -125,6 +125,9 @@ final class PenguinSpecials {
             dropAirIceberg(bird, ultimate);
             return;
         }
+        if (!ultimate && hasActiveSnowFort(bird)) {
+            return;
+        }
         int dir = bird.facingDirection();
         double fortX = bird.bodyCenterX() + dir * 92.0 * bird.sizeMultiplier;
         double fortY = objectSurfaceY(bird, fortX);
@@ -213,8 +216,13 @@ final class PenguinSpecials {
             case NEUTRAL -> ultimateReady || bird.penguinBellyReuseTimer <= 0;
             case SIDE -> ultimateReady || bird.penguinIcebergReuseTimer <= 0;
             case UP -> ultimateReady || !bird.penguinUpSpecialUsed;
-            case DOWN -> ultimateReady || bird.penguinSnowFortReuseTimer <= 0;
+            case DOWN -> ultimateReady || (bird.penguinSnowFortReuseTimer <= 0
+                    && (!bird.isOnGround() || !hasActiveSnowFort(bird)));
         };
+    }
+
+    private static boolean hasActiveSnowFort(Bird bird) {
+        return bird.penguinSnowFort != null && bird.penguinSnowFort.health > 0;
     }
 
     static boolean canConvertShieldIntoDown(Bird bird) {

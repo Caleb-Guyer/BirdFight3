@@ -5363,6 +5363,36 @@ class BirdStateTest {
     }
 
     @Test
+    void penguinCannotRefreshDamagedSnowFortButKeepsAirDrop() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        Bird penguin = new Bird(120.0, BirdGame3.BirdType.PENGUIN, 0, game);
+        penguin.y = BirdGame3.GROUND_Y - penguin.bodyHeight();
+        penguin.facingRight = true;
+        game.players[0] = penguin;
+
+        PenguinSpecials.down(penguin, false);
+        Bird.PenguinSnowFort originalFort = penguin.penguinSnowFort;
+        originalFort.health = 9;
+        penguin.penguinSnowFortReuseTimer = 0;
+
+        assertFalse(PenguinSpecials.ready(penguin, Bird.PenguinSpecialVariant.DOWN),
+                "A living fort must keep its damage instead of becoming replaceable at full health.");
+        PenguinSpecials.down(penguin, false);
+        assertSame(originalFort, penguin.penguinSnowFort);
+        assertEquals(9, originalFort.health);
+
+        penguin.y -= 180.0;
+        penguin.vy = 1.0;
+        assertTrue(PenguinSpecials.ready(penguin, Bird.PenguinSpecialVariant.DOWN),
+                "A living fort should not lock Penguin out of the aerial down-special.");
+        PenguinSpecials.down(penguin, false);
+        assertSame(originalFort, penguin.penguinSnowFort);
+        assertEquals(1, penguin.penguinIceObjects.size());
+        assertTrue(penguin.penguinIceObjects.getFirst().verticalDrop);
+    }
+
+    @Test
     void penguinSnowFortDoesNotExpireByTimerAndClearsOnDeath() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 1;
