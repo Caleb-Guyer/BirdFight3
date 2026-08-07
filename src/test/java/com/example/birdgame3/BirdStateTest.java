@@ -2109,6 +2109,8 @@ class BirdStateTest {
                 "Bone offering should build crow pressure gradually.");
         assertTrue(game.crowMinions.stream().allMatch(CrowMinion::guardsAnchor),
                 "Bone offering crows should stay leashed to the bone.");
+        assertEquals(8, game.crowMinions.size(),
+                "Bone Offering should retain its full eight-crow flock.");
     }
 
     @Test
@@ -2460,16 +2462,30 @@ class BirdStateTest {
             invokePrivateVoid(game, "updateWorldFixed");
 
             assertEquals(0.5, crow.ownerLaunchMultiplier(), 0.0001);
+            assertEquals(0.5, crow.contactLaunchMultiplier(), 0.0001,
+                    "Free-flying crows should use only Vulture's outgoing tuning.");
             assertEquals((crow.vx * 0.95 + 2.8) * 0.5, target.vx, 0.0001,
                     "Player Vulture's crow shove should inherit his outgoing tuning.");
             assertEquals(-2.1, target.vy, 0.0001,
                     "Player Vulture's crow lift should inherit his outgoing tuning.");
+
+            CrowMinion baitCrow = new CrowMinion(0.0, 0.0, null)
+                    .withAnchorGuard(0.0, 0.0, 120.0, 20);
+            baitCrow.owner = owner;
+            assertEquals(0.5 * Bird.VULTURE_BAIT_CROW_LAUNCH_MULTIPLIER,
+                    baitCrow.contactLaunchMultiplier(), 0.0001,
+                    "Bone Offering crows should add their focused launch reduction.");
 
             owner.isNullRockSkin = true;
             CrowMinion bossCrow = new CrowMinion(0.0, 0.0, null);
             bossCrow.owner = owner;
             assertEquals(1.0, bossCrow.ownerLaunchMultiplier(), 0.0001,
                     "Null Rock's boss flock must remain independent of player balance tuning.");
+            CrowMinion bossAnchorCrow = new CrowMinion(0.0, 0.0, null)
+                    .withAnchorGuard(0.0, 0.0, 120.0, 20);
+            bossAnchorCrow.owner = owner;
+            assertEquals(1.0, bossAnchorCrow.contactLaunchMultiplier(), 0.0001,
+                    "Null Rock's anchored boss summons must remain independent of player balance tuning.");
         } finally {
             BirdGame3.BirdType.VULTURE.damageDealtMult = originalVultureDamage;
             BirdGame3.BirdType.PIGEON.damageTakenMult = originalPigeonDamageTaken;

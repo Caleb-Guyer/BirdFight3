@@ -11383,7 +11383,7 @@ public class BirdGame3 {
                     }
                     recordTrainingVultureCrowHit(c.owner, closest);
                     boolean hostile = c.effectiveVariant() != CrowMinion.VARIANT_ALLIED_CROW;
-                    double launchMultiplier = c.ownerLaunchMultiplier();
+                    double launchMultiplier = c.contactLaunchMultiplier();
                     closest.vx += (hostile
                             ? c.vx * 1.65 + hitDirection * 4.8
                             : c.vx * 0.95 + hitDirection * 2.8) * launchMultiplier;
@@ -16266,7 +16266,7 @@ public class BirdGame3 {
                     hitDirection = closest.facingRight ? -1.0 : 1.0;
                 }
                 recordTrainingVultureCrowHit(c.owner, closest);
-                double launchMultiplier = c.ownerLaunchMultiplier();
+                double launchMultiplier = c.contactLaunchMultiplier();
                 closest.vx += (hitDirection * 5.4 + c.vx * 0.25) * launchMultiplier;
                 closest.vy -= 3.6 * launchMultiplier;
                 recordOwnedCrowImpact(c, closest, oldHealth, dealtDamage);

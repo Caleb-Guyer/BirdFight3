@@ -117,6 +117,17 @@ class CrowMinion {
         return Math.max(0.0, owner.type.damageDealtMult);
     }
 
+    double contactLaunchMultiplier() {
+        double multiplier = ownerLaunchMultiplier();
+        if (anchorGuard
+                && owner != null
+                && owner.type == BirdGame3.BirdType.VULTURE
+                && !owner.isNullRockForm()) {
+            multiplier *= Bird.VULTURE_BAIT_CROW_LAUNCH_MULTIPLIER;
+        }
+        return multiplier;
+    }
+
     double homingAccel() {
         double base = switch (effectiveVariant()) {
             case VARIANT_GIANT_CROW -> 0.16;

@@ -779,6 +779,7 @@ public class Bird {
     static final int VULTURE_BAIT_ARM_FRAMES = 18;
     static final int VULTURE_BAIT_CALL_FRAMES = 150;
     static final int VULTURE_BAIT_LIFE_FRAMES = 780;
+    static final double VULTURE_BAIT_CROW_LAUNCH_MULTIPLIER = 0.72;
     static final int VULTURE_BAIT_MAX_CROWS = 12;
     static final int VULTURE_BAIT_CROW_SPAWN_INTERVAL = 34;
     static final int VULTURE_DOWN_REUSE_FRAMES = 70;
