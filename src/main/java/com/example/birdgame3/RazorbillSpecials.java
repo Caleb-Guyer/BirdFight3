@@ -49,14 +49,16 @@ final class RazorbillSpecials {
         bird.specialCooldown = bird.razorbillSideReuseTimer;
         bird.specialMaxCooldown = bird.razorbillSideReuseTimer;
         bird.razorbillSideUltimate = ultimate;
-        bird.bladeStormFrames = ultimate ? Bird.RAZORBILL_DASH_FRAMES + 10 : Bird.RAZORBILL_DASH_FRAMES;
+        bird.bladeStormFrames = (ultimate ? Bird.RAZORBILL_DASH_FRAMES + 10 : Bird.RAZORBILL_DASH_FRAMES)
+                + Bird.RAZORBILL_DASH_STARTUP_FRAMES;
         Arrays.fill(bird.razorbillDashHit, false);
 
         double dashSpeed = Math.max(14.0, Bird.RAZORBILL_DASH_SPEED * (ultimate ? 1.22 : 1.0) * bird.speedMultiplier);
         bird.razorbillDashVX = dir * dashSpeed;
         bird.razorbillDashVY = Math.min(bird.vy * 0.35, bird.isOnGround() ? -1.2 : 2.0);
-        bird.vx = bird.razorbillDashVX;
-        bird.vy = bird.razorbillDashVY;
+        bird.vx *= 0.34;
+        bird.vy *= 0.52;
+        bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, Bird.RAZORBILL_DASH_STARTUP_FRAMES + 3);
 
         bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, ultimate ? 12 : 7);
         emitSlashTrail(bird, bird.bodyCenterX() - dir * 40.0 * bird.sizeMultiplier, bird.bodyCenterY(),
@@ -780,6 +782,16 @@ final class RazorbillSpecials {
     static void handleBladeStorm(Bird bird) {
         if (bird.bladeStormFrames <= 0) return;
 
+        int activeFrames = bird.razorbillSideUltimate
+                ? Bird.RAZORBILL_DASH_FRAMES + 10
+                : Bird.RAZORBILL_DASH_FRAMES;
+        if (bird.bladeStormFrames > activeFrames) {
+            bird.vx *= 0.62;
+            bird.vy *= 0.78;
+            bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, 3);
+            return;
+        }
+
         double dashX = bird.razorbillDashVX;
         double dashY = bird.razorbillDashVY;
         double dashMag = Math.hypot(dashX, dashY);
@@ -824,8 +836,11 @@ final class RazorbillSpecials {
             if (dealt <= 0) continue;
 
             bird.razorbillDashHit[other.playerIndex] = true;
-            bird.vy = Math.min(bird.vy, -5.8);
-            bird.vx -= dirX * 2.2;
+            bird.bladeStormFrames = Math.min(bird.bladeStormFrames, Bird.RAZORBILL_DASH_HIT_RECOVERY_FRAMES);
+            bird.razorbillDashVX = dirX * Math.min(9.0, dashMag * 0.42);
+            bird.razorbillDashVY = Math.min(-5.8, dashY * 0.25);
+            bird.vx = bird.razorbillDashVX;
+            bird.vy = bird.razorbillDashVY;
 
             bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, 14);
             bird.game.hitstopFrames = Math.max(bird.game.hitstopFrames, 6);

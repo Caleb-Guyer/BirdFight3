@@ -10458,7 +10458,7 @@ public class BirdGame3 {
         RAZORBILL_DRILL(
                 "Razorbill Razor Sequence",
                 "Release Razor Storm, land Skimming Razor, land Cliff Shear, then enter Counter Cut.",
-                "Hold Neutral to grow Storm before release. Side cuts sideways. Up shears upward. Down enters counter stance.",
+                "Hold Neutral to grow Storm before release. Side flashes before cutting and brakes on hit for an Up follow-up. Down enters counter stance.",
                 MapType.BATTLEFIELD,
                 BirdType.RAZORBILL,
                 BirdType.PIGEON,

@@ -5240,6 +5240,62 @@ class BirdStateTest {
     }
 
     @Test
+    void razorbillSkimmingRazorTelegraphsBeforeTheDashBecomesActive() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird razorbill = new Bird(220.0, BirdGame3.BirdType.RAZORBILL, 0, game);
+        Bird target = new Bird(270.0, BirdGame3.BirdType.PIGEON, 1, game);
+        razorbill.y = BirdGame3.GROUND_Y - razorbill.bodyHeight();
+        target.y = BirdGame3.GROUND_Y - target.bodyHeight();
+        game.players[0] = razorbill;
+        game.players[1] = target;
+
+        double targetHealth = target.health;
+        RazorbillSpecials.side(razorbill, false);
+
+        assertEquals(Bird.RAZORBILL_DASH_FRAMES + Bird.RAZORBILL_DASH_STARTUP_FRAMES,
+                razorbill.bladeStormFrames);
+        assertTrue(Math.abs(razorbill.vx) < Math.abs(razorbill.razorbillDashVX) * 0.5,
+                "Skimming Razor should flash its line before committing to full dash speed.");
+        RazorbillSpecials.handleBladeStorm(razorbill);
+        assertEquals(targetHealth, target.health, 0.0001,
+                "The startup tell must not already contain the active hitbox.");
+
+        razorbill.bladeStormFrames = Bird.RAZORBILL_DASH_FRAMES;
+        RazorbillSpecials.handleBladeStorm(razorbill);
+        assertTrue(target.health < targetHealth,
+                "Skimming Razor should become active immediately after its startup tell.");
+    }
+
+    @Test
+    void razorbillSkimmingRazorBrakesOnHitForCliffShearFollowUp() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird razorbill = new Bird(220.0, BirdGame3.BirdType.RAZORBILL, 0, game);
+        Bird target = new Bird(270.0, BirdGame3.BirdType.PIGEON, 1, game);
+        razorbill.y = BirdGame3.GROUND_Y - razorbill.bodyHeight();
+        target.y = BirdGame3.GROUND_Y - target.bodyHeight();
+        game.players[0] = razorbill;
+        game.players[1] = target;
+
+        RazorbillSpecials.side(razorbill, false);
+        double committedSpeed = Math.abs(razorbill.razorbillDashVX);
+        razorbill.bladeStormFrames = Bird.RAZORBILL_DASH_FRAMES;
+        RazorbillSpecials.handleBladeStorm(razorbill);
+
+        assertTrue(razorbill.razorbillDashHit[target.playerIndex]);
+        assertEquals(Bird.RAZORBILL_DASH_HIT_RECOVERY_FRAMES, razorbill.bladeStormFrames,
+                "A confirmed cut should shorten the remaining commitment.");
+        assertTrue(Math.abs(razorbill.razorbillDashVX) < committedSpeed * 0.5,
+                "A confirmed cut should brake instead of dragging Razorbill past the target.");
+        assertEquals(razorbill.razorbillDashVX, razorbill.vx, 0.0001);
+        assertTrue(razorbill.vy < 0.0,
+                "The hit-confirm brake should leave Razorbill rising into Cliff Shear's route.");
+    }
+
+    @Test
     void razorbillGuillotineWakeDamagesAndLeavesLingeringRazorWake() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;

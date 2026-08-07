@@ -928,11 +928,13 @@ public class Bird {
     final boolean[] eagleAscentHit = new boolean[4];
     public int bladeStormFrames = 0;
     static final int RAZORBILL_DASH_FRAMES = 26;
+    static final int RAZORBILL_DASH_STARTUP_FRAMES = 7;
+    static final int RAZORBILL_DASH_HIT_RECOVERY_FRAMES = 22;
     static final double RAZORBILL_DASH_SPEED = 22.0;
     static final int RAZORBILL_STORM_MAX_HOLD_FRAMES = 78;
     static final int RAZORBILL_STORM_RELEASE_FRAMES = 10;
     static final int RAZORBILL_NEUTRAL_REUSE_FRAMES = 36;
-    static final int RAZORBILL_SIDE_REUSE_FRAMES = 38;
+    static final int RAZORBILL_SIDE_REUSE_FRAMES = 45;
     static final int RAZORBILL_COUNTER_REUSE_FRAMES = 54;
     static final int RAZORBILL_COUNTER_WINDOW_FRAMES = 22;
     static final int RAZORBILL_COUNTER_WHIFF_FRAMES = 20;
@@ -28609,6 +28611,8 @@ public class Bird {
 
     private void drawRazorbillBladestorm(GraphicsContext g, double drawSize) {
         if (isRazorbillSpecialOwner() && (bladeStormFrames > 0)) {
+            int activeFrames = razorbillSideUltimate ? RAZORBILL_DASH_FRAMES + 10 : RAZORBILL_DASH_FRAMES;
+            boolean startup = bladeStormFrames > activeFrames;
             double dirX = razorbillDashVX;
             double dirY = razorbillDashVY;
             double mag = Math.hypot(dirX, dirY);
@@ -28621,19 +28625,22 @@ public class Bird {
             dirY /= mag;
 
             Color slash = razorbillSideUltimate ? Color.GOLD.brighter() : Color.CYAN.brighter();
-            g.setStroke(slash);
-            g.setLineWidth(6 * sizeMultiplier);
-            for (int i = 0; i < 7; i++) {
-                double offset = i * 18 * sizeMultiplier;
+            g.setStroke(slash.deriveColor(0, 1, startup ? 1.18 : 1.0, startup ? 0.78 : 1.0));
+            g.setLineWidth((startup ? 4.2 : 6.0) * sizeMultiplier);
+            int trailCount = startup ? 4 : 7;
+            for (int i = 0; i < trailCount; i++) {
+                double offset = i * (startup ? 7.0 : 18.0) * sizeMultiplier;
                 double jitter = (Math.random() - 0.5) * 10;
                 double px = bodyCenterX() - dirX * offset - dirY * jitter;
                 double py = bodyCenterY() - dirY * offset + dirX * jitter;
-                g.strokeLine(px, py, px - dirX * 26 * sizeMultiplier, py - dirY * 26 * sizeMultiplier);
+                double length = (startup ? 14.0 + i * 3.0 : 26.0) * sizeMultiplier;
+                g.strokeLine(px, py, px - dirX * length, py - dirY * length);
             }
 
-            double pulse = 0.45 + 0.25 * Math.sin(bladeStormFrames * 0.6);
+            double pulse = (startup ? 0.28 : 0.45) + 0.25 * Math.sin(bladeStormFrames * 0.6);
             g.setFill(Color.WHITE.deriveColor(0, 1, 1, pulse));
-            g.fillOval(x - 35, y - 35, drawSize + 70, drawSize + 70);
+            double flare = startup ? 28.0 : 70.0;
+            g.fillOval(x - flare * 0.5, y - flare * 0.5, drawSize + flare, drawSize + flare);
         }
     }
 
