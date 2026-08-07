@@ -1130,6 +1130,22 @@ class BirdVisualAuditTest {
     }
 
     @Test
+    void grinchhawkTorsoCoordinatesAreExactMirrorsWhenFacingLeft() {
+        double[] authoredTorsoCoordinates = {
+                11.0, 15.0, 17.0, 18.0, 21.0, 23.0, 26.0, 30.0, 31.0,
+                39.0, 40.0, 42.0, 43.0, 48.0, 57.0, 60.0, 61.0, 62.0,
+                67.0, 75.0
+        };
+
+        for (double coordinate : authoredTorsoCoordinates) {
+            double right = Bird.grinchhawkMirroredLocalX(coordinate, true);
+            double left = Bird.grinchhawkMirroredLocalX(coordinate, false);
+            assertEquals(80.0, right + left, 0.0001,
+                    "Every left-facing torso point must exactly mirror its right-facing point");
+        }
+    }
+
+    @Test
     void grinchhawkGroundedTalonsMeetTheGameplayFloorAcrossSkinsAndDirections() {
         BirdGame3 game = freshGame();
         List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()

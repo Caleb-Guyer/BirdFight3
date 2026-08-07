@@ -35050,43 +35050,43 @@ public class Bird {
         // Low shoulders and a forward keel replace the old perfectly round orb.
         g.setFill(back);
         g.beginPath();
-        g.moveTo(x + (facingRight ? 15.0 : 65.0) * s, y + 45.0 * s);
-        g.bezierCurveTo(x + (facingRight ? 18.0 : 62.0) * s, y + 16.0 * s,
-                x + (facingRight ? 48.0 : 32.0) * s, y + 9.0 * s,
-                x + (facingRight ? 67.0 : 13.0) * s, y + 27.0 * s);
-        g.bezierCurveTo(x + (facingRight ? 75.0 : 5.0) * s, y + 41.0 * s,
-                x + (facingRight ? 62.0 : 18.0) * s, y + 70.0 * s,
-                x + 39.0 * s, y + 72.0 * s);
-        g.bezierCurveTo(x + 23.0 * s, y + 72.0 * s,
-                x + 11.0 * s, y + 61.0 * s,
-                x + (facingRight ? 15.0 : 65.0) * s, y + 45.0 * s);
+        g.moveTo(grinchhawkBodyX(15.0), y + 45.0 * s);
+        g.bezierCurveTo(grinchhawkBodyX(18.0), y + 16.0 * s,
+                grinchhawkBodyX(48.0), y + 9.0 * s,
+                grinchhawkBodyX(67.0), y + 27.0 * s);
+        g.bezierCurveTo(grinchhawkBodyX(75.0), y + 41.0 * s,
+                grinchhawkBodyX(62.0), y + 70.0 * s,
+                grinchhawkBodyX(39.0), y + 72.0 * s);
+        g.bezierCurveTo(grinchhawkBodyX(23.0), y + 72.0 * s,
+                grinchhawkBodyX(11.0), y + 61.0 * s,
+                grinchhawkBodyX(15.0), y + 45.0 * s);
         g.closePath();
         g.fill();
 
         g.setFill(body);
         g.beginPath();
-        g.moveTo(x + (facingRight ? 21.0 : 59.0) * s, y + 44.0 * s);
-        g.bezierCurveTo(x + (facingRight ? 23.0 : 57.0) * s, y + 23.0 * s,
-                x + (facingRight ? 48.0 : 32.0) * s, y + 17.0 * s,
-                x + (facingRight ? 61.0 : 19.0) * s, y + 31.0 * s);
-        g.bezierCurveTo(x + (facingRight ? 67.0 : 13.0) * s, y + 43.0 * s,
-                x + (facingRight ? 57.0 : 23.0) * s, y + 65.0 * s,
-                x + 40.0 * s, y + 67.0 * s);
-        g.bezierCurveTo(x + 26.0 * s, y + 67.0 * s,
-                x + 17.0 * s, y + 58.0 * s,
-                x + (facingRight ? 21.0 : 59.0) * s, y + 44.0 * s);
+        g.moveTo(grinchhawkBodyX(21.0), y + 44.0 * s);
+        g.bezierCurveTo(grinchhawkBodyX(23.0), y + 23.0 * s,
+                grinchhawkBodyX(48.0), y + 17.0 * s,
+                grinchhawkBodyX(61.0), y + 31.0 * s);
+        g.bezierCurveTo(grinchhawkBodyX(67.0), y + 43.0 * s,
+                grinchhawkBodyX(57.0), y + 65.0 * s,
+                grinchhawkBodyX(40.0), y + 67.0 * s);
+        g.bezierCurveTo(grinchhawkBodyX(26.0), y + 67.0 * s,
+                grinchhawkBodyX(17.0), y + 58.0 * s,
+                grinchhawkBodyX(21.0), y + 44.0 * s);
         g.closePath();
         g.fill();
 
         g.setFill(chest.deriveColor(0, 0.82, 1.0, 0.94));
         g.beginPath();
-        g.moveTo(x + (facingRight ? 43.0 : 37.0) * s, y + 28.0 * s);
-        g.bezierCurveTo(x + (facingRight ? 61.0 : 19.0) * s, y + 33.0 * s,
-                x + (facingRight ? 60.0 : 20.0) * s, y + 59.0 * s,
-                x + 42.0 * s, y + 67.0 * s);
-        g.bezierCurveTo(x + 31.0 * s, y + 61.0 * s,
-                x + 30.0 * s, y + 39.0 * s,
-                x + (facingRight ? 43.0 : 37.0) * s, y + 28.0 * s);
+        g.moveTo(grinchhawkBodyX(43.0), y + 28.0 * s);
+        g.bezierCurveTo(grinchhawkBodyX(61.0), y + 33.0 * s,
+                grinchhawkBodyX(60.0), y + 59.0 * s,
+                grinchhawkBodyX(42.0), y + 67.0 * s);
+        g.bezierCurveTo(grinchhawkBodyX(31.0), y + 61.0 * s,
+                grinchhawkBodyX(30.0), y + 39.0 * s,
+                grinchhawkBodyX(43.0), y + 28.0 * s);
         g.closePath();
         g.fill();
         g.setStroke(featherEdge.deriveColor(0, 0.72, 1.0, 0.44));
@@ -35094,7 +35094,11 @@ public class Bird {
         g.setLineWidth(1.0 * s);
         for (int i = 0; i < 3; i++) {
             double featherY = y + (43.0 + i * 7.0) * s;
-            g.strokeArc(x + 31.0 * s, featherY, 19.0 * s, 8.0 * s, 198.0, 145.0, ArcType.OPEN);
+            double featherArcX = facingRight ? grinchhawkBodyX(31.0) : grinchhawkBodyX(50.0);
+            g.strokeArc(featherArcX, featherY, 19.0 * s, 8.0 * s,
+                    facingRight ? 198.0 : -18.0,
+                    facingRight ? 145.0 : -145.0,
+                    ArcType.OPEN);
         }
 
         drawGrinchhawkWing(g, cx - dir * 15.0 * s, y + 39.0 * s,
@@ -35175,9 +35179,20 @@ public class Bird {
             g.setStroke(Color.web("#E5C78D").deriveColor(0, 0.76, 1.0, 0.58));
             g.setLineWidth(1.15 * s);
             g.strokeArc(x + 22.0 * s, y + 31.0 * s, 36.0 * s, 33.0 * s,
-                    facingRight ? 198.0 : -18.0, 125.0, ArcType.OPEN);
+                    facingRight ? 198.0 : -18.0,
+                    facingRight ? 125.0 : -125.0,
+                    ArcType.OPEN);
         }
         drawVectorBirdStateAccents(g, drawSize, headPose);
+    }
+
+    /** Mirrors authored 80-unit Grinch-Hawk body coordinates without duplicating left-facing curves. */
+    static double grinchhawkMirroredLocalX(double localX, boolean facingRight) {
+        return facingRight ? localX : 80.0 - localX;
+    }
+
+    private double grinchhawkBodyX(double localX) {
+        return x + grinchhawkMirroredLocalX(localX, facingRight) * sizeMultiplier;
     }
 
     private void drawGrinchhawkLegs(GraphicsContext g, BirdAnimationState state, Color leg, Color edge) {
