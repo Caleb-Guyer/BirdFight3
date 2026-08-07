@@ -897,6 +897,71 @@ class BirdStateTest {
     }
 
     @Test
+    void opiumFueledHazeDriftRefundsOnceAndBrakesOnContact() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 3;
+
+        Bird opium = new Bird(300.0, BirdGame3.BirdType.OPIUMBIRD, 0, game);
+        Bird firstTarget = new Bird(390.0, BirdGame3.BirdType.PIGEON, 1, game);
+        Bird secondTarget = new Bird(430.0, BirdGame3.BirdType.EAGLE, 2, game);
+        opium.y = BirdGame3.GROUND_Y - opium.bodyHeight();
+        firstTarget.y = BirdGame3.GROUND_Y - firstTarget.bodyHeight();
+        secondTarget.y = BirdGame3.GROUND_Y - secondTarget.bodyHeight();
+        opium.facingRight = true;
+        game.players[0] = opium;
+        game.players[1] = firstTarget;
+        game.players[2] = secondTarget;
+
+        OpiumSpecials.side(opium, false);
+        double committedSpeed = Math.abs(opium.vx);
+        assertEquals(Bird.OPIUM_RESOURCE_MAX - Bird.OPIUM_SIDE_RESOURCE_COST,
+                opium.opiumResourceMeter, 0.0001);
+
+        OpiumSpecials.applySideHits(opium, false);
+
+        assertTrue(opium.opiumSideHit[firstTarget.playerIndex]);
+        assertTrue(opium.opiumSideHit[secondTarget.playerIndex]);
+        assertEquals(Bird.OPIUM_RESOURCE_MAX - Bird.OPIUM_SIDE_RESOURCE_COST + Bird.OPIUM_SIDE_HIT_REFUND,
+                opium.opiumResourceMeter, 0.0001,
+                "A multi-target Haze Drift should refund meter only once per use.");
+        assertEquals(Bird.OPIUM_SIDE_HIT_RECOVERY_FRAMES, opium.opiumSideTimer);
+        assertTrue(Math.abs(opium.vx) < committedSpeed * 0.7,
+                "Haze Drift should brake on its first confirmed hit instead of carrying Opium Bird past the route.");
+        assertTrue(game.hitstopFrames >= 4,
+                "A fueled Haze Drift confirm should have restrained but readable impact pause.");
+
+        OpiumSpecials.applySideHits(opium, false);
+        assertEquals(Bird.OPIUM_RESOURCE_MAX - Bird.OPIUM_SIDE_RESOURCE_COST + Bird.OPIUM_SIDE_HIT_REFUND,
+                opium.opiumResourceMeter, 0.0001,
+                "The same targets must not repeatedly refund meter during one Haze Drift.");
+    }
+
+    @Test
+    void opiumFueledRisingVaporsRefundsMeterOnFirstHit() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird opium = new Bird(300.0, BirdGame3.BirdType.OPIUMBIRD, 0, game);
+        Bird target = new Bird(320.0, BirdGame3.BirdType.PIGEON, 1, game);
+        opium.y = BirdGame3.GROUND_Y - 260.0;
+        target.y = BirdGame3.GROUND_Y - target.bodyHeight();
+        game.players[0] = opium;
+        game.players[1] = target;
+
+        OpiumSpecials.up(opium, false);
+        assertEquals(Bird.OPIUM_RESOURCE_MAX - Bird.OPIUM_UP_RESOURCE_COST,
+                opium.opiumResourceMeter, 0.0001);
+
+        OpiumSpecials.applyUpHits(opium, false);
+
+        assertTrue(opium.opiumUpHit[target.playerIndex]);
+        assertEquals(Bird.OPIUM_RESOURCE_MAX - Bird.OPIUM_UP_RESOURCE_COST + Bird.OPIUM_UP_HIT_REFUND,
+                opium.opiumResourceMeter, 0.0001,
+                "Landing fueled Rising Vapors should return a smaller amount of its resource cost.");
+        assertTrue(game.hitstopFrames >= 4);
+    }
+
+    @Test
     void opiumUltimateAppliesDrowsyAndHeisenUltimateLaunchesHomingCrystalShards() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 4;

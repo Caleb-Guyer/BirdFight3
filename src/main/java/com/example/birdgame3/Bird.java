@@ -847,6 +847,7 @@ public class Bird {
     static final int OPIUM_NEUTRAL_REUSE_FRAMES = 52;
     static final int HEISEN_NEUTRAL_REUSE_FRAMES = 46;
     static final int OPIUM_SIDE_FRAMES = 18;
+    static final int OPIUM_SIDE_HIT_RECOVERY_FRAMES = 12;
     static final int HEISEN_SIDE_FRAMES = 15;
     static final int OPIUM_SIDE_REUSE_FRAMES = 34;
     static final int HEISEN_SIDE_REUSE_FRAMES = 30;
@@ -870,8 +871,10 @@ public class Bird {
     static final double OPIUM_NEUTRAL_RESOURCE_COST = 24.0;
     static final double HEISEN_NEUTRAL_RESOURCE_COST = 20.0;
     static final double OPIUM_SIDE_RESOURCE_COST = 18.0;
+    static final double OPIUM_SIDE_HIT_REFUND = 3.0;
     static final double HEISEN_SIDE_RESOURCE_COST = 18.0;
     static final double OPIUM_UP_RESOURCE_COST = 20.0;
+    static final double OPIUM_UP_HIT_REFUND = 2.0;
     static final double HEISEN_UP_RESOURCE_COST = 20.0;
     static final double OPIUM_PATCH_REFILL_PER_FRAME = 0.12;
     static final double HEISEN_NODE_REFILL_PER_FRAME = 0.10;

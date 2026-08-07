@@ -588,6 +588,7 @@ final class OpiumSpecials {
                     ? (fueled ? 8 : 5)
                     : (fueled ? 11 : 5));
             if (dealt <= 0) continue;
+            boolean firstConfirmedHit = !hasRegisteredHit(bird.opiumSideHit);
             bird.opiumSideHit[other.playerIndex] = true;
             other.vx += bird.opiumSideDirection * (heisen
                     ? (fueled ? (brittle ? 13.8 : 10.8) : 7.2)
@@ -598,6 +599,13 @@ final class OpiumSpecials {
             other.applyStun(heisen ? (fueled ? 16 : 10) : (fueled ? 15 : 9));
             if (!heisen) {
                 other.vx *= 0.90;
+                if (firstConfirmedHit) {
+                    bird.opiumSideTimer = Math.min(bird.opiumSideTimer, Bird.OPIUM_SIDE_HIT_RECOVERY_FRAMES);
+                    bird.vx *= fueled ? 0.60 : 0.68;
+                    if (fueled) {
+                        rewardOpiumFueledHit(bird, other, Bird.OPIUM_SIDE_HIT_REFUND);
+                    }
+                }
             }
         }
     }
@@ -621,6 +629,7 @@ final class OpiumSpecials {
                     ? (fueled ? 7 : 4)
                     : (fueled ? 9 : 4));
             if (dealt <= 0) continue;
+            boolean firstConfirmedHit = !hasRegisteredHit(bird.opiumUpHit);
             bird.opiumUpHit[other.playerIndex] = true;
             other.vx += Math.signum(dx == 0.0 ? bird.facingDirection() : dx) * (heisen
                     ? (fueled ? 6.0 : 3.8)
@@ -631,8 +640,29 @@ final class OpiumSpecials {
             other.applyStun(heisen ? (fueled ? 12 : 8) : (fueled ? 11 : 7));
             if (heisen && fueled) {
                 other.applyHeisenBrittle(bird, false);
+            } else if (!heisen && fueled && firstConfirmedHit) {
+                rewardOpiumFueledHit(bird, other, Bird.OPIUM_UP_HIT_REFUND);
             }
         }
+    }
+
+    private static boolean hasRegisteredHit(boolean[] hitFlags) {
+        for (boolean hit : hitFlags) {
+            if (hit) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    static void rewardOpiumFueledHit(Bird bird, Bird target, double refund) {
+        if (bird == null || target == null || bird.type != BirdGame3.BirdType.OPIUMBIRD || refund <= 0.0) {
+            return;
+        }
+        bird.refillOpiumResource(refund);
+        emitBurst(bird, target.bodyCenterX(), target.bodyCenterY(), 14, Color.web("#E1BEE7"));
+        bird.game.hitstopFrames = Math.max(bird.game.hitstopFrames, 4);
+        bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, 6);
     }
 
     static void handleTraps(Bird bird) {

@@ -10323,7 +10323,7 @@ public class BirdGame3 {
         OPIUM_DRILL(
                 "Opium Resource Flow",
                 "Place a Patch, refuel in it, start a fueled Cloud, then land a fueled special hit.",
-                "Patch is your refill point. Spend the refill on Cloud, Side, or Up pressure.",
+                "Patch is the steady refill point. Fueled Side or Up hits siphon some meter back, and Side brakes on contact so pressure can continue.",
                 MapType.BATTLEFIELD,
                 BirdType.OPIUMBIRD,
                 BirdType.PIGEON,
