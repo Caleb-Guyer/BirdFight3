@@ -39,29 +39,10 @@ final class ShoebillSpecials {
         bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, bird.shoebillStareFxTimer + 4);
         bird.vx *= bird.isOnGround() ? 0.22 : 0.55;
 
-        int stunnedTargets = 0;
-        for (Bird other : bird.game.players) {
-            if (!bird.canDamageTarget(other)) continue;
-            if (!hasDirectStareLine(bird, other, ultimate)) continue;
-            other.applyStun(ultimate ? 180 : 120);
-            other.vx *= 0.28;
-            other.vy *= 0.52;
-            stunnedTargets++;
-        }
-
-        bird.game.recordSpecialImpact(bird.playerIndex, 0, stunnedTargets > 0);
-        bird.game.addToKillFeed(bird.shortName() + (stunnedTargets > 0
-                ? (ultimate ? " ULT DEATH STARE! Back-facing gaze dazed " : " DEATH STARE! Back-facing gaze dazed ") + stunnedTargets + "!"
-                : " DEATH STARE missed the back-facing gaze!"));
-        bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, stunnedTargets > 0 ? (ultimate ? 24 : 18) : 8);
-        if (stunnedTargets > 0) {
-            bird.game.hitstopFrames = Math.max(bird.game.hitstopFrames, ultimate ? 8 : 5);
-        }
-
         Color stareColor = ultimate ? Color.GOLD : Color.web("#B39DDB");
-        for (int i = 0; i < bird.scaledParticleCount(ultimate ? 44 : 28); i++) {
+        for (int i = 0; i < bird.scaledParticleCount(ultimate ? 18 : 10); i++) {
             double lane = (bird.game.nextParticleRandom() - 0.5) * (ultimate ? 18.0 : 10.0) * bird.sizeMultiplier;
-            double travel = 26.0 + bird.game.nextParticleRandom() * (ultimate ? 165.0 : 108.0);
+            double travel = 18.0 + bird.game.nextParticleRandom() * (ultimate ? 92.0 : 58.0);
             bird.game.particles.add(new Particle(
                     bird.bodyCenterX() + dir * (18.0 + travel * 0.15) * bird.sizeMultiplier,
                     bird.bodyCenterY() - 18.0 * bird.sizeMultiplier + lane,
@@ -153,6 +134,9 @@ final class ShoebillSpecials {
             }
             return;
         }
+        if (bird.shoebillStareFxTimer > 0) {
+            handleDeathStare(bird);
+        }
         if (bird.shoebillThrustTimer > 0) {
             handleHeavyThrust(bird);
         }
@@ -176,7 +160,7 @@ final class ShoebillSpecials {
     static boolean ready(Bird bird, Bird.ShoebillSpecialVariant variant) {
         boolean ultimateReady = bird.isUltimateReady();
         return switch (variant) {
-            case NEUTRAL -> true;
+            case NEUTRAL -> ultimateReady || bird.shoebillStareReuseTimer <= 0;
             case SIDE -> ultimateReady || bird.shoebillThrustReuseTimer <= 0;
             case UP -> ultimateReady || !bird.shoebillUpSpecialUsed;
             case DOWN -> ultimateReady || bird.shoebillStatueReuseTimer <= 0;
@@ -262,6 +246,14 @@ final class ShoebillSpecials {
 
     static int finalStillnessElapsed(Bird bird) {
         return Math.max(0, Bird.SHOEBILL_FINAL_STILLNESS_FRAMES - Math.max(0, bird.shoebillFinalStillnessTimer));
+    }
+
+    static double stareWindupProgress(Bird bird) {
+        int total = bird.shoebillStareUltimate
+                ? Bird.SHOEBILL_STARE_FX_FRAMES + 8
+                : Bird.SHOEBILL_STARE_FX_FRAMES;
+        int elapsed = Math.max(0, total - bird.shoebillStareFxTimer);
+        return Math.clamp(elapsed / (double) Bird.SHOEBILL_STARE_WINDUP_FRAMES, 0.0, 1.0);
     }
 
     static boolean finalStillnessBeamActive(Bird bird) {
@@ -471,6 +463,50 @@ final class ShoebillSpecials {
             return false;
         }
         return Math.abs(other.bodyCenterY() - eyeY) <= verticalReach;
+    }
+
+    private static void handleDeathStare(Bird bird) {
+        int total = bird.shoebillStareUltimate
+                ? Bird.SHOEBILL_STARE_FX_FRAMES + 8
+                : Bird.SHOEBILL_STARE_FX_FRAMES;
+        int elapsed = total - bird.shoebillStareFxTimer;
+        if (elapsed != Bird.SHOEBILL_STARE_WINDUP_FRAMES) {
+            return;
+        }
+
+        boolean ultimate = bird.shoebillStareUltimate;
+        int stunnedTargets = 0;
+        for (Bird other : bird.game.players) {
+            if (!bird.canDamageTarget(other)) continue;
+            if (!hasDirectStareLine(bird, other, ultimate)) continue;
+            other.applyStun(ultimate ? 120 : Bird.SHOEBILL_STARE_STUN_FRAMES);
+            other.vx *= 0.28;
+            other.vy *= 0.52;
+            stunnedTargets++;
+        }
+
+        bird.game.recordSpecialImpact(bird.playerIndex, 0, stunnedTargets > 0);
+        bird.game.addToKillFeed(bird.shortName() + (stunnedTargets > 0
+                ? (ultimate ? " ULT DEATH STARE! Back-facing gaze dazed " : " DEATH STARE! Back-facing gaze dazed ") + stunnedTargets + "!"
+                : " DEATH STARE missed the back-facing gaze!"));
+        bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, stunnedTargets > 0 ? (ultimate ? 24 : 14) : 5);
+        if (stunnedTargets > 0) {
+            bird.game.hitstopFrames = Math.max(bird.game.hitstopFrames, ultimate ? 8 : 4);
+        }
+
+        int dir = bird.facingDirection();
+        Color stareColor = ultimate ? Color.GOLD : Color.web("#B39DDB");
+        for (int i = 0; i < bird.scaledParticleCount(ultimate ? 44 : 28); i++) {
+            double lane = (bird.game.nextParticleRandom() - 0.5) * (ultimate ? 18.0 : 10.0) * bird.sizeMultiplier;
+            double travel = 26.0 + bird.game.nextParticleRandom() * (ultimate ? 165.0 : 108.0);
+            bird.game.particles.add(new Particle(
+                    bird.bodyCenterX() + dir * (18.0 + travel * 0.15) * bird.sizeMultiplier,
+                    bird.bodyCenterY() - 18.0 * bird.sizeMultiplier + lane,
+                    dir * (1.6 + bird.game.nextParticleRandom() * 4.2),
+                    (bird.game.nextParticleRandom() - 0.5) * 1.8,
+                    stareColor.deriveColor(0, 1, 1, 0.68 + bird.game.nextParticleRandom() * 0.22)
+            ));
+        }
     }
 
     private static void handleHeavyThrust(Bird bird) {

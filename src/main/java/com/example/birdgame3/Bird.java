@@ -1655,7 +1655,9 @@ public class Bird {
     static final int PENGUIN_ABSOLUTE_ZERO_WAVE_INTERVAL = 21;
     static final int PENGUIN_ABSOLUTE_ZERO_IMPACT_DELAY = 32;
     static final int SHOEBILL_STARE_FX_FRAMES = 18;
-    static final int SHOEBILL_STARE_REUSE_FRAMES = 0;
+    static final int SHOEBILL_STARE_WINDUP_FRAMES = 12;
+    static final int SHOEBILL_STARE_STUN_FRAMES = 84;
+    static final int SHOEBILL_STARE_REUSE_FRAMES = 108;
     static final int SHOEBILL_THRUST_FRAMES = 46;
     static final int SHOEBILL_THRUST_STARTUP_FRAMES = 24;
     static final int SHOEBILL_THRUST_ACTIVE_FRAMES = 11;
@@ -26918,12 +26920,14 @@ public class Bird {
         if (shoebillStareFxTimer > 0) {
             double total = shoebillStareUltimate ? SHOEBILL_STARE_FX_FRAMES + 8.0 : SHOEBILL_STARE_FX_FRAMES;
             double fade = Math.clamp(shoebillStareFxTimer / total, 0.0, 1.0);
-            double length = (shoebillStareUltimate ? 202.0 : 138.0) * s;
+            double windup = smoothStep(ShoebillSpecials.stareWindupProgress(this));
+            double length = (shoebillStareUltimate ? 202.0 : 138.0) * (0.12 + windup * 0.88) * s;
             double height = (shoebillStareUltimate ? 30.0 : 20.0) * s;
             double startX = cx + dir * 26.0 * s;
             double startY = cy - 18.0 * s;
-            Color gaze = (shoebillStareUltimate ? Color.GOLD : Color.web("#B39DDB")).deriveColor(0, 1, 1, 0.30 + fade * 0.34);
-            g.setFill(gaze.deriveColor(0, 1, 1, 0.12 + fade * 0.12));
+            Color gaze = (shoebillStareUltimate ? Color.GOLD : Color.web("#B39DDB")).deriveColor(0, 1, 1,
+                    0.18 + fade * 0.22 + windup * 0.22);
+            g.setFill(gaze.deriveColor(0, 1, 1, 0.06 + fade * 0.08 + windup * 0.10));
             g.fillPolygon(
                     new double[]{startX, cx + dir * length, cx + dir * length, startX},
                     new double[]{startY - height * 0.42, startY - height * 0.72, startY + height * 0.72, startY + height * 0.42},

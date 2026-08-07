@@ -10440,7 +10440,7 @@ public class BirdGame3 {
         SHOEBILL_DRILL(
                 "Shoebill Stance Control",
                 "Use Death Stare, land Heavy Bill Thrust, land Marsh Lift, then enter Statue Counter.",
-                "Death Stare checks back-facing targets. Thrust and Lift control lanes. Hold Down special to keep Statue Counter active.",
+                "Death Stare briefly telegraphs, then catches targets who keep their back turned. Thrust and Lift control lanes. Hold Down special to keep Statue Counter active.",
                 MapType.BATTLEFIELD,
                 BirdType.SHOEBILL,
                 BirdType.PIGEON,

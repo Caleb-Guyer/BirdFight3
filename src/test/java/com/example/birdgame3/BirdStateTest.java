@@ -5080,6 +5080,50 @@ class BirdStateTest {
     }
 
     @Test
+    void shoebillDeathStareTelegraphsAndCannotLoopStun() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 3;
+        Bird shoebill = new Bird(120.0, BirdGame3.BirdType.SHOEBILL, 0, game);
+        Bird caught = new Bird(220.0, BirdGame3.BirdType.PIGEON, 1, game);
+        Bird escaped = new Bird(300.0, BirdGame3.BirdType.EAGLE, 2, game);
+        shoebill.y = BirdGame3.GROUND_Y - shoebill.bodyHeight();
+        caught.y = BirdGame3.GROUND_Y - caught.bodyHeight();
+        escaped.y = BirdGame3.GROUND_Y - escaped.bodyHeight();
+        shoebill.facingRight = true;
+        caught.facingRight = true;
+        escaped.facingRight = true;
+        game.players[0] = shoebill;
+        game.players[1] = caught;
+        game.players[2] = escaped;
+
+        ShoebillSpecials.neutral(shoebill, false);
+
+        assertEquals(0.0, caught.stunTime, 0.0001,
+                "Death Stare should show its tell before applying the stun.");
+        assertFalse(ShoebillSpecials.ready(shoebill, Bird.ShoebillSpecialVariant.NEUTRAL));
+
+        int turnFrame = Bird.SHOEBILL_STARE_WINDUP_FRAMES / 2;
+        for (int frame = 0; frame < Bird.SHOEBILL_STARE_WINDUP_FRAMES - 1; frame++) {
+            if (frame == turnFrame) {
+                escaped.facingRight = false;
+            }
+            shoebill.update(1.0);
+        }
+        assertEquals(0.0, caught.stunTime, 0.0001);
+        assertEquals(0.0, escaped.stunTime, 0.0001);
+
+        shoebill.update(1.0);
+
+        assertEquals(Bird.SHOEBILL_STARE_STUN_FRAMES, caught.stunTime, 0.0001,
+                "A target that leaves its back exposed through the tell should still be caught.");
+        assertEquals(0.0, escaped.stunTime, 0.0001,
+                "Turning to face Shoebill during the tell should avoid Death Stare.");
+        assertTrue(shoebill.shoebillStareReuseTimer > Bird.SHOEBILL_STARE_STUN_FRAMES,
+                "Death Stare's remaining reuse time should outlast its stun and prevent a loop.");
+        assertFalse(ShoebillSpecials.ready(shoebill, Bird.ShoebillSpecialVariant.NEUTRAL));
+    }
+
+    @Test
     void razorbillUltimateStartsGuillotineWakeInsteadOfBoostedSpecial() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;
