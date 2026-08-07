@@ -423,6 +423,7 @@ public class Bird {
                                  double turkeyWingOpenness,
                                  double roosterWingOpenness,
                                  double roadrunnerWingOpenness,
+                                 double roadrunnerFootBaseline,
                                  double penguinFlipperOpenness,
                                  double shoebillWingOpenness,
                                  double shoebillFootBaseline,
@@ -658,6 +659,7 @@ public class Bird {
     private double lastVisualTurkeyWingOpenness;
     private double lastVisualRoosterWingOpenness;
     private double lastVisualRoadrunnerWingOpenness;
+    private double lastVisualRoadrunnerFootBaseline = Double.NaN;
     private double lastVisualPenguinFlipperOpenness;
     private double lastVisualShoebillWingOpenness;
     private double lastVisualShoebillFootBaseline = Double.NaN;
@@ -23328,6 +23330,7 @@ public class Bird {
                 lastVisualTurkeyWingOpenness,
                 lastVisualRoosterWingOpenness,
                 lastVisualRoadrunnerWingOpenness,
+                lastVisualRoadrunnerFootBaseline,
                 lastVisualPenguinFlipperOpenness,
                 lastVisualShoebillWingOpenness,
                 lastVisualShoebillFootBaseline,
@@ -23392,6 +23395,7 @@ public class Bird {
         lastVisualTurkeyWingOpenness = 0.0;
         lastVisualRoosterWingOpenness = 0.0;
         lastVisualRoadrunnerWingOpenness = 0.0;
+        lastVisualRoadrunnerFootBaseline = Double.NaN;
         lastVisualPenguinFlipperOpenness = 0.0;
         lastVisualShoebillWingOpenness = 0.0;
         lastVisualShoebillFootBaseline = Double.NaN;
@@ -35442,9 +35446,9 @@ public class Bird {
                 neckX + dir * 1.0 * s, neckY - 1.0 * s);
 
         g.setFill(shadow);
-        g.fillOval(x + 5.0 * s, y + 13.0 * s, 70.0 * s, 62.0 * s);
+        g.fillOval(x + 5.0 * s, y + 8.0 * s, 70.0 * s, 54.0 * s);
         g.setFill(bodyColor);
-        g.fillOval(x + 8.0 * s, y + 10.0 * s, 66.0 * s, 60.0 * s);
+        g.fillOval(x + 8.0 * s, y + 7.0 * s, 66.0 * s, 52.0 * s);
         Color backLight = classicPalette ? game.classicSkinAccentColor(type)
                 : mirage ? Color.web("#F5FFFF") : Color.web("#E2A05A");
         g.setFill(backLight.deriveColor(0, 0.72, 1.05, classicPalette ? 0.18 : 0.24));
@@ -35471,7 +35475,7 @@ public class Bird {
                 .deriveColor(0, 0.78, 1.02, classicPalette ? 0.46 : 0.82);
 
         g.setFill(breast);
-        g.fillOval(x + (facingRight ? 34.0 : 18.0) * s, y + 31.0 * s, 34.0 * s, 34.0 * s);
+        g.fillOval(x + (facingRight ? 34.0 : 18.0) * s, y + 27.0 * s, 34.0 * s, 30.0 * s);
         g.setStroke(breast.brighter().deriveColor(0, 0.70, 1.02, 0.50));
         g.setLineWidth(1.3 * s);
         g.strokeArc(x + 16.0 * s, y + 18.0 * s, 49.0 * s, 39.0 * s,
@@ -35496,7 +35500,7 @@ public class Bird {
             Color wing = (mirage ? Color.web("#57C9D2") : bodyColor.darker())
                     .deriveColor(0, 0.92, 0.80, 0.94);
             g.setFill(wing);
-            g.fillOval(wingX, y + (25.0 + droop) * s, 35.0 * s, 39.0 * s);
+            g.fillOval(wingX, y + (21.0 + droop) * s, 35.0 * s, 34.0 * s);
             g.setStroke(featherLine);
             g.setLineCap(StrokeLineCap.ROUND);
             g.setLineWidth(1.4 * s);
@@ -35558,6 +35562,9 @@ public class Bird {
         double dir = facingRight ? 1.0 : -1.0;
         double rear = -dir;
         boolean airborne = state == BirdAnimationState.FLAP || state == BirdAnimationState.FALL;
+        boolean groundedPose = !airborne
+                && state != BirdAnimationState.HITSTUN
+                && state != BirdAnimationState.KO;
         double runAmount = state == BirdAnimationState.IDLE ? Math.min(1.0, Math.abs(vx) / 7.0) : 0.0;
         double stride = Math.sin((animationGlobalFrame + playerIndex * 9.0) * 0.48)
                 * (5.0 + runAmount * 11.0) * runAmount;
@@ -35586,18 +35593,36 @@ public class Bird {
                 ankleY = y + (80.0 + i * 2.0) * s;
             } else {
                 kneeX = hipX + step * 0.46 + dir * (i == 0 ? -1.5 : 1.5) * s;
-                kneeY = y + 77.0 * s;
+                kneeY = y + 68.0 * s;
                 ankleX = hipX + step;
-                ankleY = y + 93.0 * s;
+                ankleY = y + 77.0 * s;
             }
             g.setLineWidth(2.25 * s);
             g.strokeLine(hipX, y + 59.0 * s, kneeX, kneeY);
             g.strokeLine(kneeX, kneeY, ankleX, ankleY);
             g.setLineWidth(1.15 * s);
             double toeDir = airborne ? rear : dir;
-            g.strokeLine(ankleX, ankleY, ankleX + toeDir * 8.0 * s, ankleY + 2.0 * s);
-            g.strokeLine(ankleX, ankleY, ankleX + toeDir * 4.0 * s, ankleY + 4.0 * s);
-            g.strokeLine(ankleX, ankleY, ankleX - toeDir * 3.0 * s, ankleY + 2.0 * s);
+            if (groundedPose) {
+                g.strokeLine(ankleX, ankleY,
+                        ankleX + toeDir * 8.0 * s, y + 79.4 * s);
+                g.strokeLine(ankleX, ankleY,
+                        ankleX + toeDir * 4.0 * s, y + 79.2 * s);
+                g.strokeLine(ankleX, ankleY,
+                        ankleX - toeDir * 3.0 * s, y + 79.0 * s);
+                if (visualAuditBodyOnly) {
+                    double strokeRadius = 1.15 * s * 0.5;
+                    double visibleBottom = y + 79.4 * s + strokeRadius;
+                    lastVisualRoadrunnerFootBaseline = Math.max(
+                            Double.isNaN(lastVisualRoadrunnerFootBaseline)
+                                    ? Double.NEGATIVE_INFINITY
+                                    : lastVisualRoadrunnerFootBaseline,
+                            (visibleBottom - y) / s);
+                }
+            } else {
+                g.strokeLine(ankleX, ankleY, ankleX + toeDir * 8.0 * s, ankleY + 2.0 * s);
+                g.strokeLine(ankleX, ankleY, ankleX + toeDir * 4.0 * s, ankleY + 4.0 * s);
+                g.strokeLine(ankleX, ankleY, ankleX - toeDir * 3.0 * s, ankleY + 2.0 * s);
+            }
             recordVisualBodyPart(VisualBodyPart.ROADRUNNER_LEG);
         }
     }

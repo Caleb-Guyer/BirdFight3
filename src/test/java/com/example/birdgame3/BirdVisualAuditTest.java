@@ -515,6 +515,31 @@ class BirdVisualAuditTest {
     }
 
     @Test
+    void roadrunnerGroundedFeetMeetTheGameplayFloorAcrossSkinsAndDirections() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.ROADRUNNER)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (Bird.VisualAuditPose pose : List.of(
+                    Bird.VisualAuditPose.IDLE, Bird.VisualAuditPose.RUN)) {
+                for (boolean facingRight : List.of(true, false)) {
+                    Bird.VisualFeatureGeometry geometry =
+                            game.inspectVisualAuditCombatFeatures(entry, pose, facingRight);
+                    String label = entry.name() + " / " + pose + " facing "
+                            + (facingRight ? "right" : "left");
+                    assertTrue(Double.isFinite(geometry.roadrunnerFootBaseline()),
+                            label + " did not report a grounded foot baseline");
+                    assertEquals(80.0, geometry.roadrunnerFootBaseline(), 0.15,
+                            label + " must place the visible toes on the 80-unit collision floor");
+                }
+            }
+        }
+    }
+
+    @Test
     void roadrunnerHeadAndBillFollowMovementAnimationsInBothDirections() {
         BirdGame3 game = freshGame();
         List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
