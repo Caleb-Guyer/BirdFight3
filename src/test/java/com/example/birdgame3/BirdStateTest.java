@@ -5122,6 +5122,108 @@ class BirdStateTest {
     }
 
     @Test
+    void grinchhawkEjectedSleighFallsInsteadOfTeleportingToTheGround() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        Bird grinch = new Bird(420.0, BirdGame3.BirdType.GRINCHHAWK, 0, game);
+        grinch.y = BirdGame3.GROUND_Y - 300.0;
+        game.players[0] = grinch;
+        grinch.grinchSleighActive = true;
+        grinch.grinchSleighRiding = true;
+        grinch.grinchSleighTimer = Bird.GRINCH_SLEIGH_LIFE_FRAMES;
+        grinch.grinchSleighDirection = 1;
+        grinch.grinchSleighX = grinch.bodyCenterX();
+        grinch.grinchSleighY = grinch.bodyBottomY() + 8.0 * grinch.sizeMultiplier;
+
+        GrinchhawkSpecials.dismountSleigh(grinch, true);
+        double ejectionY = grinch.grinchSleighY;
+        double ejectionX = grinch.grinchSleighX;
+        double groundY = GrinchhawkSpecials.sleighSurfaceY(grinch, grinch.grinchSleighX);
+        GrinchhawkSpecials.handleSleigh(grinch, false, 1.0, false, false);
+
+        assertTrue(grinch.grinchSleighActive,
+                "The abandoned sleigh should remain visible while it begins falling.");
+        assertTrue(grinch.grinchSleighY > ejectionY,
+                "The abandoned sleigh should move downward after ejection.");
+        assertTrue(grinch.grinchSleighY < groundY,
+                "The abandoned sleigh must not teleport directly to the ground surface.");
+        assertTrue(grinch.grinchSleighY - ejectionY
+                        > Math.abs(grinch.grinchSleighX - ejectionX),
+                "The ejected sleigh should drop more sharply downward than it travels sideways.");
+
+        int remainingLifetime = GrinchhawkSpecials.EJECTED_SLEIGH_COAST_FRAMES
+                + GrinchhawkSpecials.EJECTED_SLEIGH_HOLD_FRAMES
+                + GrinchhawkSpecials.EJECTED_SLEIGH_REST_FRAMES;
+        for (int frame = 0; frame <= remainingLifetime && grinch.grinchSleighActive; frame++) {
+            GrinchhawkSpecials.handleSleigh(grinch, false, 1.0, false, false);
+        }
+        assertFalse(grinch.grinchSleighActive,
+                "The abandoned sleigh should eventually expire after its fall and coast.");
+    }
+
+    @Test
+    void grinchhawkEjectedSleighSlidesAcrossPlatformsAndCoastsToAStop() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        Platform platform = new Platform(0.0, BirdGame3.GROUND_Y - 250.0,
+                BirdGame3.WORLD_WIDTH, 40.0);
+        game.platforms.add(platform);
+        Bird grinch = new Bird(420.0, BirdGame3.BirdType.GRINCHHAWK, 0, game);
+        grinch.y = platform.y - grinch.bodyHeight();
+        game.players[0] = grinch;
+        grinch.grinchSleighActive = true;
+        grinch.grinchSleighRiding = true;
+        grinch.grinchSleighTimer = Bird.GRINCH_SLEIGH_LIFE_FRAMES;
+        grinch.grinchSleighDirection = 1;
+        grinch.grinchSleighX = grinch.bodyCenterX();
+        grinch.grinchSleighY = grinch.bodyBottomY() + 8.0 * grinch.sizeMultiplier;
+
+        GrinchhawkSpecials.dismountSleigh(grinch, true);
+        double platformSleighY = platform.y + 8.0 * grinch.sizeMultiplier;
+        double startX = grinch.grinchSleighX;
+        double firstStep = 0.0;
+        double heldStep = 0.0;
+        double lateStep = 0.0;
+        int lateProbeFrame = GrinchhawkSpecials.EJECTED_SLEIGH_HOLD_FRAMES
+                + GrinchhawkSpecials.EJECTED_SLEIGH_COAST_FRAMES * 3 / 4;
+        int motionFrames = GrinchhawkSpecials.EJECTED_SLEIGH_HOLD_FRAMES
+                + GrinchhawkSpecials.EJECTED_SLEIGH_COAST_FRAMES;
+        for (int frame = 0; frame < motionFrames; frame++) {
+            double previousX = grinch.grinchSleighX;
+            GrinchhawkSpecials.handleSleigh(grinch, false, 1.0, false, false);
+            double step = grinch.grinchSleighX - previousX;
+            if (frame == 0) {
+                firstStep = step;
+            } else if (frame == GrinchhawkSpecials.EJECTED_SLEIGH_HOLD_FRAMES - 1) {
+                heldStep = step;
+            } else if (frame == lateProbeFrame) {
+                lateStep = step;
+            }
+            assertTrue(grinch.grinchSleighActive,
+                    "Landing on a platform must not break the ejected sleigh.");
+            assertEquals(platformSleighY, grinch.grinchSleighY, 0.0001,
+                    "The ejected sleigh should slide straight across its supporting platform.");
+        }
+
+        assertTrue(grinch.grinchSleighX > startX,
+                "The ejected sleigh should retain some forward momentum on landing.");
+        assertEquals(Bird.GRINCH_SLEIGH_SPEED, firstStep, 0.0001,
+                "Ejection should preserve the sleigh's full riding speed.");
+        assertEquals(firstStep, heldStep, 0.0001,
+                "The sleigh should hold its inherited speed briefly before friction begins.");
+        assertTrue(lateStep > 0.0 && lateStep < firstStep * 0.4,
+                "After the hold, the ejected sleigh should lose forward speed gradually.");
+        double stoppedX = grinch.grinchSleighX;
+        for (int frame = 0; frame < 12; frame++) {
+            GrinchhawkSpecials.handleSleigh(grinch, false, 1.0, false, false);
+        }
+        assertEquals(stoppedX, grinch.grinchSleighX, 0.0001,
+                "Platform friction should reduce the sleigh's speed all the way to zero.");
+        assertTrue(grinch.grinchSleighActive,
+                "The stopped sleigh should remain briefly instead of breaking on contact.");
+    }
+
+    @Test
     void grinchhawkFallsWhenAnOccupiedSleighCrashes() {
         BirdGame3 game = new BirdGame3();
         Bird grinch = new Bird(420.0, BirdGame3.BirdType.GRINCHHAWK, 0, game);

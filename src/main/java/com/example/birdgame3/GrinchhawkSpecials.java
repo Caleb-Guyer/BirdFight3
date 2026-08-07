@@ -6,6 +6,10 @@ import java.util.Arrays;
 
 final class GrinchhawkSpecials {
     static final String MIDNIGHT_GIFTSTORM_MOVE = "Midnight Giftstorm";
+    private static final double EJECTED_SLEIGH_FALL_SPEED = 24.0;
+    static final int EJECTED_SLEIGH_HOLD_FRAMES = 24;
+    static final int EJECTED_SLEIGH_COAST_FRAMES = 180;
+    static final int EJECTED_SLEIGH_REST_FRAMES = 30;
     private static final int GIFTSTORM_KIND_COAL = 0;
     private static final int GIFTSTORM_KIND_FROST = 1;
     private static final int GIFTSTORM_KIND_CHIMNEY = 2;
@@ -396,8 +400,27 @@ final class GrinchhawkSpecials {
                 applySleighHits(bird, false);
             }
         } else {
-            bird.grinchSleighX += dir * speed;
-            bird.grinchSleighY = sleighSurfaceY(bird, bird.grinchSleighX);
+            double coastRatio = Math.clamp(
+                    (bird.grinchSleighTimer - EJECTED_SLEIGH_REST_FRAMES)
+                            / (double) EJECTED_SLEIGH_COAST_FRAMES,
+                    0.0,
+                    1.0);
+            double inheritedSpeed = bird.grinchSleighUltimate
+                    ? Bird.GRINCH_SLEIGH_SPEED + 4.0
+                    : Bird.GRINCH_SLEIGH_SPEED;
+            bird.grinchSleighX += dir * inheritedSpeed * coastRatio * Math.max(0.6, gameSpeed);
+            double previousY = bird.grinchSleighY;
+            double surfaceY = sleighSurfaceY(bird, bird.grinchSleighX);
+            double nextY = previousY + EJECTED_SLEIGH_FALL_SPEED * Math.max(0.6, gameSpeed);
+            boolean supported = Double.isFinite(surfaceY) && Math.abs(surfaceY - previousY) <= 1.0;
+            boolean landed = Double.isFinite(surfaceY)
+                    && surfaceY > previousY + 0.001
+                    && nextY >= surfaceY;
+            if (supported || landed) {
+                bird.grinchSleighY = surfaceY;
+            } else {
+                bird.grinchSleighY = nextY;
+            }
             applySleighHits(bird, true);
         }
 
@@ -427,7 +450,7 @@ final class GrinchhawkSpecials {
                 bestY = p.y + 8.0 * bird.sizeMultiplier;
             }
         }
-        return Double.isFinite(bestY) ? bestY : bird.grinchSleighY;
+        return bestY;
     }
 
     static void dismountSleigh(Bird bird, boolean jumpOff) {
@@ -437,6 +460,9 @@ final class GrinchhawkSpecials {
         bird.grinchSleighRiding = false;
         bird.grinchSleighX = bird.bodyCenterX();
         bird.grinchSleighY = bird.bodyBottomY() + 8.0 * bird.sizeMultiplier;
+        bird.grinchSleighTimer = EJECTED_SLEIGH_HOLD_FRAMES
+                + EJECTED_SLEIGH_COAST_FRAMES
+                + EJECTED_SLEIGH_REST_FRAMES;
         if (jumpOff) {
             bird.vy = Math.min(bird.vy, -bird.type.jumpHeight * 0.70);
             bird.vx = -bird.grinchSleighDirection * 3.0;
