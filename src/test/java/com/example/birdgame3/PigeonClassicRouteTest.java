@@ -193,12 +193,15 @@ class PigeonClassicRouteTest {
 
         assertTrue(select.contains("GridPane rosterGrid"));
         assertTrue(select.contains("buildRosterSelectionIcon"));
+        assertTrue(select.contains("bindFixedFrameScale(scene, content, 0.0, layoutW, layoutH)"));
         assertFalse(select.contains("ScrollPane"));
         assertTrue(launch.contains("showClassicEncounterIntro(stage)"));
         assertFalse(launch.contains("new Scene"));
         assertTrue(versus.contains("buildClassicStagePreview"));
         assertTrue(versus.contains("buildClassicRouteStrip"));
         assertTrue(versus.contains("new Label(\"VS.\")"));
+        assertTrue(versus.contains("StackPane viewport = new StackPane(root)"));
+        assertTrue(versus.contains("bindFixedFrameScale(scene, root, 0.0, 1600.0, 950.0)"));
         assertFalse(versus.contains("classicEncounter.briefing"));
     }
 

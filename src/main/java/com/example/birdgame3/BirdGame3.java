@@ -39693,7 +39693,7 @@ public class BirdGame3 {
         final double layoutH = 950.0;
         StackPane root = new StackPane();
         root.getProperties().put("noAutoScale", true);
-        root.setStyle("-fx-background-color: #05070B;");
+        root.setStyle("-fx-background-color: linear-gradient(to bottom, #06070A, #0D1017 34%, #171B22 100%);");
 
         BorderPane content = new BorderPane();
         lockRegionSize(content, layoutW, layoutH);
@@ -39919,6 +39919,7 @@ public class BirdGame3 {
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
+        bindFixedFrameScale(scene, content, 0.0, layoutW, layoutH);
         setScenePreservingFullscreen(stage, scene);
         refreshRef[0].run();
         if (selected[0] != null && tiles.get(selected[0]) != null) tiles.get(selected[0]).requestFocus();
@@ -40156,7 +40157,6 @@ public class BirdGame3 {
         playMenuMusic();
 
         Pane root = new Pane();
-        root.getProperties().put("noAutoScale", true);
         lockRegionSize(root, 1600, 950);
         root.setStyle("-fx-background-color: linear-gradient(to bottom right, #070812, #18112F 55%, #05060A);");
 
@@ -40295,9 +40295,13 @@ public class BirdGame3 {
         start.setLayoutY(838);
         root.getChildren().addAll(menu, start);
 
-        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        StackPane viewport = new StackPane(root);
+        viewport.getProperties().put("noAutoScale", true);
+        viewport.setStyle("-fx-background-color: linear-gradient(to bottom right, #070812, #18112F 55%, #05060A);");
+        Scene scene = new Scene(viewport, WIDTH, HEIGHT);
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
+        bindFixedFrameScale(scene, root, 0.0, 1600.0, 950.0);
         setScenePreservingFullscreen(stage, scene);
         start.requestFocus();
     }
