@@ -138,21 +138,24 @@ under KO slow-mo.
 
 AI-vs-AI results — treat as "where to look," not verdicts (the AI can't pilot
 technical kits like Razorbill/Charles):
-- Goose reached **53.7%** in the full 11,088-match audit; the subsequent honk
-  launch-hierarchy correction scored 51.2% in its focused 1,008-match run. Its
-  honk has charge commitment, sharp distance falloff,
+- The post-knockback/post-tuning 11,088-match audit completed with only 5 draws.
+  Every bird won substantial matchups, ranging from Rooster at 30.4% to Raven
+  at 71.0%. Combined with the owner's hands-on fighter passes, the roster is an
+  accepted playable baseline, though not a claim of tournament-perfect balance.
+- Goose scored 50.9% in the fresh full audit; its honk launch-hierarchy focused
+  run scored 51.2%. Honk has charge commitment, sharp distance falloff,
   velocity caps, and shared damage-scaled launch; legacy whole-kit penalties
   were eased to 0.68 dealt / 1.35 taken / 0.70 cooldown / 0.62 ultimate.
-- Raven/Eagle led the last full audit at 72.8%/71.2%. Phoenix's subsequent
-  focused pass removed its obsolete 0.78 normal-attack power penalty and raised
-  its focused result from 30.4% to 38.9%. Bat's focused pass eased its legacy
-  whole-kit penalties to 0.95 dealt / 1.08 taken / 0.95 cooldown / 1.00 ultimate,
-  raising it from 27.6% to 36.0%; its strong map variance still needs owner
-  playtesting. Roadrunner remains below 30% in the full report. These are
-  playtest signals, not automatic tuning orders.
+- Raven/Eagle lead the fresh audit at 71.0%/69.7%; Roadrunner/Rooster are the
+  low end at 30.7%/30.4%. Roadrunner already passed the owner's feel test, so
+  these are future competitive-balance signals rather than playability blockers.
+- Phoenix's normal-attack correction now scores 38.8% in the full audit. Bat's
+  eased legacy penalties score 35.8%; its strong map variance remains a useful
+  owner-playtest target rather than an automatic tuning order.
 - Vulture's owned crow damage/launch already inherit his outgoing multiplier.
   Its focused pass eased obsolete whole-kit penalties to 0.84 dealt / 1.26 taken /
-  0.84 cooldown / 0.78 ultimate, raising the current result from 25.7% to 45.4%.
+  0.84 cooldown / 0.78 ultimate, raising its focused result from 25.7% to 45.4%
+  and its fresh full-audit result to 46.8%; the owner approved the feel pass.
 - Global multipliers do NOT fix structural outliers.
 
 ## Working with the owner
@@ -167,8 +170,9 @@ technical kits like Razorbill/Charles):
 
 ## Open threads
 
-1. Raven/Eagle high-end and Roadrunner low-end balance —
-   needs owner playtesting before another tuning pass.
+1. Competitive balance polish — Raven/Eagle remain AI-high and Roadrunner/
+   Rooster AI-low. None are roster-playability blockers; use owner matchup
+   reports before further tuning.
 2. Real sprite art — pipeline complete and waiting; owner draws.
 3. Rollback, matchmaking, and relay infrastructure — direct internet lockstep
    now exists, but no-setup play through CGNAT still needs a hosted relay and
