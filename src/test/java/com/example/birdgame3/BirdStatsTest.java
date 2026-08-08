@@ -126,4 +126,48 @@ class BirdStatsTest {
         assertEquals(BirdGame3.BirdType.PIGEON.defaultSpeed, BirdGame3.BirdType.PIGEON.speed,
                 "Reload with no file must reset to compiled defaults.");
     }
+
+    @Test
+    void reloadMigratesExactLegacyGooseAndBatPresets(@TempDir Path dir) throws Exception {
+        Path file = dir.resolve("bird-stats.properties");
+        Files.writeString(file, """
+                goose.damageDealtMult=0.52
+                goose.damageTakenMult=1.55
+                goose.cooldownRate=0.54
+                goose.ultimateRate=0.46
+                bat.damageDealtMult=0.82
+                bat.damageTakenMult=1.20
+                bat.cooldownRate=0.82
+                bat.ultimateRate=0.90
+                """);
+
+        BirdStats.reload(file);
+
+        assertEquals(0.68, BirdGame3.BirdType.GOOSE.damageDealtMult);
+        assertEquals(1.35, BirdGame3.BirdType.GOOSE.damageTakenMult);
+        assertEquals(0.70, BirdGame3.BirdType.GOOSE.cooldownRate);
+        assertEquals(0.62, BirdGame3.BirdType.GOOSE.ultimateRate);
+        assertEquals(0.95, BirdGame3.BirdType.BAT.damageDealtMult);
+        assertEquals(1.08, BirdGame3.BirdType.BAT.damageTakenMult);
+        assertEquals(0.95, BirdGame3.BirdType.BAT.cooldownRate);
+        assertEquals(1.00, BirdGame3.BirdType.BAT.ultimateRate);
+    }
+
+    @Test
+    void reloadLeavesCustomizedLegacyPresetUntouched(@TempDir Path dir) throws Exception {
+        Path file = dir.resolve("bird-stats.properties");
+        Files.writeString(file, """
+                bat.damageDealtMult=0.87
+                bat.damageTakenMult=1.20
+                bat.cooldownRate=0.82
+                bat.ultimateRate=0.90
+                """);
+
+        BirdStats.reload(file);
+
+        assertEquals(0.87, BirdGame3.BirdType.BAT.damageDealtMult);
+        assertEquals(1.20, BirdGame3.BirdType.BAT.damageTakenMult);
+        assertEquals(0.82, BirdGame3.BirdType.BAT.cooldownRate);
+        assertEquals(0.90, BirdGame3.BirdType.BAT.ultimateRate);
+    }
 }

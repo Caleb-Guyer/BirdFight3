@@ -126,8 +126,37 @@ final class BirdStats {
         } catch (IOException e) {
             return "BIRD STATS: FAILED TO READ " + file.getFileName();
         }
+        migrateLegacyShippedTuning(props);
         int applied = apply(props);
         return "BIRD STATS: " + applied + " OVERRIDES LOADED";
+    }
+
+    /**
+     * The updater intentionally preserves this file. Upgrade only complete,
+     * unmodified presets that shipped in an older build; changing even one of
+     * these four values marks the bird's preset as player-owned.
+     */
+    private static void migrateLegacyShippedTuning(Properties props) {
+        migrateLegacyPreset(props, "goose",
+                new double[]{0.52, 1.55, 0.54, 0.46},
+                new double[]{0.68, 1.35, 0.70, 0.62});
+        migrateLegacyPreset(props, "bat",
+                new double[]{0.82, 1.20, 0.82, 0.90},
+                new double[]{0.95, 1.08, 0.95, 1.00});
+    }
+
+    private static void migrateLegacyPreset(Properties props, String bird,
+                                             double[] legacyValues, double[] replacementValues) {
+        String[] stats = {"damageDealtMult", "damageTakenMult", "cooldownRate", "ultimateRate"};
+        for (int i = 0; i < stats.length; i++) {
+            Double value = readDouble(props, bird + "." + stats[i]);
+            if (value == null || Double.compare(value, legacyValues[i]) != 0) {
+                return;
+            }
+        }
+        for (int i = 0; i < stats.length; i++) {
+            props.setProperty(bird + "." + stats[i], Double.toString(replacementValues[i]));
+        }
     }
 
     /** Writes a template listing every stat at its default value; false if it already exists or fails. */
