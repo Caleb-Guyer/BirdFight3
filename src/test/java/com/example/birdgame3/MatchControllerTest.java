@@ -4,6 +4,7 @@ import javafx.scene.input.KeyCode;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -127,6 +128,20 @@ class MatchControllerTest {
 
         assertTrue(game.suddenDeath.isActive());
         assertFalse(game.crowMinions.isEmpty());
+    }
+
+    @Test
+    void classicSmashRoundsUseTeamStockCompletion() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        MatchController controller = new MatchController(game);
+        setSmashCombatRules(game, true);
+        game.classicModeActive = true;
+        game.classicTeamMode = true;
+
+        Method teamMatch = MatchController.class.getDeclaredMethod("isStandardTeamMatch");
+        teamMatch.setAccessible(true);
+
+        assertTrue((boolean) teamMatch.invoke(controller));
     }
 
     private static void setSmashCombatRules(BirdGame3 game, boolean active) throws Exception {

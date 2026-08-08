@@ -4,6 +4,8 @@ import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Random;
 
@@ -104,7 +106,7 @@ class PigeonClassicRouteTest {
 
     @Test
     void nullRockKeepsTrueFormButUsesSoloRouteHealthTuning() throws Exception {
-        BirdGame3 game = preparedGameAtIntensity(5.0);
+        BirdGame3 game = preparedGameAtDifficulty(5.0);
         ClassicEncounter finale = pigeonRoute(game).getLast();
         game.classicEncounter = finale;
         Method setupRoster = BirdGame3.class.getDeclaredMethod("setupClassicEncounterRoster", ClassicEncounter.class);
@@ -122,9 +124,9 @@ class PigeonClassicRouteTest {
     }
 
     @Test
-    void intensityRaisesAuthoredEnemyStatsAndCpuWithoutChangingTheRoute() throws Exception {
-        BirdGame3 low = preparedGameAtIntensity(1.0);
-        BirdGame3 high = preparedGameAtIntensity(9.0);
+    void difficultyRaisesAuthoredEnemyStatsAndCpuWithoutChangingTheRoute() throws Exception {
+        BirdGame3 low = preparedGameAtDifficulty(1.0);
+        BirdGame3 high = preparedGameAtDifficulty(9.0);
         ClassicEncounter lowEncounter = pigeonRoute(low).get(3);
         ClassicEncounter highEncounter = pigeonRoute(high).get(3);
         low.classicEncounter = lowEncounter;
@@ -140,6 +142,64 @@ class PigeonClassicRouteTest {
         assertTrue(high.getCpuLevel(1) > low.getCpuLevel(1));
         assertEquals(lowEncounter.name, highEncounter.name);
         assertEquals(lowEncounter.variant, highEncounter.variant);
+    }
+
+    @Test
+    void regularClassicRoundsUseOneStockSmashRulesButBonusAndBossKeepTheirSpecialRules() throws Exception {
+        BirdGame3 game = preparedGameAtDifficulty(5.0);
+        List<ClassicEncounter> route = pigeonRoute(game);
+
+        game.classicEncounter = route.get(0);
+        assertTrue(game.classicUsesSmashRules());
+        assertEquals(1, game.smashStartingStocks());
+
+        game.classicEncounter = route.get(6);
+        assertFalse(game.classicUsesSmashRules());
+
+        game.classicEncounter = route.get(7);
+        assertFalse(game.classicUsesSmashRules());
+    }
+
+    @Test
+    void adaptiveDifficultyStartsAtFiveAndMovesHalfAStepAfterEachResult() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        Method reset = BirdGame3.class.getDeclaredMethod("resetClassicAdaptiveDifficulty");
+        Method adjust = BirdGame3.class.getDeclaredMethod("adjustClassicDifficulty", boolean.class);
+        reset.setAccessible(true);
+        adjust.setAccessible(true);
+
+        setField(game, "classicDifficulty", 8.0);
+        reset.invoke(game);
+        assertEquals(5.0, getDoubleField(game, "classicDifficulty"), 0.001);
+
+        adjust.invoke(game, true);
+        assertEquals(5.5, getDoubleField(game, "classicDifficulty"), 0.001);
+        adjust.invoke(game, false);
+        assertEquals(5.0, getDoubleField(game, "classicDifficulty"), 0.001);
+        assertEquals(100, BirdGame3.CLASSIC_CONTINUE_BIRD_COIN_COST);
+        assertEquals(200, BirdGame3.classicContinueCoinValue(2));
+        assertEquals(Integer.MAX_VALUE, BirdGame3.classicContinueCoinValue(Integer.MAX_VALUE));
+    }
+
+    @Test
+    void classicPresentationUsesRosterGridRouteStripAndRenderedStageInsteadOfBriefingLists() throws Exception {
+        String source = Files.readString(Path.of("src/main/java/com/example/birdgame3/BirdGame3.java"));
+        String select = methodSource(source, "private void showClassicBirdSelect(Stage stage)",
+                "private boolean isDailyChallengeRetired()");
+        String launch = methodSource(source, "private void showClassicRunBriefing(Stage stage, BirdType birdType)",
+                "private HBox buildClassicRouteStrip");
+        String versus = methodSource(source, "private void showClassicEncounterIntro(Stage stage)",
+                "private void startClassicEncounter(Stage stage)");
+
+        assertTrue(select.contains("GridPane rosterGrid"));
+        assertTrue(select.contains("buildRosterSelectionIcon"));
+        assertFalse(select.contains("ScrollPane"));
+        assertTrue(launch.contains("showClassicEncounterIntro(stage)"));
+        assertFalse(launch.contains("new Scene"));
+        assertTrue(versus.contains("buildClassicStagePreview"));
+        assertTrue(versus.contains("buildClassicRouteStrip"));
+        assertTrue(versus.contains("new Label(\"VS.\")"));
+        assertFalse(versus.contains("classicEncounter.briefing"));
     }
 
     @Test
@@ -170,11 +230,11 @@ class PigeonClassicRouteTest {
         assertFalse(dailyRoute.stream().anyMatch(encounter -> encounter.variant == MapVariant.ROOFTOP_RELAY));
     }
 
-    private static BirdGame3 preparedGameAtIntensity(double intensity) throws Exception {
+    private static BirdGame3 preparedGameAtDifficulty(double difficulty) throws Exception {
         BirdGame3 game = new BirdGame3();
         game.classicModeActive = true;
         setField(game, "classicSelectedBird", BirdType.PIGEON);
-        setField(game, "classicIntensity", intensity);
+        setField(game, "classicDifficulty", difficulty);
         return game;
     }
 
@@ -189,5 +249,19 @@ class PigeonClassicRouteTest {
         Field field = BirdGame3.class.getDeclaredField(name);
         field.setAccessible(true);
         field.set(game, value);
+    }
+
+    private static double getDoubleField(BirdGame3 game, String name) throws Exception {
+        Field field = BirdGame3.class.getDeclaredField(name);
+        field.setAccessible(true);
+        return field.getDouble(game);
+    }
+
+    private static String methodSource(String source, String startMarker, String endMarker) {
+        int start = source.indexOf(startMarker);
+        int end = source.indexOf(endMarker, start + startMarker.length());
+        assertTrue(start >= 0, "missing method marker: " + startMarker);
+        assertTrue(end > start, "missing method boundary: " + endMarker);
+        return source.substring(start, end);
     }
 }

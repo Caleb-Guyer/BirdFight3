@@ -721,7 +721,8 @@ final class MatchController {
     }
 
     private boolean isStandardTeamMatch() {
-        return game.teamModeEnabled && !game.campaignModeActive
-                && !game.storyModeActive && !game.adventureModeActive && !game.classicModeActive;
+        return (game.teamModeEnabled && !game.campaignModeActive
+                && !game.storyModeActive && !game.adventureModeActive && !game.classicModeActive)
+                || (game.classicModeActive && game.classicTeamMode && game.usesSmashCombatRules());
     }
 }
