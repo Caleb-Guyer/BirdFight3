@@ -1,0 +1,36 @@
+package com.example.birdgame3;
+
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+class StageSelectLayoutTest {
+    @Test
+    void completeMainCatalogFitsWithoutScrolling() {
+        assertEquals(3, StageSelectLayout.rowsFor(BirdGame3.MapType.values().length));
+        assertTrue(StageSelectLayout.gridWidth()
+                        <= BirdGame3.WIDTH - StageSelectLayout.ROOT_HORIZONTAL_PADDING * 2.0,
+                "Four stage cards should fit inside the logical screen width.");
+        assertTrue(StageSelectLayout.requiredScreenHeight(
+                        StageSelectLayout.gridHeight(BirdGame3.MapType.values().length)) <= BirdGame3.HEIGHT,
+                "Every main stage and both random choices should fit without a scroll pane.");
+    }
+
+    @Test
+    void completeCategorizedVariantCatalogFitsWithoutScrolling() {
+        int storyArenas = 0;
+        int bossArenas = 0;
+        for (BirdGame3.MapVariant variant : BirdGame3.MapVariant.values()) {
+            if (variant == BirdGame3.MapVariant.STANDARD) continue;
+            if ("Story Arenas".equals(variant.category)) storyArenas++;
+            if ("Boss Rush Arenas".equals(variant.category)) bossArenas++;
+        }
+
+        assertEquals(1, StageSelectLayout.rowsFor(storyArenas));
+        assertEquals(2, StageSelectLayout.rowsFor(bossArenas));
+        assertTrue(StageSelectLayout.requiredScreenHeight(
+                        StageSelectLayout.groupedCatalogHeight(storyArenas, bossArenas)) <= BirdGame3.HEIGHT,
+                "Both labeled variant sections and random choices should fit without scrolling.");
+    }
+}

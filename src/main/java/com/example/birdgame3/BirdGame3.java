@@ -41815,7 +41815,11 @@ public class BirdGame3 {
     private void showStageSelect(Stage stage, boolean variantsTabActive) {
         playMenuMusic();
         BorderPane root = new BorderPane();
-        root.setPadding(new Insets(28, 36, 30, 36));
+        root.setPadding(new Insets(
+                StageSelectLayout.ROOT_TOP_PADDING,
+                StageSelectLayout.ROOT_HORIZONTAL_PADDING,
+                StageSelectLayout.ROOT_BOTTOM_PADDING,
+                StageSelectLayout.ROOT_HORIZONTAL_PADDING));
         root.setStyle("-fx-background-color: linear-gradient(to bottom, #08101E, #1B2C44);");
 
         Runnable backAction = () -> {
@@ -41829,26 +41833,29 @@ public class BirdGame3 {
                 showMenu(stage);
             }
         };
-        Button backArrow = uiFactory.action("<", 120, 90, 64, "#FF1744", 24, backAction);
+        Button backArrow = uiFactory.action("<", 92, StageSelectLayout.TOP_BAR_HEIGHT, 48, "#FF1744", 22, backAction);
 
         Label title = new Label("SELECT STAGE");
-        title.setFont(Font.font("Impact", FontWeight.BOLD, 96));
+        title.setFont(Font.font("Impact", FontWeight.BOLD, 72));
         title.setTextFill(Color.web("#FFE082"));
         title.setEffect(new Glow(0.8));
 
-        Button mainTab = uiFactory.action("MAIN", 300, 78, 30, "#1565C0", 18,
+        Button mainTab = uiFactory.action("MAIN", 220, 60, 25, "#1565C0", 16,
                 () -> showStageSelect(stage, false));
-        Button variantsTab = uiFactory.action("VARIANTS", 300, 78, 30, "#6A1B9A", 18,
+        Button variantsTab = uiFactory.action("VARIANTS", 220, 60, 25, "#6A1B9A", 16,
                 () -> showStageSelect(stage, true));
         mainTab.setDisable(!variantsTabActive);
         variantsTab.setDisable(variantsTabActive);
-        HBox tabs = new HBox(16, mainTab, variantsTab);
-        tabs.setAlignment(Pos.CENTER_LEFT);
+        HBox tabs = new HBox(12, mainTab, variantsTab);
+        tabs.setAlignment(Pos.CENTER_RIGHT);
 
-        VBox heading = new VBox(8, title, tabs);
-        heading.setAlignment(Pos.CENTER_LEFT);
-        HBox topBar = new HBox(24, backArrow, heading);
+        Region headerSpacer = new Region();
+        HBox.setHgrow(headerSpacer, Priority.ALWAYS);
+        HBox topBar = new HBox(22, backArrow, title, headerSpacer, tabs);
         topBar.setAlignment(Pos.CENTER_LEFT);
+        topBar.setMinHeight(StageSelectLayout.TOP_BAR_HEIGHT);
+        topBar.setPrefHeight(StageSelectLayout.TOP_BAR_HEIGHT);
+        topBar.setMaxHeight(StageSelectLayout.TOP_BAR_HEIGHT);
 
         record MapCard(String name, String desc, String color, MapType map) {
         }
@@ -41881,17 +41888,18 @@ public class BirdGame3 {
         };
 
         VBox cardSections = new VBox(24);
-        cardSections.setAlignment(Pos.TOP_CENTER);
+        cardSections.setAlignment(Pos.CENTER);
         if (!variantsTabActive) {
             GridPane grid = new GridPane();
-            grid.setHgap(26);
-            grid.setVgap(22);
-            grid.setAlignment(Pos.TOP_CENTER);
+            grid.setHgap(StageSelectLayout.HORIZONTAL_GAP);
+            grid.setVgap(StageSelectLayout.VERTICAL_GAP);
+            grid.setAlignment(Pos.CENTER);
             for (int i = 0; i < mainCards.size(); i++) {
                 MapCard card = mainCards.get(i);
                 grid.add(buildStageSelectCard(
                         card.name, card.desc, card.color,
-                        () -> selectStage.accept(StageChoice.main(card.map))), i % 2, i / 2);
+                        () -> selectStage.accept(StageChoice.main(card.map))),
+                        i % StageSelectLayout.COLUMNS, i / StageSelectLayout.COLUMNS);
             }
             cardSections.getChildren().add(grid);
         } else {
@@ -41904,27 +41912,29 @@ public class BirdGame3 {
                 if (variants.isEmpty()) continue;
 
                 Label categoryLabel = new Label(category.toUpperCase());
-                categoryLabel.setFont(Font.font("Arial Black", 34));
+                categoryLabel.setFont(Font.font("Arial Black", 26));
                 categoryLabel.setTextFill(Color.web(category.equals("Story Arenas") ? "#FFE082" : "#CE93D8"));
                 applyNoEllipsis(categoryLabel);
 
                 GridPane grid = new GridPane();
-                grid.setHgap(26);
-                grid.setVgap(22);
-                grid.setAlignment(Pos.TOP_CENTER);
+                grid.setHgap(StageSelectLayout.HORIZONTAL_GAP);
+                grid.setVgap(StageSelectLayout.VERTICAL_GAP);
+                grid.setAlignment(Pos.CENTER);
                 for (int i = 0; i < variants.size(); i++) {
                     MapVariant variant = variants.get(i);
                     String desc = variant.description + "\nBase arena: " + mapDisplayName(variant.baseMap);
                     String color = category.equals("Story Arenas") ? "#AD6C00" : "#6A1B9A";
                     grid.add(buildStageSelectCard(
                             variant.displayName.toUpperCase(), desc, color,
-                            () -> selectStage.accept(new StageChoice(variant.baseMap, variant))), i % 2, i / 2);
+                            () -> selectStage.accept(new StageChoice(variant.baseMap, variant))),
+                            i % StageSelectLayout.COLUMNS, i / StageSelectLayout.COLUMNS);
                 }
-                VBox section = new VBox(12, categoryLabel, grid);
-                section.setAlignment(Pos.TOP_CENTER);
+                VBox section = new VBox(StageSelectLayout.SECTION_LABEL_GAP, categoryLabel, grid);
+                section.setAlignment(Pos.CENTER);
                 cardSections.getChildren().add(section);
             }
         }
+        cardSections.setSpacing(StageSelectLayout.SECTION_GAP);
 
         Consumer<StageRandomPool> selectRandom = randomPool -> {
             Consumer<StageRandomPool> randomHandler = stageSelectRandomHandler;
@@ -41943,36 +41953,32 @@ public class BirdGame3 {
         };
 
         StageRandomPool tabPool = variantsTabActive ? StageRandomPool.VARIANTS : StageRandomPool.MAIN;
-        Button tabRandomBtn = uiFactory.action(tabPool.label, 670, 110, 38,
-                variantsTabActive ? "#7B1FA2" : "#1565C0", 24, () -> selectRandom.accept(tabPool));
-        Button totalRandomBtn = uiFactory.action("TOTAL RANDOM", 670, 110, 38, "#8E24AA", 24,
+        Button tabRandomBtn = uiFactory.action(tabPool.label, 460, 72, 27,
+                variantsTabActive ? "#7B1FA2" : "#1565C0", 18, () -> selectRandom.accept(tabPool));
+        Button totalRandomBtn = uiFactory.action("TOTAL RANDOM", 460, 72, 27, "#8E24AA", 18,
                 () -> selectRandom.accept(StageRandomPool.ALL));
         Label randomHint = new Label(variantsTabActive
                 ? "Random Variant stays in this tab. Total Random can choose any main stage or variant."
                 : "Random Main stays in this tab. Total Random can choose any main stage or variant.");
-        randomHint.setFont(Font.font("Consolas", 20));
+        randomHint.setFont(Font.font("Consolas", 16));
         randomHint.setTextFill(Color.web("#B39DDB"));
         randomHint.setWrapText(true);
         randomHint.setTextAlignment(TextAlignment.CENTER);
+        randomHint.setAlignment(Pos.CENTER);
+        randomHint.setPrefWidth(1120);
 
-        HBox randomButtons = new HBox(24, tabRandomBtn, totalRandomBtn);
+        HBox randomButtons = new HBox(18, tabRandomBtn, totalRandomBtn);
         randomButtons.setAlignment(Pos.CENTER);
-        VBox randomBox = new VBox(8, randomButtons, randomHint);
+        VBox randomBox = new VBox(5, randomButtons, randomHint);
         randomBox.setAlignment(Pos.CENTER);
-        randomBox.setPadding(new Insets(12, 0, 0, 0));
-
-        VBox center = new VBox(20, cardSections, randomBox);
-        center.setAlignment(Pos.CENTER);
-
-        ScrollPane scroll = new ScrollPane(center);
-        scroll.setFitToWidth(true);
-        scroll.setFitToHeight(true);
-        scroll.setStyle("-fx-background-color: transparent;");
-        scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-        scroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        randomBox.setMinHeight(StageSelectLayout.RANDOM_AREA_HEIGHT);
+        randomBox.setPrefHeight(StageSelectLayout.RANDOM_AREA_HEIGHT);
+        randomBox.setMaxHeight(StageSelectLayout.RANDOM_AREA_HEIGHT);
 
         root.setTop(topBar);
-        root.setCenter(scroll);
+        root.setCenter(cardSections);
+        root.setBottom(randomBox);
+        BorderPane.setMargin(cardSections, new Insets(14, 0, 12, 0));
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         bindEscape(scene, backArrow);
@@ -41984,18 +41990,27 @@ public class BirdGame3 {
     }
 
     private VBox buildStageSelectCard(String name, String description, String color, Runnable action) {
-        VBox cardBox = new VBox(8);
-        cardBox.setPadding(new Insets(16));
-        cardBox.setStyle("-fx-background-color: rgba(0,0,0,0.45); -fx-border-color: #90A4AE; -fx-border-width: 2; -fx-background-radius: 18; -fx-border-radius: 18;");
+        VBox cardBox = new VBox(6);
+        cardBox.setPadding(new Insets(10, 12, 10, 12));
+        cardBox.setAlignment(Pos.TOP_CENTER);
+        cardBox.setMinSize(StageSelectLayout.CARD_WIDTH, StageSelectLayout.CARD_HEIGHT);
+        cardBox.setPrefSize(StageSelectLayout.CARD_WIDTH, StageSelectLayout.CARD_HEIGHT);
+        cardBox.setMaxSize(StageSelectLayout.CARD_WIDTH, StageSelectLayout.CARD_HEIGHT);
+        cardBox.setStyle("-fx-background-color: rgba(0,0,0,0.45); -fx-border-color: #90A4AE; -fx-border-width: 2; -fx-background-radius: 14; -fx-border-radius: 14;");
 
-        Button button = uiFactory.action(name, 680, 120, 34, color, 22, action);
+        Button button = uiFactory.action(name, StageSelectLayout.CARD_INNER_WIDTH, 64, 23, color, 14, action);
         Label desc = getLabel(description);
-        desc.setFont(Font.font("Consolas", 20));
+        desc.setFont(Font.font("Consolas", 15));
         desc.setTextFill(Color.web("#CFD8DC"));
         desc.setWrapText(true);
-        desc.setPrefWidth(640);
-        desc.setMaxWidth(640);
-        desc.setMinHeight(Region.USE_PREF_SIZE);
+        desc.setTextAlignment(TextAlignment.CENTER);
+        desc.setAlignment(Pos.TOP_CENTER);
+        desc.setMinWidth(StageSelectLayout.CARD_INNER_WIDTH);
+        desc.setPrefWidth(StageSelectLayout.CARD_INNER_WIDTH);
+        desc.setMaxWidth(StageSelectLayout.CARD_INNER_WIDTH);
+        desc.setMinHeight(58);
+        desc.setPrefHeight(58);
+        desc.setMaxHeight(58);
         applyNoEllipsis(desc);
         cardBox.getChildren().addAll(button, desc);
         return cardBox;
