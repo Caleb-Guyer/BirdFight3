@@ -806,6 +806,7 @@ class BirdStateTest {
         assertTrue(getPrivateInt(target, "heisenBrittleTimer") > 0,
                 "Crystal Cloud should visibly mark nearby enemies as brittle.");
 
+        int particlesBeforeShatter = game.particles.size();
         double healthBeforeHit = target.health;
         double dealt = applyPrivateDamage(heisen, target, 6.0);
 
@@ -814,6 +815,48 @@ class BirdStateTest {
         assertTrue(target.health < healthBeforeHit);
         assertEquals(0, getPrivateInt(target, "heisenBrittleTimer"),
                 "A normal brittle mark should be consumed by the next Heisenbird hit.");
+        assertTrue(game.hitstopFrames >= 5,
+                "Shattering Brittle should have a distinct but brief crystal impact pause.");
+        assertTrue(game.shakeIntensity >= 8);
+        assertTrue(game.particles.size() > particlesBeforeShatter,
+                "A Brittle shatter should release a readable burst of crystal shards.");
+    }
+
+    @Test
+    void heisenFueledBlueRushGetsItsBrittleLaunchPayoff() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 3;
+
+        Bird heisen = new Bird(300.0, BirdGame3.BirdType.HEISENBIRD, 0, game);
+        Bird brittleTarget = new Bird(390.0, BirdGame3.BirdType.PIGEON, 1, game);
+        Bird unmarkedTarget = new Bird(430.0, BirdGame3.BirdType.EAGLE, 2, game);
+        heisen.y = BirdGame3.GROUND_Y - heisen.bodyHeight();
+        brittleTarget.y = BirdGame3.GROUND_Y - brittleTarget.bodyHeight();
+        unmarkedTarget.y = BirdGame3.GROUND_Y - unmarkedTarget.bodyHeight();
+        heisen.facingRight = true;
+        game.players[0] = heisen;
+        game.players[1] = brittleTarget;
+        game.players[2] = unmarkedTarget;
+        brittleTarget.applyHeisenBrittle(heisen, false);
+
+        OpiumSpecials.side(heisen, true);
+        double committedSpeed = Math.abs(heisen.vx);
+        int committedFrames = heisen.opiumSideTimer;
+        OpiumSpecials.applySideHits(heisen, true);
+
+        assertTrue(heisen.opiumSideHit[brittleTarget.playerIndex]);
+        assertTrue(heisen.opiumSideHit[unmarkedTarget.playerIndex]);
+        assertTrue(brittleTarget.health < unmarkedTarget.health,
+                "Brittle should add its promised damage to Blue Rush.");
+        assertTrue(Math.abs(brittleTarget.vx) > Math.abs(unmarkedTarget.vx),
+                "Fueled Blue Rush should cash Brittle out into its stronger launch route.");
+        assertEquals(0, brittleTarget.heisenBrittleTimer);
+        assertEquals(committedFrames, heisen.opiumSideTimer,
+                "The shatter polish must not shorten Blue Rush recovery.");
+        assertEquals(committedSpeed, Math.abs(heisen.vx), 0.0001,
+                "The shatter polish must not alter Blue Rush movement.");
+        assertTrue(game.hitstopFrames >= 5);
+        assertTrue(game.shakeIntensity >= 8);
     }
 
     @Test

@@ -14814,7 +14814,10 @@ public class Bird {
                 && attacker.heisenUltimateTimer > 0
                 && heisenBrittleUltimate;
         double bonus = repeatableUltimateMark ? 4.0 : 5.0;
-        emitBrittleShatterParticles(repeatableUltimateMark ? 10 : 14);
+        emitBrittleShatterParticles(repeatableUltimateMark ? 18 : 24);
+        game.hitstopFrames = Math.max(game.hitstopFrames, repeatableUltimateMark ? 4 : 5);
+        game.shakeIntensity = Math.max(game.shakeIntensity, repeatableUltimateMark ? 7 : 8);
+        game.playHeisenBrittleShatterSfx(repeatableUltimateMark);
         game.recordTrainingHeisenBrittleShatter(attacker, this);
         if (!repeatableUltimateMark) {
             clearHeisenBrittle();

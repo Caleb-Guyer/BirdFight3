@@ -1283,6 +1283,15 @@ public class BirdGame3 {
         playManagedSfxVaried(vaseBreakingClip, 1.0, 1.0, 0.08);
     }
 
+    void playHeisenBrittleShatterSfx(boolean repeatingUltimateMark) {
+        playManagedSfxVaried(
+                vaseBreakingClip,
+                repeatingUltimateMark ? 0.30 : 0.58,
+                repeatingUltimateMark ? 1.28 : 1.62,
+                0.025
+        );
+    }
+
     void playTowerDefenseBlightPopSfx(double intensity) {
         double clamped = Math.clamp(intensity, 0.2, 1.0);
         if (vaseBreakingClip != null) {
@@ -10332,7 +10341,7 @@ public class BirdGame3 {
         HEISEN_DRILL(
                 "Heisen Brittle Setup",
                 "Place a Node, refuel in it, apply Brittle, then shatter Brittle with a hit.",
-                "Node builds the setup. Brittle makes the next real hit launch harder.",
+                "Node builds the setup. Brittle makes the next real hit crack with bonus damage; fueled Blue Rush adds stronger launch.",
                 MapType.BATTLEFIELD,
                 BirdType.HEISENBIRD,
                 BirdType.PIGEON,
