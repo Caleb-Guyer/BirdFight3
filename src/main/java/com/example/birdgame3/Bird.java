@@ -1308,6 +1308,9 @@ public class Bird {
     public double baseSpeedMultiplier = 1.0;
     public double basePowerMultiplier = 1.0;
     public double baseSizeMultiplier = 1.0;
+    boolean classicBonusTarget = false;
+    boolean classicBonusTargetRewardClaimed = false;
+    double classicMaxHealthOverride = 0.0;
     public int speedTimer = 0;
     public int rageTimer = 0;
     public int shrinkTimer = 0;
@@ -11321,6 +11324,15 @@ public class Bird {
 
     public void update(double gameSpeed) {
         try {
+            if (classicBonusTarget) {
+                vx = 0.0;
+                vy = 0.0;
+                if (health <= 0.0 && !classicBonusTargetRewardClaimed) {
+                    classicBonusTargetRewardClaimed = true;
+                    game.onClassicBonusTargetDestroyed(this);
+                }
+                return;
+            }
             if (health > 0 && game.isAI[playerIndex] && !respawnReturnActive()) aiControl();
 
         // === UPDATE TIMERS ===
@@ -14585,6 +14597,7 @@ public class Bird {
 
     public double getMaxHealth() {
         if (type == BirdGame3.BirdType.PHOENIX && phoenixRebornActive) return PHOENIX_REBORN_HEALTH;
+        if (classicMaxHealthOverride > 0.0) return classicMaxHealthOverride;
         if (isNullRockForm()) return game.nullRockTrueFormHealth();
         return 100.0;
     }
@@ -23379,6 +23392,10 @@ public class Bird {
 
     public void draw(GraphicsContext g) {
         resetVisualFeatureProbe();
+        if (classicBonusTarget) {
+            drawClassicBonusTarget(g);
+            return;
+        }
         double drawSize = 80 * sizeMultiplier;
         boolean airborne = !isOnGround();
         AttackVisualPose attackPose = currentAttackVisualPose();
@@ -23457,6 +23474,33 @@ public class Bird {
         drawDirectionalAttackFx(g, drawSize);
         drawStunEffect(g, drawSize);
         drawVineGrapple(g);
+    }
+
+    private void drawClassicBonusTarget(GraphicsContext g) {
+        double centerX = x + bodyWidth() * 0.5;
+        double centerY = y + bodyHeight() * 0.5;
+        double pulse = 0.88 + 0.08 * Math.sin(game.simTick * 0.11 + playerIndex);
+        double radius = 48.0 * sizeMultiplier;
+        g.save();
+        g.setFill(Color.web("#071522", 0.92));
+        g.fillRoundRect(centerX - radius * 1.22, centerY - radius,
+                radius * 2.44, radius * 2.0, 18, 18);
+        g.setStroke(Color.web("#2DE2E6", 0.88));
+        g.setLineWidth(7.0);
+        g.strokeRoundRect(centerX - radius * 1.22, centerY - radius,
+                radius * 2.44, radius * 2.0, 18, 18);
+        g.setStroke(Color.web("#FF3DC8", 0.78));
+        g.setLineWidth(4.0);
+        g.strokeOval(centerX - radius * 0.62 * pulse, centerY - radius * 0.62 * pulse,
+                radius * 1.24 * pulse, radius * 1.24 * pulse);
+        g.setFill(Color.web("#FFF59D"));
+        g.fillOval(centerX - radius * 0.22, centerY - radius * 0.22,
+                radius * 0.44, radius * 0.44);
+        g.setFill(Color.web("#EAFBFF"));
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, 15.0 * sizeMultiplier));
+        g.setTextAlign(TextAlignment.CENTER);
+        g.fillText("TARGET", centerX, centerY + radius * 1.36);
+        g.restore();
     }
 
     /** Draws only authored body art so visual audits do not mistake transient FX for silhouette clipping. */

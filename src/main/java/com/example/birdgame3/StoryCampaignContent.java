@@ -536,7 +536,8 @@ final class StoryCampaignContent {
     private static StoryCampaign.Mission sparrowsCorridor() {
         return mission("sparrows_corridor", "Sparrow's Corridor",
                 "Lead the civilian column through the west corridor while Old Sparrow holds its route open.",
-                CITY, EVACUATION, StoryCampaign.PlayablePolicy.choice(PIGEON, MOCKINGBIRD),
+                CITY, BirdGame3.MapVariant.ROOFTOP_RELAY, EVACUATION,
+                StoryCampaign.PlayablePolicy.choice(PIGEON, MOCKINGBIRD),
                 fighters(ally(TITMOUSE, "Titmouse")),
                 fighters(enemy(EAGLE, "Crown Blockade"), enemy(FALCON, "Crown Drone Wing")),
                 phases(

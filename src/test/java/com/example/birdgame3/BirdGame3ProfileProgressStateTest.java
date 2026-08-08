@@ -5,6 +5,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.UUID;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 
@@ -62,5 +64,47 @@ class BirdGame3ProfileProgressStateTest {
         BirdGame3ProfileProgressState loaded = BirdGame3ProfileProgressState.load(prefs, schema);
 
         assertTrue(loaded.prisonMapUnlocked);
+    }
+
+    @Test
+    void savesAndLoadsRooftopRelayClassicReward() {
+        BirdGame3ProfileProgressState.Schema schema = new BirdGame3ProfileProgressState.Schema(
+                BirdGame3Achievement.values().length,
+                4,
+                16,
+                0,
+                0
+        );
+        BirdGame3ProfileProgressState state = new BirdGame3ProfileProgressState();
+        state.rooftopRelayUnlocked = true;
+
+        state.saveTo(prefs, schema);
+        BirdGame3ProfileProgressState loaded = BirdGame3ProfileProgressState.load(prefs, schema);
+
+        assertTrue(loaded.rooftopRelayUnlocked);
+    }
+
+    @Test
+    void existingPigeonClassicClearMigratesToRooftopRelayReward() throws Exception {
+        BirdGame3ProfileProgressState.Schema schema = new BirdGame3ProfileProgressState.Schema(
+                BirdGame3Achievement.values().length,
+                4,
+                16,
+                0,
+                0
+        );
+        BirdGame3ProfileProgressState legacy = BirdGame3ProfileProgressState.load(null, schema);
+        legacy.classicCompleted[BirdGame3.BirdType.PIGEON.ordinal()] = true;
+        legacy.rooftopRelayUnlocked = false;
+        BirdGame3 game = new BirdGame3();
+        Method apply = BirdGame3.class.getDeclaredMethod(
+                "applyProfileProgressState", BirdGame3ProfileProgressState.class);
+        apply.setAccessible(true);
+
+        apply.invoke(game, legacy);
+
+        Field unlocked = BirdGame3.class.getDeclaredField("rooftopRelayUnlocked");
+        unlocked.setAccessible(true);
+        assertTrue(unlocked.getBoolean(game));
     }
 }

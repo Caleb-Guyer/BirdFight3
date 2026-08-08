@@ -3,6 +3,7 @@ package com.example.birdgame3;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
+import java.lang.reflect.Field;
 import java.util.List;
 
 import static com.example.birdgame3.BirdGame3.MapType;
@@ -124,6 +125,37 @@ class MapVariantTest {
 
         assertEquals(4, game.platforms.size());
         assertTrue(game.platforms.stream().anyMatch(platform -> platform.w == 2200.0));
+    }
+
+    @Test
+    void rooftopRelayIsAConnectedSunriseCityCourseAndUnlockableVariant() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.currentMatchSeed = 77L;
+        game.selectedMap = MapType.CITY;
+        game.selectedMapVariant = MapVariant.ROOFTOP_RELAY;
+        Method setupBase = BirdGame3.class.getDeclaredMethod("setupMatchArenaGeometry");
+        Method applyVariant = BirdGame3.class.getDeclaredMethod("applySelectedMapVariantArena");
+        setupBase.setAccessible(true);
+        applyVariant.setAccessible(true);
+
+        setupBase.invoke(game);
+        applyVariant.invoke(game);
+
+        Field activeVariant = BirdGame3.class.getDeclaredField("activeArenaGeometryVariant");
+        activeVariant.setAccessible(true);
+        assertEquals(MapVariant.ROOFTOP_RELAY, activeVariant.get(game));
+        assertTrue(game.platforms.stream().noneMatch(platform -> platform.w >= BirdGame3.WORLD_WIDTH));
+        assertEquals(6, game.platforms.stream().filter(platform -> platform.w >= 650.0).count());
+        assertTrue(game.platforms.stream().filter(platform -> platform.w >= 650.0)
+                .allMatch(platform -> platform.signText != null));
+
+        assertFalse(game.availableStageChoices(StageRandomPool.VARIANTS).stream()
+                .anyMatch(choice -> choice.variant() == MapVariant.ROOFTOP_RELAY));
+        Field unlocked = BirdGame3.class.getDeclaredField("rooftopRelayUnlocked");
+        unlocked.setAccessible(true);
+        unlocked.setBoolean(game, true);
+        assertTrue(game.availableStageChoices(StageRandomPool.VARIANTS).stream()
+                .anyMatch(choice -> choice.variant() == MapVariant.ROOFTOP_RELAY));
     }
 
     @Test
