@@ -8880,6 +8880,19 @@ class BirdStateTest {
     }
 
     @Test
+    void chargedGooseHonkEarnsItsKoLaunchFromDefenderDamage() throws Exception {
+        GooseHonkOutcome freshTarget = playSmashGooseHonk(0.0);
+        GooseHonkOutcome damagedTarget = playSmashGooseHonk(150.0);
+
+        assertTrue(freshTarget.horizontalLaunch < 16.0,
+                "A charged honk at zero percent should win space without acting like an instant-KO smash.");
+        assertTrue(damagedTarget.horizontalLaunch > freshTarget.horizontalLaunch * 1.8,
+                "Honk should become a real finisher through the shared damage-scaled launch curve.");
+        assertTrue(damagedTarget.stunFrames > freshTarget.stunFrames,
+                "High-percent honk launch should receive the shared launch hitstun needed to finish.");
+    }
+
+    @Test
     void chargedGooseHonkReleaseBurstOutsizesTappedWhiff() {
         int tappedBurst = playWhiffedGooseHonkReleaseBurst(Bird.GOOSE_HONK_MIN_HOLD_FRAMES);
         int chargedBurst = playWhiffedGooseHonkReleaseBurst(Bird.GOOSE_HONK_MAX_HOLD_FRAMES);
@@ -9402,6 +9415,33 @@ class BirdStateTest {
         }
         return new GooseHonkOutcome(
                 Bird.STARTING_HEALTH - target.health,
+                target.vx,
+                target.stunTime
+        );
+    }
+
+    private static GooseHonkOutcome playSmashGooseHonk(double startingPercent) throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+        setPrivateBoolean(game);
+
+        Bird goose = new Bird(100.0, BirdGame3.BirdType.GOOSE, 0, game);
+        Bird target = new Bird(220.0, BirdGame3.BirdType.PIGEON, 1, game);
+        goose.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        goose.facingRight = true;
+        game.players[0] = goose;
+        game.players[1] = target;
+        setPrivateDouble(target, "smashDamage", startingPercent);
+
+        GooseSpecials.neutral(goose, false);
+        for (int frame = 0; frame < Bird.GOOSE_HONK_MAX_HOLD_FRAMES; frame++) {
+            GooseSpecials.handleState(goose, frame + 1 < Bird.GOOSE_HONK_MAX_HOLD_FRAMES);
+        }
+        invokePrivateVoid(target, "applyPendingSmashLaunch");
+
+        return new GooseHonkOutcome(
+                target.smashDamagePercent() - startingPercent,
                 target.vx,
                 target.stunTime
         );

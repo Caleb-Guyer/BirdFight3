@@ -131,17 +131,18 @@ tracks — keep music serious/intense. SFX get pitch/volume variation via
 `playManagedSfxVaried` (presentation-only `audioRandom`); match music ducks
 under KO slow-mo.
 
-## Balance state (2026-07-08, see audit/balance-report.md)
+## Balance state (2026-08-08, see audit/balance-report.md)
 
 AI-vs-AI results — treat as "where to look," not verdicts (the AI can't pilot
 technical kits like Razorbill/Charles):
-- **Goose won 100%** through a −15% damage nerf, +25% damage-taken nerf, AND a
-  ~40% stun-duration trim (which shipped anyway — 46-frame stunlocks feel bad).
-  Prime remaining suspect: honk knockback (`vx += up to ~20`, ranged AoE) in
-  `GooseSpecials`. Needs a kit rework + owner playtest.
-- Penguin/Vulture ~87% — structural (forts / minions bypassing multipliers).
-- Hummingbird/Roadrunner floor is partly real (fragility responded to
-  damageTakenMult); Razorbill/Charles floor is mostly the AI-pilot caveat.
+- Goose is now **53.7%** in the full 11,088-match audit (54.1% in the focused
+  1,008-match run). Its honk already has charge commitment, distance falloff,
+  velocity caps, and shared damage-scaled launch; legacy whole-kit penalties
+  were eased to 0.68 dealt / 1.35 taken / 0.70 cooldown / 0.62 ultimate.
+- Raven/Eagle lead at 72.8%/71.2%; Phoenix/Roadrunner/Bat are below 30%.
+  These are the next broad owner-playtest signals, not automatic tuning orders.
+- Vulture minion damage still bypasses the owner's damageDealtMult, so ordinary
+  multiplier changes do not fully describe that kit.
 - Global multipliers do NOT fix structural outliers.
 
 ## Working with the owner
@@ -156,7 +157,8 @@ technical kits like Razorbill/Charles):
 
 ## Open threads
 
-1. Goose knockback rework (+ Penguin/Vulture kit review) — needs playtesting.
+1. Raven/Eagle high-end and Phoenix/Roadrunner/Bat/Vulture low-end balance —
+   needs owner playtesting before another tuning pass.
 2. Real sprite art — pipeline complete and waiting; owner draws.
 3. Rollback, matchmaking, and relay infrastructure — direct internet lockstep
    now exists, but no-setup play through CGNAT still needs a hosted relay and
