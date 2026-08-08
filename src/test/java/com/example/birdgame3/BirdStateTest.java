@@ -2993,6 +2993,76 @@ class BirdStateTest {
     }
 
     @Test
+    void fullyChargedUpSmashDoesNotTakeAZeroPercentBattlefieldStock() throws Exception {
+        for (BirdGame3.BirdType attackerType : BirdGame3.BirdType.values()) {
+            BirdGame3 game = battlefieldSmashTestGame(attackerType, BirdGame3.BirdType.EAGLE);
+            Bird attacker = game.players[0];
+            Bird target = game.players[1];
+
+            performFullSmash(attacker, "UP_SMASH");
+            advanceLaunchedBird(target, 60);
+
+            assertTrue(target.smashDamagePercent() > 0.0,
+                    () -> attackerType.name + " up smash must connect in the safety test.");
+            assertEquals(3, game.scores[1], () -> attackerType.name
+                    + " up smash must not take a zero-percent Battlefield stock.");
+        }
+    }
+
+    @Test
+    void fullyChargedUpSmashStillFinishesAHighPercentBattlefieldStock() throws Exception {
+        BirdGame3 game = battlefieldSmashTestGame(BirdGame3.BirdType.PIGEON, BirdGame3.BirdType.EAGLE);
+        Bird target = game.players[1];
+        setPrivateDouble(target, "smashDamage", 120.0);
+
+        performFullSmash(game.players[0], "UP_SMASH");
+        advanceLaunchedBird(target, 60);
+
+        assertEquals(2, game.scores[1],
+                "A full up smash should remain a reliable vertical finisher at high damage.");
+    }
+
+    @Test
+    void fullyChargedDownSmashDoesNotTakeAZeroPercentBattlefieldStock() throws Exception {
+        for (BirdGame3.BirdType attackerType : BirdGame3.BirdType.values()) {
+            BirdGame3 game = battlefieldSmashTestGame(attackerType, BirdGame3.BirdType.EAGLE);
+            Bird attacker = game.players[0];
+            Bird target = game.players[1];
+
+            performFullSmash(attacker, "DOWN_SMASH");
+            advanceLaunchedBird(target, 18);
+
+            assertTrue(target.smashDamagePercent() > 0.0,
+                    () -> attackerType.name + " down smash must connect in the safety test.");
+            assertEquals(3, game.scores[1], () -> attackerType.name
+                    + " down smash must not force a zero-percent Battlefield stock during hitstun.");
+
+            game.setLocalActionsForKey(game.leftKeyForPlayer(1), true);
+            for (int frame = 0; frame < 45 && game.scores[1] == 3 && target.vx > 0.0; frame++) {
+                target.update(1.0);
+            }
+
+            assertEquals(3, game.scores[1], () -> attackerType.name
+                    + " down smash must leave enough time to steer back at zero percent.");
+            assertTrue(target.vx <= 0.0, () -> attackerType.name
+                    + " down smash must let the defender reverse momentum after hitstun.");
+        }
+    }
+
+    @Test
+    void fullyChargedDownSmashStillFinishesAHighPercentBattlefieldStock() throws Exception {
+        BirdGame3 game = battlefieldSmashTestGame(BirdGame3.BirdType.PIGEON, BirdGame3.BirdType.EAGLE);
+        Bird target = game.players[1];
+        setPrivateDouble(target, "smashDamage", 120.0);
+
+        performFullSmash(game.players[0], "DOWN_SMASH");
+        advanceLaunchedBird(target, 24);
+
+        assertEquals(2, game.scores[1],
+                "A full down smash should remain a reliable horizontal finisher at high damage.");
+    }
+
+    @Test
     void groundedAttackBiasesKnockbackHorizontally() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;
@@ -8439,10 +8509,14 @@ class BirdStateTest {
     }
 
     private static void performFullSideSmash(Bird attacker) throws Exception {
+        performFullSmash(attacker, "SIDE_SMASH");
+    }
+
+    private static void performFullSmash(Bird attacker, String variantName) throws Exception {
         Class<?> variantClass = Class.forName("com.example.birdgame3.Bird$NormalAttackVariant");
         Method performAttack = Bird.class.getDeclaredMethod("performAttack", int.class, variantClass);
         performAttack.setAccessible(true);
-        performAttack.invoke(attacker, 60, enumConstant(variantClass, "SIDE_SMASH"));
+        performAttack.invoke(attacker, 60, enumConstant(variantClass, variantName));
     }
 
     private static void advanceLaunchedBird(Bird target, int frames) {
