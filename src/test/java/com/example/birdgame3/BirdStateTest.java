@@ -5212,9 +5212,11 @@ class BirdStateTest {
                 "The abandoned sleigh should move downward after ejection.");
         assertTrue(grinch.grinchSleighY < groundY,
                 "The abandoned sleigh must not teleport directly to the ground surface.");
-        assertTrue(grinch.grinchSleighY - ejectionY
-                        > Math.abs(grinch.grinchSleighX - ejectionX),
-                "The ejected sleigh should drop more sharply downward than it travels sideways.");
+        assertEquals(GrinchhawkSpecials.EJECTED_SLEIGH_FALL_SPEED,
+                grinch.grinchSleighY - ejectionY, 0.0001,
+                "The ejected sleigh should fall at its normal controlled speed.");
+        assertTrue(grinch.grinchSleighX > ejectionX,
+                "The normal fall must not discard the sleigh's forward momentum.");
 
         int remainingLifetime = GrinchhawkSpecials.EJECTED_SLEIGH_COAST_FRAMES
                 + GrinchhawkSpecials.EJECTED_SLEIGH_HOLD_FRAMES
@@ -5248,7 +5250,9 @@ class BirdStateTest {
         double startX = grinch.grinchSleighX;
         double firstStep = 0.0;
         double heldStep = 0.0;
+        double earlyDecayStep = 0.0;
         double lateStep = 0.0;
+        int earlyDecayProbeFrame = GrinchhawkSpecials.EJECTED_SLEIGH_HOLD_FRAMES + 30;
         int lateProbeFrame = GrinchhawkSpecials.EJECTED_SLEIGH_HOLD_FRAMES
                 + GrinchhawkSpecials.EJECTED_SLEIGH_COAST_FRAMES * 3 / 4;
         int motionFrames = GrinchhawkSpecials.EJECTED_SLEIGH_HOLD_FRAMES
@@ -5261,6 +5265,8 @@ class BirdStateTest {
                 firstStep = step;
             } else if (frame == GrinchhawkSpecials.EJECTED_SLEIGH_HOLD_FRAMES - 1) {
                 heldStep = step;
+            } else if (frame == earlyDecayProbeFrame) {
+                earlyDecayStep = step;
             } else if (frame == lateProbeFrame) {
                 lateStep = step;
             }
@@ -5276,6 +5282,8 @@ class BirdStateTest {
                 "Ejection should preserve the sleigh's full riding speed.");
         assertEquals(firstStep, heldStep, 0.0001,
                 "The sleigh should hold its inherited speed briefly before friction begins.");
+        assertTrue(earlyDecayStep < firstStep && earlyDecayStep > firstStep * 0.9,
+                "Early friction should make the sled only slightly slower, not abruptly brake it.");
         assertTrue(lateStep > 0.0 && lateStep < firstStep * 0.4,
                 "After the hold, the ejected sleigh should lose forward speed gradually.");
         double stoppedX = grinch.grinchSleighX;

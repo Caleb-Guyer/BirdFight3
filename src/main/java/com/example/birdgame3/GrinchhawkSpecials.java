@@ -6,9 +6,9 @@ import java.util.Arrays;
 
 final class GrinchhawkSpecials {
     static final String MIDNIGHT_GIFTSTORM_MOVE = "Midnight Giftstorm";
-    private static final double EJECTED_SLEIGH_FALL_SPEED = 24.0;
+    static final double EJECTED_SLEIGH_FALL_SPEED = 6.0;
     static final int EJECTED_SLEIGH_HOLD_FRAMES = 24;
-    static final int EJECTED_SLEIGH_COAST_FRAMES = 180;
+    static final int EJECTED_SLEIGH_COAST_FRAMES = 240;
     static final int EJECTED_SLEIGH_REST_FRAMES = 30;
     private static final int GIFTSTORM_KIND_COAL = 0;
     private static final int GIFTSTORM_KIND_FROST = 1;
@@ -400,11 +400,13 @@ final class GrinchhawkSpecials {
                 applySleighHits(bird, false);
             }
         } else {
-            double coastRatio = Math.clamp(
+            double linearCoastRatio = Math.clamp(
                     (bird.grinchSleighTimer - EJECTED_SLEIGH_REST_FRAMES)
                             / (double) EJECTED_SLEIGH_COAST_FRAMES,
                     0.0,
                     1.0);
+            double coastRatio = linearCoastRatio * linearCoastRatio
+                    * (3.0 - 2.0 * linearCoastRatio);
             double inheritedSpeed = bird.grinchSleighUltimate
                     ? Bird.GRINCH_SLEIGH_SPEED + 4.0
                     : Bird.GRINCH_SLEIGH_SPEED;
