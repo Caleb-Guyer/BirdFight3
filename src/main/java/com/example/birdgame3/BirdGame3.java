@@ -10404,7 +10404,7 @@ public class BirdGame3 {
         PELICAN_DRILL(
                 "Pelican Cargo Routes",
                 "Load cargo, land Breakwater Run, sail upward, then land a Bilge Dump.",
-                "Pouch Snare loads cargo. Side and Down get stronger when cargo is stocked. Up turns into a keel dive.",
+                "Pouch Snare loads cargo. Stocked Side lands with heavyweight impact; Up turns into a keel dive.",
                 MapType.BATTLEFIELD,
                 BirdType.PELICAN,
                 BirdType.PIGEON,

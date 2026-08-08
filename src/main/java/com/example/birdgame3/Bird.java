@@ -13678,6 +13678,14 @@ public class Bird {
             if (pelicanSideCargoSpent >= PELICAN_CARGO_MAX || pelicanSideUltimate) {
                 other.applyStun(pelicanSideUltimate ? 18 : 12);
             }
+            int impact = pelicanSideCargoSpent >= PELICAN_CARGO_MAX || pelicanSideUltimate ? 7 : 5;
+            game.hitstopFrames = Math.max(game.hitstopFrames, impact);
+            game.shakeIntensity = Math.max(game.shakeIntensity, impact + 3);
+            confirmSpecialHit(dealt, pelicanSideUltimate ? Color.GOLD : Color.web("#90CAF9"));
+            game.playHitSound(dealt);
+            emitPelicanCargoBurst(other.bodyCenterX(), other.bodyCenterY(),
+                    18 + pelicanSideCargoSpent * 8 + (pelicanSideUltimate ? 10 : 0),
+                    pelicanSideUltimate ? Color.GOLD : Color.web("#90CAF9"));
         }
     }
 

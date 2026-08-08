@@ -7678,11 +7678,58 @@ class BirdStateTest {
         double startingHealth = target.health;
 
         invokePrivateBooleanVoid(pelican, "specialPelicanBreakwaterRun", false);
-        pelican.update(1.0);
+        double committedSpeed = Math.abs(pelican.vx);
+        invokePrivateVoid(pelican, "handlePelicanBreakwaterRun");
 
         assertEquals(0, getPrivateInt(pelican, "pelicanCargoCount"));
         assertTrue(target.health < startingHealth);
         assertTrue(target.vx > 20.0);
+        assertTrue(getPrivateInt(pelican, "pelicanSideTimer") > 5,
+                "A confirmed hit must retain Breakwater's original committed action time.");
+        assertTrue(Math.abs(pelican.vx) >= committedSpeed,
+                "Impact feedback must not secretly change Breakwater's movement commitment.");
+        assertTrue(game.hitstopFrames >= 7,
+                "A full-cargo Breakwater hit should have a readable heavyweight impact pause.");
+        assertTrue(game.shakeIntensity >= 10);
+    }
+
+    @Test
+    void pelicanBreakwaterHitAddsFeedbackWithoutChangingItsCommitment() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird pelican = new Bird(260.0, BirdGame3.BirdType.PELICAN, 0, game);
+        Bird target = new Bird(760.0, BirdGame3.BirdType.PIGEON, 1, game);
+        pelican.y = BirdGame3.GROUND_Y - pelican.bodyHeight();
+        target.y = BirdGame3.GROUND_Y - target.bodyHeight();
+        pelican.facingRight = true;
+        game.players[0] = pelican;
+        game.players[1] = target;
+
+        invokePrivateBooleanVoid(pelican, "specialPelicanBreakwaterRun", false);
+        double committedSpeed = Math.abs(pelican.vx);
+        invokePrivateVoid(pelican, "handlePelicanBreakwaterRun");
+
+        assertEquals(Bird.PELICAN_SIDE_FRAMES, getPrivateInt(pelican, "pelicanSideTimer"),
+                "Missing Breakwater must preserve its full commitment.");
+        assertTrue(Math.abs(pelican.vx) >= committedSpeed);
+        assertEquals(0, game.hitstopFrames);
+
+        target.x = pelican.x + 70.0;
+        invokePrivateVoid(pelican, "handlePelicanBreakwaterRun");
+
+        assertTrue(target.health < Bird.STARTING_HEALTH);
+        assertEquals(Bird.PELICAN_SIDE_FRAMES, getPrivateInt(pelican, "pelicanSideTimer"),
+                "A hit must not shorten Breakwater's original committed action time.");
+        assertEquals(1, getPrivateInt(pelican, "pelicanSideDirection"));
+        assertTrue(Math.abs(pelican.vx) >= committedSpeed,
+                "A confirmed hit must preserve Breakwater's committed movement.");
+        assertTrue(game.hitstopFrames >= 5);
+        assertTrue(game.shakeIntensity >= 8);
+
+        invokePrivateVoid(pelican, "handlePelicanBreakwaterRun");
+        assertTrue(Math.abs(pelican.vx) >= committedSpeed,
+                "Breakwater must remain committed after its impact feedback resolves.");
     }
 
     @Test
