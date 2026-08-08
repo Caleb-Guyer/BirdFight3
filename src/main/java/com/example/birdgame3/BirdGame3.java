@@ -39690,7 +39690,7 @@ public class BirdGame3 {
         checkClassicAchievements();
 
         final double layoutW = 1600.0;
-        final double layoutH = 950.0;
+        final double layoutH = 900.0;
         StackPane root = new StackPane();
         root.getProperties().put("noAutoScale", true);
         root.setStyle("-fx-background-color: linear-gradient(to bottom, #06070A, #0D1017 34%, #171B22 100%);");
@@ -39756,14 +39756,14 @@ public class BirdGame3 {
         rosterGrid.setStyle("-fx-background-color: linear-gradient(to bottom, rgba(21,25,31,0.98), rgba(7,9,12,0.99)); "
                 + "-fx-background-radius: 22; -fx-border-color: rgba(255,255,255,0.16); "
                 + "-fx-border-width: 2; -fx-border-radius: 22;");
-        lockRegionSize(rosterGrid, 1520, 400);
+        lockRegionSize(rosterGrid, 1520, 370);
 
         Map<BirdType, Button> tiles = new EnumMap<>(BirdType.class);
         Map<BirdType, Label> playerMarkers = new EnumMap<>(BirdType.class);
         final Runnable[] refreshRef = new Runnable[1];
         int columns = Math.max(7, (int) Math.ceil(availableBirds.size() / 3.0));
         double tileW = (1490.0 - (columns - 1) * 8.0) / columns;
-        double tileH = 118.0;
+        double tileH = 108.0;
         double iconSize = Math.clamp(tileH - 48.0, 70.0, 92.0);
         for (int i = 0; i < availableBirds.size(); i++) {
             BirdType birdType = availableBirds.get(i);
@@ -39804,23 +39804,23 @@ public class BirdGame3 {
             playerMarkers.put(birdType, marker);
         }
 
-        Canvas portrait = new Canvas(260, 190);
+        Canvas portrait = new Canvas(200, 135);
         StackPane portraitFrame = new StackPane(portrait);
-        lockRegionSize(portraitFrame, 340, 204);
+        lockRegionSize(portraitFrame, 300, 145);
         portraitFrame.setStyle("-fx-background-color: linear-gradient(to bottom right, #D51D2B, #5F0910); "
                 + "-fx-border-color: black; -fx-border-width: 5; -fx-background-radius: 20; -fx-border-radius: 20;");
         Label selectedName = new Label();
-        selectedName.setFont(Font.font("Arial Black", 34));
+        selectedName.setFont(Font.font("Arial Black", 25));
         selectedName.setTextFill(Color.WHITE);
         Label playerOne = new Label("PLAYER 1");
-        playerOne.setFont(Font.font("Arial Black", 24));
+        playerOne.setFont(Font.font("Arial Black", 18));
         playerOne.setTextFill(Color.web("#111111"));
-        playerOne.setPadding(new Insets(4, 24, 4, 24));
+        playerOne.setPadding(new Insets(2, 24, 2, 24));
         playerOne.setStyle("-fx-background-color: white; -fx-border-color: black; -fx-border-width: 3;");
-        Button skin = uiFactory.action("SKIN: BASE", 300, 42, 16, "#37474F", 14, () -> {});
+        Button skin = uiFactory.action("SKIN: BASE", 300, 34, 14, "#37474F", 14, () -> {});
         VBox fighterPanel = new VBox(6, portraitFrame, selectedName, playerOne, skin);
         fighterPanel.setAlignment(Pos.CENTER);
-        lockRegionSize(fighterPanel, 420, 300);
+        lockRegionSize(fighterPanel, 420, 270);
 
         Label routeEyebrow = new Label("PIGEON ROUTE");
         routeEyebrow.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
@@ -39836,7 +39836,7 @@ public class BirdGame3 {
         VBox routePanel = new VBox(14, routeEyebrow, routeTitle, routeStrip);
         routePanel.setAlignment(Pos.CENTER);
         routePanel.setPadding(new Insets(22));
-        lockRegionSize(routePanel, 540, 300);
+        lockRegionSize(routePanel, 540, 270);
         routePanel.setStyle("-fx-background-color: rgba(0,0,0,0.62); -fx-border-color: #F8C528; "
                 + "-fx-border-width: 3; -fx-background-radius: 18; -fx-border-radius: 18;");
 
@@ -39856,11 +39856,11 @@ public class BirdGame3 {
         record.setTextAlignment(TextAlignment.CENTER);
         VBox statusPanel = new VBox(7, difficultyCaption, difficulty, coinContinue, record);
         statusPanel.setAlignment(Pos.CENTER);
-        lockRegionSize(statusPanel, 420, 300);
+        lockRegionSize(statusPanel, 420, 270);
         statusPanel.setStyle("-fx-background-color: rgba(33,41,52,0.92); -fx-border-color: rgba(255,255,255,0.25); "
                 + "-fx-border-width: 3; -fx-background-radius: 18; -fx-border-radius: 18;");
 
-        Button start = uiFactory.action("START", 330, 76, 30, "#00C853", 20, () -> {
+        Button start = uiFactory.action("START", 330, 66, 27, "#00C853", 20, () -> {
             if (selected[0] == null) return;
             classicSelectedBird = selected[0];
             classicSelectedSkinKey = normalizeAdventureSkinChoice(selected[0], selectedSkin[0]);
@@ -40145,6 +40145,27 @@ public class BirdGame3 {
         g.strokeRoundRect(x, y, w, h, 5, 5);
     }
 
+    private void drawClassicFighterPortrait(Canvas canvas, BirdType type, String skinKey, boolean facingRight) {
+        GraphicsContext g = canvas.getGraphicsContext2D();
+        double width = canvas.getWidth();
+        double height = canvas.getHeight();
+        g.clearRect(0, 0, width, height);
+        if (type == null) return;
+
+        Bird preview = new Bird(0, type, 0, this);
+        preview.suppressSelectEffects = true;
+        applyPreviewSkinChoiceToBird(preview, type, skinKey);
+        double baseSize = Math.min(width, height);
+        double pad = baseSize * 0.06;
+        double extentFactor = rosterSpriteExtentFactor(type, skinKey);
+        preview.sizeMultiplier = Math.max(0.1, (baseSize - pad * 2.0) / (80.0 * extentFactor));
+        double drawSize = 80.0 * preview.sizeMultiplier;
+        preview.x = (width - drawSize) / 2.0 + width * rosterSpriteXBias(type, skinKey);
+        preview.y = (height - drawSize) / 2.0 + pad + height * rosterSpriteYBias(type, skinKey);
+        preview.facingRight = facingRight;
+        preview.draw(g);
+    }
+
     private void showClassicEncounterIntro(Stage stage) {
         if (!classicModeActive || classicRun.isEmpty()) {
             if (dailyChallengeModeActive) showDailyChallengeSetup(stage);
@@ -40156,29 +40177,37 @@ public class BirdGame3 {
         classicEncounter = classicRun.get(classicRoundIndex);
         playMenuMusic();
 
+        final double layoutW = 1600.0;
+        final double layoutH = 900.0;
         Pane root = new Pane();
-        lockRegionSize(root, 1600, 950);
+        lockRegionSize(root, layoutW, layoutH);
         root.setStyle("-fx-background-color: linear-gradient(to bottom right, #070812, #18112F 55%, #05060A);");
 
         Region leftField = new Region();
-        lockRegionSize(leftField, 930, 760);
-        leftField.setLayoutY(80);
+        lockRegionSize(leftField, 930, 660);
+        leftField.setLayoutY(70);
         leftField.setStyle("-fx-background-color: linear-gradient(to bottom right, #E7E8E4, #A8B2BD); "
                 + "-fx-border-color: black; -fx-border-width: 0 8 8 0;");
         root.getChildren().add(leftField);
 
-        Polygon enemyField = new Polygon(650, 0, 1600, 0, 1600, 760, 920, 760);
+        Polygon enemyField = new Polygon(650, 0, 1600, 0, 1600, 730, 920, 730);
         enemyField.setFill(new LinearGradient(0, 0, 1, 1, true, CycleMethod.NO_CYCLE,
                 new Stop(0, Color.web("#B8003D")), new Stop(0.55, Color.web("#EE1760")), new Stop(1, Color.web("#49115E"))));
         enemyField.setStroke(Color.BLACK);
         enemyField.setStrokeWidth(9);
         root.getChildren().add(enemyField);
 
-        Canvas playerPortrait = new Canvas(520, 500);
-        drawRosterSprite(playerPortrait, classicSelectedBird, classicSelectedSkinKey, false, true);
-        playerPortrait.setLayoutX(30);
-        playerPortrait.setLayoutY(245);
-        playerPortrait.setOpacity(0.58);
+        Region bottomRail = new Region();
+        lockRegionSize(bottomRail, layoutW, 170);
+        bottomRail.setLayoutY(730);
+        bottomRail.setStyle("-fx-background-color: linear-gradient(to bottom, #121426, #080911); "
+                + "-fx-border-color: black; -fx-border-width: 7 0 0 0;");
+        root.getChildren().add(bottomRail);
+
+        Canvas playerPortrait = new Canvas(440, 390);
+        drawClassicFighterPortrait(playerPortrait, classicSelectedBird, classicSelectedSkinKey, true);
+        playerPortrait.setLayoutX(70);
+        playerPortrait.setLayoutY(255);
         root.getChildren().add(playerPortrait);
 
         VBox roundBanner = new VBox(-6);
@@ -40192,93 +40221,106 @@ public class BirdGame3 {
         round.setFont(Font.font("Arial Black", FontWeight.BOLD, 72));
         round.setTextFill(Color.WHITE);
         roundBanner.getChildren().addAll(routeName, round);
-        lockRegionSize(roundBanner, 570, 150);
+        lockRegionSize(roundBanner, 570, 145);
         roundBanner.setLayoutX(0);
-        roundBanner.setLayoutY(110);
+        roundBanner.setLayoutY(105);
         roundBanner.setStyle("-fx-background-color: linear-gradient(to right, #A50912, #D3262E); "
                 + "-fx-border-color: black; -fx-border-width: 5 8 5 0;");
         root.getChildren().add(roundBanner);
 
         Label playerName = new Label(classicSelectedBird.name.toUpperCase(Locale.ROOT));
-        playerName.setFont(Font.font("Arial Black", 30));
+        playerName.setFont(Font.font("Arial Black", 27));
         playerName.setTextFill(Color.WHITE);
-        playerName.setPadding(new Insets(8, 32, 8, 32));
-        playerName.setLayoutX(60);
-        playerName.setLayoutY(675);
+        playerName.setAlignment(Pos.CENTER);
+        lockRegionSize(playerName, 360, 62);
+        playerName.setLayoutX(70);
+        playerName.setLayoutY(648);
         playerName.setStyle("-fx-background-color: rgba(25,17,48,0.92); -fx-border-color: black; -fx-border-width: 4;");
         root.getChildren().add(playerName);
 
         Label versus = new Label("VS.");
-        versus.setFont(Font.font("Arial Black", FontWeight.BOLD, 112));
+        versus.setFont(Font.font("Arial Black", FontWeight.BOLD, 104));
         versus.setTextFill(Color.BLACK);
-        versus.setLayoutX(500);
+        versus.setLayoutX(535);
         versus.setLayoutY(330);
         versus.setRotate(-5);
         root.getChildren().add(versus);
 
         ClassicFighter[] enemies = classicEncounter.enemies == null ? new ClassicFighter[0] : classicEncounter.enemies;
         int enemyCount = Math.max(1, enemies.length);
-        double portraitSize = enemyCount >= 3 ? 250 : (enemyCount == 2 ? 330 : 500);
-        double startX = enemyCount >= 3 ? 835 : (enemyCount == 2 ? 830 : 960);
-        double gap = enemyCount >= 3 ? 225 : 300;
-        for (int i = 0; i < enemies.length; i++) {
-            ClassicFighter enemy = enemies[i];
+        double portraitSize = enemyCount >= 3 ? 215 : (enemyCount == 2 ? 310 : 430);
+        HBox enemyLineup = new HBox(enemyCount >= 3 ? 14 : 20);
+        enemyLineup.setAlignment(Pos.CENTER);
+        lockRegionSize(enemyLineup, 730, 430);
+        enemyLineup.setLayoutX(840);
+        enemyLineup.setLayoutY(190);
+        for (ClassicFighter enemy : enemies) {
             Canvas enemyPortrait = new Canvas(portraitSize, portraitSize);
-            drawRosterSprite(enemyPortrait, enemy.type, enemy.skinKey, false, true);
-            enemyPortrait.setLayoutX(startX + i * gap);
-            enemyPortrait.setLayoutY(enemyCount >= 3 ? 245 : 180);
-            root.getChildren().add(enemyPortrait);
+            drawClassicFighterPortrait(enemyPortrait, enemy.type, enemy.skinKey, false);
+            enemyLineup.getChildren().add(enemyPortrait);
         }
+        if (enemies.length == 0) {
+            Label bonusTarget = new Label("BONUS\nTARGETS");
+            bonusTarget.setFont(Font.font("Arial Black", 58));
+            bonusTarget.setTextFill(Color.WHITE);
+            bonusTarget.setTextAlignment(TextAlignment.CENTER);
+            bonusTarget.setAlignment(Pos.CENTER);
+            enemyLineup.getChildren().add(bonusTarget);
+        }
+        root.getChildren().add(enemyLineup);
+
         String opponentNames = enemies.length == 0 ? "BONUS TARGETS" : Arrays.stream(enemies)
                 .map(fighter -> fighter.type.name.toUpperCase(Locale.ROOT))
                 .collect(Collectors.joining("  +  "));
         Label opponentName = new Label(opponentNames);
-        opponentName.setFont(Font.font("Arial Black", enemies.length >= 3 ? 22 : 30));
+        opponentName.setFont(Font.font("Arial Black", enemies.length >= 3 ? 17 : 25));
         opponentName.setTextFill(Color.web("#E7D9FF"));
-        opponentName.setPadding(new Insets(8, 32, 8, 32));
-        opponentName.setLayoutX(900);
-        opponentName.setLayoutY(675);
+        opponentName.setAlignment(Pos.CENTER);
+        opponentName.setTextAlignment(TextAlignment.CENTER);
+        opponentName.setWrapText(true);
+        lockRegionSize(opponentName, 550, 70);
+        opponentName.setLayoutX(1010);
+        opponentName.setLayoutY(640);
         opponentName.setStyle("-fx-background-color: rgba(28,9,55,0.94); -fx-border-color: black; -fx-border-width: 4;");
         root.getChildren().add(opponentName);
 
         Canvas stagePreview = buildClassicStagePreview(classicEncounter, 360, 190);
-        StackPane previewFrame = new StackPane(stagePreview);
-        lockRegionSize(previewFrame, 380, 210);
-        previewFrame.setLayoutX(590);
-        previewFrame.setLayoutY(535);
-        previewFrame.setPadding(new Insets(10));
-        previewFrame.setStyle("-fx-background-color: #08090D; -fx-border-color: black; -fx-border-width: 6;");
-        root.getChildren().add(previewFrame);
         Label stageName = new Label(encounterMapDisplayName(classicEncounter).toUpperCase(Locale.ROOT));
-        stageName.setFont(Font.font("Arial Black", 18));
+        stageName.setFont(Font.font("Arial Black", 17));
         stageName.setTextFill(Color.WHITE);
         stageName.setPadding(new Insets(5, 18, 5, 18));
-        stageName.setLayoutX(650);
-        stageName.setLayoutY(718);
-        stageName.setStyle("-fx-background-color: rgba(0,0,0,0.9);");
-        root.getChildren().add(stageName);
+        stageName.setStyle("-fx-background-color: rgba(0,0,0,0.88);");
+        StackPane previewFrame = new StackPane(stagePreview, stageName);
+        lockRegionSize(previewFrame, 380, 210);
+        previewFrame.setLayoutX(610);
+        previewFrame.setLayoutY(500);
+        previewFrame.setPadding(new Insets(10));
+        previewFrame.setStyle("-fx-background-color: #08090D; -fx-border-color: black; -fx-border-width: 6;");
+        StackPane.setAlignment(stageName, Pos.BOTTOM_CENTER);
+        StackPane.setMargin(stageName, new Insets(0, 0, 5, 0));
+        root.getChildren().add(previewFrame);
 
         Label difficulty = new Label((dailyChallengeModeActive ? "DAILY" : "DIFFICULTY") + "  "
                 + (dailyChallengeModeActive ? getClassicCpuLevel() : String.format(Locale.US, "%.1f", classicDifficulty)));
         difficulty.setFont(Font.font("Arial Black", 24));
         difficulty.setTextFill(Color.web("#FFE45C"));
         difficulty.setPadding(new Insets(9, 22, 9, 22));
-        difficulty.setLayoutX(1245);
-        difficulty.setLayoutY(26);
+        difficulty.setLayoutX(1240);
+        difficulty.setLayoutY(24);
         difficulty.setStyle("-fx-background-color: rgba(0,0,0,0.72); -fx-background-radius: 20; "
                 + "-fx-border-color: #FFE45C; -fx-border-width: 2; -fx-border-radius: 20;");
         root.getChildren().add(difficulty);
 
         HBox routeStrip = buildClassicRouteStrip(classicRoundIndex, classicRun.size(), bossRushModeActive);
-        routeStrip.setLayoutX(190);
-        routeStrip.setLayoutY(846);
+        routeStrip.setLayoutX(220);
+        routeStrip.setLayoutY(814);
         root.getChildren().add(routeStrip);
 
         Label encounterName = new Label(classicEncounter.name.toUpperCase(Locale.ROOT));
         encounterName.setFont(Font.font("Consolas", FontWeight.BOLD, 22));
         encounterName.setTextFill(Color.web("#A7FFEB"));
-        encounterName.setLayoutX(190);
-        encounterName.setLayoutY(805);
+        encounterName.setLayoutX(220);
+        encounterName.setLayoutY(770);
         root.getChildren().add(encounterName);
 
         Button menu = uiFactory.action("BACK", 150, 62, 22, "#8E0D16", 16, () -> {
@@ -40287,12 +40329,12 @@ public class BirdGame3 {
             else if (bossRushModeActive) showClassicBirdSelect(stage);
             else showClassicBirdSelect(stage);
         });
-        menu.setLayoutX(20);
-        menu.setLayoutY(850);
-        Button start = uiFactory.action("START BATTLE", 300, 78, 30, "#00C853", 20,
+        menu.setLayoutX(25);
+        menu.setLayoutY(810);
+        Button start = uiFactory.action("START BATTLE", 300, 72, 28, "#00C853", 20,
                 () -> startClassicEncounter(stage));
-        start.setLayoutX(1260);
-        start.setLayoutY(838);
+        start.setLayoutX(1270);
+        start.setLayoutY(805);
         root.getChildren().addAll(menu, start);
 
         StackPane viewport = new StackPane(root);
@@ -40301,7 +40343,7 @@ public class BirdGame3 {
         Scene scene = new Scene(viewport, WIDTH, HEIGHT);
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
-        bindFixedFrameScale(scene, root, 0.0, 1600.0, 950.0);
+        bindFixedFrameScale(scene, root, 0.0, layoutW, layoutH);
         setScenePreservingFullscreen(stage, scene);
         start.requestFocus();
     }
