@@ -5,7 +5,8 @@ import javafx.scene.paint.Color;
 import java.util.Arrays;
 
 final class GooseSpecials {
-    private static final double HONK_EDGE_LAUNCH_STRENGTH = 0.32;
+    private static final double HONK_EDGE_LAUNCH_STRENGTH = 0.08;
+    private static final double HONK_NO_STACK_AWAY_SPEED = 18.0;
 
     private GooseSpecials() {
     }
@@ -361,13 +362,15 @@ final class GooseSpecials {
             int dealt = bird.applyTrackedSpecialDamage(other, damage);
             hitAny |= dealt > 0;
             if (dealt > 0) {
-                double horizontalLaunch = (4.2 + chargeStrength * 4.8
+                // A close full charge is Goose's committed horizontal finisher. Keep the
+                // tap modest, but let the earned charge clearly outlaunch his quick jab.
+                double horizontalLaunch = (4.2 + chargeStrength * 28.3
                         + (bird.gooseHonkEmpowered ? 1.6 : 0.0)) * launchStrength;
                 double verticalLaunch = (1.6 + chargeStrength * 1.8
                         + (bird.gooseHonkEmpowered ? 0.6 : 0.0)) * (0.70 + distanceStrength * 0.30);
                 double stunFrames = 2.0 + (chargeStrength * 6.0
                         + (bird.gooseHonkEmpowered ? 1.0 : 0.0)) * distanceStrength;
-                double horizontalCap = 8.5 + chargeStrength * 5.0
+                double horizontalCap = 8.5 + chargeStrength * 24.5
                         + (bird.gooseHonkEmpowered ? 2.0 : 0.0);
                 double verticalCap = 5.0 + chargeStrength * 4.0
                         + (bird.gooseHonkEmpowered ? 1.0 : 0.0);
@@ -412,7 +415,9 @@ final class GooseSpecials {
                                      double impulse, double maxAwaySpeed) {
         int direction = launchDirection < 0 ? -1 : 1;
         double awayVelocity = currentVelocity * direction;
-        if (awayVelocity >= maxAwaySpeed || impulse <= 0.0) {
+        if (awayVelocity >= HONK_NO_STACK_AWAY_SPEED
+                || awayVelocity >= maxAwaySpeed
+                || impulse <= 0.0) {
             return currentVelocity;
         }
         double cappedAwayVelocity = Math.min(maxAwaySpeed, awayVelocity + impulse);

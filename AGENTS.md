@@ -135,8 +135,9 @@ under KO slow-mo.
 
 AI-vs-AI results — treat as "where to look," not verdicts (the AI can't pilot
 technical kits like Razorbill/Charles):
-- Goose is now **53.7%** in the full 11,088-match audit (54.1% in the focused
-  1,008-match run). Its honk already has charge commitment, distance falloff,
+- Goose reached **53.7%** in the full 11,088-match audit; the subsequent honk
+  launch-hierarchy correction scored 51.2% in its focused 1,008-match run. Its
+  honk has charge commitment, sharp distance falloff,
   velocity caps, and shared damage-scaled launch; legacy whole-kit penalties
   were eased to 0.68 dealt / 1.35 taken / 0.70 cooldown / 0.62 ultimate.
 - Raven/Eagle lead at 72.8%/71.2%; Phoenix/Roadrunner/Bat are below 30%.

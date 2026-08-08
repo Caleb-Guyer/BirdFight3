@@ -8884,12 +8884,49 @@ class BirdStateTest {
         GooseHonkOutcome freshTarget = playSmashGooseHonk(0.0);
         GooseHonkOutcome damagedTarget = playSmashGooseHonk(150.0);
 
-        assertTrue(freshTarget.horizontalLaunch < 16.0,
-                "A charged honk at zero percent should win space without acting like an instant-KO smash.");
         assertTrue(damagedTarget.horizontalLaunch > freshTarget.horizontalLaunch * 1.8,
                 "Honk should become a real finisher through the shared damage-scaled launch curve.");
         assertTrue(damagedTarget.stunFrames > freshTarget.stunFrames,
                 "High-percent honk launch should receive the shared launch hitstun needed to finish.");
+    }
+
+    @Test
+    void fullyChargedGooseHonkOutlaunchesHisQuickNormal() throws Exception {
+        GooseHonkOutcome normal = playSmashGooseNormalAttack(0.0);
+        GooseHonkOutcome chargedHonk = playSmashGooseHonk(0.0);
+
+        assertTrue(chargedHonk.horizontalLaunch > normal.horizontalLaunch * 1.05,
+                () -> "A close fully charged honk should have visibly more launch than Goose's quick normal attack"
+                        + " (honk=" + chargedHonk.horizontalLaunch
+                        + ", normal=" + normal.horizontalLaunch + ").");
+    }
+
+    @Test
+    void fullyChargedGooseHonkDoesNotTakeAZeroPercentBattlefieldStock() throws Exception {
+        BirdGame3 game = battlefieldSmashTestGame(BirdGame3.BirdType.GOOSE, BirdGame3.BirdType.EAGLE);
+        Bird goose = game.players[0];
+        Bird target = game.players[1];
+
+        GooseSpecials.neutral(goose, false);
+        for (int frame = 0; frame < Bird.GOOSE_HONK_MAX_HOLD_FRAMES; frame++) {
+            GooseSpecials.handleState(goose, frame + 1 < Bird.GOOSE_HONK_MAX_HOLD_FRAMES);
+        }
+        advanceLaunchedBird(target, 18);
+
+        assertTrue(target.smashDamagePercent() > 0.0,
+                "The charged honk must connect in the Battlefield safety test.");
+        assertEquals(3, game.scores[1],
+                "A charged honk must not take a zero-percent stock from Battlefield center.");
+
+        game.setLocalActionsForKey(game.leftKeyForPlayer(1), true);
+        for (int frame = 0; frame < 60 && game.scores[1] == 3 && target.vx > 0.0; frame++) {
+            target.update(1.0);
+        }
+
+        assertEquals(3, game.scores[1],
+                "A zero-percent defender must have time to steer back after charged honk hitstun.");
+        assertTrue(target.vx <= 0.0,
+                "A zero-percent defender must be able to reverse charged honk momentum.");
     }
 
     @Test
@@ -8929,7 +8966,8 @@ class BirdStateTest {
         assertTrue(nearTarget.vx > farTarget.vx * 2.0,
                 "Honk should preserve its close-range reward without carrying it to the cone edge.");
         assertTrue(farTarget.vx < 3.2,
-                "A normal charged honk at maximum range should reset spacing instead of acting as a safe KO launch.");
+                () -> "A normal charged honk at maximum range should reset spacing instead of acting as a safe KO launch"
+                        + " (far launch=" + farTarget.vx + ").");
         assertTrue(nearTarget.stunTime > farTarget.stunTime,
                 "Honk stun should decay with distance as well as launch.");
     }
@@ -9426,7 +9464,7 @@ class BirdStateTest {
         setPrivateBoolean(game);
 
         Bird goose = new Bird(100.0, BirdGame3.BirdType.GOOSE, 0, game);
-        Bird target = new Bird(220.0, BirdGame3.BirdType.PIGEON, 1, game);
+        Bird target = new Bird(190.0, BirdGame3.BirdType.PIGEON, 1, game);
         goose.y = BirdGame3.GROUND_Y - 80.0;
         target.y = BirdGame3.GROUND_Y - 80.0;
         goose.facingRight = true;
@@ -9438,6 +9476,30 @@ class BirdStateTest {
         for (int frame = 0; frame < Bird.GOOSE_HONK_MAX_HOLD_FRAMES; frame++) {
             GooseSpecials.handleState(goose, frame + 1 < Bird.GOOSE_HONK_MAX_HOLD_FRAMES);
         }
+        invokePrivateVoid(target, "applyPendingSmashLaunch");
+
+        return new GooseHonkOutcome(
+                target.smashDamagePercent() - startingPercent,
+                target.vx,
+                target.stunTime
+        );
+    }
+
+    private static GooseHonkOutcome playSmashGooseNormalAttack(double startingPercent) throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+        setPrivateBoolean(game);
+
+        Bird goose = new Bird(100.0, BirdGame3.BirdType.GOOSE, 0, game);
+        Bird target = new Bird(190.0, BirdGame3.BirdType.PIGEON, 1, game);
+        goose.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        goose.facingRight = true;
+        game.players[0] = goose;
+        game.players[1] = target;
+        setPrivateDouble(target, "smashDamage", startingPercent);
+
+        invokePrivateVoid(goose, "attack");
         invokePrivateVoid(target, "applyPendingSmashLaunch");
 
         return new GooseHonkOutcome(
