@@ -8268,6 +8268,24 @@ class BirdStateTest {
         game.players[1] = target;
 
         invokePrivateBirdBooleanVoid(raven, target, false);
+        assertEquals(Bird.RAVEN_ROUTE_TELL_FRAMES, raven.ravenSideReuseTimer,
+                "A fresh Portent should telegraph the route before Shadow Warp is available.");
+
+        game.setLocalActionsForKey(game.rightKeyForPlayer(0), true);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
+        raven.update(1.0);
+
+        assertEquals(0, raven.ravenSideTimer,
+                "Shadow Warp should not fire during the Portent reaction window.");
+        assertTrue(getPrivateInt(target, "ravenPortentTimer") > 0,
+                "A blocked early warp must not consume the Portent.");
+
+        game.setLocalActionsForKey(game.rightKeyForPlayer(0), false);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
+        while (raven.ravenSideReuseTimer > 0) {
+            raven.update(1.0);
+        }
+
         double startingHealth = target.health;
         int startingParticles = game.particles.size();
         game.setLocalActionsForKey(game.rightKeyForPlayer(0), true);
@@ -8282,6 +8300,12 @@ class BirdStateTest {
                 "Shadow Warp should relocate Raven near the consumed Portent.");
         assertTrue(target.health < startingHealth,
                 "The empowered Shadow Warp should connect after arriving at the Portent.");
+        assertTrue(startingHealth - target.health <= 11.0,
+                "The normal route payoff should not retain its old oversized damage.");
+        assertEquals(20, target.stunTime,
+                "The normal route payoff should leave a shorter punish window.");
+        assertEquals(Bird.RAVEN_SIDE_REUSE_FRAMES, raven.ravenSideReuseTimer,
+                "Shadow Warp should commit Raven to its full reuse window.");
         assertTrue(game.hitstopFrames >= 5,
                 "The route payoff should have a brief, readable impact pause.");
         assertTrue(game.shakeIntensity >= 9,

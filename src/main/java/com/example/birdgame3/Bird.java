@@ -1105,7 +1105,8 @@ public class Bird {
     private static final int RAVEN_QUILL_ULTIMATE_LIFE_FRAMES = 86;
     static final int RAVEN_NEUTRAL_REUSE_FRAMES = 22;
     static final int RAVEN_SIDE_FRAMES = 14;
-    private static final int RAVEN_SIDE_REUSE_FRAMES = 34;
+    static final int RAVEN_ROUTE_TELL_FRAMES = 10;
+    static final int RAVEN_SIDE_REUSE_FRAMES = 52;
     static final int RAVEN_LIFT_FRAMES = 20;
     private static final int RAVEN_LIFT_ULTIMATE_FRAMES = 30;
     private static final double RAVEN_SUSTAINED_FLIGHT_SCALE = 0.92;
@@ -8165,14 +8166,16 @@ public class Bird {
             if (ravenSideHit[other.playerIndex]) continue;
             double dx = other.bodyCenterX() - centerX;
             double dy = other.bodyCenterY() - centerY;
-            if (Math.abs(dx) > (ravenSideEmpowered ? 108.0 : 84.0) * sizeMultiplier + other.combatHalfWidth()) continue;
-            if (Math.abs(dy) > (ravenSideEmpowered ? 82.0 : 68.0) * sizeMultiplier + other.combatHalfHeight()) continue;
-            int rawDamage = ravenSideUltimate ? 18 : (ravenSideEmpowered ? 13 : 9);
+            double horizontalReach = ravenSideUltimate ? 108.0 : (ravenSideEmpowered ? 100.0 : 84.0);
+            double verticalReach = ravenSideUltimate ? 82.0 : (ravenSideEmpowered ? 76.0 : 68.0);
+            if (Math.abs(dx) > horizontalReach * sizeMultiplier + other.combatHalfWidth()) continue;
+            if (Math.abs(dy) > verticalReach * sizeMultiplier + other.combatHalfHeight()) continue;
+            int rawDamage = ravenSideUltimate ? 18 : (ravenSideEmpowered ? 11 : 9);
             int dealt = applyTrackedSpecialDamage(other, rawDamage);
             if (dealt > 0) {
-                other.applyStun(ravenSideUltimate ? 34 : (ravenSideEmpowered ? 24 : 16));
-                other.vx += ravenSideDirection * (ravenSideUltimate ? 18.0 : (ravenSideEmpowered ? 14.0 : 10.0));
-                other.vy -= ravenSideUltimate ? 10.0 : (ravenSideEmpowered ? 7.6 : 5.4);
+                other.applyStun(ravenSideUltimate ? 34 : (ravenSideEmpowered ? 20 : 16));
+                other.vx += ravenSideDirection * (ravenSideUltimate ? 18.0 : (ravenSideEmpowered ? 12.5 : 10.0));
+                other.vy -= ravenSideUltimate ? 10.0 : (ravenSideEmpowered ? 6.8 : 5.4);
                 game.playHitSound(dealt);
                 if (ravenSideEmpowered) {
                     confirmRavenRoutePayoff(other, ravenSideUltimate, !routePayoffSoundPlayed);
@@ -9004,6 +9007,10 @@ public class Bird {
         target.ravenPortentTimer = Math.max(target.ravenPortentTimer,
                 ultimate ? RAVEN_MARK_ULTIMATE_LIFE_FRAMES : RAVEN_MARK_LIFE_FRAMES);
         target.ravenPortentSerial = ++ravenPortentSerialCounter;
+        if (!ultimate) {
+            // Let the marked player see and react to the route before Raven can cash it out.
+            ravenSideReuseTimer = Math.max(ravenSideReuseTimer, RAVEN_ROUTE_TELL_FRAMES);
+        }
         trimOwnedRavenPortents();
     }
 
