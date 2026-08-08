@@ -74,10 +74,11 @@ causes silent desyncs. Rules:
   + global.gravity/startingHealth. Loaded at startup and by the balance lab;
   F12 in Training writes the template and hot-reloads. Multipliers apply at
   choke points: `receiveScaledDamage` (ALL damage), the single cooldown
-  decrement site, `gainUltimate`. NOTE: minion damage (e.g. Vulture crows)
-  bypasses the owner's damageDealtMult. Reload upgrades the exact legacy
-  shipped Goose/Bat multiplier presets in memory; if any value in one bird's
-  preset differs, the entire preset is treated as customized and left alone.
+  decrement site, `gainUltimate`. Owned Vulture crow damage and launch inherit
+  the owner's damageDealtMult, while Null Rock's boss flock remains independent.
+  Reload upgrades the exact legacy shipped Goose/Bat/Vulture multiplier presets
+  in memory; if any value in one bird's preset differs, the entire preset is
+  treated as customized and left alone.
 - **Developer profiles**: the `FEATHERDEV` settings code is a permanent
   all-content entitlement. Profile load reapplies `unlockEverythingForDeveloperProfile`
   so developer saves created on older versions automatically receive newly added
@@ -149,8 +150,9 @@ technical kits like Razorbill/Charles):
   raising it from 27.6% to 36.0%; its strong map variance still needs owner
   playtesting. Roadrunner remains below 30% in the full report. These are
   playtest signals, not automatic tuning orders.
-- Vulture minion damage still bypasses the owner's damageDealtMult, so ordinary
-  multiplier changes do not fully describe that kit.
+- Vulture's owned crow damage/launch already inherit his outgoing multiplier.
+  Its focused pass eased obsolete whole-kit penalties to 0.84 dealt / 1.26 taken /
+  0.84 cooldown / 0.78 ultimate, raising the current result from 25.7% to 45.4%.
 - Global multipliers do NOT fix structural outliers.
 
 ## Working with the owner
@@ -165,7 +167,7 @@ technical kits like Razorbill/Charles):
 
 ## Open threads
 
-1. Raven/Eagle high-end and Roadrunner/Vulture low-end balance —
+1. Raven/Eagle high-end and Roadrunner low-end balance —
    needs owner playtesting before another tuning pass.
 2. Real sprite art — pipeline complete and waiting; owner draws.
 3. Rollback, matchmaking, and relay infrastructure — direct internet lockstep

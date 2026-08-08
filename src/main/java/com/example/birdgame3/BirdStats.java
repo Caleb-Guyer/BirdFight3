@@ -143,6 +143,9 @@ final class BirdStats {
         migrateLegacyPreset(props, "bat",
                 new double[]{0.82, 1.20, 0.82, 0.90},
                 new double[]{0.95, 1.08, 0.95, 1.00});
+        migrateLegacyPreset(props, "vulture",
+                new double[]{0.70, 1.42, 0.70, 0.62},
+                new double[]{0.84, 1.26, 0.84, 0.78});
     }
 
     private static void migrateLegacyPreset(Properties props, String bird,

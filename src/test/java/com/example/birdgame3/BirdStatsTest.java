@@ -128,7 +128,7 @@ class BirdStatsTest {
     }
 
     @Test
-    void reloadMigratesExactLegacyGooseAndBatPresets(@TempDir Path dir) throws Exception {
+    void reloadMigratesExactLegacyShippedPresets(@TempDir Path dir) throws Exception {
         Path file = dir.resolve("bird-stats.properties");
         Files.writeString(file, """
                 goose.damageDealtMult=0.52
@@ -139,6 +139,10 @@ class BirdStatsTest {
                 bat.damageTakenMult=1.20
                 bat.cooldownRate=0.82
                 bat.ultimateRate=0.90
+                vulture.damageDealtMult=0.70
+                vulture.damageTakenMult=1.42
+                vulture.cooldownRate=0.70
+                vulture.ultimateRate=0.62
                 """);
 
         BirdStats.reload(file);
@@ -151,6 +155,10 @@ class BirdStatsTest {
         assertEquals(1.08, BirdGame3.BirdType.BAT.damageTakenMult);
         assertEquals(0.95, BirdGame3.BirdType.BAT.cooldownRate);
         assertEquals(1.00, BirdGame3.BirdType.BAT.ultimateRate);
+        assertEquals(0.84, BirdGame3.BirdType.VULTURE.damageDealtMult);
+        assertEquals(1.26, BirdGame3.BirdType.VULTURE.damageTakenMult);
+        assertEquals(0.84, BirdGame3.BirdType.VULTURE.cooldownRate);
+        assertEquals(0.78, BirdGame3.BirdType.VULTURE.ultimateRate);
     }
 
     @Test
