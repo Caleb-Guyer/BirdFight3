@@ -2953,20 +2953,34 @@ class BirdStateTest {
 
     @Test
     void fullyChargedSideSmashDoesNotTakeAZeroPercentBattlefieldStock() throws Exception {
-        BirdGame3 game = battlefieldSmashTestGame();
-        Bird attacker = game.players[0];
-        Bird target = game.players[1];
+        for (BirdGame3.BirdType attackerType : BirdGame3.BirdType.values()) {
+            BirdGame3 game = battlefieldSmashTestGame(attackerType, BirdGame3.BirdType.EAGLE);
+            Bird attacker = game.players[0];
+            Bird target = game.players[1];
 
-        performFullSideSmash(attacker);
-        advanceLaunchedBird(target, 18);
+            performFullSideSmash(attacker);
+            advanceLaunchedBird(target, 18);
 
-        assertEquals(3, game.scores[1],
-                "A full side smash from Battlefield center must not force a stock loss from zero percent.");
+            assertEquals(3, game.scores[1], () -> attackerType.name
+                    + " must not force a zero-percent stock loss from Battlefield center"
+                    + " (x=" + target.x + ", y=" + target.y + ", vx=" + target.vx + ", vy=" + target.vy
+                    + ", feed=" + game.killFeed + ").");
+
+            game.setLocalActionsForKey(game.leftKeyForPlayer(1), true);
+            for (int frame = 0; frame < 45 && game.scores[1] == 3 && target.vx > 0.0; frame++) {
+                target.update(1.0);
+            }
+
+            assertEquals(3, game.scores[1], () -> attackerType.name
+                    + " must leave enough time to steer back after zero-percent launch hitstun.");
+            assertTrue(target.vx <= 0.0, () -> attackerType.name
+                    + " must let the defender reverse horizontal momentum after hitstun.");
+        }
     }
 
     @Test
     void fullyChargedSideSmashStillFinishesAHighPercentBattlefieldStock() throws Exception {
-        BirdGame3 game = battlefieldSmashTestGame();
+        BirdGame3 game = battlefieldSmashTestGame(BirdGame3.BirdType.PIGEON, BirdGame3.BirdType.EAGLE);
         Bird attacker = game.players[0];
         Bird target = game.players[1];
         setPrivateDouble(target, "smashDamage", 120.0);
@@ -8396,11 +8410,12 @@ class BirdStateTest {
         return target.vx;
     }
 
-    private static BirdGame3 battlefieldSmashTestGame() throws Exception {
+    private static BirdGame3 battlefieldSmashTestGame(
+            BirdGame3.BirdType attackerType, BirdGame3.BirdType targetType) throws Exception {
         BirdGame3 game = new BirdGame3();
         game.harnessPrepareMatch(
-                BirdGame3.BirdType.PIGEON,
-                BirdGame3.BirdType.EAGLE,
+                attackerType,
+                targetType,
                 20260808L,
                 BirdGame3.MapType.BATTLEFIELD);
         game.isAI[0] = false;

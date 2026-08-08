@@ -1564,6 +1564,8 @@ public class Bird {
     private static final double SMASH_ATTACK_KNOCKBACK_PENALTY = 0.88;
     private static final double ATTACK_HORIZONTAL_KNOCKBACK_SCALE = 1.3;
     private static final double ATTACK_VERTICAL_KNOCKBACK_SCALE = 0.85;
+    private static final double SIDE_SMASH_ZERO_PERCENT_HORIZONTAL_KNOCKBACK_CAP = 45.0;
+    private static final double SIDE_SMASH_HORIZONTAL_KNOCKBACK_CAP_PER_PERCENT = 0.60;
     static final double ROADRUNNER_NORMAL_KNOCKBACK_MULTIPLIER = 1.20;
     static final double RAZORBILL_NORMAL_KNOCKBACK_MULTIPLIER = 1.15;
     private static final double SMASH_HORIZONTAL_LAUNCH_SCALE = 1.08;
@@ -3600,9 +3602,10 @@ public class Bird {
         NormalAttackProfile profile = normalAttackProfile(variant);
         double batAmbushScale = consumeBatAmbushNormalScale(variant);
         double chargeRatio = attackChargeRatio(chargeFrames);
-        double knockbackScale = (1.0 + CHARGED_ATTACK_KNOCKBACK_BONUS * chargeRatio * chargeRatio)
-                * profile.knockbackMultiplier()
+        double knockbackScale = profile.knockbackMultiplier()
                 * attackKnockbackBalanceMultiplier(variant);
+        double environmentKnockbackScale = knockbackScale
+                * (1.0 + CHARGED_ATTACK_KNOCKBACK_BONUS * chargeRatio * chargeRatio);
         double range = profile.horizontalReach() * sizeMultiplier;
         double verticalRange = profile.verticalReach() * sizeMultiplier;
         if (chargeRatio > 0.0) {
@@ -3626,22 +3629,35 @@ public class Bird {
                     other.combatHalfWidth(), other.combatHalfHeight(),
                     attackCenterX, attackCenterY, range, verticalRange)) {
                 double horizontalDirection = launchDirectionFromAttackCenter(other.bodyCenterX(), attackCenterX);
+                double chargeLaunchRamp = chargedAttackLaunchRamp(chargeRatio, other);
                 double verticalScale = profile.verticalLaunchScaleFor(other.bodyCenterY(), attackCenterY)
-                        * (1.0 + CHARGED_ATTACK_VERTICAL_BONUS * chargeRatio);
-                processBirdAttack(other, dmg, knockbackScale, verticalScale,
-                        profile.horizontalLaunchScale(), horizontalDirection, moveName);
+                        * (1.0 + CHARGED_ATTACK_VERTICAL_BONUS * chargeRatio * chargeLaunchRamp);
+                double targetKnockbackScale = knockbackScale
+                        * (1.0 + CHARGED_ATTACK_KNOCKBACK_BONUS * chargeRatio * chargeRatio * chargeLaunchRamp);
+                processBirdAttack(other, dmg, targetKnockbackScale, verticalScale,
+                        profile.horizontalLaunchScale(), horizontalDirection, moveName, variant);
             }
         }
 
         // === LOUNGE CAN BE HIT ===
         attackLounge(dmg);
-        attackCrows(attackCenterX, attackCenterY, range, verticalRange, dmg, knockbackScale, profile);
-        attackChicks(attackCenterX, attackCenterY, range, verticalRange, dmg, knockbackScale, profile);
-        attackMockingbirdShadows(attackCenterX, attackCenterY, range, verticalRange, dmg, knockbackScale, profile);
+        attackCrows(attackCenterX, attackCenterY, range, verticalRange, dmg, environmentKnockbackScale, profile);
+        attackChicks(attackCenterX, attackCenterY, range, verticalRange, dmg, environmentKnockbackScale, profile);
+        attackMockingbirdShadows(attackCenterX, attackCenterY, range, verticalRange, dmg, environmentKnockbackScale, profile);
         attackPenguinSnowForts(attackCenterX, attackCenterY, range, verticalRange, dmg);
         attackGrinchhawkPresents(attackCenterX, attackCenterY, range, verticalRange);
         game.damageFrostbiteSnowbanks(this, attackCenterX, attackCenterY, range, verticalRange, dmg);
         return profile;
+    }
+
+    private double chargedAttackLaunchRamp(double chargeRatio, Bird target) {
+        if (chargeRatio <= 0.0) {
+            return 0.0;
+        }
+        if (!game.usesDamageScaledKnockback()) {
+            return 1.0;
+        }
+        return Math.clamp(game.damageScaledLaunchPercent(target) / 100.0, 0.0, 1.0);
     }
 
     private double consumeBatAmbushNormalScale(NormalAttackVariant variant) {
@@ -3873,7 +3889,8 @@ public class Bird {
 
     private void processBirdAttack(Bird other, int dmg, double knockbackScale,
                                    double verticalScale, double horizontalScale,
-                                   double horizontalDirection, String moveName) {
+                                   double horizontalDirection, String moveName,
+                                   NormalAttackVariant variant) {
         double birdKnockbackMultiplier = normalAttackBirdKnockbackMultiplier();
         double kb = normalAttackPowerStat() * horizontalDirection * (game.usesDamageScaledKnockback() ? 2.2 : 1.8)
                 * knockbackScale * ATTACK_HORIZONTAL_KNOCKBACK_SCALE * horizontalScale * birdKnockbackMultiplier;
@@ -3897,7 +3914,15 @@ public class Bird {
         }
 
         double targetKnockbackMult = other.incomingKnockbackMultiplier();
-        other.vx += kb * targetKnockbackMult;
+        double horizontalKnockback = kb * targetKnockbackMult;
+        if (variant == NormalAttackVariant.SIDE_SMASH && game.usesDamageScaledKnockback()) {
+            double targetPercent = Math.max(0.0, game.damageScaledLaunchPercent(other));
+            double lowPercentCap = SIDE_SMASH_ZERO_PERCENT_HORIZONTAL_KNOCKBACK_CAP
+                    + targetPercent * SIDE_SMASH_HORIZONTAL_KNOCKBACK_CAP_PER_PERCENT;
+            horizontalKnockback = Math.copySign(Math.min(Math.abs(horizontalKnockback), lowPercentCap),
+                    horizontalKnockback);
+        }
+        other.vx += horizontalKnockback;
         other.vy -= verticalKb * targetKnockbackMult;
         applyTurkeyStuffedKnockbackBonus(other, horizontalDirection);
         double oldHealth = other.health;
