@@ -1307,6 +1307,62 @@ class BirdStateTest {
     }
 
     @Test
+    void titmouseBarkskipBrakesAfterItsFirstConfirmedHit() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird titmouse = new Bird(300.0, BirdGame3.BirdType.TITMOUSE, 0, game);
+        Bird target = new Bird(360.0, BirdGame3.BirdType.PIGEON, 1, game);
+        titmouse.y = BirdGame3.GROUND_Y - titmouse.bodyHeight();
+        target.y = BirdGame3.GROUND_Y - target.bodyHeight();
+        titmouse.facingRight = true;
+        game.players[0] = titmouse;
+        game.players[1] = target;
+
+        TitmouseSpecials.side(titmouse);
+        double committedSpeed = Math.abs(titmouse.vx);
+        TitmouseSpecials.handleBarkskip(titmouse);
+
+        assertTrue(titmouse.titmouseBarkskipHit[target.playerIndex]);
+        assertEquals(Bird.TITMOUSE_BARKSKIP_HIT_RECOVERY_FRAMES, titmouse.titmouseBarkskipTimer,
+                "A confirmed Barkskip should move into its short recovery instead of crossing the whole screen.");
+        assertEquals(Bird.TITMOUSE_BARKSKIP_HIT_SPEED, Math.abs(titmouse.vx), 0.0001);
+        assertTrue(Math.abs(titmouse.vx) < committedSpeed * 0.5,
+                "Barkskip should visibly brake on contact so Titmouse can continue the route nearby.");
+        assertTrue(game.hitstopFrames >= 3);
+    }
+
+    @Test
+    void titmouseMarkedTuftVaultGetsItsPromisedRoutePayoff() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 3;
+
+        Bird titmouse = new Bird(300.0, BirdGame3.BirdType.TITMOUSE, 0, game);
+        Bird markedTarget = new Bird(320.0, BirdGame3.BirdType.PIGEON, 1, game);
+        Bird unmarkedTarget = new Bird(355.0, BirdGame3.BirdType.PIGEON, 2, game);
+        titmouse.y = BirdGame3.GROUND_Y - titmouse.bodyHeight();
+        markedTarget.y = BirdGame3.GROUND_Y - markedTarget.bodyHeight();
+        unmarkedTarget.y = markedTarget.y;
+        game.players[0] = titmouse;
+        game.players[1] = markedTarget;
+        game.players[2] = unmarkedTarget;
+        markedTarget.applyTitmouseMark(titmouse, false);
+
+        TitmouseSpecials.up(titmouse);
+        TitmouseSpecials.handleTuftVault(titmouse);
+
+        assertTrue(titmouse.titmouseVaultHit[markedTarget.playerIndex]);
+        assertTrue(titmouse.titmouseVaultHit[unmarkedTarget.playerIndex]);
+        assertTrue(markedTarget.health < unmarkedTarget.health,
+                "MARK must improve Tuft Vault instead of being ignored by the advertised route follow-up.");
+        assertTrue(Math.abs(markedTarget.vx) > Math.abs(unmarkedTarget.vx));
+        assertTrue(Math.abs(markedTarget.vy) > Math.abs(unmarkedTarget.vy));
+        assertTrue(game.hitstopFrames >= 5,
+                "The marked Vault payoff should have a readable impact pause.");
+        assertTrue(game.shakeIntensity >= 8);
+    }
+
+    @Test
     void pelicanAiKeepsCommittedSpecialsOverSafeLandingLanes() {
         BirdGame3 game = new BirdGame3();
         game.harnessPrepareMatch(

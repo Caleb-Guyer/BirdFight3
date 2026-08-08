@@ -10314,7 +10314,7 @@ public class BirdGame3 {
         TITMOUSE_DRILL(
                 "Titmouse Routes",
                 "Mark the dummy, land a marked route hit, then land a Seed Stash detonation.",
-                "Scold marks. Barkskip or Vault cashes out the mark. Down special plants and detonates stashes.",
+                "Scold marks. Marked Vault hits harder, while Barkskip brakes on contact. Down plants or detonates stashes.",
                 MapType.BATTLEFIELD,
                 BirdType.TITMOUSE,
                 BirdType.PIGEON,

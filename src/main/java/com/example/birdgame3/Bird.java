@@ -724,6 +724,8 @@ public class Bird {
     static final int TITMOUSE_SCOLD_REUSE_FRAMES = 34;
     static final int TITMOUSE_MARK_FRAMES = 220;
     static final int TITMOUSE_BARKSKIP_FRAMES = 18;
+    static final int TITMOUSE_BARKSKIP_HIT_RECOVERY_FRAMES = 8;
+    static final double TITMOUSE_BARKSKIP_HIT_SPEED = 12.0;
     static final int TITMOUSE_BARKSKIP_REUSE_FRAMES = 38;
     static final int TITMOUSE_VAULT_FRAMES = 22;
     static final int TITMOUSE_VAULT_REUSE_FRAMES = 14;

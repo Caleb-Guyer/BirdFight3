@@ -351,9 +351,14 @@ final class TitmouseSpecials {
         }
         int dir = bird.titmouseBarkskipDirection == 0 ? bird.facingDirection() : bird.titmouseBarkskipDirection;
         bird.facingRight = dir > 0;
-        bird.vx = dir * Math.max(Math.abs(bird.vx), bird.titmouseBarkskipRebounded
+        boolean alreadyConnected = hasRegisteredHit(bird.titmouseBarkskipHit);
+        double committedSpeed = bird.titmouseBarkskipRebounded
                 ? (bird.titmouseBarkskipUltimate ? 39.0 : 33.0)
-                : (bird.titmouseBarkskipUltimate ? 34.0 : 28.0));
+                : (bird.titmouseBarkskipUltimate ? 34.0 : 28.0);
+        double activeSpeed = alreadyConnected
+                ? Math.min(committedSpeed, Bird.TITMOUSE_BARKSKIP_HIT_SPEED)
+                : Math.max(Math.abs(bird.vx), committedSpeed);
+        bird.vx = dir * activeSpeed;
         bird.vy *= 0.82;
         if ((bird.titmouseBarkskipTimer & 1) == 0) {
             emitBurst(bird, bird.bodyCenterX() - dir * 28.0 * bird.sizeMultiplier, bird.bodyCenterY(),
@@ -371,6 +376,7 @@ final class TitmouseSpecials {
             if (Math.abs(other.bodyCenterY() - bird.bodyCenterY()) > 68.0 * bird.sizeMultiplier
                     + other.combatHalfHeight()) continue;
 
+            boolean firstConfirmedHit = !hasRegisteredHit(bird.titmouseBarkskipHit);
             bird.titmouseBarkskipHit[other.playerIndex] = true;
             boolean marked = other.isTitmouseMarkedBy(bird);
             int dmg = bird.titmouseBarkskipUltimate
@@ -391,6 +397,17 @@ final class TitmouseSpecials {
             other.vy -= marked
                     ? (bird.titmouseBarkskipUltimate ? 12.0 : 9.0)
                     : (bird.titmouseBarkskipUltimate ? 9.0 : 6.5);
+            if (firstConfirmedHit) {
+                bird.titmouseBarkskipTimer = Math.min(
+                        bird.titmouseBarkskipTimer,
+                        Bird.TITMOUSE_BARKSKIP_HIT_RECOVERY_FRAMES);
+                bird.vx = dir * Bird.TITMOUSE_BARKSKIP_HIT_SPEED;
+                bird.game.hitstopFrames = Math.max(bird.game.hitstopFrames, marked ? 5 : 3);
+                bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, marked ? 8 : 5);
+            }
+            if (marked) {
+                confirmMarkedRouteHit(bird, other);
+            }
             if (marked && bird.titmouseBarkskipRebounded) {
                 bird.canDoubleJump = true;
                 bird.vy = Math.min(bird.vy, bird.titmouseBarkskipUltimate ? -13.0 : -10.0);
@@ -422,9 +439,10 @@ final class TitmouseSpecials {
             if (Math.abs(dx) > radius + other.combatHalfWidth()) continue;
             if (Math.abs(dy) > verticalReach + other.combatHalfHeight()) continue;
             bird.titmouseVaultHit[other.playerIndex] = true;
-            int dmg = bird.titmouseVaultUltimate
+            boolean marked = other.isTitmouseMarkedBy(bird);
+            int dmg = (bird.titmouseVaultUltimate
                     ? (bird.titmouseVaultBoosted ? 15 : 12)
-                    : (bird.titmouseVaultBoosted ? 11 : 8);
+                    : (bird.titmouseVaultBoosted ? 11 : 8)) + (marked ? 3 : 0);
             double oldHealth = other.health;
             int dealt = (int) bird.applyDamageTo(other, dmg);
             if (dealt <= 0) continue;
@@ -437,11 +455,29 @@ final class TitmouseSpecials {
             double dir = Math.signum(dx == 0.0 ? bird.facingDirection() : dx);
             other.vx += dir * (bird.titmouseVaultBoosted
                     ? (bird.titmouseVaultUltimate ? 13.0 : 10.0)
-                    : (bird.titmouseVaultUltimate ? 10.0 : 7.5));
-            other.vy -= bird.titmouseVaultBoosted
+                    : (bird.titmouseVaultUltimate ? 10.0 : 7.5)) + dir * (marked ? 2.0 : 0.0);
+            other.vy -= (bird.titmouseVaultBoosted
                     ? (bird.titmouseVaultUltimate ? 15.0 : 12.0)
-                    : (bird.titmouseVaultUltimate ? 12.0 : 9.0);
+                    : (bird.titmouseVaultUltimate ? 12.0 : 9.0)) + (marked ? 2.0 : 0.0);
+            if (marked) {
+                confirmMarkedRouteHit(bird, other);
+            }
         }
+    }
+
+    private static boolean hasRegisteredHit(boolean[] hitFlags) {
+        for (boolean hit : hitFlags) {
+            if (hit) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static void confirmMarkedRouteHit(Bird bird, Bird target) {
+        bird.game.hitstopFrames = Math.max(bird.game.hitstopFrames, 5);
+        bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, 8);
+        emitBurst(bird, target.bodyCenterX(), target.bodyCenterY(), 16, Color.web("#4FC3F7"));
     }
 
     static void handleSeedStashCharge(Bird bird) {
