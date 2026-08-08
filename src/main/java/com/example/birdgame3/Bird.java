@@ -1558,7 +1558,7 @@ public class Bird {
     private static final int MAX_ATTACK_CHARGE_FRAMES = 60;
     private static final int GROUND_SMASH_HOLD_THRESHOLD_FRAMES = 7;
     private static final double CHARGED_ATTACK_DAMAGE_BONUS = 0.35;
-    private static final double CHARGED_ATTACK_KNOCKBACK_BONUS = 5.0;
+    private static final double CHARGED_ATTACK_KNOCKBACK_BONUS = 1.2;
     private static final double CHARGED_ATTACK_VERTICAL_BONUS = 1.8;
     private static final double NON_SMASH_ATTACK_KNOCKBACK_BONUS = 1.08;
     private static final double SMASH_ATTACK_KNOCKBACK_PENALTY = 0.88;

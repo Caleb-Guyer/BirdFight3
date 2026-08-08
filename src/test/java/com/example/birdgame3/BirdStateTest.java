@@ -2952,6 +2952,33 @@ class BirdStateTest {
     }
 
     @Test
+    void fullyChargedSideSmashDoesNotTakeAZeroPercentBattlefieldStock() throws Exception {
+        BirdGame3 game = battlefieldSmashTestGame();
+        Bird attacker = game.players[0];
+        Bird target = game.players[1];
+
+        performFullSideSmash(attacker);
+        advanceLaunchedBird(target, 18);
+
+        assertEquals(3, game.scores[1],
+                "A full side smash from Battlefield center must not force a stock loss from zero percent.");
+    }
+
+    @Test
+    void fullyChargedSideSmashStillFinishesAHighPercentBattlefieldStock() throws Exception {
+        BirdGame3 game = battlefieldSmashTestGame();
+        Bird attacker = game.players[0];
+        Bird target = game.players[1];
+        setPrivateDouble(target, "smashDamage", 120.0);
+
+        performFullSideSmash(attacker);
+        advanceLaunchedBird(target, 18);
+
+        assertEquals(2, game.scores[1],
+                "A full side smash should remain a reliable finisher once the defender has high damage.");
+    }
+
+    @Test
     void groundedAttackBiasesKnockbackHorizontally() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;
@@ -8367,6 +8394,46 @@ class BirdStateTest {
         game.setLocalActionsForKey(attackKey, false);
         attacker.update(1.0);
         return target.vx;
+    }
+
+    private static BirdGame3 battlefieldSmashTestGame() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.harnessPrepareMatch(
+                BirdGame3.BirdType.PIGEON,
+                BirdGame3.BirdType.EAGLE,
+                20260808L,
+                BirdGame3.MapType.BATTLEFIELD);
+        game.isAI[0] = false;
+        game.isAI[1] = false;
+
+        Bird attacker = game.players[0];
+        Bird target = game.players[1];
+        double islandCenterX = getPrivateDouble(game, "battlefieldIslandX")
+                + getPrivateDouble(game, "battlefieldIslandW") * 0.5;
+        double islandTopY = getPrivateDouble(game, "battlefieldIslandY");
+        attacker.x = islandCenterX - 90.0;
+        target.x = islandCenterX;
+        attacker.y = islandTopY - attacker.bodyHeight();
+        target.y = islandTopY - target.bodyHeight();
+        attacker.vx = 0.0;
+        attacker.vy = 0.0;
+        target.vx = 0.0;
+        target.vy = 0.0;
+        attacker.facingRight = true;
+        return game;
+    }
+
+    private static void performFullSideSmash(Bird attacker) throws Exception {
+        Class<?> variantClass = Class.forName("com.example.birdgame3.Bird$NormalAttackVariant");
+        Method performAttack = Bird.class.getDeclaredMethod("performAttack", int.class, variantClass);
+        performAttack.setAccessible(true);
+        performAttack.invoke(attacker, 60, enumConstant(variantClass, "SIDE_SMASH"));
+    }
+
+    private static void advanceLaunchedBird(Bird target, int frames) {
+        for (int frame = 0; frame < frames; frame++) {
+            target.update(1.0);
+        }
     }
 
     private static double launchVelocityAfterGroundJump(int heldFrames) {
