@@ -1292,6 +1292,15 @@ public class BirdGame3 {
         );
     }
 
+    void playRavenRoutePayoffSfx(boolean ultimate) {
+        playManagedSfxVaried(
+                swingClip,
+                ultimate ? 0.68 : 0.52,
+                ultimate ? 0.70 : 0.84,
+                0.025
+        );
+    }
+
     void playTowerDefenseBlightPopSfx(double intensity) {
         double clamped = Math.clamp(intensity, 0.2, 1.0);
         if (vaseBreakingClip != null) {
@@ -10359,7 +10368,7 @@ public class BirdGame3 {
         RAVEN_DRILL(
                 "Raven Route Payoff",
                 "Place Nevermore, mark with Black Quill, then land an empowered Shadow Warp or Murder Lift.",
-                "Nevermore and Black Quill create route points. Side or Up special cashes out the route.",
+                "Nevermore and Black Quill create route points. Consuming one with Side or Up adds the heavier cash-out hit.",
                 MapType.BATTLEFIELD,
                 BirdType.RAVEN,
                 BirdType.PIGEON,

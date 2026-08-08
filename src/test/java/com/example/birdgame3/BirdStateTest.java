@@ -7966,6 +7966,8 @@ class BirdStateTest {
         game.players[1] = target;
 
         invokePrivateBirdBooleanVoid(raven, target, false);
+        double startingHealth = target.health;
+        int startingParticles = game.particles.size();
         game.setLocalActionsForKey(game.rightKeyForPlayer(0), true);
         game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
         raven.update(1.0);
@@ -7976,6 +7978,44 @@ class BirdStateTest {
                 "Warping through a Portent should empower the slash.");
         assertTrue(raven.x > 240.0,
                 "Shadow Warp should relocate Raven near the consumed Portent.");
+        assertTrue(target.health < startingHealth,
+                "The empowered Shadow Warp should connect after arriving at the Portent.");
+        assertTrue(game.hitstopFrames >= 5,
+                "The route payoff should have a brief, readable impact pause.");
+        assertTrue(game.shakeIntensity >= 9,
+                "The route payoff should feel heavier than an ordinary slash.");
+        assertTrue(game.particles.size() > startingParticles,
+                "The route payoff should create a concentrated impact burst.");
+    }
+
+    @Test
+    void ravenPortentSnappedMurderLiftGetsRoutePayoffFeedback() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird raven = new Bird(220.0, BirdGame3.BirdType.RAVEN, 0, game);
+        Bird target = new Bird(300.0, BirdGame3.BirdType.PIGEON, 1, game);
+        raven.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = raven;
+        game.players[1] = target;
+
+        invokePrivateBirdBooleanVoid(raven, target, false);
+        double startingHealth = target.health;
+        int startingParticles = game.particles.size();
+
+        invokePrivateBooleanVoid(raven, "specialRavenMurderLift", false);
+        raven.update(1.0);
+
+        assertTrue(getPrivateBoolean(raven, "ravenLiftSnapped"),
+                "Murder Lift should snap through the nearby Portent.");
+        assertEquals(0, getPrivateInt(target, "ravenPortentTimer"),
+                "The snapped Murder Lift should consume its route point.");
+        assertTrue(target.health < startingHealth,
+                "The snapped Murder Lift should connect with its routed target.");
+        assertTrue(game.hitstopFrames >= 5);
+        assertTrue(game.shakeIntensity >= 9);
+        assertTrue(game.particles.size() > startingParticles);
     }
 
     @Test

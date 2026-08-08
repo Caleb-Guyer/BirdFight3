@@ -8122,6 +8122,7 @@ public class Bird {
     private void applyRavenShadowWarpHits() {
         double centerX = bodyCenterX();
         double centerY = bodyCenterY();
+        boolean routePayoffSoundPlayed = false;
         for (Bird other : game.players) {
             if (!canDamageTarget(other)) continue;
             if (other.playerIndex < 0 || other.playerIndex >= ravenSideHit.length) continue;
@@ -8137,12 +8138,17 @@ public class Bird {
                 other.vx += ravenSideDirection * (ravenSideUltimate ? 18.0 : (ravenSideEmpowered ? 14.0 : 10.0));
                 other.vy -= ravenSideUltimate ? 10.0 : (ravenSideEmpowered ? 7.6 : 5.4);
                 game.playHitSound(dealt);
+                if (ravenSideEmpowered) {
+                    confirmRavenRoutePayoff(other, ravenSideUltimate, !routePayoffSoundPlayed);
+                    routePayoffSoundPlayed = true;
+                }
             }
             ravenSideHit[other.playerIndex] = true;
         }
     }
 
     private void applyRavenLiftHits() {
+        boolean routePayoffSoundPlayed = false;
         for (Bird other : game.players) {
             if (!canDamageTarget(other)) continue;
             if (other.playerIndex < 0 || other.playerIndex >= ravenLiftHit.length) continue;
@@ -8159,8 +8165,22 @@ public class Bird {
                 other.vx += Math.signum(dx == 0.0 ? facingDirection() : dx) * (ravenLiftUltimate ? 7.0 : 4.8);
                 other.vy -= ravenLiftUltimate ? 13.0 : 10.0;
                 game.playHitSound(dealt);
+                if (ravenLiftSnapped) {
+                    confirmRavenRoutePayoff(other, ravenLiftUltimate, !routePayoffSoundPlayed);
+                    routePayoffSoundPlayed = true;
+                }
             }
             ravenLiftHit[other.playerIndex] = true;
+        }
+    }
+
+    private void confirmRavenRoutePayoff(Bird target, boolean ultimate, boolean playSound) {
+        game.hitstopFrames = Math.max(game.hitstopFrames, ultimate ? 7 : 5);
+        game.shakeIntensity = Math.max(game.shakeIntensity, ultimate ? 12 : 9);
+        emitRavenBurst(target.bodyCenterX(), target.bodyCenterY(), ultimate ? 34 : 26,
+                ultimate ? Color.GOLD : ravenAccentColor());
+        if (playSound) {
+            game.playRavenRoutePayoffSfx(ultimate);
         }
     }
 
