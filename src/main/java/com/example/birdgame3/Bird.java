@@ -1563,13 +1563,22 @@ public class Bird {
     private static final double NON_SMASH_ATTACK_KNOCKBACK_BONUS = 1.08;
     private static final double SMASH_ATTACK_KNOCKBACK_PENALTY = 0.88;
     private static final double ATTACK_HORIZONTAL_KNOCKBACK_SCALE = 1.3;
-    private static final double ATTACK_VERTICAL_KNOCKBACK_SCALE = 0.52;
+    private static final double ATTACK_VERTICAL_KNOCKBACK_SCALE = 0.85;
     static final double ROADRUNNER_NORMAL_KNOCKBACK_MULTIPLIER = 1.20;
     static final double RAZORBILL_NORMAL_KNOCKBACK_MULTIPLIER = 1.15;
     private static final double SMASH_HORIZONTAL_LAUNCH_SCALE = 1.08;
-    private static final double SMASH_VERTICAL_LAUNCH_SCALE = 0.84;
+    private static final double SMASH_VERTICAL_LAUNCH_SCALE = 1.0;
     private static final double SMASH_MIN_UPWARD_LAUNCH_SCALE = 2.8;
     private static final double SMASH_DI_MAX_ANGLE_RADIANS = Math.toRadians(18.0);
+    private static final double DAMAGE_SCALED_AIR_LAUNCH_DRAG = 0.98;
+    private static final double DAMAGE_SCALED_GROUND_LAUNCH_DRAG = 0.94;
+    private static final double DAMAGE_SCALED_HITSTUN_DAMAGE_THRESHOLD = 3.5;
+    private static final double DAMAGE_SCALED_HITSTUN_MIN_LAUNCH_SPEED = 7.0;
+    private static final double DAMAGE_SCALED_HITSTUN_BASE_FRAMES = 3.0;
+    private static final double DAMAGE_SCALED_HITSTUN_SPEED_SCALE = 0.14;
+    private static final double DAMAGE_SCALED_HITSTUN_PERCENT_SCALE = 0.18;
+    private static final double DAMAGE_SCALED_HITSTUN_MIN_FRAMES = 6.0;
+    private static final double DAMAGE_SCALED_HITSTUN_MAX_FRAMES = 18.0;
     private static final double LEDGE_GRAB_HORIZONTAL_REACH = 34.0;
     private static final double LEDGE_GRAB_VERTICAL_ABOVE = 18.0;
     private static final double LEDGE_GRAB_VERTICAL_BELOW = 46.0;
@@ -2290,6 +2299,7 @@ public class Bird {
     private int recentSmashAttackerIndex = -1;
     private int recentSmashAttackerFrames = 0;
     private double pendingSmashLaunchScale = 1.0;
+    private double pendingDamageScaledHitDamage = 0.0;
 
     // Shared deterministic simulation stream (see SimRng); reseeded each match.
     final Random random = SimRng.random();
@@ -11546,7 +11556,12 @@ public class Bird {
         handleHorizontalMovement(stunned, airborne, jumpHeld, jumpJustPressed, gameSpeed);
 
         // === AIR/GROUND FRICTION ===
-        if (!leftPressed() && !rightPressed()) {
+        if (stunned && game.usesDamageScaledKnockback()) {
+            // Launch momentum needs to survive long enough for non-smash attacks to
+            // threaten a blast zone. Apply one predictable drag while in hitstun;
+            // the movement handler deliberately skips its legacy second drag.
+            vx *= airborne ? DAMAGE_SCALED_AIR_LAUNCH_DRAG : DAMAGE_SCALED_GROUND_LAUNCH_DRAG;
+        } else if (!leftPressed() && !rightPressed()) {
             if (type == BirdGame3.BirdType.ROADRUNNER && roadrunnerBeepBurstTimer > 0) {
                 roadrunnerMomentumFxTimer = Math.max(roadrunnerMomentumFxTimer, 16);
             } else if (type == BirdGame3.BirdType.ROADRUNNER && !airborne && Math.abs(vx) > 10.0) {
@@ -14253,7 +14268,7 @@ public class Bird {
                     special();
                 }
             }
-        } else {
+        } else if (!game.usesDamageScaledKnockback()) {
             vx *= 0.92;
         }
     }
@@ -14348,6 +14363,7 @@ public class Bird {
         recentSmashAttackerIndex = -1;
         recentSmashAttackerFrames = 0;
         pendingSmashLaunchScale = 1.0;
+        pendingDamageScaledHitDamage = 0.0;
         activateRespawnNest(spawnX, spawnY);
     }
 
@@ -17902,6 +17918,7 @@ public class Bird {
         double scaledPercent = percent <= 0.0 ? 0.0 : Math.pow(percent / 115.0, 1.18);
         double launchScale = 1.0 + Math.min(3.8, scaledPercent + dealtDamage / 55.0);
         pendingSmashLaunchScale = Math.max(pendingSmashLaunchScale, launchScale);
+        pendingDamageScaledHitDamage = Math.max(pendingDamageScaledHitDamage, dealtDamage);
     }
 
     private void applyPendingSmashLaunch() {
@@ -17918,7 +17935,23 @@ public class Bird {
             }
         }
         applySmashDirectionalInfluence();
+        applyDamageScaledLaunchHitstun();
         pendingSmashLaunchScale = 1.0;
+        pendingDamageScaledHitDamage = 0.0;
+    }
+
+    private void applyDamageScaledLaunchHitstun() {
+        double launchSpeed = Math.hypot(vx, vy);
+        if (pendingDamageScaledHitDamage < DAMAGE_SCALED_HITSTUN_DAMAGE_THRESHOLD
+                || launchSpeed < DAMAGE_SCALED_HITSTUN_MIN_LAUNCH_SPEED) {
+            return;
+        }
+        double percent = Math.max(0.0, game.damageScaledLaunchPercent(this));
+        double launchHitstun = DAMAGE_SCALED_HITSTUN_BASE_FRAMES
+                + launchSpeed * DAMAGE_SCALED_HITSTUN_SPEED_SCALE
+                + Math.sqrt(percent) * DAMAGE_SCALED_HITSTUN_PERCENT_SCALE;
+        applyStun(Math.clamp(launchHitstun,
+                DAMAGE_SCALED_HITSTUN_MIN_FRAMES, DAMAGE_SCALED_HITSTUN_MAX_FRAMES));
     }
 
     private void applySmashDirectionalInfluence() {
@@ -18022,6 +18055,7 @@ public class Bird {
         recentSmashAttackerIndex = -1;
         recentSmashAttackerFrames = 0;
         pendingSmashLaunchScale = 1.0;
+        pendingDamageScaledHitDamage = 0.0;
         techBufferTimer = 0;
         knockdownTimer = 0;
     }

@@ -1,7 +1,7 @@
 # Balance Lab Report
 
 - Matches played: 11088
-- Draws/timeouts: 6
+- Draws/timeouts: 1
 - Maps: Big Forest, Pigeon's Rooftops, Sky Cliffs, Vibrant Jungle, Sunscorch Flats, Echo Cavern, Battlefield, Beacon Crown, Broken Harbor, Frostbite Fjord, Ashfall Cathedral, Crownlock Prison
 - Rules: smash, AI vs AI
 
@@ -9,396 +9,396 @@
 
 | Bird | Win rate | Decided matches |
 |---|---:|---:|
-| Vulture | 58.8% | 1007 |
-| Razorbill | 57.8% | 1006 |
-| Kiwi Bird | 56.8% | 1008 |
-| Raven | 56.5% | 1008 |
-| Heisenbird | 55.0% | 1008 |
-| Grinch-Hawk | 54.1% | 1008 |
-| Pelican | 53.5% | 1008 |
-| Falcon | 52.7% | 1008 |
-| Opium Bird | 50.1% | 1008 |
-| Goose | 49.7% | 1007 |
-| Shoebill | 48.9% | 1006 |
-| Charles | 48.8% | 1007 |
-| Hummingbird | 48.5% | 1008 |
-| Phoenix | 48.3% | 1006 |
-| Tufted Titmouse | 48.2% | 1008 |
-| Eagle | 47.7% | 1007 |
-| Pigeon | 47.2% | 1007 |
-| Turkey | 46.0% | 1008 |
-| Bat | 46.0% | 1008 |
-| Penguin | 44.0% | 1008 |
-| Rooster | 43.0% | 1007 |
-| Roadrunner | 38.5% | 1008 |
+| Eagle | 70.1% | 1008 |
+| Raven | 70.1% | 1008 |
+| Tufted Titmouse | 68.5% | 1008 |
+| Falcon | 66.4% | 1008 |
+| Heisenbird | 64.3% | 1008 |
+| Hummingbird | 61.6% | 1008 |
+| Kiwi Bird | 60.7% | 1008 |
+| Razorbill | 59.0% | 1008 |
+| Penguin | 57.1% | 1008 |
+| Grinch-Hawk | 56.2% | 1008 |
+| Charles | 53.4% | 1008 |
+| Opium Bird | 53.3% | 1008 |
+| Shoebill | 52.8% | 1007 |
+| Pelican | 43.7% | 1008 |
+| Pigeon | 38.2% | 1008 |
+| Turkey | 36.9% | 1008 |
+| Rooster | 33.7% | 1008 |
+| Goose | 33.4% | 1008 |
+| Vulture | 31.9% | 1008 |
+| Bat | 30.3% | 1008 |
+| Roadrunner | 30.2% | 1008 |
+| Phoenix | 28.2% | 1007 |
 
 
 ## Map summary
 
 | Map | Matches | Draws | Leader | Leader win rate | Lowest | Lowest win rate |
 |---|---:|---:|---|---:|---|---:|
-| Big Forest | 924 | 0 | Pelican | 72.6% | Roadrunner | 22.6% |
-| Pigeon's Rooftops | 924 | 0 | Pelican | 72.6% | Roadrunner | 11.9% |
-| Sky Cliffs | 924 | 0 | Kiwi Bird | 65.5% | Hummingbird | 31.0% |
-| Vibrant Jungle | 924 | 0 | Razorbill | 75.0% | Roadrunner | 26.2% |
-| Sunscorch Flats | 924 | 0 | Grinch-Hawk | 71.4% | Roadrunner | 17.9% |
-| Echo Cavern | 924 | 6 | Roadrunner | 76.2% | Bat | 29.8% |
-| Battlefield | 924 | 0 | Roadrunner | 84.5% | Pelican | 16.7% |
-| Beacon Crown | 924 | 0 | Opium Bird | 69.0% | Pelican | 33.3% |
-| Broken Harbor | 924 | 0 | Grinch-Hawk | 65.5% | Roadrunner | 31.0% |
-| Frostbite Fjord | 924 | 0 | Raven | 78.6% | Rooster | 31.0% |
-| Ashfall Cathedral | 924 | 0 | Hummingbird | 73.8% | Roadrunner | 25.0% |
-| Crownlock Prison | 924 | 0 | Opium Bird | 67.9% | Rooster | 27.4% |
+| Big Forest | 924 | 0 | Raven | 75.0% | Bat | 20.2% |
+| Pigeon's Rooftops | 924 | 0 | Eagle | 77.4% | Roadrunner | 17.9% |
+| Sky Cliffs | 924 | 0 | Eagle | 82.1% | Phoenix | 27.4% |
+| Vibrant Jungle | 924 | 0 | Eagle | 69.0% | Opium Bird | 33.3% |
+| Sunscorch Flats | 924 | 0 | Eagle | 76.2% | Roadrunner | 14.3% |
+| Echo Cavern | 924 | 1 | Roadrunner | 79.8% | Bat | 32.1% |
+| Battlefield | 924 | 0 | Hummingbird | 76.2% | Pigeon | 13.1% |
+| Beacon Crown | 924 | 0 | Hummingbird | 84.5% | Rooster | 20.2% |
+| Broken Harbor | 924 | 0 | Raven | 77.4% | Roadrunner | 13.1% |
+| Frostbite Fjord | 924 | 0 | Raven | 92.9% | Phoenix | 20.2% |
+| Ashfall Cathedral | 924 | 0 | Hummingbird | 85.7% | Roadrunner | 10.7% |
+| Crownlock Prison | 924 | 0 | Raven | 84.5% | Roadrunner | 9.5% |
 
 ## Tier list by map
 ## Big Forest
 
 | Bird | Win rate | Decided matches |
 |---|---:|---:|
-| Pelican | 72.6% | 84 |
-| Grinch-Hawk | 71.4% | 84 |
-| Kiwi Bird | 64.3% | 84 |
-| Vulture | 61.9% | 84 |
-| Goose | 61.9% | 84 |
-| Falcon | 58.3% | 84 |
-| Razorbill | 53.6% | 84 |
-| Rooster | 51.2% | 84 |
-| Penguin | 48.8% | 84 |
-| Charles | 47.6% | 84 |
-| Bat | 47.6% | 84 |
-| Heisenbird | 47.6% | 84 |
-| Phoenix | 46.4% | 84 |
-| Turkey | 46.4% | 84 |
-| Hummingbird | 45.2% | 84 |
-| Shoebill | 45.2% | 84 |
-| Tufted Titmouse | 44.0% | 84 |
-| Pigeon | 41.7% | 84 |
-| Opium Bird | 41.7% | 84 |
-| Eagle | 40.5% | 84 |
-| Raven | 39.3% | 84 |
-| Roadrunner | 22.6% | 84 |
+| Raven | 75.0% | 84 |
+| Kiwi Bird | 75.0% | 84 |
+| Eagle | 72.6% | 84 |
+| Falcon | 72.6% | 84 |
+| Tufted Titmouse | 71.4% | 84 |
+| Razorbill | 65.5% | 84 |
+| Charles | 61.9% | 84 |
+| Grinch-Hawk | 61.9% | 84 |
+| Heisenbird | 61.9% | 84 |
+| Penguin | 58.3% | 84 |
+| Hummingbird | 57.1% | 84 |
+| Pelican | 50.0% | 84 |
+| Opium Bird | 45.2% | 84 |
+| Pigeon | 40.5% | 84 |
+| Shoebill | 40.5% | 84 |
+| Turkey | 31.0% | 84 |
+| Phoenix | 28.6% | 84 |
+| Rooster | 28.6% | 84 |
+| Roadrunner | 28.6% | 84 |
+| Vulture | 27.4% | 84 |
+| Goose | 26.2% | 84 |
+| Bat | 20.2% | 84 |
 
 ## Pigeon's Rooftops
 
 | Bird | Win rate | Decided matches |
 |---|---:|---:|
-| Pelican | 72.6% | 84 |
-| Grinch-Hawk | 69.0% | 84 |
-| Vulture | 69.0% | 84 |
-| Kiwi Bird | 65.5% | 84 |
-| Phoenix | 63.1% | 84 |
-| Razorbill | 60.7% | 84 |
-| Goose | 58.3% | 84 |
-| Falcon | 57.1% | 84 |
-| Bat | 57.1% | 84 |
-| Shoebill | 48.8% | 84 |
-| Tufted Titmouse | 46.4% | 84 |
-| Turkey | 45.2% | 84 |
-| Rooster | 45.2% | 84 |
-| Penguin | 44.0% | 84 |
-| Pigeon | 42.9% | 84 |
-| Eagle | 42.9% | 84 |
-| Heisenbird | 42.9% | 84 |
-| Raven | 42.9% | 84 |
-| Charles | 41.7% | 84 |
-| Opium Bird | 36.9% | 84 |
-| Hummingbird | 35.7% | 84 |
-| Roadrunner | 11.9% | 84 |
+| Eagle | 77.4% | 84 |
+| Falcon | 75.0% | 84 |
+| Kiwi Bird | 71.4% | 84 |
+| Tufted Titmouse | 70.2% | 84 |
+| Grinch-Hawk | 67.9% | 84 |
+| Razorbill | 64.3% | 84 |
+| Raven | 61.9% | 84 |
+| Heisenbird | 59.5% | 84 |
+| Charles | 58.3% | 84 |
+| Penguin | 54.8% | 84 |
+| Pigeon | 53.6% | 84 |
+| Opium Bird | 53.6% | 84 |
+| Shoebill | 50.0% | 84 |
+| Pelican | 47.6% | 84 |
+| Hummingbird | 44.0% | 84 |
+| Rooster | 40.5% | 84 |
+| Goose | 32.1% | 84 |
+| Turkey | 29.8% | 84 |
+| Phoenix | 27.4% | 84 |
+| Vulture | 23.8% | 84 |
+| Bat | 19.0% | 84 |
+| Roadrunner | 17.9% | 84 |
 
 ## Sky Cliffs
 
 | Bird | Win rate | Decided matches |
 |---|---:|---:|
-| Kiwi Bird | 65.5% | 84 |
-| Eagle | 64.3% | 84 |
-| Charles | 61.9% | 84 |
-| Rooster | 59.5% | 84 |
-| Pigeon | 58.3% | 84 |
-| Pelican | 57.1% | 84 |
+| Eagle | 82.1% | 84 |
+| Tufted Titmouse | 73.8% | 84 |
+| Kiwi Bird | 69.0% | 84 |
+| Charles | 59.5% | 84 |
+| Grinch-Hawk | 58.3% | 84 |
 | Razorbill | 56.0% | 84 |
-| Goose | 54.8% | 84 |
-| Bat | 53.6% | 84 |
-| Falcon | 52.4% | 84 |
-| Grinch-Hawk | 50.0% | 84 |
-| Vulture | 50.0% | 84 |
-| Heisenbird | 50.0% | 84 |
-| Tufted Titmouse | 48.8% | 84 |
-| Phoenix | 46.4% | 84 |
-| Raven | 45.2% | 84 |
-| Penguin | 44.0% | 84 |
-| Turkey | 41.7% | 84 |
-| Shoebill | 36.9% | 84 |
-| Opium Bird | 36.9% | 84 |
-| Roadrunner | 35.7% | 84 |
-| Hummingbird | 31.0% | 84 |
+| Shoebill | 53.6% | 84 |
+| Bat | 51.2% | 84 |
+| Falcon | 50.0% | 84 |
+| Pigeon | 48.8% | 84 |
+| Rooster | 48.8% | 84 |
+| Heisenbird | 48.8% | 84 |
+| Raven | 48.8% | 84 |
+| Hummingbird | 47.6% | 84 |
+| Penguin | 47.6% | 84 |
+| Pelican | 46.4% | 84 |
+| Turkey | 44.0% | 84 |
+| Roadrunner | 39.3% | 84 |
+| Vulture | 36.9% | 84 |
+| Opium Bird | 32.1% | 84 |
+| Goose | 29.8% | 84 |
+| Phoenix | 27.4% | 84 |
 
 ## Vibrant Jungle
 
 | Bird | Win rate | Decided matches |
 |---|---:|---:|
-| Razorbill | 75.0% | 84 |
-| Grinch-Hawk | 69.0% | 84 |
-| Phoenix | 67.9% | 84 |
-| Vulture | 66.7% | 84 |
-| Pigeon | 63.1% | 84 |
-| Rooster | 61.9% | 84 |
-| Turkey | 60.7% | 84 |
-| Pelican | 58.3% | 84 |
-| Kiwi Bird | 54.8% | 84 |
-| Bat | 52.4% | 84 |
-| Charles | 50.0% | 84 |
-| Goose | 50.0% | 84 |
-| Falcon | 47.6% | 84 |
-| Heisenbird | 45.2% | 84 |
-| Eagle | 42.9% | 84 |
-| Shoebill | 40.5% | 84 |
-| Tufted Titmouse | 39.3% | 84 |
-| Penguin | 33.3% | 84 |
+| Eagle | 69.0% | 84 |
+| Falcon | 66.7% | 84 |
+| Kiwi Bird | 66.7% | 84 |
+| Charles | 64.3% | 84 |
+| Grinch-Hawk | 64.3% | 84 |
+| Razorbill | 60.7% | 84 |
+| Pigeon | 57.1% | 84 |
+| Tufted Titmouse | 57.1% | 84 |
+| Heisenbird | 51.2% | 84 |
+| Penguin | 50.0% | 84 |
+| Shoebill | 50.0% | 84 |
+| Pelican | 48.8% | 84 |
+| Raven | 47.6% | 84 |
+| Turkey | 46.4% | 84 |
+| Goose | 42.9% | 84 |
+| Rooster | 41.7% | 84 |
+| Phoenix | 39.3% | 84 |
+| Roadrunner | 36.9% | 84 |
+| Hummingbird | 35.7% | 84 |
+| Vulture | 35.7% | 84 |
+| Bat | 34.5% | 84 |
 | Opium Bird | 33.3% | 84 |
-| Hummingbird | 31.0% | 84 |
-| Raven | 31.0% | 84 |
-| Roadrunner | 26.2% | 84 |
 
 ## Sunscorch Flats
 
 | Bird | Win rate | Decided matches |
 |---|---:|---:|
-| Grinch-Hawk | 71.4% | 84 |
-| Kiwi Bird | 67.9% | 84 |
-| Razorbill | 66.7% | 84 |
-| Goose | 65.5% | 84 |
-| Falcon | 63.1% | 84 |
-| Vulture | 61.9% | 84 |
-| Raven | 61.9% | 84 |
-| Pelican | 57.1% | 84 |
-| Charles | 53.6% | 84 |
-| Eagle | 52.4% | 84 |
-| Turkey | 51.2% | 84 |
-| Phoenix | 50.0% | 84 |
-| Penguin | 47.6% | 84 |
-| Pigeon | 44.0% | 84 |
-| Shoebill | 42.9% | 84 |
-| Heisenbird | 41.7% | 84 |
-| Tufted Titmouse | 40.5% | 84 |
-| Bat | 38.1% | 84 |
-| Hummingbird | 36.9% | 84 |
-| Rooster | 34.5% | 84 |
-| Opium Bird | 33.3% | 84 |
-| Roadrunner | 17.9% | 84 |
+| Eagle | 76.2% | 84 |
+| Heisenbird | 73.8% | 84 |
+| Kiwi Bird | 73.8% | 84 |
+| Penguin | 70.2% | 84 |
+| Tufted Titmouse | 70.2% | 84 |
+| Raven | 66.7% | 84 |
+| Falcon | 65.5% | 84 |
+| Hummingbird | 61.9% | 84 |
+| Grinch-Hawk | 61.9% | 84 |
+| Razorbill | 57.1% | 84 |
+| Charles | 56.0% | 84 |
+| Opium Bird | 50.0% | 84 |
+| Shoebill | 46.4% | 84 |
+| Pelican | 40.5% | 84 |
+| Goose | 38.1% | 84 |
+| Pigeon | 35.7% | 84 |
+| Turkey | 35.7% | 84 |
+| Phoenix | 34.5% | 84 |
+| Vulture | 31.0% | 84 |
+| Rooster | 23.8% | 84 |
+| Bat | 16.7% | 84 |
+| Roadrunner | 14.3% | 84 |
 
 ## Echo Cavern
 
 | Bird | Win rate | Decided matches |
 |---|---:|---:|
-| Roadrunner | 76.2% | 84 |
-| Raven | 76.2% | 84 |
-| Falcon | 65.5% | 84 |
-| Heisenbird | 60.7% | 84 |
-| Shoebill | 58.5% | 82 |
-| Eagle | 57.8% | 83 |
-| Opium Bird | 54.8% | 84 |
-| Kiwi Bird | 54.8% | 84 |
-| Hummingbird | 53.6% | 84 |
-| Phoenix | 50.0% | 82 |
-| Grinch-Hawk | 48.8% | 84 |
-| Razorbill | 48.8% | 82 |
-| Goose | 47.0% | 83 |
-| Turkey | 45.2% | 84 |
-| Penguin | 44.0% | 84 |
-| Rooster | 43.4% | 83 |
-| Charles | 42.2% | 83 |
-| Tufted Titmouse | 39.3% | 84 |
-| Pelican | 35.7% | 84 |
-| Pigeon | 33.7% | 83 |
-| Vulture | 33.7% | 83 |
-| Bat | 29.8% | 84 |
+| Roadrunner | 79.8% | 84 |
+| Falcon | 69.0% | 84 |
+| Eagle | 65.5% | 84 |
+| Opium Bird | 61.9% | 84 |
+| Raven | 61.9% | 84 |
+| Heisenbird | 59.5% | 84 |
+| Razorbill | 53.6% | 84 |
+| Tufted Titmouse | 53.6% | 84 |
+| Kiwi Bird | 52.4% | 84 |
+| Hummingbird | 50.0% | 84 |
+| Turkey | 46.4% | 84 |
+| Penguin | 46.4% | 84 |
+| Pigeon | 44.0% | 84 |
+| Vulture | 44.0% | 84 |
+| Pelican | 44.0% | 84 |
+| Goose | 44.0% | 84 |
+| Shoebill | 42.2% | 83 |
+| Grinch-Hawk | 41.7% | 84 |
+| Phoenix | 39.8% | 83 |
+| Rooster | 34.5% | 84 |
+| Charles | 33.3% | 84 |
+| Bat | 32.1% | 84 |
 
 ## Battlefield
 
 | Bird | Win rate | Decided matches |
 |---|---:|---:|
-| Roadrunner | 84.5% | 84 |
+| Hummingbird | 76.2% | 84 |
+| Tufted Titmouse | 73.8% | 84 |
 | Heisenbird | 72.6% | 84 |
-| Hummingbird | 66.7% | 84 |
-| Shoebill | 66.7% | 84 |
-| Opium Bird | 65.5% | 84 |
-| Razorbill | 63.1% | 84 |
-| Charles | 60.7% | 84 |
-| Turkey | 54.8% | 84 |
-| Vulture | 54.8% | 84 |
-| Raven | 54.8% | 84 |
-| Penguin | 52.4% | 84 |
-| Bat | 51.2% | 84 |
-| Tufted Titmouse | 48.8% | 84 |
-| Kiwi Bird | 47.6% | 84 |
-| Pigeon | 46.4% | 84 |
-| Rooster | 44.0% | 84 |
-| Phoenix | 40.5% | 84 |
-| Eagle | 34.5% | 84 |
-| Falcon | 28.6% | 84 |
-| Grinch-Hawk | 22.6% | 84 |
-| Goose | 22.6% | 84 |
-| Pelican | 16.7% | 84 |
+| Falcon | 71.4% | 84 |
+| Raven | 71.4% | 84 |
+| Shoebill | 65.5% | 84 |
+| Razorbill | 65.5% | 84 |
+| Roadrunner | 59.5% | 84 |
+| Opium Bird | 54.8% | 84 |
+| Charles | 53.6% | 84 |
+| Penguin | 51.2% | 84 |
+| Grinch-Hawk | 50.0% | 84 |
+| Eagle | 45.2% | 84 |
+| Bat | 45.2% | 84 |
+| Kiwi Bird | 40.5% | 84 |
+| Rooster | 39.3% | 84 |
+| Turkey | 35.7% | 84 |
+| Pelican | 32.1% | 84 |
+| Goose | 32.1% | 84 |
+| Vulture | 29.8% | 84 |
+| Phoenix | 21.4% | 84 |
+| Pigeon | 13.1% | 84 |
 
 ## Beacon Crown
 
 | Bird | Win rate | Decided matches |
 |---|---:|---:|
-| Opium Bird | 69.0% | 84 |
-| Raven | 66.7% | 84 |
-| Hummingbird | 63.1% | 84 |
-| Heisenbird | 63.1% | 84 |
-| Razorbill | 60.7% | 84 |
-| Shoebill | 59.5% | 84 |
-| Vulture | 59.5% | 84 |
-| Phoenix | 56.0% | 84 |
-| Roadrunner | 54.8% | 84 |
-| Kiwi Bird | 53.6% | 84 |
-| Charles | 52.4% | 84 |
-| Bat | 46.4% | 84 |
-| Pigeon | 45.2% | 84 |
-| Goose | 44.0% | 84 |
-| Turkey | 41.7% | 84 |
-| Tufted Titmouse | 41.7% | 84 |
-| Penguin | 40.5% | 84 |
-| Eagle | 39.3% | 84 |
-| Falcon | 38.1% | 84 |
-| Rooster | 35.7% | 84 |
-| Grinch-Hawk | 35.7% | 84 |
-| Pelican | 33.3% | 84 |
+| Hummingbird | 84.5% | 84 |
+| Raven | 82.1% | 84 |
+| Heisenbird | 79.8% | 84 |
+| Tufted Titmouse | 72.6% | 84 |
+| Razorbill | 70.2% | 84 |
+| Opium Bird | 66.7% | 84 |
+| Penguin | 64.3% | 84 |
+| Shoebill | 64.3% | 84 |
+| Eagle | 63.1% | 84 |
+| Falcon | 54.8% | 84 |
+| Charles | 48.8% | 84 |
+| Kiwi Bird | 44.0% | 84 |
+| Pelican | 40.5% | 84 |
+| Grinch-Hawk | 39.3% | 84 |
+| Vulture | 36.9% | 84 |
+| Bat | 35.7% | 84 |
+| Phoenix | 28.6% | 84 |
+| Roadrunner | 28.6% | 84 |
+| Turkey | 27.4% | 84 |
+| Goose | 26.2% | 84 |
+| Pigeon | 21.4% | 84 |
+| Rooster | 20.2% | 84 |
 
 ## Broken Harbor
 
 | Bird | Win rate | Decided matches |
 |---|---:|---:|
-| Grinch-Hawk | 65.5% | 84 |
-| Vulture | 65.5% | 84 |
-| Falcon | 60.7% | 84 |
-| Raven | 58.3% | 84 |
-| Pelican | 57.1% | 84 |
-| Penguin | 54.8% | 84 |
-| Razorbill | 52.4% | 84 |
-| Heisenbird | 52.4% | 84 |
-| Pigeon | 50.0% | 84 |
-| Shoebill | 50.0% | 84 |
-| Tufted Titmouse | 50.0% | 84 |
-| Charles | 48.8% | 84 |
-| Turkey | 47.6% | 84 |
-| Kiwi Bird | 47.6% | 84 |
-| Eagle | 45.2% | 84 |
-| Phoenix | 45.2% | 84 |
-| Rooster | 45.2% | 84 |
-| Goose | 45.2% | 84 |
-| Hummingbird | 42.9% | 84 |
-| Bat | 42.9% | 84 |
-| Opium Bird | 41.7% | 84 |
-| Roadrunner | 31.0% | 84 |
+| Raven | 77.4% | 84 |
+| Eagle | 75.0% | 84 |
+| Tufted Titmouse | 75.0% | 84 |
+| Penguin | 70.2% | 84 |
+| Heisenbird | 69.0% | 84 |
+| Grinch-Hawk | 67.9% | 84 |
+| Falcon | 66.7% | 84 |
+| Shoebill | 61.9% | 84 |
+| Hummingbird | 60.7% | 84 |
+| Charles | 59.5% | 84 |
+| Kiwi Bird | 56.0% | 84 |
+| Opium Bird | 54.8% | 84 |
+| Razorbill | 50.0% | 84 |
+| Pelican | 48.8% | 84 |
+| Turkey | 39.3% | 84 |
+| Rooster | 33.3% | 84 |
+| Goose | 33.3% | 84 |
+| Pigeon | 29.8% | 84 |
+| Phoenix | 20.2% | 84 |
+| Vulture | 20.2% | 84 |
+| Bat | 17.9% | 84 |
+| Roadrunner | 13.1% | 84 |
 
 ## Frostbite Fjord
 
 | Bird | Win rate | Decided matches |
 |---|---:|---:|
-| Raven | 78.6% | 84 |
-| Vulture | 73.8% | 84 |
-| Pelican | 63.1% | 84 |
-| Opium Bird | 59.5% | 84 |
-| Goose | 57.1% | 84 |
-| Pigeon | 54.8% | 84 |
-| Hummingbird | 54.8% | 84 |
-| Tufted Titmouse | 54.8% | 84 |
-| Heisenbird | 54.8% | 84 |
-| Kiwi Bird | 50.0% | 84 |
-| Bat | 48.8% | 84 |
-| Roadrunner | 47.6% | 84 |
-| Phoenix | 46.4% | 84 |
-| Razorbill | 46.4% | 84 |
-| Shoebill | 44.0% | 84 |
-| Grinch-Hawk | 44.0% | 84 |
-| Turkey | 42.9% | 84 |
-| Falcon | 39.3% | 84 |
-| Eagle | 38.1% | 84 |
-| Penguin | 35.7% | 84 |
-| Charles | 34.5% | 84 |
-| Rooster | 31.0% | 84 |
+| Raven | 92.9% | 84 |
+| Hummingbird | 70.2% | 84 |
+| Heisenbird | 67.9% | 84 |
+| Tufted Titmouse | 66.7% | 84 |
+| Eagle | 65.5% | 84 |
+| Penguin | 58.3% | 84 |
+| Falcon | 57.1% | 84 |
+| Opium Bird | 57.1% | 84 |
+| Grinch-Hawk | 56.0% | 84 |
+| Shoebill | 54.8% | 84 |
+| Kiwi Bird | 53.6% | 84 |
+| Razorbill | 50.0% | 84 |
+| Charles | 46.4% | 84 |
+| Pelican | 44.0% | 84 |
+| Pigeon | 41.7% | 84 |
+| Rooster | 35.7% | 84 |
+| Bat | 35.7% | 84 |
+| Goose | 35.7% | 84 |
+| Turkey | 33.3% | 84 |
+| Vulture | 33.3% | 84 |
+| Roadrunner | 23.8% | 84 |
+| Phoenix | 20.2% | 84 |
 
 ## Ashfall Cathedral
 
 | Bird | Win rate | Decided matches |
 |---|---:|---:|
-| Hummingbird | 73.8% | 84 |
-| Tufted Titmouse | 65.5% | 84 |
-| Raven | 65.5% | 84 |
-| Heisenbird | 64.3% | 84 |
-| Falcon | 61.9% | 84 |
-| Opium Bird | 60.7% | 84 |
-| Shoebill | 59.5% | 84 |
-| Vulture | 56.0% | 84 |
-| Eagle | 54.8% | 84 |
-| Pelican | 54.8% | 84 |
-| Razorbill | 48.8% | 84 |
-| Kiwi Bird | 48.8% | 84 |
-| Charles | 46.4% | 84 |
-| Bat | 44.0% | 84 |
-| Penguin | 42.9% | 84 |
-| Grinch-Hawk | 41.7% | 84 |
-| Goose | 40.5% | 84 |
-| Phoenix | 39.3% | 84 |
-| Rooster | 36.9% | 84 |
+| Hummingbird | 85.7% | 84 |
+| Eagle | 76.2% | 84 |
+| Falcon | 71.4% | 84 |
+| Raven | 71.4% | 84 |
+| Opium Bird | 67.9% | 84 |
+| Heisenbird | 65.5% | 84 |
+| Razorbill | 61.9% | 84 |
+| Tufted Titmouse | 61.9% | 84 |
+| Penguin | 57.1% | 84 |
+| Kiwi Bird | 57.1% | 84 |
+| Shoebill | 51.2% | 84 |
+| Charles | 50.0% | 84 |
+| Pelican | 45.2% | 84 |
+| Vulture | 41.7% | 84 |
+| Grinch-Hawk | 36.9% | 84 |
 | Pigeon | 35.7% | 84 |
-| Turkey | 33.3% | 84 |
-| Roadrunner | 25.0% | 84 |
+| Turkey | 34.5% | 84 |
+| Bat | 33.3% | 84 |
+| Phoenix | 29.8% | 84 |
+| Rooster | 28.6% | 84 |
+| Goose | 26.2% | 84 |
+| Roadrunner | 10.7% | 84 |
 
 ## Crownlock Prison
 
 | Bird | Win rate | Decided matches |
 |---|---:|---:|
-| Opium Bird | 67.9% | 84 |
-| Heisenbird | 64.3% | 84 |
-| Pelican | 63.1% | 84 |
-| Kiwi Bird | 61.9% | 84 |
-| Razorbill | 60.7% | 84 |
-| Eagle | 59.5% | 84 |
-| Falcon | 59.5% | 84 |
-| Grinch-Hawk | 59.5% | 84 |
-| Tufted Titmouse | 59.5% | 84 |
-| Raven | 58.3% | 84 |
-| Vulture | 52.4% | 84 |
-| Pigeon | 50.0% | 84 |
-| Goose | 48.8% | 84 |
-| Hummingbird | 47.6% | 84 |
-| Charles | 45.2% | 84 |
-| Turkey | 41.7% | 84 |
-| Penguin | 40.5% | 84 |
-| Bat | 40.5% | 84 |
-| Shoebill | 34.5% | 84 |
-| Phoenix | 28.6% | 84 |
-| Roadrunner | 28.6% | 84 |
-| Rooster | 27.4% | 84 |
+| Raven | 84.5% | 84 |
+| Falcon | 76.2% | 84 |
+| Tufted Titmouse | 75.0% | 84 |
+| Eagle | 73.8% | 84 |
+| Kiwi Bird | 69.0% | 84 |
+| Grinch-Hawk | 67.9% | 84 |
+| Hummingbird | 65.5% | 84 |
+| Opium Bird | 61.9% | 84 |
+| Heisenbird | 61.9% | 84 |
+| Penguin | 57.1% | 84 |
+| Shoebill | 53.6% | 84 |
+| Razorbill | 53.6% | 84 |
+| Charles | 48.8% | 84 |
+| Turkey | 39.3% | 84 |
+| Pigeon | 36.9% | 84 |
+| Pelican | 35.7% | 84 |
+| Goose | 34.5% | 84 |
+| Rooster | 29.8% | 84 |
+| Vulture | 22.6% | 84 |
+| Phoenix | 21.4% | 84 |
+| Bat | 21.4% | 84 |
+| Roadrunner | 9.5% | 84 |
 
 
 ## Matchup matrix (all maps)
 
 | | PIGE | EAGL | FALC | PHOE | HUMM | TURK | ROOS | ROAD | PENG | SHOE | MOCK | RAZO | GRIN | VULT | OPIU | TITM | BAT | PELI | HEIS | RAVE | GOOS | KIWI |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| PIGE | - | 65% | 65% | 28% | 60% | 25% | 40% | 77% | 50% | 56% | 77% | 58% | 27% | 23% | 46% | 65% | 38% | 25% | 46% | 52% | 33% | 35% |
-| EAGL | 35% | - | 31% | 35% | 65% | 33% | 52% | 75% | 58% | 40% | 74% | 31% | 23% | 46% | 60% | 71% | 58% | 33% | 58% | 54% | 38% | 29% |
-| FALC | 35% | 69% | - | 50% | 50% | 60% | 44% | 71% | 54% | 58% | 60% | 56% | 31% | 31% | 65% | 56% | 67% | 42% | 63% | 58% | 52% | 33% |
-| PHOE | 72% | 65% | 50% | - | 67% | 40% | 69% | 69% | 40% | 40% | 46% | 15% | 58% | 46% | 52% | 50% | 44% | 42% | 38% | 35% | 33% | 46% |
-| HUMM | 40% | 35% | 50% | 33% | - | 42% | 46% | 63% | 58% | 60% | 40% | 52% | 33% | 38% | 65% | 46% | 50% | 44% | 54% | 46% | 71% | 54% |
-| TURK | 75% | 67% | 40% | 60% | 58% | - | 65% | 38% | 69% | 29% | 42% | 44% | 46% | 31% | 42% | 52% | 25% | 40% | 46% | 35% | 35% | 29% |
-| ROOS | 60% | 48% | 56% | 31% | 54% | 35% | - | 25% | 56% | 50% | 21% | 60% | 44% | 19% | 48% | 44% | 46% | 27% | 54% | 46% | 46% | 33% |
-| ROAD | 23% | 25% | 29% | 31% | 38% | 63% | 75% | - | 50% | 65% | 48% | 38% | 35% | 48% | 31% | 23% | 21% | 38% | 33% | 21% | 42% | 33% |
-| PENG | 50% | 42% | 46% | 60% | 42% | 31% | 44% | 50% | - | 63% | 29% | 31% | 35% | 31% | 38% | 60% | 48% | 52% | 33% | 33% | 58% | 48% |
-| SHOE | 44% | 60% | 42% | 60% | 40% | 71% | 50% | 35% | 38% | - | 77% | 40% | 60% | 58% | 35% | 46% | 65% | 65% | 50% | 29% | 40% | 23% |
-| MOCK | 23% | 26% | 40% | 54% | 60% | 58% | 79% | 52% | 71% | 23% | - | 35% | 38% | 27% | 71% | 58% | 67% | 46% | 58% | 50% | 42% | 46% |
-| RAZO | 42% | 69% | 44% | 85% | 48% | 56% | 40% | 63% | 69% | 60% | 65% | - | 60% | 38% | 71% | 67% | 52% | 48% | 50% | 65% | 71% | 52% |
-| GRIN | 73% | 77% | 69% | 42% | 67% | 54% | 56% | 65% | 65% | 40% | 63% | 40% | - | 44% | 48% | 56% | 38% | 40% | 48% | 56% | 48% | 50% |
-| VULT | 77% | 54% | 69% | 54% | 63% | 69% | 81% | 52% | 69% | 42% | 73% | 63% | 56% | - | 48% | 73% | 48% | 52% | 58% | 40% | 45% | 50% |
-| OPIU | 54% | 40% | 35% | 48% | 35% | 58% | 52% | 69% | 63% | 65% | 29% | 29% | 52% | 52% | - | 44% | 79% | 56% | 33% | 54% | 56% | 48% |
-| TITM | 35% | 29% | 44% | 50% | 54% | 48% | 56% | 77% | 40% | 54% | 42% | 33% | 44% | 27% | 56% | - | 81% | 46% | 56% | 56% | 40% | 44% |
-| BAT | 63% | 42% | 33% | 56% | 50% | 75% | 54% | 79% | 52% | 35% | 33% | 48% | 63% | 52% | 21% | 19% | - | 60% | 31% | 27% | 50% | 23% |
-| PELI | 75% | 67% | 58% | 58% | 56% | 60% | 73% | 63% | 48% | 35% | 54% | 52% | 60% | 48% | 44% | 54% | 40% | - | 42% | 40% | 50% | 46% |
-| HEIS | 54% | 42% | 38% | 63% | 46% | 54% | 46% | 67% | 67% | 50% | 42% | 50% | 52% | 42% | 67% | 44% | 69% | 58% | - | 60% | 83% | 63% |
-| RAVE | 48% | 46% | 42% | 65% | 54% | 65% | 54% | 79% | 67% | 71% | 50% | 35% | 44% | 60% | 46% | 44% | 73% | 60% | 40% | - | 85% | 60% |
-| GOOS | 67% | 63% | 48% | 67% | 29% | 65% | 54% | 58% | 42% | 60% | 58% | 29% | 52% | 55% | 44% | 60% | 50% | 50% | 17% | 15% | - | 60% |
-| KIWI | 65% | 71% | 67% | 54% | 46% | 71% | 67% | 67% | 52% | 77% | 54% | 48% | 50% | 50% | 52% | 56% | 77% | 54% | 38% | 40% | 40% | - |
+| PIGE | - | 17% | 19% | 60% | 42% | 42% | 38% | 75% | 15% | 31% | 46% | 29% | 15% | 63% | 35% | 27% | 73% | 52% | 23% | 27% | 58% | 17% |
+| EAGL | 83% | - | 40% | 94% | 56% | 77% | 88% | 92% | 63% | 67% | 73% | 54% | 54% | 81% | 65% | 56% | 85% | 85% | 58% | 54% | 92% | 56% |
+| FALC | 81% | 60% | - | 94% | 46% | 77% | 73% | 79% | 69% | 63% | 65% | 63% | 58% | 81% | 56% | 29% | 85% | 63% | 60% | 54% | 85% | 52% |
+| PHOE | 40% | 6% | 6% | - | 27% | 15% | 46% | 77% | 17% | 21% | 31% | 17% | 19% | 63% | 17% | 19% | 52% | 25% | 25% | 23% | 40% | 8% |
+| HUMM | 58% | 44% | 54% | 73% | - | 73% | 83% | 81% | 71% | 75% | 48% | 56% | 58% | 60% | 65% | 42% | 73% | 67% | 42% | 40% | 73% | 58% |
+| TURK | 58% | 23% | 23% | 85% | 27% | - | 67% | 35% | 25% | 21% | 23% | 23% | 33% | 63% | 35% | 23% | 63% | 21% | 23% | 23% | 65% | 17% |
+| ROOS | 63% | 13% | 27% | 54% | 17% | 33% | - | 56% | 29% | 23% | 10% | 13% | 40% | 58% | 50% | 13% | 56% | 42% | 40% | 19% | 35% | 19% |
+| ROAD | 25% | 8% | 21% | 23% | 19% | 65% | 44% | - | 27% | 31% | 44% | 38% | 23% | 42% | 27% | 17% | 21% | 38% | 31% | 19% | 48% | 25% |
+| PENG | 85% | 38% | 31% | 83% | 29% | 75% | 71% | 73% | - | 60% | 40% | 52% | 60% | 81% | 46% | 42% | 79% | 56% | 21% | 23% | 81% | 73% |
+| SHOE | 69% | 33% | 38% | 79% | 25% | 79% | 77% | 69% | 40% | - | 75% | 50% | 52% | 83% | 46% | 31% | 52% | 46% | 48% | 19% | 71% | 29% |
+| MOCK | 54% | 27% | 35% | 69% | 52% | 77% | 90% | 56% | 60% | 25% | - | 38% | 35% | 58% | 63% | 52% | 77% | 56% | 46% | 25% | 69% | 56% |
+| RAZO | 71% | 46% | 38% | 83% | 44% | 77% | 88% | 63% | 48% | 50% | 63% | - | 42% | 67% | 60% | 48% | 75% | 65% | 46% | 44% | 81% | 44% |
+| GRIN | 85% | 46% | 42% | 81% | 42% | 67% | 60% | 77% | 40% | 48% | 65% | 58% | - | 71% | 50% | 35% | 73% | 69% | 40% | 29% | 69% | 33% |
+| VULT | 38% | 19% | 19% | 38% | 40% | 38% | 42% | 58% | 19% | 17% | 42% | 33% | 29% | - | 40% | 40% | 50% | 21% | 29% | 21% | 31% | 10% |
+| OPIU | 65% | 35% | 44% | 83% | 35% | 65% | 50% | 73% | 54% | 54% | 38% | 40% | 50% | 60% | - | 23% | 77% | 85% | 35% | 31% | 81% | 40% |
+| TITM | 73% | 44% | 71% | 81% | 58% | 77% | 88% | 83% | 58% | 69% | 48% | 52% | 65% | 60% | 77% | - | 90% | 90% | 44% | 65% | 85% | 60% |
+| BAT | 27% | 15% | 15% | 48% | 27% | 38% | 44% | 79% | 21% | 48% | 23% | 25% | 27% | 50% | 23% | 10% | - | 29% | 21% | 13% | 35% | 19% |
+| PELI | 48% | 15% | 38% | 75% | 33% | 79% | 58% | 63% | 44% | 54% | 44% | 35% | 31% | 79% | 15% | 10% | 71% | - | 29% | 19% | 50% | 27% |
+| HEIS | 77% | 42% | 40% | 75% | 58% | 77% | 60% | 69% | 79% | 52% | 54% | 54% | 60% | 71% | 65% | 56% | 79% | 71% | - | 48% | 85% | 77% |
+| RAVE | 73% | 46% | 46% | 77% | 60% | 77% | 81% | 81% | 77% | 81% | 75% | 56% | 71% | 79% | 69% | 35% | 88% | 81% | 52% | - | 98% | 69% |
+| GOOS | 42% | 8% | 15% | 60% | 27% | 35% | 65% | 52% | 19% | 29% | 31% | 19% | 31% | 69% | 19% | 15% | 65% | 50% | 15% | 2% | - | 35% |
+| KIWI | 83% | 44% | 48% | 92% | 42% | 83% | 81% | 75% | 27% | 71% | 44% | 56% | 67% | 90% | 60% | 40% | 81% | 73% | 23% | 31% | 65% | - |

@@ -2968,8 +2968,8 @@ class BirdStateTest {
 
         assertTrue(target.vx > 0.0, "Attack should still push the target forward.");
         assertTrue(target.vy < 0.0, "Attack should still pop the target upward.");
-        assertTrue(target.vx > Math.abs(target.vy) * 5.0,
-                "Basic attacks should apply noticeably more horizontal knockback than vertical launch.");
+        assertTrue(target.vx > Math.abs(target.vy) * 2.0,
+                "Neutral ground attacks should favor horizontal knockback without suppressing vertical launch.");
     }
 
     @Test
@@ -3095,7 +3095,7 @@ class BirdStateTest {
     }
 
     @Test
-    void smashAttackBiasesKnockbackHorizontallyAfterLaunchScaling() throws Exception {
+    void damageScaledAttackKeepsAUsefulHorizontalLaunchAngle() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;
         setPrivateBoolean(game);
@@ -3111,10 +3111,157 @@ class BirdStateTest {
         invokePrivateVoid(attacker, "attack");
         invokePrivateVoid(target, "applyPendingSmashLaunch");
 
-        assertTrue(target.vx > 0.0, "Smash hit should still push the target forward.");
-        assertTrue(target.vy < 0.0, "Smash hit should still launch the target upward.");
-        assertTrue(target.vx > Math.abs(target.vy) * 5.0,
-                "Smash launch scaling should keep the knockback more horizontal than vertical.");
+        assertTrue(target.vx > 0.0, "Damage-scaled hit should still push the target forward.");
+        assertTrue(target.vy < 0.0, "Damage-scaled hit should still launch the target upward.");
+        assertTrue(target.vx > Math.abs(target.vy) * 2.0,
+                "Damage scaling should preserve the move's horizontal launch identity.");
+    }
+
+    @Test
+    void highPercentSideTiltCreatesRealLaunchAndHitstun() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+        setPrivateBoolean(game);
+
+        Bird attacker = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird target = new Bird(190.0, BirdGame3.BirdType.EAGLE, 1, game);
+        attacker.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        attacker.facingRight = true;
+        game.players[0] = attacker;
+        game.players[1] = target;
+        setPrivateDouble(target, "smashDamage", 160.0);
+        game.setLocalActionsForKey(game.rightKeyForPlayer(0), true);
+
+        invokePrivateVoid(attacker, "attack");
+        invokePrivateVoid(target, "applyPendingSmashLaunch");
+
+        assertTrue(target.vx > 45.0,
+                "A side tilt at high damage should create enough speed to threaten a side blast zone.");
+        assertTrue(target.stunTime >= 12.0,
+                "The defender should remain in launch hitstun instead of immediately steering out of the hit.");
+    }
+
+    @Test
+    void highPercentUpTiltCanLaunchVertically() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+        setPrivateBoolean(game);
+
+        Bird attacker = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird target = new Bird(190.0, BirdGame3.BirdType.EAGLE, 1, game);
+        attacker.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        attacker.facingRight = true;
+        game.players[0] = attacker;
+        game.players[1] = target;
+        setPrivateDouble(target, "smashDamage", 200.0);
+        game.setLocalActionsForKey(game.jumpKeyForPlayer(0), true);
+
+        invokePrivateVoid(attacker, "attack");
+        invokePrivateVoid(target, "applyPendingSmashLaunch");
+
+        assertTrue(target.vy < -23.0,
+                "An up tilt at very high damage should be a credible vertical launcher.");
+        assertTrue(target.stunTime >= 10.0);
+    }
+
+    @Test
+    void damagingSpecialUsesTheSharedLaunchAndHitstunCurve() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+        setPrivateBoolean(game);
+
+        Bird attacker = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird target = new Bird(190.0, BirdGame3.BirdType.EAGLE, 1, game);
+        game.players[0] = attacker;
+        game.players[1] = target;
+        setPrivateDouble(target, "smashDamage", 180.0);
+
+        attacker.applyTrackedSpecialDamage(target, 8);
+        target.vx += 8.0;
+        target.vy -= 5.0;
+        invokePrivateVoid(target, "applyPendingSmashLaunch");
+
+        assertTrue(target.vx > 20.0);
+        assertTrue(target.vy < -10.0);
+        assertTrue(target.stunTime >= 8.0,
+                "Specials should use the same damage-based launch hitstun as normal attacks.");
+    }
+
+    @Test
+    void damageScaledHitstunRetainsAirLaunchMomentum() throws Exception {
+        BirdGame3 scaledGame = new BirdGame3();
+        scaledGame.activePlayers = 1;
+        setPrivateBoolean(scaledGame);
+        Bird scaledTarget = new Bird(190.0, BirdGame3.BirdType.EAGLE, 0, scaledGame);
+        scaledTarget.y = BirdGame3.GROUND_Y - 280.0;
+        scaledTarget.vx = 20.0;
+        scaledTarget.stunTime = 10.0;
+        scaledGame.players[0] = scaledTarget;
+
+        BirdGame3 legacyGame = new BirdGame3();
+        legacyGame.activePlayers = 1;
+        Bird legacyTarget = new Bird(190.0, BirdGame3.BirdType.EAGLE, 0, legacyGame);
+        legacyTarget.y = BirdGame3.GROUND_Y - 280.0;
+        legacyTarget.vx = 20.0;
+        legacyTarget.stunTime = 10.0;
+        legacyGame.players[0] = legacyTarget;
+
+        scaledTarget.update(1.0);
+        legacyTarget.update(1.0);
+
+        assertTrue(scaledTarget.vx > 19.0,
+                "Damage-scaled launch should retain most momentum during its first airborne frame.");
+        assertTrue(scaledTarget.vx > legacyTarget.vx + 1.5,
+                "The launch path should no longer apply both legacy stun drag and ordinary air friction.");
+    }
+
+    @Test
+    void lightDamageWithoutKnockbackDoesNotCreateAStunlock() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+        setPrivateBoolean(game);
+
+        Bird attacker = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird target = new Bird(190.0, BirdGame3.BirdType.EAGLE, 1, game);
+        game.players[0] = attacker;
+        game.players[1] = target;
+
+        attacker.applyTrackedSpecialDamage(target, 2);
+        invokePrivateVoid(target, "applyPendingSmashLaunch");
+
+        assertEquals(0.0, target.stunTime, 0.0001,
+                "Low-damage effects without a real launch must not repeatedly renew hitstun.");
+    }
+
+    @Test
+    void highPercentSideTiltCanTakeAStockNearTheBlastZone() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+        setPrivateBoolean(game);
+        game.scores[0] = 3;
+        game.scores[1] = 3;
+
+        Bird attacker = new Bird(5600.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird target = new Bird(5690.0, BirdGame3.BirdType.EAGLE, 1, game);
+        attacker.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        attacker.facingRight = true;
+        game.players[0] = attacker;
+        game.players[1] = target;
+        setPrivateDouble(target, "smashDamage", 240.0);
+        game.setLocalActionsForKey(game.rightKeyForPlayer(0), true);
+
+        invokePrivateVoid(attacker, "attack");
+        for (int frame = 0; frame < 20 && game.scores[1] == 3; frame++) {
+            target.update(1.0);
+        }
+
+        assertEquals(2, game.scores[1],
+                "A high-percent side tilt near the edge should launch through the side blast zone.");
+        assertEquals(1, game.eliminations[0],
+                "The ordinary attack should receive credit for the blast-zone KO.");
     }
 
     @Test
