@@ -1053,6 +1053,8 @@ public class Bird {
     private static final int BAT_SILENT_GROUND_RISE_FRAMES = 7;
     static final int BAT_SILENT_STALL_FRAMES = 10;
     static final int BAT_SILENT_DIVE_FRAMES = 22;
+    static final double BAT_SILENT_HIT_REBOUND_SPEED = 13.0;
+    static final double BAT_SILENT_AMBUSH_REBOUND_SPEED = 15.0;
     private static final int BAT_SILENT_REUSE_FRAMES = 46;
     private static final int BAT_AMBUSH_WINDOW_FRAMES = 48;
     static final int BAT_CATHEDRAL_FRAMES = 168;
@@ -8276,6 +8278,7 @@ public class Bird {
             double dy = other.bodyCenterY() - centerY;
             if (dx > 62.0 * sizeMultiplier + other.combatHalfWidth()) continue;
             if (dy < -other.combatHalfHeight() || dy > 128.0 * sizeMultiplier + other.combatHalfHeight()) continue;
+            boolean reboundAvailable = batSilentDiveTimer > 0;
             int rawDamage = (int) Math.round((batSilentUltimate ? 16.0 : (batSilentFromHang ? 14.0 : 11.0))
                     * batSpecialDamageScale(batSilentAmbush));
             double oldHealth = other.health;
@@ -8291,6 +8294,26 @@ public class Bird {
                 other.vy += batSilentUltimate ? 14.0 : 11.0;
             }
             batSilentHit[i] = true;
+            if (dealt > 0) {
+                confirmSpecialHit(dealt, batSilentUltimate ? Color.GOLD : Color.MEDIUMPURPLE.brighter());
+                game.playHitSound(dealt);
+                if (reboundAvailable) {
+                    double reboundSpeed = batSilentUltimate
+                            ? 18.0
+                            : (batSilentFromHang || batSilentAmbush
+                            ? BAT_SILENT_AMBUSH_REBOUND_SPEED
+                            : BAT_SILENT_HIT_REBOUND_SPEED);
+                    batSilentStallTimer = 0;
+                    batSilentDiveTimer = 0;
+                    vx *= 0.58;
+                    vy = -reboundSpeed;
+                    attackAnimationTimer = Math.max(attackAnimationTimer, 6);
+                    game.hitstopFrames = Math.max(game.hitstopFrames, batSilentAmbush ? 5 : 4);
+                    game.shakeIntensity = Math.max(game.shakeIntensity, batSilentAmbush ? 9 : 7);
+                    emitBatRingParticles(other.bodyCenterX(), other.bodyCenterY(), 1,
+                            batSilentUltimate ? Color.GOLD : Color.MEDIUMPURPLE.brighter());
+                }
+            }
         }
     }
 

@@ -10341,7 +10341,7 @@ public class BirdGame3 {
         BAT_DRILL(
                 "Bat Ambush Routes",
                 "Ping with Echo, enter Ceiling Hang, then land an ambush special hit.",
-                "Echo checks the lane. Ceiling Hang creates the ambush window for Side, Up, or Down special.",
+                "Echo checks the lane. Hang empowers Side, Up, or Down; a confirmed Down rebounds Bat to safety.",
                 MapType.CAVE,
                 BirdType.BAT,
                 BirdType.PIGEON,

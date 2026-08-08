@@ -6453,6 +6453,44 @@ class BirdStateTest {
                 "Silent Descent should hit targets underneath Bat.");
         assertTrue(target.vy > 0.0,
                 "Starting Silent Descent from Ceiling Hang should meteor targets downward.");
+        assertTrue(bat.vy < 0.0,
+                "A confirmed hanging ambush should rebound Bat upward instead of carrying it through the target.");
+        assertEquals(0, getPrivateInt(bat, "batSilentDiveTimer"));
+        assertTrue(game.hitstopFrames >= 5,
+                "The empowered Silent Descent confirm should have a readable but brief impact pause.");
+    }
+
+    @Test
+    void batSilentDescentMissRemainsCommittedButAHitRebounds() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird bat = new Bird(300.0, BirdGame3.BirdType.BAT, 0, game);
+        Bird target = new Bird(640.0, BirdGame3.BirdType.PIGEON, 1, game);
+        bat.y = 260.0;
+        target.y = 350.0;
+        game.players[0] = bat;
+        game.players[1] = target;
+
+        bat.specialBatSilentDescent(false);
+        bat.batSilentStallTimer = 0;
+        bat.batSilentDiveTimer = 12;
+        bat.vy = 20.0;
+        invokePrivateVoid(bat, "applyBatSilentDiveHits");
+
+        assertEquals(12, bat.batSilentDiveTimer,
+                "Missing Silent Descent must preserve its risky downward commitment.");
+        assertTrue(bat.vy > 0.0);
+
+        target.x = 310.0;
+        invokePrivateVoid(bat, "applyBatSilentDiveHits");
+
+        assertTrue(target.health < Bird.STARTING_HEALTH);
+        assertEquals(0, bat.batSilentDiveTimer,
+                "The first confirmed hit should end the dive and start the rebound immediately.");
+        assertEquals(-Bird.BAT_SILENT_HIT_REBOUND_SPEED, bat.vy, 0.0001);
+        assertTrue(game.hitstopFrames >= 4);
+        assertTrue(game.shakeIntensity >= 7);
     }
 
     @Test
