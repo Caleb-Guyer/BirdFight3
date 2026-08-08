@@ -328,6 +328,10 @@ final class GooseSpecials {
         double reach = honkReach(bird, chargeStrength);
         double originX = bird.bodyCenterX() + dir * 18.0 * bird.sizeMultiplier;
         double originY = bird.bodyCenterY() - 12.0 * bird.sizeMultiplier;
+        Color releaseColor = bird.gooseHonkEmpowered ? Color.GOLD : Color.web("#E8F5E9");
+        emitBurst(bird, originX, originY, releaseColor,
+                12 + (int) Math.round(chargeStrength * 16.0) + (bird.gooseHonkEmpowered ? 4 : 0),
+                4.8 + chargeStrength * 4.2);
         boolean hitAny = false;
         for (Bird other : bird.game.players) {
             if (!bird.canDamageTarget(other)) {
@@ -371,10 +375,11 @@ final class GooseSpecials {
                 other.vy = cappedHonkVelocity(other.vy, -1, verticalLaunch, verticalCap);
                 other.applyStun(stunFrames);
                 addTerritory(bird, 7.0 + dealt * 0.16);
-                emitHitBurst(bird, other, bird.gooseHonkEmpowered ? Color.GOLD : Color.web("#E8F5E9"),
+                emitHitBurst(bird, other, releaseColor,
                         10 + (int) Math.round(distanceStrength * 8.0));
             }
         }
+        bird.game.playGooseHonkSfx(chargeRatio, bird.gooseHonkEmpowered, hitAny);
         bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, hitAny ? 13 : 6);
         bird.game.hitstopFrames = Math.max(bird.game.hitstopFrames, hitAny ? 5 : 2);
         bird.game.triggerFlash(hitAny ? 0.20 : 0.09, false);

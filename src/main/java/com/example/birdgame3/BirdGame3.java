@@ -1301,6 +1301,24 @@ public class BirdGame3 {
         );
     }
 
+    void playGooseHonkSfx(double chargeRatio, boolean empowered, boolean hitAny) {
+        double charge = Math.clamp(chargeRatio, 0.0, 1.0);
+        playManagedSfxVaried(
+                hugewaveClip,
+                0.32 + charge * 0.36 + (empowered ? 0.08 : 0.0),
+                1.08 - charge * 0.34 - (empowered ? 0.08 : 0.0),
+                0.025
+        );
+        if (hitAny) {
+            playManagedSfxVaried(
+                    bonkClip,
+                    0.14 + charge * 0.18 + (empowered ? 0.06 : 0.0),
+                    0.96 - charge * 0.20,
+                    0.018
+            );
+        }
+    }
+
     void playTowerDefenseBlightPopSfx(double intensity) {
         double clamped = Math.clamp(intensity, 0.2, 1.0);
         if (vaseBreakingClip != null) {
@@ -10323,7 +10341,7 @@ public class BirdGame3 {
         GOOSE_DRILL(
                 "Goose Territory Claim",
                 "Place Nest Guard, fill Territory, then land a fully charged empowered Honk.",
-                "Down plants the nest and finishes your meter. At full Territory, hold Neutral until the Honk releases itself.",
+                "Down plants the nest and finishes your meter. Hold Neutral to charge: close Honks launch, while the cone edge mainly resets spacing.",
                 MapType.BATTLEFIELD,
                 BirdType.GOOSE,
                 BirdType.PIGEON,

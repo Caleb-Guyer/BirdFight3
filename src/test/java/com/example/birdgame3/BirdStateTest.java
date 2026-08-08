@@ -8430,6 +8430,17 @@ class BirdStateTest {
     }
 
     @Test
+    void chargedGooseHonkReleaseBurstOutsizesTappedWhiff() {
+        int tappedBurst = playWhiffedGooseHonkReleaseBurst(Bird.GOOSE_HONK_MIN_HOLD_FRAMES);
+        int chargedBurst = playWhiffedGooseHonkReleaseBurst(Bird.GOOSE_HONK_MAX_HOLD_FRAMES);
+
+        assertTrue(tappedBurst > 0,
+                "Even a whiffed tap Honk should have a readable release shockwave.");
+        assertTrue(chargedBurst > tappedBurst,
+                "The release shockwave should visually communicate a fully committed charge.");
+    }
+
+    @Test
     void gooseHonkLaunchAndStunFallOffAcrossTheCone() {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 3;
@@ -8944,6 +8955,24 @@ class BirdStateTest {
                 target.vx,
                 target.stunTime
         );
+    }
+
+    private static int playWhiffedGooseHonkReleaseBurst(int holdFrames) {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird goose = new Bird(100.0, BirdGame3.BirdType.GOOSE, 0, game);
+        goose.y = BirdGame3.GROUND_Y - 80.0;
+        goose.facingRight = true;
+        game.players[0] = goose;
+
+        GooseSpecials.neutral(goose, false);
+        int particlesBeforeRelease = game.particles.size();
+        for (int frame = 0; frame < holdFrames; frame++) {
+            GooseSpecials.handleState(goose, frame + 1 < holdFrames);
+        }
+        assertTrue(goose.gooseHonkReleased);
+        return game.particles.size() - particlesBeforeRelease;
     }
 
     private record GooseHonkOutcome(double damage, double horizontalLaunch, double stunFrames) {
