@@ -4837,6 +4837,50 @@ class BirdStateTest {
     }
 
     @Test
+    void eagleSkyriseRecoveryTravelIsStrongButBounded() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        Bird eagle = new Bird(190.0, BirdGame3.BirdType.EAGLE, 0, game);
+        eagle.y = 1700.0;
+        game.players[0] = eagle;
+
+        double startY = eagle.y;
+        RaptorSpecials.up(eagle, false);
+        for (int frame = 0; frame < Bird.EAGLE_CLIMB_FRAMES; frame++) {
+            eagle.update(1.0);
+        }
+
+        double rise = startY - eagle.y;
+        assertTrue(rise >= 145.0, "Skyrise still needs enough lift to rescue Eagle below a platform.");
+        assertTrue(rise <= 230.0, "Skyrise should not erase a deep launch by itself.");
+    }
+
+    @Test
+    void eagleAiCommitsSkyriseWhenRecoveringFromTheVoid() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+        game.selectedMap = BirdGame3.MapType.BATTLEFIELD;
+        double islandX = 2400.0;
+        double islandY = BirdGame3.GROUND_Y - 80.0;
+        game.platforms.add(new Platform(islandX, islandY, 1200.0, 70.0));
+
+        Bird eagle = new Bird(islandX - 310.0, BirdGame3.BirdType.EAGLE, 0, game);
+        eagle.y = islandY + 130.0;
+        eagle.vx = -3.0;
+        Bird target = new Bird(islandX + 320.0, BirdGame3.BirdType.PIGEON, 1, game);
+        target.y = islandY - target.bodyHeight();
+        game.players[0] = eagle;
+        game.players[1] = target;
+        game.isAI[0] = true;
+
+        eagle.update(1.0);
+
+        assertTrue(game.isRightPressed(0), "Eagle should steer back toward the island.");
+        assertTrue(eagle.raptorUpSpecialUsed, "Eagle should spend Skyrise once the recovery becomes urgent.");
+        assertTrue(eagle.raptorClimbTimer > 0);
+    }
+
+    @Test
     void eagleDownSpecialUsesBlockInputWithoutRaisingShield() {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 1;
@@ -8296,6 +8340,70 @@ class BirdStateTest {
 
         assertFalse(getPrivateBoolean(raven, "ravenLiftUsed"),
                 "Landing should refresh Raven's once-per-airtime lift.");
+    }
+
+    @Test
+    void ravenMurderLiftRecoveryTravelIsStrongButBounded() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        Bird raven = new Bird(220.0, BirdGame3.BirdType.RAVEN, 0, game);
+        raven.y = 1700.0;
+        game.players[0] = raven;
+
+        double startY = raven.y;
+        raven.specialRavenMurderLift(false);
+        for (int frame = 0; frame < Bird.RAVEN_LIFT_FRAMES; frame++) {
+            raven.update(1.0);
+        }
+
+        double rise = startY - raven.y;
+        assertTrue(rise >= 245.0, "Murder Lift still needs a decisive vertical rescue.");
+        assertTrue(rise <= 350.0, "Murder Lift should not erase a deep launch by itself.");
+    }
+
+    @Test
+    void ravenSustainedFlightSlowsDescentWithoutHoveringForever() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        Bird raven = new Bird(220.0, BirdGame3.BirdType.RAVEN, 0, game);
+        raven.y = 1500.0;
+        raven.vy = 0.0;
+        game.players[0] = raven;
+        game.setLocalActionsForKey(game.jumpKeyForPlayer(0), true);
+
+        double startY = raven.y;
+        for (int frame = 0; frame < 60; frame++) {
+            raven.update(1.0);
+        }
+
+        assertTrue(raven.y > startY + 100.0,
+                "Held wingbeats should slow Raven's descent without becoming a permanent hover.");
+        assertTrue(raven.vy > 4.0, "Raven should eventually keep descending without Murder Lift.");
+    }
+
+    @Test
+    void ravenAiCommitsMurderLiftWhenRecoveringFromTheVoid() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+        game.selectedMap = BirdGame3.MapType.BATTLEFIELD;
+        double islandX = 2400.0;
+        double islandY = BirdGame3.GROUND_Y - 80.0;
+        game.platforms.add(new Platform(islandX, islandY, 1200.0, 70.0));
+
+        Bird raven = new Bird(islandX - 310.0, BirdGame3.BirdType.RAVEN, 0, game);
+        raven.y = islandY + 130.0;
+        raven.vx = -3.0;
+        Bird target = new Bird(islandX + 320.0, BirdGame3.BirdType.PIGEON, 1, game);
+        target.y = islandY - target.bodyHeight();
+        game.players[0] = raven;
+        game.players[1] = target;
+        game.isAI[0] = true;
+
+        raven.update(1.0);
+
+        assertTrue(game.isRightPressed(0), "Raven should steer back toward the island.");
+        assertTrue(raven.ravenLiftUsed, "Raven should spend Murder Lift once the recovery becomes urgent.");
+        assertTrue(raven.ravenLiftTimer > 0);
     }
 
     @Test

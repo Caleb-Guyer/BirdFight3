@@ -1106,8 +1106,9 @@ public class Bird {
     static final int RAVEN_NEUTRAL_REUSE_FRAMES = 22;
     static final int RAVEN_SIDE_FRAMES = 14;
     private static final int RAVEN_SIDE_REUSE_FRAMES = 34;
-    static final int RAVEN_LIFT_FRAMES = 24;
+    static final int RAVEN_LIFT_FRAMES = 20;
     private static final int RAVEN_LIFT_ULTIMATE_FRAMES = 30;
+    private static final double RAVEN_SUSTAINED_FLIGHT_SCALE = 0.92;
     private static final int RAVEN_DECOY_LIFE_FRAMES = 180;
     private static final int RAVEN_DECOY_ULTIMATE_LIFE_FRAMES = 240;
     static final int RAVEN_DOWN_REUSE_FRAMES = 38;
@@ -1491,7 +1492,7 @@ public class Bird {
     static final int EAGLE_RUSH_AIR_FRAMES = 16;
     static final int FALCON_RUSH_GROUND_FRAMES = 16;
     static final int FALCON_RUSH_AIR_FRAMES = 14;
-    static final int EAGLE_CLIMB_FRAMES = 18;
+    static final int EAGLE_CLIMB_FRAMES = 16;
     static final int EAGLE_CLIMB_ULTIMATE_FRAMES = 22;
     static final int FALCON_CLIMB_FRAMES = 15;
     static final int FALCON_CLIMB_ULTIMATE_FRAMES = 18;
@@ -7941,7 +7942,7 @@ public class Bird {
 
         if (ravenLiftTimer > 0) {
             vx *= 0.86;
-            vy = Math.min(vy, ravenLiftUltimate ? -18.5 : -15.5);
+            vy = Math.min(vy, ravenLiftUltimate ? -18.5 : -13.8);
             if (!ravenLiftSnapped) {
                 RavenNode snapNode = nearestRavenSnapNode();
                 if (snapNode != null) {
@@ -7950,7 +7951,7 @@ public class Bird {
                     consumeRavenNode(snapNode);
                     x = clampRavenWarpX(snapNode.x() - 40.0 * sizeMultiplier);
                     y = clampRavenWarpY(snapNode.y() - 72.0 * sizeMultiplier);
-                    vy = Math.min(vy, ravenLiftUltimate ? -24.0 : -20.5);
+                    vy = Math.min(vy, ravenLiftUltimate ? -24.0 : -19.0);
                     ravenLiftSnapped = true;
                     emitRavenBurst(oldX, oldY, ravenLiftUltimate ? 30 : 20, ravenShadowColor(false));
                     emitRavenBurst(bodyCenterX(), bodyCenterY(), ravenLiftUltimate ? 36 : 24,
@@ -8695,7 +8696,7 @@ public class Bird {
         ravenLiftTimer = ultimate ? RAVEN_LIFT_ULTIMATE_FRAMES : RAVEN_LIFT_FRAMES;
         Arrays.fill(ravenLiftHit, false);
         canDoubleJump = true;
-        vy = Math.min(vy, ultimate ? -28.0 : -23.0);
+        vy = Math.min(vy, ultimate ? -28.0 : -21.0);
         vx *= 0.28;
         attackAnimationTimer = Math.max(attackAnimationTimer, ravenLiftTimer);
         specialCooldown = 0;
@@ -9704,6 +9705,10 @@ public class Bird {
                     && (depth > 96.0 || (offstage && (offstageDistance > 16.0 || movingAway || vy > 2.0)));
             case GOOSE -> !gooseLiftUsed
                     && (depth > 105.0 || (offstage && (offstageDistance > 18.0 || movingAway || vy > 2.2)));
+            case EAGLE -> !raptorUpSpecialUsed
+                    && (depth > 108.0 || (offstage && (offstageDistance > 20.0 || movingAway || vy > 2.4)));
+            case RAVEN -> !ravenLiftUsed
+                    && (depth > 112.0 || (offstage && (offstageDistance > 20.0 || movingAway || vy > 2.4)));
             case KIWI -> !kiwiSpringUsed
                     && (depth > 92.0 || (offstage && (offstageDistance > 16.0 || movingAway || vy > 2.0)));
             default -> false;
@@ -9777,6 +9782,8 @@ public class Bird {
                     || type == BirdGame3.BirdType.TITMOUSE
                     || type == BirdGame3.BirdType.BAT
                     || type == BirdGame3.BirdType.GOOSE
+                    || type == BirdGame3.BirdType.EAGLE
+                    || type == BirdGame3.BirdType.RAVEN
                     || isOpiumEchoPair()) {
                 game.setAiControlKey(playerIndex, jumpKey(), true);
             }
@@ -10778,6 +10785,11 @@ public class Bird {
         }
         if (type == BirdGame3.BirdType.PELICAN) {
             return type.flyUpForce * (1.0 - pelicanEffectiveCargo() * 0.18);
+        }
+        if (type == BirdGame3.BirdType.RAVEN) {
+            // Murder Lift is Raven's committed recovery. Sustained wingbeats
+            // should slow a fall, not hover indefinitely just below gravity.
+            return type.flyUpForce * RAVEN_SUSTAINED_FLIGHT_SCALE;
         }
         return type.flyUpForce;
     }

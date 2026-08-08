@@ -149,7 +149,7 @@ final class RaptorSpecials {
         bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, bird.raptorClimbTimer);
         bird.canDoubleJump = false;
         bird.vx = dir * (eagle ? (ultimate ? 3.8 : 3.1) : (ultimate ? 6.3 : 5.5));
-        bird.vy = eagle ? (ultimate ? -17.4 : -15.6) : (ultimate ? -16.2 : -14.2);
+        bird.vy = eagle ? (ultimate ? -17.4 : -14.4) : (ultimate ? -16.2 : -14.2);
         bird.isBlocking = false;
         bird.parryWindowFrames = 0;
         bird.shieldStunFrames = 0;
@@ -974,7 +974,7 @@ final class RaptorSpecials {
             bird.facingRight = inputDir > 0;
         }
         double steer = eagle ? 0.36 : 0.58;
-        double maxHorizontal = eagle ? 5.6 : 7.8;
+        double maxHorizontal = eagle ? 5.2 : 7.8;
         bird.vx = Math.clamp(bird.vx * (eagle ? 0.9 : 0.93) + inputDir * steer, -maxHorizontal, maxHorizontal);
 
         int strongLiftFrames = eagle
@@ -982,10 +982,10 @@ final class RaptorSpecials {
                 : (bird.raptorClimbUltimate ? 8 : 6);
         double lift = bird.raptorClimbTimer > strongLiftFrames
                 ? (eagle
-                    ? (bird.raptorClimbUltimate ? -13.8 : -12.2)
+                    ? (bird.raptorClimbUltimate ? -13.8 : -11.2)
                     : (bird.raptorClimbUltimate ? -12.8 : -11.1))
                 : (eagle
-                    ? (bird.raptorClimbUltimate ? -10.0 : -8.7)
+                    ? (bird.raptorClimbUltimate ? -10.0 : -8.0)
                     : (bird.raptorClimbUltimate ? -8.7 : -7.5));
         bird.vy = Math.min(bird.vy, lift);
 
