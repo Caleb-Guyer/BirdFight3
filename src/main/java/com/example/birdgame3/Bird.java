@@ -1556,7 +1556,6 @@ public class Bird {
             + PHOENIX_REBIRTH_NOVA_ACTIVE_FRAMES + PHOENIX_REBIRTH_NOVA_RECOVERY_FRAMES;
     static final int PHOENIX_REBIRTH_NOVA_BUFF_FRAMES = 420;
     static final double PHOENIX_REBIRTH_NOVA_RADIUS = 286.0;
-    private static final double PHOENIX_NO_COOLDOWN_ATTACK_NERF = 0.78;
     private static final int MAX_ATTACK_CHARGE_FRAMES = 60;
     private static final int GROUND_SMASH_HOLD_THRESHOLD_FRAMES = 7;
     private static final double CHARGED_ATTACK_DAMAGE_BONUS = 0.35;
@@ -3592,11 +3591,7 @@ public class Bird {
     }
 
     private double normalAttackPowerStat() {
-        double stat = type.power;
-        if (type == BirdGame3.BirdType.PHOENIX) {
-            stat *= PHOENIX_NO_COOLDOWN_ATTACK_NERF;
-        }
-        return stat;
+        return type.power;
     }
 
     private NormalAttackProfile attack(int chargeFrames, NormalAttackVariant variant, String moveName) {

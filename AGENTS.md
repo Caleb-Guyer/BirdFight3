@@ -140,8 +140,10 @@ technical kits like Razorbill/Charles):
   honk has charge commitment, sharp distance falloff,
   velocity caps, and shared damage-scaled launch; legacy whole-kit penalties
   were eased to 0.68 dealt / 1.35 taken / 0.70 cooldown / 0.62 ultimate.
-- Raven/Eagle lead at 72.8%/71.2%; Phoenix/Roadrunner/Bat are below 30%.
-  These are the next broad owner-playtest signals, not automatic tuning orders.
+- Raven/Eagle led the last full audit at 72.8%/71.2%. Phoenix's subsequent
+  focused pass removed its obsolete 0.78 normal-attack power penalty and raised
+  its focused result from 30.4% to 38.9%; Roadrunner/Bat remain below 30% in
+  the full report. These are owner-playtest signals, not automatic tuning orders.
 - Vulture minion damage still bypasses the owner's damageDealtMult, so ordinary
   multiplier changes do not fully describe that kit.
 - Global multipliers do NOT fix structural outliers.
@@ -158,7 +160,7 @@ technical kits like Razorbill/Charles):
 
 ## Open threads
 
-1. Raven/Eagle high-end and Phoenix/Roadrunner/Bat/Vulture low-end balance —
+1. Raven/Eagle high-end and Roadrunner/Bat/Vulture low-end balance —
    needs owner playtesting before another tuning pass.
 2. Real sprite art — pipeline complete and waiting; owner draws.
 3. Rollback, matchmaking, and relay infrastructure — direct internet lockstep

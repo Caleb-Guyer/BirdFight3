@@ -3473,6 +3473,16 @@ class BirdStateTest {
     }
 
     @Test
+    void phoenixNormalsUseItsFullPowerStatNowThatTheyHaveCooldowns() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        Bird phoenix = new Bird(100.0, BirdGame3.BirdType.PHOENIX, 0, game);
+
+        assertEquals(BirdGame3.BirdType.PHOENIX.power,
+                invokeDoubleMethod(phoenix, "normalAttackPowerStat"), 0.0001,
+                "Phoenix's normal damage and launch must not retain the obsolete no-cooldown penalty.");
+    }
+
+    @Test
     void smashRespawnNestGrantsTemporaryInvulnerability() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;
