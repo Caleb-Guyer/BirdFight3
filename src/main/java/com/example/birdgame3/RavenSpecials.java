@@ -33,7 +33,7 @@ final class RavenSpecials {
             case NEUTRAL -> ultimateReady || bird.ravenNeutralReuseTimer <= 0;
             case SIDE -> ultimateReady || bird.ravenSideReuseTimer <= 0;
             case UP -> ultimateReady || !bird.ravenLiftUsed;
-            case DOWN -> ultimateReady || bird.hasRavenDecoy() || bird.ravenDownReuseTimer <= 0;
+            case DOWN -> ultimateReady || bird.ravenDownReuseTimer <= 0;
         };
     }
 

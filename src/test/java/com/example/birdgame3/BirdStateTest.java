@@ -8442,12 +8442,27 @@ class BirdStateTest {
         double originalX = raven.x;
         invokePrivateBooleanVoid(raven, "specialRavenNevermore", false);
         assertNotNull(getPrivateObject(raven, "ravenDecoy"));
+        assertEquals(Bird.RAVEN_DOWN_REUSE_FRAMES, raven.ravenDownReuseTimer);
 
         raven.x = 480.0;
+        invokePrivateBooleanVoid(raven, "specialRavenNevermore", false);
+        assertEquals(480.0, raven.x, 0.0001,
+                "Nevermore must not swap again while its reuse timer is active.");
+
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), true);
+        assertFalse(raven.canStartRavenSpecial(),
+                "An existing decoy must not bypass Nevermore's reuse gate.");
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), false);
+        while (raven.ravenDownReuseTimer > 0) {
+            raven.update(1.0);
+        }
+
         invokePrivateBooleanVoid(raven, "specialRavenNevermore", false);
 
         assertEquals(originalX, raven.x, 0.0001,
                 "Recasting Nevermore should return Raven to the decoy.");
+        assertEquals(Bird.RAVEN_DOWN_REUSE_FRAMES, raven.ravenDownReuseTimer,
+                "Every Nevermore swap should restart its reuse timer.");
     }
 
     @Test

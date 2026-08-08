@@ -8711,6 +8711,9 @@ public class Bird {
     void specialRavenNevermore(boolean ultimate) {
         specialCooldown = 0;
         specialMaxCooldown = 0;
+        if (!ultimate && ravenDownReuseTimer > 0) {
+            return;
+        }
         if (ravenDecoy != null && ravenDecoy.lifeFrames > 0) {
             double oldCenterX = bodyCenterX();
             double oldCenterY = bodyCenterY();
@@ -8720,6 +8723,7 @@ public class Bird {
             ravenDecoy.y = oldCenterY;
             ravenDecoy.swapped = true;
             ravenDecoy.lifeFrames = Math.min(ravenDecoy.lifeFrames, ultimate ? 150 : 112);
+            ravenDownReuseTimer = ultimate ? 16 : RAVEN_DOWN_REUSE_FRAMES;
             attackAnimationTimer = Math.max(attackAnimationTimer, 12);
             emitRavenBurst(oldCenterX, oldCenterY, ultimate ? 26 : 18, ravenShadowColor(false));
             emitRavenBurst(bodyCenterX(), bodyCenterY(), ultimate ? 30 : 22, ultimate ? Color.GOLD : ravenAccentColor());
