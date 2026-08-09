@@ -133,6 +133,10 @@ class LanStateTest {
         bird.pigeonCoronationStayedInside = false;
         bird.pigeonCoronationTickCooldown[2] = 17;
         bird.pigeonCoronationFinalHit[1] = true;
+        bird.pigeonScavengeTimer = 64;
+        bird.pigeonScavengeHoldFrames = 36;
+        bird.pigeonScavengeAirborne = true;
+        bird.pigeonScavengeHitCooldown[3] = 8;
         bird.eagleSkySovereignActive = true;
         bird.eagleSkySovereignDiving = true;
         bird.eagleSkySovereignTimer = 19;
@@ -419,6 +423,10 @@ class LanStateTest {
         assertFalse(decoded.birds[0].pigeonCoronationStayedInside);
         assertEquals(17, decoded.birds[0].pigeonCoronationTickCooldown[2]);
         assertTrue(decoded.birds[0].pigeonCoronationFinalHit[1]);
+        assertEquals(64, decoded.birds[0].pigeonScavengeTimer);
+        assertEquals(36, decoded.birds[0].pigeonScavengeHoldFrames);
+        assertTrue(decoded.birds[0].pigeonScavengeAirborne);
+        assertEquals(8, decoded.birds[0].pigeonScavengeHitCooldown[3]);
         assertTrue(decoded.birds[0].eagleSkySovereignActive);
         assertTrue(decoded.birds[0].eagleSkySovereignDiving);
         assertEquals(19, decoded.birds[0].eagleSkySovereignTimer);

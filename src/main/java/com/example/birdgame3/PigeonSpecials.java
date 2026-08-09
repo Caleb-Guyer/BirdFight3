@@ -145,14 +145,16 @@ final class PigeonSpecials {
         bird.pigeonScavengeAirborne = !bird.isOnGround();
         bird.pigeonScavengeUltimate = ultimate;
         bird.pigeonScavengeResolved = false;
-        bird.pigeonScavengeTimer = bird.pigeonScavengeAirborne ? Bird.PIGEON_SCAVENGE_AIR_FRAMES : Bird.PIGEON_SCAVENGE_GROUND_FRAMES;
+        bird.pigeonScavengeHoldFrames = 0;
+        Arrays.fill(bird.pigeonScavengeHitCooldown, 0);
+        bird.pigeonScavengeTimer = Bird.PIGEON_SCAVENGE_MAX_HOLD_FRAMES + Bird.PIGEON_SCAVENGE_RELEASE_FRAMES;
         bird.specialCooldown = 0;
         bird.specialMaxCooldown = 0;
         bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, bird.pigeonScavengeTimer);
-        bird.vx *= bird.pigeonScavengeAirborne ? 0.42 : 0.22;
+        bird.vx *= bird.pigeonScavengeAirborne ? 0.62 : 0.18;
         bird.game.playPigeonScavengeSfx(bird.pigeonScavengeAirborne, ultimate);
         if (bird.pigeonScavengeAirborne) {
-            bird.vy = Math.min(bird.vy, ultimate ? 1.2 : 1.8);
+            bird.vy = Math.max(bird.vy, ultimate ? 7.5 : 6.5);
         } else {
             bird.vy = Math.min(bird.vy, 0.0);
         }
@@ -239,9 +241,11 @@ final class PigeonSpecials {
         bird.pigeonFlutterUltimate = false;
         Arrays.fill(bird.pigeonFlutterHit, false);
         bird.pigeonScavengeTimer = 0;
+        bird.pigeonScavengeHoldFrames = 0;
         bird.pigeonScavengeAirborne = false;
         bird.pigeonScavengeUltimate = false;
         bird.pigeonScavengeResolved = false;
+        Arrays.fill(bird.pigeonScavengeHitCooldown, 0);
     }
 
     static void resetCoronation(Bird bird) {
@@ -376,8 +380,25 @@ final class PigeonSpecials {
     }
 
     private static void handleScavenge(Bird bird) {
+        for (int i = 0; i < bird.pigeonScavengeHitCooldown.length; i++) {
+            bird.pigeonScavengeHitCooldown[i] = Math.max(0, bird.pigeonScavengeHitCooldown[i] - 1);
+        }
+
+        boolean holding = bird.specialHeld()
+                && bird.pigeonScavengeHoldFrames < Bird.PIGEON_SCAVENGE_MAX_HOLD_FRAMES
+                && bird.pigeonScavengeTimer >= Bird.PIGEON_SCAVENGE_RELEASE_FRAMES;
+        if (holding) {
+            bird.pigeonScavengeHoldFrames++;
+        } else {
+            bird.pigeonScavengeTimer = Math.min(bird.pigeonScavengeTimer, Bird.PIGEON_SCAVENGE_RELEASE_FRAMES);
+            bird.attackAnimationTimer = Math.min(bird.attackAnimationTimer, Bird.PIGEON_SCAVENGE_RELEASE_FRAMES);
+        }
+
         if (bird.pigeonScavengeAirborne && bird.isOnGround()) {
             bird.pigeonScavengeAirborne = false;
+            bird.pigeonScavengeResolved = true;
+            Arrays.fill(bird.pigeonScavengeHitCooldown, 0);
+            emitDrillLandingParticles(bird);
         }
         if (!bird.pigeonScavengeAirborne && !bird.isOnGround()) {
             reset(bird);
@@ -385,75 +406,150 @@ final class PigeonSpecials {
         }
 
         if (bird.pigeonScavengeAirborne) {
-            bird.vx *= 0.72;
-            bird.vy = Math.min(bird.vy, bird.pigeonScavengeUltimate ? 1.5 : 2.1);
-            if (!bird.pigeonScavengeResolved && bird.pigeonScavengeTimer <= 4) {
-                bird.pigeonScavengeResolved = true;
-                double centerX = bird.bodyCenterX();
-                double centerY = bird.bodyBottomY() + 26;
-                for (Bird other : bird.game.players) {
-                    if (!bird.canDamageTarget(other)) continue;
-                    double dx = other.bodyCenterX() - centerX;
-                    double dy = other.bodyCenterY() - centerY;
-                    if (Math.abs(dx) > 68 + other.combatHalfWidth()) continue;
-                    if (Math.abs(dy) > 84 + other.combatHalfHeight()) continue;
-
-                    int dmg = bird.pigeonScavengeUltimate ? 14 : 10;
-                    double oldHealth = other.health;
-                    int dealt = (int) bird.applyDamageTo(other, dmg);
-                    if (dealt <= 0) continue;
-
-                    bird.game.damageDealt[bird.playerIndex] += dealt;
-                    bird.game.recordSpecialImpact(bird.playerIndex, dealt, true);
-                    boolean isKill = other.health <= 0 && oldHealth > 0;
-                    if (isKill) {
-                        bird.game.eliminations[bird.playerIndex]++;
-                    }
-
-                    double launchDir = dx == 0.0 ? bird.facingDirection() : Math.signum(dx);
-                    double launchX = launchDir * (bird.pigeonScavengeUltimate ? 5.2 : 4.0);
-                    double launchY = bird.pigeonScavengeUltimate ? 11.5 : 8.8;
-                    other.vx += launchX;
-                    other.vy = Math.max(other.vy, launchY);
-                    emitSpecialImpact(bird, other, launchX, launchY, dealt, isKill, "Pigeon Drop Peck");
-                }
+            int inputDir = bird.horizontalInputDirection();
+            bird.vx = Math.clamp(bird.vx * 0.88 + inputDir * 0.42, -5.8, 5.8);
+            if (holding) {
+                double drillSpeed = bird.pigeonScavengeUltimate ? 19.5 : 17.5;
+                bird.vy = Math.min(drillSpeed, Math.max(bird.vy + 1.15, bird.pigeonScavengeUltimate ? 8.0 : 7.0));
+                resolveAerialDrillHits(bird);
+                emitAerialDrillParticles(bird);
+            } else {
+                bird.vy = Math.min(bird.vy, bird.pigeonScavengeUltimate ? 13.0 : 11.5);
             }
         } else {
-            bird.vx *= 0.12;
-            if ((bird.pigeonScavengeTimer & 1) == 0) {
-                for (int i = 0; i < 2; i++) {
-                    double dustDir = bird.game.nextParticleRandom() - 0.5;
-                    bird.game.particles.add(new Particle(
-                            bird.bodyCenterX() + dustDir * 26,
-                            bird.bodyBottomY() - 7 + bird.game.nextParticleRandom() * 7,
-                            dustDir * (1.4 + bird.game.nextParticleRandom() * 1.6),
-                            -1.0 - bird.game.nextParticleRandom() * 1.5,
-                            Color.web("#8D6E63").deriveColor(0, 1, 1, 0.72)
-                    ));
-                }
-            }
-            if (!bird.pigeonScavengeResolved && bird.pigeonScavengeTimer <= 1) {
-                bird.pigeonScavengeResolved = true;
-                for (int i = 0; i < 16; i++) {
-                    double angle = bird.game.nextParticleRandom() * Math.PI * 2;
-                    bird.game.particles.add(new Particle(
-                            bird.bodyCenterX() + Math.cos(angle) * (8 + bird.game.nextParticleRandom() * 14),
-                            bird.bodyBottomY() - 8 + Math.sin(angle) * (6 + bird.game.nextParticleRandom() * 12),
-                            Math.cos(angle) * (1.8 + bird.game.nextParticleRandom() * 2.2),
-                            Math.sin(angle) * (1.6 + bird.game.nextParticleRandom() * 2.4) - 0.8,
-                            bird.pigeonScavengeUltimate ? Color.GOLD.deriveColor(0, 1, 1, 0.84) : Color.web("#B0BEC5").deriveColor(0, 1, 1, 0.78)
-                    ));
+            bird.vx *= 0.08;
+            bird.vy = Math.min(bird.vy, 0.0);
+            if (holding) {
+                resolveGroundCrackHits(bird);
+                if ((bird.pigeonScavengeHoldFrames % 3) == 0) {
+                    emitGroundCrackParticles(bird);
                 }
             }
         }
+    }
 
+    static double groundCrackReachForHold(int holdFrames) {
+        double progress = Math.clamp(holdFrames / (double) Bird.PIGEON_SCAVENGE_MAX_HOLD_FRAMES, 0.0, 1.0);
+        return 70.0 + (Bird.PIGEON_SCAVENGE_GROUND_MAX_REACH - 70.0) * progress;
+    }
+
+    private static void resolveAerialDrillHits(Bird bird) {
+        double centerX = bird.bodyCenterX();
+        double centerY = bird.bodyBottomY() + 22.0 * bird.sizeMultiplier;
+        for (Bird other : bird.game.players) {
+            if (!bird.canDamageTarget(other) || hitOnCooldown(bird, other)) continue;
+            double dx = other.bodyCenterX() - centerX;
+            double dy = other.bodyCenterY() - centerY;
+            if (Math.abs(dx) > 50.0 * bird.sizeMultiplier + other.combatHalfWidth()) continue;
+            if (Math.abs(dy) > 62.0 * bird.sizeMultiplier + other.combatHalfHeight()) continue;
+
+            double launchDir = Math.abs(dx) < 0.001 ? bird.facingDirection() : Math.signum(dx);
+            double launchX = launchDir * (bird.pigeonScavengeUltimate ? 1.8 : 1.25);
+            double launchY = bird.pigeonScavengeUltimate ? 5.4 : 4.2;
+            if (applyScavengeHit(bird, other, bird.pigeonScavengeUltimate ? 3 : 2,
+                    launchX, launchY, true, "Pigeon Rooftop Drill")) {
+                setHitCooldown(bird, other, Bird.PIGEON_SCAVENGE_AIR_HIT_INTERVAL);
+            }
+        }
+    }
+
+    private static void resolveGroundCrackHits(Bird bird) {
+        double centerX = bird.bodyCenterX();
+        double groundY = bird.bodyBottomY();
+        double reach = groundCrackReachForHold(bird.pigeonScavengeHoldFrames) * bird.sizeMultiplier;
+        for (Bird other : bird.game.players) {
+            if (!bird.canDamageTarget(other) || hitOnCooldown(bird, other)) continue;
+            double dx = other.bodyCenterX() - centerX;
+            if (Math.abs(dx) > reach + other.combatHalfWidth()) continue;
+            if (Math.abs(other.bodyBottomY() - groundY) > 32.0 * bird.sizeMultiplier + other.combatHalfHeight() * 0.35) {
+                continue;
+            }
+
+            double launchDir = Math.abs(dx) < 0.001 ? bird.facingDirection() : Math.signum(dx);
+            double launchX = launchDir * (bird.pigeonScavengeUltimate ? 3.6 : 2.7);
+            double launchY = -(bird.pigeonScavengeUltimate ? 4.8 : 3.6);
+            if (applyScavengeHit(bird, other, bird.pigeonScavengeUltimate ? 4 : 2,
+                    launchX, launchY, false, "Pigeon Fault Line")) {
+                setHitCooldown(bird, other, Bird.PIGEON_SCAVENGE_GROUND_HIT_INTERVAL);
+            }
+        }
+    }
+
+    private static boolean applyScavengeHit(Bird bird, Bird other, int damage,
+                                             double launchX, double launchY,
+                                             boolean forceDownward, String moveName) {
+        double oldHealth = other.health;
+        int dealt = (int) bird.applyDamageTo(other, damage);
+        if (dealt <= 0) return false;
+
+        bird.game.damageDealt[bird.playerIndex] += dealt;
+        bird.game.recordSpecialImpact(bird.playerIndex, dealt, true);
+        boolean isKill = other.health <= 0 && oldHealth > 0;
+        if (isKill) {
+            bird.game.eliminations[bird.playerIndex]++;
+        }
+        other.vx += launchX;
+        if (forceDownward) {
+            other.vy = Math.max(other.vy, launchY);
+        } else {
+            other.vy += launchY;
+        }
+        emitSpecialImpact(bird, other, launchX, launchY, dealt, isKill, moveName);
+        return true;
+    }
+
+    private static boolean hitOnCooldown(Bird bird, Bird other) {
+        int index = other.playerIndex;
+        return index >= 0
+                && index < bird.pigeonScavengeHitCooldown.length
+                && bird.pigeonScavengeHitCooldown[index] > 0;
+    }
+
+    private static void setHitCooldown(Bird bird, Bird other, int frames) {
+        int index = other.playerIndex;
+        if (index >= 0 && index < bird.pigeonScavengeHitCooldown.length) {
+            bird.pigeonScavengeHitCooldown[index] = frames;
+        }
+    }
+
+    private static void emitAerialDrillParticles(Bird bird) {
         for (int i = 0; i < 2; i++) {
+            double angle = bird.pigeonScavengeHoldFrames * 0.72 + i * Math.PI;
+            double radius = (12.0 + bird.game.nextParticleRandom() * 10.0) * bird.sizeMultiplier;
             bird.game.particles.add(new Particle(
-                    bird.bodyCenterX() + (bird.game.nextParticleRandom() - 0.5) * 22,
-                    bird.bodyBottomY() - (bird.pigeonScavengeAirborne ? -8 : 0),
-                    (bird.game.nextParticleRandom() - 0.5) * 1.6,
-                    -0.8 - bird.game.nextParticleRandom() * 1.2,
-                    bird.pigeonScavengeUltimate ? Color.GOLD.deriveColor(0, 1, 1, 0.78) : Color.web("#B0BEC5").deriveColor(0, 1, 1, 0.7)
+                    bird.bodyCenterX() + Math.cos(angle) * radius,
+                    bird.bodyBottomY() + 12.0 * bird.sizeMultiplier + Math.sin(angle) * radius * 0.35,
+                    Math.cos(angle) * 1.8,
+                    -1.0 - bird.game.nextParticleRandom() * 1.6,
+                    (bird.pigeonScavengeUltimate ? Color.GOLD : Color.web("#D7CCC8")).deriveColor(0, 1, 1, 0.78)
+            ));
+        }
+    }
+
+    private static void emitGroundCrackParticles(Bird bird) {
+        double reach = groundCrackReachForHold(bird.pigeonScavengeHoldFrames) * bird.sizeMultiplier;
+        for (int side : new int[]{-1, 1}) {
+            double distance = reach * (0.48 + bird.game.nextParticleRandom() * 0.48);
+            bird.game.particles.add(new Particle(
+                    bird.bodyCenterX() + side * distance,
+                    bird.bodyBottomY() - 5.0 * bird.sizeMultiplier,
+                    side * (0.7 + bird.game.nextParticleRandom() * 1.3),
+                    -1.5 - bird.game.nextParticleRandom() * 2.0,
+                    (bird.pigeonScavengeUltimate ? Color.GOLD : Color.web("#8D6E63")).deriveColor(0, 1, 1, 0.76)
+            ));
+        }
+    }
+
+    private static void emitDrillLandingParticles(Bird bird) {
+        for (int i = 0; i < bird.scaledParticleCount(18); i++) {
+            double direction = bird.game.nextParticleRandom() < 0.5 ? -1.0 : 1.0;
+            double speed = 1.5 + bird.game.nextParticleRandom() * 4.0;
+            bird.game.particles.add(new Particle(
+                    bird.bodyCenterX() + direction * bird.game.nextParticleRandom() * 22.0,
+                    bird.bodyBottomY() - 6.0,
+                    direction * speed,
+                    -1.2 - bird.game.nextParticleRandom() * 3.2,
+                    (bird.pigeonScavengeUltimate ? Color.GOLD : Color.web("#A1887F")).deriveColor(0, 1, 1, 0.82)
             ));
         }
     }

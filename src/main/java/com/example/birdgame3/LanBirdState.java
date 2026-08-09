@@ -421,9 +421,11 @@ class LanBirdState {
     boolean pigeonFlutterUltimate;
     boolean[] pigeonFlutterHit = new boolean[4];
     int pigeonScavengeTimer;
+    int pigeonScavengeHoldFrames;
     boolean pigeonScavengeAirborne;
     boolean pigeonScavengeUltimate;
     boolean pigeonScavengeResolved;
+    int[] pigeonScavengeHitCooldown = new int[4];
     boolean pigeonUpSpecialUsed;
     boolean pigeonCoronationActive;
     int pigeonCoronationTimer;
@@ -1054,9 +1056,13 @@ class LanBirdState {
             out.writeBoolean(hit);
         }
         out.writeInt(pigeonScavengeTimer);
+        out.writeInt(pigeonScavengeHoldFrames);
         out.writeBoolean(pigeonScavengeAirborne);
         out.writeBoolean(pigeonScavengeUltimate);
         out.writeBoolean(pigeonScavengeResolved);
+        for (int cooldown : pigeonScavengeHitCooldown) {
+            out.writeInt(cooldown);
+        }
         out.writeBoolean(pigeonUpSpecialUsed);
         out.writeBoolean(pigeonCoronationActive);
         out.writeInt(pigeonCoronationTimer);
@@ -1715,9 +1721,13 @@ class LanBirdState {
             state.pigeonFlutterHit[i] = in.readBoolean();
         }
         state.pigeonScavengeTimer = in.readInt();
+        state.pigeonScavengeHoldFrames = in.readInt();
         state.pigeonScavengeAirborne = in.readBoolean();
         state.pigeonScavengeUltimate = in.readBoolean();
         state.pigeonScavengeResolved = in.readBoolean();
+        for (int i = 0; i < state.pigeonScavengeHitCooldown.length; i++) {
+            state.pigeonScavengeHitCooldown[i] = in.readInt();
+        }
         state.pigeonUpSpecialUsed = in.readBoolean();
         state.pigeonCoronationActive = in.readBoolean();
         state.pigeonCoronationTimer = in.readInt();

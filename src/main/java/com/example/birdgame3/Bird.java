@@ -1335,9 +1335,11 @@ public class Bird {
     boolean pigeonFlutterUltimate = false;
     final boolean[] pigeonFlutterHit = new boolean[4];
     int pigeonScavengeTimer = 0;
+    int pigeonScavengeHoldFrames = 0;
     boolean pigeonScavengeAirborne = false;
     boolean pigeonScavengeUltimate = false;
     boolean pigeonScavengeResolved = false;
+    final int[] pigeonScavengeHitCooldown = new int[4];
     boolean pigeonUpSpecialUsed = false;
     boolean pigeonCoronationActive = false;
     int pigeonCoronationTimer = 0;
@@ -1478,8 +1480,11 @@ public class Bird {
     static final int PIGEON_RUSH_AIR_FRAMES = 18;
     static final int PIGEON_FLUTTER_FRAMES = 15;
     static final int PIGEON_FLUTTER_ULTIMATE_FRAMES = 18;
-    static final int PIGEON_SCAVENGE_GROUND_FRAMES = 162;
-    static final int PIGEON_SCAVENGE_AIR_FRAMES = 14;
+    static final int PIGEON_SCAVENGE_MAX_HOLD_FRAMES = 90;
+    static final int PIGEON_SCAVENGE_RELEASE_FRAMES = 10;
+    static final int PIGEON_SCAVENGE_GROUND_HIT_INTERVAL = 15;
+    static final int PIGEON_SCAVENGE_AIR_HIT_INTERVAL = 9;
+    static final double PIGEON_SCAVENGE_GROUND_MAX_REACH = 360.0;
     static final int PIGEON_CORONATION_FRAMES = 240;
     static final int PIGEON_CORONATION_TICK_INTERVAL = 24;
     static final double PIGEON_CORONATION_RADIUS = 260.0;
@@ -12061,9 +12066,11 @@ public class Bird {
             Arrays.fill(pigeonFlutterHit, false);
         }
         if (pigeonScavengeTimer == 0) {
+            pigeonScavengeHoldFrames = 0;
             pigeonScavengeAirborne = false;
             pigeonScavengeUltimate = false;
             pigeonScavengeResolved = false;
+            Arrays.fill(pigeonScavengeHitCooldown, 0);
         }
         if (!phoenixCharging) {
             phoenixChargeUltimate = false;
@@ -16974,9 +16981,12 @@ public class Bird {
         state.pigeonFlutterUltimate = pigeonFlutterUltimate;
         System.arraycopy(pigeonFlutterHit, 0, state.pigeonFlutterHit, 0, pigeonFlutterHit.length);
         state.pigeonScavengeTimer = pigeonScavengeTimer;
+        state.pigeonScavengeHoldFrames = pigeonScavengeHoldFrames;
         state.pigeonScavengeAirborne = pigeonScavengeAirborne;
         state.pigeonScavengeUltimate = pigeonScavengeUltimate;
         state.pigeonScavengeResolved = pigeonScavengeResolved;
+        System.arraycopy(pigeonScavengeHitCooldown, 0, state.pigeonScavengeHitCooldown, 0,
+                pigeonScavengeHitCooldown.length);
         state.pigeonUpSpecialUsed = pigeonUpSpecialUsed;
         state.pigeonCoronationActive = pigeonCoronationActive;
         state.pigeonCoronationTimer = pigeonCoronationTimer;
@@ -17726,9 +17736,15 @@ public class Bird {
                     Math.min(this.pigeonFlutterHit.length, state.pigeonFlutterHit.length));
         }
         this.pigeonScavengeTimer = state.pigeonScavengeTimer;
+        this.pigeonScavengeHoldFrames = state.pigeonScavengeHoldFrames;
         this.pigeonScavengeAirborne = state.pigeonScavengeAirborne;
         this.pigeonScavengeUltimate = state.pigeonScavengeUltimate;
         this.pigeonScavengeResolved = state.pigeonScavengeResolved;
+        Arrays.fill(this.pigeonScavengeHitCooldown, 0);
+        if (state.pigeonScavengeHitCooldown != null) {
+            System.arraycopy(state.pigeonScavengeHitCooldown, 0, this.pigeonScavengeHitCooldown, 0,
+                    Math.min(this.pigeonScavengeHitCooldown.length, state.pigeonScavengeHitCooldown.length));
+        }
         this.pigeonUpSpecialUsed = state.pigeonUpSpecialUsed;
         this.pigeonCoronationActive = state.pigeonCoronationActive;
         this.pigeonCoronationTimer = state.pigeonCoronationTimer;
@@ -18344,24 +18360,25 @@ public class Bird {
             );
         }
         if (pigeonScavengeTimer > 0) {
-            double phase = pigeonSpecialPhase(pigeonScavengeTimer,
-                    pigeonScavengeAirborne ? PIGEON_SCAVENGE_AIR_FRAMES : PIGEON_SCAVENGE_GROUND_FRAMES);
+            double phase = Math.clamp(pigeonScavengeHoldFrames / (double) PIGEON_SCAVENGE_MAX_HOLD_FRAMES,
+                    0.0, 1.0);
             if (pigeonScavengeAirborne) {
+                double drillPulse = Math.sin(pigeonScavengeHoldFrames * 1.25);
                 return new AttackVisualPose(
-                        dir * 2.0,
-                        8.0 + 10.0 * phase,
-                        dir * (3.0 + 2.0 * phase),
-                        normalizeAngleRadians(Math.PI / 2.0 - dir * 0.10),
-                        9.0 * phase,
-                        10.0 * phase,
-                        8.0 * phase,
-                        0.82,
-                        20.0 + 10.0 * phase,
-                        1.01,
-                        0.88
+                        dir * (2.0 + drillPulse * 2.0),
+                        10.0 + 8.0 * phase,
+                        dir * (3.0 + drillPulse * 2.5),
+                        normalizeAngleRadians(Math.PI / 2.0 - dir * 0.08 + drillPulse * 0.08),
+                        12.0 + drillPulse * 8.0,
+                        12.0 + drillPulse * 5.0,
+                        10.0 + drillPulse * 7.0,
+                        0.74,
+                        26.0 + drillPulse * 12.0,
+                        0.96,
+                        0.82
                 );
             }
-            double digPulse = 0.5 + 0.5 * Math.sin((PIGEON_SCAVENGE_GROUND_FRAMES - pigeonScavengeTimer) * 0.55);
+            double digPulse = 0.5 + 0.5 * Math.sin(pigeonScavengeHoldFrames * 0.72);
             return new AttackVisualPose(
                     dir * (1.5 + 1.5 * phase),
                     8.0 + digPulse * 5.0,
@@ -23157,25 +23174,43 @@ public class Bird {
         }
 
         if (pigeonScavengeTimer > 0) {
-            double phase = pigeonSpecialPhase(pigeonScavengeTimer,
-                    pigeonScavengeAirborne ? PIGEON_SCAVENGE_AIR_FRAMES : PIGEON_SCAVENGE_GROUND_FRAMES);
+            double phase = Math.clamp(pigeonScavengeHoldFrames / (double) PIGEON_SCAVENGE_MAX_HOLD_FRAMES,
+                    0.0, 1.0);
             g.setEffect(new Glow(0.32));
             if (pigeonScavengeAirborne) {
-                double drop = (34.0 + phase * 42.0) * s;
+                double drop = (42.0 + phase * 58.0) * s;
                 g.setStroke(Color.web("#8D6E63").deriveColor(0, 1, 1, 0.72));
-                g.setLineWidth(6.0 * s);
-                g.strokeLine(centerX, centerY + 12.0 * s, centerX, centerY + drop);
+                g.setLineWidth(5.0 * s);
+                for (int ring = 0; ring < 4; ring++) {
+                    double ringY = centerY + (18.0 + ring * 16.0 + phase * ring * 6.0) * s;
+                    double ringWidth = (48.0 - ring * 9.0) * s;
+                    double spinOffset = Math.sin(pigeonScavengeHoldFrames * 0.85 + ring * 1.4) * 7.0 * s;
+                    g.strokeArc(centerX - ringWidth * 0.5 + spinOffset, ringY,
+                            ringWidth, 13.0 * s, 10, 320, ArcType.OPEN);
+                }
                 g.setStroke(Color.web("#D7CCC8").deriveColor(0, 1, 1, 0.46));
                 g.setLineWidth(3.0 * s);
                 g.strokeLine(centerX - 16.0 * s, centerY + 18.0 * s, centerX, centerY + drop);
                 g.strokeLine(centerX + 16.0 * s, centerY + 18.0 * s, centerX, centerY + drop);
             } else {
                 double groundY = bodyBottomY() - 4.0 * s;
-                double pulse = 0.5 + 0.5 * Math.sin((PIGEON_SCAVENGE_GROUND_FRAMES - pigeonScavengeTimer) * 0.55);
+                double pulse = 0.5 + 0.5 * Math.sin(pigeonScavengeHoldFrames * 0.72);
+                double reach = PigeonSpecials.groundCrackReachForHold(pigeonScavengeHoldFrames) * s;
                 g.setStroke(Color.web("#8D6E63").deriveColor(0, 1, 1, 0.54 + 0.16 * pulse));
-                g.setLineWidth(5.0 * s);
-                g.strokeArc(centerX - 34.0 * s, groundY - 14.0 * s, 68.0 * s, 30.0 * s,
-                        198, 144, ArcType.OPEN);
+                g.setLineWidth(4.5 * s);
+                for (int side : new int[]{-1, 1}) {
+                    double previousX = centerX + side * 14.0 * s;
+                    double previousY = groundY;
+                    int segments = Math.max(2, (int) Math.ceil(reach / (34.0 * s)));
+                    for (int segment = 1; segment <= segments; segment++) {
+                        double distance = Math.min(reach, segment * 34.0 * s);
+                        double nextX = centerX + side * distance;
+                        double nextY = groundY - (4.0 + Math.sin(segment * 2.3 + pigeonScavengeHoldFrames * 0.18) * 7.0) * s;
+                        g.strokeLine(previousX, previousY, nextX, nextY);
+                        previousX = nextX;
+                        previousY = nextY;
+                    }
+                }
                 g.setStroke(Color.web("#D7CCC8").deriveColor(0, 1, 1, 0.36 + 0.10 * pulse));
                 g.setLineWidth(2.4 * s);
                 g.strokeLine(centerX - 8.0 * s, groundY - 2.0 * s, centerX - 22.0 * s, groundY - 16.0 * s);

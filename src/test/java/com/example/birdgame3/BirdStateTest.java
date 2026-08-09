@@ -4057,6 +4057,47 @@ class BirdStateTest {
     }
 
     @Test
+    void pigeonHeldGroundDownSpecialSendsDamagingCracksInBothDirections() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 3;
+
+        Bird pigeon = new Bird(500.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird leftTarget = new Bird(360.0, BirdGame3.BirdType.EAGLE, 1, game);
+        Bird rightTarget = new Bird(640.0, BirdGame3.BirdType.FALCON, 2, game);
+        pigeon.y = BirdGame3.GROUND_Y - 80.0;
+        leftTarget.y = BirdGame3.GROUND_Y - 80.0;
+        rightTarget.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = pigeon;
+        game.players[1] = leftTarget;
+        game.players[2] = rightTarget;
+
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), true);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
+        pigeon.update(1.0);
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), false);
+
+        for (int i = 0; i < 35; i++) {
+            pigeon.update(1.0);
+        }
+
+        assertTrue(pigeon.pigeonScavengeHoldFrames >= 35,
+                "Holding special should sustain the grounded fault-line attack.");
+        assertTrue(leftTarget.health < Bird.STARTING_HEALTH,
+                "The left-moving crack should damage a grounded target.");
+        assertTrue(rightTarget.health < Bird.STARTING_HEALTH,
+                "The right-moving crack should damage a grounded target.");
+        assertTrue(leftTarget.vx < 0.0, "The left crack should push away from Pigeon.");
+        assertTrue(rightTarget.vx > 0.0, "The right crack should push away from Pigeon.");
+
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
+        for (int i = 0; i < Bird.PIGEON_SCAVENGE_RELEASE_FRAMES + 1; i++) {
+            pigeon.update(1.0);
+        }
+        assertEquals(0, pigeon.pigeonScavengeTimer,
+                "Releasing special should end the fault line after its short recovery.");
+    }
+
+    @Test
     void pigeonShieldedSpecialConvertsIntoGroundDownSpecialWithoutHealing() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 1;
@@ -4119,7 +4160,7 @@ class BirdStateTest {
     }
 
     @Test
-    void pigeonAirDownSpecialStallsAndDropsAHitboxBelow() {
+    void pigeonAirDownSpecialCanBeHeldAsAMultiHitDrill() {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;
 
@@ -4135,15 +4176,18 @@ class BirdStateTest {
         game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
         pigeon.update(1.0);
         game.setLocalActionsForKey(game.blockKeyForPlayer(0), false);
-        game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
 
-        assertTrue(pigeon.vy < 3.0, "Air down special should stall Pigeon's fall before the drop peck.");
+        assertTrue(pigeon.vy >= 6.0, "Air down special should immediately commit Pigeon to a downward drill.");
         for (int i = 0; i < 12; i++) {
             pigeon.update(1.0);
         }
 
-        assertTrue(target.health < startingHealth, "Air down special should damage targets below Pigeon.");
-        assertTrue(target.vy > 0.0, "Air down special should knock targets downward.");
+        assertTrue(pigeon.pigeonScavengeHoldFrames >= 12,
+                "The aerial drill should remain active while special is held.");
+        assertTrue(target.health < startingHealth, "The held drill should damage targets below Pigeon.");
+        assertTrue(target.vy > 0.0, "The held drill should drag targets downward.");
+
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
     }
 
     @Test
