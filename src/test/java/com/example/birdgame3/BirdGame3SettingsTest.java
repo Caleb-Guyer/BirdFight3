@@ -350,10 +350,9 @@ class BirdGame3SettingsTest {
         assertTrue(game.roadrunnerUnlocked);
         assertTrue((boolean) isMapUnlocked.invoke(game, BirdGame3.MapType.DESERT));
         assertTrue(getPrivateBoolean(game));
-        assertTrue(getPrivateBooleanField(game, "ashfallTrialCompleted"));
         assertTrue(game.ashenSovereignPhoenixUnlocked);
         assertTrue((boolean) spendBirdCoins.invoke(game, 99_999));
-        assertTrue(game.isAchievementUnlocked(BirdGame3Achievement.BOSS_BREAKER));
+        assertNoDeveloperGrantedBadges(game);
 
         game.persistAchievements(prefs);
 
@@ -374,9 +373,9 @@ class BirdGame3SettingsTest {
         assertTrue(reloaded.roadrunnerUnlocked);
         assertTrue((boolean) isMapUnlocked.invoke(reloaded, BirdGame3.MapType.DESERT));
         assertTrue(getPrivateBoolean(reloaded));
-        assertTrue(getPrivateBooleanField(reloaded, "ashfallTrialCompleted"));
         assertTrue(reloaded.ashenSovereignPhoenixUnlocked);
         assertTrue((boolean) spendBirdCoins.invoke(reloaded, Integer.MAX_VALUE));
+        assertNoDeveloperGrantedBadges(reloaded);
     }
 
     @Test
@@ -403,6 +402,44 @@ class BirdGame3SettingsTest {
         assertTrue(getPrivateBooleanField(reloaded, "voidHeraldRavenUnlocked"));
         assertTrue((boolean) isMapUnlocked.invoke(reloaded, BirdGame3.MapType.PRISON));
         assertEveryDeveloperUnlockEnabled(reloaded);
+    }
+
+    @Test
+    void legacyDeveloperBadgeEntitlementsAreRemovedOnlyOnce() throws Exception {
+        prefs.putBoolean("developer_infinite_bird_coins", true);
+        prefs.putBoolean("ashfall_trial_completed", true);
+        for (BirdGame3.BirdType type : BirdGame3.BirdType.values()) {
+            prefs.putBoolean("classic_done_" + type.name(), true);
+            prefs.putBoolean("academy_drill_completed_" + type.name(), true);
+        }
+        for (BirdGame3.MapType map : BirdGame3.MapType.values()) {
+            for (TowerDefenseMode.Difficulty difficulty : TowerDefenseMode.Difficulty.values()) {
+                prefs.putBoolean("td_badge_" + map.name() + "_" + difficulty.name(), true);
+            }
+        }
+        for (BirdGame3Achievement achievement : BirdGame3Achievement.values()) {
+            prefs.putBoolean("ach_" + achievement.legacyIndex, true);
+            prefs.putInt("prog_" + achievement.legacyIndex, 1);
+            prefs.putBoolean("ach_reward_claimed_" + achievement.legacyIndex, true);
+        }
+
+        BirdGame3 migrated = new BirdGame3();
+        Method loadProfileProgress = BirdGame3.class.getDeclaredMethod("loadProfileProgress", Preferences.class);
+        loadProfileProgress.setAccessible(true);
+        loadProfileProgress.invoke(migrated, prefs);
+
+        assertNoDeveloperGrantedBadges(migrated);
+        migrated.persistAchievements(prefs);
+        assertEquals(1, prefs.getInt("developer_badge_policy_version", 0));
+
+        setClassicCompletion(migrated, BirdGame3.BirdType.PIGEON, true);
+        migrated.setAchievementUnlocked(BirdGame3Achievement.FIRST_BLOOD, true);
+        migrated.persistAchievements(prefs);
+
+        BirdGame3 reloaded = new BirdGame3();
+        loadProfileProgress.invoke(reloaded, prefs);
+        assertTrue(reloaded.shouldShowClassicSelectBadge(BirdGame3.BirdType.PIGEON, false));
+        assertTrue(reloaded.isAchievementUnlocked(BirdGame3Achievement.FIRST_BLOOD));
     }
 
     @Test
@@ -519,6 +556,14 @@ class BirdGame3SettingsTest {
         ranks[BirdGame3.BirdType.BAT.ordinal()] = "S";
     }
 
+    private static void setClassicCompletion(BirdGame3 game, BirdGame3.BirdType type, boolean completed)
+            throws Exception {
+        Field field = BirdGame3.class.getDeclaredField("classicCompleted");
+        field.setAccessible(true);
+        boolean[] values = (boolean[]) field.get(game);
+        values[type.ordinal()] = completed;
+    }
+
     private static void setPrivateBossRushPerfectBadge(BirdGame3 game) throws Exception {
         Field field = BirdGame3.class.getDeclaredField("bossRushPerfectBadgeByBird");
         field.setAccessible(true);
@@ -570,6 +615,34 @@ class BirdGame3SettingsTest {
                     }
                 }
             }
+        }
+    }
+
+    private static void assertNoDeveloperGrantedBadges(BirdGame3 game) throws Exception {
+        assertFalse(getPrivateBooleanField(game, "ashfallTrialCompleted"));
+        assertEveryBooleanFalse(game, "classicCompleted");
+        assertEveryBooleanFalse(game, "trainingAcademyDrillCompleted");
+
+        Field towerField = BirdGame3.class.getDeclaredField("towerDefenseDifficultyBadges");
+        towerField.setAccessible(true);
+        boolean[][] towerBadges = (boolean[][]) towerField.get(game);
+        for (boolean[] row : towerBadges) {
+            for (boolean earned : row) {
+                assertFalse(earned);
+            }
+        }
+        for (BirdGame3Achievement achievement : BirdGame3Achievement.values()) {
+            assertFalse(game.isAchievementUnlocked(achievement), achievement.name());
+            assertEquals(0, game.achievementProgressValue(achievement), achievement.name());
+            assertFalse(game.achievementProfileState().isRewardClaimed(achievement), achievement.name());
+        }
+    }
+
+    private static void assertEveryBooleanFalse(BirdGame3 game, String fieldName) throws Exception {
+        Field field = BirdGame3.class.getDeclaredField(fieldName);
+        field.setAccessible(true);
+        for (boolean value : (boolean[]) field.get(game)) {
+            assertFalse(value, fieldName);
         }
     }
 

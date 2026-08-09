@@ -37,6 +37,7 @@ final class BirdGame3ProfileProgressState {
     private static final String KEY_GUIDED_TUTORIAL_COMPLETED = "academy_guided_tutorial_completed";
     private static final String KEY_ACADEMY_DRILL_COMPLETED_PREFIX = "academy_drill_completed_";
     private static final String KEY_DEVELOPER_INFINITE_BIRD_COINS = "developer_infinite_bird_coins";
+    private static final String KEY_DEVELOPER_BADGE_POLICY_VERSION = "developer_badge_policy_version";
     private static final String KEY_ROOFTOP_RELAY_UNLOCKED = "map_variant_rooftop_relay_unlocked";
 
     int achievementSchemaVersion = 0;
@@ -86,6 +87,7 @@ final class BirdGame3ProfileProgressState {
     boolean roadrunnerUnlocked = false;
     boolean roosterUnlocked = false;
     boolean developerInfiniteBirdCoins = false;
+    int developerBadgePolicyVersion = 0;
     boolean guidedTutorialCompleted = false;
     boolean[] trainingAcademyDrillCompleted = new boolean[BirdGame3.BirdType.values().length];
     String dailyChallengeBestKey = "";
@@ -153,6 +155,7 @@ final class BirdGame3ProfileProgressState {
         loadSkinUnlocks(prefs, state);
         loadCharacterUnlocks(prefs, state);
         state.developerInfiniteBirdCoins = prefs.getBoolean(KEY_DEVELOPER_INFINITE_BIRD_COINS, false);
+        state.developerBadgePolicyVersion = Math.max(0, prefs.getInt(KEY_DEVELOPER_BADGE_POLICY_VERSION, 0));
         loadDailyChallenge(prefs, state);
         loadBossRush(prefs, state);
         state.ashfallTrialCompleted = prefs.getBoolean(KEY_ASHFALL_TRIAL_COMPLETED, false);
@@ -187,6 +190,7 @@ final class BirdGame3ProfileProgressState {
         saveSkinUnlocks(prefs);
         saveCharacterUnlocks(prefs);
         prefs.putBoolean(KEY_DEVELOPER_INFINITE_BIRD_COINS, developerInfiniteBirdCoins);
+        prefs.putInt(KEY_DEVELOPER_BADGE_POLICY_VERSION, Math.max(0, developerBadgePolicyVersion));
         saveDailyChallenge(prefs);
         saveBossRush(prefs);
         prefs.putBoolean(KEY_ASHFALL_TRIAL_COMPLETED, ashfallTrialCompleted);

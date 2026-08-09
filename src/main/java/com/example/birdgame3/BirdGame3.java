@@ -4779,6 +4779,7 @@ public class BirdGame3 {
     public boolean roadrunnerUnlocked = false;
     public boolean roosterUnlocked = false;
     private boolean developerInfiniteBirdCoins = false;
+    private int developerBadgePolicyVersion = 0;
 
     private static final String FREEMAN_PIGEON_SKIN = "FREEMAN_PIGEON";
     private static final String BEACON_PIGEON_SKIN = "BEACON_PIGEON";
@@ -4825,6 +4826,7 @@ public class BirdGame3 {
     private static final String MAP_DOCK_KEY = "MAP_DOCK";
     private static final String MAP_PRISON_KEY = "MAP_PRISON";
     private static final String DEVELOPER_UNLOCK_CODE = "FEATHERDEV";
+    private static final int DEVELOPER_BADGE_POLICY_VERSION = 1;
     static final double CLASSIC_STARTING_DIFFICULTY = 5.0;
     static final double CLASSIC_DIFFICULTY_STEP = 0.5;
     static final int CLASSIC_CONTINUE_BIRD_COIN_COST = 100;
@@ -29213,7 +29215,7 @@ public class BirdGame3 {
             saveAchievements();
             Alert alert = new Alert(
                     Alert.AlertType.INFORMATION,
-                    "Developer profile enabled for the active save.\nAll unlocks are now available and Bird Coins are infinite.",
+                    "Developer profile enabled for the active save.\nAll playable content is available and Bird Coins are infinite. Badges still have to be earned.",
                     ButtonType.OK
             );
             alert.setTitle("Code Accepted");
@@ -29295,18 +29297,8 @@ public class BirdGame3 {
         applyDeveloperBirdCoinMode();
 
         guidedTutorialCompleted = true;
-        ashfallTrialCompleted = true;
-        Arrays.fill(classicCompleted, true);
         Arrays.fill(classicSkinUnlocked, true);
-        Arrays.fill(trainingAcademyDrillCompleted, true);
-        for (boolean[] row : towerDefenseDifficultyBadges) {
-            Arrays.fill(row, true);
-        }
-        for (BirdGame3Achievement achievement : BirdGame3Achievement.values()) {
-            achievementProfile.setUnlocked(achievement, true);
-            achievementProfile.setRewardClaimed(achievement, true);
-            achievementProfile.setProgress(achievement, Math.max(1, achievementProfile.progress(achievement)));
-        }
+        developerBadgePolicyVersion = DEVELOPER_BADGE_POLICY_VERSION;
 
         pigeonEpisodeUnlockedChapters = storyChapters.length;
         pigeonEpisodeCompleted = true;
@@ -29332,6 +29324,20 @@ public class BirdGame3 {
         }
         setAdventureRoute(selectedAdventureRoute);
         stillSkyProgress.completeAll(stillSkyCampaign);
+    }
+
+    private void removeLegacyDeveloperBadgeEntitlements() {
+        Arrays.fill(classicCompleted, false);
+        Arrays.fill(trainingAcademyDrillCompleted, false);
+        for (boolean[] row : towerDefenseDifficultyBadges) {
+            Arrays.fill(row, false);
+        }
+        ashfallTrialCompleted = false;
+        for (BirdGame3Achievement achievement : BirdGame3Achievement.values()) {
+            achievementProfile.setUnlocked(achievement, false);
+            achievementProfile.setRewardClaimed(achievement, false);
+            achievementProfile.setProgress(achievement, 0);
+        }
     }
 
     private void grantBirdCoins(int amount) {
@@ -51715,6 +51721,7 @@ public class BirdGame3 {
         state.roadrunnerUnlocked = roadrunnerUnlocked;
         state.roosterUnlocked = roosterUnlocked;
         state.developerInfiniteBirdCoins = developerInfiniteBirdCoins;
+        state.developerBadgePolicyVersion = developerBadgePolicyVersion;
         state.guidedTutorialCompleted = guidedTutorialCompleted;
         state.trainingAcademyDrillCompleted = Arrays.copyOf(
                 trainingAcademyDrillCompleted,
@@ -51854,6 +51861,7 @@ public class BirdGame3 {
         roadrunnerUnlocked = resolved.roadrunnerUnlocked;
         roosterUnlocked = resolved.roosterUnlocked;
         developerInfiniteBirdCoins = resolved.developerInfiniteBirdCoins;
+        developerBadgePolicyVersion = resolved.developerBadgePolicyVersion;
         applyDeveloperBirdCoinMode();
         guidedTutorialCompleted = resolved.guidedTutorialCompleted;
         copyInto(resolved.trainingAcademyDrillCompleted, trainingAcademyDrillCompleted);
@@ -51973,23 +51981,29 @@ public class BirdGame3 {
         copyInto(resolved.thermalPickups, thermalPickups);
         copyInto(resolved.highCliffJumps, highCliffJumps);
         copyInto(resolved.vineGrapplePickups, vineGrapplePickups);
-        achievementEvaluator.normalizeLoadedProfileState(
-                cityWins,
-                cliffWins,
-                jungleWins,
-                loadedAchievementSchemaVersion,
-                ACHIEVEMENT_SCHEMA_VERSION,
-                classicCompleted,
-                mainAdventureChapterCompletedState(),
-                bossRushClearCount,
-                countTowerDefenseBadges(),
-                pigeonEpisodeCompleted,
-                batEpisodeCompleted,
-                pelicanEpisodeCompleted,
-                countBigForestTowerDefenseBadges(),
-                bigForestTowerDefenseBadgeGoal(),
-                tournamentChampionshipsWon
-        );
+        // Developer story/gallery access is an entitlement, not evidence that
+        // its associated achievement badges were earned. Developer profiles
+        // keep explicitly saved achievements but do not derive new ones from
+        // the completion flags that FEATHERDEV supplies for content access.
+        if (!developerInfiniteBirdCoins) {
+            achievementEvaluator.normalizeLoadedProfileState(
+                    cityWins,
+                    cliffWins,
+                    jungleWins,
+                    loadedAchievementSchemaVersion,
+                    ACHIEVEMENT_SCHEMA_VERSION,
+                    classicCompleted,
+                    mainAdventureChapterCompletedState(),
+                    bossRushClearCount,
+                    countTowerDefenseBadges(),
+                    pigeonEpisodeCompleted,
+                    batEpisodeCompleted,
+                    pelicanEpisodeCompleted,
+                    countBigForestTowerDefenseBadges(),
+                    bigForestTowerDefenseBadgeGoal(),
+                    tournamentChampionshipsWon
+            );
+        }
 
         copyInto(resolved.typePicks, typePicks);
         copyInto(resolved.typeWins, typeWins);
@@ -51998,8 +52012,11 @@ public class BirdGame3 {
 
         // Developer access is a permanent entitlement, not a one-time snapshot.
         // Reapply it after every load so older developer profiles automatically
-        // receive birds, skins, maps, and other unlocks added by later updates.
+        // receive birds, skins, maps, and other content added by later updates.
         if (developerInfiniteBirdCoins) {
+            if (developerBadgePolicyVersion < DEVELOPER_BADGE_POLICY_VERSION) {
+                removeLegacyDeveloperBadgeEntitlements();
+            }
             unlockEverythingForDeveloperProfile();
         }
     }
