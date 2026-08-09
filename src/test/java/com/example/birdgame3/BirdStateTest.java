@@ -239,7 +239,7 @@ class BirdStateTest {
     }
 
     @Test
-    void pigeonUltimateStartsCoronationInsteadOfBoostedSpecial() {
+    void pigeonUltimateStartsSkywardSeedWaveInsteadOfBoostedSpecial() {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 1;
 
@@ -250,7 +250,8 @@ class BirdStateTest {
         BirdSpecialSystem.useSpecial(pigeon);
 
         assertTrue(pigeon.pigeonCoronationActive);
-        assertEquals(Bird.PIGEON_CORONATION_FRAMES, pigeon.pigeonCoronationTimer);
+        assertEquals(Bird.PIGEON_SEED_WAVE_FRAMES, pigeon.pigeonCoronationTimer);
+        assertTrue(pigeon.vy <= -17.5, "The ultimate should immediately launch Pigeon upward.");
         assertEquals(0, pigeon.pigeonFeatherBurstTimer);
         assertEquals(0, pigeon.pigeonRushTimer);
         assertEquals(0, pigeon.pigeonFlutterTimer);
@@ -312,12 +313,12 @@ class BirdStateTest {
     }
 
     @Test
-    void pigeonCoronationTicksAndFinalLaunchesTargetsInZone() {
+    void pigeonSkywardSeedWaveAscendsAndHitsDistantTargetsOnce() {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;
 
         Bird pigeon = new Bird(100, BirdGame3.BirdType.PIGEON, 0, game);
-        Bird target = new Bird(190, BirdGame3.BirdType.EAGLE, 1, game);
+        Bird target = new Bird(960, BirdGame3.BirdType.EAGLE, 1, game);
         pigeon.y = BirdGame3.GROUND_Y - 80.0;
         target.y = BirdGame3.GROUND_Y - 80.0;
         game.players[0] = pigeon;
@@ -326,19 +327,23 @@ class BirdStateTest {
 
         BirdSpecialSystem.useSpecial(pigeon);
         double startingHealth = target.health;
+        double startingY = pigeon.y;
 
-        pigeon.update(1.0);
-        assertTrue(target.health <= startingHealth - Bird.PIGEON_CORONATION_TICK_DAMAGE);
+        for (int i = 0; i < 8; i++) {
+            pigeon.update(1.0);
+        }
+        assertTrue(pigeon.y < startingY - 40.0, "Pigeon should ascend with the expanding seed wave.");
+        assertEquals(startingHealth, target.health, 0.001,
+                "A distant target should wait for the expanding front rather than being hit instantly.");
 
-        for (int i = 0; i < Bird.PIGEON_CORONATION_FRAMES; i++) {
+        for (int i = 8; i <= Bird.PIGEON_SEED_WAVE_FRAMES; i++) {
             pigeon.update(1.0);
         }
 
         assertFalse(pigeon.pigeonCoronationActive);
         assertEquals(0, pigeon.pigeonCoronationTimer);
-        assertTrue(target.health <= startingHealth
-                - Bird.PIGEON_CORONATION_TICK_DAMAGE
-                - Bird.PIGEON_CORONATION_FINAL_DAMAGE);
+        assertEquals(Bird.PIGEON_SEED_WAVE_DAMAGE, startingHealth - target.health, 0.001,
+                "Each opponent should be damaged exactly once as the wave reaches them.");
         assertTrue(target.vy < -0.1 || Math.abs(target.vx) > 0.1);
     }
 

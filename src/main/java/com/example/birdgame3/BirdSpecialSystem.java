@@ -45,9 +45,9 @@ final class BirdSpecialSystem {
             triggerUltimateStartEffects(bird);
             playSpecialSound(bird, false);
             game.specialsUsed[bird.playerIndex]++;
-            game.recordUltimateMoveUse(bird, PigeonSpecials.ROOFTOP_CORONATION_MOVE);
+            game.recordUltimateMoveUse(bird, PigeonSpecials.SKYWARD_SEED_WAVE_MOVE);
             game.recordTrainingSpecialUse(bird, input);
-            PigeonSpecials.startCoronation(bird);
+            PigeonSpecials.startSeedWave(bird);
             return;
         }
         if (ultimateReady && bird.type == BirdGame3.BirdType.EAGLE) {

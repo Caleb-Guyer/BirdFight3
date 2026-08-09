@@ -1344,6 +1344,8 @@ public class Bird {
     boolean pigeonScavengeResolved = false;
     final int[] pigeonScavengeHitCooldown = new int[4];
     boolean pigeonUpSpecialUsed = false;
+    // Retain the legacy field names because they are part of the LAN state wire format.
+    // They now carry Pigeon's Skyward Seed Wave state rather than Rooftop Coronation.
     boolean pigeonCoronationActive = false;
     int pigeonCoronationTimer = 0;
     double pigeonCoronationX = 0.0;
@@ -1491,14 +1493,12 @@ public class Bird {
     static final int PIGEON_SCAVENGE_GROUND_HIT_INTERVAL = 15;
     static final int PIGEON_SCAVENGE_AIR_HIT_INTERVAL = 9;
     static final double PIGEON_SCAVENGE_GROUND_MAX_REACH = 360.0;
-    static final int PIGEON_CORONATION_FRAMES = 240;
-    static final int PIGEON_CORONATION_TICK_INTERVAL = 24;
-    static final double PIGEON_CORONATION_RADIUS = 260.0;
-    static final int PIGEON_CORONATION_TICK_DAMAGE = 2;
-    static final int PIGEON_CORONATION_FINAL_DAMAGE = 18;
-    static final int PIGEON_CORONATION_WEAK_FINAL_DAMAGE = 10;
-    static final double PIGEON_CORONATION_HEAL_PER_FRAME = 1.5 / 60.0;
-    static final double PIGEON_CORONATION_KNOCKBACK_MULTIPLIER = 0.65;
+    static final int PIGEON_SEED_WAVE_FRAMES = 96;
+    static final int PIGEON_SEED_WAVE_ASCENT_FRAMES = 54;
+    static final double PIGEON_SEED_WAVE_START_RADIUS = 72.0;
+    static final double PIGEON_SEED_WAVE_MAX_RADIUS = 1180.0;
+    static final double PIGEON_SEED_WAVE_VERTICAL_SCALE = 0.48;
+    static final int PIGEON_SEED_WAVE_DAMAGE = 24;
     static final int EAGLE_CRY_FRAMES = 16;
     static final int EAGLE_CRY_ULTIMATE_FRAMES = 20;
     static final int FALCON_CRY_FRAMES = 13;
@@ -14523,12 +14523,7 @@ public class Bird {
     }
 
     private double incomingKnockbackMultiplier() {
-        double mult = 1.0;
-        if (isInsideOwnPigeonCoronationZone()) {
-            mult *= PIGEON_CORONATION_KNOCKBACK_MULTIPLIER;
-        }
-        mult *= incomingSizeKnockbackMultiplier();
-        return mult;
+        return incomingSizeKnockbackMultiplier();
     }
 
     private double combatSizeRatio() {
@@ -14559,13 +14554,6 @@ public class Bird {
 
     double incomingSizeKnockbackMultiplier() {
         return 1.0 / outgoingSizeKnockbackMultiplier();
-    }
-
-    boolean isInsideOwnPigeonCoronationZone() {
-        if (type != BirdGame3.BirdType.PIGEON || !pigeonCoronationActive) return false;
-        double dx = bodyCenterX() - pigeonCoronationX;
-        double dy = bodyCenterY() - pigeonCoronationY;
-        return dx * dx + dy * dy <= PIGEON_CORONATION_RADIUS * PIGEON_CORONATION_RADIUS;
     }
 
     void heal(double amount) {
@@ -18242,7 +18230,7 @@ public class Bird {
 
     private boolean pigeonSpecialPoseActive() {
         return type == BirdGame3.BirdType.PIGEON
-                && (pigeonFeatherCharging || pigeonFeatherBurstTimer > 0
+                && (pigeonCoronationActive || pigeonFeatherCharging || pigeonFeatherBurstTimer > 0
                 || pigeonRushTimer > 0 || pigeonFlutterTimer > 0 || pigeonScavengeTimer > 0);
     }
 
@@ -18411,6 +18399,23 @@ public class Bird {
 
     private AttackVisualPose currentPigeonSpecialPose() {
         double dir = facingRight ? 1.0 : -1.0;
+        if (pigeonCoronationActive) {
+            double phase = pigeonSpecialPhase(pigeonCoronationTimer, PIGEON_SEED_WAVE_FRAMES);
+            double wingPulse = Math.sin(phase * Math.PI * 7.0);
+            return new AttackVisualPose(
+                    -dir * (2.0 + 2.0 * phase),
+                    -12.0 - 8.0 * phase,
+                    dir * (2.0 + wingPulse * 2.0),
+                    normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.06),
+                    28.0 + wingPulse * 5.0,
+                    -24.0 - 8.0 * phase,
+                    25.0 - wingPulse * 5.0,
+                    1.18,
+                    -32.0 - 10.0 * phase,
+                    1.03,
+                    1.16
+            );
+        }
         if (pigeonFeatherCharging) {
             double charge = Math.clamp(
                     pigeonFeatherChargeFrames / (double) PIGEON_NEUTRAL_MAX_CHARGE_FRAMES,
@@ -23592,7 +23597,7 @@ public class Bird {
         drawOpiumTraps(g);
         drawRavenObjects(g);
         drawRoadrunnerPaintedRoads(g);
-        drawPigeonCoronation(g);
+        drawPigeonSeedWave(g);
         drawEagleSkySovereignReticle(g);
         drawFalconTerminalVelocityPath(g);
         drawPenguinSpecialObjects(g);
@@ -26859,51 +26864,69 @@ public class Bird {
         }
     }
 
-    private void drawPigeonCoronation(GraphicsContext g) {
+    private void drawPigeonSeedWave(GraphicsContext g) {
         if (type != BirdGame3.BirdType.PIGEON || !pigeonCoronationActive) {
             return;
         }
 
-        double progress = 1.0 - Math.clamp(pigeonCoronationTimer / (double) PIGEON_CORONATION_FRAMES, 0.0, 1.0);
-        double pulse = 0.5 + 0.5 * Math.sin(progress * Math.PI * 12.0);
-        double radius = PIGEON_CORONATION_RADIUS * (0.95 + pulse * 0.05);
+        double progress = 1.0 - Math.clamp(
+                pigeonCoronationTimer / (double) PIGEON_SEED_WAVE_FRAMES, 0.0, 1.0);
+        double eased = progress * progress * (3.0 - 2.0 * progress);
+        double pulse = 0.5 + 0.5 * Math.sin(progress * Math.PI * 18.0);
+        double radius = PIGEON_SEED_WAVE_START_RADIUS
+                + (PIGEON_SEED_WAVE_MAX_RADIUS - PIGEON_SEED_WAVE_START_RADIUS) * eased;
+        double verticalRadius = radius * PIGEON_SEED_WAVE_VERTICAL_SCALE;
         double cx = pigeonCoronationX;
         double cy = pigeonCoronationY;
-        double alpha = 0.16 + pulse * 0.07;
+        double fade = progress < 0.82 ? 1.0 : Math.clamp((1.0 - progress) / 0.18, 0.0, 1.0);
 
         g.save();
-        g.setFill(Color.web("#FFD54F").deriveColor(0, 1, 1, alpha * 0.62));
-        g.fillOval(cx - radius, cy - radius, radius * 2.0, radius * 2.0);
+        g.setEffect(new Glow(0.36 + pulse * 0.20));
+        g.setFill(Color.web("#F6C453").deriveColor(0, 1, 1, 0.055 * fade));
+        g.fillOval(cx - radius, cy - verticalRadius, radius * 2.0, verticalRadius * 2.0);
 
-        g.setStroke(Color.web("#FFF59D").deriveColor(0, 1, 1, 0.58 + pulse * 0.18));
-        g.setLineWidth(4.0);
-        g.setLineDashes(22.0, 13.0);
-        g.strokeOval(cx - radius, cy - radius, radius * 2.0, radius * 2.0);
+        g.setStroke(Color.web("#FFF3C4").deriveColor(0, 1, 1, (0.52 + pulse * 0.18) * fade));
+        g.setLineWidth(5.0 + pulse * 3.0);
+        g.strokeOval(cx - radius, cy - verticalRadius, radius * 2.0, verticalRadius * 2.0);
+        g.setStroke(Color.web("#D99A2B").deriveColor(0, 1, 1, 0.42 * fade));
+        g.setLineWidth(2.2);
+        g.strokeOval(cx - radius * 0.91, cy - verticalRadius * 0.91,
+                radius * 1.82, verticalRadius * 1.82);
 
-        g.setLineDashes();
-        g.setStroke(Color.web("#FFB300").deriveColor(0, 1, 1, 0.70));
-        g.setLineWidth(2.0);
-        double inner = radius * (0.63 + pulse * 0.04);
-        g.strokeOval(cx - inner, cy - inner, inner * 2.0, inner * 2.0);
-
-        double crumbBaseY = cy + Math.min(radius * 0.22, 72.0 * sizeMultiplier);
-        g.setFill(Color.web("#F9A825").deriveColor(0, 1, 1, 0.92));
-        for (int i = 0; i < 10; i++) {
-            double angle = i * Math.PI * 0.4 + progress * 0.9;
-            double scatter = 10.0 + (i % 4) * 7.0;
-            double crumbSize = 4.0 + (i % 3) * 1.7;
-            g.fillOval(
-                    cx + Math.cos(angle) * scatter - crumbSize * 0.5,
-                    crumbBaseY + Math.sin(angle) * scatter * 0.38 - crumbSize * 0.5,
-                    crumbSize,
-                    crumbSize
-            );
+        int seedCount = 88;
+        for (int i = 0; i < seedCount; i++) {
+            double angle = i * Math.PI * 2.0 / seedCount + progress * 0.42;
+            double ripple = 0.955 + 0.035 * Math.sin(i * 1.73 + progress * 24.0);
+            double seedX = cx + Math.cos(angle) * radius * ripple;
+            double seedY = cy + Math.sin(angle) * verticalRadius * ripple;
+            double seedLength = 9.0 + (i % 5) * 1.15 + pulse * 1.8;
+            double seedWidth = seedLength * 0.48;
+            g.save();
+            g.translate(seedX, seedY);
+            g.rotate(Math.toDegrees(angle) + 90.0);
+            g.setFill((i & 3) == 0
+                    ? Color.web("#FFF8DC").deriveColor(0, 1, 1, 0.96 * fade)
+                    : Color.web("#D9A441").deriveColor(0, 1, 1, 0.92 * fade));
+            g.fillOval(-seedWidth * 0.5, -seedLength * 0.5, seedWidth, seedLength);
+            g.setStroke(Color.web("#7A4E16").deriveColor(0, 1, 1, 0.72 * fade));
+            g.setLineWidth(1.0);
+            g.strokeLine(0.0, -seedLength * 0.30, 0.0, seedLength * 0.30);
+            g.restore();
         }
 
-        if (!pigeonCoronationStayedInside) {
-            g.setStroke(Color.web("#FF8A65").deriveColor(0, 1, 1, 0.56 + pulse * 0.18));
-            g.setLineWidth(2.4);
-            g.strokeOval(cx - radius * 0.78, cy - radius * 0.78, radius * 1.56, radius * 1.56);
+        double birdCx = bodyCenterX();
+        double birdCy = bodyCenterY();
+        g.setStroke(Color.web("#FFF3C4").deriveColor(0, 1, 1, 0.36 * fade));
+        g.setLineWidth(8.0 + pulse * 5.0);
+        g.strokeLine(cx, cy, birdCx, birdCy);
+        for (int i = 1; i <= 12; i++) {
+            double t = i / 13.0;
+            double trailX = cx + (birdCx - cx) * t + Math.sin(i * 2.3 + progress * 18.0) * 20.0;
+            double trailY = cy + (birdCy - cy) * t;
+            double seedSize = 7.0 + (i % 3) * 1.5;
+            g.setFill((i & 1) == 0 ? Color.web("#FFF8DC") : Color.web("#E4B354"));
+            g.fillOval(trailX - seedSize * 0.45, trailY - seedSize * 0.5,
+                    seedSize * 0.9, seedSize);
         }
         g.restore();
     }
