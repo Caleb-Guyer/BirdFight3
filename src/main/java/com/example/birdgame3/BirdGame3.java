@@ -336,6 +336,7 @@ public class BirdGame3 {
     // Raw aliases stay in place for older setup helpers while selection behavior moves into the model.
     int activePlayers = 2;
     AnimationTimer timer;
+    private AnimationTimer matchSummaryBackgroundTimer;
     List<Platform> platforms = new ArrayList<>();
     List<PowerUp> powerUps = new ArrayList<>();
     List<NectarNode> nectarNodes = new ArrayList<>();
@@ -4190,6 +4191,7 @@ public class BirdGame3 {
     }
 
     private Scene setScenePreservingFullscreen(Stage stage, Scene scene) {
+        stopMatchSummaryBackgroundTimer();
         currentStage = stage;
         releaseWiimoteMenuPointerPress();
         prepareStageForSceneSwap(stage, scene);
@@ -47470,6 +47472,14 @@ public class BirdGame3 {
         }
     }
 
+    private void stopMatchSummaryBackgroundTimer() {
+        AnimationTimer backgroundTimer = matchSummaryBackgroundTimer;
+        matchSummaryBackgroundTimer = null;
+        if (backgroundTimer != null) {
+            backgroundTimer.stop();
+        }
+    }
+
     private void restartCurrentMatch(Stage stage) {
         if (stage == null || matchRestartQueued) {
             return;
@@ -49870,8 +49880,15 @@ public class BirdGame3 {
             @Override
             public void handle(long now) {
                 Scene scene = sceneRef[0];
-                if (scene != null && currentStage != null && currentStage.getScene() != scene) {
+                if (matchSummaryBackgroundTimer != this
+                        || scene == null
+                        || currentStage == null
+                        || currentStage.getScene() != scene
+                        || scene.getRoot() != frame) {
                     stop();
+                    if (matchSummaryBackgroundTimer == this) {
+                        matchSummaryBackgroundTimer = null;
+                    }
                     return;
                 }
                 gameplayRenderSurface.beginLogicalFrame();
@@ -49893,6 +49910,7 @@ public class BirdGame3 {
         }
         Scene installedScene = setScenePreservingFullscreen(stage, scene);
         sceneRef[0] = installedScene;
+        matchSummaryBackgroundTimer = backgroundTimer;
         backgroundTimer.start();
         playCinematicResultsIntro(slashPlate, poseNode, titleBlock, resultsPanel, buttons);
     }

@@ -91,11 +91,29 @@ class MatchSummaryPresentationTest {
         int initialPaint = body.indexOf("drawCinematicResultsBackground(background.getGraphicsContext2D(), accent, 0.0)");
         int install = body.indexOf("Scene installedScene = setScenePreservingFullscreen(stage, scene)");
         int activeScene = body.indexOf("sceneRef[0] = installedScene");
+        int timerOwnership = body.indexOf("matchSummaryBackgroundTimer = backgroundTimer");
         int timerStart = body.indexOf("backgroundTimer.start()");
         assertTrue(initialPaint >= 0);
         assertTrue(install > initialPaint);
         assertTrue(activeScene > install);
-        assertTrue(timerStart > activeScene);
+        assertTrue(timerOwnership > activeScene);
+        assertTrue(timerStart > timerOwnership);
+        assertTrue(body.contains("scene.getRoot() != frame"),
+                "fullscreen keeps one Scene, so the results timer must follow its installed root");
+        assertTrue(body.contains("matchSummaryBackgroundTimer != this"),
+                "a superseded results renderer must stop even before its scene changes");
+    }
+
+    @Test
+    void everySceneSwapStopsThePreviousResultsRenderer() throws IOException {
+        String source = Files.readString(Path.of(
+                "src", "main", "java", "com", "example", "birdgame3", "BirdGame3.java"));
+        int methodStart = source.indexOf("private Scene setScenePreservingFullscreen(Stage stage, Scene scene)");
+        int methodEnd = source.indexOf("private Scene installScenePreservingCurrentFullscreen", methodStart);
+        assertTrue(methodStart >= 0 && methodEnd > methodStart);
+
+        String body = source.substring(methodStart, methodEnd);
+        assertTrue(body.contains("stopMatchSummaryBackgroundTimer();"));
     }
 
     @Test
