@@ -40217,6 +40217,21 @@ public class BirdGame3 {
         preview.draw(g);
     }
 
+    private void drawClassicBonusTargetPortrait(Canvas canvas) {
+        GraphicsContext g = canvas.getGraphicsContext2D();
+        double width = canvas.getWidth();
+        double height = canvas.getHeight();
+        g.clearRect(0, 0, width, height);
+
+        Bird target = new Bird(0, BirdType.TITMOUSE, 0, this);
+        target.classicBonusTarget = true;
+        target.suppressSelectEffects = true;
+        target.sizeMultiplier = Math.max(0.1, Math.min(width / 145.0, height / 155.0));
+        target.x = width * 0.5 - target.bodyWidth() * 0.5;
+        target.y = height * 0.43 - target.bodyHeight() * 0.5;
+        target.draw(g);
+    }
+
     private void showClassicEncounterIntro(Stage stage) {
         if (!classicModeActive || classicRun.isEmpty()) {
             if (dailyChallengeModeActive) showDailyChallengeSetup(stage);
@@ -40298,6 +40313,7 @@ public class BirdGame3 {
         root.getChildren().add(versus);
 
         ClassicFighter[] enemies = classicEncounter.enemies == null ? new ClassicFighter[0] : classicEncounter.enemies;
+        boolean bonusTargetEncounter = classicEncounter.style == ClassicEncounterStyle.BONUS_RELAY;
         int enemyCount = Math.max(1, enemies.length);
         double portraitSize = enemyCount >= 3 ? 215 : (enemyCount == 2 ? 310 : 430);
         HBox enemyLineup = new HBox(enemyCount >= 3 ? 14 : 20);
@@ -40307,7 +40323,11 @@ public class BirdGame3 {
         enemyLineup.setLayoutY(190);
         for (ClassicFighter enemy : enemies) {
             Canvas enemyPortrait = new Canvas(portraitSize, portraitSize);
-            drawClassicFighterPortrait(enemyPortrait, enemy.type, enemy.skinKey, false);
+            if (bonusTargetEncounter) {
+                drawClassicBonusTargetPortrait(enemyPortrait);
+            } else {
+                drawClassicFighterPortrait(enemyPortrait, enemy.type, enemy.skinKey, false);
+            }
             enemyLineup.getChildren().add(enemyPortrait);
         }
         if (enemies.length == 0) {
@@ -40320,7 +40340,8 @@ public class BirdGame3 {
         }
         root.getChildren().add(enemyLineup);
 
-        String opponentNames = enemies.length == 0 ? "BONUS TARGETS" : Arrays.stream(enemies)
+        String opponentNames = bonusTargetEncounter ? enemies.length + " BONUS TARGETS"
+                : enemies.length == 0 ? "BONUS TARGETS" : Arrays.stream(enemies)
                 .map(fighter -> fighter.type.name.toUpperCase(Locale.ROOT))
                 .collect(Collectors.joining("  +  "));
         Label opponentName = new Label(opponentNames);
@@ -40729,7 +40750,8 @@ public class BirdGame3 {
                         enemy.speedMult,
                         true
                 );
-                enemyBird.setUltimateEnabled(encounter.style != ClassicEncounterStyle.MINIATURE_FLOCK);
+                enemyBird.setUltimateEnabled(encounter.style != ClassicEncounterStyle.MINIATURE_FLOCK
+                        && encounter.style != ClassicEncounterStyle.BONUS_RELAY);
                 if (enemy.skinKey != null) {
                     applyPreviewSkinChoiceToBird(enemyBird, enemy.type, enemy.skinKey);
                 }
@@ -49331,7 +49353,9 @@ public class BirdGame3 {
             return null;
         }
         String skinKey = skinKeyForBird(bird);
-        String cacheKey = bird.type.name() + "|" + (skinKey == null ? "" : skinKey);
+        String cacheKey = bird.classicBonusTarget
+                ? "CLASSIC_BONUS_TARGET"
+                : bird.type.name() + "|" + (skinKey == null ? "" : skinKey);
         WritableImage cached = fightHudPortraitCache.get(cacheKey);
         if (cached != null) {
             return cached;
@@ -49344,7 +49368,11 @@ public class BirdGame3 {
         }
 
         Canvas portrait = new Canvas(128, 128);
-        drawRosterSprite(portrait, bird.type, skinKey, false, true);
+        if (bird.classicBonusTarget) {
+            drawClassicBonusTargetPortrait(portrait);
+        } else {
+            drawRosterSprite(portrait, bird.type, skinKey, false, true);
+        }
         SnapshotParameters params = new SnapshotParameters();
         params.setFill(Color.TRANSPARENT);
         WritableImage image = portrait.snapshot(params, null);
@@ -51028,12 +51056,14 @@ public class BirdGame3 {
     }
 
     private String matchSummaryBirdLabel(Bird bird) {
+        if (bird != null && bird.classicBonusTarget) return "BONUS TARGET";
         if (bird == null || bird.type == null || bird.type.name == null) return "MYSTERY BIRD";
         return bird.type.name.toUpperCase(Locale.ROOT);
     }
 
     private String matchSummaryOwnerLabel(Bird bird) {
         if (bird == null) return "";
+        if (bird.classicBonusTarget) return shortName(bird.name).toUpperCase(Locale.ROOT);
         int idx = bird.playerIndex;
         if (idx < 0 || idx >= MAX_COMBATANTS) return bird.name == null ? "" : bird.name.toUpperCase(Locale.ROOT);
         return (isAI[idx] ? "CPU " : "PLAYER ") + (idx + 1);

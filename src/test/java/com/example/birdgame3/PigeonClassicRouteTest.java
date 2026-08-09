@@ -98,6 +98,7 @@ class PigeonClassicRouteTest {
         for (int i = 1; i < 4; i++) {
             assertTrue(game.players[i].classicBonusTarget);
             assertFalse(game.isAI[i]);
+            assertFalse(game.players[i].hasUltimate());
         }
 
         setupRoster.invoke(game, route.get(2));
@@ -222,6 +223,8 @@ class PigeonClassicRouteTest {
         assertTrue(versus.contains("buildClassicStagePreview"));
         assertTrue(versus.contains("buildClassicRouteStrip"));
         assertTrue(versus.contains("drawClassicFighterPortrait"));
+        assertTrue(versus.contains("drawClassicBonusTargetPortrait"));
+        assertTrue(versus.contains("bonusTargetEncounter ? enemies.length + \" BONUS TARGETS\""));
         assertTrue(versus.contains("new Label(\"VS.\")"));
         assertTrue(versus.contains("StackPane viewport = new StackPane(root)"));
         assertTrue(versus.contains("final double layoutH = 900.0"));
