@@ -261,7 +261,7 @@ public class BirdGame3 {
     private static final Duration ACHIEVEMENT_SAVE_DEBOUNCE = Duration.millis(250);
     private static final Duration ACHIEVEMENT_TOAST_SHOW_TIME = Duration.seconds(3.4);
     private static final double ACHIEVEMENT_TOAST_WIDTH = 448.0;
-    private static final double ACHIEVEMENT_TOAST_HEIGHT = 122.0;
+    static final double ACHIEVEMENT_TOAST_HEIGHT = 204.0;
     private static final double ACHIEVEMENT_TOAST_MARGIN = 26.0;
     private static final double MENU_MUSIC_BASE_VOLUME = 0.55;
     private static final double VICTORY_MUSIC_BASE_VOLUME = 0.75;
@@ -10125,6 +10125,10 @@ public class BirdGame3 {
         achievementToastShowing = true;
         positionAchievementToast(popup);
         popup.show(stage);
+        // Popup dimensions include CSS text wrapping and the shadow only after
+        // the native popup is shown. Reposition once with those real bounds so
+        // its bottom edge cannot be clipped on a windowed display.
+        positionAchievementToast(popup);
 
         SequentialTransition sequence = getSequentialTransition(popup);
         achievementToastAnimation = sequence;
@@ -10163,7 +10167,7 @@ public class BirdGame3 {
 
     private Popup buildAchievementToastPopup(AchievementToastPayload payload) {
         Popup popup = new Popup();
-        popup.setAutoFix(false);
+        popup.setAutoFix(true);
         popup.setAutoHide(false);
         popup.setHideOnEscape(false);
 
@@ -10235,10 +10239,19 @@ public class BirdGame3 {
         double sceneY = scene == null ? 0.0 : scene.getY();
         double sceneWidth = scene == null ? currentStage.getWidth() : scene.getWidth();
         double sceneHeight = scene == null ? currentStage.getHeight() : scene.getHeight();
-        double x = currentStage.getX() + sceneX + Math.max(0.0, sceneWidth - ACHIEVEMENT_TOAST_WIDTH - ACHIEVEMENT_TOAST_MARGIN);
-        double y = currentStage.getY() + sceneY + Math.max(0.0, sceneHeight - ACHIEVEMENT_TOAST_HEIGHT - ACHIEVEMENT_TOAST_MARGIN);
+        double toastWidth = resolvedAchievementToastExtent(ACHIEVEMENT_TOAST_WIDTH, popup.getWidth());
+        double toastHeight = resolvedAchievementToastExtent(ACHIEVEMENT_TOAST_HEIGHT, popup.getHeight());
+        double x = currentStage.getX() + sceneX + Math.max(0.0, sceneWidth - toastWidth - ACHIEVEMENT_TOAST_MARGIN);
+        double y = currentStage.getY() + sceneY + Math.max(0.0, sceneHeight - toastHeight - ACHIEVEMENT_TOAST_MARGIN);
         popup.setX(x);
         popup.setY(y);
+    }
+
+    static double resolvedAchievementToastExtent(double configuredExtent, double renderedExtent) {
+        double configured = Math.max(1.0, configuredExtent);
+        return Double.isFinite(renderedExtent) && renderedExtent > 1.0
+                ? Math.max(configured, renderedExtent)
+                : configured;
     }
 
     private void hideAchievementToast() {
@@ -49863,7 +49876,6 @@ public class BirdGame3 {
             }
         };
         Scene scene = new Scene(frame, WIDTH, HEIGHT);
-        bindFixedFrameScale(scene, frame, 0.0, WIDTH, HEIGHT);
         if (lanModeActive) {
             setupKeyboardNavigation(scene);
             applyConsoleHighlight(scene);

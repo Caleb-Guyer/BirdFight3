@@ -99,6 +99,19 @@ class MatchSummaryPresentationTest {
     }
 
     @Test
+    void cinematicSummaryUsesOnlyTheResponsiveSceneScale() throws IOException {
+        String source = Files.readString(Path.of(
+                "src", "main", "java", "com", "example", "birdgame3", "BirdGame3.java"));
+        int methodStart = source.indexOf("void showMatchSummary(Stage stage, Bird winner)");
+        int methodEnd = source.indexOf("Canvas prepareMatchSummaryBackgroundCanvas()", methodStart);
+        assertTrue(methodStart >= 0 && methodEnd > methodStart);
+        String body = source.substring(methodStart, methodEnd);
+
+        assertTrue(body.contains("new Scene(frame, WIDTH, HEIGHT)"));
+        assertFalse(body.contains("bindFixedFrameScale"));
+    }
+
+    @Test
     void cinematicWinnerPoseUsesOneCanvasInsteadOfThreeLargeRenderTargets() throws Exception {
         BirdGame3 game = new BirdGame3(Preferences.userRoot().node(
                 "/birdfight3-tests/results-pose/" + UUID.randomUUID()));

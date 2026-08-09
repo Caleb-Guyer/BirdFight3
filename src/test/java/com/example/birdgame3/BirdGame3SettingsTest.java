@@ -82,6 +82,13 @@ class BirdGame3SettingsTest {
     }
 
     @Test
+    void achievementToastReservesItsRenderedHeightInsideTheWindow() {
+        assertTrue(BirdGame3.ACHIEVEMENT_TOAST_HEIGHT >= 200.0);
+        assertEquals(204.0, BirdGame3.resolvedAchievementToastExtent(204.0, 0.0), 0.001);
+        assertEquals(228.0, BirdGame3.resolvedAchievementToastExtent(204.0, 228.0), 0.001);
+    }
+
+    @Test
     void claimAchievementRewardFallsBackToBirdCoinsWhenCosmeticIsOwned() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.setAchievementUnlocked(BirdGame3Achievement.ROOFTOP_RUNNER.legacyIndex);
