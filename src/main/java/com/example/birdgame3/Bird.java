@@ -2317,6 +2317,15 @@ public class Bird {
     private int recentSmashAttackerFrames = 0;
     private double pendingSmashLaunchScale = 1.0;
     private double pendingDamageScaledHitDamage = 0.0;
+    private static final double SIZE_COMBAT_EXPONENT = 0.65;
+    private static final double MIN_SIZE_COMBAT_RATIO = 0.50;
+    private static final double MAX_SIZE_COMBAT_RATIO = 1.60;
+    private static final double MIN_SIZE_COMBAT_MULTIPLIER = 0.70;
+    private static final double MAX_SIZE_COMBAT_MULTIPLIER = 1.30;
+    private boolean pendingSizeKnockbackScaling = false;
+    private double pendingSizeKnockbackBaselineVx = 0.0;
+    private double pendingSizeKnockbackBaselineVy = 0.0;
+    private double pendingSizeKnockbackMultiplier = 1.0;
 
     // Shared deterministic simulation stream (see SimRng); reseeded each match.
     final Random random = SimRng.random();
@@ -2530,7 +2539,7 @@ public class Bird {
             case ROADRUNNER -> ROADRUNNER_NORMAL_KNOCKBACK_MULTIPLIER;
             case RAZORBILL -> RAZORBILL_NORMAL_KNOCKBACK_MULTIPLIER;
             default -> 1.0;
-        };
+        } * outgoingSizeKnockbackMultiplier();
     }
 
     private void activateRespawnNest(double spawnX, double spawnY) {
@@ -11323,6 +11332,10 @@ public class Bird {
             }
             if (health > 0 && game.isAI[playerIndex] && !respawnReturnActive()) aiControl();
 
+        // Resolve launch authored by hits from an earlier-updated fighter before
+        // timers or movement can alter the captured velocity delta.
+        applyPendingSizeKnockbackScaling();
+
         // === UPDATE TIMERS ===
         updateTimers(gameSpeed);
         applyPendingSmashLaunch();
@@ -14504,8 +14517,7 @@ public class Bird {
             mult *= 1.0 - pelicanEffectiveCargo() * 0.08;
         }
         mult *= RoadrunnerSpecials.incomingDamageMultiplier(this);
-        if (titanActive && titanTimer > 0) mult *= 0.75;
-        if (shrinkTimer > 0) mult *= 1.22;
+        mult *= incomingSizeDamageMultiplier();
         if (type == BirdGame3.BirdType.RAZORBILL && razorbillCounterWhiffTimer > 0) mult *= 1.30;
         return mult;
     }
@@ -14515,7 +14527,38 @@ public class Bird {
         if (isInsideOwnPigeonCoronationZone()) {
             mult *= PIGEON_CORONATION_KNOCKBACK_MULTIPLIER;
         }
+        mult *= incomingSizeKnockbackMultiplier();
         return mult;
+    }
+
+    private double combatSizeRatio() {
+        // baseSizeMultiplier also carries authored giant/mini encounter scaling,
+        // so normalize only against the roster's intrinsic model size.
+        double normalSize = switch (type) {
+            case PELICAN -> 1.20;
+            case GOOSE -> 1.16;
+            case KIWI -> 1.08;
+            default -> 1.0;
+        };
+        return Math.clamp(sizeMultiplier / normalSize, MIN_SIZE_COMBAT_RATIO, MAX_SIZE_COMBAT_RATIO);
+    }
+
+    double outgoingSizeDamageMultiplier() {
+        return Math.clamp(Math.pow(combatSizeRatio(), SIZE_COMBAT_EXPONENT),
+                MIN_SIZE_COMBAT_MULTIPLIER, MAX_SIZE_COMBAT_MULTIPLIER);
+    }
+
+    double incomingSizeDamageMultiplier() {
+        return 1.0 / outgoingSizeDamageMultiplier();
+    }
+
+    double outgoingSizeKnockbackMultiplier() {
+        return Math.clamp(Math.pow(combatSizeRatio(), SIZE_COMBAT_EXPONENT),
+                MIN_SIZE_COMBAT_MULTIPLIER, MAX_SIZE_COMBAT_MULTIPLIER);
+    }
+
+    double incomingSizeKnockbackMultiplier() {
+        return 1.0 / outgoingSizeKnockbackMultiplier();
     }
 
     boolean isInsideOwnPigeonCoronationZone() {
@@ -14583,6 +14626,7 @@ public class Bird {
         if (type == BirdGame3.BirdType.PHOENIX && phoenixRebirthNovaBuffTimer > 0) mult *= 1.08;
         if (type == BirdGame3.BirdType.PELICAN) mult *= 1.0 + pelicanEffectiveCargo() * 0.06;
         mult *= RoadrunnerSpecials.outgoingDamageMultiplier(this);
+        mult *= outgoingSizeDamageMultiplier();
         return mult;
     }
 
@@ -14786,7 +14830,11 @@ public class Bird {
     }
 
     double applyUnshieldedDamageTo(Bird target, double rawDamage) {
-        return applyScaledDamageTo(target, scaledDamageAgainst(target, rawDamage));
+        double dealtDamage = applyScaledDamageTo(target, scaledDamageAgainst(target, rawDamage));
+        if (dealtDamage > 0) {
+            target.beginSizeKnockbackScaling(this);
+        }
+        return dealtDamage;
     }
 
     double applyDamageTo(Bird target, double rawDamage) {
@@ -14806,7 +14854,11 @@ public class Bird {
             return 0;
         }
         scaledDamage += target.consumeHeisenBrittleBonusFrom(this);
-        return applyScaledDamageTo(target, scaledDamage);
+        double dealtDamage = applyScaledDamageTo(target, scaledDamage);
+        if (dealtDamage > 0) {
+            target.beginSizeKnockbackScaling(this);
+        }
+        return dealtDamage;
     }
 
     int applyTrackedSpecialDamage(Bird target, int rawDamage) {
@@ -14939,7 +14991,11 @@ public class Bird {
         if (shieldHit.blocked()) {
             return 0;
         }
-        return receiveScaledDamage(scaledDamage, null);
+        double dealtDamage = receiveScaledDamage(scaledDamage, null);
+        if (dealtDamage > 0) {
+            beginSizeKnockbackScaling(null);
+        }
+        return dealtDamage;
     }
 
     double receiveOwnedMinionDamage(double rawDamage, Bird owner) {
@@ -14948,10 +15004,11 @@ public class Bird {
         // whole-kit tuning multiplier apply exactly once.
         double ownerScaledDamage = rawDamage;
         if (owner != null && owner != this && owner.type != null) {
-            ownerScaledDamage *= owner.type.damageDealtMult;
+            ownerScaledDamage *= owner.type.damageDealtMult * owner.outgoingSizeDamageMultiplier();
         }
         double dealtDamage = receiveExternalDamage(ownerScaledDamage);
         if (dealtDamage > 0 && owner != null && owner != this) {
+            beginSizeKnockbackScaling(owner);
             // Summons retain their owner's training and Smash attribution, but
             // deliberately do not build either fighter's ultimate meter. Passive
             // crow contact otherwise feeds Vulture's next summon cycle too fast.
@@ -15361,7 +15418,14 @@ public class Bird {
     }
 
     private void applyTurkeyStuffedKnockbackBonus(Bird target, double direction) {
+        double oldVx = target == null ? 0.0 : target.vx;
+        double oldVy = target == null ? 0.0 : target.vy;
         TurkeySpecials.applyStuffedKnockbackBonus(this, target, direction);
+        if (target != null) {
+            double sizeScale = outgoingSizeKnockbackMultiplier() * target.incomingSizeKnockbackMultiplier();
+            target.vx = oldVx + (target.vx - oldVx) * sizeScale;
+            target.vy = oldVy + (target.vy - oldVy) * sizeScale;
+        }
     }
 
     private void handleTurkeyFeastTraps() {
@@ -16298,6 +16362,7 @@ public class Bird {
         releaseGrabState(false);
         clearAIInputs();
         removeOwnedSummons();
+        clearPendingSizeKnockbackScaling();
 
         isBlocking = false;
         shieldHealth = SHIELD_MAX_HEALTH;
@@ -17983,7 +18048,37 @@ public class Bird {
         pendingDamageScaledHitDamage = Math.max(pendingDamageScaledHitDamage, dealtDamage);
     }
 
+    private void beginSizeKnockbackScaling(Bird attacker) {
+        applyPendingSizeKnockbackScaling();
+        pendingSizeKnockbackScaling = true;
+        pendingSizeKnockbackBaselineVx = vx;
+        pendingSizeKnockbackBaselineVy = vy;
+        pendingSizeKnockbackMultiplier = incomingSizeKnockbackMultiplier();
+        if (attacker != null && attacker != this) {
+            pendingSizeKnockbackMultiplier *= attacker.outgoingSizeKnockbackMultiplier();
+        }
+    }
+
+    private void applyPendingSizeKnockbackScaling() {
+        if (!pendingSizeKnockbackScaling) {
+            return;
+        }
+        vx = pendingSizeKnockbackBaselineVx
+                + (vx - pendingSizeKnockbackBaselineVx) * pendingSizeKnockbackMultiplier;
+        vy = pendingSizeKnockbackBaselineVy
+                + (vy - pendingSizeKnockbackBaselineVy) * pendingSizeKnockbackMultiplier;
+        clearPendingSizeKnockbackScaling();
+    }
+
+    private void clearPendingSizeKnockbackScaling() {
+        pendingSizeKnockbackScaling = false;
+        pendingSizeKnockbackBaselineVx = 0.0;
+        pendingSizeKnockbackBaselineVy = 0.0;
+        pendingSizeKnockbackMultiplier = 1.0;
+    }
+
     private void applyPendingSmashLaunch() {
+        applyPendingSizeKnockbackScaling();
         if (!game.usesDamageScaledKnockback() || pendingSmashLaunchScale <= 1.0001) {
             return;
         }

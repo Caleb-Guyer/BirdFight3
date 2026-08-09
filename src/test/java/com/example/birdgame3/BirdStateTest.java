@@ -13,6 +13,44 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class BirdStateTest {
     @Test
+    void temporarySizeChangesDamageAndKnockbackInBothDirections() throws Exception {
+        BirdStats.resetToDefaults();
+
+        SizeCombatOutcome normal = playSizeCombatExchange(1.0, 1.0);
+        SizeCombatOutcome tinyAttacker = playSizeCombatExchange(0.6, 1.0);
+        SizeCombatOutcome largeAttacker = playSizeCombatExchange(1.35, 1.0);
+        SizeCombatOutcome tinyTarget = playSizeCombatExchange(1.0, 0.6);
+        SizeCombatOutcome largeTarget = playSizeCombatExchange(1.0, 1.35);
+
+        assertTrue(tinyAttacker.damage < normal.damage);
+        assertTrue(tinyAttacker.launchSpeed < normal.launchSpeed);
+        assertTrue(largeAttacker.damage > normal.damage);
+        assertTrue(largeAttacker.launchSpeed > normal.launchSpeed);
+
+        assertTrue(tinyTarget.damage > normal.damage);
+        assertTrue(tinyTarget.launchSpeed > normal.launchSpeed);
+        assertTrue(largeTarget.damage < normal.damage);
+        assertTrue(largeTarget.launchSpeed < normal.launchSpeed);
+    }
+
+    @Test
+    void naturalRosterSizeIsNeutralButAuthoredMiniAndGiantScalingIsNot() {
+        BirdGame3 game = new BirdGame3();
+        Bird pigeon = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird pelican = new Bird(200.0, BirdGame3.BirdType.PELICAN, 1, game);
+        Bird goose = new Bird(300.0, BirdGame3.BirdType.GOOSE, 2, game);
+
+        assertEquals(1.0, pigeon.outgoingSizeDamageMultiplier(), 0.0001);
+        assertEquals(1.0, pelican.outgoingSizeDamageMultiplier(), 0.0001);
+        assertEquals(1.0, goose.outgoingSizeKnockbackMultiplier(), 0.0001);
+
+        pigeon.setBaseMultipliers(0.68, 1.0, 1.0);
+        pelican.setBaseMultipliers(1.20 * 1.58, 1.0, 1.0);
+        assertTrue(pigeon.outgoingSizeDamageMultiplier() < 1.0);
+        assertTrue(pelican.outgoingSizeKnockbackMultiplier() > 1.0);
+    }
+
+    @Test
     void kiwiWasAppendedWithoutChangingExistingReplayOrdinals() {
         assertEquals(20, BirdGame3.BirdType.GOOSE.ordinal());
         assertEquals(21, BirdGame3.BirdType.KIWI.ordinal());
@@ -9707,6 +9745,27 @@ class BirdStateTest {
     }
 
     private record GooseHonkOutcome(double damage, double horizontalLaunch, double stunFrames) {
+    }
+
+    private static SizeCombatOutcome playSizeCombatExchange(double attackerSizeRatio,
+                                                             double targetSizeRatio) throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+        Bird attacker = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird target = new Bird(220.0, BirdGame3.BirdType.PIGEON, 1, game);
+        game.players[0] = attacker;
+        game.players[1] = target;
+        attacker.sizeMultiplier = attacker.baseSizeMultiplier * attackerSizeRatio;
+        target.sizeMultiplier = target.baseSizeMultiplier * targetSizeRatio;
+
+        double dealtDamage = attacker.applyDamageTo(target, 10.0);
+        target.vx += 10.0;
+        target.vy -= 8.0;
+        invokePrivateVoid(target, "applyPendingSmashLaunch");
+        return new SizeCombatOutcome(dealtDamage, Math.hypot(target.vx, target.vy));
+    }
+
+    private record SizeCombatOutcome(double damage, double launchSpeed) {
     }
 
     private static Object getPrivateObject(Object target, String fieldName) throws Exception {
