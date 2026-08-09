@@ -1326,6 +1326,9 @@ public class Bird {
     int roadrunnerSandGustTimer = 0;
     final int[] roadrunnerSandHitCooldown = new int[4];
     int pigeonFeatherBurstTimer = 0;
+    boolean pigeonFeatherCharging = false;
+    int pigeonFeatherChargeFrames = 0;
+    int pigeonFeatherBurstChargeFrames = 0;
     boolean pigeonFeatherBurstUltimate = false;
     int pigeonRushTimer = 0;
     boolean pigeonRushGrounded = false;
@@ -1475,7 +1478,10 @@ public class Bird {
     static final double ROADRUNNER_REDLINE_RANGE = 360.0;
     static final double ROADRUNNER_REDLINE_LANE_HALF_HEIGHT = 34.0;
     static final int PIGEON_NEUTRAL_BURST_FRAMES = 12;
+    static final int PIGEON_NEUTRAL_MAX_CHARGE_FRAMES = 60;
     static final int PIGEON_NEUTRAL_COOLDOWN_FRAMES = 34;
+    static final double PIGEON_NEUTRAL_MIN_REACH = 115.0;
+    static final double PIGEON_NEUTRAL_MAX_REACH = 330.0;
     static final int PIGEON_RUSH_GROUND_FRAMES = 20;
     static final int PIGEON_RUSH_AIR_FRAMES = 18;
     static final int PIGEON_FLUTTER_FRAMES = 15;
@@ -6204,7 +6210,8 @@ public class Bird {
         }
         return !switch (mockingbirdCopiedNeutralSource) {
             case PIGEON ->
-                    pigeonFeatherBurstTimer > 0 || pigeonRushTimer > 0 || pigeonFlutterTimer > 0 || pigeonScavengeTimer > 0;
+                    pigeonFeatherCharging || pigeonFeatherBurstTimer > 0
+                            || pigeonRushTimer > 0 || pigeonFlutterTimer > 0 || pigeonScavengeTimer > 0;
             case EAGLE, FALCON -> raptorCryTimer > 0 || raptorRushTimer > 0 || raptorClimbTimer > 0;
             case PHOENIX ->
                     phoenixCharging || phoenixBurstFxTimer > 0 || phoenixFireballTimer > 0 || phoenixSpiralTimer > 0 || phoenixLavaTimer > 0;
@@ -6771,7 +6778,8 @@ public class Bird {
         if (type != BirdGame3.BirdType.PIGEON) {
             return;
         }
-        if (pigeonFeatherBurstTimer > 0 || pigeonRushTimer > 0 || pigeonFlutterTimer > 0 || pigeonScavengeTimer > 0) {
+        if (pigeonFeatherCharging || pigeonFeatherBurstTimer > 0
+                || pigeonRushTimer > 0 || pigeonFlutterTimer > 0 || pigeonScavengeTimer > 0) {
             attackAnimationTimer = 0;
         }
         PigeonSpecials.reset(this);
@@ -12054,6 +12062,7 @@ public class Bird {
             roadrunnerSlipUltimate = false;
         }
         if (pigeonFeatherBurstTimer == 0) {
+            pigeonFeatherBurstChargeFrames = 0;
             pigeonFeatherBurstUltimate = false;
         }
         if (pigeonRushTimer == 0) {
@@ -16972,6 +16981,9 @@ public class Bird {
         System.arraycopy(grinchGiftstormFinalHit, 0, state.grinchGiftstormFinalHit, 0,
                 grinchGiftstormFinalHit.length);
         state.pigeonFeatherBurstTimer = pigeonFeatherBurstTimer;
+        state.pigeonFeatherCharging = pigeonFeatherCharging;
+        state.pigeonFeatherChargeFrames = pigeonFeatherChargeFrames;
+        state.pigeonFeatherBurstChargeFrames = pigeonFeatherBurstChargeFrames;
         state.pigeonFeatherBurstUltimate = pigeonFeatherBurstUltimate;
         state.pigeonRushTimer = pigeonRushTimer;
         state.pigeonRushGrounded = pigeonRushGrounded;
@@ -17719,6 +17731,9 @@ public class Bird {
                     Math.min(this.grinchGiftstormFinalHit.length, state.grinchGiftstormFinalHit.length));
         }
         this.pigeonFeatherBurstTimer = state.pigeonFeatherBurstTimer;
+        this.pigeonFeatherCharging = state.pigeonFeatherCharging;
+        this.pigeonFeatherChargeFrames = state.pigeonFeatherChargeFrames;
+        this.pigeonFeatherBurstChargeFrames = state.pigeonFeatherBurstChargeFrames;
         this.pigeonFeatherBurstUltimate = state.pigeonFeatherBurstUltimate;
         this.pigeonRushTimer = state.pigeonRushTimer;
         this.pigeonRushGrounded = state.pigeonRushGrounded;
@@ -18157,7 +18172,8 @@ public class Bird {
 
     private boolean pigeonSpecialPoseActive() {
         return type == BirdGame3.BirdType.PIGEON
-                && (pigeonFeatherBurstTimer > 0 || pigeonRushTimer > 0 || pigeonFlutterTimer > 0 || pigeonScavengeTimer > 0);
+                && (pigeonFeatherCharging || pigeonFeatherBurstTimer > 0
+                || pigeonRushTimer > 0 || pigeonFlutterTimer > 0 || pigeonScavengeTimer > 0);
     }
 
     private double pigeonSpecialPhase(int timer, int totalFrames) {
@@ -18325,6 +18341,27 @@ public class Bird {
 
     private AttackVisualPose currentPigeonSpecialPose() {
         double dir = facingRight ? 1.0 : -1.0;
+        if (pigeonFeatherCharging) {
+            double charge = Math.clamp(
+                    pigeonFeatherChargeFrames / (double) PIGEON_NEUTRAL_MAX_CHARGE_FRAMES,
+                    0.0,
+                    1.0
+            );
+            double pulse = Math.sin(pigeonFeatherChargeFrames * 0.35);
+            return new AttackVisualPose(
+                    -dir * (2.0 + 4.0 * charge),
+                    -1.0 - 2.0 * charge,
+                    -dir * (3.0 + 3.0 * charge),
+                    facingRight ? -0.08 - 0.10 * charge : Math.PI + 0.08 + 0.10 * charge,
+                    5.0 + 2.0 * pulse,
+                    -2.0 - 3.0 * charge,
+                    5.0 + 2.0 * pulse,
+                    0.96,
+                    -dir * (3.0 + 4.0 * charge),
+                    0.98,
+                    1.02
+            );
+        }
         if (pigeonFlutterTimer > 0) {
             double phase = pigeonSpecialPhase(pigeonFlutterTimer,
                     pigeonFlutterUltimate ? PIGEON_FLUTTER_ULTIMATE_FRAMES : PIGEON_FLUTTER_FRAMES);
@@ -18395,16 +18432,21 @@ public class Bird {
         }
 
         double phase = pigeonSpecialPhase(pigeonFeatherBurstTimer, PIGEON_NEUTRAL_BURST_FRAMES);
+        double charge = Math.clamp(
+                pigeonFeatherBurstChargeFrames / (double) PIGEON_NEUTRAL_MAX_CHARGE_FRAMES,
+                0.0,
+                1.0
+        );
         return new AttackVisualPose(
-                dir * (5.0 + 3.0 * phase),
+                dir * (5.0 + 3.0 * phase + 8.0 * charge),
                 -1.5 * phase,
-                dir * (3.0 + 2.0 * phase),
+                dir * (3.0 + 2.0 * phase + 5.0 * charge),
                 facingRight ? 0.0 : Math.PI,
-                10.0 + 6.0 * phase,
+                10.0 + 6.0 * phase + 6.0 * charge,
                 -2.0 * phase,
-                11.0 + 5.0 * phase,
+                11.0 + 5.0 * phase + 4.0 * charge,
                 1.10,
-                dir * (3.0 + 2.0 * phase),
+                dir * (3.0 + 2.0 * phase + 4.0 * charge),
                 1.05 + 0.04 * phase,
                 0.98
         );
@@ -23221,21 +23263,58 @@ public class Bird {
             return;
         }
 
+        if (pigeonFeatherCharging) {
+            double charge = Math.clamp(
+                    pigeonFeatherChargeFrames / (double) PIGEON_NEUTRAL_MAX_CHARGE_FRAMES,
+                    0.0,
+                    1.0
+            );
+            double pulse = 0.5 + 0.5 * Math.sin(pigeonFeatherChargeFrames * 0.35);
+            double focusX = centerX + dir * (29.0 + charge * 6.0) * s;
+            double focusY = centerY - (4.0 + charge * 2.0) * s;
+            double radius = (13.0 + charge * 15.0 + pulse * 3.0) * s;
+            g.setEffect(new Glow(0.35 + charge * 0.35));
+            g.setStroke((pigeonFeatherBurstUltimate ? Color.GOLD : Color.web("#FFF59D"))
+                    .deriveColor(0, 1, 1, 0.48 + charge * 0.30));
+            g.setLineWidth((2.5 + charge * 2.0) * s);
+            g.strokeArc(focusX - radius, focusY - radius, radius * 2.0, radius * 2.0,
+                    facingRight ? 42 : 138, facingRight ? 276 : -276, ArcType.OPEN);
+            double guideReach = PigeonSpecials.neutralReachForCharge(pigeonFeatherChargeFrames) * s * 0.38;
+            g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.18 + charge * 0.22));
+            g.setLineWidth((1.5 + charge) * s);
+            g.strokeLine(focusX + dir * 6.0 * s, focusY,
+                    focusX + dir * guideReach, focusY);
+            g.restore();
+            return;
+        }
+
         if (pigeonFeatherBurstTimer > 0) {
             double phase = pigeonSpecialPhase(pigeonFeatherBurstTimer, PIGEON_NEUTRAL_BURST_FRAMES);
-            double baseX = centerX + dir * 20.0 * s;
-            double travel = (26.0 + phase * 42.0) * s;
-            double[] laneOffsets = {-18.0, 0.0, 18.0};
-            g.setEffect(new Glow(0.4));
-            g.setStroke((pigeonFeatherBurstUltimate ? Color.GOLD : Color.WHITE).deriveColor(0, 1, 1, 0.82));
-            g.setLineWidth(3.0 * s);
-            for (int i = 0; i < laneOffsets.length; i++) {
-                double laneY = centerY + laneOffsets[i] * s;
-                double tipX = baseX + dir * (travel + i * 10.0 * s);
-                g.strokeLine(tipX - dir * 12.0 * s, laneY, tipX, laneY - 6.0 * s);
-                g.strokeLine(tipX - dir * 12.0 * s, laneY, tipX, laneY + 6.0 * s);
-                g.strokeLine(baseX - dir * 8.0 * s, laneY, tipX - dir * 5.0 * s, laneY);
-            }
+            double charge = Math.clamp(
+                    pigeonFeatherBurstChargeFrames / (double) PIGEON_NEUTRAL_MAX_CHARGE_FRAMES,
+                    0.0,
+                    1.0
+            );
+            double baseX = centerX + dir * 22.0 * s;
+            double reach = PigeonSpecials.neutralReachForCharge(pigeonFeatherBurstChargeFrames) * s;
+            double extension = reach * (1.0 - 0.42 * phase);
+            double tipX = baseX + dir * extension;
+            double pointLength = (18.0 + charge * 10.0) * s;
+            double pointHeight = (9.0 + charge * 4.0) * s;
+            Color peckColor = pigeonFeatherBurstUltimate ? Color.GOLD : Color.web("#FFD54F");
+            g.setEffect(new Glow(0.55 + charge * 0.25));
+            g.setStroke(peckColor.deriveColor(0, 1, 1, 0.78));
+            g.setLineWidth((8.0 + charge * 5.0) * s);
+            g.strokeLine(baseX, centerY, tipX - dir * pointLength * 0.55, centerY);
+            g.setFill(peckColor.deriveColor(0, 1, 1, 0.92));
+            g.fillPolygon(
+                    new double[]{tipX, tipX - dir * pointLength, tipX - dir * pointLength},
+                    new double[]{centerY, centerY - pointHeight, centerY + pointHeight},
+                    3
+            );
+            g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.78));
+            g.setLineWidth((2.0 + charge * 1.5) * s);
+            g.strokeLine(baseX + dir * 2.0 * s, centerY, tipX - dir * pointLength * 0.42, centerY);
             g.restore();
             return;
         }

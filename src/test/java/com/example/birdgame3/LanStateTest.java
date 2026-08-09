@@ -133,6 +133,9 @@ class LanStateTest {
         bird.pigeonCoronationStayedInside = false;
         bird.pigeonCoronationTickCooldown[2] = 17;
         bird.pigeonCoronationFinalHit[1] = true;
+        bird.pigeonFeatherCharging = true;
+        bird.pigeonFeatherChargeFrames = 41;
+        bird.pigeonFeatherBurstChargeFrames = 23;
         bird.pigeonScavengeTimer = 64;
         bird.pigeonScavengeHoldFrames = 36;
         bird.pigeonScavengeAirborne = true;
@@ -423,6 +426,9 @@ class LanStateTest {
         assertFalse(decoded.birds[0].pigeonCoronationStayedInside);
         assertEquals(17, decoded.birds[0].pigeonCoronationTickCooldown[2]);
         assertTrue(decoded.birds[0].pigeonCoronationFinalHit[1]);
+        assertTrue(decoded.birds[0].pigeonFeatherCharging);
+        assertEquals(41, decoded.birds[0].pigeonFeatherChargeFrames);
+        assertEquals(23, decoded.birds[0].pigeonFeatherBurstChargeFrames);
         assertEquals(64, decoded.birds[0].pigeonScavengeTimer);
         assertEquals(36, decoded.birds[0].pigeonScavengeHoldFrames);
         assertTrue(decoded.birds[0].pigeonScavengeAirborne);

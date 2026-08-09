@@ -10246,7 +10246,7 @@ public class BirdGame3 {
     }
 
     public enum BirdType {
-        PIGEON("Pigeon", 7, 16, 3.9, Color.LIGHTGRAY, 0.80, "Feather Burst + Street Rush + Fire-Escape Flutter + Rooftop Breaker"),
+        PIGEON("Pigeon", 7, 16, 3.9, Color.LIGHTGRAY, 0.80, "Long Peck + Street Rush + Fire-Escape Flutter + Rooftop Breaker"),
         EAGLE("Eagle", 9, 19, 4.2, Color.DARKRED, 0.6, "Hunter's Cry / Talon Rush / Skyrise / Heavenfall"),
         FALCON("Falcon", 10, 18, 4.4, Color.rgb(176, 95, 55), 0.64, "Echo of Eagle: Target Snap / Razor Rush / Jet Climb / Meteor Strike"),
         PHOENIX("Phoenix", 8, 20, 4.6, Color.ORANGERED, 0.66, "Cinder Halo / Snap Fire / Firespin / Faultfire"),
@@ -10356,8 +10356,8 @@ public class BirdGame3 {
         ),
         PIGEON_DRILL(
                 "Pigeon Rooftop Routes",
-                "Land Feather Burst, Street Rush, Fire-Escape Flutter, and a held Rooftop Drill.",
-                "Hold Down special in the air to drill. On the ground, hold it to send cracks in both directions.",
+                "Land a held Long Peck, Street Rush, Fire-Escape Flutter, and a held Rooftop Drill.",
+                "Hold Neutral for a longer peck. Hold Down in the air to drill or on the ground to send cracks both ways.",
                 MapType.BATTLEFIELD,
                 BirdType.PIGEON,
                 BirdType.EAGLE,
@@ -48031,10 +48031,10 @@ public class BirdGame3 {
 
     private String trainingPigeonDrillProgressText() {
         if (!trainingAcademyPigeonBurstHitSeen) {
-            return "Academy goal: land NEUTRAL Feather Burst on the dummy.";
+            return "Academy goal: hold NEUTRAL for a longer Long Peck and land it on the dummy.";
         }
         if (!trainingAcademyPigeonRushHitSeen) {
-            return "Burst hit done. Land SIDE Street Rush.";
+            return "Long Peck done. Land SIDE Street Rush.";
         }
         if (!trainingAcademyPigeonFlutterHitSeen) {
             return "Rush hit done. Land UP Fire-Escape Flutter.";
@@ -48473,7 +48473,7 @@ public class BirdGame3 {
                         + "  Side: " + yesNoText(trainingAcademySideSpecialSeen)
                         + "  Up: " + yesNoText(trainingAcademyUpSpecialSeen)
                         + "  Down: " + yesNoText(trainingAcademyDownSpecialSeen);
-                case PIGEON_DRILL -> "Burst: " + yesNoText(trainingAcademyPigeonBurstHitSeen)
+                case PIGEON_DRILL -> "Peck: " + yesNoText(trainingAcademyPigeonBurstHitSeen)
                         + "  Rush: " + yesNoText(trainingAcademyPigeonRushHitSeen)
                         + "  Flutter: " + yesNoText(trainingAcademyPigeonFlutterHitSeen)
                         + "  Drill: " + yesNoText(trainingAcademyPigeonDropPeckHitSeen);

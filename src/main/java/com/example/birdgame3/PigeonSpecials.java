@@ -24,37 +24,76 @@ final class PigeonSpecials {
         if (dir != 0) {
             bird.facingRight = dir > 0;
         }
-        dir = bird.facingDirection();
-        bird.pigeonFeatherBurstTimer = Bird.PIGEON_NEUTRAL_BURST_FRAMES;
+        bird.pigeonFeatherCharging = true;
+        bird.pigeonFeatherChargeFrames = 0;
+        bird.pigeonFeatherBurstChargeFrames = 0;
+        bird.pigeonFeatherBurstTimer = 0;
         bird.pigeonFeatherBurstUltimate = ultimate;
-        bird.specialCooldown = Bird.PIGEON_NEUTRAL_COOLDOWN_FRAMES + (ultimate ? 6 : 0);
+        bird.specialCooldown = 0;
+        bird.specialMaxCooldown = 0;
+        bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, 2);
+        bird.vx *= 0.68;
+    }
+
+    static double neutralReachForCharge(int chargeFrames) {
+        double ratio = neutralChargeRatio(chargeFrames);
+        return Bird.PIGEON_NEUTRAL_MIN_REACH
+                + (Bird.PIGEON_NEUTRAL_MAX_REACH - Bird.PIGEON_NEUTRAL_MIN_REACH) * ratio;
+    }
+
+    private static double neutralChargeRatio(int chargeFrames) {
+        return Math.clamp(chargeFrames / (double) Bird.PIGEON_NEUTRAL_MAX_CHARGE_FRAMES, 0.0, 1.0);
+    }
+
+    private static void handleNeutralCharge(Bird bird) {
+        int inputDir = bird.horizontalInputDirection();
+        if (inputDir != 0) {
+            bird.facingRight = inputDir > 0;
+        }
+        bird.vx *= bird.isOnGround() ? 0.62 : 0.86;
+        bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, 2);
+
+        if (bird.specialHeld() && bird.pigeonFeatherChargeFrames < Bird.PIGEON_NEUTRAL_MAX_CHARGE_FRAMES) {
+            bird.pigeonFeatherChargeFrames++;
+            if ((bird.pigeonFeatherChargeFrames % 8) == 0) {
+                emitNeutralChargeParticle(bird);
+            }
+            if (bird.pigeonFeatherChargeFrames < Bird.PIGEON_NEUTRAL_MAX_CHARGE_FRAMES) {
+                return;
+            }
+        }
+        releaseNeutral(bird);
+    }
+
+    private static void releaseNeutral(Bird bird) {
+        int dir = bird.facingDirection();
+        int heldFrames = Math.clamp(bird.pigeonFeatherChargeFrames, 0, Bird.PIGEON_NEUTRAL_MAX_CHARGE_FRAMES);
+        double chargeRatio = neutralChargeRatio(heldFrames);
+        double reach = neutralReachForCharge(heldFrames) * bird.sizeMultiplier;
+
+        bird.pigeonFeatherCharging = false;
+        bird.pigeonFeatherChargeFrames = 0;
+        bird.pigeonFeatherBurstChargeFrames = heldFrames;
+        bird.pigeonFeatherBurstTimer = Bird.PIGEON_NEUTRAL_BURST_FRAMES;
+        bird.specialCooldown = Bird.PIGEON_NEUTRAL_COOLDOWN_FRAMES
+                + (bird.pigeonFeatherBurstUltimate ? 6 : 0);
         bird.specialMaxCooldown = bird.specialCooldown;
         bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, bird.pigeonFeatherBurstTimer);
-        bird.vx *= 0.45;
-        bird.game.playPigeonFeatherBurstSfx(ultimate);
+        bird.vx *= 0.38;
+        bird.game.playPigeonFeatherBurstSfx(bird.pigeonFeatherBurstUltimate);
 
-        double[] laneOffsets = {-20.0, 0.0, 20.0};
-        double[] laneReach = ultimate ? new double[]{116.0, 132.0, 116.0} : new double[]{102.0, 118.0, 102.0};
-        double centerX = bird.bodyCenterX() + dir * bird.bodyWidth() * 0.54;
+        double centerX = bird.bodyCenterX() + dir * bird.bodyWidth() * 0.42;
+        double centerY = bird.bodyCenterY() - 2.0 * bird.sizeMultiplier;
         for (Bird other : bird.game.players) {
             if (!bird.canDamageTarget(other)) continue;
             double dx = other.bodyCenterX() - centerX;
-            if (dir > 0 && dx < -other.combatHalfWidth() * 0.2) continue;
-            if (dir < 0 && dx > other.combatHalfWidth() * 0.2) continue;
+            double forwardDistance = dx * dir;
+            if (forwardDistance < -other.combatHalfWidth() * 0.2) continue;
+            if (forwardDistance > reach + other.combatHalfWidth()) continue;
+            if (Math.abs(other.bodyCenterY() - centerY)
+                    > (24.0 + chargeRatio * 7.0) * bird.sizeMultiplier + other.combatHalfHeight()) continue;
 
-            boolean hit = false;
-            for (int i = 0; i < laneOffsets.length; i++) {
-                double laneY = bird.bodyCenterY() + laneOffsets[i] * bird.sizeMultiplier;
-                double laneDx = Math.abs(dx);
-                double laneDy = Math.abs(other.bodyCenterY() - laneY);
-                if (laneDx > laneReach[i] * bird.sizeMultiplier + other.combatHalfWidth()) continue;
-                if (laneDy > 18.0 * bird.sizeMultiplier + other.combatHalfHeight()) continue;
-                hit = true;
-                break;
-            }
-            if (!hit) continue;
-
-            int dmg = ultimate ? 6 : 4;
+            int dmg = (bird.pigeonFeatherBurstUltimate ? 6 : 4) + (int) Math.round(chargeRatio * 5.0);
             double oldHealth = other.health;
             int dealt = (int) bird.applyDamageTo(other, dmg);
             if (dealt <= 0) continue;
@@ -66,28 +105,38 @@ final class PigeonSpecials {
                 bird.game.eliminations[bird.playerIndex]++;
             }
 
-            double launchX = dir * (ultimate ? 5.8 : 4.6);
-            double launchY = -(ultimate ? 3.8 : 2.9);
+            double launchX = dir * ((bird.pigeonFeatherBurstUltimate ? 5.8 : 4.6) + chargeRatio * 4.2);
+            double launchY = -((bird.pigeonFeatherBurstUltimate ? 3.8 : 2.9) + chargeRatio * 2.7);
             other.vx += launchX;
             other.vy += launchY;
-            emitSpecialImpact(bird, other, launchX, launchY, dealt, isKill, "Pigeon Feather Burst");
+            emitSpecialImpact(bird, other, launchX, launchY, dealt, isKill, "Pigeon Long Peck");
         }
 
-        for (int feather = 0; feather < 3; feather++) {
-            double laneY = bird.bodyCenterY() + laneOffsets[feather] * bird.sizeMultiplier;
-            for (int i = 0; i < 6; i++) {
-                double progress = i / 5.0;
-                double spread = (feather - 1) * 0.18;
-                double speed = 4.2 + progress * 6.0;
-                bird.game.particles.add(new Particle(
-                        centerX + dir * (10 + progress * 56),
-                        laneY + Math.sin(progress * Math.PI) * 6 * spread,
-                        dir * speed,
-                        spread * 2.4 - 0.5,
-                        ultimate ? Color.GOLD.deriveColor(0, 1, 1, 0.86) : Color.WHITE.deriveColor(0, 1, 1, 0.78)
-                ));
-            }
+        int particleCount = bird.scaledParticleCount(10 + (int) Math.round(chargeRatio * 12.0));
+        for (int i = 0; i < particleCount; i++) {
+            double progress = bird.game.nextParticleRandom();
+            double lateral = (bird.game.nextParticleRandom() - 0.5) * (14.0 + chargeRatio * 18.0);
+            bird.game.particles.add(new Particle(
+                    centerX + dir * reach * progress,
+                    centerY + lateral * bird.sizeMultiplier,
+                    dir * (3.5 + bird.game.nextParticleRandom() * (4.0 + chargeRatio * 4.0)),
+                    (bird.game.nextParticleRandom() - 0.5) * 2.4,
+                    (bird.pigeonFeatherBurstUltimate ? Color.GOLD : Color.WHITE).deriveColor(0, 1, 1, 0.82)
+            ));
         }
+    }
+
+    private static void emitNeutralChargeParticle(Bird bird) {
+        double ratio = neutralChargeRatio(bird.pigeonFeatherChargeFrames);
+        double angle = bird.game.nextParticleRandom() * Math.PI * 2.0;
+        double radius = (20.0 + ratio * 22.0) * bird.sizeMultiplier;
+        bird.game.particles.add(new Particle(
+                bird.bodyCenterX() + bird.facingDirection() * bird.bodyWidth() * 0.34 + Math.cos(angle) * radius,
+                bird.bodyCenterY() + Math.sin(angle) * radius,
+                -Math.cos(angle) * (0.8 + ratio * 1.4),
+                -Math.sin(angle) * (0.8 + ratio * 1.4),
+                (bird.pigeonFeatherBurstUltimate ? Color.GOLD : Color.web("#FFF59D")).deriveColor(0, 1, 1, 0.76)
+        ));
     }
 
     static void side(Bird bird, boolean ultimate) {
@@ -176,6 +225,9 @@ final class PigeonSpecials {
                 bird.mockingbirdCopiedNeutralSource = null;
             }
         } else {
+            if (bird.pigeonFeatherCharging) {
+                handleNeutralCharge(bird);
+            }
             if (bird.pigeonRushTimer > 0) {
                 handleRush(bird);
             }
@@ -192,7 +244,8 @@ final class PigeonSpecials {
     }
 
     static boolean active(Bird bird) {
-        return bird.pigeonRushTimer > 0 || bird.pigeonFlutterTimer > 0 || bird.pigeonScavengeTimer > 0;
+        return bird.pigeonFeatherCharging || bird.pigeonFeatherBurstTimer > 0
+                || bird.pigeonRushTimer > 0 || bird.pigeonFlutterTimer > 0 || bird.pigeonScavengeTimer > 0;
     }
 
     static void startCoronation(Bird bird) {
@@ -232,6 +285,9 @@ final class PigeonSpecials {
 
     static void reset(Bird bird) {
         bird.pigeonFeatherBurstTimer = 0;
+        bird.pigeonFeatherCharging = false;
+        bird.pigeonFeatherChargeFrames = 0;
+        bird.pigeonFeatherBurstChargeFrames = 0;
         bird.pigeonFeatherBurstUltimate = false;
         bird.pigeonRushTimer = 0;
         bird.pigeonRushGrounded = false;

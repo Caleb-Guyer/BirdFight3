@@ -268,6 +268,9 @@ class LanProtocolTest {
         state.pigeonCoronationStayedInside = true;
         state.pigeonCoronationTickCooldown[3] = 12;
         state.pigeonCoronationFinalHit[0] = true;
+        state.pigeonFeatherCharging = true;
+        state.pigeonFeatherChargeFrames = 44;
+        state.pigeonFeatherBurstChargeFrames = 31;
         state.pigeonScavengeTimer = 71;
         state.pigeonScavengeHoldFrames = 29;
         state.pigeonScavengeAirborne = true;
@@ -548,6 +551,9 @@ class LanProtocolTest {
         assertTrue(decoded.pigeonCoronationStayedInside);
         assertEquals(12, decoded.pigeonCoronationTickCooldown[3]);
         assertTrue(decoded.pigeonCoronationFinalHit[0]);
+        assertTrue(decoded.pigeonFeatherCharging);
+        assertEquals(44, decoded.pigeonFeatherChargeFrames);
+        assertEquals(31, decoded.pigeonFeatherBurstChargeFrames);
         assertEquals(71, decoded.pigeonScavengeTimer);
         assertEquals(29, decoded.pigeonScavengeHoldFrames);
         assertTrue(decoded.pigeonScavengeAirborne);

@@ -237,7 +237,8 @@ final class CaveEscapeSequence {
         double birdRight = pigeon.x + pigeon.bodyWidth();
         double birdTop = pigeon.y;
         double birdBottom = pigeon.bodyBottomY();
-        boolean specialActive = pigeon.pigeonFeatherBurstTimer > 0
+        boolean specialActive = pigeon.pigeonFeatherCharging
+                || pigeon.pigeonFeatherBurstTimer > 0
                 || pigeon.pigeonRushTimer > 0
                 || pigeon.pigeonFlutterTimer > 0
                 || pigeon.pigeonScavengeTimer > 0;

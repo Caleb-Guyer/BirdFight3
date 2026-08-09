@@ -3910,7 +3910,7 @@ class BirdStateTest {
     }
 
     @Test
-    void pigeonNeutralSpecialFiresFeatherBurstWithoutHealingAndCannotBeSpammed() throws Exception {
+    void pigeonNeutralSpecialWaitsForReleaseAndQuickTapStillPecks() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;
 
@@ -3926,10 +3926,17 @@ class BirdStateTest {
         double startingHealth = target.health;
         game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
         pigeon.update(1.0);
+
+        assertTrue(pigeon.pigeonFeatherCharging,
+                "Neutral special should wind up while special remains held.");
+        assertEquals(startingHealth, target.health, 0.0001,
+                "The peck should not hit before special is released.");
+
         game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
+        pigeon.update(1.0);
 
         assertEquals(startingHealth - 4.0, target.health, 0.0001,
-                "Neutral special should hit for the lighter damage value.");
+                "A quick tap should release the short, light version of Long Peck.");
         assertEquals(60.0, pigeon.health, 0.0001, "Neutral special should not heal Pigeon.");
         assertTrue(getPrivateInt(pigeon, "specialCooldown") > 0,
                 "Neutral special should apply an anti-spam cooldown.");
@@ -3946,6 +3953,71 @@ class BirdStateTest {
 
         assertEquals(afterFirstBurstHealth, target.health, 0.0001,
                 "Neutral special should have enough lockout to prevent immediate spam.");
+    }
+
+    @Test
+    void pigeonHeldNeutralSpecialExtendsReachAndAutoReleasesAtFullCharge() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird pigeon = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird distantTarget = new Bird(390.0, BirdGame3.BirdType.EAGLE, 1, game);
+        pigeon.y = BirdGame3.GROUND_Y - 80.0;
+        distantTarget.y = BirdGame3.GROUND_Y - 80.0;
+        pigeon.facingRight = true;
+        game.players[0] = pigeon;
+        game.players[1] = distantTarget;
+
+        assertEquals(Bird.PIGEON_NEUTRAL_MIN_REACH, PigeonSpecials.neutralReachForCharge(0), 0.0001);
+        assertEquals(Bird.PIGEON_NEUTRAL_MAX_REACH,
+                PigeonSpecials.neutralReachForCharge(Bird.PIGEON_NEUTRAL_MAX_CHARGE_FRAMES), 0.0001);
+        assertTrue(PigeonSpecials.neutralReachForCharge(Bird.PIGEON_NEUTRAL_MAX_CHARGE_FRAMES / 2)
+                        > PigeonSpecials.neutralReachForCharge(0),
+                "Long Peck reach should grow continuously while it is held.");
+
+        double startingHealth = distantTarget.health;
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
+        pigeon.update(1.0);
+        for (int i = 0; i < Bird.PIGEON_NEUTRAL_MAX_CHARGE_FRAMES; i++) {
+            pigeon.update(1.0);
+        }
+
+        assertFalse(pigeon.pigeonFeatherCharging,
+                "A fully charged Long Peck should release automatically instead of charging forever.");
+        assertEquals(Bird.PIGEON_NEUTRAL_MAX_CHARGE_FRAMES, pigeon.pigeonFeatherBurstChargeFrames);
+        assertTrue(pigeon.pigeonFeatherBurstTimer > 0);
+        assertTrue(distantTarget.health < startingHealth,
+                "The fully held Long Peck should reach a target that a quick tap cannot reach.");
+        assertTrue(distantTarget.vx > 0.0, "The charged peck should launch forward.");
+
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
+    }
+
+    @Test
+    void pigeonNeutralChargeIsCanceledWhenPigeonIsHit() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird pigeon = new Bird(190.0, BirdGame3.BirdType.PIGEON, 0, game);
+        pigeon.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = pigeon;
+
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
+        pigeon.update(1.0);
+        for (int i = 0; i < 12; i++) {
+            pigeon.update(1.0);
+        }
+        assertTrue(pigeon.pigeonFeatherCharging);
+        assertTrue(pigeon.pigeonFeatherChargeFrames >= 12);
+
+        assertTrue(pigeon.receiveExternalDamage(5.0) > 0.0);
+        assertFalse(pigeon.pigeonFeatherCharging,
+                "Taking a hit should interrupt Long Peck's wind-up.");
+        assertEquals(0, pigeon.pigeonFeatherChargeFrames);
+        assertEquals(0, pigeon.pigeonFeatherBurstTimer,
+                "An interrupted charge must not release a delayed peck.");
+
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
     }
 
     @Test

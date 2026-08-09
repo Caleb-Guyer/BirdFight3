@@ -412,6 +412,9 @@ class LanBirdState {
     int grinchGiftstormDropFxTimer;
     boolean[] grinchGiftstormFinalHit = new boolean[4];
     int pigeonFeatherBurstTimer;
+    boolean pigeonFeatherCharging;
+    int pigeonFeatherChargeFrames;
+    int pigeonFeatherBurstChargeFrames;
     boolean pigeonFeatherBurstUltimate;
     int pigeonRushTimer;
     boolean pigeonRushGrounded;
@@ -1043,6 +1046,9 @@ class LanBirdState {
             out.writeBoolean(hit);
         }
         out.writeInt(pigeonFeatherBurstTimer);
+        out.writeBoolean(pigeonFeatherCharging);
+        out.writeInt(pigeonFeatherChargeFrames);
+        out.writeInt(pigeonFeatherBurstChargeFrames);
         out.writeBoolean(pigeonFeatherBurstUltimate);
         out.writeInt(pigeonRushTimer);
         out.writeBoolean(pigeonRushGrounded);
@@ -1708,6 +1714,9 @@ class LanBirdState {
             state.grinchGiftstormFinalHit[i] = in.readBoolean();
         }
         state.pigeonFeatherBurstTimer = in.readInt();
+        state.pigeonFeatherCharging = in.readBoolean();
+        state.pigeonFeatherChargeFrames = in.readInt();
+        state.pigeonFeatherBurstChargeFrames = in.readInt();
         state.pigeonFeatherBurstUltimate = in.readBoolean();
         state.pigeonRushTimer = in.readInt();
         state.pigeonRushGrounded = in.readBoolean();
