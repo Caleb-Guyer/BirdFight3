@@ -106,6 +106,26 @@ class PigeonClassicRouteTest {
     }
 
     @Test
+    void miniatureFlockMinionsCannotChargeOrUseUltimates() throws Exception {
+        BirdGame3 game = preparedGameAtDifficulty(5.0);
+        ClassicEncounter minionFight = pigeonRoute(game).getFirst();
+        Method setupRoster = BirdGame3.class.getDeclaredMethod("setupClassicEncounterRoster", ClassicEncounter.class);
+        setupRoster.setAccessible(true);
+
+        setupRoster.invoke(game, minionFight);
+
+        assertTrue(game.players[0].hasUltimate());
+        for (int i = 1; i < 4; i++) {
+            Bird minion = game.players[i];
+            assertFalse(minion.hasUltimate());
+            minion.gainUltimateFromMinionDamage(1_000.0);
+            assertEquals(0.0, minion.getUltimateRatio(), 0.0001);
+            assertFalse(minion.isUltimateReady());
+            assertFalse(minion.consumeUltimate());
+        }
+    }
+
+    @Test
     void nullRockKeepsTrueFormButUsesSoloRouteHealthTuning() throws Exception {
         BirdGame3 game = preparedGameAtDifficulty(5.0);
         ClassicEncounter finale = pigeonRoute(game).getLast();

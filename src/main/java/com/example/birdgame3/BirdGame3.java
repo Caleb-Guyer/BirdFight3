@@ -40727,6 +40727,7 @@ public class BirdGame3 {
                         enemy.speedMult,
                         true
                 );
+                enemyBird.setUltimateEnabled(encounter.style != ClassicEncounterStyle.MINIATURE_FLOCK);
                 if (enemy.skinKey != null) {
                     applyPreviewSkinChoiceToBird(enemyBird, enemy.type, enemy.skinKey);
                 }
@@ -49165,33 +49166,35 @@ public class BirdGame3 {
         g.setLineWidth(1.3);
         g.strokeRoundRect(healthBarX, healthBarY, healthBarW, healthBarH, 12, 12);
 
-        double ultBarX = rect.getMinX() + 18;
-        double ultBarY = rect.getMaxY() - 24;
-        double ultBarW = rect.getWidth() - 36;
-        double ultBarH = 10;
-        double ultRatio = bird.getUltimateRatio();
-        Color ultColor = bird.isUltimateReady()
-                ? Color.web("#FFD54F")
-                : Color.web("#4DD0E1");
-        g.setFill(Color.web("#071018", 0.96));
-        g.fillRoundRect(ultBarX, ultBarY, ultBarW, ultBarH, 12, 12);
-        g.setFill(ultColor);
-        g.fillRoundRect(ultBarX, ultBarY, ultBarW * ultRatio, ultBarH, 12, 12);
-        g.setStroke(Color.web("#F5F7FA", 0.7));
-        g.setLineWidth(1.2);
-        g.strokeRoundRect(ultBarX, ultBarY, ultBarW, ultBarH, 12, 12);
+        if (bird.hasUltimate()) {
+            double ultBarX = rect.getMinX() + 18;
+            double ultBarY = rect.getMaxY() - 24;
+            double ultBarW = rect.getWidth() - 36;
+            double ultBarH = 10;
+            double ultRatio = bird.getUltimateRatio();
+            Color ultColor = bird.isUltimateReady()
+                    ? Color.web("#FFD54F")
+                    : Color.web("#4DD0E1");
+            g.setFill(Color.web("#071018", 0.96));
+            g.fillRoundRect(ultBarX, ultBarY, ultBarW, ultBarH, 12, 12);
+            g.setFill(ultColor);
+            g.fillRoundRect(ultBarX, ultBarY, ultBarW * ultRatio, ultBarH, 12, 12);
+            g.setStroke(Color.web("#F5F7FA", 0.7));
+            g.setLineWidth(1.2);
+            g.strokeRoundRect(ultBarX, ultBarY, ultBarW, ultBarH, 12, 12);
 
-        g.setFill(Color.web("#B0BEC5"));
-        g.setFont(Font.font("Consolas", FontWeight.BOLD, 14));
-        g.fillText("ULT", ultBarX, ultBarY - 4);
-        g.setTextAlign(TextAlignment.RIGHT);
-        g.setFill(bird.isUltimateReady() ? Color.web("#FFF59D") : Color.web("#B3E5FC"));
-        g.fillText(
-                ultimateChargeStatusText(ultRatio, bird.isUltimateReady()),
-                ultBarX + ultBarW,
-                ultBarY - 4
-        );
-        g.setTextAlign(TextAlignment.LEFT);
+            g.setFill(Color.web("#B0BEC5"));
+            g.setFont(Font.font("Consolas", FontWeight.BOLD, 14));
+            g.fillText("ULT", ultBarX, ultBarY - 4);
+            g.setTextAlign(TextAlignment.RIGHT);
+            g.setFill(bird.isUltimateReady() ? Color.web("#FFF59D") : Color.web("#B3E5FC"));
+            g.fillText(
+                    ultimateChargeStatusText(ultRatio, bird.isUltimateReady()),
+                    ultBarX + ultBarW,
+                    ultBarY - 4
+            );
+            g.setTextAlign(TextAlignment.LEFT);
+        }
         g.restore();
     }
 

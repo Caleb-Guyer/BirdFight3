@@ -1321,6 +1321,7 @@ public class Bird {
     public double thermalLift = 0.0;
     public int overchargeAttackTimer = 0;
     private double ultimateMeter = 0.0;
+    private boolean ultimateEnabled = true;
     private int ultimateFxTimer = 0;
     int roadrunnerSandstormTimer = 0;
     int roadrunnerSandGustTimer = 0;
@@ -14618,11 +14619,24 @@ public class Bird {
     }
 
     public double getUltimateRatio() {
+        if (!ultimateEnabled) return 0.0;
         return Math.clamp(ultimateMeter / ULTIMATE_MAX, 0.0, 1.0);
     }
 
     public boolean isUltimateReady() {
-        return ultimateMeter >= ULTIMATE_MAX;
+        return ultimateEnabled && ultimateMeter >= ULTIMATE_MAX;
+    }
+
+    boolean hasUltimate() {
+        return ultimateEnabled;
+    }
+
+    void setUltimateEnabled(boolean enabled) {
+        ultimateEnabled = enabled;
+        if (!enabled) {
+            ultimateMeter = 0.0;
+            ultimateFxTimer = 0;
+        }
     }
 
     boolean isUltimateVisualReady() {
@@ -14633,6 +14647,7 @@ public class Bird {
     }
 
     private void gainUltimate(double amount) {
+        if (!ultimateEnabled) return;
         if (amount <= 0) return;
         if (type != null) {
             amount *= type.ultimateRate;
@@ -14704,7 +14719,7 @@ public class Bird {
         powerMultiplier = basePowerMultiplier;
         sizeMultiplier = baseSizeMultiplier;
         ultimateFxTimer = 0;
-        if (fillUltimate) {
+        if (fillUltimate && ultimateEnabled) {
             ultimateMeter = ULTIMATE_MAX;
         }
     }
