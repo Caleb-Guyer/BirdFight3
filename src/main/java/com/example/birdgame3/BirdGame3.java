@@ -49876,6 +49876,10 @@ public class BirdGame3 {
             }
         };
         Scene scene = new Scene(frame, WIDTH, HEIGHT);
+        // Results share the gameplay render surface, so use the same direct
+        // full-window scaling path as gameplay. The generic menu wrapper adds
+        // a 28px safe-area margin and letterboxes fixed-ratio content.
+        makeSceneResponsive(scene);
         if (lanModeActive) {
             setupKeyboardNavigation(scene);
             applyConsoleHighlight(scene);

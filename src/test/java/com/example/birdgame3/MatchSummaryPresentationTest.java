@@ -108,6 +108,7 @@ class MatchSummaryPresentationTest {
         String body = source.substring(methodStart, methodEnd);
 
         assertTrue(body.contains("new Scene(frame, WIDTH, HEIGHT)"));
+        assertTrue(body.contains("makeSceneResponsive(scene)"));
         assertFalse(body.contains("bindFixedFrameScale"));
     }
 
