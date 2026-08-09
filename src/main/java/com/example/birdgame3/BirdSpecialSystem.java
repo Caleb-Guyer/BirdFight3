@@ -42,7 +42,7 @@ final class BirdSpecialSystem {
             if (!bird.consumeUltimate()) {
                 return;
             }
-            triggerUltimateStartEffects(bird);
+            triggerUltimateStartEffects(bird, false);
             playSpecialSound(bird, false);
             game.specialsUsed[bird.playerIndex]++;
             game.recordUltimateMoveUse(bird, PigeonSpecials.SKYWARD_SEED_WAVE_MOVE);
@@ -128,13 +128,19 @@ final class BirdSpecialSystem {
     }
 
     private static void triggerUltimateStartEffects(Bird bird) {
+        triggerUltimateStartEffects(bird, true);
+    }
+
+    private static void triggerUltimateStartEffects(Bird bird, boolean allowHitstop) {
         BirdGame3 game = bird.game;
         game.addToKillFeed(bird.shortName() + " UNLEASHED ULTIMATE!");
         game.shakeIntensity = Math.max(game.shakeIntensity, 18);
-        game.hitstopFrames = Math.max(game.hitstopFrames, 8);
+        if (allowHitstop) {
+            game.hitstopFrames = Math.max(game.hitstopFrames, 8);
+        }
         game.triggerFlash(0.7, false);
 
-        int ultimateBurstParticles = bird.scaledParticleCount(90);
+        int ultimateBurstParticles = bird.scaledParticleCount(allowHitstop ? 90 : 36);
         for (int i = 0; i < ultimateBurstParticles; i++) {
             double angle = game.nextParticleRandom() * Math.PI * 2;
             double speed = 8 + game.nextParticleRandom() * 16;

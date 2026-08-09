@@ -274,7 +274,7 @@ final class PigeonSpecials {
         bird.game.triggerFlash(0.42, false);
         bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, 16.0);
 
-        for (int i = 0; i < bird.scaledParticleCount(72); i++) {
+        for (int i = 0; i < bird.scaledParticleCount(48); i++) {
             double angle = bird.game.nextParticleRandom() * Math.PI * 2.0;
             double speed = 4.0 + bird.game.nextParticleRandom() * 10.0;
             bird.game.particles.add(new Particle(
@@ -643,7 +643,7 @@ final class PigeonSpecials {
             bird.vx *= 0.92;
         }
 
-        for (int i = 0; i < bird.scaledParticleCount(5); i++) {
+        for (int i = 0; i < bird.scaledParticleCount(3); i++) {
             double angle = bird.game.nextParticleRandom() * Math.PI * 2.0;
             double shellRadius = radius * (0.93 + bird.game.nextParticleRandom() * 0.13);
             double seedX = bird.pigeonCoronationX + Math.cos(angle) * shellRadius;
@@ -671,7 +671,7 @@ final class PigeonSpecials {
             if (waveDistance > radius + other.combatRadius()) continue;
 
             double oldHealth = other.health;
-            int dealt = bird.applyTrackedSpecialDamage(other, Bird.PIGEON_SEED_WAVE_DAMAGE);
+            int dealt = bird.applyTrackedSpecialDamageWithoutImpact(other, Bird.PIGEON_SEED_WAVE_DAMAGE);
             if (dealt <= 0) continue;
             bird.pigeonCoronationFinalHit[targetIndex] = true;
 
@@ -683,12 +683,12 @@ final class PigeonSpecials {
             other.vy += launchY;
             other.applyStun(20);
             boolean isKill = other.health <= 0 && oldHealth > 0;
-            emitSpecialImpact(bird, other, launchX, launchY,
-                    dealt, isKill, SKYWARD_SEED_WAVE_MOVE);
-            emitCoronationHitParticles(bird, other, 34, Color.web("#FFD166"));
-            bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, 22.0);
-            bird.game.hitstopFrames = Math.max(bird.game.hitstopFrames, 7);
-            bird.game.triggerFlash(0.24, false);
+            bird.game.emitCombatImpactWithoutHitstop(
+                    bird, other, other.bodyCenterX(), other.bodyCenterY(),
+                    launchX, launchY, dealt, isKill, SKYWARD_SEED_WAVE_MOVE);
+            emitCoronationHitParticles(bird, other, 22, Color.web("#FFD166"));
+            bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, 14.0);
+            bird.game.triggerFlash(0.14, false);
         }
     }
 

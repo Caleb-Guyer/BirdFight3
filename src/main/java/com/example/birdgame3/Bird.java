@@ -14889,6 +14889,14 @@ public class Bird {
     }
 
     int applyTrackedSpecialDamage(Bird target, int rawDamage) {
+        return applyTrackedSpecialDamage(target, rawDamage, true);
+    }
+
+    int applyTrackedSpecialDamageWithoutImpact(Bird target, int rawDamage) {
+        return applyTrackedSpecialDamage(target, rawDamage, false);
+    }
+
+    private int applyTrackedSpecialDamage(Bird target, int rawDamage, boolean emitImpact) {
         if (target == null || rawDamage <= 0) {
             return 0;
         }
@@ -14902,8 +14910,10 @@ public class Bird {
         confirmSpecialHit(dealt, specialHitConfirmAccent());
         String impactMoveName = game.lastTelemetryMoveName(playerIndex, type.name + " Special");
         boolean isKill = target.health <= 0 && oldHealth > 0;
-        game.emitCombatImpact(this, target, target.bodyCenterX(), target.bodyCenterY(),
-                target.vx, target.vy, dealt, isKill, impactMoveName);
+        if (emitImpact) {
+            game.emitCombatImpact(this, target, target.bodyCenterX(), target.bodyCenterY(),
+                    target.vx, target.vy, dealt, isKill, impactMoveName);
+        }
         if (isKill) {
             game.eliminations[playerIndex]++;
             game.recordMoveKo(this, target, impactMoveName);
@@ -26920,7 +26930,6 @@ public class Bird {
         double fade = progress < 0.82 ? 1.0 : Math.clamp((1.0 - progress) / 0.18, 0.0, 1.0);
 
         g.save();
-        g.setEffect(new Glow(0.36 + pulse * 0.20));
         g.setFill(Color.web("#F6C453").deriveColor(0, 1, 1, 0.055 * fade));
         g.fillOval(cx - radius, cy - verticalRadius, radius * 2.0, verticalRadius * 2.0);
 
@@ -26932,25 +26941,29 @@ public class Bird {
         g.strokeOval(cx - radius * 0.91, cy - verticalRadius * 0.91,
                 radius * 1.82, verticalRadius * 1.82);
 
-        int seedCount = 88;
+        // Keep the full-screen wave vector-only. A JavaFX pixel effect across this
+        // much screen area stalls the render thread on integrated graphics.
+        int seedCount = 64;
+        Color lightSeed = Color.web("#FFF8DC").deriveColor(0, 1, 1, 0.96 * fade);
+        Color darkSeed = Color.web("#D9A441").deriveColor(0, 1, 1, 0.92 * fade);
+        Color seedStripe = Color.web("#7A4E16").deriveColor(0, 1, 1, 0.72 * fade);
         for (int i = 0; i < seedCount; i++) {
             double angle = i * Math.PI * 2.0 / seedCount + progress * 0.42;
             double ripple = 0.955 + 0.035 * Math.sin(i * 1.73 + progress * 24.0);
-            double seedX = cx + Math.cos(angle) * radius * ripple;
-            double seedY = cy + Math.sin(angle) * verticalRadius * ripple;
+            double cos = Math.cos(angle);
+            double sin = Math.sin(angle);
+            double seedX = cx + cos * radius * ripple;
+            double seedY = cy + sin * verticalRadius * ripple;
             double seedLength = 9.0 + (i % 5) * 1.15 + pulse * 1.8;
-            double seedWidth = seedLength * 0.48;
-            g.save();
-            g.translate(seedX, seedY);
-            g.rotate(Math.toDegrees(angle) + 90.0);
-            g.setFill((i & 3) == 0
-                    ? Color.web("#FFF8DC").deriveColor(0, 1, 1, 0.96 * fade)
-                    : Color.web("#D9A441").deriveColor(0, 1, 1, 0.92 * fade));
-            g.fillOval(-seedWidth * 0.5, -seedLength * 0.5, seedWidth, seedLength);
-            g.setStroke(Color.web("#7A4E16").deriveColor(0, 1, 1, 0.72 * fade));
+            double seedWidth = seedLength * (0.48 + 0.52 * Math.abs(cos));
+            double seedHeight = seedLength * (0.48 + 0.52 * Math.abs(sin));
+            g.setFill((i & 3) == 0 ? lightSeed : darkSeed);
+            g.fillOval(seedX - seedWidth * 0.5, seedY - seedHeight * 0.5,
+                    seedWidth, seedHeight);
+            g.setStroke(seedStripe);
             g.setLineWidth(1.0);
-            g.strokeLine(0.0, -seedLength * 0.30, 0.0, seedLength * 0.30);
-            g.restore();
+            g.strokeLine(seedX - cos * seedLength * 0.30, seedY - sin * seedLength * 0.30,
+                    seedX + cos * seedLength * 0.30, seedY + sin * seedLength * 0.30);
         }
 
         double birdCx = bodyCenterX();

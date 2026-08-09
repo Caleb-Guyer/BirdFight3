@@ -315,14 +315,18 @@ class BirdStateTest {
     @Test
     void pigeonSkywardSeedWaveAscendsAndHitsDistantTargetsOnce() {
         BirdGame3 game = new BirdGame3();
-        game.activePlayers = 2;
+        game.activePlayers = 3;
 
         Bird pigeon = new Bird(100, BirdGame3.BirdType.PIGEON, 0, game);
         Bird target = new Bird(960, BirdGame3.BirdType.EAGLE, 1, game);
+        Bird fragileTarget = new Bird(300, BirdGame3.BirdType.FALCON, 2, game);
         pigeon.y = BirdGame3.GROUND_Y - 80.0;
         target.y = BirdGame3.GROUND_Y - 80.0;
+        fragileTarget.y = BirdGame3.GROUND_Y - 80.0;
+        fragileTarget.health = 5.0;
         game.players[0] = pigeon;
         game.players[1] = target;
+        game.players[2] = fragileTarget;
         pigeon.refillTrainingResources(true);
 
         BirdSpecialSystem.useSpecial(pigeon);
@@ -344,7 +348,24 @@ class BirdStateTest {
         assertEquals(0, pigeon.pigeonCoronationTimer);
         assertEquals(Bird.PIGEON_SEED_WAVE_DAMAGE, startingHealth - target.health, 0.001,
                 "Each opponent should be damaged exactly once as the wave reaches them.");
+        assertEquals(0.0, fragileTarget.health, 0.001,
+                "The no-freeze impact path must also preserve lethal seed-wave hits.");
         assertTrue(target.vy < -0.1 || Math.abs(target.vx) > 0.1);
+        assertEquals(0, game.hitstopFrames,
+                "The expanding seed wave must never pause the whole match when it reaches a target.");
+    }
+
+    @Test
+    void pigeonSeedWaveRenderAvoidsFullScreenPixelEffects() throws Exception {
+        String source = Files.readString(Path.of(
+                "src", "main", "java", "com", "example", "birdgame3", "Bird.java"));
+        int waveStart = source.indexOf("private void drawPigeonSeedWave");
+        int waveEnd = source.indexOf("private void drawEagleSkySovereignReticle", waveStart);
+
+        assertTrue(waveStart >= 0 && waveEnd > waveStart);
+        String waveRender = source.substring(waveStart, waveEnd);
+        assertFalse(waveRender.contains("setEffect("),
+                "A full-screen JavaFX pixel effect can freeze the render thread during Pigeon's ultimate.");
     }
 
     @Test

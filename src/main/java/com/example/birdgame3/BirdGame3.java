@@ -12814,6 +12814,18 @@ public class BirdGame3 {
 
     void emitCombatImpact(Bird attacker, Bird target, double x, double y, double launchX, double launchY,
                           double damage, boolean finisher, String moveName) {
+        emitCombatImpact(attacker, target, x, y, launchX, launchY, damage, finisher, moveName, true);
+    }
+
+    void emitCombatImpactWithoutHitstop(Bird attacker, Bird target, double x, double y,
+                                        double launchX, double launchY, double damage,
+                                        boolean finisher, String moveName) {
+        emitCombatImpact(attacker, target, x, y, launchX, launchY, damage, finisher, moveName, false);
+    }
+
+    private void emitCombatImpact(Bird attacker, Bird target, double x, double y,
+                                  double launchX, double launchY, double damage,
+                                  boolean finisher, String moveName, boolean allowHitstop) {
         if (damage <= 0.0) {
             return;
         }
@@ -12865,14 +12877,20 @@ public class BirdGame3 {
         double shake = Math.clamp(2.5 + damage * 0.24 + launchSpeed * 0.16 + (finisher ? 10.0 : 0.0),
                 3.0, finisher ? 34.0 : 18.0);
         shakeIntensity = Math.max(shakeIntensity, shake);
-        int impactStop = (int) Math.round(Math.clamp(3.0 + damage / 6.0 + (finisher ? 8.0 : 0.0),
-                4.0, finisher ? 22.0 : 14.0));
-        hitstopFrames = Math.min(25, Math.max(hitstopFrames, impactStop));
+        if (allowHitstop) {
+            int impactStop = (int) Math.round(Math.clamp(3.0 + damage / 6.0 + (finisher ? 8.0 : 0.0),
+                    4.0, finisher ? 22.0 : 14.0));
+            hitstopFrames = Math.min(25, Math.max(hitstopFrames, impactStop));
+        }
         if (damage >= 8.0 || finisher) {
             playHitSound(Math.max(damage, finisher ? 42.0 : damage));
         }
         if (finisher) {
+            int hitstopBeforeFlash = hitstopFrames;
             triggerFlash(1.0, true);
+            if (!allowHitstop) {
+                hitstopFrames = hitstopBeforeFlash;
+            }
         } else if (damage >= 28.0) {
             triggerFlash(Math.min(0.78, damage / 58.0), false);
         }
