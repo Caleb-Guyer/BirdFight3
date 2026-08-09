@@ -6722,6 +6722,33 @@ class BirdStateTest {
     }
 
     @Test
+    void titmouseAiFastFallsTowardSafeLandingInsteadOfHovering() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+        game.selectedMap = BirdGame3.MapType.BATTLEFIELD;
+        Platform mainIsland = new Platform(2_400.0, BirdGame3.GROUND_Y - 80.0, 1_200.0, 70.0);
+        game.platforms.add(mainIsland);
+
+        Bird titmouse = new Bird(2_820.0, BirdGame3.BirdType.TITMOUSE, 0, game);
+        titmouse.y = mainIsland.y - 520.0;
+        Bird target = new Bird(2_840.0, BirdGame3.BirdType.PIGEON, 1, game);
+        target.y = mainIsland.y - target.bodyHeight();
+        game.players[0] = titmouse;
+        game.players[1] = target;
+        game.isAI[0] = true;
+        int[] cpuLevels = (int[]) getPrivateObject(game, "cpuLevels");
+        cpuLevels[0] = 5;
+
+        assertTrue(titmouse.shouldTitmouseAIReturnToGround(target));
+        titmouse.update(1.0);
+
+        assertTrue(game.isBlockPressed(0),
+                "An airborne CPU Titmouse above a safe platform should commit to fast-falling.");
+        assertFalse(game.isJumpPressed(0),
+                "Titmouse must release sustained flight so gravity can bring it back to the stage.");
+    }
+
+    @Test
     void aiNavigationEscapeDoesNotInterruptNearbyCombat() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;

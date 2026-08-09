@@ -7435,6 +7435,16 @@ public class Bird {
             return;
         }
 
+        if (shouldTitmouseAIReturnToGround(target)) {
+            // Titmouse's sustained flight can cancel gravity indefinitely. Once its
+            // opponent is no longer above it, commit to a safe platform landing
+            // instead of immediately reasserting Jump on every AI decision frame.
+            game.setAiControlKey(playerIndex, jumpKey(), false);
+            game.setAiControlKey(playerIndex, blockKey(), true);
+            aiLastHealth = currentDurability;
+            return;
+        }
+
         // Vertical positioning and recovery behavior.
         if (!powerFocus && target != null) {
             double dy = targetY - y;
@@ -9430,6 +9440,35 @@ public class Bird {
             }
         }
         return best;
+    }
+
+    boolean shouldTitmouseAIReturnToGround(Bird target) {
+        if (type != BirdGame3.BirdType.TITMOUSE || target == null || isOnGround()) {
+            return false;
+        }
+        if (titmouseSpecialActive()) {
+            return false;
+        }
+        boolean targetMeaningfullyAbove = target.bodyCenterY() < bodyCenterY() - 90.0;
+        return !targetMeaningfullyAbove && hasSafeTitmouseLandingSurfaceBelow();
+    }
+
+    private boolean hasSafeTitmouseLandingSurfaceBelow() {
+        double centerX = bodyCenterX();
+        double bottom = bodyBottomY();
+        if (hasSolidGroundFloorUnderBody() && bottom <= BirdGame3.GROUND_Y + 5.0) {
+            return true;
+        }
+        for (Platform platform : game.platforms) {
+            if (isBoundaryPlatform(platform) || platform.y < bottom - 5.0) {
+                continue;
+            }
+            double inset = Math.min(18.0 * sizeMultiplier, platform.w * 0.18);
+            if (centerX >= platform.x + inset && centerX <= platform.x + platform.w - inset) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean aiCanUseAirRecovery() {
