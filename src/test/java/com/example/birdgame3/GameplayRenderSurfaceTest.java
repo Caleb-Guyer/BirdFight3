@@ -1,6 +1,8 @@
 package com.example.birdgame3;
 
 import javafx.scene.canvas.Canvas;
+import javafx.scene.effect.BlendMode;
+import javafx.scene.effect.Glow;
 import javafx.scene.layout.StackPane;
 import org.junit.jupiter.api.Test;
 
@@ -66,5 +68,21 @@ class GameplayRenderSurfaceTest {
                 surface.worldGraphics().getTransform().getMyy(), 0.000001);
         assertEquals(0.0, surface.worldGraphics().getTransform().getTx(), 0.000001);
         assertEquals(0.0, surface.worldGraphics().getTransform().getTy(), 0.000001);
+    }
+
+    @Test
+    void resultsReuseClearsLeakedGameplayDrawingState() {
+        GameplayRenderSurface surface =
+                new GameplayRenderSurface(BirdGame3.WIDTH, BirdGame3.HEIGHT);
+        surface.worldGraphics().setGlobalAlpha(0.2);
+        surface.worldGraphics().setGlobalBlendMode(BlendMode.MULTIPLY);
+        surface.worldGraphics().setEffect(new Glow());
+
+        surface.clearForLogicalFrame();
+
+        assertEquals(1.0, surface.worldGraphics().getGlobalAlpha(), 0.000001);
+        assertEquals(BlendMode.SRC_OVER, surface.worldGraphics().getGlobalBlendMode());
+        assertEquals(surface.canvas().getWidth() / BirdGame3.WIDTH,
+                surface.worldGraphics().getTransform().getMxx(), 0.000001);
     }
 }

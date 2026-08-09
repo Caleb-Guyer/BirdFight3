@@ -80,6 +80,25 @@ class MatchSummaryPresentationTest {
     }
 
     @Test
+    void cinematicBackgroundStartsOnlyAfterFullscreenSceneTransfer() throws IOException {
+        String source = Files.readString(Path.of(
+                "src", "main", "java", "com", "example", "birdgame3", "BirdGame3.java"));
+        int methodStart = source.indexOf("void showMatchSummary(Stage stage, Bird winner)");
+        int methodEnd = source.indexOf("Canvas prepareMatchSummaryBackgroundCanvas()", methodStart);
+        assertTrue(methodStart >= 0 && methodEnd > methodStart);
+        String body = source.substring(methodStart, methodEnd);
+
+        int initialPaint = body.indexOf("drawCinematicResultsBackground(background.getGraphicsContext2D(), accent, 0.0)");
+        int install = body.indexOf("Scene installedScene = setScenePreservingFullscreen(stage, scene)");
+        int activeScene = body.indexOf("sceneRef[0] = installedScene");
+        int timerStart = body.indexOf("backgroundTimer.start()");
+        assertTrue(initialPaint >= 0);
+        assertTrue(install > initialPaint);
+        assertTrue(activeScene > install);
+        assertTrue(timerStart > activeScene);
+    }
+
+    @Test
     void cinematicWinnerPoseUsesOneCanvasInsteadOfThreeLargeRenderTargets() throws Exception {
         BirdGame3 game = new BirdGame3(Preferences.userRoot().node(
                 "/birdfight3-tests/results-pose/" + UUID.randomUUID()));

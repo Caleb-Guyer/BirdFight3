@@ -4189,7 +4189,7 @@ public class BirdGame3 {
         });
     }
 
-    private void setScenePreservingFullscreen(Stage stage, Scene scene) {
+    private Scene setScenePreservingFullscreen(Stage stage, Scene scene) {
         currentStage = stage;
         releaseWiimoteMenuPointerPress();
         prepareStageForSceneSwap(stage, scene);
@@ -4210,6 +4210,7 @@ public class BirdGame3 {
             positionAchievementToast(achievementToastPopup);
         }
         tryShowQueuedAchievementToast();
+        return installedScene;
     }
 
     private Scene installScenePreservingCurrentFullscreen(Stage stage, Scene scene) {
@@ -49795,6 +49796,7 @@ public class BirdGame3 {
         frame.setStyle("-fx-background-color: #070B14;");
 
         Canvas background = prepareMatchSummaryBackgroundCanvas();
+        drawCinematicResultsBackground(background.getGraphicsContext2D(), accent, 0.0);
         frame.getChildren().add(background);
 
         Pane stageLayer = new Pane();
@@ -49860,10 +49862,7 @@ public class BirdGame3 {
                 drawCinematicResultsBackground(background.getGraphicsContext2D(), accent, (now - startNanos) / 1_000_000_000.0);
             }
         };
-        backgroundTimer.start();
-
         Scene scene = new Scene(frame, WIDTH, HEIGHT);
-        sceneRef[0] = scene;
         bindFixedFrameScale(scene, frame, 0.0, WIDTH, HEIGHT);
         if (lanModeActive) {
             setupKeyboardNavigation(scene);
@@ -49873,7 +49872,9 @@ public class BirdGame3 {
                 bindEscape(scene, backLobby);
             }
         }
-        setScenePreservingFullscreen(stage, scene);
+        Scene installedScene = setScenePreservingFullscreen(stage, scene);
+        sceneRef[0] = installedScene;
+        backgroundTimer.start();
         playCinematicResultsIntro(slashPlate, poseNode, titleBlock, resultsPanel, buttons);
     }
 
@@ -49881,7 +49882,9 @@ public class BirdGame3 {
         if (gameplayRenderSurface == null) {
             gameplayRenderSurface = new GameplayRenderSurface(WIDTH, HEIGHT);
         }
-        return gameplayRenderSurface.detachCanvas();
+        Canvas canvas = gameplayRenderSurface.detachCanvas();
+        gameplayRenderSurface.clearForLogicalFrame();
+        return canvas;
     }
 
     static void clearNodeEffects(Node node) {

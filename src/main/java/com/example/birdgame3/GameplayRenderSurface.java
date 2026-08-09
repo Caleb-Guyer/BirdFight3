@@ -3,6 +3,7 @@ package com.example.birdgame3;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.Parent;
+import javafx.scene.effect.BlendMode;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
 
@@ -81,6 +82,19 @@ final class GameplayRenderSurface {
         }
         beginLogicalFrame();
         return canvas;
+    }
+
+    /**
+     * Clears the physical backing texture and resets presentation state before
+     * the Canvas is repurposed by another scene.
+     */
+    void clearForLogicalFrame() {
+        graphics.setTransform(1.0, 0.0, 0.0, 1.0, 0.0, 0.0);
+        graphics.setGlobalAlpha(1.0);
+        graphics.setGlobalBlendMode(BlendMode.SRC_OVER);
+        graphics.setEffect(null);
+        graphics.clearRect(0.0, 0.0, canvas.getWidth(), canvas.getHeight());
+        beginLogicalFrame();
     }
 
     /**
