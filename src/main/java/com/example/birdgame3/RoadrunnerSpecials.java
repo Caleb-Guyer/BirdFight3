@@ -1148,12 +1148,11 @@ final class RoadrunnerSpecials {
     }
 
     static boolean ready(Bird bird, Bird.RoadrunnerSpecialVariant variant) {
-        boolean ultimateReady = bird.isUltimateReady();
         return switch (variant) {
-            case NEUTRAL -> ultimateReady || bird.roadrunnerBeepReuseTimer <= 0;
-            case SIDE -> ultimateReady || bird.roadrunnerRicochetReuseTimer <= 0;
-            case UP -> ultimateReady || !bird.roadrunnerDustDevilUsed;
-            case DOWN -> ultimateReady || bird.roadrunnerPaintedRoadReuseTimer <= 0;
+            case NEUTRAL -> bird.isUltimateReady() || bird.roadrunnerBeepReuseTimer <= 0;
+            case SIDE -> bird.roadrunnerRicochetReuseTimer <= 0;
+            case UP -> !bird.roadrunnerDustDevilUsed;
+            case DOWN -> bird.roadrunnerPaintedRoadReuseTimer <= 0;
         };
     }
 

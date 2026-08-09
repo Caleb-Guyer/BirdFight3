@@ -32,12 +32,11 @@ final class PelicanSpecials {
     }
 
     static boolean ready(Bird bird, Bird.PelicanSpecialVariant variant) {
-        boolean ultimateReady = bird.isUltimateReady();
         return switch (variant) {
-            case NEUTRAL -> ultimateReady || bird.pelicanNeutralReuseTimer <= 0;
-            case SIDE -> ultimateReady || bird.pelicanSideReuseTimer <= 0;
-            case UP -> ultimateReady || !bird.pelicanUpSpecialUsed;
-            case DOWN -> ultimateReady || bird.pelicanDownReuseTimer <= 0;
+            case NEUTRAL -> bird.isUltimateReady() || bird.pelicanNeutralReuseTimer <= 0;
+            case SIDE -> bird.pelicanSideReuseTimer <= 0;
+            case UP -> !bird.pelicanUpSpecialUsed;
+            case DOWN -> bird.pelicanDownReuseTimer <= 0;
         };
     }
 

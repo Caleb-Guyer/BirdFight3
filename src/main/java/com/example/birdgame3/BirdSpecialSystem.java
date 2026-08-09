@@ -8,8 +8,10 @@ final class BirdSpecialSystem {
     }
 
     static void useSpecial(Bird bird) {
+        Bird.DirectionalSpecialInput input = bird.selectDirectionalSpecialInput();
         boolean canStartSelectedSpecial = BirdSpecialReadiness.canStart(bird);
-        boolean ultimateReady = bird.isUltimateReady()
+        boolean ultimateReady = input == Bird.DirectionalSpecialInput.NEUTRAL
+                && bird.isUltimateReady()
                 && (bird.type == BirdGame3.BirdType.MOCKINGBIRD
                 || !BirdSpecialReadiness.hasEmptyMockingbirdNeutral(bird));
         boolean pigeonUltimateReady = ultimateReady
@@ -32,7 +34,6 @@ final class BirdSpecialSystem {
         }
 
         BirdGame3 game = bird.game;
-        Bird.DirectionalSpecialInput input = bird.selectDirectionalSpecialInput();
 
         if (ultimateReady && bird.type == BirdGame3.BirdType.PIGEON) {
             if (!pigeonUltimateReady) {

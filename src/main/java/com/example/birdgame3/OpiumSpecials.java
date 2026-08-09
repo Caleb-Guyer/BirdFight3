@@ -817,12 +817,11 @@ final class OpiumSpecials {
     }
 
     static boolean ready(Bird bird, Bird.OpiumSpecialVariant variant) {
-        boolean ultimateReady = bird.isUltimateReady();
         return switch (variant) {
-            case NEUTRAL -> ultimateReady || bird.opiumNeutralReuseTimer <= 0;
-            case SIDE -> ultimateReady || bird.opiumSideReuseTimer <= 0;
-            case UP -> ultimateReady || !bird.opiumUpSpecialUsed;
-            case DOWN -> ultimateReady || bird.opiumDownReuseTimer <= 0;
+            case NEUTRAL -> bird.isUltimateReady() || bird.opiumNeutralReuseTimer <= 0;
+            case SIDE -> bird.opiumSideReuseTimer <= 0;
+            case UP -> !bird.opiumUpSpecialUsed;
+            case DOWN -> bird.opiumDownReuseTimer <= 0;
         };
     }
 

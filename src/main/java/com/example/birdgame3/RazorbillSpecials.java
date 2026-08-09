@@ -242,12 +242,11 @@ final class RazorbillSpecials {
     }
 
     static boolean ready(Bird bird, Bird.RazorbillSpecialVariant variant) {
-        boolean ultimateReady = bird.isUltimateReady();
         return switch (variant) {
-            case NEUTRAL -> ultimateReady || bird.razorbillStormReuseTimer <= 0;
-            case SIDE -> ultimateReady || (bird.razorbillSideReuseTimer <= 0 && bird.bladeStormFrames <= 0);
-            case UP -> ultimateReady || (!bird.razorbillUpSpecialUsed && bird.razorbillShearTimer <= 0);
-            case DOWN -> ultimateReady || bird.razorbillCounterReuseTimer <= 0;
+            case NEUTRAL -> bird.isUltimateReady() || bird.razorbillStormReuseTimer <= 0;
+            case SIDE -> bird.razorbillSideReuseTimer <= 0 && bird.bladeStormFrames <= 0;
+            case UP -> !bird.razorbillUpSpecialUsed && bird.razorbillShearTimer <= 0;
+            case DOWN -> bird.razorbillCounterReuseTimer <= 0;
         };
     }
 

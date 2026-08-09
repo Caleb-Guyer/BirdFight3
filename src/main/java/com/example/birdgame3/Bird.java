@@ -6164,14 +6164,14 @@ public class Bird {
     }
 
     private boolean mockingbirdSpecialReady(MockingbirdSpecialVariant variant) {
-        boolean ultimateReady = isUltimateReady();
+        boolean ultimateReady = variant == MockingbirdSpecialVariant.NEUTRAL && isUltimateReady();
         return switch (variant) {
             case NEUTRAL -> ultimateReady || (mockingbirdCapturedType == null
                     ? mockingbirdQuestionTimer <= 0
                     : mockingbirdCopiedNeutralActive() && mockingbirdCopiedNeutralReady(mockingbirdCapturedType));
-            case SIDE -> ultimateReady || (mockingbirdSideReuseTimer <= 0 && mockingbirdSideFxTimer <= 0);
-            case UP -> ultimateReady || (!mockingbirdUpSpecialUsed && mockingbirdUpReuseTimer <= 0 && mockingbirdUpFxTimer <= 0);
-            case DOWN -> ultimateReady || mockingbirdLoungeReuseTimer <= 0;
+            case SIDE -> mockingbirdSideReuseTimer <= 0 && mockingbirdSideFxTimer <= 0;
+            case UP -> !mockingbirdUpSpecialUsed && mockingbirdUpReuseTimer <= 0 && mockingbirdUpFxTimer <= 0;
+            case DOWN -> mockingbirdLoungeReuseTimer <= 0;
         };
     }
 
@@ -10106,7 +10106,7 @@ public class Bird {
         boolean enemyActive = aiTargetHasActiveThreat(target);
         boolean targetSettingUp = aiTargetHasSetupPressure(target);
         if (isUltimateReady()) {
-            return aiUltimateSpecialInput(target, dist, onGround, lowHealth, targetAbove, targetBelow, enemyActive);
+            return DirectionalSpecialInput.NEUTRAL;
         }
 
         return switch (type) {
@@ -10493,31 +10493,6 @@ public class Bird {
                 || (onGround && titmouseSeedStashes.size() < TITMOUSE_MAX_STASHES
                 && (dist > 135.0 || enemySetup))
                 || (onGround && shouldTitmouseAIDetonateSeedStashes(target));
-    }
-
-    private DirectionalSpecialInput aiUltimateSpecialInput(Bird target, double dist, boolean onGround, boolean lowHealth,
-                                                          boolean targetAbove, boolean targetBelow, boolean enemyActive) {
-        return switch (type) {
-            case PENGUIN -> onGround ? DirectionalSpecialInput.DOWN : DirectionalSpecialInput.UP;
-            case SHOEBILL -> DirectionalSpecialInput.DOWN;
-            case RAZORBILL -> enemyActive && dist < 220.0 ? DirectionalSpecialInput.DOWN : DirectionalSpecialInput.NEUTRAL;
-            case TURKEY -> onGround && dist < 340.0 ? DirectionalSpecialInput.SIDE : DirectionalSpecialInput.DOWN;
-            case ROADRUNNER -> DirectionalSpecialInput.NEUTRAL;
-            case GRINCHHAWK -> DirectionalSpecialInput.DOWN;
-            case PELICAN -> pelicanCargoCount > 0 ? DirectionalSpecialInput.DOWN : DirectionalSpecialInput.NEUTRAL;
-            case VULTURE -> DirectionalSpecialInput.NEUTRAL;
-            case ROOSTER -> DirectionalSpecialInput.NEUTRAL;
-            case RAVEN -> !activeOwnedRavenNodes().isEmpty() ? DirectionalSpecialInput.SIDE : DirectionalSpecialInput.NEUTRAL;
-            case GOOSE -> lowHealth || enemyActive ? DirectionalSpecialInput.DOWN : DirectionalSpecialInput.NEUTRAL;
-            case PHOENIX -> targetBelow && dist < 280.0 ? DirectionalSpecialInput.DOWN : DirectionalSpecialInput.NEUTRAL;
-            case HUMMINGBIRD -> dist < 260.0 ? DirectionalSpecialInput.SIDE : DirectionalSpecialInput.NEUTRAL;
-            case BAT -> targetAbove ? DirectionalSpecialInput.UP : DirectionalSpecialInput.NEUTRAL;
-            case TITMOUSE -> DirectionalSpecialInput.DOWN;
-            case OPIUMBIRD, HEISENBIRD -> DirectionalSpecialInput.DOWN;
-            case MOCKINGBIRD -> DirectionalSpecialInput.DOWN;
-            case EAGLE, FALCON, PIGEON -> DirectionalSpecialInput.NEUTRAL;
-            case KIWI -> DirectionalSpecialInput.NEUTRAL;
-        };
     }
 
     private void configureShoebillAISpecialInputs(Bird target, double dist, boolean onGround) {

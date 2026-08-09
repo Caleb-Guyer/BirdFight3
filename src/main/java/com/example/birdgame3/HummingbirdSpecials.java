@@ -171,12 +171,11 @@ final class HummingbirdSpecials {
     }
 
     static boolean ready(Bird bird, Bird.HummingbirdSpecialVariant variant) {
-        boolean ultimateReady = bird.isUltimateReady();
         return switch (variant) {
-            case NEUTRAL -> ultimateReady || bird.hummingNeedleReuseTimer <= 0;
-            case SIDE -> ultimateReady || bird.hummingFlashSipReuseTimer <= 0;
-            case UP -> ultimateReady || (!bird.hummingHoverBurstUsed && bird.hummingHoverBurstReuseTimer <= 0);
-            case DOWN -> ultimateReady || bird.hummingNectarTrapReuseTimer <= 0;
+            case NEUTRAL -> bird.isUltimateReady() || bird.hummingNeedleReuseTimer <= 0;
+            case SIDE -> bird.hummingFlashSipReuseTimer <= 0;
+            case UP -> !bird.hummingHoverBurstUsed && bird.hummingHoverBurstReuseTimer <= 0;
+            case DOWN -> bird.hummingNectarTrapReuseTimer <= 0;
         };
     }
 

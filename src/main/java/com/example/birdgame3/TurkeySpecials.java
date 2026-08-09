@@ -180,12 +180,11 @@ final class TurkeySpecials {
     }
 
     static boolean ready(Bird bird, Bird.TurkeySpecialVariant variant) {
-        boolean ultimateReady = bird.isUltimateReady();
         return switch (variant) {
-            case NEUTRAL -> ultimateReady || bird.turkeyGobbleReuseTimer <= 0;
-            case SIDE -> ultimateReady || bird.turkeyStampedeReuseTimer <= 0;
-            case UP -> ultimateReady || !bird.turkeyPanicFlapUsed;
-            case DOWN -> ultimateReady || bird.turkeyFeastTrapReuseTimer <= 0;
+            case NEUTRAL -> bird.isUltimateReady() || bird.turkeyGobbleReuseTimer <= 0;
+            case SIDE -> bird.turkeyStampedeReuseTimer <= 0;
+            case UP -> !bird.turkeyPanicFlapUsed;
+            case DOWN -> bird.turkeyFeastTrapReuseTimer <= 0;
         };
     }
 

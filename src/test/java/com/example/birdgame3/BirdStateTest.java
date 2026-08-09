@@ -221,6 +221,59 @@ class BirdStateTest {
     }
 
     @Test
+    void fullUltimateMeterPreservesDirectionalSpecialsAndOnlyNeutralActivatesUltimate() {
+        BirdGame3 pigeonGame = new BirdGame3();
+        pigeonGame.activePlayers = 1;
+        Bird pigeon = new Bird(100, BirdGame3.BirdType.PIGEON, 0, pigeonGame);
+        pigeon.y = BirdGame3.GROUND_Y - pigeon.bodyHeight();
+        pigeonGame.players[0] = pigeon;
+        pigeon.refillTrainingResources(true);
+        pigeonGame.setLocalActionsForKey(pigeonGame.rightKeyForPlayer(0), true);
+
+        BirdSpecialSystem.useSpecial(pigeon);
+
+        assertTrue(pigeon.isUltimateReady(), "Side special must preserve a full ultimate meter.");
+        assertTrue(pigeon.pigeonRushTimer > 0, "Side input should still perform Street Rush.");
+        assertFalse(pigeon.pigeonCoronationActive, "Side special must not activate Pigeon's ultimate.");
+
+        BirdGame3 eagleGame = new BirdGame3();
+        eagleGame.activePlayers = 1;
+        Bird eagle = new Bird(100, BirdGame3.BirdType.EAGLE, 0, eagleGame);
+        eagle.y = BirdGame3.GROUND_Y - eagle.bodyHeight();
+        eagleGame.players[0] = eagle;
+        eagle.refillTrainingResources(true);
+        eagleGame.setLocalActionsForKey(eagleGame.jumpKeyForPlayer(0), true);
+
+        BirdSpecialSystem.useSpecial(eagle);
+
+        assertTrue(eagle.isUltimateReady(), "Up special must preserve a full ultimate meter.");
+        assertTrue(eagle.raptorClimbTimer > 0, "Up input should still perform Eagle's normal recovery.");
+        assertFalse(eagle.eagleSkySovereignActive, "Up special must not activate Eagle's ultimate.");
+
+        BirdGame3 penguinGame = new BirdGame3();
+        penguinGame.activePlayers = 1;
+        Bird penguin = new Bird(100, BirdGame3.BirdType.PENGUIN, 0, penguinGame);
+        penguin.y = BirdGame3.GROUND_Y - penguin.bodyHeight();
+        penguinGame.players[0] = penguin;
+        penguin.refillTrainingResources(true);
+        penguinGame.setLocalActionsForKey(penguinGame.blockKeyForPlayer(0), true);
+
+        BirdSpecialSystem.useSpecial(penguin);
+
+        assertTrue(penguin.isUltimateReady(), "Down special must preserve a full ultimate meter.");
+        assertNotNull(penguin.penguinSnowFort, "Down input should still build a normal Snow Fort.");
+        assertFalse(penguin.penguinSnowFort.ultimate);
+        assertEquals(0, penguin.penguinAbsoluteZeroTimer,
+                "Down special must not activate Penguin's ultimate.");
+
+        Bird.PenguinSnowFort existingFort = penguin.penguinSnowFort;
+        BirdSpecialSystem.useSpecial(penguin);
+        assertSame(existingFort, penguin.penguinSnowFort,
+                "A full meter must not bypass the normal down-special reuse restriction.");
+        assertTrue(penguin.isUltimateReady());
+    }
+
+    @Test
     void pigeonCoronationTicksAndFinalLaunchesTargetsInZone() {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;

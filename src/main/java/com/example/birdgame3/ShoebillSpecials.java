@@ -158,12 +158,11 @@ final class ShoebillSpecials {
     }
 
     static boolean ready(Bird bird, Bird.ShoebillSpecialVariant variant) {
-        boolean ultimateReady = bird.isUltimateReady();
         return switch (variant) {
-            case NEUTRAL -> ultimateReady || bird.shoebillStareReuseTimer <= 0;
-            case SIDE -> ultimateReady || bird.shoebillThrustReuseTimer <= 0;
-            case UP -> ultimateReady || !bird.shoebillUpSpecialUsed;
-            case DOWN -> ultimateReady || bird.shoebillStatueReuseTimer <= 0;
+            case NEUTRAL -> bird.isUltimateReady() || bird.shoebillStareReuseTimer <= 0;
+            case SIDE -> bird.shoebillThrustReuseTimer <= 0;
+            case UP -> !bird.shoebillUpSpecialUsed;
+            case DOWN -> bird.shoebillStatueReuseTimer <= 0;
         };
     }
 

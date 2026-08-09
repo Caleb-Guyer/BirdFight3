@@ -28,12 +28,11 @@ final class RavenSpecials {
     }
 
     static boolean ready(Bird bird, Bird.RavenSpecialVariant variant) {
-        boolean ultimateReady = bird.isUltimateReady();
         return switch (variant) {
-            case NEUTRAL -> ultimateReady || bird.ravenNeutralReuseTimer <= 0;
-            case SIDE -> ultimateReady || bird.ravenSideReuseTimer <= 0;
-            case UP -> ultimateReady || !bird.ravenLiftUsed;
-            case DOWN -> ultimateReady || bird.ravenDownReuseTimer <= 0;
+            case NEUTRAL -> bird.isUltimateReady() || bird.ravenNeutralReuseTimer <= 0;
+            case SIDE -> bird.ravenSideReuseTimer <= 0;
+            case UP -> !bird.ravenLiftUsed;
+            case DOWN -> bird.ravenDownReuseTimer <= 0;
         };
     }
 

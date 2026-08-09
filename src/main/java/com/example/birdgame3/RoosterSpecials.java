@@ -387,12 +387,11 @@ final class RoosterSpecials {
     }
 
     static boolean ready(Bird bird, Bird.RoosterSpecialVariant variant) {
-        boolean ultimateReady = bird.isUltimateReady();
         return switch (variant) {
-            case NEUTRAL -> ultimateReady || (bird.roosterNeutralReuseTimer <= 0 && ownedCount(bird) < Bird.ROOSTER_MAX_CHICKS);
-            case SIDE -> ultimateReady || (bird.roosterSideReuseTimer <= 0 && nextFollower(bird) != null);
-            case UP -> ultimateReady || !bird.roosterUpSpecialUsed;
-            case DOWN -> ultimateReady || bird.roosterDownReuseTimer <= 0;
+            case NEUTRAL -> bird.isUltimateReady() || (bird.roosterNeutralReuseTimer <= 0 && ownedCount(bird) < Bird.ROOSTER_MAX_CHICKS);
+            case SIDE -> bird.roosterSideReuseTimer <= 0 && nextFollower(bird) != null;
+            case UP -> !bird.roosterUpSpecialUsed;
+            case DOWN -> bird.roosterDownReuseTimer <= 0;
         };
     }
 

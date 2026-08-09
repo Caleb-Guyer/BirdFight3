@@ -193,7 +193,7 @@ final class PhoenixSpecials {
     }
 
     static boolean ready(Bird bird, Bird.PhoenixSpecialVariant variant) {
-        if (bird.isUltimateReady()) {
+        if (variant == Bird.PhoenixSpecialVariant.NEUTRAL && bird.isUltimateReady()) {
             return true;
         }
         return switch (variant) {

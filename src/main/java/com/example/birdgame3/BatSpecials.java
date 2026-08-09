@@ -28,12 +28,11 @@ final class BatSpecials {
     }
 
     static boolean ready(Bird bird, Bird.BatSpecialVariant variant) {
-        boolean ultimateReady = bird.isUltimateReady();
         return switch (variant) {
-            case NEUTRAL -> ultimateReady || bird.batNeutralReuseTimer <= 0;
-            case SIDE -> ultimateReady || bird.batWingcutReuseTimer <= 0;
-            case UP -> ultimateReady || !bird.batMoonriseUsed;
-            case DOWN -> ultimateReady || bird.batSilentReuseTimer <= 0;
+            case NEUTRAL -> bird.isUltimateReady() || bird.batNeutralReuseTimer <= 0;
+            case SIDE -> bird.batWingcutReuseTimer <= 0;
+            case UP -> !bird.batMoonriseUsed;
+            case DOWN -> bird.batSilentReuseTimer <= 0;
         };
     }
 

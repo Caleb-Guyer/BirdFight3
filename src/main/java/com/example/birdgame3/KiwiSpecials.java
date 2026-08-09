@@ -21,7 +21,7 @@ final class KiwiSpecials {
     }
 
     static boolean ready(Bird bird, Bird.KiwiSpecialVariant variant) {
-        if (bird.isUltimateReady()) {
+        if (variant == Bird.KiwiSpecialVariant.NEUTRAL && bird.isUltimateReady()) {
             return true;
         }
         return switch (variant) {

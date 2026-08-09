@@ -837,12 +837,11 @@ final class GrinchhawkSpecials {
     }
 
     static boolean ready(Bird bird, Bird.GrinchhawkSpecialVariant variant) {
-        boolean ultimateReady = bird.isUltimateReady();
         return switch (variant) {
-            case NEUTRAL -> bird.grinchHeartSnatchTimer <= 0;
-            case SIDE -> ultimateReady || !bird.grinchSleighActive;
-            case UP -> ultimateReady || !bird.grinchUpSpecialUsed;
-            case DOWN -> ultimateReady || bird.grinchPresent == null;
+            case NEUTRAL -> bird.isUltimateReady() || bird.grinchHeartSnatchTimer <= 0;
+            case SIDE -> !bird.grinchSleighActive;
+            case UP -> !bird.grinchUpSpecialUsed;
+            case DOWN -> bird.grinchPresent == null;
         };
     }
 

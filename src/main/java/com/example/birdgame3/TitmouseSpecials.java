@@ -618,12 +618,11 @@ final class TitmouseSpecials {
     }
 
     static boolean ready(Bird bird, Bird.TitmouseSpecialVariant variant) {
-        boolean ultimateReady = bird.isUltimateReady();
         return switch (variant) {
-            case NEUTRAL -> ultimateReady || bird.titmouseScoldReuseTimer <= 0;
-            case SIDE -> ultimateReady || bird.titmouseBarkskipReuseTimer <= 0;
-            case UP -> ultimateReady || (!bird.titmouseVaultUsed && bird.titmouseVaultReuseTimer <= 0);
-            case DOWN -> ultimateReady || bird.titmouseStashReuseTimer <= 0;
+            case NEUTRAL -> bird.isUltimateReady() || bird.titmouseScoldReuseTimer <= 0;
+            case SIDE -> bird.titmouseBarkskipReuseTimer <= 0;
+            case UP -> !bird.titmouseVaultUsed && bird.titmouseVaultReuseTimer <= 0;
+            case DOWN -> bird.titmouseStashReuseTimer <= 0;
         };
     }
 

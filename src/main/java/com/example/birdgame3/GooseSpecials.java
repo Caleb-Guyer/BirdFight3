@@ -37,7 +37,7 @@ final class GooseSpecials {
     }
 
     static boolean ready(Bird bird, Bird.GooseSpecialVariant variant) {
-        if (bird.isUltimateReady()) {
+        if (variant == Bird.GooseSpecialVariant.NEUTRAL && bird.isUltimateReady()) {
             return true;
         }
         return switch (variant) {

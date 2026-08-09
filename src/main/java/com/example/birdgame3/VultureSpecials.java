@@ -1097,7 +1097,7 @@ final class VultureSpecials {
     }
 
     static boolean ready(Bird bird, Bird.VultureSpecialVariant variant) {
-        boolean ultimateReady = bird.isUltimateReady();
+        boolean ultimateReady = variant == Bird.VultureSpecialVariant.NEUTRAL && bird.isUltimateReady();
         if (bird.isNullRockForm()) {
             return ultimateReady || (usesGlobalNullRockCooldown(bird)
                     ? bird.specialCooldown <= 0
@@ -1105,9 +1105,9 @@ final class VultureSpecials {
         }
         return switch (variant) {
             case NEUTRAL -> ultimateReady || (bird.vultureNeutralReuseTimer <= 0 && bird.vultureCrowTicks > 0 && ownedCrowCount(bird) < 7);
-            case SIDE -> ultimateReady || bird.vultureSideReuseTimer <= 0;
-            case UP -> ultimateReady || !bird.vultureUpSpecialUsed;
-            case DOWN -> ultimateReady || (bird.vultureDownReuseTimer <= 0 && bird.vultureBait == null);
+            case SIDE -> bird.vultureSideReuseTimer <= 0;
+            case UP -> !bird.vultureUpSpecialUsed;
+            case DOWN -> bird.vultureDownReuseTimer <= 0 && bird.vultureBait == null;
         };
     }
 

@@ -211,13 +211,12 @@ final class PenguinSpecials {
     }
 
     static boolean ready(Bird bird, Bird.PenguinSpecialVariant variant) {
-        boolean ultimateReady = bird.isUltimateReady();
         return switch (variant) {
-            case NEUTRAL -> ultimateReady || bird.penguinBellyReuseTimer <= 0;
-            case SIDE -> ultimateReady || bird.penguinIcebergReuseTimer <= 0;
-            case UP -> ultimateReady || !bird.penguinUpSpecialUsed;
-            case DOWN -> ultimateReady || (bird.penguinSnowFortReuseTimer <= 0
-                    && (!bird.isOnGround() || !hasActiveSnowFort(bird)));
+            case NEUTRAL -> bird.isUltimateReady() || bird.penguinBellyReuseTimer <= 0;
+            case SIDE -> bird.penguinIcebergReuseTimer <= 0;
+            case UP -> !bird.penguinUpSpecialUsed;
+            case DOWN -> bird.penguinSnowFortReuseTimer <= 0
+                    && (!bird.isOnGround() || !hasActiveSnowFort(bird));
         };
     }
 
