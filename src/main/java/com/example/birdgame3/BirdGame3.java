@@ -163,6 +163,7 @@ public class BirdGame3 {
     private static final Font FIGHT_HUD_TIMER_VALUE_FONT = Font.font("Impact", 54);
     private static final Font FIGHT_HUD_COUNTDOWN_FONT = Font.font("Impact", FontWeight.BOLD, 168);
     private static final Font FIGHT_HUD_GO_FONT = Font.font("Arial Black", FontWeight.BOLD, 126);
+    private static final ColorAdjust ELIMINATED_FIGHTER_HUD_EFFECT = createEliminatedFighterHudEffect();
     private static final int MATCH_INTRO_COUNTDOWN_FRAMES = 3 * 60;
     private static final int MATCH_INTRO_GO_FRAMES = 40;
     private static final int VERIFIED_MATCH_BASE_BIRD_COINS = 30;
@@ -48991,10 +48992,14 @@ public class BirdGame3 {
         Rectangle2D rect = layout.panelRect();
         Rectangle2D portraitRect = layout.portraitRect();
         Color accent = fightHudAccentColor(bird);
-        double aliveAlpha = bird.health > 0 ? 1.0 : 0.68;
+        boolean grayOut = shouldGrayOutFightHudPanel(bird);
+        double aliveAlpha = grayOut ? 0.62 : bird.health > 0 ? 1.0 : 0.68;
         double panelHudAlpha = hudAlphaForRect(rect);
         g.save();
         g.setGlobalAlpha(aliveAlpha * panelHudAlpha);
+        if (grayOut) {
+            g.setEffect(ELIMINATED_FIGHTER_HUD_EFFECT);
+        }
 
         g.setFill(Color.web("#000000", 0.34));
         g.fillRoundRect(rect.getMinX(), rect.getMinY() + 7, rect.getWidth(), rect.getHeight(), 30, 30);
@@ -49140,6 +49145,24 @@ public class BirdGame3 {
         );
         g.setTextAlign(TextAlignment.LEFT);
         g.restore();
+    }
+
+    boolean shouldGrayOutFightHudPanel(Bird bird) {
+        if (bird == null || activePlayers <= 2) {
+            return false;
+        }
+        if (usesSmashCombatRules()) {
+            return !playerHasStocksRemaining(bird.playerIndex);
+        }
+        return bird.health <= 0.0;
+    }
+
+    private static ColorAdjust createEliminatedFighterHudEffect() {
+        ColorAdjust effect = new ColorAdjust();
+        effect.setSaturation(-1.0);
+        effect.setBrightness(-0.18);
+        effect.setContrast(0.10);
+        return effect;
     }
 
     private void drawFightHudStockIcons(GraphicsContext g, Bird bird, Color accent, double startX, double y, double size) {

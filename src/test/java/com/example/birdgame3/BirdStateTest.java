@@ -9411,6 +9411,34 @@ class BirdStateTest {
     }
 
     @Test
+    void fightHudGraysOnlyFullyEliminatedBirdsInMultifighterMatches() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 4;
+        Bird eliminated = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird active = new Bird(200.0, BirdGame3.BirdType.EAGLE, 1, game);
+        eliminated.health = 0.0;
+
+        assertTrue(game.shouldGrayOutFightHudPanel(eliminated));
+        assertFalse(game.shouldGrayOutFightHudPanel(active));
+
+        game.activePlayers = 2;
+        assertFalse(game.shouldGrayOutFightHudPanel(eliminated),
+                "The two-player HUD should retain its existing presentation.");
+
+        game.activePlayers = 4;
+        setPrivateBoolean(game);
+        eliminated.health = eliminated.getMaxHealth();
+        game.scores[0] = 0;
+        assertTrue(game.shouldGrayOutFightHudPanel(eliminated),
+                "A fighter with no stocks left should remain visibly eliminated.");
+
+        eliminated.health = 0.0;
+        game.scores[0] = 1;
+        assertFalse(game.shouldGrayOutFightHudPanel(eliminated),
+                "Losing a stock must not gray the card while the fighter can still respawn.");
+    }
+
+    @Test
     void carrionAudienceGuardsStayDownWhenReservedBossEnters() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.headlessHarnessMode = true;
