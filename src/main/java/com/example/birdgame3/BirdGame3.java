@@ -19039,6 +19039,11 @@ public class BirdGame3 {
         double h = canvas.getHeight();
         g.clearRect(0, 0, w, h);
 
+        drawPackSilhouetteContent(g, w, h, tint);
+    }
+
+    private void drawPackSilhouetteContent(GraphicsContext g, double w, double h, Color tint) {
+
         g.setFill(Color.web("#0F171F", 0.7));
         g.fillRoundRect(w * 0.08, h * 0.08, w * 0.84, h * 0.84, 18, 18);
 
@@ -49778,7 +49783,7 @@ public class BirdGame3 {
         lockRegionSize(frame, WIDTH, HEIGHT);
         frame.setStyle("-fx-background-color: #070B14;");
 
-        Canvas background = new Canvas(WIDTH, HEIGHT);
+        Canvas background = prepareMatchSummaryBackgroundCanvas();
         frame.getChildren().add(background);
 
         Pane stageLayer = new Pane();
@@ -49840,6 +49845,7 @@ public class BirdGame3 {
                     stop();
                     return;
                 }
+                gameplayRenderSurface.beginLogicalFrame();
                 drawCinematicResultsBackground(background.getGraphicsContext2D(), accent, (now - startNanos) / 1_000_000_000.0);
             }
         };
@@ -49858,6 +49864,13 @@ public class BirdGame3 {
         }
         setScenePreservingFullscreen(stage, scene);
         playCinematicResultsIntro(slashPlate, poseNode, titleBlock, resultsPanel, buttons);
+    }
+
+    Canvas prepareMatchSummaryBackgroundCanvas() {
+        if (gameplayRenderSurface == null) {
+            gameplayRenderSurface = new GameplayRenderSurface(WIDTH, HEIGHT);
+        }
+        return gameplayRenderSurface.detachCanvas();
     }
 
     static void clearNodeEffects(Node node) {
@@ -50046,16 +50059,15 @@ public class BirdGame3 {
 
     private StackPane buildCinematicVictoryPose(Bird bird, double size) {
         double actual = Math.max(520, size);
-        Canvas back = new Canvas(actual, actual);
-        Canvas sprite = new Canvas(actual, actual);
-        Canvas front = new Canvas(actual, actual);
+        Canvas canvas = new Canvas(actual, actual);
+        GraphicsContext graphics = canvas.getGraphicsContext2D();
         BirdType type = bird == null ? null : bird.type;
         Color accent = matchSummaryAccent(bird);
-        drawCinematicPoseBackplate(back.getGraphicsContext2D(), actual, type, accent);
-        drawCinematicVictorySprite(sprite, bird, actual);
-        drawCinematicPoseFrontFx(front.getGraphicsContext2D(), actual, type, accent);
+        drawCinematicPoseBackplate(graphics, actual, type, accent);
+        drawCinematicVictorySprite(canvas, bird, actual);
+        drawCinematicPoseFrontFx(graphics, actual, type, accent);
 
-        StackPane pose = new StackPane(back, sprite, front);
+        StackPane pose = new StackPane(canvas);
         lockRegionSize(pose, actual, actual);
         pose.setMouseTransparent(true);
         pose.setEffect(new DropShadow(42, Color.rgb(0, 0, 0, 0.72)));
@@ -50104,9 +50116,8 @@ public class BirdGame3 {
 
     private void drawCinematicVictorySprite(Canvas canvas, Bird bird, double size) {
         GraphicsContext g = canvas.getGraphicsContext2D();
-        g.clearRect(0, 0, size, size);
         if (bird == null || bird.type == null) {
-            drawPackSilhouette(canvas, Color.web("#90A4AE"));
+            drawPackSilhouetteContent(g, size, size, Color.web("#90A4AE"));
             return;
         }
 
@@ -50170,7 +50181,6 @@ public class BirdGame3 {
     }
 
     private void drawCinematicPoseFrontFx(GraphicsContext g, double size, BirdType type, Color accent) {
-        g.clearRect(0, 0, size, size);
         Color base = accent == null ? Color.WHITE : accent.interpolate(Color.WHITE, 0.12);
         g.setLineCap(StrokeLineCap.ROUND);
         g.setStroke(base.deriveColor(0, 1.0, 1.0, 0.66));

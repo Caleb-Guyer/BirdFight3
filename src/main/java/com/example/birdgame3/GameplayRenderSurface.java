@@ -62,15 +62,25 @@ final class GameplayRenderSurface {
      * render targets while the next scene is being installed.
      */
     StackPane attachToFreshRoot() {
-        Parent parent = canvas.getParent();
-        if (parent instanceof Pane pane) {
-            pane.getChildren().remove(canvas);
-        }
+        detachCanvas();
         StackPane root = new StackPane(canvas);
         root.setMinSize(logicalWidth, logicalHeight);
         root.setPrefSize(logicalWidth, logicalHeight);
         root.setMaxSize(logicalWidth, logicalHeight);
         return root;
+    }
+
+    /**
+     * Detaches the persistent render target so a non-gameplay scene can reuse
+     * it without allocating another full-screen Prism texture.
+     */
+    Canvas detachCanvas() {
+        Parent parent = canvas.getParent();
+        if (parent instanceof Pane pane) {
+            pane.getChildren().remove(canvas);
+        }
+        beginLogicalFrame();
+        return canvas;
     }
 
     /**

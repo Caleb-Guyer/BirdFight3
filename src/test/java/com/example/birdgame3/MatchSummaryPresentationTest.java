@@ -1,11 +1,16 @@
 package com.example.birdgame3;
 
 import javafx.scene.Group;
+import javafx.scene.Node;
+import javafx.scene.Parent;
+import javafx.scene.canvas.Canvas;
 import javafx.scene.effect.DropShadow;
+import javafx.scene.layout.StackPane;
 import javafx.scene.shape.Rectangle;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.UUID;
@@ -15,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MatchSummaryPresentationTest {
@@ -58,6 +64,43 @@ class MatchSummaryPresentationTest {
         assertNull(inner.getEffect());
         assertNull(nested.getEffect());
         assertFalse(nested.getStyle().contains("-fx-effect"));
+    }
+
+    @Test
+    void cinematicSummaryReusesOneBoundedBackgroundRenderTarget() {
+        BirdGame3 game = new BirdGame3(Preferences.userRoot().node(
+                "/birdfight3-tests/results-surface/" + UUID.randomUUID()));
+
+        Canvas first = game.prepareMatchSummaryBackgroundCanvas();
+        Canvas second = game.prepareMatchSummaryBackgroundCanvas();
+
+        assertSame(first, second);
+        assertTrue(first.getWidth() <= GameplayRenderSurface.MAX_BACKING_WIDTH);
+        assertTrue(first.getHeight() <= GameplayRenderSurface.MAX_BACKING_HEIGHT);
+    }
+
+    @Test
+    void cinematicWinnerPoseUsesOneCanvasInsteadOfThreeLargeRenderTargets() throws Exception {
+        BirdGame3 game = new BirdGame3(Preferences.userRoot().node(
+                "/birdfight3-tests/results-pose/" + UUID.randomUUID()));
+        Method builder = BirdGame3.class.getDeclaredMethod(
+                "buildCinematicVictoryPose", Bird.class, double.class);
+        builder.setAccessible(true);
+        Bird pigeon = new Bird(0, BirdGame3.BirdType.PIGEON, 0, game);
+
+        StackPane pose = (StackPane) builder.invoke(game, pigeon, 760.0);
+
+        assertEquals(1, countCanvases(pose));
+    }
+
+    private static int countCanvases(Node node) {
+        int count = node instanceof Canvas ? 1 : 0;
+        if (node instanceof Parent parent) {
+            for (Node child : parent.getChildrenUnmodifiable()) {
+                count += countCanvases(child);
+            }
+        }
+        return count;
     }
 
     @Test

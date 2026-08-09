@@ -39,6 +39,20 @@ class GameplayRenderSurfaceTest {
     }
 
     @Test
+    void persistentCanvasCanBeDetachedForAResultsScene() {
+        GameplayRenderSurface surface =
+                new GameplayRenderSurface(BirdGame3.WIDTH, BirdGame3.HEIGHT);
+        StackPane matchRoot = surface.attachToFreshRoot();
+
+        Canvas resultsCanvas = surface.detachCanvas();
+
+        assertSame(surface.canvas(), resultsCanvas);
+        assertTrue(matchRoot.getChildren().isEmpty());
+        assertTrue(resultsCanvas.getWidth() <= GameplayRenderSurface.MAX_BACKING_WIDTH);
+        assertTrue(resultsCanvas.getHeight() <= GameplayRenderSurface.MAX_BACKING_HEIGHT);
+    }
+
+    @Test
     void logicalFrameTransformMapsGameCoordinatesToBackingPixels() {
         GameplayRenderSurface surface =
                 new GameplayRenderSurface(BirdGame3.WIDTH, BirdGame3.HEIGHT);
