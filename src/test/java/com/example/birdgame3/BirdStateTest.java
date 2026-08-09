@@ -3493,6 +3493,35 @@ class BirdStateTest {
     }
 
     @Test
+    void flatMapOuterWallsDoNotBounceLaunchedBirdsBackFromSideBlastZones() throws Exception {
+        for (int direction : new int[]{-1, 1}) {
+            BirdGame3 game = new BirdGame3();
+            game.activePlayers = 1;
+            game.selectedMap = BirdGame3.MapType.CITY;
+            setPrivateBoolean(game);
+            game.scores[0] = 3;
+            game.platforms.add(new Platform(0.0, BirdGame3.GROUND_Y, BirdGame3.WORLD_WIDTH, 600.0));
+            game.platforms.add(new Platform(-100.0, 0.0, 100.0, BirdGame3.WORLD_HEIGHT));
+            game.platforms.add(new Platform(BirdGame3.WORLD_WIDTH, 0.0, 100.0, BirdGame3.WORLD_HEIGHT));
+
+            double startX = direction < 0 ? 40.0 : BirdGame3.WORLD_WIDTH - 120.0;
+            Bird launched = new Bird(startX, BirdGame3.BirdType.EAGLE, 0, game);
+            launched.y = BirdGame3.GROUND_Y - launched.bodyHeight();
+            launched.vx = direction * 90.0;
+            launched.stunTime = 90.0;
+            game.players[0] = launched;
+
+            for (int frame = 0; frame < 12 && game.scores[0] == 3; frame++) {
+                launched.update(1.0);
+            }
+
+            assertEquals(2, game.scores[0],
+                    (direction < 0 ? "Left" : "Right")
+                            + " world-limit wall must not rebound a launched fighter before the blast zone.");
+        }
+    }
+
+    @Test
     void smashDirectionalInfluenceCanBendLaunchUpward() throws Exception {
         BirdGame3 baselineGame = new BirdGame3();
         baselineGame.activePlayers = 2;

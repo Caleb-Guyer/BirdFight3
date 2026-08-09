@@ -13029,7 +13029,12 @@ public class Bird {
             return false;
         }
         if (isBoundaryPlatform(p)) {
-            return p.h >= BirdGame3.WORLD_HEIGHT - 10 && p.w <= 150;
+            boolean outerWorldWall = p.h >= BirdGame3.WORLD_HEIGHT - 10 && p.w <= 150;
+            // Flat arenas keep legacy wall platforms at the edges of the authored
+            // world. Under Smash rules those sit in front of the side blast zones,
+            // so treating them as techable walls bounces a launched fighter back
+            // into play before the out-of-bounds check can take its stock.
+            return outerWorldWall && !game.usesSmashCombatRules();
         }
         return p.h >= 24.0;
     }
