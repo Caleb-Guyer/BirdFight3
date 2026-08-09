@@ -16,6 +16,7 @@ import static com.example.birdgame3.BirdGame3.MapType;
 import static com.example.birdgame3.BirdGame3.MapVariant;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PigeonClassicRouteTest {
@@ -205,7 +206,16 @@ class PigeonClassicRouteTest {
         assertTrue(versus.contains("StackPane viewport = new StackPane(root)"));
         assertTrue(versus.contains("final double layoutH = 900.0"));
         assertTrue(versus.contains("bindFixedFrameScale(scene, root, 0.0, layoutW, layoutH)"));
+        assertTrue(versus.contains("playClassicEncounterMusic()"));
+        assertFalse(versus.contains("playMenuMusic()"));
         assertFalse(versus.contains("classicEncounter.briefing"));
+    }
+
+    @Test
+    void classicEncounterIntroHasItsOwnActionMusic() {
+        assertFalse(BirdGame3.CLASSIC_ENCOUNTER_MUSIC_FILE.equals("music-menu.mp3"));
+        assertNotNull(BirdGame3.class.getResource(
+                "/sounds/" + BirdGame3.CLASSIC_ENCOUNTER_MUSIC_FILE));
     }
 
     @Test

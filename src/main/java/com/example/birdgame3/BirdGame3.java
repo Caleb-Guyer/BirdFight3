@@ -267,6 +267,7 @@ public class BirdGame3 {
     private static final double VICTORY_MUSIC_BASE_VOLUME = 0.75;
     private static final double DEFEAT_MUSIC_BASE_VOLUME = 0.68;
     private static final double MATCH_MUSIC_BASE_VOLUME = 0.45;
+    static final String CLASSIC_ENCOUNTER_MUSIC_FILE = "music-escape.mp3";
     private static final double BUTTON_CLICK_BASE_VOLUME = 0.9;
     private static final double ACHIEVEMENT_SOUND_BASE_VOLUME = 1.0;
     private static final double ERROR_SOUND_BASE_VOLUME = 0.6;
@@ -4917,6 +4918,10 @@ public class BirdGame3 {
             this.label = label;
             this.description = description;
         }
+    }
+
+    private void playClassicEncounterMusic() {
+        startOrContinueMusicTrack(CLASSIC_ENCOUNTER_MUSIC_FILE, true);
     }
 
     enum ClassicEncounterStyle {
@@ -40205,7 +40210,7 @@ public class BirdGame3 {
         }
         classicRoundIndex = Math.clamp(classicRoundIndex, 0, classicRun.size() - 1);
         classicEncounter = classicRun.get(classicRoundIndex);
-        playMenuMusic();
+        playClassicEncounterMusic();
 
         final double layoutW = 1600.0;
         final double layoutH = 900.0;
