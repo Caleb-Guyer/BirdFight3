@@ -52770,7 +52770,8 @@ public class BirdGame3 {
             }
         }
         order.sort(Comparator
-                .comparingInt((Integer index) -> isAchievementUnlocked(index) ? 1 : 0)
+                .comparingInt((Integer index) -> isAchievementRewardClaimable(index) ? 0 : 1)
+                .thenComparingInt(index -> isAchievementUnlocked(index) ? 1 : 0)
                 .thenComparingInt(index -> isAchievementRewardClaimed(index) ? 1 : 0)
                 .thenComparingInt(Integer::intValue));
         return order;

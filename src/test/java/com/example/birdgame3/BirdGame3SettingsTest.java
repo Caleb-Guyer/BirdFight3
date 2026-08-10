@@ -10,6 +10,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Deque;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.prefs.BackingStoreException;
@@ -165,14 +166,22 @@ class BirdGame3SettingsTest {
     }
 
     @Test
-    void achievementDisplayOrderMovesCompletedEntriesToBottom() throws Exception {
+    void achievementDisplayOrderPutsClaimableRewardsFirst() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.setAchievementUnlocked(BirdGame3Achievement.URBAN_KING.legacyIndex);
+        game.setAchievementUnlocked(BirdGame3Achievement.ROOFTOP_RUNNER.legacyIndex);
+        game.setAchievementRewardClaimed(BirdGame3Achievement.ROOFTOP_RUNNER.legacyIndex);
 
         Class<?> categoryClass = Class.forName("com.example.birdgame3.BirdGame3AchievementCategory");
 
         Method orderMethod = BirdGame3.class.getDeclaredMethod("achievementDisplayOrder", categoryClass);
         orderMethod.setAccessible(true);
+
+        @SuppressWarnings("unchecked")
+        List<Integer> order = (List<Integer>) orderMethod.invoke(game, BirdGame3AchievementCategory.MAP);
+
+        assertEquals(BirdGame3Achievement.URBAN_KING.legacyIndex, order.getFirst());
+        assertEquals(BirdGame3Achievement.ROOFTOP_RUNNER.legacyIndex, order.getLast());
     }
 
     @Test
