@@ -27,79 +27,23 @@ final class RaptorSpecials {
     }
 
     static void neutral(Bird bird, boolean ultimate) {
-        boolean eagle = bird.type == BirdGame3.BirdType.EAGLE;
         int dir = bird.horizontalInputDirection();
         if (dir != 0) {
             bird.facingRight = dir > 0;
         }
-        dir = bird.facingDirection();
-
+        bird.raptorEggDirection = bird.facingDirection();
+        bird.raptorEggCharging = true;
+        bird.raptorEggChargeFrames = 0;
         bird.raptorCryUltimate = ultimate;
-        bird.raptorCryTimer = eagle
-                ? (ultimate ? Bird.EAGLE_CRY_ULTIMATE_FRAMES : Bird.EAGLE_CRY_FRAMES)
-                : (ultimate ? Bird.FALCON_CRY_ULTIMATE_FRAMES : Bird.FALCON_CRY_FRAMES);
-        bird.raptorCryReuseTimer = cryReuseFrames(bird, ultimate);
-        bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, bird.raptorCryTimer);
-        bird.vx *= eagle ? 0.36 : 0.52;
+        bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, 2);
+        boolean eagle = usesEagleProfile(bird);
+        bird.vx *= eagle ? 0.58 : 0.68;
         if (!bird.isOnGround()) {
             bird.vy = Math.min(bird.vy, eagle ? 1.4 : 0.9);
-        }
-
-        double centerX = bird.bodyCenterX() + dir * bird.bodyWidth() * 0.55;
-        double centerY = bird.bodyCenterY() - 8.0 * bird.sizeMultiplier;
-        for (Bird other : bird.game.players) {
-            if (!bird.canDamageTarget(other)) continue;
-
-            double dx = other.bodyCenterX() - centerX;
-            double forward = dx * dir;
-            if (forward < -other.combatHalfWidth() * 0.2) continue;
-
-            double dy = other.bodyCenterY() - centerY;
-            double reach = eagle ? (ultimate ? 170.0 : 152.0) : (ultimate ? 160.0 : 146.0);
-            if (forward > reach + other.combatHalfWidth()) continue;
-
-            double verticalAllowance = eagle
-                    ? 46.0 + Math.max(0.0, forward) * 0.28
-                    : 24.0 + Math.max(0.0, forward) * 0.16;
-            if (Math.abs(dy) > verticalAllowance * bird.sizeMultiplier + other.combatHalfHeight()) continue;
-
-            boolean sweetspot = !eagle && forward > 92.0 * bird.sizeMultiplier;
-            int dmg = eagle
-                    ? (ultimate ? 10 : 8)
-                    : (sweetspot ? (ultimate ? 10 : 8) : (ultimate ? 7 : 5));
-            double oldHealth = other.health;
-            int dealt = (int) bird.applyDamageTo(other, dmg);
-            if (dealt <= 0) continue;
-
-            bird.game.damageDealt[bird.playerIndex] += dealt;
-            bird.game.recordSpecialImpact(bird.playerIndex, dealt, true);
-            if (other.health <= 0 && oldHealth > 0) {
-                bird.game.eliminations[bird.playerIndex]++;
-            }
-
-            other.vx += dir * (sweetspot ? 8.4 : eagle ? 6.5 : 5.2);
-            other.vy -= sweetspot ? 6.4 : eagle ? 4.8 : 4.0;
-        }
-
-        Color primary = eagle ? Color.web("#E3B74E") : Color.web("#FF9E57");
-        Color secondary = eagle ? Color.web("#FFF4BC") : Color.web("#FFE0A5");
-        for (int ring = 0; ring < 3; ring++) {
-            double ringReach = 18 + ring * 28;
-            for (int i = 0; i < 8; i++) {
-                double spread = (i - 3.5) * (eagle ? 0.12 : 0.08);
-                bird.game.particles.add(new Particle(
-                        centerX + dir * (ringReach + i * 6),
-                        centerY + spread * 26,
-                        dir * (2.8 + ring * 1.2 + i * 0.2),
-                        spread * (eagle ? 2.3 : 1.5),
-                        (ring & 1) == 0 ? primary.deriveColor(0, 1, 1, 0.82) : secondary.deriveColor(0, 1, 1, 0.72)
-                ));
-            }
         }
     }
 
     static void side(Bird bird, boolean ultimate) {
-        boolean eagle = bird.type == BirdGame3.BirdType.EAGLE;
         int dir = bird.horizontalInputDirection();
         if (dir == 0) {
             dir = bird.facingDirection();
@@ -108,20 +52,16 @@ final class RaptorSpecials {
         bird.raptorRushDirection = dir;
         bird.raptorRushGrounded = bird.isOnGround();
         bird.raptorRushUltimate = ultimate;
-        bird.raptorRushTimer = eagle
-                ? (bird.raptorRushGrounded ? Bird.EAGLE_RUSH_GROUND_FRAMES : Bird.EAGLE_RUSH_AIR_FRAMES)
-                : (bird.raptorRushGrounded ? Bird.FALCON_RUSH_GROUND_FRAMES : Bird.FALCON_RUSH_AIR_FRAMES);
-        if (ultimate) {
-            bird.raptorRushTimer += eagle ? 2 : 1;
-        }
+        bird.raptorRushCharging = true;
+        bird.raptorRushChargeFrames = 0;
+        bird.raptorRushChargeRatio = 0.0;
         Arrays.fill(bird.raptorRushHit, false);
-        bird.raptorRushReuseTimer = rushReuseFrames(bird, ultimate);
-        bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, bird.raptorRushTimer);
-        bird.vx = dir * rushSpeed(bird);
+        bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, 2);
+        bird.vx *= 0.45;
         if (bird.raptorRushGrounded) {
             bird.vy = Math.min(bird.vy, 0.0);
         } else {
-            bird.vy = Math.min(bird.vy, eagle ? 1.0 : 0.4);
+            bird.vy = Math.min(bird.vy, usesEagleProfile(bird) ? 1.0 : 0.4);
         }
         bird.isBlocking = false;
         bird.parryWindowFrames = 0;
@@ -246,8 +186,8 @@ final class RaptorSpecials {
         bird.shieldStunFrames = 0;
     }
 
-    static void handleState(Bird bird) {
-        if (!bird.isRaptor() && !bird.mockingbirdCopiedRaptorNeutral()) {
+    static void handleState(Bird bird, boolean specialHeld) {
+        if (!bird.isRaptor() && !bird.mockingbirdCopiedRaptorNeutral() && !bird.raptorEggVolleyActive()) {
             return;
         }
         if (bird.stunTime > 0.0) {
@@ -265,6 +205,13 @@ final class RaptorSpecials {
             handleTerminalVelocity(bird);
             return;
         }
+        if (bird.raptorEggCharging) {
+            handleEggCharge(bird, specialHeld);
+        }
+        if (bird.raptorRushCharging) {
+            handleRushCharge(bird, specialHeld);
+        }
+        handleEggProjectiles(bird);
         if (bird.raptorCryTimer > 0) {
             handleCry(bird);
         }
@@ -277,7 +224,9 @@ final class RaptorSpecials {
     }
 
     static boolean active(Bird bird) {
-        return bird.raptorCryTimer > 0
+        return bird.raptorEggCharging
+                || bird.raptorRushCharging
+                || bird.raptorCryTimer > 0
                 || bird.raptorRushTimer > 0
                 || bird.raptorClimbTimer > 0
                 || bird.eagleDiveActive
@@ -305,8 +254,22 @@ final class RaptorSpecials {
     }
 
     static void reset(Bird bird) {
+        bird.raptorEggCharging = false;
+        bird.raptorEggChargeFrames = 0;
+        bird.raptorEggDirection = 1;
+        bird.raptorEggImpactActive = false;
+        Arrays.fill(bird.raptorEggActive, false);
+        Arrays.fill(bird.raptorEggX, 0.0);
+        Arrays.fill(bird.raptorEggY, 0.0);
+        Arrays.fill(bird.raptorEggVX, 0.0);
+        Arrays.fill(bird.raptorEggVY, 0.0);
+        Arrays.fill(bird.raptorEggPower, 0.0);
+        Arrays.fill(bird.raptorEggLife, 0);
         bird.raptorCryTimer = 0;
         bird.raptorCryUltimate = false;
+        bird.raptorRushCharging = false;
+        bird.raptorRushChargeFrames = 0;
+        bird.raptorRushChargeRatio = 0.0;
         bird.raptorRushTimer = 0;
         bird.raptorRushUltimate = false;
         bird.raptorRushGrounded = false;
@@ -887,8 +850,244 @@ final class RaptorSpecials {
         }
     }
 
+    private static void handleEggCharge(Bird bird, boolean specialHeld) {
+        boolean eagle = usesEagleProfile(bird);
+        int directionInput = bird.horizontalInputDirection();
+        if (directionInput != 0) {
+            bird.raptorEggDirection = directionInput;
+            bird.facingRight = directionInput > 0;
+        }
+        bird.vx *= eagle ? 0.78 : 0.84;
+        if (!bird.isOnGround()) {
+            bird.vy = Math.min(bird.vy, eagle ? 1.5 : 1.0);
+        }
+        bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, 2);
+
+        boolean aiCharge = bird.playerIndex >= 0
+                && bird.playerIndex < bird.game.isAI.length
+                && bird.game.isAI[bird.playerIndex];
+        int aiLevel = aiCharge ? bird.game.getCpuLevel(bird.playerIndex) : 1;
+        int aiGoal = Math.min(Bird.RAPTOR_EGG_MAX_CHARGE_FRAMES,
+                12 + Math.max(1, aiLevel) * 4);
+        boolean keepCharging = specialHeld
+                || (aiCharge && bird.raptorEggChargeFrames < aiGoal);
+        if (keepCharging && bird.raptorEggChargeFrames < Bird.RAPTOR_EGG_MAX_CHARGE_FRAMES) {
+            bird.raptorEggChargeFrames++;
+        }
+        if (!keepCharging || bird.raptorEggChargeFrames >= Bird.RAPTOR_EGG_MAX_CHARGE_FRAMES) {
+            releaseEggVolley(bird);
+        }
+    }
+
+    private static void releaseEggVolley(Bird bird) {
+        boolean eagle = usesEagleProfile(bird);
+        int chargeFrames = Math.clamp(bird.raptorEggChargeFrames, 0, Bird.RAPTOR_EGG_MAX_CHARGE_FRAMES);
+        double chargeRatio = chargeFrames / (double) Bird.RAPTOR_EGG_MAX_CHARGE_FRAMES;
+        int eggCount = 1 + Math.min(3, chargeFrames / 12);
+        int dir = bird.raptorEggDirection == 0 ? bird.facingDirection() : bird.raptorEggDirection;
+        bird.facingRight = dir > 0;
+        bird.raptorEggCharging = false;
+        bird.raptorEggChargeFrames = 0;
+        bird.raptorCryTimer = eagle
+                ? (bird.raptorCryUltimate ? Bird.EAGLE_CRY_ULTIMATE_FRAMES : Bird.EAGLE_CRY_FRAMES)
+                : (bird.raptorCryUltimate ? Bird.FALCON_CRY_ULTIMATE_FRAMES : Bird.FALCON_CRY_FRAMES);
+        bird.raptorCryReuseTimer = cryReuseFrames(bird, bird.raptorCryUltimate);
+        bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, bird.raptorCryTimer);
+
+        double originX = bird.bodyCenterX() + dir * bird.bodyWidth() * 0.48;
+        double originY = bird.bodyCenterY() - 7.0 * bird.sizeMultiplier;
+        double baseSpeed = (eagle ? 13.2 : 15.2) * (1.0 + chargeRatio * 0.12);
+        for (int egg = 0; egg < eggCount; egg++) {
+            int slot = allocateEggSlot(bird);
+            double centered = egg - (eggCount - 1.0) * 0.5;
+            bird.raptorEggActive[slot] = true;
+            bird.raptorEggX[slot] = originX - dir * egg * 30.0 * bird.sizeMultiplier;
+            bird.raptorEggY[slot] = originY + centered * 8.0 * bird.sizeMultiplier;
+            bird.raptorEggVX[slot] = dir * (baseSpeed - egg * 0.15);
+            bird.raptorEggVY[slot] = centered * (eagle ? 0.62 : 0.78) - 0.35;
+            bird.raptorEggPower[slot] = chargeRatio;
+            bird.raptorEggLife[slot] = eagle ? 84 : 76;
+        }
+
+        Color shell = eagle ? Color.web("#FFF1B8") : Color.web("#FFE0A3");
+        for (int i = 0; i < bird.scaledParticleCount(12 + eggCount * 3); i++) {
+            double spread = (bird.game.nextParticleRandom() - 0.5) * 1.4;
+            double speed = 2.0 + bird.game.nextParticleRandom() * 4.0;
+            bird.game.particles.add(new Particle(
+                    originX,
+                    originY,
+                    dir * Math.cos(spread) * speed,
+                    Math.sin(spread) * speed,
+                    shell.deriveColor(0, 1, 1, 0.78)
+            ));
+        }
+    }
+
+    private static int allocateEggSlot(Bird bird) {
+        int oldestSlot = 0;
+        int shortestLife = Integer.MAX_VALUE;
+        for (int i = 0; i < bird.raptorEggActive.length; i++) {
+            if (!bird.raptorEggActive[i]) {
+                return i;
+            }
+            if (bird.raptorEggLife[i] < shortestLife) {
+                shortestLife = bird.raptorEggLife[i];
+                oldestSlot = i;
+            }
+        }
+        return oldestSlot;
+    }
+
+    private static void handleEggProjectiles(Bird bird) {
+        for (int i = 0; i < bird.raptorEggActive.length; i++) {
+            if (!bird.raptorEggActive[i]) {
+                continue;
+            }
+            double previousY = bird.raptorEggY[i];
+            bird.raptorEggX[i] += bird.raptorEggVX[i];
+            bird.raptorEggY[i] += bird.raptorEggVY[i];
+            bird.raptorEggVY[i] += 0.075;
+            bird.raptorEggLife[i]--;
+
+            if (eggHitTarget(bird, i) || eggHitPlatform(bird, i, previousY)
+                    || bird.raptorEggLife[i] <= 0
+                    || bird.raptorEggX[i] < bird.game.battlefieldLeftBound() - 180.0
+                    || bird.raptorEggX[i] > bird.game.battlefieldRightBound() + 180.0
+                    || bird.raptorEggY[i] < BirdGame3.CEILING_Y - 180.0
+                    || bird.raptorEggY[i] > BirdGame3.GROUND_Y + 260.0) {
+                bird.raptorEggActive[i] = false;
+                bird.raptorEggLife[i] = 0;
+            }
+        }
+    }
+
+    private static boolean eggHitTarget(Bird bird, int egg) {
+        boolean eagle = usesEagleProfile(bird);
+        double radius = (eagle ? 11.0 : 9.0) * bird.sizeMultiplier;
+        for (Bird other : bird.game.players) {
+            if (!bird.canDamageTarget(other)) {
+                continue;
+            }
+            if (Math.abs(other.bodyCenterX() - bird.raptorEggX[egg]) > radius + other.combatHalfWidth()
+                    || Math.abs(other.bodyCenterY() - bird.raptorEggY[egg]) > radius + other.combatHalfHeight()) {
+                continue;
+            }
+
+            double power = Math.clamp(bird.raptorEggPower[egg], 0.0, 1.0);
+            int damage = (eagle ? 5 : 4) + (int) Math.round(power * 2.0);
+            double oldHealth = other.health;
+            bird.raptorEggImpactActive = true;
+            int dealt;
+            try {
+                dealt = (int) bird.applyDamageTo(other, damage);
+            } finally {
+                bird.raptorEggImpactActive = false;
+            }
+            if (dealt <= 0) {
+                return true;
+            }
+
+            bird.game.damageDealt[bird.playerIndex] += dealt;
+            bird.game.recordSpecialImpact(bird.playerIndex, dealt, true);
+            if (other.health <= 0 && oldHealth > 0) {
+                bird.game.eliminations[bird.playerIndex]++;
+            }
+            int dir = bird.raptorEggVX[egg] >= 0.0 ? 1 : -1;
+            other.vx += dir * ((eagle ? 4.7 : 4.2) + power * (eagle ? 2.2 : 2.6));
+            other.vy -= (eagle ? 3.8 : 3.3) + power * (eagle ? 1.8 : 2.1);
+            emitEggBreakParticles(bird, egg, eagle);
+            return true;
+        }
+        return false;
+    }
+
+    private static boolean eggHitPlatform(Bird bird, int egg, double previousY) {
+        if (bird.raptorEggVY[egg] < 0.0) {
+            return false;
+        }
+        double radius = 8.0 * bird.sizeMultiplier;
+        for (Platform platform : bird.game.platforms) {
+            if (bird.raptorEggX[egg] >= platform.x - radius
+                    && bird.raptorEggX[egg] <= platform.x + platform.w + radius
+                    && previousY <= platform.y + radius
+                    && bird.raptorEggY[egg] >= platform.y - radius
+                    && bird.raptorEggY[egg] <= platform.y + platform.h + radius) {
+                emitEggBreakParticles(bird, egg, usesEagleProfile(bird));
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static void emitEggBreakParticles(Bird bird, int egg, boolean eagle) {
+        Color shell = eagle ? Color.web("#FFF0B3") : Color.web("#FFD59A");
+        for (int i = 0; i < bird.scaledParticleCount(9); i++) {
+            double angle = bird.game.nextParticleRandom() * Math.PI * 2.0;
+            double speed = 1.8 + bird.game.nextParticleRandom() * 4.2;
+            bird.game.particles.add(new Particle(
+                    bird.raptorEggX[egg],
+                    bird.raptorEggY[egg],
+                    Math.cos(angle) * speed,
+                    Math.sin(angle) * speed - 1.0,
+                    shell.deriveColor(0, 1, 1, 0.84)
+            ));
+        }
+    }
+
+    private static void handleRushCharge(Bird bird, boolean specialHeld) {
+        boolean eagle = usesEagleProfile(bird);
+        int directionInput = bird.horizontalInputDirection();
+        if (directionInput != 0) {
+            bird.raptorRushDirection = directionInput;
+            bird.facingRight = directionInput > 0;
+        }
+        bird.vx *= 0.72;
+        if (!bird.isOnGround()) {
+            bird.vy = Math.min(bird.vy, eagle ? 1.2 : 0.7);
+        }
+        bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, 2);
+
+        boolean aiCharge = bird.playerIndex >= 0
+                && bird.playerIndex < bird.game.isAI.length
+                && bird.game.isAI[bird.playerIndex];
+        int aiLevel = aiCharge ? bird.game.getCpuLevel(bird.playerIndex) : 1;
+        int aiGoal = Math.min(Bird.RAPTOR_RUSH_MAX_CHARGE_FRAMES,
+                10 + Math.max(1, aiLevel) * 3);
+        boolean keepCharging = specialHeld
+                || (aiCharge && bird.raptorRushChargeFrames < aiGoal);
+        if (keepCharging && bird.raptorRushChargeFrames < Bird.RAPTOR_RUSH_MAX_CHARGE_FRAMES) {
+            bird.raptorRushChargeFrames++;
+        }
+        if (!keepCharging || bird.raptorRushChargeFrames >= Bird.RAPTOR_RUSH_MAX_CHARGE_FRAMES) {
+            releaseRush(bird);
+        }
+    }
+
+    private static void releaseRush(Bird bird) {
+        boolean eagle = usesEagleProfile(bird);
+        bird.raptorRushCharging = false;
+        bird.raptorRushChargeRatio = Math.clamp(
+                bird.raptorRushChargeFrames / (double) Bird.RAPTOR_RUSH_MAX_CHARGE_FRAMES, 0.0, 1.0);
+        int baseFrames = eagle
+                ? (bird.raptorRushGrounded ? Bird.EAGLE_RUSH_GROUND_FRAMES : Bird.EAGLE_RUSH_AIR_FRAMES)
+                : (bird.raptorRushGrounded ? Bird.FALCON_RUSH_GROUND_FRAMES : Bird.FALCON_RUSH_AIR_FRAMES);
+        int bonusFrames = (int) Math.round(bird.raptorRushChargeRatio * (eagle ? 11.0 : 9.0));
+        bird.raptorRushTimer = baseFrames + bonusFrames + (bird.raptorRushUltimate ? (eagle ? 2 : 1) : 0);
+        bird.raptorRushReuseTimer = rushReuseFrames(bird, bird.raptorRushUltimate)
+                + (int) Math.round(bird.raptorRushChargeRatio * 12.0);
+        Arrays.fill(bird.raptorRushHit, false);
+        bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, bird.raptorRushTimer);
+        int dir = bird.raptorRushDirection == 0 ? bird.facingDirection() : bird.raptorRushDirection;
+        bird.vx = dir * rushSpeed(bird);
+        if (bird.raptorRushGrounded) {
+            bird.vy = Math.min(bird.vy, 0.0);
+        } else {
+            bird.vy = Math.min(bird.vy, eagle ? 1.0 : 0.4);
+        }
+    }
+
     private static void handleCry(Bird bird) {
-        boolean eagle = bird.type == BirdGame3.BirdType.EAGLE || bird.mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.EAGLE);
+        boolean eagle = usesEagleProfile(bird);
         bird.vx *= eagle ? 0.84 : 0.9;
         if (!bird.isOnGround()) {
             bird.vy = Math.min(bird.vy, eagle ? 1.6 : 1.1);
@@ -914,7 +1113,8 @@ final class RaptorSpecials {
 
     private static void handleRush(Bird bird) {
         int dir = bird.raptorRushDirection == 0 ? bird.facingDirection() : bird.raptorRushDirection;
-        boolean eagle = bird.type == BirdGame3.BirdType.EAGLE;
+        boolean eagle = usesEagleProfile(bird);
+        double chargePower = Math.clamp(bird.raptorRushChargeRatio, 0.0, 1.0);
         bird.vx = dir * rushSpeed(bird);
         if (bird.raptorRushGrounded) {
             bird.vy = Math.min(bird.vy, 0.0);
@@ -935,9 +1135,10 @@ final class RaptorSpecials {
             if (Math.abs(dy) > (eagle ? 78.0 : 60.0) * bird.sizeMultiplier + other.combatHalfHeight()) continue;
 
             boolean sweetspot = !eagle && forward > 72.0 * bird.sizeMultiplier;
-            int dmg = eagle
+            int baseDamage = eagle
                     ? (bird.raptorRushUltimate ? 13 : 10)
                     : (sweetspot ? (bird.raptorRushUltimate ? 11 : 9) : (bird.raptorRushUltimate ? 8 : 7));
+            int dmg = (int) Math.round(baseDamage * (1.0 + chargePower * 0.55));
             double oldHealth = other.health;
             int dealt = (int) bird.applyDamageTo(other, dmg);
             if (dealt <= 0) continue;
@@ -948,8 +1149,9 @@ final class RaptorSpecials {
                 bird.game.eliminations[bird.playerIndex]++;
             }
 
-            other.vx += dir * (sweetspot ? 13.0 : eagle ? 10.8 : 8.8);
-            other.vy -= sweetspot ? 12.2 : eagle ? 9.4 : 8.6;
+            double launchScale = 1.0 + chargePower * 0.50;
+            other.vx += dir * (sweetspot ? 13.0 : eagle ? 10.8 : 8.8) * launchScale;
+            other.vy -= (sweetspot ? 12.2 : eagle ? 9.4 : 8.6) * launchScale;
             bird.raptorRushHit[other.playerIndex] = true;
 
             Color spark = sweetspot ? Color.web("#FFF0A6") : eagle ? Color.web("#E7B653") : Color.web("#FF9F68");
@@ -1034,26 +1236,34 @@ final class RaptorSpecials {
     }
 
     private static double rushSpeed(Bird bird) {
-        boolean eagle = bird.type == BirdGame3.BirdType.EAGLE;
+        boolean eagle = usesEagleProfile(bird);
+        double baseSpeed;
         if (eagle) {
             if (bird.raptorRushGrounded) {
-                return bird.raptorRushUltimate ? 15.1 : 13.8;
+                baseSpeed = bird.raptorRushUltimate ? 15.1 : 13.8;
+            } else {
+                baseSpeed = bird.raptorRushUltimate ? 13.8 : 12.4;
             }
-            return bird.raptorRushUltimate ? 13.8 : 12.4;
+        } else if (bird.raptorRushGrounded) {
+            baseSpeed = bird.raptorRushUltimate ? 18.4 : 16.9;
+        } else {
+            baseSpeed = bird.raptorRushUltimate ? 16.4 : 15.0;
         }
-        if (bird.raptorRushGrounded) {
-            return bird.raptorRushUltimate ? 18.4 : 16.9;
-        }
-        return bird.raptorRushUltimate ? 16.4 : 15.0;
+        return baseSpeed * (1.0 + Math.clamp(bird.raptorRushChargeRatio, 0.0, 1.0) * 0.55);
     }
 
     private static int cryReuseFrames(Bird bird, boolean ultimate) {
-        boolean eagle = bird.type == BirdGame3.BirdType.EAGLE;
+        boolean eagle = usesEagleProfile(bird);
         return eagle ? (ultimate ? 60 : 52) : (ultimate ? 44 : 36);
     }
 
     private static int rushReuseFrames(Bird bird, boolean ultimate) {
-        boolean eagle = bird.type == BirdGame3.BirdType.EAGLE;
+        boolean eagle = usesEagleProfile(bird);
         return eagle ? (ultimate ? 58 : 48) : (ultimate ? 42 : 34);
+    }
+
+    private static boolean usesEagleProfile(Bird bird) {
+        return bird.type == BirdGame3.BirdType.EAGLE
+                || bird.mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.EAGLE);
     }
 }

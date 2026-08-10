@@ -50,6 +50,8 @@ class BirdPresentationPolicyTest {
                 "Roadrunner must remain excluded from the legacy world-space cooldown bar");
         assertTrue(renderer.contains("type == BirdGame3.BirdType.VULTURE"),
                 "Vulture and Null Rock must remain excluded from the legacy world-space cooldown bar");
+        assertTrue(renderer.contains("if (isRaptor())"),
+                "Eagle and Falcon must remain excluded from the legacy world-space cooldown bar");
     }
 
     private static int countOccurrences(String source, String needle) {

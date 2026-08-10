@@ -10276,8 +10276,8 @@ public class BirdGame3 {
 
     public enum BirdType {
         PIGEON("Pigeon", 7, 16, 3.9, Color.LIGHTGRAY, 0.80, "Long Peck + Street Rush + Fire-Escape Flutter + Rooftop Breaker"),
-        EAGLE("Eagle", 9, 19, 4.2, Color.DARKRED, 0.6, "Hunter's Cry / Talon Rush / Skyrise / Heavenfall"),
-        FALCON("Falcon", 10, 18, 4.4, Color.rgb(176, 95, 55), 0.64, "Echo of Eagle: Target Snap / Razor Rush / Jet Climb / Meteor Strike"),
+        EAGLE("Eagle", 9, 19, 4.2, Color.DARKRED, 0.6, "Egg Volley / Charged Talon Rush / Skyrise / Heavenfall"),
+        FALCON("Falcon", 10, 18, 4.4, Color.rgb(176, 95, 55), 0.64, "Echo of Eagle: Egg Scatter / Charged Razor Rush / Jet Climb / Meteor Strike"),
         PHOENIX("Phoenix", 8, 20, 4.6, Color.ORANGERED, 0.66, "Cinder Halo / Snap Fire / Firespin / Faultfire"),
         HUMMINGBIRD("Hummingbird", 6, 23, 5.0, Color.LIME, 0.85, "Needle Barrage + Flash Sip + Hover Burst + Nectar Trap + Needleheart Overdrive"),
         TURKEY("Turkey", 10, 10, 3.0, Color.SADDLEBROWN, 0.82, "Charged Gobble Guard + Held Stampede + Panic Flap + Feast Trap + Harvest Tribunal"),
@@ -10394,8 +10394,8 @@ public class BirdGame3 {
         ),
         EAGLE_DRILL(
                 "Eagle Air Superiority",
-                "Land Eagle Cry, Rush, Sky Climb, and Dive hits.",
-                "Cry controls a cone. Rush takes ground. Climb catches above. Down special rises before the dive.",
+                "Land Egg Volley, Charged Rush, Sky Climb, and Dive hits.",
+                "Hold Neutral for more eggs. Hold Side for a faster, longer, stronger rush. Climb catches above; Down rises before the dive.",
                 MapType.BATTLEFIELD,
                 BirdType.EAGLE,
                 BirdType.PIGEON,
@@ -10466,8 +10466,8 @@ public class BirdGame3 {
         ),
         FALCON_DRILL(
                 "Falcon Precision Chain",
-                "Land Cry, Rush, Sky Climb, and Falcon Dive hits.",
-                "Falcon rewards clean spacing. Use Cry to tag, Side to pierce, Up to lift, and Down to finish.",
+                "Land Egg Scatter, Charged Rush, Sky Climb, and Falcon Dive hits.",
+                "Hold Neutral for more eggs and Side for a faster piercing rush. Use Up to lift and Down to finish.",
                 MapType.BATTLEFIELD,
                 BirdType.FALCON,
                 BirdType.PIGEON,
@@ -43027,7 +43027,7 @@ public class BirdGame3 {
             }
             case EAGLE_DRILL -> {
                 if (attacker.type == BirdType.EAGLE) {
-                    if (attacker.raptorCryTimer > 0) {
+                    if (attacker.raptorCryTimer > 0 || attacker.raptorEggImpactActive) {
                         trainingAcademyEagleCryHitSeen = true;
                     }
                     if (attacker.raptorRushTimer > 0) {
@@ -43089,7 +43089,7 @@ public class BirdGame3 {
             }
             case FALCON_DRILL -> {
                 if (attacker.type == BirdType.FALCON) {
-                    if (attacker.raptorCryTimer > 0) {
+                    if (attacker.raptorCryTimer > 0 || attacker.raptorEggImpactActive) {
                         trainingAcademyFalconCryHitSeen = true;
                     }
                     if (attacker.raptorRushTimer > 0) {
@@ -48529,10 +48529,10 @@ public class BirdGame3 {
 
     private String trainingEagleDrillProgressText() {
         if (!trainingAcademyEagleCryHitSeen) {
-            return "Academy goal: land NEUTRAL Eagle Cry on the dummy.";
+            return "Academy goal: hold NEUTRAL for an Egg Volley and hit the dummy.";
         }
         if (!trainingAcademyEagleRushHitSeen) {
-            return "Cry hit done. Land SIDE Eagle Rush.";
+            return "Egg hit done. Hold SIDE, then land the charged Talon Rush.";
         }
         if (!trainingAcademyEagleClimbHitSeen) {
             return "Rush hit done. Land UP Sky Climb.";
@@ -48654,10 +48654,10 @@ public class BirdGame3 {
 
     private String trainingFalconDrillProgressText() {
         if (!trainingAcademyFalconCryHitSeen) {
-            return "Academy goal: land NEUTRAL Cry on the dummy.";
+            return "Academy goal: hold NEUTRAL for Egg Scatter and hit the dummy.";
         }
         if (!trainingAcademyFalconRushHitSeen) {
-            return "Cry hit done. Land SIDE Falcon Rush.";
+            return "Egg hit done. Hold SIDE, then land the charged Razor Rush.";
         }
         if (!trainingAcademyFalconClimbHitSeen) {
             return "Rush hit done. Land UP Sky Climb.";
@@ -48959,7 +48959,7 @@ public class BirdGame3 {
                         + "  Rush: " + yesNoText(trainingAcademyPigeonRushHitSeen)
                         + "  Flutter: " + yesNoText(trainingAcademyPigeonFlutterHitSeen)
                         + "  Drill: " + yesNoText(trainingAcademyPigeonDropPeckHitSeen);
-                case EAGLE_DRILL -> "Cry: " + yesNoText(trainingAcademyEagleCryHitSeen)
+                case EAGLE_DRILL -> "Egg: " + yesNoText(trainingAcademyEagleCryHitSeen)
                         + "  Rush: " + yesNoText(trainingAcademyEagleRushHitSeen)
                         + "  Climb: " + yesNoText(trainingAcademyEagleClimbHitSeen)
                         + "  Dive: " + yesNoText(trainingAcademyEagleDiveHitSeen);
@@ -48988,7 +48988,7 @@ public class BirdGame3 {
                 case VULTURE_DRILL -> "Crows: " + yesNoText(trainingAcademyVultureCrowSummonedSeen)
                         + "  Offering: " + yesNoText(trainingAcademyVultureBaitPlacedSeen)
                         + "  Follow-up: " + yesNoText(trainingAcademyVultureFollowupHitSeen);
-                case FALCON_DRILL -> "Cry: " + yesNoText(trainingAcademyFalconCryHitSeen)
+                case FALCON_DRILL -> "Egg: " + yesNoText(trainingAcademyFalconCryHitSeen)
                         + "  Rush: " + yesNoText(trainingAcademyFalconRushHitSeen)
                         + "  Climb: " + yesNoText(trainingAcademyFalconClimbHitSeen)
                         + "  Dive: " + yesNoText(trainingAcademyFalconDiveHitSeen);
@@ -54453,7 +54453,7 @@ public class BirdGame3 {
             case RAVEN -> new String[]{"Black Quill", "Shadow Warp", "Murder Lift", "Nevermore"};
             case GOOSE -> new String[]{"Threatening Honk", "Bite and Barge", "V-Formation Lift", "Nest Guard"};
             case KIWI -> new String[]{"Rapid Probe", "Burrow Charge", "Spring Kick", "Earth Stomp"};
-            case FALCON -> splitSpecialAbility("Target Snap / Razor Rush / Jet Climb / Meteor Strike");
+            case FALCON -> splitSpecialAbility("Egg Scatter / Charged Razor Rush / Jet Climb / Meteor Strike");
             case HEISENBIRD -> splitSpecialAbility("Crystal Cloud / Blue Rush / Crystal Column / Glass Cook");
             default -> splitSpecialAbility(type.ability);
         };

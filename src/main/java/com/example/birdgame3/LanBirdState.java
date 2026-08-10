@@ -440,8 +440,21 @@ class LanBirdState {
     boolean[] pigeonCoronationFinalHit = new boolean[4];
     int raptorCryTimer;
     boolean raptorCryUltimate;
+    boolean raptorEggCharging;
+    int raptorEggChargeFrames;
+    int raptorEggDirection;
+    boolean[] raptorEggActive = new boolean[Bird.RAPTOR_MAX_EGGS];
+    double[] raptorEggX = new double[Bird.RAPTOR_MAX_EGGS];
+    double[] raptorEggY = new double[Bird.RAPTOR_MAX_EGGS];
+    double[] raptorEggVX = new double[Bird.RAPTOR_MAX_EGGS];
+    double[] raptorEggVY = new double[Bird.RAPTOR_MAX_EGGS];
+    double[] raptorEggPower = new double[Bird.RAPTOR_MAX_EGGS];
+    int[] raptorEggLife = new int[Bird.RAPTOR_MAX_EGGS];
     int raptorRushTimer;
     boolean raptorRushUltimate;
+    boolean raptorRushCharging;
+    int raptorRushChargeFrames;
+    double raptorRushChargeRatio;
     boolean raptorRushGrounded;
     int raptorRushDirection;
     boolean[] raptorRushHit = new boolean[4];
@@ -1084,8 +1097,23 @@ class LanBirdState {
         }
         out.writeInt(raptorCryTimer);
         out.writeBoolean(raptorCryUltimate);
+        out.writeBoolean(raptorEggCharging);
+        out.writeInt(raptorEggChargeFrames);
+        out.writeInt(raptorEggDirection);
+        for (int i = 0; i < raptorEggActive.length; i++) {
+            out.writeBoolean(raptorEggActive[i]);
+            out.writeDouble(raptorEggX[i]);
+            out.writeDouble(raptorEggY[i]);
+            out.writeDouble(raptorEggVX[i]);
+            out.writeDouble(raptorEggVY[i]);
+            out.writeDouble(raptorEggPower[i]);
+            out.writeInt(raptorEggLife[i]);
+        }
         out.writeInt(raptorRushTimer);
         out.writeBoolean(raptorRushUltimate);
+        out.writeBoolean(raptorRushCharging);
+        out.writeInt(raptorRushChargeFrames);
+        out.writeDouble(raptorRushChargeRatio);
         out.writeBoolean(raptorRushGrounded);
         out.writeInt(raptorRushDirection);
         for (boolean hit : raptorRushHit) {
@@ -1752,8 +1780,23 @@ class LanBirdState {
         }
         state.raptorCryTimer = in.readInt();
         state.raptorCryUltimate = in.readBoolean();
+        state.raptorEggCharging = in.readBoolean();
+        state.raptorEggChargeFrames = in.readInt();
+        state.raptorEggDirection = in.readInt();
+        for (int i = 0; i < state.raptorEggActive.length; i++) {
+            state.raptorEggActive[i] = in.readBoolean();
+            state.raptorEggX[i] = in.readDouble();
+            state.raptorEggY[i] = in.readDouble();
+            state.raptorEggVX[i] = in.readDouble();
+            state.raptorEggVY[i] = in.readDouble();
+            state.raptorEggPower[i] = in.readDouble();
+            state.raptorEggLife[i] = in.readInt();
+        }
         state.raptorRushTimer = in.readInt();
         state.raptorRushUltimate = in.readBoolean();
+        state.raptorRushCharging = in.readBoolean();
+        state.raptorRushChargeFrames = in.readInt();
+        state.raptorRushChargeRatio = in.readDouble();
         state.raptorRushGrounded = in.readBoolean();
         state.raptorRushDirection = in.readInt();
         for (int i = 0; i < state.raptorRushHit.length; i++) {

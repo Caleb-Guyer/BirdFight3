@@ -1357,8 +1357,22 @@ public class Bird {
     final boolean[] pigeonCoronationFinalHit = new boolean[4];
     int raptorCryTimer = 0;
     boolean raptorCryUltimate = false;
+    boolean raptorEggCharging = false;
+    int raptorEggChargeFrames = 0;
+    int raptorEggDirection = 1;
+    boolean raptorEggImpactActive = false;
+    final boolean[] raptorEggActive = new boolean[RAPTOR_MAX_EGGS];
+    final double[] raptorEggX = new double[RAPTOR_MAX_EGGS];
+    final double[] raptorEggY = new double[RAPTOR_MAX_EGGS];
+    final double[] raptorEggVX = new double[RAPTOR_MAX_EGGS];
+    final double[] raptorEggVY = new double[RAPTOR_MAX_EGGS];
+    final double[] raptorEggPower = new double[RAPTOR_MAX_EGGS];
+    final int[] raptorEggLife = new int[RAPTOR_MAX_EGGS];
     int raptorRushTimer = 0;
     boolean raptorRushUltimate = false;
+    boolean raptorRushCharging = false;
+    int raptorRushChargeFrames = 0;
+    double raptorRushChargeRatio = 0.0;
     boolean raptorRushGrounded = false;
     int raptorRushDirection = 1;
     final boolean[] raptorRushHit = new boolean[4];
@@ -1504,6 +1518,9 @@ public class Bird {
     static final int EAGLE_CRY_ULTIMATE_FRAMES = 20;
     static final int FALCON_CRY_FRAMES = 13;
     static final int FALCON_CRY_ULTIMATE_FRAMES = 16;
+    static final int RAPTOR_MAX_EGGS = 4;
+    static final int RAPTOR_EGG_MAX_CHARGE_FRAMES = 48;
+    static final int RAPTOR_RUSH_MAX_CHARGE_FRAMES = 42;
     static final int EAGLE_RUSH_GROUND_FRAMES = 18;
     static final int EAGLE_RUSH_AIR_FRAMES = 16;
     static final int FALCON_RUSH_GROUND_FRAMES = 16;
@@ -6222,7 +6239,8 @@ public class Bird {
             case PIGEON ->
                     pigeonFeatherCharging || pigeonFeatherBurstTimer > 0
                             || pigeonRushTimer > 0 || pigeonFlutterTimer > 0 || pigeonScavengeTimer > 0;
-            case EAGLE, FALCON -> raptorCryTimer > 0 || raptorRushTimer > 0 || raptorClimbTimer > 0;
+            case EAGLE, FALCON -> raptorEggCharging || raptorEggVolleyActive()
+                    || raptorCryTimer > 0 || raptorRushCharging || raptorRushTimer > 0 || raptorClimbTimer > 0;
             case PHOENIX ->
                     phoenixCharging || phoenixBurstFxTimer > 0 || phoenixFireballTimer > 0 || phoenixSpiralTimer > 0 || phoenixLavaTimer > 0;
             case HUMMINGBIRD -> hummingNeedleHitTimer > 0 || hummingFlashSipTimer > 0 || hummingHoverBurstTimer > 0;
@@ -11685,7 +11703,7 @@ public class Bird {
         }
         PigeonSpecials.handleState(this);
         PhoenixSpecials.handleState(this);
-        RaptorSpecials.handleState(this);
+        RaptorSpecials.handleState(this, specialHeld);
         handleHummingbirdSpecialState();
         handleTurkeySpecialState();
         handlePenguinSpecialState(specialHeld);
@@ -12139,6 +12157,10 @@ public class Bird {
             raptorRushUltimate = false;
             raptorRushGrounded = false;
             raptorRushDirection = 1;
+            if (!raptorRushCharging) {
+                raptorRushChargeFrames = 0;
+                raptorRushChargeRatio = 0.0;
+            }
             Arrays.fill(raptorRushHit, false);
         }
         if (raptorClimbTimer == 0) {
@@ -12404,7 +12426,8 @@ public class Bird {
             return BirdAnimationState.SHIELD;
         }
         if (isGroundAttackPending() || isChargingAttack() || attackAnimationTimer > 0
-                || raptorRushTimer > 0 || eagleDiveActive || diveTimer > 0 || eagleSkySovereignDiving
+                || raptorEggCharging || raptorRushCharging || raptorRushTimer > 0
+                || eagleDiveActive || diveTimer > 0 || eagleSkySovereignDiving
                 || gooseHonkTimer > 0 || gooseBargeTimer > 0 || gooseNestGuardTimer > 0
                 || gooseNestCounterTimer > 0 || gooseUltimateTimer > 0
                 || (type == BirdGame3.BirdType.KIWI && KiwiSpecials.active(this))) {
@@ -17109,8 +17132,21 @@ public class Bird {
                 pigeonCoronationFinalHit.length);
         state.raptorCryTimer = raptorCryTimer;
         state.raptorCryUltimate = raptorCryUltimate;
+        state.raptorEggCharging = raptorEggCharging;
+        state.raptorEggChargeFrames = raptorEggChargeFrames;
+        state.raptorEggDirection = raptorEggDirection;
+        System.arraycopy(raptorEggActive, 0, state.raptorEggActive, 0, raptorEggActive.length);
+        System.arraycopy(raptorEggX, 0, state.raptorEggX, 0, raptorEggX.length);
+        System.arraycopy(raptorEggY, 0, state.raptorEggY, 0, raptorEggY.length);
+        System.arraycopy(raptorEggVX, 0, state.raptorEggVX, 0, raptorEggVX.length);
+        System.arraycopy(raptorEggVY, 0, state.raptorEggVY, 0, raptorEggVY.length);
+        System.arraycopy(raptorEggPower, 0, state.raptorEggPower, 0, raptorEggPower.length);
+        System.arraycopy(raptorEggLife, 0, state.raptorEggLife, 0, raptorEggLife.length);
         state.raptorRushTimer = raptorRushTimer;
         state.raptorRushUltimate = raptorRushUltimate;
+        state.raptorRushCharging = raptorRushCharging;
+        state.raptorRushChargeFrames = raptorRushChargeFrames;
+        state.raptorRushChargeRatio = raptorRushChargeRatio;
         state.raptorRushGrounded = raptorRushGrounded;
         state.raptorRushDirection = raptorRushDirection;
         System.arraycopy(raptorRushHit, 0, state.raptorRushHit, 0, raptorRushHit.length);
@@ -17876,8 +17912,15 @@ public class Bird {
         }
         this.raptorCryTimer = state.raptorCryTimer;
         this.raptorCryUltimate = state.raptorCryUltimate;
+        this.raptorEggCharging = state.raptorEggCharging;
+        this.raptorEggChargeFrames = state.raptorEggChargeFrames;
+        this.raptorEggDirection = state.raptorEggDirection == 0 ? 1 : state.raptorEggDirection;
+        copyRaptorEggState(state);
         this.raptorRushTimer = state.raptorRushTimer;
         this.raptorRushUltimate = state.raptorRushUltimate;
+        this.raptorRushCharging = state.raptorRushCharging;
+        this.raptorRushChargeFrames = state.raptorRushChargeFrames;
+        this.raptorRushChargeRatio = state.raptorRushChargeRatio;
         this.raptorRushGrounded = state.raptorRushGrounded;
         this.raptorRushDirection = state.raptorRushDirection == 0 ? 1 : state.raptorRushDirection;
         Arrays.fill(this.raptorRushHit, false);
@@ -18087,6 +18130,45 @@ public class Bird {
         this.nullRockUpReuseTimer = Math.max(0, state.nullRockUpReuseTimer);
         this.nullRockDownReuseTimer = Math.max(0, state.nullRockDownReuseTimer);
         updateDisplayPose(1.0);
+    }
+
+    private void copyRaptorEggState(LanBirdState state) {
+        raptorEggImpactActive = false;
+        Arrays.fill(raptorEggActive, false);
+        Arrays.fill(raptorEggX, 0.0);
+        Arrays.fill(raptorEggY, 0.0);
+        Arrays.fill(raptorEggVX, 0.0);
+        Arrays.fill(raptorEggVY, 0.0);
+        Arrays.fill(raptorEggPower, 0.0);
+        Arrays.fill(raptorEggLife, 0);
+        if (state.raptorEggActive != null) {
+            System.arraycopy(state.raptorEggActive, 0, raptorEggActive, 0,
+                    Math.min(raptorEggActive.length, state.raptorEggActive.length));
+        }
+        if (state.raptorEggX != null) {
+            System.arraycopy(state.raptorEggX, 0, raptorEggX, 0,
+                    Math.min(raptorEggX.length, state.raptorEggX.length));
+        }
+        if (state.raptorEggY != null) {
+            System.arraycopy(state.raptorEggY, 0, raptorEggY, 0,
+                    Math.min(raptorEggY.length, state.raptorEggY.length));
+        }
+        if (state.raptorEggVX != null) {
+            System.arraycopy(state.raptorEggVX, 0, raptorEggVX, 0,
+                    Math.min(raptorEggVX.length, state.raptorEggVX.length));
+        }
+        if (state.raptorEggVY != null) {
+            System.arraycopy(state.raptorEggVY, 0, raptorEggVY, 0,
+                    Math.min(raptorEggVY.length, state.raptorEggVY.length));
+        }
+        if (state.raptorEggPower != null) {
+            System.arraycopy(state.raptorEggPower, 0, raptorEggPower, 0,
+                    Math.min(raptorEggPower.length, state.raptorEggPower.length));
+        }
+        if (state.raptorEggLife != null) {
+            System.arraycopy(state.raptorEggLife, 0, raptorEggLife, 0,
+                    Math.min(raptorEggLife.length, state.raptorEggLife.length));
+        }
     }
 
     double smashDamagePercent() {
@@ -18311,7 +18393,18 @@ public class Bird {
     }
 
     private boolean raptorSpecialPoseActive() {
-        return isRaptor() && (raptorCryTimer > 0 || raptorRushTimer > 0 || raptorClimbTimer > 0 || eagleDiveActive || eagleAscentActive);
+        return isRaptor() && (raptorEggCharging || raptorRushCharging
+                || raptorCryTimer > 0 || raptorRushTimer > 0 || raptorClimbTimer > 0
+                || eagleDiveActive || eagleAscentActive);
+    }
+
+    boolean raptorEggVolleyActive() {
+        for (boolean active : raptorEggActive) {
+            if (active) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private double raptorSpecialPhase(int timer, int totalFrames) {
@@ -18707,6 +18800,22 @@ public class Bird {
                     1.10 + 0.06 * phase
             );
         }
+        if (raptorRushCharging) {
+            double charge = Math.clamp(raptorRushChargeFrames / (double) RAPTOR_RUSH_MAX_CHARGE_FRAMES, 0.0, 1.0);
+            return new AttackVisualPose(
+                    -dir * (2.0 + 5.0 * charge),
+                    5.0 + 7.0 * charge,
+                    -dir * (2.0 + 4.0 * charge),
+                    facingRight ? -0.08 : Math.PI + 0.08,
+                    13.0 + 5.0 * charge,
+                    5.0 + 5.0 * charge,
+                    13.0 + 6.0 * charge,
+                    0.84,
+                    -dir * (4.0 + 5.0 * charge),
+                    1.08 + 0.06 * charge,
+                    0.94
+            );
+        }
         if (raptorRushTimer > 0) {
             double phase = raptorSpecialPhase(raptorRushTimer,
                     eagle
@@ -18727,10 +18836,12 @@ public class Bird {
             );
         }
 
-        double phase = raptorSpecialPhase(raptorCryTimer,
-                eagle
-                        ? (raptorCryUltimate ? EAGLE_CRY_ULTIMATE_FRAMES : EAGLE_CRY_FRAMES)
-                        : (raptorCryUltimate ? FALCON_CRY_ULTIMATE_FRAMES : FALCON_CRY_FRAMES));
+        double phase = raptorEggCharging
+                ? Math.clamp(raptorEggChargeFrames / (double) RAPTOR_EGG_MAX_CHARGE_FRAMES, 0.0, 1.0)
+                : raptorSpecialPhase(raptorCryTimer,
+                        eagle
+                                ? (raptorCryUltimate ? EAGLE_CRY_ULTIMATE_FRAMES : EAGLE_CRY_FRAMES)
+                                : (raptorCryUltimate ? FALCON_CRY_ULTIMATE_FRAMES : FALCON_CRY_FRAMES));
         return new AttackVisualPose(
                 dir * (4.0 + 3.0 * phase),
                 -3.0 - 2.0 * phase,
@@ -28150,10 +28261,11 @@ public class Bird {
     }
 
     private void drawRaptorSpecialFx(GraphicsContext g, double drawSize) {
-        if (!isRaptor()) {
+        if (!isRaptor() && !mockingbirdCopiedRaptorNeutral() && !raptorEggVolleyActive()) {
             return;
         }
-        boolean eagle = type == BirdGame3.BirdType.EAGLE;
+        boolean eagle = type == BirdGame3.BirdType.EAGLE
+                || mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.EAGLE);
         boolean skyKing = eagle && isClassicSkin;
         boolean falcon = type == BirdGame3.BirdType.FALCON;
         boolean duneFalcon = falcon && isDuneSkin;
@@ -28164,7 +28276,83 @@ public class Bird {
         Color secondary = eagle ? Color.web("#FFF1A8") : Color.web("#FFE1A8");
 
         g.save();
+        for (int i = 0; i < raptorEggActive.length; i++) {
+            if (!raptorEggActive[i]) {
+                continue;
+            }
+            double eggScale = (eagle ? 1.0 : 0.88) * s;
+            double eggWidth = 22.0 * eggScale;
+            double eggHeight = 16.0 * eggScale;
+            double dir = raptorEggVX[i] >= 0.0 ? 1.0 : -1.0;
+            g.setStroke(primary.deriveColor(0, 1, 1, 0.50));
+            g.setLineWidth(3.0 * s);
+            g.strokeLine(raptorEggX[i] - dir * 25.0 * s, raptorEggY[i],
+                    raptorEggX[i] - dir * 9.0 * s, raptorEggY[i]);
+            g.setFill(secondary.deriveColor(0, 0.72, 1.06, 0.98));
+            g.fillOval(raptorEggX[i] - eggWidth * 0.5, raptorEggY[i] - eggHeight * 0.5,
+                    eggWidth, eggHeight);
+            g.setStroke(primary.deriveColor(0, 1, 0.78, 0.92));
+            g.setLineWidth(1.7 * s);
+            g.strokeOval(raptorEggX[i] - eggWidth * 0.5, raptorEggY[i] - eggHeight * 0.5,
+                    eggWidth, eggHeight);
+            g.setFill(primary.deriveColor(0, 0.82, 0.76, 0.70));
+            g.fillOval(raptorEggX[i] - dir * 2.0 * s - 2.2 * s, raptorEggY[i] - 3.0 * s,
+                    4.4 * s, 5.2 * s);
+        }
+        g.restore();
+
+        g.save();
         g.setLineCap(StrokeLineCap.ROUND);
+
+        if (raptorEggCharging) {
+            double charge = Math.clamp(raptorEggChargeFrames / (double) RAPTOR_EGG_MAX_CHARGE_FRAMES, 0.0, 1.0);
+            double dir = raptorEggDirection == 0 ? facingDirection() : raptorEggDirection;
+            double eggX = centerX + dir * (30.0 + charge * 8.0) * s;
+            double eggY = centerY - 8.0 * s;
+            double eggWidth = (16.0 + charge * 12.0) * s;
+            double eggHeight = eggWidth * 0.72;
+            g.setEffect(new Glow(0.30 + charge * 0.48));
+            g.setFill(secondary.deriveColor(0, 0.72, 1.08, 0.95));
+            g.fillOval(eggX - eggWidth * 0.5, eggY - eggHeight * 0.5, eggWidth, eggHeight);
+            g.setStroke(primary.deriveColor(0, 1, 1, 0.88));
+            g.setLineWidth((2.0 + charge * 2.0) * s);
+            g.strokeOval(eggX - eggWidth * 0.5, eggY - eggHeight * 0.5, eggWidth, eggHeight);
+            int previewEggs = 1 + Math.min(3, raptorEggChargeFrames / 12);
+            g.setFill(primary.deriveColor(0, 0.78, 1.08, 0.74));
+            for (int i = 1; i < previewEggs; i++) {
+                double angle = i * Math.PI * 2.0 / previewEggs + raptorEggChargeFrames * 0.12;
+                double orbit = (21.0 + charge * 9.0) * s;
+                g.fillOval(eggX + Math.cos(angle) * orbit - 3.0 * s,
+                        eggY + Math.sin(angle) * orbit - 2.2 * s,
+                        6.0 * s, 4.4 * s);
+            }
+            g.restore();
+            return;
+        }
+
+        if (raptorRushCharging) {
+            double charge = Math.clamp(raptorRushChargeFrames / (double) RAPTOR_RUSH_MAX_CHARGE_FRAMES, 0.0, 1.0);
+            double dir = raptorRushDirection == 0 ? facingDirection() : raptorRushDirection;
+            g.setEffect(new Glow(0.28 + charge * 0.55));
+            g.setStroke(primary.deriveColor(0, 1, 1, 0.42 + charge * 0.44));
+            g.setLineWidth((2.5 + charge * 3.5) * s);
+            for (int i = 0; i < 3; i++) {
+                double pad = (13.0 + i * 12.0 + charge * 12.0) * s;
+                g.strokeArc(centerX - pad, centerY - pad,
+                        pad * 2.0, pad * 2.0,
+                        dir > 0 ? 112 : -68, 136, ArcType.OPEN);
+            }
+            g.setStroke(secondary.deriveColor(0, 1, 1, 0.55));
+            g.setLineWidth(2.0 * s);
+            for (int i = -1; i <= 1; i++) {
+                g.strokeLine(centerX - dir * (25.0 + charge * 34.0) * s,
+                        centerY + i * 10.0 * s,
+                        centerX - dir * 7.0 * s,
+                        centerY + i * 7.0 * s);
+            }
+            g.restore();
+            return;
+        }
 
         if (raptorRushTimer > 0) {
             double phase = raptorSpecialPhase(raptorRushTimer,
@@ -28222,18 +28410,16 @@ public class Bird {
             g.setEffect(new Glow(eagle ? 0.28 : 0.42));
             g.setStroke(primary.deriveColor(0, 1, 1, 0.72));
             g.setLineWidth((eagle ? 4.8 : 3.8) * s);
-            for (int i = 0; i < 3; i++) {
-                double width = (54.0 + i * 38.0 + phase * 16.0) * s;
-                double height = (28.0 + i * 18.0) * s;
-                g.strokeArc(originX + dir * (20.0 + i * 26.0) * s - width * 0.5,
-                        originY - height * 0.5, width, height,
-                        dir > 0 ? -34 : 214, eagle ? 68 : 56, ArcType.OPEN);
+            for (int i = -1; i <= 1; i++) {
+                double reach = (24.0 + phase * 30.0 + Math.abs(i) * 8.0) * s;
+                g.strokeLine(originX, originY + i * 7.0 * s,
+                        originX + dir * reach, originY + i * 12.0 * s);
             }
             g.setStroke(secondary.deriveColor(0, 1, 1, 0.54));
             g.setLineWidth(2.2 * s);
-            double x2 = originX + dir * (92.0 + phase * 24.0) * s;
-            g.strokeLine(originX, originY - 6.0 * s, x2, originY - 16.0 * s);
-            g.strokeLine(originX, originY + 6.0 * s, x2, originY + 16.0 * s);
+            double flash = (18.0 + phase * 22.0) * s;
+            g.strokeOval(originX + dir * flash - 10.0 * s, originY - 10.0 * s,
+                    20.0 * s, 20.0 * s);
             g.restore();
             return;
         }
@@ -31197,6 +31383,9 @@ public class Bird {
     }
 
     private void drawSpecialCooldown(GraphicsContext g) {
+        if (isRaptor()) {
+            return;
+        }
         if (type == BirdGame3.BirdType.PHOENIX) {
             return;
         }

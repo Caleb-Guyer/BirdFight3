@@ -4934,7 +4934,7 @@ class BirdStateTest {
     }
 
     @Test
-    void eagleNeutralSpecialUsesHuntersCryConeAndStartsInvisibleReuseTimer() throws Exception {
+    void eagleNeutralSpecialTapFiresOneEggAndStartsInvisibleReuseTimer() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;
 
@@ -4947,18 +4947,21 @@ class BirdStateTest {
         game.players[1] = target;
 
         double startingHealth = target.health;
-        game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
-        eagle.update(1.0);
-        game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
+        RaptorSpecials.neutral(eagle, false);
+        assertTrue(eagle.raptorEggCharging, "Neutral should begin a hold instead of hitting immediately.");
+        RaptorSpecials.handleState(eagle, false);
+        for (int frame = 0; frame < 10 && target.health == startingHealth; frame++) {
+            RaptorSpecials.handleState(eagle, false);
+        }
 
-        assertEquals(startingHealth - 8.0, target.health, 0.0001,
-                "Hunter's Cry should deal Eagle's heavier neutral-special damage.");
+        assertEquals(startingHealth - 5.0, target.health, 0.0001,
+                "A tapped Eagle egg should deal the base projectile damage.");
         assertTrue(getPrivateInt(eagle, "raptorCryTimer") > 0);
         assertTrue(getPrivateInt(eagle, "raptorCryReuseTimer") > 0);
         assertEquals(0, getPrivateInt(eagle, "specialCooldown"),
-                "Hunter's Cry should no longer use the visible special cooldown bar.");
-        assertTrue(target.vx > 0.0, "Hunter's Cry should push targets forward.");
-        assertTrue(target.vy < 0.0, "Hunter's Cry should pop targets slightly upward.");
+                "Egg Volley should not use the visible special cooldown bar.");
+        assertTrue(target.vx > 0.0, "The egg should push targets forward.");
+        assertTrue(target.vy < 0.0, "The egg should pop targets upward.");
     }
 
     @Test
@@ -4975,24 +4978,87 @@ class BirdStateTest {
         game.players[1] = target;
 
         double startingHealth = target.health;
-        game.setLocalActionsForKey(game.rightKeyForPlayer(0), true);
-        game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
-        eagle.update(1.0);
-        game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
-        game.setLocalActionsForKey(game.rightKeyForPlayer(0), false);
+        RaptorSpecials.side(eagle, false);
+        assertTrue(eagle.raptorRushCharging);
+        for (int frame = 0; frame < Bird.RAPTOR_RUSH_MAX_CHARGE_FRAMES; frame++) {
+            RaptorSpecials.handleState(eagle, true);
+        }
 
         assertTrue(getPrivateInt(eagle, "raptorRushTimer") > 0);
         assertTrue(getPrivateInt(eagle, "raptorRushReuseTimer") > 0);
+        assertEquals(1.0, eagle.raptorRushChargeRatio, 0.0001);
+        assertTrue(eagle.raptorRushTimer > Bird.EAGLE_RUSH_GROUND_FRAMES,
+                "A full hold should extend Talon Rush's active travel time.");
         assertEquals(0, getPrivateInt(eagle, "specialCooldown"),
                 "Talon Rush should not trigger the visible cooldown bar.");
-        assertTrue(eagle.vx > 13.0, "Talon Rush should commit Eagle to a strong horizontal burst.");
-        assertEquals(startingHealth - 10.0, target.health, 0.0001,
-                "Talon Rush should hit for Eagle's heavier rush damage.");
-        assertTrue(target.vy < -8.0, "Talon Rush should launch the target upward.");
+        assertTrue(eagle.vx > 20.0, "A full Talon Rush charge should be much faster than its tap version.");
+        assertEquals(startingHealth - 16.0, target.health, 0.0001,
+                "A full Talon Rush charge should scale its damage.");
+        assertTrue(target.vy < -13.0, "A full Talon Rush charge should launch harder.");
     }
 
     @Test
-    void eagleNeutralReuseTimerOnlyBlocksRepeatingHuntersCry() throws Exception {
+    void falconSideSpecialAlsoBuildsSpeedDurationAndPowerWhileHeld() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+        Bird falcon = new Bird(100.0, BirdGame3.BirdType.FALCON, 0, game);
+        Bird target = new Bird(190.0, BirdGame3.BirdType.PIGEON, 1, game);
+        falcon.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        falcon.facingRight = true;
+        game.players[0] = falcon;
+        game.players[1] = target;
+
+        RaptorSpecials.side(falcon, false);
+        for (int frame = 0; frame < Bird.RAPTOR_RUSH_MAX_CHARGE_FRAMES; frame++) {
+            RaptorSpecials.handleState(falcon, true);
+        }
+
+        assertEquals(1.0, falcon.raptorRushChargeRatio, 0.0001);
+        assertTrue(falcon.raptorRushTimer > Bird.FALCON_RUSH_GROUND_FRAMES);
+        assertTrue(falcon.vx > 25.0, "Falcon's full rush should retain the faster echo identity.");
+        assertTrue(target.health <= Bird.STARTING_HEALTH - 11.0,
+                "Falcon's full rush should gain meaningful damage from its charge.");
+    }
+
+    @Test
+    void raptorChargeAndEggProjectileStateSurvivesLanSnapshots() {
+        BirdGame3 game = new BirdGame3();
+        Bird eagle = new Bird(100.0, BirdGame3.BirdType.EAGLE, 0, game);
+        eagle.raptorEggCharging = true;
+        eagle.raptorEggChargeFrames = 27;
+        eagle.raptorEggDirection = -1;
+        eagle.raptorEggActive[1] = true;
+        eagle.raptorEggX[1] = 333.25;
+        eagle.raptorEggY[1] = 444.5;
+        eagle.raptorEggVX[1] = -14.75;
+        eagle.raptorEggVY[1] = 1.5;
+        eagle.raptorEggPower[1] = 0.625;
+        eagle.raptorEggLife[1] = 48;
+        eagle.raptorRushCharging = true;
+        eagle.raptorRushChargeFrames = 19;
+        eagle.raptorRushChargeRatio = 0.45;
+
+        Bird restored = new Bird(0.0, BirdGame3.BirdType.EAGLE, 0, game);
+        restored.applyLanState(eagle.toLanState());
+
+        assertTrue(restored.raptorEggCharging);
+        assertEquals(27, restored.raptorEggChargeFrames);
+        assertEquals(-1, restored.raptorEggDirection);
+        assertTrue(restored.raptorEggActive[1]);
+        assertEquals(333.25, restored.raptorEggX[1]);
+        assertEquals(444.5, restored.raptorEggY[1]);
+        assertEquals(-14.75, restored.raptorEggVX[1]);
+        assertEquals(1.5, restored.raptorEggVY[1]);
+        assertEquals(0.625, restored.raptorEggPower[1]);
+        assertEquals(48, restored.raptorEggLife[1]);
+        assertTrue(restored.raptorRushCharging);
+        assertEquals(19, restored.raptorRushChargeFrames);
+        assertEquals(0.45, restored.raptorRushChargeRatio);
+    }
+
+    @Test
+    void eagleNeutralReuseTimerOnlyBlocksRepeatingEggVolley() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;
 
@@ -5007,6 +5073,7 @@ class BirdStateTest {
         game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
         eagle.update(1.0);
         game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
+        eagle.update(1.0);
 
         while (getPrivateInt(eagle, "raptorCryTimer") > 0) {
             eagle.update(1.0);
@@ -5018,8 +5085,8 @@ class BirdStateTest {
         eagle.update(1.0);
         game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
 
-        assertEquals(0, getPrivateInt(eagle, "raptorCryTimer"),
-                "Hunter's Cry should stay locked until its hidden reuse timer expires.");
+        assertFalse(eagle.raptorEggCharging,
+                "Egg Volley should stay locked until its hidden reuse timer expires.");
 
         eagle.update(1.0);
 
@@ -5028,9 +5095,10 @@ class BirdStateTest {
         eagle.update(1.0);
         game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
         game.setLocalActionsForKey(game.rightKeyForPlayer(0), false);
+        eagle.update(1.0);
 
         assertTrue(getPrivateInt(eagle, "raptorRushTimer") > 0,
-                "The hidden Hunter's Cry timer should not block Talon Rush.");
+                "The hidden Egg Volley timer should not block Talon Rush.");
     }
 
     @Test
@@ -5271,7 +5339,7 @@ class BirdStateTest {
     }
 
     @Test
-    void eagleDownSpecialCooldownDoesNotBlockHuntersCry() throws Exception {
+    void eagleDownSpecialCooldownDoesNotBlockEggVolley() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;
 
@@ -5291,7 +5359,7 @@ class BirdStateTest {
         game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
 
         assertTrue(getPrivateInt(eagle, "specialCooldown") > 0,
-                "Heavenfall should still own the visible cooldown bar.");
+                "Heavenfall should still own its internal cooldown even though Eagle hides the bar.");
 
         eagle.eagleDiveActive = false;
         eagle.eagleAscentActive = false;
@@ -5305,51 +5373,51 @@ class BirdStateTest {
         game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
         eagle.update(1.0);
         game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
+        eagle.update(1.0);
+        for (int frame = 0; frame < 10 && target.health == startingHealth; frame++) {
+            eagle.update(1.0);
+        }
 
         assertTrue(getPrivateInt(eagle, "raptorCryTimer") > 0,
-                "Hunter's Cry should still be usable while Heavenfall cools down.");
-        assertEquals(startingHealth - 8.0, target.health, 0.0001,
-                "Hunter's Cry should still hit normally during Heavenfall's cooldown.");
+                "Egg Volley should still be usable while Heavenfall cools down.");
+        assertEquals(startingHealth - 5.0, target.health, 0.0001,
+                "Egg Volley should still hit normally during Heavenfall's cooldown.");
         assertTrue(getPrivateInt(eagle, "specialCooldown") > 0,
-                "Using Hunter's Cry should not erase Heavenfall's visible cooldown.");
+                "Using Egg Volley should not erase Heavenfall's internal cooldown.");
     }
 
     @Test
-    void falconNeutralSpecialSweetspotDealsMoreDamageAtRange() {
-        BirdGame3 closeGame = new BirdGame3();
-        closeGame.activePlayers = 2;
-        Bird closeFalcon = new Bird(100.0, BirdGame3.BirdType.FALCON, 0, closeGame);
-        Bird closeTarget = new Bird(195.0, BirdGame3.BirdType.PIGEON, 1, closeGame);
-        closeFalcon.y = BirdGame3.GROUND_Y - 80.0;
-        closeTarget.y = BirdGame3.GROUND_Y - 80.0;
-        closeFalcon.facingRight = true;
-        closeGame.players[0] = closeFalcon;
-        closeGame.players[1] = closeTarget;
+    void falconNeutralHoldAddsEggsToTheVolley() {
+        BirdGame3 tapGame = new BirdGame3();
+        tapGame.activePlayers = 1;
+        Bird tapFalcon = new Bird(100.0, BirdGame3.BirdType.FALCON, 0, tapGame);
+        tapFalcon.y = BirdGame3.GROUND_Y - 80.0;
+        tapGame.players[0] = tapFalcon;
+        RaptorSpecials.neutral(tapFalcon, false);
+        RaptorSpecials.handleState(tapFalcon, false);
 
-        closeGame.setLocalActionsForKey(closeGame.specialKeyForPlayer(0), true);
-        closeFalcon.update(1.0);
-        closeGame.setLocalActionsForKey(closeGame.specialKeyForPlayer(0), false);
+        BirdGame3 heldGame = new BirdGame3();
+        heldGame.activePlayers = 1;
+        Bird heldFalcon = new Bird(100.0, BirdGame3.BirdType.FALCON, 0, heldGame);
+        heldFalcon.y = BirdGame3.GROUND_Y - 80.0;
+        heldGame.players[0] = heldFalcon;
+        RaptorSpecials.neutral(heldFalcon, false);
+        for (int frame = 0; frame < 36; frame++) {
+            RaptorSpecials.handleState(heldFalcon, true);
+        }
+        RaptorSpecials.handleState(heldFalcon, false);
 
-        BirdGame3 farGame = new BirdGame3();
-        farGame.activePlayers = 2;
-        Bird farFalcon = new Bird(100.0, BirdGame3.BirdType.FALCON, 0, farGame);
-        Bird farTarget = new Bird(250.0, BirdGame3.BirdType.PIGEON, 1, farGame);
-        farFalcon.y = BirdGame3.GROUND_Y - 80.0;
-        farTarget.y = BirdGame3.GROUND_Y - 80.0;
-        farFalcon.facingRight = true;
-        farGame.players[0] = farFalcon;
-        farGame.players[1] = farTarget;
-
-        farGame.setLocalActionsForKey(farGame.specialKeyForPlayer(0), true);
-        farFalcon.update(1.0);
-        farGame.setLocalActionsForKey(farGame.specialKeyForPlayer(0), false);
-
-        double closeDamage = Bird.STARTING_HEALTH - closeTarget.health;
-        double farDamage = Bird.STARTING_HEALTH - farTarget.health;
-        assertTrue(farDamage > closeDamage,
-                "Target Snap should reward the farther tipper lane with stronger damage.");
-        assertTrue(farTarget.vy < closeTarget.vy,
-                "The sweetspot should also launch harder than the close hit.");
+        int tappedEggs = 0;
+        int heldEggs = 0;
+        for (boolean active : tapFalcon.raptorEggActive) {
+            if (active) tappedEggs++;
+        }
+        for (boolean active : heldFalcon.raptorEggActive) {
+            if (active) heldEggs++;
+        }
+        assertEquals(1, tappedEggs);
+        assertEquals(4, heldEggs,
+                "Holding Falcon's neutral should build from one egg to a four-egg scatter.");
     }
 
     @Test
