@@ -42,6 +42,8 @@ class StoryCampaignContentTest {
                 campaign.mission("last_call").mapVariant());
         assertEquals(BirdGame3.MapVariant.ROOFTOP_RELAY,
                 campaign.mission("sparrows_corridor").mapVariant());
+        assertEquals(BirdGame3.MapVariant.TEMPEST_SUMMIT,
+                campaign.mission("open_sky").mapVariant());
         assertEquals(BirdGame3.MapVariant.VOID_CROWN,
                 campaign.mission("the_null_rock").mapVariant());
     }

@@ -29247,6 +29247,7 @@ public class Bird {
 
     private void drawEagleSkin(GraphicsContext g, double drawSize) {
         if (type == BirdGame3.BirdType.EAGLE && isClassicSkin) {
+            boolean stormTyrant = name != null && name.contains("Storm Tyrant");
             double s = sizeMultiplier;
             double centerX = x + drawSize * 0.5;
             double centerY = y + drawSize * 0.5;
@@ -29261,6 +29262,14 @@ public class Bird {
                 g.setStroke(Color.web("#FFE082").deriveColor(0, 1, 1, 0.38));
                 g.setLineWidth(2.4 * s);
                 g.strokeOval(centerX - 58 * s, centerY - 54 * s, 116 * s, 108 * s);
+                if (stormTyrant) {
+                    g.setStroke(Color.web("#B8C7FF", 0.42));
+                    g.setLineWidth(3.2 * s);
+                    g.strokeArc(centerX - 72 * s, centerY - 66 * s, 144 * s, 132 * s,
+                            205, 130, ArcType.OPEN);
+                    g.strokeArc(centerX - 66 * s, centerY - 60 * s, 132 * s, 120 * s,
+                            28, 112, ArcType.OPEN);
+                }
             }
 
             double crownScale = suppressSelectEffects ? 0.8 : 1.0;
@@ -29286,6 +29295,26 @@ public class Bird {
             double gemSize = 4.8 * crownScale * s;
             g.fillOval(crownCenterX - gemSize * 0.5, bandY + bandH * 0.5 - gemSize * 0.5,
                     gemSize, gemSize);
+
+            if (stormTyrant) {
+                // A broken seam through the crown and an old eye scar make the
+                // boss readable even when the match camera is pulled back.
+                g.setStroke(Color.web("#241A12"));
+                g.setLineWidth(2.2 * s);
+                g.strokePolyline(
+                        new double[]{crownCenterX - 3 * s, crownCenterX + 2 * s, crownCenterX - 1 * s, crownCenterX + 5 * s},
+                        new double[]{crownTop + 2 * s, crownTop + 8 * s, crownTop + 13 * s, bandY + bandH},
+                        4);
+                double scarDir = facingRight ? 1.0 : -1.0;
+                g.setStroke(Color.web("#5A1B1B", 0.9));
+                g.setLineWidth(2.8 * s);
+                g.strokeLine(headPose.centerX() - scarDir * 2 * s, headPose.centerY() - 15 * s,
+                        headPose.centerX() + scarDir * 11 * s, headPose.centerY() + 15 * s);
+                g.setStroke(Color.web("#E8D7C6", 0.68));
+                g.setLineWidth(1.1 * s);
+                g.strokeLine(headPose.centerX() - scarDir * 1 * s, headPose.centerY() - 14 * s,
+                        headPose.centerX() + scarDir * 10 * s, headPose.centerY() + 14 * s);
+            }
 
             if (!suppressSelectEffects && Math.random() < 0.4) {
                 game.particles.add(new Particle(centerX + (Math.random() - 0.5) * 100 * s,

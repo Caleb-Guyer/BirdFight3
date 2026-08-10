@@ -691,7 +691,8 @@ public class BirdGame3 {
         CARRION_THRONE(MapType.VIBRANT_JUNGLE, "Boss Rush Arenas", "Carrion Throne", "A tall jungle throne with swinging vines and nectar routes."),
         NULL_ROC_ASCENDING(MapType.BEACON_CROWN, "Boss Rush Arenas", "Null Roc Arena", "A diagonal ascent across the shattered pieces of the Crown."),
         VOID_CROWN(MapType.BEACON_CROWN, "Boss Rush Arenas", "Void Crown", "A tiny central altar encircled by isolated crown fragments."),
-        ROOFTOP_RELAY(MapType.CITY, "Classic Routes", "Rooftop Relay", "A sunrise sprint across connected city rooftops toward the distant Beacon.");
+        ROOFTOP_RELAY(MapType.CITY, "Classic Routes", "Rooftop Relay", "A sunrise sprint across connected city rooftops toward the distant Beacon."),
+        TEMPEST_SUMMIT(MapType.SKYCLIFFS, "Classic Routes", "Tempest Summit", "An open crown of storm-beaten peaks above the clouds, with predictable recovery vents and no enclosing walls.");
 
         final MapType baseMap;
         final String category;
@@ -835,6 +836,7 @@ public class BirdGame3 {
     private boolean dockMapUnlocked = false;
     private boolean prisonMapUnlocked = false;
     private boolean rooftopRelayUnlocked = false;
+    private boolean tempestSummitUnlocked = false;
     private final boolean[][] towerDefenseDifficultyBadges = new boolean[MapType.values().length][TowerDefenseMode.Difficulty.values().length];
     private static final int DOCK_LEVER_COOLDOWN_FRAMES = 900;
     private static final int DOCK_BOMB_FUSE_FRAMES = 88;
@@ -4754,7 +4756,7 @@ public class BirdGame3 {
     private int trainingAcademyCompletionFrames = 0;
     private String trainingAcademyCompletionMessage = "";
     private boolean trainingAcademySceneTransitionPending = false;
-    public boolean eagleSkinUnlocked = true; // Sky Tyrant Eagle skin
+    public boolean eagleSkinUnlocked = true; // Sky King Eagle skin
     public boolean novaPhoenixUnlocked = false;
     public boolean ashenSovereignPhoenixUnlocked = false;
     public boolean duneFalconUnlocked = false;
@@ -4912,7 +4914,8 @@ public class BirdGame3 {
         OVERCHARGE_FURY("Overcharge Fury", "Overcharge and rage drops spike momentum."),
         WIND_RALLY("Wind Rally", "Extra wind vents keep the fight airborne."),
         RAGE_RITUAL("Rage Ritual", "Rage and speed drops spark early momentum."),
-        SHADOW_CACHE("Shadow Cache", "Shrink and neon drops keep spacing tight.");
+        SHADOW_CACHE("Shadow Cache", "Shrink and neon drops keep spacing tight."),
+        STORM_CROWN("Storm Crown", "Predictable crosswinds awaken when the Storm Tyrant loses a stock.");
 
         final String label;
         final String description;
@@ -4932,7 +4935,8 @@ public class BirdGame3 {
         MINIATURE_FLOCK,
         GIANT,
         BONUS_RELAY,
-        NULL_ROCK_BOSS
+        NULL_ROCK_BOSS,
+        STORM_TYRANT_BOSS
     }
 
     record ClassicFighter(BirdType type, String title, double health, double powerMult, double speedMult,
@@ -8653,6 +8657,7 @@ public class BirdGame3 {
     private boolean isMapVariantUnlocked(MapVariant variant) {
         if (variant == null || variant == MapVariant.STANDARD) return true;
         if (variant == MapVariant.ROOFTOP_RELAY) return rooftopRelayUnlocked;
+        if (variant == MapVariant.TEMPEST_SUMMIT) return tempestSummitUnlocked;
         return isMapUnlocked(variant.baseMap);
     }
 
@@ -13133,18 +13138,27 @@ public class BirdGame3 {
         switch (selectedMap) {
             case FOREST -> drawForestArena(g, ambientFx);
             case SKYCLIFFS -> {
+                boolean tempestSummit = activeArenaGeometryVariant == MapVariant.TEMPEST_SUMMIT;
+                Color cliffSkyTop = tempestSummit ? Color.web("#080C24") : Color.ORANGERED;
+                Color cliffSkyBottom = tempestSummit ? Color.web("#40577B") : Color.DEEPSKYBLUE.darker();
                 for (int i = 0; i < 600; i++) {
                     double ratio = i / 600.0;
-                    Color c = Color.ORANGERED.interpolate(Color.DEEPSKYBLUE.darker(), ratio);
+                    Color c = cliffSkyTop.interpolate(cliffSkyBottom, ratio);
                     g.setFill(c.deriveColor(0, 1, 1, 0.75));
                     g.fillRect(0, i * (WORLD_HEIGHT / 600.0), WORLD_WIDTH, WORLD_HEIGHT / 600.0 + 3);
                 }
-                g.setFill(Color.PURPLE.darker().darker().darker());
+                g.setFill(tempestSummit ? Color.web("#11182C") : Color.PURPLE.darker().darker().darker());
                 for (int m = 0; m < MOUNTAIN_X.length - 1; m++) {
                     double baseY = GROUND_Y + 300;
                     double peakY = mountainPeaks[m];
                     double midX = MOUNTAIN_X[m] + 400 + (m % 2 == 0 ? 100 : -100);
                     g.fillPolygon(new double[]{MOUNTAIN_X[m], midX, MOUNTAIN_X[m+1]}, new double[]{baseY, peakY, baseY}, 3);
+                }
+                if (tempestSummit) {
+                    g.setStroke(Color.web("#D9E8FF", 0.34));
+                    g.setLineWidth(10);
+                    g.strokePolyline(new double[]{780, 980, 900, 1120}, new double[]{180, 430, 390, 700}, 4);
+                    g.strokePolyline(new double[]{4660, 4510, 4580, 4380}, new double[]{120, 370, 340, 610}, 4);
                 }
                 if (ambientFx) {
                     double cloudTime = System.currentTimeMillis() / 40.0;
@@ -13166,17 +13180,20 @@ public class BirdGame3 {
                         }
                     }
                 }
-                g.setFill(Color.LIGHTBLUE.deriveColor(0, 1, 1, 0.25));
-                g.fillRect(0, GROUND_Y - 300, WORLD_WIDTH, 500);
-                g.setFill(Color.SIENNA.darker().darker());
-                g.fillRect(0, GROUND_Y, WORLD_WIDTH, WORLD_HEIGHT - GROUND_Y);
-                g.setFill(Color.SIENNA.darker().darker().darker());
-                g.setStroke(Color.SADDLEBROWN.darker().darker());
+                g.setFill((tempestSummit ? Color.web("#DCEBFF") : Color.LIGHTBLUE)
+                        .deriveColor(0, 1, 1, tempestSummit ? 0.34 : 0.25));
+                g.fillRect(0, GROUND_Y - 300, WORLD_WIDTH, tempestSummit ? 900 : 500);
+                if (!tempestSummit) {
+                    g.setFill(Color.SIENNA.darker().darker());
+                    g.fillRect(0, GROUND_Y, WORLD_WIDTH, WORLD_HEIGHT - GROUND_Y);
+                }
+                g.setStroke(tempestSummit ? Color.web("#90A4C0") : Color.SADDLEBROWN.darker().darker());
                 g.setLineWidth(10);
                 for (Platform p : platforms) {
+                    g.setFill(tempestSummit ? Color.web("#20283A") : Color.SIENNA.darker().darker().darker());
                     g.fillRoundRect(p.x + 10, p.y + 10, p.w - 20, p.h - 10, 50, 50);
                     g.strokeRoundRect(p.x + 10, p.y + 10, p.w - 20, p.h - 10, 50, 50);
-                    g.setFill(Color.DARKGREEN.brighter().brighter());
+                    g.setFill(tempestSummit ? Color.web("#E7C85A") : Color.DARKGREEN.brighter().brighter());
                     g.fillRoundRect(p.x + 40, p.y + 5, p.w - 80, 40, 40, 40);
                     renderRandom.setSeed((long) (p.x * 1000));
                     Random crackRand = renderRandom;
@@ -13187,10 +13204,12 @@ public class BirdGame3 {
                         double crackEndX = crackStartX + (crackRand.nextDouble() - 0.5) * 120;
                         g.strokeLine(crackStartX, p.y + 20, crackEndX, p.y + p.h - 20);
                     }
-                    g.setFill(Color.DARKGREEN.darker());
-                    for (int v = 0; v < 8; v++) {
-                        double vineX = p.x + crackRand.nextDouble() * p.w;
-                        g.fillRect(vineX, p.y + p.h, 12, 60 + crackRand.nextDouble() * 40);
+                    if (!tempestSummit) {
+                        g.setFill(Color.DARKGREEN.darker());
+                        for (int v = 0; v < 8; v++) {
+                            double vineX = p.x + crackRand.nextDouble() * p.w;
+                            g.fillRect(vineX, p.y + p.h, 12, 60 + crackRand.nextDouble() * 40);
+                        }
                     }
                 }
                 g.setStroke(Color.GOLD.brighter().brighter().brighter());
@@ -29362,6 +29381,7 @@ public class BirdGame3 {
         dockMapUnlocked = true;
         prisonMapUnlocked = true;
         rooftopRelayUnlocked = true;
+        tempestSummitUnlocked = true;
 
         cityPigeonUnlocked = true;
         noirPigeonUnlocked = true;
@@ -38461,7 +38481,7 @@ public class BirdGame3 {
     private String classicRewardFor(BirdType type) {
         return switch (type) {
             case PIGEON -> "Pigeon Noir";
-            case EAGLE -> "Sky Tyrant Eagle";
+            case EAGLE -> "Sky King Eagle";
             case FALCON -> "Crimson Falcon";
             case PHOENIX -> "Solar Phoenix";
             case HUMMINGBIRD -> "Plasma Hummingbird";
@@ -39141,6 +39161,9 @@ public class BirdGame3 {
         if (useAuthoredRoutes && playerType == BirdType.PIGEON) {
             return buildPigeonClassicRun();
         }
+        if (useAuthoredRoutes && playerType == BirdType.EAGLE) {
+            return buildEagleClassicRun();
+        }
         List<ClassicEncounter> run = new ArrayList<>();
         Set<MapType> usedMaps = new HashSet<>();
         Set<BirdType> usedBirds = new HashSet<>();
@@ -39602,6 +39625,174 @@ public class BirdGame3 {
         return run;
     }
 
+    private List<ClassicEncounter> buildEagleClassicRun() {
+        List<ClassicEncounter> run = new ArrayList<>();
+
+        ClassicEncounter needles = new ClassicEncounter(
+                "Needle Squadron",
+                "Canopy Watch",
+                "Three tiny couriers test Eagle's control of the jungle airspace.",
+                MapType.VIBRANT_JUNGLE,
+                MapVariant.STANDARD,
+                MatchMutator.NONE,
+                ClassicTwist.NECTAR_BLOOM,
+                ClassicEncounterStyle.MINIATURE_FLOCK,
+                85 * 60,
+                new ClassicFighter[0],
+                new ClassicFighter[]{
+                        classicFighter(BirdType.HUMMINGBIRD, "Needle Wing I", 62, 0.70, 1.16),
+                        classicFighter(BirdType.HUMMINGBIRD, "Needle Wing II", 62, 0.70, 1.16),
+                        classicFighter(BirdType.HUMMINGBIRD, "Needle Wing III", 62, 0.70, 1.16)
+                },
+                false
+        );
+        needles.cpuLevel = 3;
+        run.add(needles);
+
+        ClassicEncounter talons = new ClassicEncounter(
+                "Talon to Talon",
+                "Thermal Relay",
+                "Falcon challenges Eagle to a clean duel for command of the upper thermals.",
+                MapType.SKYCLIFFS,
+                MapVariant.STANDARD,
+                MatchMutator.NONE,
+                ClassicTwist.WIND_RALLY,
+                ClassicEncounterStyle.STANDARD,
+                92 * 60,
+                new ClassicFighter[0],
+                new ClassicFighter[]{
+                        classicFighter(BirdType.FALCON, "Elite: Crimson Talon", 150, 1.10, 1.12)
+                },
+                false
+        );
+        talons.cpuLevel = 4;
+        run.add(talons);
+
+        ClassicEncounter nightWatch = new ClassicEncounter(
+                "Night Watch",
+                "Parliament Watch",
+                "Pigeon joins Eagle to drive Raven and Bat from the highest city watchposts.",
+                MapType.CITY,
+                MapVariant.PARLIAMENT_ROOFTOPS,
+                MatchMutator.NONE,
+                ClassicTwist.SHADOW_CACHE,
+                ClassicEncounterStyle.STANDARD,
+                100 * 60,
+                new ClassicFighter[]{
+                        classicFighter(BirdType.PIGEON, "Ally: Rooftop Scout", 110, 0.98, 1.08)
+                },
+                new ClassicFighter[]{
+                        classicFighter(BirdType.RAVEN, "Night Watch: Raven", 120, 1.04, 1.08),
+                        classicFighter(BirdType.BAT, "Night Watch: Bat", 112, 1.00, 1.12)
+                },
+                false
+        );
+        nightWatch.cpuLevel = 5;
+        run.add(nightWatch);
+
+        ClassicEncounter migration = new ClassicEncounter(
+                "The Migration Wall",
+                "Fjord Signal",
+                "A giant Goose has sealed the frozen crossing. Break the wall without being carried off by its charge.",
+                MapType.FROSTBITE_FJORD,
+                MapVariant.STANDARD,
+                MatchMutator.NONE,
+                ClassicTwist.MEDIC_CACHE,
+                ClassicEncounterStyle.GIANT,
+                105 * 60,
+                new ClassicFighter[0],
+                new ClassicFighter[]{
+                        classicFighter(BirdType.GOOSE, "Giant: Migration Wall", 255, 1.15, 0.84)
+                },
+                true
+        );
+        migration.cpuLevel = 5;
+        run.add(migration);
+
+        ClassicEncounter rebirth = new ClassicEncounter(
+                "Raptors Against Rebirth",
+                "Ashfall Relay",
+                "Falcon returns as Eagle's wingmate against Phoenix and its fastest flame courier.",
+                MapType.ASHFALL_CATHEDRAL,
+                MapVariant.ASHFALL_REBIRTH,
+                MatchMutator.TURBO_BRAWL,
+                ClassicTwist.STORM_LIFTS,
+                ClassicEncounterStyle.STANDARD,
+                105 * 60,
+                new ClassicFighter[]{
+                        classicFighter(BirdType.FALCON, "Ally: Crimson Talon", 114, 1.02, 1.12)
+                },
+                new ClassicFighter[]{
+                        classicFighter(BirdType.PHOENIX, "Rebirth Vanguard: Phoenix", 136, 1.08, 1.04),
+                        classicFighter(BirdType.HUMMINGBIRD, "Flame Courier", 98, 0.94, 1.18)
+                },
+                false
+        );
+        rebirth.cpuLevel = 6;
+        run.add(rebirth);
+
+        ClassicEncounter carrion = new ClassicEncounter(
+                "Carrion Crown",
+                "Canopy Throne",
+                "Vulture waits above its living throne with a murder of crows at its command.",
+                MapType.VIBRANT_JUNGLE,
+                MapVariant.CARRION_THRONE,
+                MatchMutator.NONE,
+                ClassicTwist.VINE_SURGE,
+                ClassicEncounterStyle.STANDARD,
+                112 * 60,
+                new ClassicFighter[0],
+                new ClassicFighter[]{
+                        classicFighter(BirdType.VULTURE, "Miniboss: Carrion Regent", 210, 1.15, 0.98)
+                },
+                true
+        );
+        carrion.cpuLevel = 7;
+        run.add(carrion);
+
+        ClassicEncounter ascent = new ClassicEncounter(
+                "Bonus: Storm Beacon Ascent",
+                "Storm Beacon",
+                "Climb the shattered spires and break all three storm beacons before the route closes.",
+                MapType.SKYCLIFFS,
+                MapVariant.SKYBREAK_SPIRES,
+                MatchMutator.NONE,
+                ClassicTwist.WIND_RALLY,
+                ClassicEncounterStyle.BONUS_RELAY,
+                75 * 60,
+                new ClassicFighter[0],
+                new ClassicFighter[]{
+                        classicFighter(BirdType.TITMOUSE, "Storm Beacon I", 34, 0.05, 0.05),
+                        classicFighter(BirdType.TITMOUSE, "Storm Beacon II", 34, 0.05, 0.05),
+                        classicFighter(BirdType.TITMOUSE, "Storm Beacon III", 34, 0.05, 0.05)
+                },
+                false
+        );
+        ascent.cpuLevel = 1;
+        run.add(ascent);
+
+        ClassicEncounter tyrant = new ClassicEncounter(
+                "The Weight of the Crown",
+                "Summit Prime",
+                "The Storm Tyrant holds the last summit. Take both stocks before the awakened crosswinds take the crown.",
+                MapType.SKYCLIFFS,
+                MapVariant.TEMPEST_SUMMIT,
+                MatchMutator.NONE,
+                ClassicTwist.STORM_CROWN,
+                ClassicEncounterStyle.STORM_TYRANT_BOSS,
+                145 * 60,
+                new ClassicFighter[0],
+                new ClassicFighter[]{
+                        classicFighter(BirdType.EAGLE, "Boss: The Storm Tyrant", 220, 1.18, 1.06, "SKY_KING_EAGLE")
+                },
+                true
+        );
+        tyrant.cpuLevel = 8;
+        run.add(tyrant);
+
+        return run;
+    }
+
     private List<ClassicEncounter> buildBossRushRun() {
         List<ClassicEncounter> run = new ArrayList<>();
 
@@ -40028,8 +40219,7 @@ public class BirdGame3 {
                 drawRosterSprite(portrait, pick, selectedSkin[0], false, true);
                 selectedName.setText(pick.name.toUpperCase(Locale.ROOT));
                 routeEyebrow.setText((bossRush ? "BOSS RUSH" : pick.name.toUpperCase(Locale.ROOT) + " ROUTE"));
-                routeTitle.setText(bossRush ? "THE CROWN GAUNTLET"
-                        : (pick == BirdType.PIGEON ? "ROOFTOP ASCENT" : "TEMPORARY FLIGHT PLAN"));
+                routeTitle.setText(bossRush ? "THE CROWN GAUNTLET" : classicRouteTitle(pick));
                 List<String> skins = adventureSkinOptions(pick);
                 skin.setText(adventureSkinLabel(pick, selectedSkin[0]));
                 skin.setDisable(skins.size() <= 1);
@@ -40115,8 +40305,7 @@ public class BirdGame3 {
         classicSelectedBird = resolvedBird;
         classicSelectedSkinKey = normalizeAdventureSkinChoice(classicSelectedBird, classicSelectedSkinKey);
         classicRunCodename = ashfallTrial ? ASHFALL_TRIAL_CODENAME
-                : (bossRush ? "BOSS RUSH"
-                : (classicSelectedBird == BirdType.PIGEON ? "ROOFTOP ASCENT" : "TEMPORARY FLIGHT PLAN"));
+                : (bossRush ? "BOSS RUSH" : classicRouteTitle(classicSelectedBird));
         classicRun.clear();
         classicRun.addAll(ashfallTrial ? buildAshfallTrialRun()
                 : (bossRush ? buildBossRushRun() : buildClassicRun(classicSelectedBird)));
@@ -40135,6 +40324,12 @@ public class BirdGame3 {
         classicModeActive = true;
         if (bossRush) bossRushRunStartMillis = System.currentTimeMillis();
         showClassicEncounterIntro(stage);
+    }
+
+    private String classicRouteTitle(BirdType type) {
+        if (type == BirdType.PIGEON) return "ROOFTOP ASCENT";
+        if (type == BirdType.EAGLE) return "THE SKY HAS ONE KING";
+        return "TEMPORARY FLIGHT PLAN";
     }
 
     private HBox buildClassicRouteStrip(int currentIndex, int totalRounds, boolean bossRoute) {
@@ -40172,8 +40367,9 @@ public class BirdGame3 {
         GraphicsContext g = preview.getGraphicsContext2D();
         MapType map = encounter == null ? MapType.BATTLEFIELD : encounter.map;
         MapVariant variant = encounter == null ? MapVariant.STANDARD : encounter.variant;
+        boolean tempestSummit = variant == MapVariant.TEMPEST_SUMMIT;
 
-        Color skyTop = switch (map) {
+        Color skyTop = tempestSummit ? Color.web("#070B20") : switch (map) {
             case CITY, BEACON_CROWN, PRISON -> Color.web("#100D35");
             case SKYCLIFFS -> Color.web("#234A78");
             case DOCK -> Color.web("#173C52");
@@ -40184,7 +40380,7 @@ public class BirdGame3 {
             case FOREST, VIBRANT_JUNGLE -> Color.web("#123E35");
             default -> Color.web("#17233D");
         };
-        Color skyBottom = switch (map) {
+        Color skyBottom = tempestSummit ? Color.web("#536D91") : switch (map) {
             case CITY, BEACON_CROWN, PRISON -> Color.web("#291753");
             case SKYCLIFFS -> Color.web("#A7D8E8");
             case DOCK -> Color.web("#3C7488");
@@ -40221,12 +40417,18 @@ public class BirdGame3 {
                 g.fillRect(280, 78, 70, 112);
             }
         } else if (map == MapType.SKYCLIFFS) {
-            g.setFill(Color.web("#5D7891"));
+            g.setFill(tempestSummit ? Color.web("#172033") : Color.web("#5D7891"));
             g.fillPolygon(new double[]{0, 90, 160, 230}, new double[]{height, 62, height, height}, 4);
             g.fillPolygon(new double[]{145, 250, width, width}, new double[]{height, 38, 116, height}, 4);
             g.setFill(Color.web("#EDF7FA"));
             g.fillOval(34, 50, 95, 22);
             g.fillOval(245, 72, 110, 24);
+            if (tempestSummit) {
+                g.setStroke(Color.web("#EAF2FF", 0.7));
+                g.setLineWidth(3);
+                g.strokePolyline(new double[]{42, 70, 59, 90}, new double[]{22, 58, 54, 94}, 4);
+                g.strokePolyline(new double[]{325, 300, 310, 278}, new double[]{18, 52, 48, 88}, 4);
+            }
         } else if (map == MapType.DOCK) {
             g.setFill(Color.web("#0B2530"));
             g.fillRect(0, height - 66, width, 28);
@@ -40264,6 +40466,12 @@ public class BirdGame3 {
             drawClassicPreviewPlatform(g, 126, 113, 82, 12);
             drawClassicPreviewPlatform(g, 224, 84, 72, 12);
             drawClassicPreviewPlatform(g, 309, 116, 48, 12);
+        } else if (variant == MapVariant.TEMPEST_SUMMIT) {
+            g.setStroke(Color.web("#FFD95A"));
+            drawClassicPreviewPlatform(g, 20, 142, 82, 12);
+            drawClassicPreviewPlatform(g, 112, 116, 176, 14);
+            drawClassicPreviewPlatform(g, 298, 142, 82, 12);
+            drawClassicPreviewPlatform(g, 164, 74, 72, 10);
         } else if (variant == MapVariant.CROWN_DUEL || variant == MapVariant.NULL_ROCK_DUEL) {
             drawClassicPreviewPlatform(g, 82, 138, 205, 14);
             drawClassicPreviewPlatform(g, 150, 92, 72, 10);
@@ -40280,7 +40488,8 @@ public class BirdGame3 {
         g.strokeRoundRect(x, y, w, h, 5, 5);
     }
 
-    private void drawClassicFighterPortrait(Canvas canvas, BirdType type, String skinKey, boolean facingRight) {
+    private void drawClassicFighterPortrait(Canvas canvas, BirdType type, String skinKey,
+                                            boolean facingRight, String fighterName) {
         GraphicsContext g = canvas.getGraphicsContext2D();
         double width = canvas.getWidth();
         double height = canvas.getHeight();
@@ -40288,6 +40497,7 @@ public class BirdGame3 {
         if (type == null) return;
 
         Bird preview = new Bird(0, type, 0, this);
+        preview.name = fighterName;
         preview.suppressSelectEffects = true;
         applyPreviewSkinChoiceToBird(preview, type, skinKey);
         double baseSize = Math.min(width, height);
@@ -40355,7 +40565,8 @@ public class BirdGame3 {
         root.getChildren().add(bottomRail);
 
         Canvas playerPortrait = new Canvas(440, 390);
-        drawClassicFighterPortrait(playerPortrait, classicSelectedBird, classicSelectedSkinKey, true);
+        drawClassicFighterPortrait(playerPortrait, classicSelectedBird, classicSelectedSkinKey,
+                true, "You: " + classicSelectedBird.name);
         playerPortrait.setLayoutX(70);
         playerPortrait.setLayoutY(255);
         root.getChildren().add(playerPortrait);
@@ -40410,7 +40621,7 @@ public class BirdGame3 {
             if (bonusTargetEncounter) {
                 drawClassicBonusTargetPortrait(enemyPortrait);
             } else {
-                drawClassicFighterPortrait(enemyPortrait, enemy.type, enemy.skinKey, false);
+                drawClassicFighterPortrait(enemyPortrait, enemy.type, enemy.skinKey, false, enemy.title);
             }
             enemyLineup.getChildren().add(enemyPortrait);
         }
@@ -40835,7 +41046,8 @@ public class BirdGame3 {
                         true
                 );
                 enemyBird.setUltimateEnabled(encounter.style != ClassicEncounterStyle.MINIATURE_FLOCK
-                        && encounter.style != ClassicEncounterStyle.BONUS_RELAY);
+                        && encounter.style != ClassicEncounterStyle.BONUS_RELAY
+                        && encounter.style != ClassicEncounterStyle.STORM_TYRANT_BOSS);
                 if (enemy.skinKey != null) {
                     applyPreviewSkinChoiceToBird(enemyBird, enemy.type, enemy.skinKey);
                 }
@@ -40897,23 +41109,36 @@ public class BirdGame3 {
                         1.30 * enemyPowerScale,
                         0.96
                 );
+            } else if (encounter.style == ClassicEncounterStyle.STORM_TYRANT_BOSS) {
+                bird.health = Math.max(1.0, 220.0 * enemyHealthScale);
+                bird.setBaseMultipliers(
+                        1.62,
+                        1.18 * enemyPowerScale,
+                        1.06
+                );
             }
         }
     }
 
     private void positionClassicEncounterSpawns(ClassicEncounter encounter) {
         if (encounter == null || encounter.style != ClassicEncounterStyle.BONUS_RELAY) return;
+        boolean stormBeaconAscent = encounter.variant == MapVariant.SKYBREAK_SPIRES;
         Bird player = players[0];
         if (player != null) {
-            player.x = 430.0;
-            player.y = GROUND_Y - 250.0 - player.bodyHeight();
+            player.x = stormBeaconAscent ? 520.0 : 430.0;
+            double playerSurfaceY = stormBeaconAscent ? GROUND_Y - 260.0 : GROUND_Y - 250.0;
+            player.y = playerSurfaceY - player.bodyHeight();
             player.prevX = player.x;
             player.prevY = player.y;
             player.vx = 0.0;
             player.vy = 0.0;
         }
-        double[] targetX = {1_500.0, 3_500.0, 5_430.0};
-        double[] targetSurfaceY = {GROUND_Y - 520.0, GROUND_Y - 500.0, GROUND_Y - 590.0};
+        double[] targetX = stormBeaconAscent
+                ? new double[]{790.0, 3000.0, 5220.0}
+                : new double[]{1_500.0, 3_500.0, 5_430.0};
+        double[] targetSurfaceY = stormBeaconAscent
+                ? new double[]{GROUND_Y - 1120.0, GROUND_Y - 700.0, GROUND_Y - 1120.0}
+                : new double[]{GROUND_Y - 520.0, GROUND_Y - 500.0, GROUND_Y - 590.0};
         for (int i = 1; i < activePlayers && i <= targetX.length; i++) {
             Bird target = players[i];
             if (target == null) continue;
@@ -41039,6 +41264,10 @@ public class BirdGame3 {
                 powerUps.add(new PowerUp(3000, GROUND_Y - 980, PowerUpType.SHRINK));
                 powerUps.add(new PowerUp(4200, GROUND_Y - 840, PowerUpType.NEON));
             }
+            case STORM_CROWN -> {
+                // Tempest Summit supplies the first-stock vents. The second
+                // stock's deterministic crosswinds are activated at runtime.
+            }
         }
     }
 
@@ -41049,7 +41278,10 @@ public class BirdGame3 {
         }
         classicBonusCoins += 25;
         classicRunScore += 2_500;
-        addToKillFeed("ROOFTOP RELAY: neon target broken. Bird Coins +25.");
+        String bonusName = classicEncounter.variant == MapVariant.SKYBREAK_SPIRES
+                ? "STORM BEACON ASCENT"
+                : "ROOFTOP RELAY";
+        addToKillFeed(bonusName + ": target broken. Bird Coins +25.");
     }
 
     private void recordClassicEncounterScore(boolean playerWon) {
@@ -41288,6 +41520,34 @@ public class BirdGame3 {
         windVents.add(new WindVent(2860, transit.y, 170));
         windVents.add(new WindVent(3790, radio.y, 160));
         windVents.add(new WindVent(4860, relay.y, 160));
+    }
+
+    private void setupTempestSummitArena() {
+        resetBossRushArenaState();
+        activeArenaGeometryVariant = MapVariant.TEMPEST_SUMMIT;
+
+        Platform westPeak = new Platform(430, GROUND_Y - 280, 1050, 72);
+        westPeak.signText = "WEST PEAK";
+        Platform summit = new Platform(1830, GROUND_Y - 540, 2340, 92);
+        summit.signText = "TEMPEST SUMMIT";
+        Platform eastPeak = new Platform(4520, GROUND_Y - 280, 1050, 72);
+        eastPeak.signText = "EAST PEAK";
+        platforms.add(westPeak);
+        platforms.add(summit);
+        platforms.add(eastPeak);
+        platforms.add(new Platform(1180, GROUND_Y - 820, 500, 42));
+        platforms.add(new Platform(4320, GROUND_Y - 820, 500, 42));
+        platforms.add(new Platform(2600, GROUND_Y - 1020, 800, 48));
+
+        battlefieldIslandX = summit.x;
+        battlefieldIslandW = summit.w;
+        battlefieldIslandY = summit.y;
+
+        // These recovery vents are fixed and mirrored. The second boss stock
+        // adds one crosswind on each side without changing the solid layout.
+        windVents.add(new WindVent(780, westPeak.y, 260));
+        windVents.add(new WindVent(2870, summit.y, 260));
+        windVents.add(new WindVent(4960, eastPeak.y, 260));
     }
 
     private void setupBossRushCarrionThrone() {
@@ -41717,20 +41977,28 @@ public class BirdGame3 {
             grantBirdCoins(routePayout);
             if (classicSelectedBird == BirdType.PIGEON) {
                 rooftopRelayUnlocked = true;
+            } else if (classicSelectedBird == BirdType.EAGLE) {
+                tempestSummitUnlocked = true;
             }
             profileProgressController.onClassicRunCompleted(classicSelectedBird, achievementEvaluator::onClassicRunCompleted);
             String reward = classicRewardFor(classicSelectedBird);
             String charReward = classicCharacterReward(classicSelectedBird);
-            String routeReward = classicSelectedBird == BirdType.PIGEON
-                    ? "\nMap variant unlocked: Rooftop Relay."
-                    : "";
-            String ending = classicSelectedBird == BirdType.PIGEON
-                    ? "\n\nDawn reaches the rooftops. Pigeon returns to the nest as the Beacon answers from across the city: no crown was needed to make the sky home."
-                    : "";
+            String routeReward = switch (classicSelectedBird) {
+                case PIGEON -> "\nMap variant unlocked: Rooftop Relay.";
+                case EAGLE -> "\nMap variant unlocked: Tempest Summit.";
+                default -> "";
+            };
+            String ending = switch (classicSelectedBird) {
+                case PIGEON -> "\n\nDawn reaches the rooftops. Pigeon returns to the nest as the Beacon answers from across the city: no crown was needed to make the sky home.";
+                case EAGLE -> "\n\nThe storm breaks around the empty crown. Eagle leaves it on the summit and takes the open sky instead.";
+                default -> "";
+            };
             showStoryDialogue(
                     stage,
-                    classicSelectedBird == BirdType.PIGEON ? "Rooftop Ascent Complete" : "Classic Cleared",
-                    classicSelectedBird == BirdType.PIGEON ? "The Beacon" : "Skycaster Prime",
+                    classicSelectedBird == BirdType.PIGEON ? "Rooftop Ascent Complete"
+                            : (classicSelectedBird == BirdType.EAGLE ? "The Sky Has One King" : "Classic Cleared"),
+                    classicSelectedBird == BirdType.PIGEON ? "The Beacon"
+                            : (classicSelectedBird == BirdType.EAGLE ? "Summit Prime" : "Skycaster Prime"),
                     "Run " + classicRunCodename + " completed with " + classicSelectedBird.name + ".\nReward unlocked: "
                             + reward + (charReward.isBlank() ? "" : "\nCharacter unlocked: " + charReward) + "."
                             + routeReward
@@ -44444,6 +44712,18 @@ public class BirdGame3 {
         return classicUsesSmashRules() ? 1 : SMASH_STARTING_STOCKS;
     }
 
+    private void applyClassicEncounterStockOverrides() {
+        if (!classicModeActive || classicEncounter == null
+                || classicEncounter.style != ClassicEncounterStyle.STORM_TYRANT_BOSS) {
+            return;
+        }
+        for (Bird bird : players) {
+            if (bird != null && getEffectiveTeam(bird.playerIndex) == 2) {
+                scores[bird.playerIndex] = 2;
+            }
+        }
+    }
+
     double smashSuddenDeathPercent() {
         return SMASH_SUDDEN_DEATH_PERCENT;
     }
@@ -44559,6 +44839,9 @@ public class BirdGame3 {
     }
 
     private void applyMatchModeRuntimeEffects() {
+        if (classicModeActive && !bossRushModeActive && !ashfallTrialModeActive) {
+            applyStormTyrantRuntimeEffects();
+        }
         if (bossRushModeActive && classicModeActive) {
             applyBossRushRuntimeEffects();
         }
@@ -44569,6 +44852,36 @@ public class BirdGame3 {
             applyCampaignMissionRuntimeEffects();
         }
         matchController.applyMatchModeRuntimeEffects();
+    }
+
+    private void applyStormTyrantRuntimeEffects() {
+        if (classicEncounter == null
+                || classicEncounter.style != ClassicEncounterStyle.STORM_TYRANT_BOSS
+                || matchEnded) {
+            return;
+        }
+        Bird tyrant = null;
+        for (Bird bird : players) {
+            if (bird != null && getEffectiveTeam(bird.playerIndex) == 2
+                    && bird.type == BirdType.EAGLE) {
+                tyrant = bird;
+                break;
+            }
+        }
+        if (tyrant == null || matchScoreForPlayer(tyrant.playerIndex) != 1) return;
+
+        boolean phaseAlreadyActive = windVents.stream().anyMatch(vent -> Math.abs(vent.x - 1510.0) < 0.01);
+        if (!phaseAlreadyActive) {
+            windVents.add(new WindVent(1510, GROUND_Y - 620, 300));
+            windVents.add(new WindVent(4190, GROUND_Y - 620, 300));
+            addToKillFeed("STORM TYRANT: the shattered crown awakens the crosswinds.");
+        }
+
+        tyrant.powerMultiplier = Math.max(tyrant.powerMultiplier, tyrant.basePowerMultiplier * 1.06);
+        tyrant.speedMultiplier = Math.max(tyrant.speedMultiplier, tyrant.baseSpeedMultiplier * 1.06);
+        if (tyrant.attackCooldown > 0) tyrant.attackCooldown = Math.min(tyrant.attackCooldown, 12);
+        if (tyrant.raptorCryReuseTimer > 0) tyrant.raptorCryReuseTimer = Math.min(tyrant.raptorCryReuseTimer, 150);
+        if (tyrant.raptorRushReuseTimer > 0) tyrant.raptorRushReuseTimer = Math.min(tyrant.raptorRushReuseTimer, 150);
     }
 
     private void applyCampaignMissionRuntimeEffects() {
@@ -47029,6 +47342,7 @@ public class BirdGame3 {
                 || selectedMap == MapType.PRISON
                 || activeArenaGeometryVariant == MapVariant.TITAN_DOCK
                 || activeArenaGeometryVariant == MapVariant.PARLIAMENT_ROOFTOPS
+                || activeArenaGeometryVariant == MapVariant.TEMPEST_SUMMIT
                 || isCrownDuelArena();
     }
 
@@ -47563,6 +47877,7 @@ public class BirdGame3 {
             case TITAN_DOCK -> setupBossRushTitanDock();
             case PARLIAMENT_ROOFTOPS -> setupBossRushParliamentRooftops();
             case ROOFTOP_RELAY -> setupRooftopRelayArena();
+            case TEMPEST_SUMMIT -> setupTempestSummitArena();
             case CARRION_THRONE -> setupBossRushCarrionThrone();
             case NULL_ROC_ASCENDING -> setupBossRushNullRocArena();
             case VOID_CROWN -> setupBossRushVoidCrownArena();
@@ -47752,6 +48067,7 @@ public class BirdGame3 {
                     scores[i] = smashStartingStocks();
                 }
             }
+            applyClassicEncounterStockOverrides();
         }
 
         beginReplayRecordingForMatch();
@@ -51845,6 +52161,7 @@ public class BirdGame3 {
         state.dockMapUnlocked = dockMapUnlocked;
         state.prisonMapUnlocked = prisonMapUnlocked;
         state.rooftopRelayUnlocked = rooftopRelayUnlocked;
+        state.tempestSummitUnlocked = tempestSummitUnlocked;
         state.towerDefenseDifficultyBadges = copyBooleanMatrix(towerDefenseDifficultyBadges);
         state.cityPigeonUnlocked = cityPigeonUnlocked;
         state.noirPigeonUnlocked = noirPigeonUnlocked;
@@ -51984,6 +52301,7 @@ public class BirdGame3 {
         dockMapUnlocked = resolved.dockMapUnlocked;
         prisonMapUnlocked = resolved.prisonMapUnlocked;
         rooftopRelayUnlocked = resolved.rooftopRelayUnlocked;
+        tempestSummitUnlocked = resolved.tempestSummitUnlocked;
         copyInto(resolved.towerDefenseDifficultyBadges, towerDefenseDifficultyBadges);
 
         cityPigeonUnlocked = resolved.cityPigeonUnlocked;
@@ -52123,6 +52441,9 @@ public class BirdGame3 {
         // progress already shipped. Existing Pigeon clears receive it on load.
         if (classicCompleted[BirdType.PIGEON.ordinal()]) {
             rooftopRelayUnlocked = true;
+        }
+        if (classicCompleted[BirdType.EAGLE.ordinal()]) {
+            tempestSummitUnlocked = true;
         }
         boolean unitedFinaleCompleted = unitedIdx >= 0
                 && unitedIdx < mainAdventureCompleted.length

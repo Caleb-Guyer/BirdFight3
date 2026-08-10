@@ -352,7 +352,8 @@ final class StoryCampaignContent {
     private static StoryCampaign.Mission openSky() {
         return mission("open_sky", "Open Sky",
                 "Hold the cliff village through the carrion assault until Eagle's relief wing arrives.",
-                SKYCLIFFS, EVACUATION, StoryCampaign.PlayablePolicy.choice(ROADRUNNER, RAZORBILL),
+                SKYCLIFFS, BirdGame3.MapVariant.TEMPEST_SUMMIT, EVACUATION,
+                StoryCampaign.PlayablePolicy.choice(ROADRUNNER, RAZORBILL),
                 fighters(ally(FALCON, "Falcon")),
                 fighters(enemy(VULTURE, "Carrion Captain"), enemy(RAVEN, "Blackwing Scout")),
                 phases(

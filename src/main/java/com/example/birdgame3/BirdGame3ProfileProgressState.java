@@ -39,6 +39,7 @@ final class BirdGame3ProfileProgressState {
     private static final String KEY_DEVELOPER_INFINITE_BIRD_COINS = "developer_infinite_bird_coins";
     private static final String KEY_DEVELOPER_BADGE_POLICY_VERSION = "developer_badge_policy_version";
     private static final String KEY_ROOFTOP_RELAY_UNLOCKED = "map_variant_rooftop_relay_unlocked";
+    private static final String KEY_TEMPEST_SUMMIT_UNLOCKED = "map_variant_tempest_summit_unlocked";
 
     int achievementSchemaVersion = 0;
     BirdGame3AchievementProfile achievementProfile = new BirdGame3AchievementProfile();
@@ -51,6 +52,7 @@ final class BirdGame3ProfileProgressState {
     boolean dockMapUnlocked = false;
     boolean prisonMapUnlocked = false;
     boolean rooftopRelayUnlocked = false;
+    boolean tempestSummitUnlocked = false;
     boolean[][] towerDefenseDifficultyBadges =
             new boolean[BirdGame3.MapType.values().length][TowerDefenseMode.Difficulty.values().length];
     boolean cityPigeonUnlocked = true;
@@ -151,6 +153,7 @@ final class BirdGame3ProfileProgressState {
         state.dockMapUnlocked = prefs.getBoolean("map_dock_unlocked", false);
         state.prisonMapUnlocked = prefs.getBoolean("map_prison_unlocked", false);
         state.rooftopRelayUnlocked = prefs.getBoolean(KEY_ROOFTOP_RELAY_UNLOCKED, false);
+        state.tempestSummitUnlocked = prefs.getBoolean(KEY_TEMPEST_SUMMIT_UNLOCKED, false);
         loadTowerDefenseBadges(prefs, state);
         loadSkinUnlocks(prefs, state);
         loadCharacterUnlocks(prefs, state);
@@ -186,6 +189,7 @@ final class BirdGame3ProfileProgressState {
         prefs.putBoolean("map_dock_unlocked", dockMapUnlocked);
         prefs.putBoolean("map_prison_unlocked", prisonMapUnlocked);
         prefs.putBoolean(KEY_ROOFTOP_RELAY_UNLOCKED, rooftopRelayUnlocked);
+        prefs.putBoolean(KEY_TEMPEST_SUMMIT_UNLOCKED, tempestSummitUnlocked);
         saveTowerDefenseBadges(prefs);
         saveSkinUnlocks(prefs);
         saveCharacterUnlocks(prefs);
