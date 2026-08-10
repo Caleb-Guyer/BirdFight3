@@ -2,11 +2,16 @@ package com.example.birdgame3;
 
 import org.junit.jupiter.api.Test;
 
+import javafx.scene.Node;
+import javafx.scene.Parent;
+
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BirdGame3BossRushUiTest {
@@ -17,6 +22,8 @@ class BirdGame3BossRushUiTest {
 
         assertTrue(game.shouldShowClassicSelectBadge(BirdGame3.BirdType.PIGEON, false));
         assertFalse(game.shouldShowClassicSelectBadge(BirdGame3.BirdType.PIGEON, true));
+        assertEquals("ROUTE", game.birdSelectBadgeLabel(BirdGame3.BirdType.PIGEON, false));
+        assertNull(game.birdSelectBadgeLabel(BirdGame3.BirdType.PIGEON, true));
     }
 
     @Test
@@ -33,6 +40,24 @@ class BirdGame3BossRushUiTest {
         assertFalse(game.shouldShowBossRushSelectCompletionBadge(BirdGame3.BirdType.BAT));
         assertFalse(game.shouldShowBossRushSelectPerfectBadge(BirdGame3.BirdType.BAT));
         assertEquals("NOT EARNED", game.bossRushBadgeDisplayLabel(BirdGame3.BirdType.BAT));
+        assertEquals("PERFECT", game.birdSelectBadgeLabel(BirdGame3.BirdType.PIGEON, true));
+        assertEquals("CLEAR", game.birdSelectBadgeLabel(BirdGame3.BirdType.EAGLE, true));
+        assertNull(game.birdSelectBadgeLabel(BirdGame3.BirdType.BAT, true));
+    }
+
+    @Test
+    void earnedBirdBadgeIsRenderedAtTopRightOfRosterIcon() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        setClassicCompleted(game, BirdGame3.BirdType.PIGEON, true);
+
+        Method builder = BirdGame3.class.getDeclaredMethod("buildRosterSelectionIcon",
+                BirdGame3.BirdType.class, boolean.class, double.class, boolean.class);
+        builder.setAccessible(true);
+        Node icon = (Node) builder.invoke(game, BirdGame3.BirdType.PIGEON, false, 88.0, false);
+
+        Node badge = findNodeById(icon, "bird-select-badge");
+        assertNotNull(badge);
+        assertEquals("ROUTE BADGE EARNED", badge.getAccessibleText());
     }
 
     @Test
@@ -76,5 +101,20 @@ class BirdGame3BossRushUiTest {
         Method method = BirdGame3.class.getDeclaredMethod("refreshBossRushOverallBestRecord");
         method.setAccessible(true);
         method.invoke(game);
+    }
+
+    private static Node findNodeById(Node node, String id) {
+        if (id.equals(node.getId())) {
+            return node;
+        }
+        if (node instanceof Parent parent) {
+            for (Node child : parent.getChildrenUnmodifiable()) {
+                Node match = findNodeById(child, id);
+                if (match != null) {
+                    return match;
+                }
+            }
+        }
+        return null;
     }
 }

@@ -21659,20 +21659,104 @@ public class BirdGame3 {
     }
 
     private Node buildRosterSelectionIcon(BirdType type, boolean randomPick, double iconSize) {
+        return buildRosterSelectionIcon(type, randomPick, iconSize, false);
+    }
+
+    private Node buildRosterSelectionIcon(BirdType type, boolean randomPick, double iconSize,
+                                          boolean bossRush) {
         Canvas icon = new Canvas(iconSize, iconSize);
         drawRosterSprite(icon, type, null, randomPick);
         BirdType echoBase = echoBaseBird(type);
-        if (echoBase == null) return icon;
+        Node renderedIcon = icon;
+        if (echoBase != null) {
+            StackPane echoStack = new StackPane(icon);
+            echoStack.setPrefSize(iconSize, iconSize);
+            Canvas baseIcon = new Canvas(iconSize * 0.55, iconSize * 0.55);
+            drawRosterSprite(baseIcon, echoBase, null, false);
+            baseIcon.setOpacity(0.38);
+            StackPane.setAlignment(baseIcon, Pos.TOP_LEFT);
+            StackPane.setMargin(baseIcon, new Insets(6, 0, 0, 6));
+            echoStack.getChildren().add(baseIcon);
+            renderedIcon = echoStack;
+        }
 
-        StackPane iconStack = new StackPane(icon);
-        iconStack.setPrefSize(iconSize, iconSize);
-        Canvas baseIcon = new Canvas(iconSize * 0.55, iconSize * 0.55);
-        drawRosterSprite(baseIcon, echoBase, null, false);
-        baseIcon.setOpacity(0.38);
-        StackPane.setAlignment(baseIcon, Pos.TOP_LEFT);
-        StackPane.setMargin(baseIcon, new Insets(6, 0, 0, 6));
-        iconStack.getChildren().add(baseIcon);
-        return iconStack;
+        String badgeLabel = randomPick ? null : birdSelectBadgeLabel(type, bossRush);
+        if (badgeLabel == null) {
+            return renderedIcon;
+        }
+
+        StackPane badgedIcon = new StackPane(renderedIcon);
+        badgedIcon.setMinSize(iconSize, iconSize);
+        badgedIcon.setPrefSize(iconSize, iconSize);
+        badgedIcon.setMaxSize(iconSize, iconSize);
+        Node badge = buildBirdSelectBadgeIcon(badgeLabel, iconSize);
+        StackPane.setAlignment(badge, Pos.TOP_RIGHT);
+        StackPane.setMargin(badge, new Insets(1, 1, 0, 0));
+        badgedIcon.getChildren().add(badge);
+        return badgedIcon;
+    }
+
+    String birdSelectBadgeLabel(BirdType type, boolean bossRush) {
+        if (type == null) {
+            return null;
+        }
+        if (bossRush) {
+            if (shouldShowBossRushSelectPerfectBadge(type)) {
+                return "PERFECT";
+            }
+            return shouldShowBossRushSelectCompletionBadge(type) ? "CLEAR" : null;
+        }
+        return shouldShowClassicSelectBadge(type, false) ? "ROUTE" : null;
+    }
+
+    private Node buildBirdSelectBadgeIcon(String badgeLabel, double iconSize) {
+        double size = Math.clamp(iconSize * 0.42, 30.0, 42.0);
+        Canvas badge = new Canvas(size, size);
+        badge.setId("bird-select-badge");
+        badge.setAccessibleText(badgeLabel + " BADGE EARNED");
+        badge.setMouseTransparent(true);
+
+        GraphicsContext g = badge.getGraphicsContext2D();
+        boolean perfect = "PERFECT".equals(badgeLabel);
+        boolean bossClear = "CLEAR".equals(badgeLabel);
+        Color ribbon = perfect ? Color.web("#8E24AA")
+                : bossClear ? Color.web("#C62828") : Color.web("#1565C0");
+        Color medal = perfect ? Color.web("#FFF176")
+                : bossClear ? Color.web("#FFB74D") : Color.web("#FFD54F");
+
+        g.setFill(Color.rgb(0, 0, 0, 0.62));
+        g.fillOval(size * 0.08, size * 0.08, size * 0.84, size * 0.84);
+        g.setFill(ribbon);
+        g.fillPolygon(
+                new double[]{size * 0.25, size * 0.43, size * 0.38, size * 0.18},
+                new double[]{size * 0.52, size * 0.64, size * 0.96, size * 0.76},
+                4
+        );
+        g.fillPolygon(
+                new double[]{size * 0.57, size * 0.75, size * 0.82, size * 0.62},
+                new double[]{size * 0.64, size * 0.52, size * 0.76, size * 0.96},
+                4
+        );
+        g.setFill(medal);
+        g.fillOval(size * 0.12, size * 0.05, size * 0.76, size * 0.76);
+        g.setStroke(Color.web("#FFF8E1"));
+        g.setLineWidth(Math.max(1.5, size * 0.055));
+        g.strokeOval(size * 0.12, size * 0.05, size * 0.76, size * 0.76);
+        g.setStroke(Color.web("#4E342E"));
+        g.setLineWidth(Math.max(1.2, size * 0.04));
+        g.strokeOval(size * 0.22, size * 0.15, size * 0.56, size * 0.56);
+
+        if (bossClear) {
+            g.setStroke(Color.web("#5D1F00"));
+            g.setLineWidth(Math.max(2.0, size * 0.075));
+            g.setLineCap(StrokeLineCap.ROUND);
+            g.strokeLine(size * 0.34, size * 0.43, size * 0.46, size * 0.55);
+            g.strokeLine(size * 0.46, size * 0.55, size * 0.68, size * 0.30);
+        } else {
+            fillAchievementStar(g, size * 0.50, size * 0.43, size * 0.21, size * 0.09,
+                    5, perfect ? Color.web("#8E24AA") : Color.web("#1565C0"), Color.web("#FFF8E1"));
+        }
+        return badge;
     }
 
     private void showFightSetup(Stage stage) {
@@ -39818,7 +39902,7 @@ public class BirdGame3 {
         double iconSize = Math.clamp(tileH - 48.0, 70.0, 92.0);
         for (int i = 0; i < availableBirds.size(); i++) {
             BirdType birdType = availableBirds.get(i);
-            Node icon = buildRosterSelectionIcon(birdType, false, iconSize);
+            Node icon = buildRosterSelectionIcon(birdType, false, iconSize, bossRush);
             Label birdName = new Label(rosterSelectionTileLabel(birdType, false));
             birdName.setFont(Font.font("Arial Black", echoBaseBird(birdType) == null ? 13 : 10));
             birdName.setTextFill(Color.WHITE);
