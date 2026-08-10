@@ -143,6 +143,10 @@ class BirdStatsTest {
                 vulture.damageTakenMult=1.42
                 vulture.cooldownRate=0.70
                 vulture.ultimateRate=0.62
+                titmouse.damageDealtMult=1.45
+                titmouse.damageTakenMult=0.68
+                titmouse.cooldownRate=1.40
+                titmouse.ultimateRate=1.25
                 """);
 
         BirdStats.reload(file);
@@ -159,6 +163,10 @@ class BirdStatsTest {
         assertEquals(1.26, BirdGame3.BirdType.VULTURE.damageTakenMult);
         assertEquals(0.84, BirdGame3.BirdType.VULTURE.cooldownRate);
         assertEquals(0.78, BirdGame3.BirdType.VULTURE.ultimateRate);
+        assertEquals(1.10, BirdGame3.BirdType.TITMOUSE.damageDealtMult);
+        assertEquals(0.92, BirdGame3.BirdType.TITMOUSE.damageTakenMult);
+        assertEquals(1.40, BirdGame3.BirdType.TITMOUSE.cooldownRate);
+        assertEquals(1.25, BirdGame3.BirdType.TITMOUSE.ultimateRate);
     }
 
     @Test
@@ -169,6 +177,10 @@ class BirdStatsTest {
                 bat.damageTakenMult=1.20
                 bat.cooldownRate=0.82
                 bat.ultimateRate=0.90
+                titmouse.damageDealtMult=1.44
+                titmouse.damageTakenMult=0.68
+                titmouse.cooldownRate=1.40
+                titmouse.ultimateRate=1.25
                 """);
 
         BirdStats.reload(file);
@@ -177,5 +189,8 @@ class BirdStatsTest {
         assertEquals(1.20, BirdGame3.BirdType.BAT.damageTakenMult);
         assertEquals(0.82, BirdGame3.BirdType.BAT.cooldownRate);
         assertEquals(0.90, BirdGame3.BirdType.BAT.ultimateRate);
+        assertEquals(1.44, BirdGame3.BirdType.TITMOUSE.damageDealtMult,
+                "Changing one Titmouse value must preserve the complete player-owned preset.");
+        assertEquals(0.68, BirdGame3.BirdType.TITMOUSE.damageTakenMult);
     }
 }

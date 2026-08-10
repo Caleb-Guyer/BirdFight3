@@ -134,28 +134,34 @@ tracks — keep music serious/intense. SFX get pitch/volume variation via
 `playManagedSfxVaried` (presentation-only `audioRandom`); match music ducks
 under KO slow-mo.
 
-## Balance state (2026-08-08, see audit/balance-report.md)
+## Balance state (2026-08-10, see audit/balance-report.md)
 
 AI-vs-AI results — treat as "where to look," not verdicts (the AI can't pilot
 technical kits like Razorbill/Charles):
-- The post-knockback/post-tuning 11,088-match audit completed with only 5 draws.
-  Every bird won substantial matchups, ranging from Rooster at 30.4% to Raven
-  at 71.0%. Combined with the owner's hands-on fighter passes, the roster is an
-  accepted playable baseline, though not a claim of tournament-perfect balance.
-- Goose scored 50.9% in the fresh full audit; its honk launch-hierarchy focused
+- The post-Titmouse-tuning 11,088-match audit completed with only 1 draw.
+  Results range from Roadrunner at 20.2% to Raven at 74.8%. Combined with the
+  owner's hands-on fighter passes, the roster remains an accepted playable
+  baseline, though not a claim of tournament-perfect balance.
+- Titmouse's campaign-era 1.45 dealt / 0.68 taken preset produced an 84.6%
+  outlier. Restoring 1.10 dealt / 0.92 taken while preserving its 1.40 cooldown
+  and 1.25 ultimate cadence brought the full audit to 64.0%. Exact old shipped
+  presets migrate in memory; any customized value preserves the whole preset.
+- Goose scored 51.5% in the fresh full audit; its honk launch-hierarchy focused
   run scored 51.2%. Honk has charge commitment, sharp distance falloff,
   velocity caps, and shared damage-scaled launch; legacy whole-kit penalties
   were eased to 0.68 dealt / 1.35 taken / 0.70 cooldown / 0.62 ultimate.
-- Raven/Eagle lead the fresh audit at 71.0%/69.7%; Roadrunner/Rooster are the
-  low end at 30.7%/30.4%. Roadrunner already passed the owner's feel test, so
-  these are future competitive-balance signals rather than playability blockers.
-- Phoenix's normal-attack correction now scores 38.8% in the full audit. Bat's
-  eased legacy penalties score 35.8%; its strong map variance remains a useful
+- Raven leads the fresh audit at 74.8%; Roadrunner/Rooster are the low end at
+  20.2%/33.8%. Roadrunner already passed the owner's feel test. Focused tests
+  showed its Battlefield rate is inflated by opponent falls and that aggressive
+  CPU special-navigation changes make it worse, so future work must target AI
+  stage routing without changing the player-facing kit.
+- Phoenix's normal-attack correction now scores 38.2% in the full audit. Bat's
+  eased legacy penalties score 39.7%; its strong map variance remains a useful
   owner-playtest target rather than an automatic tuning order.
 - Vulture's owned crow damage/launch already inherit his outgoing multiplier.
   Its focused pass eased obsolete whole-kit penalties to 0.84 dealt / 1.26 taken /
   0.84 cooldown / 0.78 ultimate, raising its focused result from 25.7% to 45.4%
-  and its fresh full-audit result to 46.8%; the owner approved the feel pass.
+  and its latest full-audit result is 39.1%; the owner approved the feel pass.
 - Global multipliers do NOT fix structural outliers.
 
 ## Working with the owner
