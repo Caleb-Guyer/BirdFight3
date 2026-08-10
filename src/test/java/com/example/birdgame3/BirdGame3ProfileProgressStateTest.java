@@ -98,6 +98,19 @@ class BirdGame3ProfileProgressStateTest {
     }
 
     @Test
+    void savesAndLoadsPeregrineRunClassicReward() {
+        BirdGame3ProfileProgressState.Schema schema = new BirdGame3ProfileProgressState.Schema(
+                BirdGame3Achievement.values().length, 4, 16, 0, 0);
+        BirdGame3ProfileProgressState state = new BirdGame3ProfileProgressState();
+        state.peregrineRunUnlocked = true;
+
+        state.saveTo(prefs, schema);
+        BirdGame3ProfileProgressState loaded = BirdGame3ProfileProgressState.load(prefs, schema);
+
+        assertTrue(loaded.peregrineRunUnlocked);
+    }
+
+    @Test
     void existingPigeonClassicClearMigratesToRooftopRelayReward() throws Exception {
         BirdGame3ProfileProgressState.Schema schema = new BirdGame3ProfileProgressState.Schema(
                 BirdGame3Achievement.values().length,
@@ -136,6 +149,25 @@ class BirdGame3ProfileProgressStateTest {
         apply.invoke(game, legacy);
 
         Field unlocked = BirdGame3.class.getDeclaredField("tempestSummitUnlocked");
+        unlocked.setAccessible(true);
+        assertTrue(unlocked.getBoolean(game));
+    }
+
+    @Test
+    void existingFalconClassicClearMigratesToPeregrineRunReward() throws Exception {
+        BirdGame3ProfileProgressState.Schema schema = new BirdGame3ProfileProgressState.Schema(
+                BirdGame3Achievement.values().length, 4, 16, 0, 0);
+        BirdGame3ProfileProgressState legacy = BirdGame3ProfileProgressState.load(null, schema);
+        legacy.classicCompleted[BirdGame3.BirdType.FALCON.ordinal()] = true;
+        legacy.peregrineRunUnlocked = false;
+        BirdGame3 game = new BirdGame3();
+        Method apply = BirdGame3.class.getDeclaredMethod(
+                "applyProfileProgressState", BirdGame3ProfileProgressState.class);
+        apply.setAccessible(true);
+
+        apply.invoke(game, legacy);
+
+        Field unlocked = BirdGame3.class.getDeclaredField("peregrineRunUnlocked");
         unlocked.setAccessible(true);
         assertTrue(unlocked.getBoolean(game));
     }

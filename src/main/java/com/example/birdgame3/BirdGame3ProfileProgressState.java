@@ -40,6 +40,7 @@ final class BirdGame3ProfileProgressState {
     private static final String KEY_DEVELOPER_BADGE_POLICY_VERSION = "developer_badge_policy_version";
     private static final String KEY_ROOFTOP_RELAY_UNLOCKED = "map_variant_rooftop_relay_unlocked";
     private static final String KEY_TEMPEST_SUMMIT_UNLOCKED = "map_variant_tempest_summit_unlocked";
+    private static final String KEY_PEREGRINE_RUN_UNLOCKED = "map_variant_peregrine_run_unlocked";
 
     int achievementSchemaVersion = 0;
     BirdGame3AchievementProfile achievementProfile = new BirdGame3AchievementProfile();
@@ -53,6 +54,7 @@ final class BirdGame3ProfileProgressState {
     boolean prisonMapUnlocked = false;
     boolean rooftopRelayUnlocked = false;
     boolean tempestSummitUnlocked = false;
+    boolean peregrineRunUnlocked = false;
     boolean[][] towerDefenseDifficultyBadges =
             new boolean[BirdGame3.MapType.values().length][TowerDefenseMode.Difficulty.values().length];
     boolean cityPigeonUnlocked = true;
@@ -154,6 +156,7 @@ final class BirdGame3ProfileProgressState {
         state.prisonMapUnlocked = prefs.getBoolean("map_prison_unlocked", false);
         state.rooftopRelayUnlocked = prefs.getBoolean(KEY_ROOFTOP_RELAY_UNLOCKED, false);
         state.tempestSummitUnlocked = prefs.getBoolean(KEY_TEMPEST_SUMMIT_UNLOCKED, false);
+        state.peregrineRunUnlocked = prefs.getBoolean(KEY_PEREGRINE_RUN_UNLOCKED, false);
         loadTowerDefenseBadges(prefs, state);
         loadSkinUnlocks(prefs, state);
         loadCharacterUnlocks(prefs, state);
@@ -190,6 +193,7 @@ final class BirdGame3ProfileProgressState {
         prefs.putBoolean("map_prison_unlocked", prisonMapUnlocked);
         prefs.putBoolean(KEY_ROOFTOP_RELAY_UNLOCKED, rooftopRelayUnlocked);
         prefs.putBoolean(KEY_TEMPEST_SUMMIT_UNLOCKED, tempestSummitUnlocked);
+        prefs.putBoolean(KEY_PEREGRINE_RUN_UNLOCKED, peregrineRunUnlocked);
         saveTowerDefenseBadges(prefs);
         saveSkinUnlocks(prefs);
         saveCharacterUnlocks(prefs);

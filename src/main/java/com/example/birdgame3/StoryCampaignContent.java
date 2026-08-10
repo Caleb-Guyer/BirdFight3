@@ -339,7 +339,8 @@ final class StoryCampaignContent {
     private static StoryCampaign.Mission ordersFromAbove() {
         return mission("orders_from_above", "Orders From Above",
                 "Catch Roadrunner before the courier crosses Eagle's upper checkpoint.",
-                SKYCLIFFS, CROWN_OCCUPIED, StoryCampaign.PlayablePolicy.forced(FALCON),
+                SKYCLIFFS, BirdGame3.MapVariant.PEREGRINE_RUN, CROWN_OCCUPIED,
+                StoryCampaign.PlayablePolicy.forced(FALCON),
                 List.of(),
                 fighters(boss(ROADRUNNER, "Roadrunner", 185, 1.14, 1.28)),
                 phases(

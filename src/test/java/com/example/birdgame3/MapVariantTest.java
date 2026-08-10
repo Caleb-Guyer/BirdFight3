@@ -181,6 +181,28 @@ class MapVariantTest {
     }
 
     @Test
+    void peregrineRunIsAnOpenThreeShelfDiveCourseAndUnlockableVariant() throws Exception {
+        BirdGame3 game = buildVariant(MapVariant.PEREGRINE_RUN);
+
+        Field activeVariant = BirdGame3.class.getDeclaredField("activeArenaGeometryVariant");
+        activeVariant.setAccessible(true);
+        assertEquals(MapVariant.PEREGRINE_RUN, activeVariant.get(game));
+        assertFalse(game.platforms.stream().anyMatch(platform -> platform.w >= BirdGame3.WORLD_WIDTH));
+        assertFalse(game.platforms.stream().anyMatch(platform -> platform.y <= 0.0));
+        assertEquals(3, game.platforms.stream().filter(platform -> platform.w >= 1_200.0).count());
+        assertEquals(3, game.windVents.size());
+        assertTrue(game.usesIslandBoundsForCurrentArena());
+
+        assertFalse(game.availableStageChoices(StageRandomPool.VARIANTS).stream()
+                .anyMatch(choice -> choice.variant() == MapVariant.PEREGRINE_RUN));
+        Field unlocked = BirdGame3.class.getDeclaredField("peregrineRunUnlocked");
+        unlocked.setAccessible(true);
+        unlocked.setBoolean(game, true);
+        assertTrue(game.availableStageChoices(StageRandomPool.VARIANTS).stream()
+                .anyMatch(choice -> choice.variant() == MapVariant.PEREGRINE_RUN));
+    }
+
+    @Test
     void ashfallRebirthLeavesTheTopBlastRouteOpen() throws Exception {
         BirdGame3 game = buildVariant(MapVariant.ASHFALL_REBIRTH);
 
@@ -198,6 +220,7 @@ class MapVariantTest {
         BirdGame3 nullRoc = buildVariant(MapVariant.NULL_ROC_ASCENDING);
         BirdGame3 voidCrown = buildVariant(MapVariant.VOID_CROWN);
         BirdGame3 tempestSummit = buildVariant(MapVariant.TEMPEST_SUMMIT);
+        BirdGame3 peregrineRun = buildVariant(MapVariant.PEREGRINE_RUN);
 
         assertFalse(titanDock.platforms.stream().anyMatch(platform -> platform.x == 720.0 && platform.w == 1820.0));
         assertFalse(parliament.platforms.stream().anyMatch(platform -> platform.w >= BirdGame3.WORLD_WIDTH));
@@ -206,6 +229,7 @@ class MapVariantTest {
         assertTrue(titanDock.usesIslandBoundsForCurrentArena());
         assertTrue(parliament.usesIslandBoundsForCurrentArena());
         assertTrue(tempestSummit.usesIslandBoundsForCurrentArena());
+        assertTrue(peregrineRun.usesIslandBoundsForCurrentArena());
     }
 
     private BirdGame3 buildVariant(MapVariant variant) throws Exception {
