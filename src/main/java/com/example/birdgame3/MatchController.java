@@ -523,6 +523,9 @@ final class MatchController {
         if (game.holdClassicTurkeyEncounterOpen()) {
             return;
         }
+        if (game.holdClassicRoosterEncounterOpen()) {
+            return;
+        }
         if (game.campaignModeActive) {
             game.checkCampaignMissionCompletion();
             return;

@@ -52,6 +52,8 @@ class StoryCampaignContentTest {
                 campaign.mission("needle_route").mapVariant());
         assertEquals(BirdGame3.MapVariant.HARVEST_TRIBUNAL,
                 campaign.mission("morning_line").mapVariant());
+        assertEquals(BirdGame3.MapVariant.DAWNWATCH_BASTION,
+                campaign.mission("green_convergence").mapVariant());
         assertEquals(BirdGame3.MapVariant.VOID_CROWN,
                 campaign.mission("the_null_rock").mapVariant());
     }
@@ -194,6 +196,7 @@ class StoryCampaignContentTest {
     void crowCountryDoesNotReviveGuardsDefeatedBeforeTheSecondObjective() {
         StoryCampaign.Mission mission = StoryCampaignContent.create().mission("crow_country");
 
+        assertEquals(BirdGame3.MapVariant.CARRION_THRONE, mission.mapVariant());
         assertEquals(StoryCampaign.ObjectiveType.CAPTURE,
                 mission.phases().getFirst().objective());
         assertEquals(StoryCampaign.ObjectiveType.ELIMINATION,

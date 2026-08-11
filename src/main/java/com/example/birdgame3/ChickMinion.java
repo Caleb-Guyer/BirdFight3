@@ -29,6 +29,8 @@ class ChickMinion {
     boolean roosterSwarm = false;
     int swarmHitsRemaining = 0;
     int swarmVisualCopies = 0;
+    int classicMoraleApplied = 0;
+    double knockbackTakenMultiplier = 1.0;
 
     ChickMinion(double x, double y, int variant, boolean ultimate, Bird owner) {
         this.x = x;

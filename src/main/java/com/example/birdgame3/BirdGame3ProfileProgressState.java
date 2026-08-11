@@ -44,6 +44,7 @@ final class BirdGame3ProfileProgressState {
     private static final String KEY_FROZEN_CALDERA_UNLOCKED = "map_variant_frozen_caldera_unlocked";
     private static final String KEY_HEARTBLOOM_SANCTUARY_UNLOCKED = "map_variant_heartbloom_sanctuary_unlocked";
     private static final String KEY_HARVEST_TRIBUNAL_UNLOCKED = "map_variant_harvest_tribunal_unlocked";
+    private static final String KEY_DAWNWATCH_BASTION_UNLOCKED = "map_variant_dawnwatch_bastion_unlocked";
 
     int achievementSchemaVersion = 0;
     BirdGame3AchievementProfile achievementProfile = new BirdGame3AchievementProfile();
@@ -61,6 +62,7 @@ final class BirdGame3ProfileProgressState {
     boolean frozenCalderaUnlocked = false;
     boolean heartbloomSanctuaryUnlocked = false;
     boolean harvestTribunalUnlocked = false;
+    boolean dawnwatchBastionUnlocked = false;
     boolean[][] towerDefenseDifficultyBadges =
             new boolean[BirdGame3.MapType.values().length][TowerDefenseMode.Difficulty.values().length];
     boolean cityPigeonUnlocked = true;
@@ -166,6 +168,7 @@ final class BirdGame3ProfileProgressState {
         state.frozenCalderaUnlocked = prefs.getBoolean(KEY_FROZEN_CALDERA_UNLOCKED, false);
         state.heartbloomSanctuaryUnlocked = prefs.getBoolean(KEY_HEARTBLOOM_SANCTUARY_UNLOCKED, false);
         state.harvestTribunalUnlocked = prefs.getBoolean(KEY_HARVEST_TRIBUNAL_UNLOCKED, false);
+        state.dawnwatchBastionUnlocked = prefs.getBoolean(KEY_DAWNWATCH_BASTION_UNLOCKED, false);
         loadTowerDefenseBadges(prefs, state);
         loadSkinUnlocks(prefs, state);
         loadCharacterUnlocks(prefs, state);
@@ -206,6 +209,7 @@ final class BirdGame3ProfileProgressState {
         prefs.putBoolean(KEY_FROZEN_CALDERA_UNLOCKED, frozenCalderaUnlocked);
         prefs.putBoolean(KEY_HEARTBLOOM_SANCTUARY_UNLOCKED, heartbloomSanctuaryUnlocked);
         prefs.putBoolean(KEY_HARVEST_TRIBUNAL_UNLOCKED, harvestTribunalUnlocked);
+        prefs.putBoolean(KEY_DAWNWATCH_BASTION_UNLOCKED, dawnwatchBastionUnlocked);
         saveTowerDefenseBadges(prefs);
         saveSkinUnlocks(prefs);
         saveCharacterUnlocks(prefs);

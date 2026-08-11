@@ -697,7 +697,8 @@ public class BirdGame3 {
         TEMPEST_SUMMIT(MapType.SKYCLIFFS, "Classic Routes", "Tempest Summit", "An open crown of storm-beaten peaks above the clouds, with predictable recovery vents and no enclosing walls."),
         FROZEN_CALDERA(MapType.ASHFALL_CATHEDRAL, "Classic Routes", "Frozen Caldera", "The last Ashfall thermal sealed beneath a melting crown of ice, with an open sky and mirrored recovery vents."),
         HEARTBLOOM_SANCTUARY(MapType.VIBRANT_JUNGLE, "Classic Routes", "Heartbloom Sanctuary", "An eclipse garden of enormous flower platforms, open flight lanes, and nectar updrafts that wake at dawn."),
-        HARVEST_TRIBUNAL(MapType.FOREST, "Classic Routes", "Harvest Tribunal", "A moonlit autumn court built around a monumental stone table, braziers, and open recovery lanes.");
+        HARVEST_TRIBUNAL(MapType.FOREST, "Classic Routes", "Harvest Tribunal", "A moonlit autumn court built around a monumental stone table, braziers, and open recovery lanes."),
+        DAWNWATCH_BASTION(MapType.BEACON_CROWN, "Classic Routes", "Dawnwatch Bastion", "A golden mountaintop citadel of watchtowers, structural bridges, banners, and a colossal dawn bell.");
 
         final MapType baseMap;
         final String category;
@@ -846,6 +847,7 @@ public class BirdGame3 {
     private boolean frozenCalderaUnlocked = false;
     private boolean heartbloomSanctuaryUnlocked = false;
     private boolean harvestTribunalUnlocked = false;
+    private boolean dawnwatchBastionUnlocked = false;
     private final boolean[][] towerDefenseDifficultyBadges = new boolean[MapType.values().length][TowerDefenseMode.Difficulty.values().length];
     private static final int DOCK_LEVER_COOLDOWN_FRAMES = 900;
     private static final int DOCK_BOMB_FUSE_FRAMES = 88;
@@ -4904,6 +4906,21 @@ public class BirdGame3 {
     private boolean classicDevourerFinalPhaseActive = false;
     private Platform classicHarvestWestTable = null;
     private Platform classicHarvestEastTable = null;
+    private int classicRoosterMorale = 0;
+    private boolean classicRoosterMoraleAwardedThisEncounter = false;
+    private final boolean[] classicRoosterRecruitClaims = new boolean[MAX_COMBATANTS];
+    private final List<ClassicBroodCage> classicRoosterCages = new ArrayList<>();
+    private final List<ClassicDawnBell> classicDawnBells = new ArrayList<>();
+    private int classicRoosterCagesRescued = 0;
+    private int classicRoosterHunterCaptures = 0;
+    private int classicRoosterMusterStep = 0;
+    private boolean classicRoosterMusterCompleted = false;
+    private boolean classicRoosterReviveUsed = false;
+    private boolean classicBroodbreakerCapturePhaseActive = false;
+    private int classicBroodbreakerCaptureCountdown = 0;
+    private boolean classicBroodbreakerCaptureResolved = false;
+    private boolean classicBroodbreakerFinalPhaseActive = false;
+    private boolean classicBroodbreakerEclipseBroken = false;
     private boolean bossRushModeActive = false;
     private long bossRushRunStartMillis = 0L;
     private long bossRushBestClearMillis = Long.MAX_VALUE;
@@ -4964,7 +4981,10 @@ public class BirdGame3 {
         BLIGHTWING_ECLIPSE("Blightwing Eclipse", "Banked blossoms awaken recovery flowers while Blightwing wilts the arena."),
         FEAST_OR_FAMINE("Feast or Famine", "Clear each wave, then eat to recover or block to reject the plate and gain a battle rush."),
         HARVEST_WATCH("Harvest Watch", "Protect the tribunal feast from four deterministic raider waves."),
-        GREAT_HUNGER("The Great Hunger", "The Devourer grows by consuming offerings until Turkey turns the feast traps against it.");
+        GREAT_HUNGER("The Great Hunger", "The Devourer grows by consuming offerings until Turkey turns the feast traps against it."),
+        BROOD_MORALE("Brood Morale", "Protect the veteran brood and complete command objectives to strengthen every chick in the route."),
+        GREAT_MUSTER("The Great Muster", "Complete Call, Toss, Lift, and Recall commands at the Dawnwatch markers."),
+        FALSE_DAWN("False Dawn", "Break the shadow cages and ring the three dawn bells to strip the Broodbreaker's eclipse armor.");
 
         final String label;
         final String description;
@@ -5001,7 +5021,15 @@ public class BirdGame3 {
         BLIGHTWING_BOSS,
         FEAST_GAUNTLET,
         HARVEST_DEFENSE,
-        DEVOURER_BOSS
+        DEVOURER_BOSS,
+        BROOD_RECRUITMENT,
+        BROOD_LEADERSHIP,
+        BROOD_FORMATION,
+        BROOD_RESCUE,
+        BROOD_HUNT,
+        NIGHT_COMMAND,
+        DAWN_MUSTER,
+        BROODBREAKER_BOSS
     }
 
     static final class ClassicNectarRing {
@@ -5044,6 +5072,34 @@ public class BirdGame3 {
             this.y = y;
             this.waveChoice = waveChoice;
             this.lifeFrames = Math.max(1, lifeFrames);
+        }
+    }
+
+    static final class ClassicBroodCage {
+        final double x;
+        final double y;
+        final boolean shadow;
+        final int capturedVariant;
+        int health;
+        int hitCooldown;
+
+        ClassicBroodCage(double x, double y, int health, boolean shadow, int capturedVariant) {
+            this.x = x;
+            this.y = y;
+            this.health = Math.max(1, health);
+            this.shadow = shadow;
+            this.capturedVariant = capturedVariant;
+        }
+    }
+
+    static final class ClassicDawnBell {
+        final double x;
+        final double y;
+        boolean lit;
+
+        ClassicDawnBell(double x, double y) {
+            this.x = x;
+            this.y = y;
         }
     }
 
@@ -8776,6 +8832,7 @@ public class BirdGame3 {
         if (variant == MapVariant.FROZEN_CALDERA) return frozenCalderaUnlocked;
         if (variant == MapVariant.HEARTBLOOM_SANCTUARY) return heartbloomSanctuaryUnlocked;
         if (variant == MapVariant.HARVEST_TRIBUNAL) return harvestTribunalUnlocked;
+        if (variant == MapVariant.DAWNWATCH_BASTION) return dawnwatchBastionUnlocked;
         return isMapUnlocked(variant.baseMap);
     }
 
@@ -13456,7 +13513,13 @@ public class BirdGame3 {
                     drawPremiumBattlefieldArena(g, ambientFx);
                 }
             }
-            case BEACON_CROWN -> drawBeaconCrownBattlefield(g, ambientFx);
+            case BEACON_CROWN -> {
+                if (activeArenaGeometryVariant == MapVariant.DAWNWATCH_BASTION) {
+                    drawDawnwatchBastionArena(g, ambientFx);
+                } else {
+                    drawBeaconCrownBattlefield(g, ambientFx);
+                }
+            }
             case CAVE -> {
                 // Deep cave gradient
                 for (int i = 0; i < 700; i++) {
@@ -13583,6 +13646,7 @@ public class BirdGame3 {
 
         drawClassicHummingbirdRouteFeatures(g);
         drawClassicTurkeyRouteFeatures(g);
+        drawClassicRoosterRouteFeatures(g);
         drawUltimateReadyScreenDarken(g);
         drawCampaignObjectiveMarkers(g);
 
@@ -29692,6 +29756,7 @@ public class BirdGame3 {
         frozenCalderaUnlocked = true;
         heartbloomSanctuaryUnlocked = true;
         harvestTribunalUnlocked = true;
+        dawnwatchBastionUnlocked = true;
 
         cityPigeonUnlocked = true;
         noirPigeonUnlocked = true;
@@ -39527,6 +39592,9 @@ public class BirdGame3 {
         if (useAuthoredRoutes && playerType == BirdType.TURKEY) {
             return buildTurkeyClassicRun();
         }
+        if (useAuthoredRoutes && playerType == BirdType.ROOSTER) {
+            return buildRoosterClassicRun();
+        }
         List<ClassicEncounter> run = new ArrayList<>();
         Set<MapType> usedMaps = new HashSet<>();
         Set<BirdType> usedBirds = new HashSet<>();
@@ -40688,6 +40756,98 @@ public class BirdGame3 {
         return run;
     }
 
+    private List<ClassicEncounter> buildRoosterClassicRun() {
+        List<ClassicEncounter> run = new ArrayList<>();
+
+        ClassicEncounter firstCall = new ClassicEncounter(
+                "The First Call", "Forest Muster",
+                "Defeat the three rookies and rebuild Rooster's veteran formation one hatch at a time.",
+                MapType.FOREST, MapVariant.STANDARD, MatchMutator.NONE, ClassicTwist.BROOD_MORALE,
+                ClassicEncounterStyle.BROOD_RECRUITMENT, 112 * 60, new ClassicFighter[0],
+                new ClassicFighter[]{
+                        classicFighter(BirdType.PIGEON, "Rookie: Pigeon", 82, 0.88, 1.05),
+                        classicFighter(BirdType.KIWI, "Rookie: Kiwi Bird", 86, 0.90, 1.02),
+                        classicFighter(BirdType.TITMOUSE, "Rookie: Tufted Titmouse", 78, 0.86, 1.10)}, false);
+        firstCall.cpuLevel = 3;
+        run.add(firstCall);
+
+        ClassicEncounter leadership = new ClassicEncounter(
+                "Two Kinds of Leadership", "Harvest Alliance",
+                "Fight beside Turkey and keep the allied leaders and veteran brood standing.",
+                MapType.FOREST, MapVariant.HARVEST_TRIBUNAL, MatchMutator.NONE, ClassicTwist.BROOD_MORALE,
+                ClassicEncounterStyle.BROOD_LEADERSHIP, 118 * 60,
+                new ClassicFighter[]{classicFighter(BirdType.TURKEY, "Ally: Harvest Turkey", 138, 1.04, 1.00)},
+                new ClassicFighter[]{
+                        classicFighter(BirdType.EAGLE, "Challenger: Eagle", 128, 1.04, 1.04),
+                        classicFighter(BirdType.FALCON, "Challenger: Falcon", 120, 1.02, 1.10)}, false);
+        leadership.cpuLevel = 4;
+        run.add(leadership);
+
+        ClassicEncounter formation = new ClassicEncounter(
+                "Hold Formation", "Broken Harbor",
+                "Roadrunner and Hummingbird split the battlefield and attack the brood from opposite sides.",
+                MapType.DOCK, MapVariant.STANDARD, MatchMutator.TURBO_BRAWL, ClassicTwist.BROOD_MORALE,
+                ClassicEncounterStyle.BROOD_FORMATION, 108 * 60, new ClassicFighter[0],
+                new ClassicFighter[]{
+                        classicFighter(BirdType.ROADRUNNER, "Flanker: Roadrunner", 112, 0.98, 1.16),
+                        classicFighter(BirdType.HUMMINGBIRD, "Flanker: Hummingbird", 106, 0.96, 1.18)}, false);
+        formation.cpuLevel = 5;
+        run.add(formation);
+
+        ClassicEncounter cages = new ClassicEncounter(
+                "The Cagekeepers", "Crownlock Prison",
+                "Break the three brood cages while Heisenbird and Opium Bird guard the prison lanes.",
+                MapType.PRISON, MapVariant.STANDARD, MatchMutator.NONE, ClassicTwist.BROOD_MORALE,
+                ClassicEncounterStyle.BROOD_RESCUE, 120 * 60, new ClassicFighter[0],
+                new ClassicFighter[]{
+                        classicFighter(BirdType.HEISENBIRD, "Cagekeeper: Heisenbird", 132, 1.04, 1.02),
+                        classicFighter(BirdType.OPIUMBIRD, "Cagekeeper: Opium Bird", 124, 1.02, 1.07)}, false);
+        cages.cpuLevel = 5;
+        run.add(cages);
+
+        ClassicEncounter hunter = new ClassicEncounter(
+                "One Hunter, Five Targets", "Carrion Hunt",
+                "A giant Vulture hunts the brood first and grows stronger with every captured chick.",
+                MapType.VIBRANT_JUNGLE, MapVariant.CARRION_THRONE, MatchMutator.NONE, ClassicTwist.BROOD_MORALE,
+                ClassicEncounterStyle.BROOD_HUNT, 118 * 60, new ClassicFighter[0],
+                new ClassicFighter[]{classicFighter(BirdType.VULTURE, "Giant Hunter: Vulture", 260, 1.12, 0.94,
+                        NULL_ROCK_VULTURE_SKIN)}, true);
+        hunter.cpuLevel = 6;
+        run.add(hunter);
+
+        ClassicEncounter lastNight = new ClassicEncounter(
+                "The Last Night", "Parliament Blackout",
+                "Raven and Bat bury the rooftops in darkness while the veteran brood marks every safe lane.",
+                MapType.CITY, MapVariant.PARLIAMENT_ROOFTOPS, MatchMutator.NONE, ClassicTwist.BROOD_MORALE,
+                ClassicEncounterStyle.NIGHT_COMMAND, 116 * 60, new ClassicFighter[0],
+                new ClassicFighter[]{
+                        classicFighter(BirdType.RAVEN, "Night Captain: Raven", 142, 1.06, 1.07),
+                        classicFighter(BirdType.BAT, "Night Scout: Bat", 126, 1.01, 1.12)}, false);
+        lastNight.cpuLevel = 7;
+        run.add(lastNight);
+
+        ClassicEncounter muster = new ClassicEncounter(
+                "Bonus: The Great Muster", "Dawnwatch Drill",
+                "Follow the four command markers: Call, Toss, Lift, and Recall.",
+                MapType.BEACON_CROWN, MapVariant.DAWNWATCH_BASTION, MatchMutator.NONE,
+                ClassicTwist.GREAT_MUSTER, ClassicEncounterStyle.DAWN_MUSTER, 72 * 60,
+                new ClassicFighter[0], new ClassicFighter[0], false);
+        muster.cpuLevel = 1;
+        run.add(muster);
+
+        ClassicEncounter broodbreaker = new ClassicEncounter(
+                "The Broodbreaker", "False Dawn",
+                "Break the shadow cages, ring all three dawn bells, and end the Broodbreaker's eclipse.",
+                MapType.BEACON_CROWN, MapVariant.DAWNWATCH_BASTION, MatchMutator.NONE,
+                ClassicTwist.FALSE_DAWN, ClassicEncounterStyle.BROODBREAKER_BOSS, 175 * 60,
+                new ClassicFighter[0],
+                new ClassicFighter[]{classicFighter(BirdType.RAVEN, "Boss: The Broodbreaker", 245, 1.16, 1.02,
+                        VOID_HERALD_RAVEN_SKIN)}, true);
+        broodbreaker.cpuLevel = 8;
+        run.add(broodbreaker);
+        return run;
+    }
+
     private List<ClassicEncounter> buildBossRushRun() {
         List<ClassicEncounter> run = new ArrayList<>();
 
@@ -41209,6 +41369,7 @@ public class BirdGame3 {
         classicRunScore = 0;
         classicBonusCoins = 0;
         classicContinuesUsed = 0;
+        classicRoosterMorale = 0;
         Arrays.fill(classicHummingbirdBlossoms, false);
         if (!bossRush && !ashfallTrial && !dailyChallengeModeActive) {
             resetClassicAdaptiveDifficulty();
@@ -41229,6 +41390,7 @@ public class BirdGame3 {
         if (type == BirdType.PHOENIX) return "THE FLAME THAT RETURNS";
         if (type == BirdType.HUMMINGBIRD) return "BEAT OF THE BLOOM";
         if (type == BirdType.TURKEY) return "THE LAST FEAST";
+        if (type == BirdType.ROOSTER) return "NO ONE LEFT BEHIND";
         return "TEMPORARY FLIGHT PLAN";
     }
 
@@ -41238,6 +41400,7 @@ public class BirdGame3 {
         int total = Math.max(1, totalRounds);
         boolean hummingbirdRoute = classicSelectedBird == BirdType.HUMMINGBIRD && !bossRoute;
         boolean turkeyRoute = classicSelectedBird == BirdType.TURKEY && !bossRoute;
+        boolean roosterRoute = classicSelectedBird == BirdType.ROOSTER && !bossRoute;
         for (int i = 0; i < total; i++) {
             if (i > 0) {
                 Region connector = new Region();
@@ -41258,11 +41421,18 @@ public class BirdGame3 {
             node.setFont(Font.font("Arial Black", finalNode ? 18 : 14));
             node.setTextFill(current ? Color.web("#111111") : Color.WHITE);
             lockRegionSize(node, current ? 42 : 34, current ? 42 : 34);
-            String fill = current ? "#E8FFF9" : (blossom ? "#E7B91B"
-                    : (turkeyRoute && complete ? "#C67A2D"
-                    : (complete ? "#00BFA5" : (finalNode ? "#B5121B" : "#143238"))));
-            String border = blossom ? "#FFF59D" : (turkeyRoute ? (finalNode ? "#FF5252" : "#FFD166")
-                    : (current ? "#64FFDA" : (finalNode || bossRoute ? "#FF5252" : "#4DB6AC")));
+            String fill;
+            if (current) fill = "#E8FFF9";
+            else if (blossom) fill = "#E7B91B";
+            else if (turkeyRoute && complete) fill = "#C67A2D";
+            else if (roosterRoute && complete) fill = "#C99722";
+            else if (complete) fill = "#00BFA5";
+            else fill = finalNode ? "#B5121B" : "#143238";
+            String border;
+            if (blossom) border = "#FFF59D";
+            else if (turkeyRoute) border = finalNode ? "#FF5252" : "#FFD166";
+            else if (roosterRoute) border = finalNode ? "#FF5252" : "#FFE082";
+            else border = current ? "#64FFDA" : (finalNode || bossRoute ? "#FF5252" : "#4DB6AC");
             node.setStyle("-fx-background-color: " + fill + "; -fx-background-radius: 30; "
                     + "-fx-border-color: " + border + "; -fx-border-width: " + (current ? "4" : "2")
                     + "; -fx-border-radius: 30;");
@@ -41282,6 +41452,7 @@ public class BirdGame3 {
         boolean frozenCaldera = variant == MapVariant.FROZEN_CALDERA;
         boolean heartbloom = variant == MapVariant.HEARTBLOOM_SANCTUARY;
         boolean harvestTribunal = variant == MapVariant.HARVEST_TRIBUNAL;
+        boolean dawnwatchBastion = variant == MapVariant.DAWNWATCH_BASTION;
 
         Color skyTop = heartbloom ? Color.web("#100725") : (frozenCaldera ? Color.web("#071328") : (tempestSummit ? Color.web("#070B20")
                 : (peregrineRun ? Color.web("#12345C") : switch (map) {
@@ -41318,7 +41489,15 @@ public class BirdGame3 {
             g.fillOval(width * 0.5 - 55, 18, 110, 110);
         }
 
-        if (map == MapType.CITY || map == MapType.BEACON_CROWN || map == MapType.PRISON) {
+        if (dawnwatchBastion) {
+            g.setFill(Color.web("#25273A"));
+            g.fillRect(18, 88, 82, height - 88);
+            g.fillRect(116, 58, 74, height - 58);
+            g.fillRect(210, 72, 74, height - 72);
+            g.fillRect(300, 92, 82, height - 92);
+            g.setFill(Color.web("#FFE082", 0.82));
+            g.fillOval(154, 22, 92, 92);
+        } else if (map == MapType.CITY || map == MapType.BEACON_CROWN || map == MapType.PRISON) {
             g.setFill(Color.rgb(6, 8, 20, 0.92));
             double[] xs = {0, 45, 100, 158, 225, 285, 340};
             double[] hs = {90, 140, 105, 165, 118, 150, 96};
@@ -41434,6 +41613,15 @@ public class BirdGame3 {
             drawClassicPreviewPlatform(g, 76, 99, 62, 10);
             drawClassicPreviewPlatform(g, 169, 68, 62, 10);
             drawClassicPreviewPlatform(g, 262, 99, 62, 10);
+        } else if (variant == MapVariant.DAWNWATCH_BASTION) {
+            g.setStroke(Color.web("#FFE082"));
+            g.setFill(Color.web("#42465B"));
+            drawClassicPreviewPlatform(g, 12, 140, 78, 13);
+            drawClassicPreviewPlatform(g, 86, 151, 228, 16);
+            drawClassicPreviewPlatform(g, 310, 140, 78, 13);
+            drawClassicPreviewPlatform(g, 112, 105, 56, 10);
+            drawClassicPreviewPlatform(g, 232, 105, 56, 10);
+            drawClassicPreviewPlatform(g, 165, 66, 70, 11);
         } else if (variant == MapVariant.CROWN_DUEL || variant == MapVariant.NULL_ROCK_DUEL) {
             drawClassicPreviewPlatform(g, 82, 138, 205, 14);
             drawClassicPreviewPlatform(g, 150, 92, 72, 10);
@@ -41562,7 +41750,8 @@ public class BirdGame3 {
         routeName.setTextFill(Color.WHITE);
         boolean routeBonus = classicEncounter.style == ClassicEncounterStyle.BONUS_RELAY
                 || classicEncounter.style == ClassicEncounterStyle.NECTAR_DASH
-                || classicEncounter.style == ClassicEncounterStyle.HARVEST_DEFENSE;
+                || classicEncounter.style == ClassicEncounterStyle.HARVEST_DEFENSE
+                || classicEncounter.style == ClassicEncounterStyle.DAWN_MUSTER;
         Label round = new Label((routeBonus ? "BONUS " : "ROUND ")
                 + (classicRoundIndex + 1));
         round.setFont(Font.font("Arial Black", FontWeight.BOLD, 72));
@@ -41600,6 +41789,7 @@ public class BirdGame3 {
         }
         boolean bonusTargetEncounter = classicEncounter.style == ClassicEncounterStyle.BONUS_RELAY;
         boolean flowerGateEncounter = classicEncounter.style == ClassicEncounterStyle.NECTAR_DASH;
+        boolean musterEncounter = classicEncounter.style == ClassicEncounterStyle.DAWN_MUSTER;
         int enemyCount = Math.max(1, enemies.length);
         double portraitSize = enemyCount >= 3 ? 215 : (enemyCount == 2 ? 310 : 430);
         HBox enemyLineup = new HBox(enemyCount >= 3 ? 14 : 20);
@@ -41622,7 +41812,7 @@ public class BirdGame3 {
                 drawClassicFlowerGatePortrait(flowerCourse);
                 enemyLineup.getChildren().add(flowerCourse);
             } else {
-                Label bonusTarget = new Label("BONUS\nTARGETS");
+                Label bonusTarget = new Label(musterEncounter ? "CALL  •  TOSS\nLIFT  •  RECALL" : "BONUS\nTARGETS");
                 bonusTarget.setFont(Font.font("Arial Black", 58));
                 bonusTarget.setTextFill(Color.WHITE);
                 bonusTarget.setTextAlignment(TextAlignment.CENTER);
@@ -41632,7 +41822,8 @@ public class BirdGame3 {
         }
         root.getChildren().add(enemyLineup);
 
-        String opponentNames = flowerGateEncounter ? "FLOWER GATE COURSE"
+        String opponentNames = musterEncounter ? "THE GREAT MUSTER"
+                : flowerGateEncounter ? "FLOWER GATE COURSE"
                 : bonusTargetEncounter ? enemies.length + " BONUS TARGETS"
                 : authoredWaveCount > 0 ? authoredWaveCount + " WAVES"
                 : enemies.length == 0 ? "BONUS TARGETS" : Arrays.stream(enemies)
@@ -41676,6 +41867,19 @@ public class BirdGame3 {
         difficulty.setStyle("-fx-background-color: rgba(0,0,0,0.72); -fx-background-radius: 20; "
                 + "-fx-border-color: #FFE45C; -fx-border-width: 2; -fx-border-radius: 20;");
         root.getChildren().add(difficulty);
+
+        if (classicSelectedBird == BirdType.ROOSTER && !bossRushModeActive) {
+            Label morale = new Label("BROOD MORALE  " + "★".repeat(classicRoosterMorale)
+                    + "☆".repeat(Math.max(0, 3 - classicRoosterMorale)));
+            morale.setFont(Font.font("Arial Black", 20));
+            morale.setTextFill(Color.web("#FFF0A8"));
+            morale.setPadding(new Insets(8, 18, 8, 18));
+            morale.setLayoutX(1_030);
+            morale.setLayoutY(28);
+            morale.setStyle("-fx-background-color: rgba(29,18,12,0.80); -fx-background-radius: 18; "
+                    + "-fx-border-color: #D89A2B; -fx-border-width: 2; -fx-border-radius: 18;");
+            root.getChildren().add(morale);
+        }
 
         HBox routeStrip = buildClassicRouteStrip(classicRoundIndex, classicRun.size(), bossRushModeActive);
         routeStrip.setLayoutX(220);
@@ -42054,7 +42258,10 @@ public class BirdGame3 {
                         && encounter.style != ClassicEncounterStyle.LONG_WINTER_BOSS
                         && encounter.style != ClassicEncounterStyle.BLIGHTWING_BOSS
                         && encounter.style != ClassicEncounterStyle.HARVEST_DEFENSE
-                        && encounter.style != ClassicEncounterStyle.DEVOURER_BOSS);
+                        && encounter.style != ClassicEncounterStyle.DEVOURER_BOSS
+                        && encounter.style != ClassicEncounterStyle.BROOD_RECRUITMENT
+                        && encounter.style != ClassicEncounterStyle.DAWN_MUSTER
+                        && encounter.style != ClassicEncounterStyle.BROODBREAKER_BOSS);
                 if (enemy.skinKey != null) {
                     applyPreviewSkinChoiceToBird(enemyBird, enemy.type, enemy.skinKey);
                 }
@@ -42146,12 +42353,34 @@ public class BirdGame3 {
                 bird.health = Math.max(1.0, 250.0 * enemyHealthScale);
                 bird.setBaseMultipliers(1.72, 1.15 * enemyPowerScale, 0.94);
                 bird.setUltimateEnabled(false);
+            } else if (encounter.style == ClassicEncounterStyle.BROOD_RECRUITMENT) {
+                scaleBossRushBird(bird, 0.84, 0.90, 1.05);
+                bird.setUltimateEnabled(false);
+            } else if (encounter.style == ClassicEncounterStyle.BROOD_HUNT) {
+                bird.health = Math.max(1.0, 260.0 * enemyHealthScale);
+                bird.setBaseMultipliers(1.62, 1.12 * enemyPowerScale, 0.94);
+            } else if (encounter.style == ClassicEncounterStyle.BROODBREAKER_BOSS) {
+                bird.health = Math.max(1.0, 245.0 * enemyHealthScale);
+                bird.setBaseMultipliers(1.68, 1.16 * enemyPowerScale, 1.02);
+                bird.setUltimateEnabled(false);
             }
         }
     }
 
     private void positionClassicEncounterSpawns(ClassicEncounter encounter) {
         if (encounter == null) return;
+        if (encounter.style == ClassicEncounterStyle.DAWN_MUSTER) {
+            Bird player = players[0];
+            if (player != null) {
+                player.x = 760.0 - player.bodyWidth() * 0.5;
+                player.y = GROUND_Y - 520.0 - player.bodyHeight();
+                player.prevX = player.x;
+                player.prevY = player.y;
+                player.vx = 0.0;
+                player.vy = 0.0;
+            }
+            return;
+        }
         if (encounter.style == ClassicEncounterStyle.HARVEST_DEFENSE) {
             Bird player = players[0];
             if (player != null) {
@@ -42265,6 +42494,7 @@ public class BirdGame3 {
         if (encounter == null) return;
         setupHummingbirdNectarRoute(encounter);
         setupTurkeyClassicRoute(encounter);
+        setupRoosterClassicRoute(encounter);
         if (bossRushModeActive) {
             applyBossRushEncounterArenaModifiers(encounter);
         }
@@ -42357,7 +42587,8 @@ public class BirdGame3 {
                 // phases add mirrored blizzard vents without changing solids.
             }
             case NECTAR_CHAIN, HUNDRED_FLOWER_DASH, BLIGHTWING_ECLIPSE,
-                    FEAST_OR_FAMINE, HARVEST_WATCH, GREAT_HUNGER -> {
+                    FEAST_OR_FAMINE, HARVEST_WATCH, GREAT_HUNGER,
+                    BROOD_MORALE, GREAT_MUSTER, FALSE_DAWN -> {
                 // These authored route mechanics own their deterministic arena
                 // setup and runtime; do not add generic item drops here.
             }
@@ -43061,6 +43292,491 @@ public class BirdGame3 {
         g.restore();
     }
 
+    private void setupRoosterClassicRoute(ClassicEncounter encounter) {
+        Arrays.fill(classicRoosterRecruitClaims, false);
+        classicRoosterMoraleAwardedThisEncounter = false;
+        classicRoosterCages.clear();
+        classicDawnBells.clear();
+        classicRoosterCagesRescued = 0;
+        classicRoosterHunterCaptures = 0;
+        classicRoosterMusterStep = 0;
+        classicRoosterMusterCompleted = false;
+        classicRoosterReviveUsed = false;
+        classicBroodbreakerCapturePhaseActive = false;
+        classicBroodbreakerCaptureCountdown = 0;
+        classicBroodbreakerCaptureResolved = false;
+        classicBroodbreakerFinalPhaseActive = false;
+        classicBroodbreakerEclipseBroken = false;
+        if (!classicModeActive || bossRushModeActive || ashfallTrialModeActive
+                || classicSelectedBird != BirdType.ROOSTER || encounter == null) {
+            return;
+        }
+
+        Bird player = players[0];
+        if (player == null) return;
+        int startingChicks = switch (encounter.style) {
+            case BROOD_RECRUITMENT, DAWN_MUSTER -> 1;
+            case BROOD_RESCUE -> 2;
+            default -> Bird.ROOSTER_STARTING_CHICKS;
+        };
+        seedRoosterRouteFollowers(player, startingChicks);
+        if (encounter.style == ClassicEncounterStyle.BROOD_RESCUE) {
+            classicRoosterCages.add(new ClassicBroodCage(1_260, GROUND_Y - 250, 3, false, 0));
+            classicRoosterCages.add(new ClassicBroodCage(3_000, GROUND_Y - 520, 3, false, 1));
+            classicRoosterCages.add(new ClassicBroodCage(4_740, GROUND_Y - 250, 3, false, 2));
+            addToKillFeed("BROOD RESCUE: normal attacks or thrown chicks break the three Crown cages.");
+        } else if (encounter.style == ClassicEncounterStyle.DAWN_MUSTER) {
+            addToKillFeed("GREAT MUSTER: follow the gold marker and complete CALL, TOSS, LIFT, then RECALL.");
+        } else if (encounter.style == ClassicEncounterStyle.BROOD_HUNT) {
+            addToKillFeed("CARRION HUNT: Vulture grows stronger each time a veteran chick falls.");
+        } else if (encounter.style == ClassicEncounterStyle.NIGHT_COMMAND) {
+            addToKillFeed("PARLIAMENT BLACKOUT: the brood's gold command glow marks the safe lanes.");
+        } else if (encounter.style == ClassicEncounterStyle.BROODBREAKER_BOSS) {
+            addToKillFeed("FALSE DAWN: recall before the capture, break every cage, then toss chicks into the bells.");
+        }
+    }
+
+    private void seedRoosterRouteFollowers(Bird player, int count) {
+        if (player == null) return;
+        chickMinions.removeIf(chick -> chick.owner == player);
+        player.roosterInitialChicksSpawned = true;
+        for (int i = 0; i < Math.clamp(count, 0, Bird.ROOSTER_MAX_CHICKS); i++) {
+            RoosterSpecials.spawnFollower(player, i % Bird.ROOSTER_STARTING_CHICKS, false, i);
+        }
+    }
+
+    void applyRoosterClassicRuntimeEffects() {
+        if (!classicModeActive || classicEncounter == null || classicSelectedBird != BirdType.ROOSTER
+                || bossRushModeActive || ashfallTrialModeActive || matchEnded) {
+            return;
+        }
+        Bird player = players[0];
+        if (player == null || player.health <= 0.0 || !playerHasStocksRemaining(0)) return;
+
+        applyRoosterMoraleToFollowers(player);
+        updateClassicRoosterCages(player);
+        switch (classicEncounter.style) {
+            case BROOD_RECRUITMENT -> updateRoosterRecruitment(player);
+            case BROOD_HUNT -> updateRoosterHunter(player);
+            case DAWN_MUSTER -> updateRoosterGreatMuster(player);
+            case BROODBREAKER_BOSS -> updateRoosterBroodbreaker(player);
+            default -> {
+            }
+        }
+    }
+
+    private void applyRoosterMoraleToFollowers(Bird player) {
+        for (ChickMinion chick : chickMinions) {
+            if (chick.owner != player || chick.roosterSwarm || chick.life <= 0) continue;
+            // Classic route followers are the objective, not disposable summons.
+            // Keep them for the full encounter unless an opponent defeats them.
+            chick.maxAge = Math.max(chick.maxAge, classicEncounter.timerFrames + 600);
+            while (chick.classicMoraleApplied < classicRoosterMorale) {
+                chick.classicMoraleApplied++;
+                if (chick.classicMoraleApplied == 1) {
+                    chick.speed *= 1.14;
+                    chick.accel *= 1.10;
+                } else if (chick.classicMoraleApplied == 2) {
+                    chick.maxLife += 2;
+                    chick.life += 2;
+                    chick.knockbackTakenMultiplier = 0.72;
+                }
+            }
+        }
+    }
+
+    private int ownedClassicRoosterChicks(Bird player) {
+        int count = 0;
+        for (ChickMinion chick : chickMinions) {
+            if (chick.owner == player && !chick.roosterSwarm && chick.life > 0) count++;
+        }
+        return count;
+    }
+
+    private void updateRoosterRecruitment(Bird player) {
+        for (int slot = 1; slot < activePlayers; slot++) {
+            if (classicRoosterRecruitClaims[slot] || players[slot] == null || playerHasStocksRemaining(slot)) continue;
+            classicRoosterRecruitClaims[slot] = true;
+            if (ownedClassicRoosterChicks(player) < Bird.ROOSTER_MAX_CHICKS) {
+                RoosterSpecials.spawnFollower(player, RoosterSpecials.nextVariant(player), false,
+                        ownedClassicRoosterChicks(player));
+                addToKillFeed("THE FIRST CALL: a veteran chick has answered the hatch signal.");
+                playManagedSfxVaried(steamAchievementClip, 0.34, 1.28, 0.015);
+            }
+            classicRunScore += 500;
+        }
+    }
+
+    private void updateClassicRoosterCages(Bird player) {
+        if (classicRoosterCages.isEmpty()) return;
+        Iterator<ClassicBroodCage> iterator = classicRoosterCages.iterator();
+        while (iterator.hasNext()) {
+            ClassicBroodCage cage = iterator.next();
+            if (cage.hitCooldown > 0) cage.hitCooldown--;
+            boolean hit = false;
+            double pdx = player.bodyCenterX() - cage.x;
+            double pdy = player.bodyCenterY() - cage.y;
+            if (cage.hitCooldown <= 0 && pdx * pdx + pdy * pdy <= 145.0 * 145.0
+                    && player.attackAnimationTimer > 0) {
+                cage.health--;
+                cage.hitCooldown = 16;
+                hit = true;
+            }
+            for (ChickMinion chick : chickMinions) {
+                if (chick.owner != player || chick.thrownFrames <= 0 || chick.life <= 0) continue;
+                double dx = chick.x + chick.width * 0.5 - cage.x;
+                double dy = chick.y + chick.height * 0.5 - cage.y;
+                if (dx * dx + dy * dy <= 125.0 * 125.0) {
+                    cage.health = 0;
+                    chick.followingOwner = true;
+                    chick.target = null;
+                    hit = true;
+                    break;
+                }
+            }
+            if (hit) {
+                shakeIntensity = Math.max(shakeIntensity, 4.0);
+                playManagedSfxVaried(swingClip, 0.30, cage.shadow ? 0.78 : 1.02, 0.012);
+            }
+            if (cage.health > 0) continue;
+
+            iterator.remove();
+            classicRoosterCagesRescued++;
+            if (ownedClassicRoosterChicks(player) < Bird.ROOSTER_MAX_CHICKS) {
+                int variant = cage.capturedVariant >= 0 ? cage.capturedVariant : RoosterSpecials.nextVariant(player);
+                RoosterSpecials.spawnFollower(player, variant, false, ownedClassicRoosterChicks(player));
+            }
+            classicRunScore += cage.shadow ? 1_100 : 750;
+            addToKillFeed(cage.shadow ? "SHADOW CAGE BROKEN: a veteran returns to formation."
+                    : "BROOD CAGE OPEN: one more chick joins the command line.");
+            if (classicEncounter.style == ClassicEncounterStyle.BROOD_RESCUE
+                    && classicRoosterCagesRescued >= 3) {
+                awardRoosterMoraleCrest("ALL THREE BROOD CAGES OPEN");
+            }
+        }
+    }
+
+    private void awardRoosterMoraleCrest(String reason) {
+        if (classicRoosterMorale >= 3 || classicRoosterMoraleAwardedThisEncounter) return;
+        classicRoosterMorale++;
+        classicRoosterMoraleAwardedThisEncounter = true;
+        classicBonusCoins += 20;
+        classicRunScore += 1_750;
+        playManagedSfxVaried(steamAchievementClip, 0.52, 1.12 + classicRoosterMorale * 0.10, 0.014);
+        addToKillFeed("BROOD MORALE " + classicRoosterMorale + "/3: " + reason + ". Bird Coins +20.");
+    }
+
+    private void updateRoosterHunter(Bird player) {
+        Bird hunter = firstClassicEnemyWithStocks();
+        if (hunter == null) return;
+        ChickMinion closest = null;
+        double best = Double.MAX_VALUE;
+        for (ChickMinion chick : chickMinions) {
+            if (chick.owner != player || chick.roosterSwarm || chick.life <= 0) continue;
+            double dx = chick.x + chick.width * 0.5 - hunter.bodyCenterX();
+            double dy = chick.y + chick.height * 0.5 - hunter.bodyCenterY();
+            double distance = dx * dx + dy * dy;
+            if (distance < best) {
+                best = distance;
+                closest = chick;
+            }
+        }
+        if (closest != null && simTick % 180 >= 40 && simTick % 180 <= 120) {
+            double dx = closest.x + closest.width * 0.5 - hunter.bodyCenterX();
+            hunter.vx = Math.clamp(hunter.vx + Math.signum(dx) * 0.18, -9.5, 9.5);
+            hunter.facingRight = dx > 0.0;
+        }
+        double health = hunter.health;
+        double difficultyPower = 1.0 + (classicDifficulty - CLASSIC_STARTING_DIFFICULTY) * 0.015;
+        hunter.setBaseMultipliers(1.62 + classicRoosterHunterCaptures * 0.08,
+                (1.12 + classicRoosterHunterCaptures * 0.04) * difficultyPower,
+                0.94 + classicRoosterHunterCaptures * 0.025);
+        hunter.health = health;
+    }
+
+    boolean rescueClassicRoosterChick(ChickMinion chick) {
+        if (!classicModeActive || classicSelectedBird != BirdType.ROOSTER || classicEncounter == null
+                || chick == null || chick.owner != players[0] || chick.roosterSwarm) {
+            return false;
+        }
+        if (classicRoosterMorale >= 3 && !classicRoosterReviveUsed) {
+            classicRoosterReviveUsed = true;
+            chick.life = Math.max(1, chick.maxLife);
+            chick.followingOwner = true;
+            chick.target = null;
+            chick.thrownFrames = 0;
+            chick.x = players[0].bodyCenterX() - chick.width * 0.5;
+            chick.y = players[0].bodyBottomY() - chick.height - 12.0;
+            chick.vx = 0.0;
+            chick.vy = -5.0;
+            chick.commandFlashFrames = 52;
+            addToKillFeed("DAWN GUARD: one defeated veteran immediately returned to formation.");
+            return true;
+        }
+        if (classicEncounter.style == ClassicEncounterStyle.BROOD_HUNT) {
+            classicRoosterHunterCaptures = Math.min(5, classicRoosterHunterCaptures + 1);
+            addToKillFeed("THE HUNTER CLAIMS A CHICK: carrion power rises to "
+                    + classicRoosterHunterCaptures + ".");
+        }
+        return false;
+    }
+
+    private void updateRoosterGreatMuster(Bird player) {
+        double[][] markers = roosterMusterMarkers();
+        int step = Math.clamp(classicRoosterMusterStep, 0, markers.length - 1);
+        double x = markers[step][0];
+        double y = markers[step][1];
+        boolean complete = false;
+        if (step == 0) {
+            double dx = player.bodyCenterX() - x;
+            double dy = player.bodyCenterY() - y;
+            complete = dx * dx + dy * dy <= 240.0 * 240.0
+                    && player.roosterNeutralReuseTimer > 0 && ownedClassicRoosterChicks(player) >= 2;
+        } else if (step == 1) {
+            for (ChickMinion chick : chickMinions) {
+                if (chick.owner != player || chick.thrownFrames <= 0) continue;
+                double dx = chick.x + chick.width * 0.5 - x;
+                double dy = chick.y + chick.height * 0.5 - y;
+                if (dx * dx + dy * dy <= 170.0 * 170.0) {
+                    complete = true;
+                    break;
+                }
+            }
+        } else if (step == 2) {
+            double dx = player.bodyCenterX() - x;
+            complete = player.roosterCommandFxKind == 3 && player.roosterCommandFxTimer > 0
+                    && Math.abs(dx) <= 300.0 && player.bodyCenterY() <= y + 180.0;
+        } else {
+            double dx = player.bodyCenterX() - x;
+            double dy = player.bodyCenterY() - y;
+            boolean formation = ownedClassicRoosterChicks(player) >= 2;
+            for (ChickMinion chick : chickMinions) {
+                if (chick.owner == player && !chick.roosterSwarm && chick.life > 0 && !chick.followingOwner) {
+                    formation = false;
+                }
+            }
+            complete = dx * dx + dy * dy <= 260.0 * 260.0
+                    && player.roosterDownReuseTimer > 0 && formation;
+        }
+        if (!complete) return;
+
+        classicRoosterMusterStep++;
+        classicRunScore += 1_000;
+        playClassicNectarRingSfx(classicRoosterMusterStep, 4);
+        addToKillFeed("COMMAND " + classicRoosterMusterStep + "/4 COMPLETE: "
+                + switch (step) { case 0 -> "CALL"; case 1 -> "TOSS"; case 2 -> "LIFT"; default -> "RECALL"; });
+        if (classicRoosterMusterStep == 3) {
+            for (int i = 0; i < chickMinions.size(); i++) {
+                ChickMinion chick = chickMinions.get(i);
+                if (chick.owner != player || chick.roosterSwarm) continue;
+                chick.followingOwner = false;
+                chick.target = null;
+                chick.x = 4_150.0 + i * 520.0;
+                chick.y = GROUND_Y - 720.0 - (i % 2) * 180.0;
+                chick.vx = i % 2 == 0 ? -2.5 : 2.5;
+                chick.vy = -3.0;
+            }
+        }
+        if (classicRoosterMusterStep >= 4) {
+            classicRoosterMusterCompleted = true;
+            awardRoosterMoraleCrest("THE GREAT MUSTER COMPLETE");
+            classicBonusCoins += 75;
+            classicRunScore += 5_000;
+            addToKillFeed("GREAT MUSTER COMPLETE! Bird Coins +75.");
+            matchController.triggerMatchEnd(player);
+        }
+    }
+
+    private double[][] roosterMusterMarkers() {
+        return new double[][]{
+                {1_060.0, GROUND_Y - 540.0},
+                {2_120.0, GROUND_Y - 700.0},
+                {3_000.0, GROUND_Y - 1_300.0},
+                {4_860.0, GROUND_Y - 540.0}
+        };
+    }
+
+    boolean holdClassicRoosterEncounterOpen() {
+        return classicModeActive && classicEncounter != null && classicSelectedBird == BirdType.ROOSTER
+                && !bossRushModeActive && !ashfallTrialModeActive && !matchEnded
+                && playerHasStocksRemaining(0) && classicEncounter.style == ClassicEncounterStyle.DAWN_MUSTER
+                && !classicRoosterMusterCompleted && matchTimer > 1;
+    }
+
+    private void updateRoosterBroodbreaker(Bird player) {
+        Bird boss = firstClassicEnemyWithStocks();
+        if (boss == null || boss.type != BirdType.RAVEN) return;
+        int stocks = matchScoreForPlayer(boss.playerIndex);
+
+        int shockFrame = (int) (simTick % 300);
+        if (shockFrame == 84) {
+            double center = boss.bodyCenterX();
+            for (ChickMinion chick : chickMinions) {
+                if (chick.owner != player || chick.roosterSwarm) continue;
+                double direction = Math.signum(chick.x + chick.width * 0.5 - center);
+                if (direction == 0.0) direction = 1.0;
+                chick.vx += direction * 8.5;
+                chick.vy = Math.min(chick.vy, -6.0);
+                chick.followingOwner = false;
+                chick.target = null;
+            }
+            addToKillFeed("BROODBREAKER SHOCKWAVE: the formation scatters.");
+            shakeIntensity = Math.max(shakeIntensity, 9.0);
+        }
+
+        if (stocks <= 2 && !classicBroodbreakerCapturePhaseActive) {
+            classicBroodbreakerCapturePhaseActive = true;
+            classicBroodbreakerCaptureCountdown = 90;
+            addToKillFeed("SHADOW CAPTURE: use BROOD RECALL before the command ring closes!");
+        }
+        if (classicBroodbreakerCapturePhaseActive && !classicBroodbreakerCaptureResolved) {
+            if (player.roosterDownReuseTimer > 0) {
+                classicBroodbreakerCaptureResolved = true;
+                classicRunScore += 1_500;
+                addToKillFeed("PERFECT RECALL: the brood escaped the shadow cages.");
+            } else if (--classicBroodbreakerCaptureCountdown <= 0) {
+                captureRoosterChicksForBroodbreaker(player);
+                classicBroodbreakerCaptureResolved = true;
+            }
+        }
+
+        if (stocks <= 1 && !classicBroodbreakerFinalPhaseActive) {
+            classicBroodbreakerFinalPhaseActive = true;
+            classicDawnBells.clear();
+            classicDawnBells.add(new ClassicDawnBell(1_520, GROUND_Y - 760));
+            classicDawnBells.add(new ClassicDawnBell(3_000, GROUND_Y - 1_140));
+            classicDawnBells.add(new ClassicDawnBell(4_480, GROUND_Y - 760));
+            addToKillFeed("FINAL ECLIPSE: toss chicks through all three dawn bells.");
+        }
+        if (classicBroodbreakerFinalPhaseActive && !classicBroodbreakerEclipseBroken) {
+            for (ClassicDawnBell bell : classicDawnBells) {
+                if (bell.lit) continue;
+                for (ChickMinion chick : chickMinions) {
+                    if (chick.owner != player || chick.thrownFrames <= 0 || chick.life <= 0) continue;
+                    double dx = chick.x + chick.width * 0.5 - bell.x;
+                    double dy = chick.y + chick.height * 0.5 - bell.y;
+                    if (dx * dx + dy * dy <= 165.0 * 165.0) {
+                        bell.lit = true;
+                        chick.followingOwner = true;
+                        chick.target = null;
+                        classicRunScore += 1_250;
+                        playManagedSfxVaried(steamAchievementClip, 0.56, 0.92 + litDawnBellCount() * 0.18, 0.012);
+                        addToKillFeed("DAWN BELL " + litDawnBellCount() + "/3 RUNG.");
+                        break;
+                    }
+                }
+            }
+            if (litDawnBellCount() >= 3) {
+                classicBroodbreakerEclipseBroken = true;
+                boss.applyStun(42.0);
+                addToKillFeed("THE ECLIPSE BREAKS: the Broodbreaker has lost its armor.");
+            }
+        }
+        updateBroodbreakerScale(boss);
+    }
+
+    private void captureRoosterChicksForBroodbreaker(Bird player) {
+        int captured = 0;
+        Iterator<ChickMinion> iterator = chickMinions.iterator();
+        while (iterator.hasNext() && captured < 2) {
+            ChickMinion chick = iterator.next();
+            if (chick.owner != player || chick.roosterSwarm || chick.life <= 0) continue;
+            int variant = chick.variant;
+            iterator.remove();
+            double x = captured == 0 ? 2_080.0 : 3_920.0;
+            classicRoosterCages.add(new ClassicBroodCage(x, GROUND_Y - 430.0, 2, true, variant));
+            captured++;
+        }
+        if (captured > 0) {
+            addToKillFeed("SHADOW CAGES CLOSED: break " + captured + " cage" + (captured == 1 ? "" : "s") + ".");
+        }
+    }
+
+    private int litDawnBellCount() {
+        int count = 0;
+        for (ClassicDawnBell bell : classicDawnBells) if (bell.lit) count++;
+        return count;
+    }
+
+    private void updateBroodbreakerScale(Bird boss) {
+        if (boss == null) return;
+        int shadowCages = 0;
+        for (ClassicBroodCage cage : classicRoosterCages) if (cage.shadow) shadowCages++;
+        double difficultyPower = 1.0 + (classicDifficulty - CLASSIC_STARTING_DIFFICULTY) * 0.015;
+        double size = classicBroodbreakerEclipseBroken ? 1.45
+                : (classicBroodbreakerFinalPhaseActive ? 1.82 : 1.68 + shadowCages * 0.08);
+        double power = (classicBroodbreakerFinalPhaseActive && !classicBroodbreakerEclipseBroken ? 1.22 : 1.16)
+                * difficultyPower;
+        double speed = classicBroodbreakerFinalPhaseActive ? 1.10 : 1.02;
+        double health = boss.health;
+        boss.setBaseMultipliers(size, power, speed);
+        boss.health = health;
+    }
+
+    private void drawClassicRoosterRouteFeatures(GraphicsContext g) {
+        if (!classicModeActive || classicSelectedBird != BirdType.ROOSTER || classicEncounter == null) return;
+        g.save();
+
+        if (classicEncounter.style == ClassicEncounterStyle.NIGHT_COMMAND) {
+            int blackoutFrame = (int) (simTick % 360);
+            if (blackoutFrame >= 110 && blackoutFrame <= 240) {
+                g.setFill(Color.web("#02030A", 0.70));
+                g.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+                for (ChickMinion chick : chickMinions) {
+                    if (chick.owner != players[0] || chick.roosterSwarm || chick.life <= 0) continue;
+                    double cx = chick.x + chick.width * 0.5;
+                    double cy = chick.y + chick.height * 0.5;
+                    g.setFill(Color.web("#FFE082", 0.20));
+                    g.fillOval(cx - 145, cy - 145, 290, 290);
+                    g.setStroke(Color.web("#FFF0A8", 0.72));
+                    g.setLineWidth(5.0);
+                    g.strokeOval(cx - 62, cy - 62, 124, 124);
+                }
+            }
+        }
+
+        for (ClassicBroodCage cage : classicRoosterCages) {
+            Color bars = cage.shadow ? Color.web("#9B59B6") : Color.web("#B0BEC5");
+            g.setFill(Color.web(cage.shadow ? "#120A1B" : "#20242C", 0.88));
+            g.fillRoundRect(cage.x - 74, cage.y - 72, 148, 144, 18, 18);
+            g.setStroke(bars);
+            g.setLineWidth(8.0);
+            g.strokeRoundRect(cage.x - 74, cage.y - 72, 148, 144, 18, 18);
+            for (int bar = -2; bar <= 2; bar++) g.strokeLine(cage.x + bar * 25, cage.y - 66, cage.x + bar * 25, cage.y + 66);
+            g.setTextAlign(TextAlignment.CENTER);
+            g.setFont(Font.font("Arial Black", FontWeight.BOLD, 19));
+            g.setFill(Color.WHITE);
+            g.fillText((cage.shadow ? "SHADOW " : "") + "CAGE " + cage.health, cage.x, cage.y - 94);
+        }
+
+        if (classicEncounter.style == ClassicEncounterStyle.DAWN_MUSTER && !classicRoosterMusterCompleted) {
+            double[][] markers = roosterMusterMarkers();
+            int step = Math.clamp(classicRoosterMusterStep, 0, 3);
+            String[] labels = {"CALL", "TOSS", "LIFT", "RECALL"};
+            double x = markers[step][0];
+            double y = markers[step][1];
+            double pulse = 74.0 + Math.sin(simTick * 0.12) * 10.0;
+            g.setStroke(Color.web("#FFF176", 0.95));
+            g.setLineWidth(10.0);
+            g.strokeOval(x - pulse, y - pulse, pulse * 2.0, pulse * 2.0);
+            g.setFill(Color.web("#3A2410", 0.82));
+            g.fillRoundRect(x - 90, y - 128, 180, 42, 18, 18);
+            g.setFill(Color.WHITE);
+            g.setFont(Font.font("Arial Black", FontWeight.BOLD, 24));
+            g.setTextAlign(TextAlignment.CENTER);
+            g.fillText(labels[step], x, y - 98);
+        }
+
+        for (ClassicDawnBell bell : classicDawnBells) {
+            g.setStroke(Color.web(bell.lit ? "#FFF59D" : "#7B5A36", bell.lit ? 0.98 : 0.76));
+            g.setLineWidth(bell.lit ? 13.0 : 8.0);
+            g.strokeOval(bell.x - 88, bell.y - 110, 176, 220);
+            g.setFill(Color.web(bell.lit ? "#FFD54F" : "#4A3741", 0.78));
+            g.fillOval(bell.x - 60, bell.y - 82, 120, 164);
+        }
+        g.restore();
+    }
+
     int classicHummingbirdBlossomCount() {
         int total = 0;
         for (boolean blossom : classicHummingbirdBlossoms) if (blossom) total++;
@@ -43480,6 +44196,108 @@ public class BirdGame3 {
         windVents.add(new WindVent(850, GROUND_Y - 360, 260));
         windVents.add(new WindVent(2_870, GROUND_Y - 390, 260));
         windVents.add(new WindVent(4_890, GROUND_Y - 360, 260));
+    }
+
+    private void setupDawnwatchBastionArena() {
+        resetBossRushArenaState();
+        activeArenaGeometryVariant = MapVariant.DAWNWATCH_BASTION;
+
+        Platform westTower = new Platform(360, GROUND_Y - 430, 1_020, 92);
+        Platform courtyard = new Platform(1_380, GROUND_Y - 300, 3_240, 104);
+        Platform eastTower = new Platform(4_620, GROUND_Y - 430, 1_020, 92);
+        westTower.signText = "WEST WATCH";
+        courtyard.signText = "DAWNWATCH BASTION";
+        eastTower.signText = "EAST WATCH";
+        platforms.add(westTower);
+        platforms.add(courtyard);
+        platforms.add(eastTower);
+
+        // Every fighting surface is a roof, battlement, or structural bridge.
+        platforms.add(new Platform(980, GROUND_Y - 690, 560, 44));
+        platforms.add(new Platform(4_460, GROUND_Y - 690, 560, 44));
+        platforms.add(new Platform(1_720, GROUND_Y - 620, 660, 46));
+        platforms.add(new Platform(3_620, GROUND_Y - 620, 660, 46));
+        Platform bellDeck = new Platform(2_500, GROUND_Y - 970, 1_000, 58);
+        bellDeck.signText = "FIRST BELL";
+        platforms.add(bellDeck);
+        platforms.add(new Platform(2_050, GROUND_Y - 1_280, 390, 38));
+        platforms.add(new Platform(3_560, GROUND_Y - 1_280, 390, 38));
+
+        battlefieldIslandX = courtyard.x;
+        battlefieldIslandW = courtyard.w;
+        battlefieldIslandY = courtyard.y;
+        windVents.add(new WindVent(650, westTower.y, 280));
+        windVents.add(new WindVent(2_850, courtyard.y, 300));
+        windVents.add(new WindVent(5_070, eastTower.y, 280));
+    }
+
+    private void drawDawnwatchBastionArena(GraphicsContext g, boolean ambientFx) {
+        for (int i = 0; i < 620; i++) {
+            double ratio = i / 620.0;
+            g.setFill(Color.web("#261544").interpolate(Color.web("#F08A55"), ratio));
+            g.fillRect(0, i * (WORLD_HEIGHT / 620.0), WORLD_WIDTH, WORLD_HEIGHT / 620.0 + 3);
+        }
+
+        double dawn = classicModeActive && classicEncounter != null
+                && classicEncounter.style == ClassicEncounterStyle.BROODBREAKER_BOSS
+                ? (classicBroodbreakerEclipseBroken ? 1.0 : (classicBroodbreakerFinalPhaseActive ? 0.42 : 0.18))
+                : 0.72;
+        g.setFill(Color.web("#FFF4B0", 0.44 + dawn * 0.42));
+        g.fillOval(WORLD_WIDTH * 0.5 - 430, 90, 860, 860);
+        if (classicBroodbreakerFinalPhaseActive && !classicBroodbreakerEclipseBroken) {
+            g.setFill(Color.web("#090611", 0.94));
+            g.fillOval(WORLD_WIDTH * 0.5 - 350, 170, 700, 700);
+            g.setStroke(Color.web("#9B59B6", 0.62));
+            g.setLineWidth(24);
+            g.strokeOval(WORLD_WIDTH * 0.5 - 380, 140, 760, 760);
+        }
+
+        g.setFill(Color.web("#D7D9E0", 0.26));
+        for (int i = 0; i < 8; i++) {
+            double cloudX = i * 820 - 280;
+            double cloudY = 980 + (i % 3) * 95;
+            g.fillOval(cloudX, cloudY, 1_020, 260);
+        }
+
+        // Tall rectangular watchtowers continue below their roof platforms so
+        // the stage reads as a single citadel rather than floating ledges.
+        g.setFill(Color.web("#25273A"));
+        double[][] towers = {
+                {360, GROUND_Y - 430, 1_020}, {1_380, GROUND_Y - 300, 3_240}, {4_620, GROUND_Y - 430, 1_020},
+                {1_720, GROUND_Y - 620, 660}, {3_620, GROUND_Y - 620, 660}, {2_500, GROUND_Y - 970, 1_000}
+        };
+        for (double[] tower : towers) {
+            g.fillRect(tower[0], tower[1], tower[2], WORLD_HEIGHT - tower[1] + 220);
+            g.setFill(Color.web("#F6C453", 0.32));
+            for (double wx = tower[0] + 70; wx < tower[0] + tower[2] - 36; wx += 150) {
+                for (double wy = tower[1] + 115; wy < GROUND_Y + 220; wy += 190) {
+                    g.fillRoundRect(wx, wy, 44, 72, 9, 9);
+                }
+            }
+            g.setFill(Color.web("#25273A"));
+        }
+
+        for (Platform platform : platforms) {
+            g.setFill(Color.web("#3D4056"));
+            g.fillRoundRect(platform.x, platform.y, platform.w, platform.h, 20, 20);
+            g.setStroke(Color.web("#F6C453"));
+            g.setLineWidth(platform.h >= 80 ? 9.0 : 5.0);
+            g.strokeRoundRect(platform.x, platform.y, platform.w, platform.h, 20, 20);
+            g.setFill(Color.web("#8E2430", 0.78));
+            g.fillRoundRect(platform.x + 20, platform.y + 18,
+                    Math.max(0.0, platform.w - 40), Math.min(24.0, platform.h - 18), 12, 12);
+        }
+
+        double bellX = WORLD_WIDTH * 0.5;
+        double bellY = GROUND_Y - 1_230;
+        double pulse = ambientFx ? 0.75 + 0.12 * Math.sin(System.currentTimeMillis() / 170.0) : 0.82;
+        g.setStroke(Color.web("#FFF0A8", pulse));
+        g.setLineWidth(28);
+        g.strokeOval(bellX - 180, bellY - 210, 360, 410);
+        g.setFill(Color.web("#D89A2B"));
+        g.fillOval(bellX - 148, bellY - 175, 296, 350);
+        g.setFill(Color.web("#6C3A20"));
+        g.fillOval(bellX - 34, bellY + 115, 68, 104);
     }
 
     private void drawHarvestTribunalArena(GraphicsContext g, boolean ambientFx) {
@@ -43985,6 +44803,36 @@ public class BirdGame3 {
         classicDifficulty = Math.clamp(classicDifficulty + delta, 1.0, 9.0);
     }
 
+    private void evaluateRoosterClassicEncounter(boolean playerWon) {
+        if (!playerWon || classicSelectedBird != BirdType.ROOSTER || classicEncounter == null || players[0] == null) {
+            return;
+        }
+        Bird player = players[0];
+        if (classicEncounter.style == ClassicEncounterStyle.BROOD_LEADERSHIP) {
+            boolean turkeyStanding = false;
+            for (int slot = 1; slot < activePlayers; slot++) {
+                Bird bird = players[slot];
+                if (bird != null && getEffectiveTeam(slot) == 1 && bird.type == BirdType.TURKEY
+                        && playerHasStocksRemaining(slot)) {
+                    turkeyStanding = true;
+                    break;
+                }
+            }
+            if (turkeyStanding && ownedClassicRoosterChicks(player) >= 2) {
+                awardRoosterMoraleCrest("BOTH LEADERS AND THE BROOD HELD THE LINE");
+            }
+        } else if (classicEncounter.style == ClassicEncounterStyle.BROOD_RECRUITMENT
+                && ownedClassicRoosterChicks(player) >= Bird.ROOSTER_STARTING_CHICKS) {
+            classicRunScore += 1_000;
+            addToKillFeed("FULL FORMATION: all three veteran chicks answered the first call.");
+        } else if (classicEncounter.style == ClassicEncounterStyle.BROOD_HUNT
+                && classicRoosterHunterCaptures == 0) {
+            classicRunScore += 1_500;
+            classicBonusCoins += 15;
+            addToKillFeed("NO ONE TAKEN: the entire brood escaped the Carrion Hunt. Bird Coins +15.");
+        }
+    }
+
     static int classicContinueCoinValue(int continueCount) {
         long value = (long) Math.max(0, continueCount) * CLASSIC_CONTINUE_BIRD_COIN_COST;
         return value >= Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) value;
@@ -44014,9 +44862,11 @@ public class BirdGame3 {
 
         claimDestroyedClassicBonusTargets();
         boolean playerWon = didPlayerWinClassic(winner);
+        evaluateRoosterClassicEncounter(playerWon);
         if (classicEncounter.style == ClassicEncounterStyle.BONUS_RELAY
                 || classicEncounter.style == ClassicEncounterStyle.NECTAR_DASH
-                || classicEncounter.style == ClassicEncounterStyle.HARVEST_DEFENSE) {
+                || classicEncounter.style == ClassicEncounterStyle.HARVEST_DEFENSE
+                || classicEncounter.style == ClassicEncounterStyle.DAWN_MUSTER) {
             recordClassicEncounterScore(playerWon);
             classicRoundIndex++;
             classicEncounter = classicRun.get(classicRoundIndex);
@@ -44052,6 +44902,8 @@ public class BirdGame3 {
                 heartbloomSanctuaryUnlocked = true;
             } else if (classicSelectedBird == BirdType.TURKEY) {
                 harvestTribunalUnlocked = true;
+            } else if (classicSelectedBird == BirdType.ROOSTER) {
+                dawnwatchBastionUnlocked = true;
             }
             profileProgressController.onClassicRunCompleted(classicSelectedBird, achievementEvaluator::onClassicRunCompleted);
             String reward = classicRewardFor(classicSelectedBird);
@@ -44063,6 +44915,7 @@ public class BirdGame3 {
                 case PHOENIX -> "\nMap variant unlocked: Frozen Caldera.";
                 case HUMMINGBIRD -> "\nMap variant unlocked: Heartbloom Sanctuary.";
                 case TURKEY -> "\nMap variant unlocked: Harvest Tribunal.";
+                case ROOSTER -> "\nMap variant unlocked: Dawnwatch Bastion.";
                 default -> "";
             };
             String ending = switch (classicSelectedBird) {
@@ -44072,6 +44925,7 @@ public class BirdGame3 {
                 case PHOENIX -> "\n\nThe caldera exhales. Ice gives way to sunrise, and Phoenix carries the last flame forward instead of guarding its ashes.";
                 case HUMMINGBIRD -> "\n\nThe eclipse breaks across Heartbloom. Hummingbird leaves no crown behind, only a living route of flowers that every small wing can follow.";
                 case TURKEY -> "\n\nThe last flame settles over the Tribunal. Turkey leaves the throne empty and the table open: the hunted bird now decides who is welcome at the feast.";
+                case ROOSTER -> "\n\nThe eclipse breaks over Dawnwatch. Rooster counts every returning wing before he sounds the bell: dawn belongs to the flock that reached it together.";
                 default -> "";
             };
             showStoryDialogue(
@@ -44081,13 +44935,15 @@ public class BirdGame3 {
                             : (classicSelectedBird == BirdType.FALCON ? "Nothing Escapes"
                             : (classicSelectedBird == BirdType.PHOENIX ? "The Flame That Returns"
                             : (classicSelectedBird == BirdType.HUMMINGBIRD ? "Beat of the Bloom"
-                            : (classicSelectedBird == BirdType.TURKEY ? "The Last Feast" : "Classic Cleared"))))),
+                            : (classicSelectedBird == BirdType.TURKEY ? "The Last Feast"
+                            : (classicSelectedBird == BirdType.ROOSTER ? "No One Left Behind" : "Classic Cleared")))))),
                     classicSelectedBird == BirdType.PIGEON ? "The Beacon"
                             : (classicSelectedBird == BirdType.EAGLE ? "Summit Prime"
                             : (classicSelectedBird == BirdType.FALCON ? "Crown Pursuit"
                             : (classicSelectedBird == BirdType.PHOENIX ? "Dawn Oracle"
                             : (classicSelectedBird == BirdType.HUMMINGBIRD ? "Heartbloom"
-                            : (classicSelectedBird == BirdType.TURKEY ? "Harvest Tribunal" : "Skycaster Prime"))))),
+                            : (classicSelectedBird == BirdType.TURKEY ? "Harvest Tribunal"
+                            : (classicSelectedBird == BirdType.ROOSTER ? "Dawnwatch Bastion" : "Skycaster Prime")))))),
                     "Run " + classicRunCodename + " completed with " + classicSelectedBird.name + ".\nReward unlocked: "
                             + reward + (charReward.isBlank() ? "" : "\nCharacter unlocked: " + charReward) + "."
                             + routeReward
@@ -46815,7 +47671,7 @@ public class BirdGame3 {
         }
         int enemyStocks = switch (classicEncounter.style) {
             case STORM_TYRANT_BOSS, PHOENIX_REBIRTH, BLIGHTWING_BOSS -> 2;
-            case NULL_ROC_BOSS, LONG_WINTER_BOSS, DEVOURER_BOSS -> 3;
+            case NULL_ROC_BOSS, LONG_WINTER_BOSS, DEVOURER_BOSS, BROODBREAKER_BOSS -> 3;
             default -> 0;
         };
         if (enemyStocks <= 0) return;
@@ -46948,6 +47804,7 @@ public class BirdGame3 {
             applyPhoenixClassicRuntimeEffects();
             applyHummingbirdClassicRuntimeEffects();
             applyTurkeyClassicRuntimeEffects();
+            applyRoosterClassicRuntimeEffects();
         }
         if (bossRushModeActive && classicModeActive) {
             applyBossRushRuntimeEffects();
@@ -50178,6 +51035,7 @@ public class BirdGame3 {
             case FROZEN_CALDERA -> setupFrozenCalderaArena();
             case HEARTBLOOM_SANCTUARY -> setupHeartbloomSanctuaryArena();
             case HARVEST_TRIBUNAL -> setupHarvestTribunalArena();
+            case DAWNWATCH_BASTION -> setupDawnwatchBastionArena();
             case CARRION_THRONE -> setupBossRushCarrionThrone();
             case NULL_ROC_ASCENDING -> setupBossRushNullRocArena();
             case VOID_CROWN -> setupBossRushVoidCrownArena();
@@ -51591,6 +52449,11 @@ public class BirdGame3 {
                 lines.add("HARVEST " + classicTurkeyDefenseHealth + "%  WAVE "
                         + Math.min(waveCount, classicTurkeyDefenseWaveIndex + 1) + "/" + waveCount
                         + "  BONUS COINS +" + classicBonusCoins);
+            } else if (classicEncounter.style == ClassicEncounterStyle.DAWN_MUSTER) {
+                String[] commands = {"CALL", "TOSS", "LIFT", "RECALL", "COMPLETE"};
+                lines.add("COMMAND " + Math.min(4, classicRoosterMusterStep + 1) + "/4  "
+                        + commands[Math.clamp(classicRoosterMusterStep, 0, 4)]
+                        + "  MORALE " + classicRoosterMorale + "/3");
             } else {
                 lines.add(dailyChallengeModeActive
                     ? "LIVES " + livesLeft + "/3  SEED " + formatDailyChallengeSeed(dailyChallengeSeed)
@@ -51608,6 +52471,16 @@ public class BirdGame3 {
                     + (classicTurkeyFeastDecisionActive ? "  CHOOSE: FEAST OR BLOCK" : "")
                     : (classicEncounter.style == ClassicEncounterStyle.DEVOURER_BOSS
                     ? "  DEVOURER MEALS " + classicDevourerMeals : ""))));
+            }
+            if (classicSelectedBird == BirdType.ROOSTER
+                    && classicEncounter.style != ClassicEncounterStyle.DAWN_MUSTER) {
+                String detail = classicEncounter.style == ClassicEncounterStyle.BROOD_RESCUE
+                        ? "  CAGES " + classicRoosterCagesRescued + "/3"
+                        : (classicEncounter.style == ClassicEncounterStyle.BROOD_HUNT
+                        ? "  CAPTURES " + classicRoosterHunterCaptures
+                        : (classicEncounter.style == ClassicEncounterStyle.BROODBREAKER_BOSS
+                        ? "  DAWN BELLS " + litDawnBellCount() + "/3" : ""));
+                lines.add("BROOD MORALE " + classicRoosterMorale + "/3" + detail);
             }
             return lines;
         }
@@ -54386,6 +55259,20 @@ public class BirdGame3 {
         classicDevourerFinalPhaseActive = false;
         classicHarvestWestTable = null;
         classicHarvestEastTable = null;
+        classicRoosterMoraleAwardedThisEncounter = false;
+        Arrays.fill(classicRoosterRecruitClaims, false);
+        classicRoosterCages.clear();
+        classicDawnBells.clear();
+        classicRoosterCagesRescued = 0;
+        classicRoosterHunterCaptures = 0;
+        classicRoosterMusterStep = 0;
+        classicRoosterMusterCompleted = false;
+        classicRoosterReviveUsed = false;
+        classicBroodbreakerCapturePhaseActive = false;
+        classicBroodbreakerCaptureCountdown = 0;
+        classicBroodbreakerCaptureResolved = false;
+        classicBroodbreakerFinalPhaseActive = false;
+        classicBroodbreakerEclipseBroken = false;
     }
 
     private void resetSuddenDeathState() {
@@ -54515,6 +55402,7 @@ public class BirdGame3 {
         state.frozenCalderaUnlocked = frozenCalderaUnlocked;
         state.heartbloomSanctuaryUnlocked = heartbloomSanctuaryUnlocked;
         state.harvestTribunalUnlocked = harvestTribunalUnlocked;
+        state.dawnwatchBastionUnlocked = dawnwatchBastionUnlocked;
         state.towerDefenseDifficultyBadges = copyBooleanMatrix(towerDefenseDifficultyBadges);
         state.cityPigeonUnlocked = cityPigeonUnlocked;
         state.noirPigeonUnlocked = noirPigeonUnlocked;
@@ -54659,6 +55547,7 @@ public class BirdGame3 {
         frozenCalderaUnlocked = resolved.frozenCalderaUnlocked;
         heartbloomSanctuaryUnlocked = resolved.heartbloomSanctuaryUnlocked;
         harvestTribunalUnlocked = resolved.harvestTribunalUnlocked;
+        dawnwatchBastionUnlocked = resolved.dawnwatchBastionUnlocked;
         copyInto(resolved.towerDefenseDifficultyBadges, towerDefenseDifficultyBadges);
 
         cityPigeonUnlocked = resolved.cityPigeonUnlocked;
@@ -54813,6 +55702,9 @@ public class BirdGame3 {
         }
         if (classicCompleted[BirdType.TURKEY.ordinal()]) {
             harvestTribunalUnlocked = true;
+        }
+        if (classicCompleted[BirdType.ROOSTER.ordinal()]) {
+            dawnwatchBastionUnlocked = true;
         }
         boolean unitedFinaleCompleted = unitedIdx >= 0
                 && unitedIdx < mainAdventureCompleted.length

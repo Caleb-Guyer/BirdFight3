@@ -410,8 +410,8 @@ final class StoryCampaignContent {
 
     private static StoryCampaign.Mission greenConvergence() {
         return mission("green_convergence", "Green Convergence",
-                "Combine four local routes, break Grinch-Hawk's convoy, and reopen the jungle canopy.",
-                VIBRANT_JUNGLE, BirdGame3.MapVariant.CARRION_THRONE, CARRION,
+                "Combine four local routes at Dawnwatch Bastion, break Grinch-Hawk's convoy, and relight the coalition beacon.",
+                BEACON_CROWN, BirdGame3.MapVariant.DAWNWATCH_BASTION, CARRION,
                 StoryCampaign.PlayablePolicy.choice(HUMMINGBIRD, TITMOUSE, TURKEY, ROOSTER),
                 List.of(),
                 fighters(
@@ -570,7 +570,8 @@ final class StoryCampaignContent {
     private static StoryCampaign.Mission crowCountry() {
         return mission("crow_country", "Crow Country",
                 "Cross Vulture's outer feeding grounds and break the three swarm towers.",
-                FOREST, CARRION, StoryCampaign.PlayablePolicy.choice(GOOSE, TURKEY),
+                VIBRANT_JUNGLE, BirdGame3.MapVariant.CARRION_THRONE, CARRION,
+                StoryCampaign.PlayablePolicy.choice(GOOSE, TURKEY),
                 List.of(),
                 fighters(enemy(VULTURE, "Carrion Captain"), enemy(RAVEN, "Swarm Guide")),
                 phases(
@@ -1078,9 +1079,9 @@ final class StoryCampaignContent {
                 List.of(TURKEY, ROOSTER), false, false));
         scenes.add(scene("s24_rooster_turkey", "Two Kinds of Leadership", FOREST,
                 List.of(), false, false));
-        scenes.add(scene("s25_green_convergence", "Green Convergence", VIBRANT_JUNGLE,
+        scenes.add(scene("s25_green_convergence", "Green Convergence", BEACON_CROWN,
                 List.of(HUMMINGBIRD, TITMOUSE, TURKEY, ROOSTER), false, false));
-        scenes.add(scene("s26_first_coalition", "Not Waiting Anymore", VIBRANT_JUNGLE,
+        scenes.add(scene("s26_first_coalition", "Not Waiting Anymore", BEACON_CROWN,
                 List.of(), false, false));
     }
 
@@ -1134,9 +1135,9 @@ final class StoryCampaignContent {
     }
 
     private static void addActEightScenes(List<StoryCampaign.Cutscene> scenes) {
-        scenes.add(scene("s47_crow_country", "Crow Country", FOREST,
+        scenes.add(scene("s47_crow_country", "Crow Country", VIBRANT_JUNGLE,
                 List.of(GOOSE, TURKEY), false, false));
-        scenes.add(scene("s48_crow_country_after", "The Outer Towers", FOREST,
+        scenes.add(scene("s48_crow_country_after", "The Outer Towers", VIBRANT_JUNGLE,
                 List.of(), false, false));
         scenes.add(scene("s49_terms_dark", "Terms in the Dark", CAVE,
                 List.of(BAT, SHOEBILL), false, false));

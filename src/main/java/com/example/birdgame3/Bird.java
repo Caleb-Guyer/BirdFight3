@@ -3837,11 +3837,13 @@ public class Bird {
 
             double dx = cx - attackCenterX;
             double kbDir = dx == 0 ? (facingRight ? 1 : -1) : Math.signum(dx);
-            chick.vx += kbDir * Math.max(4.0, dmg * 0.18) * Math.max(1.0, knockbackScale);
+            chick.vx += kbDir * Math.max(4.0, dmg * 0.18) * Math.max(1.0, knockbackScale)
+                    * chick.knockbackTakenMultiplier;
             double verticalScale = profile.verticalLaunchScaleFor(cy, attackCenterY);
             double verticalKnockback = (3.5 + dmg * 0.08)
                     * Math.max(0.75, Math.abs(verticalScale))
-                    * Math.max(1.0, 0.75 + knockbackScale * 0.25);
+                    * Math.max(1.0, 0.75 + knockbackScale * 0.25)
+                    * chick.knockbackTakenMultiplier;
             if (verticalScale < 0.0 && cy >= attackCenterY + 6.0) {
                 chick.vy = Math.max(chick.vy, verticalKnockback);
             } else {
@@ -3852,6 +3854,10 @@ public class Bird {
             chick.attackCooldown = Math.max(chick.attackCooldown, 8);
 
             if (chick.life > 0) continue;
+
+            if (game.rescueClassicRoosterChick(chick)) {
+                continue;
+            }
 
             it.remove();
             kills++;
