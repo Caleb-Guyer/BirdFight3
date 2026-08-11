@@ -113,6 +113,7 @@ import java.util.prefs.Preferences;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class BirdGame3 {
     private static final Logger LOGGER = Logger.getLogger(BirdGame3.class.getName());
@@ -695,7 +696,8 @@ public class BirdGame3 {
         PEREGRINE_RUN(MapType.SKYCLIFFS, "Classic Routes", "Peregrine Run", "Three open cliff shelves crossed by fast, predictable dive lanes and recovery vents."),
         TEMPEST_SUMMIT(MapType.SKYCLIFFS, "Classic Routes", "Tempest Summit", "An open crown of storm-beaten peaks above the clouds, with predictable recovery vents and no enclosing walls."),
         FROZEN_CALDERA(MapType.ASHFALL_CATHEDRAL, "Classic Routes", "Frozen Caldera", "The last Ashfall thermal sealed beneath a melting crown of ice, with an open sky and mirrored recovery vents."),
-        HEARTBLOOM_SANCTUARY(MapType.VIBRANT_JUNGLE, "Classic Routes", "Heartbloom Sanctuary", "An eclipse garden of enormous flower platforms, open flight lanes, and nectar updrafts that wake at dawn.");
+        HEARTBLOOM_SANCTUARY(MapType.VIBRANT_JUNGLE, "Classic Routes", "Heartbloom Sanctuary", "An eclipse garden of enormous flower platforms, open flight lanes, and nectar updrafts that wake at dawn."),
+        HARVEST_TRIBUNAL(MapType.FOREST, "Classic Routes", "Harvest Tribunal", "A moonlit autumn court built around a monumental stone table, braziers, and open recovery lanes.");
 
         final MapType baseMap;
         final String category;
@@ -843,6 +845,7 @@ public class BirdGame3 {
     private boolean peregrineRunUnlocked = false;
     private boolean frozenCalderaUnlocked = false;
     private boolean heartbloomSanctuaryUnlocked = false;
+    private boolean harvestTribunalUnlocked = false;
     private final boolean[][] towerDefenseDifficultyBadges = new boolean[MapType.values().length][TowerDefenseMode.Difficulty.values().length];
     private static final int DOCK_LEVER_COOLDOWN_FRAMES = 900;
     private static final int DOCK_BOMB_FUSE_FRAMES = 88;
@@ -4885,6 +4888,22 @@ public class BirdGame3 {
     private Platform classicClosedHeartbloomPetal = null;
     private int classicHeartbloomClosureIndex = -1;
     private int classicHeartbloomPollenHitCooldown = 0;
+    private int classicTurkeyWaveIndex = 0;
+    private boolean classicTurkeyFeastDecisionActive = false;
+    private int classicTurkeyFeastDecisionFrames = 0;
+    private boolean classicTurkeyBlockWasDown = false;
+    private int classicTurkeyStuffedFrames = 0;
+    private int classicTurkeyFamineFrames = 0;
+    private ClassicHarvestPlate classicHarvestPlate = null;
+    private int classicTurkeyDefenseWaveIndex = 0;
+    private int classicTurkeyDefenseHealth = 100;
+    private boolean classicTurkeyDefenseCompleted = false;
+    private int classicDevourerMeals = 0;
+    private int classicDevourerTrapCooldown = 0;
+    private boolean classicDevourerSuctionPhaseActive = false;
+    private boolean classicDevourerFinalPhaseActive = false;
+    private Platform classicHarvestWestTable = null;
+    private Platform classicHarvestEastTable = null;
     private boolean bossRushModeActive = false;
     private long bossRushRunStartMillis = 0L;
     private long bossRushBestClearMillis = Long.MAX_VALUE;
@@ -4942,7 +4961,10 @@ public class BirdGame3 {
         LONG_WINTER("The Long Winter", "The frozen caldera thaws as each phase of the Winter King falls."),
         NECTAR_CHAIN("Nectar Chain", "Fly through three flower rings in order to bank a blossom for the final battle."),
         HUNDRED_FLOWER_DASH("Hundred-Flower Dash", "Follow the flower gates to the sanctuary before the route closes."),
-        BLIGHTWING_ECLIPSE("Blightwing Eclipse", "Banked blossoms awaken recovery flowers while Blightwing wilts the arena.");
+        BLIGHTWING_ECLIPSE("Blightwing Eclipse", "Banked blossoms awaken recovery flowers while Blightwing wilts the arena."),
+        FEAST_OR_FAMINE("Feast or Famine", "Clear each wave, then eat to recover or block to reject the plate and gain a battle rush."),
+        HARVEST_WATCH("Harvest Watch", "Protect the tribunal feast from four deterministic raider waves."),
+        GREAT_HUNGER("The Great Hunger", "The Devourer grows by consuming offerings until Turkey turns the feast traps against it.");
 
         final String label;
         final String description;
@@ -4976,7 +4998,10 @@ public class BirdGame3 {
         NULL_ROC_BOSS,
         LONG_WINTER_BOSS,
         NECTAR_DASH,
-        BLIGHTWING_BOSS
+        BLIGHTWING_BOSS,
+        FEAST_GAUNTLET,
+        HARVEST_DEFENSE,
+        DEVOURER_BOSS
     }
 
     static final class ClassicNectarRing {
@@ -5008,6 +5033,20 @@ public class BirdGame3 {
         }
     }
 
+    static final class ClassicHarvestPlate {
+        final double x;
+        final double y;
+        final boolean waveChoice;
+        int lifeFrames;
+
+        ClassicHarvestPlate(double x, double y, boolean waveChoice, int lifeFrames) {
+            this.x = x;
+            this.y = y;
+            this.waveChoice = waveChoice;
+            this.lifeFrames = Math.max(1, lifeFrames);
+        }
+    }
+
     record ClassicFighter(BirdType type, String title, double health, double powerMult, double speedMult,
                           String skinKey, int cpuLevel) {
             ClassicFighter(BirdType type, String title, double health, double powerMult, double speedMult) {
@@ -5033,6 +5072,7 @@ public class BirdGame3 {
         final ClassicFighter[] allies;
         final ClassicFighter[] enemies;
         final boolean bossFight;
+        ClassicFighter[][] waves = null;
         int cpuLevel = 5;
 
         ClassicEncounter(String name, String announcer, String briefing, MapType map,
@@ -5057,6 +5097,11 @@ public class BirdGame3 {
             this.allies = allies;
             this.enemies = enemies;
             this.bossFight = bossFight;
+        }
+
+        ClassicEncounter withWaves(ClassicFighter[]... authoredWaves) {
+            waves = authoredWaves == null ? null : authoredWaves;
+            return this;
         }
     }
 
@@ -8730,6 +8775,7 @@ public class BirdGame3 {
         if (variant == MapVariant.PEREGRINE_RUN) return peregrineRunUnlocked;
         if (variant == MapVariant.FROZEN_CALDERA) return frozenCalderaUnlocked;
         if (variant == MapVariant.HEARTBLOOM_SANCTUARY) return heartbloomSanctuaryUnlocked;
+        if (variant == MapVariant.HARVEST_TRIBUNAL) return harvestTribunalUnlocked;
         return isMapUnlocked(variant.baseMap);
     }
 
@@ -13210,7 +13256,13 @@ public class BirdGame3 {
 
         // === BACKGROUND (different per map) ===
         switch (selectedMap) {
-            case FOREST -> drawForestArena(g, ambientFx);
+            case FOREST -> {
+                if (activeArenaGeometryVariant == MapVariant.HARVEST_TRIBUNAL) {
+                    drawHarvestTribunalArena(g, ambientFx);
+                } else {
+                    drawForestArena(g, ambientFx);
+                }
+            }
             case SKYCLIFFS -> {
                 boolean tempestSummit = activeArenaGeometryVariant == MapVariant.TEMPEST_SUMMIT;
                 boolean peregrineRun = activeArenaGeometryVariant == MapVariant.PEREGRINE_RUN;
@@ -13530,6 +13582,7 @@ public class BirdGame3 {
         }
 
         drawClassicHummingbirdRouteFeatures(g);
+        drawClassicTurkeyRouteFeatures(g);
         drawUltimateReadyScreenDarken(g);
         drawCampaignObjectiveMarkers(g);
 
@@ -29638,6 +29691,7 @@ public class BirdGame3 {
         peregrineRunUnlocked = true;
         frozenCalderaUnlocked = true;
         heartbloomSanctuaryUnlocked = true;
+        harvestTribunalUnlocked = true;
 
         cityPigeonUnlocked = true;
         noirPigeonUnlocked = true;
@@ -39470,6 +39524,9 @@ public class BirdGame3 {
         if (useAuthoredRoutes && playerType == BirdType.HUMMINGBIRD) {
             return buildHummingbirdClassicRun();
         }
+        if (useAuthoredRoutes && playerType == BirdType.TURKEY) {
+            return buildTurkeyClassicRun();
+        }
         List<ClassicEncounter> run = new ArrayList<>();
         Set<MapType> usedMaps = new HashSet<>();
         Set<BirdType> usedBirds = new HashSet<>();
@@ -40522,6 +40579,115 @@ public class BirdGame3 {
         return run;
     }
 
+    private List<ClassicEncounter> buildTurkeyClassicRun() {
+        List<ClassicEncounter> run = new ArrayList<>();
+
+        ClassicFighter firstPigeon = classicFighter(BirdType.PIGEON, "Forager: Pigeon", 105, 0.96, 1.08);
+        ClassicFighter firstKiwi = classicFighter(BirdType.KIWI, "Forager: Kiwi Bird", 108, 0.98, 1.04);
+        ClassicFighter firstGoose = classicFighter(BirdType.GOOSE, "Forager: Goose", 124, 1.03, 0.98);
+        ClassicEncounter first = new ClassicEncounter(
+                "First at the Table", "Autumn Watch",
+                "Three foragers arrive one at a time. Choose recovery or a battle rush between courses.",
+                MapType.FOREST, MapVariant.STANDARD, MatchMutator.NONE, ClassicTwist.FEAST_OR_FAMINE,
+                ClassicEncounterStyle.FEAST_GAUNTLET, 118 * 60, new ClassicFighter[0],
+                new ClassicFighter[]{firstPigeon, firstKiwi, firstGoose}, false)
+                .withWaves(new ClassicFighter[]{firstPigeon}, new ClassicFighter[]{firstKiwi},
+                        new ClassicFighter[]{firstGoose});
+        first.cpuLevel = 3;
+        run.add(first);
+
+        ClassicFighter swiftRoadrunner = classicFighter(BirdType.ROADRUNNER, "Swift Thief: Roadrunner", 112, 1.00, 1.17);
+        ClassicFighter swiftHummingbird = classicFighter(BirdType.HUMMINGBIRD, "Swift Thief: Hummingbird", 108, 0.98, 1.18);
+        ClassicEncounter swift = new ClassicEncounter(
+                "The Swift Take", "Rooftop Market",
+                "Roadrunner and Hummingbird strike in consecutive waves across the market skyline.",
+                MapType.CITY, MapVariant.ROOFTOP_RELAY, MatchMutator.TURBO_BRAWL, ClassicTwist.FEAST_OR_FAMINE,
+                ClassicEncounterStyle.FEAST_GAUNTLET, 108 * 60, new ClassicFighter[0],
+                new ClassicFighter[]{swiftRoadrunner, swiftHummingbird}, false)
+                .withWaves(new ClassicFighter[]{swiftRoadrunner}, new ClassicFighter[]{swiftHummingbird});
+        swift.cpuLevel = 4;
+        run.add(swift);
+
+        ClassicEncounter poisoned = new ClassicEncounter(
+                "Poisoned Course", "Deep Pantry",
+                "Heisenbird and Opium Bird attack together beneath a table of corrupted supplies.",
+                MapType.CAVE, MapVariant.STANDARD, MatchMutator.NONE, ClassicTwist.SHADOW_CACHE,
+                ClassicEncounterStyle.STANDARD, 102 * 60, new ClassicFighter[0],
+                new ClassicFighter[]{
+                        classicFighter(BirdType.HEISENBIRD, "Poisoner: Heisenbird", 122, 1.04, 1.02),
+                        classicFighter(BirdType.OPIUMBIRD, "Poisoner: Opium Bird", 116, 1.01, 1.07)}, false);
+        poisoned.cpuLevel = 5;
+        run.add(poisoned);
+
+        ClassicEncounter openSeason = new ClassicEncounter(
+                "Open Season", "Tempest Hunt",
+                "A giant Eagle claims the summit and hunts Turkey across the exposed storm crown.",
+                MapType.SKYCLIFFS, MapVariant.TEMPEST_SUMMIT, MatchMutator.NONE, ClassicTwist.STORM_LIFTS,
+                ClassicEncounterStyle.GIANT, 108 * 60, new ClassicFighter[0],
+                new ClassicFighter[]{classicFighter(BirdType.EAGLE, "Giant Hunter: Eagle", 270, 1.15, 0.88,
+                        "SKY_KING_EAGLE")}, true);
+        openSeason.cpuLevel = 5;
+        run.add(openSeason);
+
+        ClassicFighter bladeShoebill = classicFighter(BirdType.SHOEBILL, "Carving Blade: Shoebill", 142, 1.06, 0.94);
+        ClassicFighter bladeRazorbill = classicFighter(BirdType.RAZORBILL, "Carving Blade: Razorbill", 128, 1.05, 1.08);
+        ClassicEncounter blades = new ClassicEncounter(
+                "Carving Blades", "Iron Pantry",
+                "Shoebill and Razorbill take turns sealing the prison table with disciplined reach.",
+                MapType.PRISON, MapVariant.STANDARD, MatchMutator.NONE, ClassicTwist.FEAST_OR_FAMINE,
+                ClassicEncounterStyle.FEAST_GAUNTLET, 112 * 60, new ClassicFighter[0],
+                new ClassicFighter[]{bladeShoebill, bladeRazorbill}, false)
+                .withWaves(new ClassicFighter[]{bladeShoebill}, new ClassicFighter[]{bladeRazorbill});
+        blades.cpuLevel = 6;
+        run.add(blades);
+
+        ClassicFighter dawnRooster = classicFighter(BirdType.ROOSTER, "False Dawn: Rooster", 136, 1.06, 1.04);
+        ClassicFighter dawnPhoenix = classicFighter(BirdType.PHOENIX, "False Dawn: Phoenix", 148, 1.08, 1.05);
+        ClassicEncounter dawn = new ClassicEncounter(
+                "False Dawn", "Rebirth Banquet",
+                "Rooster and Phoenix enter as separate claimants to the coming harvest.",
+                MapType.ASHFALL_CATHEDRAL, MapVariant.ASHFALL_REBIRTH, MatchMutator.RAGE_FRENZY,
+                ClassicTwist.FEAST_OR_FAMINE, ClassicEncounterStyle.FEAST_GAUNTLET, 116 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{dawnRooster, dawnPhoenix}, false)
+                .withWaves(new ClassicFighter[]{dawnRooster}, new ClassicFighter[]{dawnPhoenix});
+        dawn.cpuLevel = 7;
+        run.add(dawn);
+
+        ClassicFighter[] defenseOne = {
+                classicFighter(BirdType.TITMOUSE, "Harvest Raider: Titmouse", 54, 0.64, 1.12),
+                classicFighter(BirdType.KIWI, "Harvest Raider: Kiwi", 56, 0.66, 1.08)};
+        ClassicFighter[] defenseTwo = {
+                classicFighter(BirdType.PIGEON, "Harvest Raider: Pigeon", 58, 0.68, 1.12),
+                classicFighter(BirdType.HUMMINGBIRD, "Harvest Raider: Hummingbird", 52, 0.64, 1.18)};
+        ClassicFighter[] defenseThree = {
+                classicFighter(BirdType.ROADRUNNER, "Harvest Raider: Roadrunner", 60, 0.70, 1.17),
+                classicFighter(BirdType.GOOSE, "Harvest Raider: Goose", 70, 0.72, 1.00)};
+        ClassicFighter[] defenseFour = {
+                classicFighter(BirdType.RAZORBILL, "Harvest Raider: Razorbill", 64, 0.72, 1.08),
+                classicFighter(BirdType.BAT, "Harvest Raider: Bat", 58, 0.68, 1.14)};
+        ClassicFighter[] allRaiders = Stream.of(defenseOne, defenseTwo, defenseThree, defenseFour)
+                .flatMap(Arrays::stream).toArray(ClassicFighter[]::new);
+        ClassicEncounter defense = new ClassicEncounter(
+                "Bonus: Defend the Harvest", "Tribunal Keeper",
+                "Protect the central feast through four raider waves. The route continues even if the feast falls.",
+                MapType.FOREST, MapVariant.HARVEST_TRIBUNAL, MatchMutator.NONE, ClassicTwist.HARVEST_WATCH,
+                ClassicEncounterStyle.HARVEST_DEFENSE, 60 * 60, new ClassicFighter[0], allRaiders, false)
+                .withWaves(defenseOne, defenseTwo, defenseThree, defenseFour);
+        defense.cpuLevel = 5;
+        run.add(defense);
+
+        ClassicEncounter devourer = new ClassicEncounter(
+                "The Great Hunger", "Harvest Tribunal",
+                "The Devourer consumes every unclaimed offering. Stuff it with Turkey's traps and survive the collapsing table.",
+                MapType.FOREST, MapVariant.HARVEST_TRIBUNAL, MatchMutator.NONE, ClassicTwist.GREAT_HUNGER,
+                ClassicEncounterStyle.DEVOURER_BOSS, 165 * 60, new ClassicFighter[0],
+                new ClassicFighter[]{classicFighter(BirdType.PELICAN, "Boss: The Devourer", 250, 1.15, 0.94,
+                        IRONCLAD_PELICAN_SKIN)}, true);
+        devourer.cpuLevel = 8;
+        run.add(devourer);
+        return run;
+    }
+
     private List<ClassicEncounter> buildBossRushRun() {
         List<ClassicEncounter> run = new ArrayList<>();
 
@@ -41062,6 +41228,7 @@ public class BirdGame3 {
         if (type == BirdType.FALCON) return "NOTHING ESCAPES";
         if (type == BirdType.PHOENIX) return "THE FLAME THAT RETURNS";
         if (type == BirdType.HUMMINGBIRD) return "BEAT OF THE BLOOM";
+        if (type == BirdType.TURKEY) return "THE LAST FEAST";
         return "TEMPORARY FLIGHT PLAN";
     }
 
@@ -41070,6 +41237,7 @@ public class BirdGame3 {
         strip.setAlignment(Pos.CENTER_LEFT);
         int total = Math.max(1, totalRounds);
         boolean hummingbirdRoute = classicSelectedBird == BirdType.HUMMINGBIRD && !bossRoute;
+        boolean turkeyRoute = classicSelectedBird == BirdType.TURKEY && !bossRoute;
         for (int i = 0; i < total; i++) {
             if (i > 0) {
                 Region connector = new Region();
@@ -41091,9 +41259,10 @@ public class BirdGame3 {
             node.setTextFill(current ? Color.web("#111111") : Color.WHITE);
             lockRegionSize(node, current ? 42 : 34, current ? 42 : 34);
             String fill = current ? "#E8FFF9" : (blossom ? "#E7B91B"
-                    : (complete ? "#00BFA5" : (finalNode ? "#B5121B" : "#143238")));
-            String border = blossom ? "#FFF59D" : (current ? "#64FFDA"
-                    : (finalNode || bossRoute ? "#FF5252" : "#4DB6AC"));
+                    : (turkeyRoute && complete ? "#C67A2D"
+                    : (complete ? "#00BFA5" : (finalNode ? "#B5121B" : "#143238"))));
+            String border = blossom ? "#FFF59D" : (turkeyRoute ? (finalNode ? "#FF5252" : "#FFD166")
+                    : (current ? "#64FFDA" : (finalNode || bossRoute ? "#FF5252" : "#4DB6AC")));
             node.setStyle("-fx-background-color: " + fill + "; -fx-background-radius: 30; "
                     + "-fx-border-color: " + border + "; -fx-border-width: " + (current ? "4" : "2")
                     + "; -fx-border-radius: 30;");
@@ -41112,6 +41281,7 @@ public class BirdGame3 {
         boolean peregrineRun = variant == MapVariant.PEREGRINE_RUN;
         boolean frozenCaldera = variant == MapVariant.FROZEN_CALDERA;
         boolean heartbloom = variant == MapVariant.HEARTBLOOM_SANCTUARY;
+        boolean harvestTribunal = variant == MapVariant.HARVEST_TRIBUNAL;
 
         Color skyTop = heartbloom ? Color.web("#100725") : (frozenCaldera ? Color.web("#071328") : (tempestSummit ? Color.web("#070B20")
                 : (peregrineRun ? Color.web("#12345C") : switch (map) {
@@ -41140,6 +41310,13 @@ public class BirdGame3 {
         g.setFill(new LinearGradient(0, 0, 0, height, false, CycleMethod.NO_CYCLE,
                 new Stop(0, skyTop), new Stop(1, skyBottom)));
         g.fillRect(0, 0, width, height);
+        if (harvestTribunal) {
+            g.setFill(new LinearGradient(0, 0, 0, height, false, CycleMethod.NO_CYCLE,
+                    new Stop(0, Color.web("#090A18")), new Stop(1, Color.web("#582C31"))));
+            g.fillRect(0, 0, width, height);
+            g.setFill(Color.web("#F8E7B0", 0.72));
+            g.fillOval(width * 0.5 - 55, 18, 110, 110);
+        }
 
         if (map == MapType.CITY || map == MapType.BEACON_CROWN || map == MapType.PRISON) {
             g.setFill(Color.rgb(6, 8, 20, 0.92));
@@ -41190,6 +41367,12 @@ public class BirdGame3 {
             g.setLineWidth(3);
             g.strokeLine(30, height - 38, 115, 54);
             g.strokeLine(330, height - 38, 250, 42);
+        } else if (harvestTribunal) {
+            g.setFill(Color.web("#17151D"));
+            for (int x = 18; x < width; x += 62) {
+                g.fillRect(x, 58, 12, height - 58);
+                g.fillPolygon(new double[]{x - 9, x + 6, x + 21}, new double[]{58, 38, 58}, 3);
+            }
         } else if (map == MapType.FOREST || map == MapType.VIBRANT_JUNGLE) {
             g.setFill(Color.web("#173F2D"));
             for (int x = 0; x < width; x += 68) {
@@ -41244,6 +41427,13 @@ public class BirdGame3 {
             drawClassicPreviewPlatform(g, 164, 65, 72, 11);
             g.setFill(Color.web("#FF70C5", 0.75));
             g.fillOval(171, 48, 58, 36);
+        } else if (variant == MapVariant.HARVEST_TRIBUNAL) {
+            g.setStroke(Color.web("#FFD166"));
+            g.setFill(Color.web("#49434D"));
+            drawClassicPreviewPlatform(g, 20, 137, 360, 16);
+            drawClassicPreviewPlatform(g, 76, 99, 62, 10);
+            drawClassicPreviewPlatform(g, 169, 68, 62, 10);
+            drawClassicPreviewPlatform(g, 262, 99, 62, 10);
         } else if (variant == MapVariant.CROWN_DUEL || variant == MapVariant.NULL_ROCK_DUEL) {
             drawClassicPreviewPlatform(g, 82, 138, 205, 14);
             drawClassicPreviewPlatform(g, 150, 92, 72, 10);
@@ -41371,7 +41561,8 @@ public class BirdGame3 {
         routeName.setFont(Font.font("Consolas", FontWeight.BOLD, 24));
         routeName.setTextFill(Color.WHITE);
         boolean routeBonus = classicEncounter.style == ClassicEncounterStyle.BONUS_RELAY
-                || classicEncounter.style == ClassicEncounterStyle.NECTAR_DASH;
+                || classicEncounter.style == ClassicEncounterStyle.NECTAR_DASH
+                || classicEncounter.style == ClassicEncounterStyle.HARVEST_DEFENSE;
         Label round = new Label((routeBonus ? "BONUS " : "ROUND ")
                 + (classicRoundIndex + 1));
         round.setFont(Font.font("Arial Black", FontWeight.BOLD, 72));
@@ -41403,6 +41594,10 @@ public class BirdGame3 {
         root.getChildren().add(versus);
 
         ClassicFighter[] enemies = classicEncounter.enemies == null ? new ClassicFighter[0] : classicEncounter.enemies;
+        int authoredWaveCount = classicEncounter.waves == null ? 0 : classicEncounter.waves.length;
+        if (authoredWaveCount > 0 && enemies.length > 3) {
+            enemies = Arrays.copyOf(enemies, 3);
+        }
         boolean bonusTargetEncounter = classicEncounter.style == ClassicEncounterStyle.BONUS_RELAY;
         boolean flowerGateEncounter = classicEncounter.style == ClassicEncounterStyle.NECTAR_DASH;
         int enemyCount = Math.max(1, enemies.length);
@@ -41439,6 +41634,7 @@ public class BirdGame3 {
 
         String opponentNames = flowerGateEncounter ? "FLOWER GATE COURSE"
                 : bonusTargetEncounter ? enemies.length + " BONUS TARGETS"
+                : authoredWaveCount > 0 ? authoredWaveCount + " WAVES"
                 : enemies.length == 0 ? "BONUS TARGETS" : Arrays.stream(enemies)
                 .map(fighter -> fighter.type.name.toUpperCase(Locale.ROOT))
                 .collect(Collectors.joining("  +  "));
@@ -41835,9 +42031,12 @@ public class BirdGame3 {
             }
         }
 
-        if (encounter.enemies != null) {
-            for (int i = 0; i < encounter.enemies.length && slot < 4; i++) {
-                ClassicFighter enemy = encounter.enemies[i];
+        ClassicFighter[] openingEnemies = encounter.waves != null && encounter.waves.length > 0
+                ? encounter.waves[0]
+                : encounter.enemies;
+        if (openingEnemies != null) {
+            for (int i = 0; i < openingEnemies.length && slot < 4; i++) {
+                ClassicFighter enemy = openingEnemies[i];
                 Bird enemyBird = createStoryBird(
                         3800 + i * 520,
                         enemy.type,
@@ -41853,7 +42052,9 @@ public class BirdGame3 {
                         && encounter.style != ClassicEncounterStyle.STORM_TYRANT_BOSS
                         && encounter.style != ClassicEncounterStyle.NULL_ROC_BOSS
                         && encounter.style != ClassicEncounterStyle.LONG_WINTER_BOSS
-                        && encounter.style != ClassicEncounterStyle.BLIGHTWING_BOSS);
+                        && encounter.style != ClassicEncounterStyle.BLIGHTWING_BOSS
+                        && encounter.style != ClassicEncounterStyle.HARVEST_DEFENSE
+                        && encounter.style != ClassicEncounterStyle.DEVOURER_BOSS);
                 if (enemy.skinKey != null) {
                     applyPreviewSkinChoiceToBird(enemyBird, enemy.type, enemy.skinKey);
                 }
@@ -41938,12 +42139,40 @@ public class BirdGame3 {
             } else if (encounter.style == ClassicEncounterStyle.BLIGHTWING_BOSS) {
                 bird.health = Math.max(1.0, 225.0 * enemyHealthScale);
                 bird.setBaseMultipliers(1.55, 1.15 * enemyPowerScale, 1.07);
+            } else if (encounter.style == ClassicEncounterStyle.HARVEST_DEFENSE) {
+                scaleBossRushBird(bird, 0.62, 0.92, 1.08);
+                bird.setUltimateEnabled(false);
+            } else if (encounter.style == ClassicEncounterStyle.DEVOURER_BOSS) {
+                bird.health = Math.max(1.0, 250.0 * enemyHealthScale);
+                bird.setBaseMultipliers(1.72, 1.15 * enemyPowerScale, 0.94);
+                bird.setUltimateEnabled(false);
             }
         }
     }
 
     private void positionClassicEncounterSpawns(ClassicEncounter encounter) {
         if (encounter == null) return;
+        if (encounter.style == ClassicEncounterStyle.HARVEST_DEFENSE) {
+            Bird player = players[0];
+            if (player != null) {
+                player.x = battlefieldSpawnCenterX() - player.bodyWidth() * 0.5;
+                player.y = battlefieldSpawnY(player.sizeMultiplier);
+                player.prevX = player.x;
+                player.prevY = player.y;
+            }
+            for (int slot = 1; slot < activePlayers; slot++) {
+                Bird raider = players[slot];
+                if (raider == null) continue;
+                double center = slot % 2 == 1 ? battlefieldIslandX + 260.0
+                        : battlefieldIslandX + battlefieldIslandW - 260.0;
+                raider.x = center - raider.bodyWidth() * 0.5;
+                raider.y = battlefieldSpawnY(raider.sizeMultiplier);
+                raider.prevX = raider.x;
+                raider.prevY = raider.y;
+                raider.facingRight = center < battlefieldSpawnCenterX();
+            }
+            return;
+        }
         if (encounter.style == ClassicEncounterStyle.NECTAR_DASH) {
             Bird player = players[0];
             if (player != null) {
@@ -42035,6 +42264,7 @@ public class BirdGame3 {
     private void applyClassicEncounterArenaModifiers(ClassicEncounter encounter) {
         if (encounter == null) return;
         setupHummingbirdNectarRoute(encounter);
+        setupTurkeyClassicRoute(encounter);
         if (bossRushModeActive) {
             applyBossRushEncounterArenaModifiers(encounter);
         }
@@ -42126,7 +42356,8 @@ public class BirdGame3 {
                 // Frozen Caldera owns its fixed opening vents. Later stock
                 // phases add mirrored blizzard vents without changing solids.
             }
-            case NECTAR_CHAIN, HUNDRED_FLOWER_DASH, BLIGHTWING_ECLIPSE -> {
+            case NECTAR_CHAIN, HUNDRED_FLOWER_DASH, BLIGHTWING_ECLIPSE,
+                    FEAST_OR_FAMINE, HARVEST_WATCH, GREAT_HUNGER -> {
                 // These authored route mechanics own their deterministic arena
                 // setup and runtime; do not add generic item drops here.
             }
@@ -42373,6 +42604,460 @@ public class BirdGame3 {
         g.setFill(Color.web("#FFF59D"));
         g.fillOval(-6.5, -6.5, 13.0, 13.0);
         g.fillPolygon(new double[]{26, 49, 26}, new double[]{-13, 0, 13}, 3);
+        g.restore();
+    }
+
+    private void setupTurkeyClassicRoute(ClassicEncounter encounter) {
+        classicTurkeyWaveIndex = 0;
+        classicTurkeyFeastDecisionActive = false;
+        classicTurkeyFeastDecisionFrames = 0;
+        classicTurkeyBlockWasDown = false;
+        classicTurkeyStuffedFrames = 0;
+        classicTurkeyFamineFrames = 0;
+        classicHarvestPlate = null;
+        classicTurkeyDefenseWaveIndex = 0;
+        classicTurkeyDefenseHealth = 100;
+        classicTurkeyDefenseCompleted = false;
+        classicDevourerMeals = 0;
+        classicDevourerTrapCooldown = 0;
+        classicDevourerSuctionPhaseActive = false;
+        classicDevourerFinalPhaseActive = false;
+        if (!classicModeActive || bossRushModeActive || ashfallTrialModeActive
+                || classicSelectedBird != BirdType.TURKEY || encounter == null) {
+            return;
+        }
+        switch (encounter.style) {
+            case FEAST_GAUNTLET -> addToKillFeed(
+                    "FEAST OR FAMINE: touch the plate to heal, or press BLOCK to reject it and gain a battle rush.");
+            case HARVEST_DEFENSE -> addToKillFeed(
+                    "HARVEST WATCH: defend the central feast through all four raider waves.");
+            case DEVOURER_BOSS -> addToKillFeed(
+                    "THE GREAT HUNGER: deny the offerings and lure The Devourer into Turkey's feast traps.");
+            default -> {
+            }
+        }
+    }
+
+    void applyTurkeyClassicRuntimeEffects() {
+        if (!classicModeActive || classicEncounter == null || classicSelectedBird != BirdType.TURKEY
+                || bossRushModeActive || ashfallTrialModeActive || matchEnded) {
+            return;
+        }
+        Bird player = players[0];
+        if (player == null || player.health <= 0.0 || !playerHasStocksRemaining(0)) return;
+
+        if (classicTurkeyStuffedFrames > 0) {
+            classicTurkeyStuffedFrames--;
+            player.turkeyStuffedTimer = Math.max(player.turkeyStuffedTimer, 2);
+            if (player.shrinkTimer <= 0 && player.titanTimer <= 0) {
+                player.sizeMultiplier = Math.max(player.sizeMultiplier, player.baseSizeMultiplier * 1.12);
+            }
+            if (classicTurkeyStuffedFrames == 0 && player.shrinkTimer <= 0 && player.titanTimer <= 0) {
+                player.sizeMultiplier = player.baseSizeMultiplier;
+            }
+        }
+        if (classicTurkeyFamineFrames > 0) {
+            classicTurkeyFamineFrames--;
+            player.powerMultiplier = Math.max(player.powerMultiplier, player.basePowerMultiplier * 1.10);
+            player.speedMultiplier = Math.max(player.speedMultiplier, player.baseSpeedMultiplier * 1.16);
+        }
+
+        switch (classicEncounter.style) {
+            case FEAST_GAUNTLET -> updateTurkeyFeastDecision(player);
+            case HARVEST_DEFENSE -> updateTurkeyHarvestDefense(player);
+            case DEVOURER_BOSS -> updateTurkeyDevourerBoss(player);
+            default -> {
+            }
+        }
+    }
+
+    private void updateTurkeyFeastDecision(Bird player) {
+        boolean blockDown = isBlockPressed(0);
+        if (!classicTurkeyFeastDecisionActive || classicHarvestPlate == null) {
+            classicTurkeyBlockWasDown = blockDown;
+            return;
+        }
+        classicTurkeyFeastDecisionFrames--;
+        classicHarvestPlate.lifeFrames--;
+        double dx = player.bodyCenterX() - classicHarvestPlate.x;
+        double dy = player.bodyCenterY() - classicHarvestPlate.y;
+        if (dx * dx + dy * dy <= 82.0 * 82.0) {
+            completeTurkeyFeastChoice(true);
+        } else if (blockDown && !classicTurkeyBlockWasDown) {
+            completeTurkeyFeastChoice(false);
+        } else if (classicTurkeyFeastDecisionFrames <= 0 || classicHarvestPlate.lifeFrames <= 0) {
+            completeTurkeyFeastChoice(false);
+        }
+        classicTurkeyBlockWasDown = blockDown;
+    }
+
+    private void beginTurkeyFeastChoice() {
+        Bird player = players[0];
+        if (player == null || classicTurkeyFeastDecisionActive) return;
+        double left = battlefieldIslandW > 0.0 ? battlefieldIslandX + 130.0 : 180.0;
+        double right = battlefieldIslandW > 0.0 ? battlefieldIslandX + battlefieldIslandW - 130.0 : WORLD_WIDTH - 180.0;
+        double plateX = Math.clamp(player.bodyCenterX() + (player.facingRight ? 150.0 : -150.0), left, right);
+        double plateY = player.bodyCenterY();
+        classicHarvestPlate = new ClassicHarvestPlate(plateX, plateY, true, 210);
+        classicTurkeyFeastDecisionActive = true;
+        classicTurkeyFeastDecisionFrames = 210;
+        classicTurkeyBlockWasDown = isBlockPressed(0);
+        addToKillFeed("COURSE CLEARED: touch the plate to FEAST, or press BLOCK for FAMINE RUSH.");
+    }
+
+    private void completeTurkeyFeastChoice(boolean feast) {
+        Bird player = players[0];
+        if (player == null || classicEncounter == null || classicEncounter.waves == null) return;
+        if (feast) {
+            player.heal(24.0);
+            classicTurkeyStuffedFrames = 300;
+            player.turkeyStuffedTimer = Math.max(player.turkeyStuffedTimer, 300);
+            classicRunScore += 650;
+            playManagedSfxVaried(steamAchievementClip, 0.43, 1.08, 0.015);
+            addToKillFeed("FEAST: 24% recovered. Turkey is heavier and slower for the next course.");
+        } else {
+            classicTurkeyFamineFrames = 360;
+            classicRunScore += 900;
+            playManagedSfxVaried(swingClip, 0.36, 1.36, 0.016);
+            addToKillFeed("FAMINE RUSH: no recovery, but Turkey gains speed and power.");
+        }
+        classicHarvestPlate = null;
+        classicTurkeyFeastDecisionActive = false;
+        classicTurkeyWaveIndex++;
+        if (classicTurkeyWaveIndex < classicEncounter.waves.length) {
+            spawnTurkeyClassicWave(classicEncounter.waves[classicTurkeyWaveIndex], false);
+        }
+    }
+
+    boolean holdClassicTurkeyEncounterOpen() {
+        if (!classicModeActive || classicEncounter == null || classicSelectedBird != BirdType.TURKEY
+                || bossRushModeActive || ashfallTrialModeActive || matchEnded
+                || !playerHasStocksRemaining(0)) {
+            return false;
+        }
+        if (classicEncounter.style == ClassicEncounterStyle.HARVEST_DEFENSE) {
+            return classicTurkeyDefenseHealth > 0 && !classicTurkeyDefenseCompleted;
+        }
+        if (classicEncounter.style != ClassicEncounterStyle.FEAST_GAUNTLET
+                || classicEncounter.waves == null || classicEncounter.waves.length == 0) {
+            return false;
+        }
+        if (classicTurkeyFeastDecisionActive) return true;
+        if (classicEnemyTeamHasStocks()) return false;
+        if (classicTurkeyWaveIndex + 1 < classicEncounter.waves.length) {
+            beginTurkeyFeastChoice();
+            return true;
+        }
+        return false;
+    }
+
+    private boolean classicEnemyTeamHasStocks() {
+        for (int slot = 1; slot < activePlayers; slot++) {
+            Bird bird = players[slot];
+            if (bird != null && getEffectiveTeam(slot) == 2 && playerHasStocksRemaining(slot)) return true;
+        }
+        return false;
+    }
+
+    private Bird firstClassicEnemyWithStocks() {
+        for (int slot = 1; slot < activePlayers; slot++) {
+            Bird bird = players[slot];
+            if (bird != null && getEffectiveTeam(slot) == 2 && playerHasStocksRemaining(slot)) return bird;
+        }
+        return null;
+    }
+
+    private void spawnTurkeyClassicWave(ClassicFighter[] wave, boolean defenseWave) {
+        if (wave == null || wave.length == 0 || classicEncounter == null) return;
+        for (int slot = 1; slot < MAX_COMBATANTS; slot++) {
+            players[slot] = null;
+            isAI[slot] = false;
+            scores[slot] = 0;
+            classicTeams[slot] = 2;
+            classicCpuLevels[slot] = 0;
+        }
+
+        int count = Math.min(MAX_COMBATANTS - 1, wave.length);
+        double difficultyDelta = classicDifficulty - CLASSIC_STARTING_DIFFICULTY;
+        double enemyHealthScale = 1.0 + difficultyDelta * 0.045;
+        double enemyPowerScale = 1.0 + difficultyDelta * 0.015;
+        double center = battlefieldSpawnCenterX();
+        for (int i = 0; i < count; i++) {
+            ClassicFighter fighter = wave[i];
+            int slot = i + 1;
+            Bird enemy = createStoryBird(0.0, fighter.type, slot, fighter.title,
+                    fighter.health * enemyHealthScale,
+                    fighter.powerMult * enemyPowerScale, fighter.speedMult, true);
+            if (fighter.skinKey != null) applyPreviewSkinChoiceToBird(enemy, fighter.type, fighter.skinKey);
+            if (defenseWave) {
+                scaleBossRushBird(enemy, 0.62, 0.92, 1.08);
+                enemy.setUltimateEnabled(false);
+            }
+            classicTeams[slot] = 2;
+            classicCpuLevels[slot] = resolvedClassicFighterCpuLevel(fighter, classicEncounter);
+            scores[slot] = 1;
+
+            double spawnCenter;
+            if (defenseWave) {
+                spawnCenter = count == 1 ? center + 1_750.0
+                        : (i == 0 ? battlefieldIslandX + 260.0 : battlefieldIslandX + battlefieldIslandW - 260.0);
+            } else {
+                spawnCenter = center + 620.0 + (i - (count - 1) * 0.5) * 420.0;
+            }
+            if (battlefieldIslandW > 0.0) {
+                spawnCenter = Math.clamp(spawnCenter, battlefieldIslandX + 150.0,
+                        battlefieldIslandX + battlefieldIslandW - 150.0);
+            }
+            enemy.x = spawnCenter - enemy.bodyWidth() * 0.5;
+            enemy.y = battlefieldSpawnY(enemy.sizeMultiplier);
+            enemy.prevX = enemy.x;
+            enemy.prevY = enemy.y;
+            enemy.vx = 0.0;
+            enemy.vy = 0.0;
+            enemy.facingRight = enemy.bodyCenterX() < center;
+        }
+        activePlayers = Math.max(2, count + 1);
+        addToKillFeed((defenseWave ? "HARVEST RAIDER WAVE " + (classicTurkeyDefenseWaveIndex + 1)
+                : "COURSE " + (classicTurkeyWaveIndex + 1)) + " ENTERS.");
+    }
+
+    private void updateTurkeyHarvestDefense(Bird player) {
+        double objectiveX = battlefieldSpawnCenterX();
+        double objectiveY = battlefieldIslandY - 72.0;
+        for (int slot = 1; slot < activePlayers; slot++) {
+            Bird raider = players[slot];
+            if (raider == null || !playerHasStocksRemaining(slot) || raider.health <= 0.0) continue;
+            double dx = raider.bodyCenterX() - objectiveX;
+            double dy = raider.bodyCenterY() - objectiveY;
+            if (Math.abs(dx) > 120.0) {
+                raider.vx = Math.clamp(raider.vx - Math.signum(dx) * 0.22, -8.5, 8.5);
+                raider.facingRight = dx < 0.0;
+            }
+            if (dx * dx + dy * dy <= 145.0 * 145.0) {
+                classicTurkeyDefenseHealth = Math.max(0, classicTurkeyDefenseHealth - 15);
+                scores[slot] = 0;
+                raider.retireFromStockMatch();
+                shakeIntensity = Math.max(shakeIntensity, 6.0);
+                addToKillFeed("A raider reached the feast! Harvest integrity " + classicTurkeyDefenseHealth + "%.");
+            }
+        }
+
+        if (classicTurkeyDefenseHealth <= 0) {
+            addToKillFeed("THE HARVEST FELL. The bonus ends, but the Classic route continues.");
+            matchController.triggerMatchEnd(firstClassicEnemyWithStocks());
+            return;
+        }
+
+        boolean waveCleared = !classicEnemyTeamHasStocks();
+        int waveCount = classicEncounter.waves == null ? 0 : classicEncounter.waves.length;
+        if (waveCleared && classicTurkeyDefenseWaveIndex + 1 < waveCount
+                && simTick >= (classicTurkeyDefenseWaveIndex + 1L) * 720L) {
+            classicTurkeyDefenseWaveIndex++;
+            spawnTurkeyClassicWave(classicEncounter.waves[classicTurkeyDefenseWaveIndex], true);
+        } else if (waveCleared && waveCount > 0 && classicTurkeyDefenseWaveIndex >= waveCount - 1) {
+            completeTurkeyHarvestDefense(player);
+        } else if (matchTimer <= 1) {
+            completeTurkeyHarvestDefense(player);
+        }
+    }
+
+    private void completeTurkeyHarvestDefense(Bird player) {
+        if (classicTurkeyDefenseCompleted || matchEnded) return;
+        classicTurkeyDefenseCompleted = true;
+        classicBonusCoins += 75;
+        classicRunScore += 5_000 + classicTurkeyDefenseHealth * 25;
+        playManagedSfxVaried(steamAchievementClip, 0.55, 1.18, 0.015);
+        addToKillFeed("HARVEST SECURED! Bird Coins +75.");
+        matchController.triggerMatchEnd(player);
+    }
+
+    private void updateTurkeyDevourerBoss(Bird player) {
+        Bird devourer = null;
+        for (int slot = 1; slot < activePlayers; slot++) {
+            Bird candidate = players[slot];
+            if (candidate != null && candidate.type == BirdType.PELICAN && getEffectiveTeam(slot) == 2
+                    && playerHasStocksRemaining(slot)) {
+                devourer = candidate;
+                break;
+            }
+        }
+        if (devourer == null) return;
+        int stocks = matchScoreForPlayer(devourer.playerIndex);
+        if (classicDevourerTrapCooldown > 0) classicDevourerTrapCooldown--;
+
+        if (stocks <= 2 && !classicDevourerSuctionPhaseActive) {
+            classicDevourerSuctionPhaseActive = true;
+            addToKillFeed("THE DEVOURER PHASE II: the feast hall bends toward its hunger.");
+        }
+        if (stocks <= 1 && !classicDevourerFinalPhaseActive) {
+            classicDevourerFinalPhaseActive = true;
+            classicHarvestPlate = null;
+            if (classicHarvestWestTable != null) platforms.remove(classicHarvestWestTable);
+            if (classicHarvestEastTable != null) platforms.remove(classicHarvestEastTable);
+            updateDevourerScale(devourer);
+            addToKillFeed("FAMINE PHASE: the outer table collapses. The Devourer is faster, but lighter.");
+            shakeIntensity = Math.max(shakeIntensity, 20.0);
+            playManagedSfxVaried(hugewaveClip, 0.72, 0.70, 0.014);
+        }
+
+        if (!classicDevourerFinalPhaseActive && classicHarvestPlate == null
+                && simTick > 0 && simTick % 330 == 45) {
+            double[] offeringX = {1_420.0, 3_000.0, 4_580.0};
+            int index = (int) ((simTick / 330) % offeringX.length);
+            classicHarvestPlate = new ClassicHarvestPlate(offeringX[index], battlefieldIslandY - 88.0,
+                    false, 300);
+            addToKillFeed("AN OFFERING APPEARS: reach it before The Devourer feeds.");
+        }
+        if (classicHarvestPlate != null && !classicHarvestPlate.waveChoice) {
+            classicHarvestPlate.lifeFrames--;
+            double pdx = player.bodyCenterX() - classicHarvestPlate.x;
+            double pdy = player.bodyCenterY() - classicHarvestPlate.y;
+            double bdx = devourer.bodyCenterX() - classicHarvestPlate.x;
+            double bdy = devourer.bodyCenterY() - classicHarvestPlate.y;
+            devourer.vx = Math.clamp(devourer.vx + Math.signum(-bdx) * 0.16, -10.5, 10.5);
+            if (pdx * pdx + pdy * pdy <= 78.0 * 78.0) {
+                player.heal(10.0);
+                classicRunScore += 450;
+                classicHarvestPlate = null;
+                addToKillFeed("OFFERING DENIED: Turkey recovers 10%.");
+            } else if (bdx * bdx + bdy * bdy <= 104.0 * 104.0) {
+                classicDevourerMeals = Math.min(4, classicDevourerMeals + 1);
+                devourer.heal(14.0);
+                updateDevourerScale(devourer);
+                classicHarvestPlate = null;
+                addToKillFeed("THE DEVOURER FEEDS: size and launch resistance increased.");
+            } else if (classicHarvestPlate.lifeFrames <= 0) {
+                classicHarvestPlate = null;
+            }
+        }
+
+        if (classicDevourerSuctionPhaseActive) {
+            int suctionFrame = (int) (simTick % 270);
+            if (suctionFrame >= 82 && suctionFrame <= 128) {
+                double dx = devourer.bodyCenterX() - player.bodyCenterX();
+                double dy = devourer.bodyCenterY() - player.bodyCenterY();
+                double strength = classicDevourerFinalPhaseActive ? 0.34 : 0.24;
+                player.vx = Math.clamp(player.vx + Math.signum(dx) * strength, -17.0, 17.0);
+                player.vy = Math.clamp(player.vy + Math.signum(dy) * strength * 0.35, -16.0, 16.0);
+            }
+        }
+
+        if (classicDevourerTrapCooldown <= 0 && !player.turkeyFeastTraps.isEmpty()) {
+            Bird.TurkeyFeastTrap triggered = null;
+            for (Bird.TurkeyFeastTrap trap : player.turkeyFeastTraps) {
+                double dx = devourer.bodyCenterX() - trap.x;
+                double dy = devourer.bodyBottomY() - trap.y;
+                if (dx * dx + dy * dy <= 132.0 * 132.0) {
+                    triggered = trap;
+                    break;
+                }
+            }
+            if (triggered != null) {
+                player.turkeyFeastTraps.remove(triggered);
+                classicDevourerTrapCooldown = 150;
+                classicDevourerMeals = Math.max(0, classicDevourerMeals - 1);
+                devourer.applyStun(48.0);
+                devourer.vx *= 0.28;
+                devourer.vy = Math.min(devourer.vy, -3.5);
+                updateDevourerScale(devourer);
+                classicRunScore += 1_100;
+                addToKillFeed("FEAST TRAP: The Devourer is stuffed, stunned, and stripped of one meal.");
+            }
+        }
+
+        if (classicDevourerFinalPhaseActive) {
+            devourer.powerMultiplier = Math.max(devourer.powerMultiplier, devourer.basePowerMultiplier * 1.08);
+            devourer.speedMultiplier = Math.max(devourer.speedMultiplier, devourer.baseSpeedMultiplier * 1.08);
+            if (devourer.attackCooldown > 0) devourer.attackCooldown = Math.min(devourer.attackCooldown, 9);
+            if (devourer.specialCooldown > 0) devourer.specialCooldown = Math.min(devourer.specialCooldown, 105);
+        }
+    }
+
+    private void updateDevourerScale(Bird devourer) {
+        if (devourer == null) return;
+        double difficultyPower = 1.0 + (classicDifficulty - CLASSIC_STARTING_DIFFICULTY) * 0.015;
+        double size = classicDevourerFinalPhaseActive ? 1.46 : 1.72 + classicDevourerMeals * 0.11;
+        double power = (classicDevourerFinalPhaseActive ? 1.24 : 1.15 + classicDevourerMeals * 0.025)
+                * difficultyPower;
+        double speed = classicDevourerFinalPhaseActive ? 1.16 : 0.94;
+        double health = devourer.health;
+        devourer.setBaseMultipliers(size, power, speed);
+        devourer.health = health;
+    }
+
+    private void drawClassicTurkeyRouteFeatures(GraphicsContext g) {
+        if (!classicModeActive || classicSelectedBird != BirdType.TURKEY || classicEncounter == null) return;
+        g.save();
+        if (classicHarvestPlate != null) {
+            double pulse = 0.86 + 0.08 * Math.sin(simTick * 0.12);
+            double radius = 64.0 * pulse;
+            g.setFill(Color.web("#160F0B", 0.82));
+            g.fillOval(classicHarvestPlate.x - radius, classicHarvestPlate.y - radius,
+                    radius * 2.0, radius * 2.0);
+            g.setStroke(Color.web(classicHarvestPlate.waveChoice ? "#FFE082" : "#FFB74D", 0.96));
+            g.setLineWidth(8.0);
+            g.strokeOval(classicHarvestPlate.x - radius, classicHarvestPlate.y - radius,
+                    radius * 2.0, radius * 2.0);
+            g.setFill(Color.web("#D39A45"));
+            g.fillOval(classicHarvestPlate.x - 42, classicHarvestPlate.y - 17, 84, 34);
+            g.setFill(Color.web("#F7E0A3"));
+            g.fillOval(classicHarvestPlate.x - 24, classicHarvestPlate.y - 25, 48, 34);
+            g.setTextAlign(TextAlignment.CENTER);
+            g.setFont(Font.font("Arial Black", FontWeight.BOLD, 24));
+            g.setFill(Color.WHITE);
+            g.fillText(classicHarvestPlate.waveChoice ? "FEAST" : "OFFERING",
+                    classicHarvestPlate.x, classicHarvestPlate.y - 86);
+            if (classicHarvestPlate.waveChoice) {
+                g.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
+                g.setFill(Color.web("#FFD166"));
+                g.fillText("TOUCH TO EAT  |  BLOCK FOR FAMINE",
+                        classicHarvestPlate.x, classicHarvestPlate.y + 102);
+            }
+        }
+
+        if (classicEncounter.style == ClassicEncounterStyle.HARVEST_DEFENSE) {
+            double x = battlefieldSpawnCenterX();
+            double y = battlefieldIslandY - 72.0;
+            g.setFill(Color.web("#2A1510", 0.90));
+            g.fillRoundRect(x - 150, y - 90, 300, 96, 30, 30);
+            g.setStroke(Color.web("#FFD166"));
+            g.setLineWidth(8.0);
+            g.strokeRoundRect(x - 150, y - 90, 300, 96, 30, 30);
+            g.setFill(Color.web("#F4D06F"));
+            g.fillOval(x - 72, y - 75, 144, 54);
+            g.setFill(Color.web("#17120F"));
+            g.fillRoundRect(x - 168, y + 18, 336, 34, 14, 14);
+            g.setFill(Color.web(classicTurkeyDefenseHealth > 45 ? "#66BB6A" : "#EF5350"));
+            g.fillRoundRect(x - 162, y + 24, 324 * classicTurkeyDefenseHealth / 100.0, 22, 10, 10);
+            g.setTextAlign(TextAlignment.CENTER);
+            g.setFont(Font.font("Arial Black", FontWeight.BOLD, 22));
+            g.setFill(Color.WHITE);
+            g.fillText("HARVEST " + classicTurkeyDefenseHealth + "%", x, y + 82);
+        }
+
+        if (classicEncounter.style == ClassicEncounterStyle.DEVOURER_BOSS) {
+            Bird devourer = firstClassicEnemyWithStocks();
+            if (devourer != null) {
+                double aura = 130.0 + classicDevourerMeals * 22.0;
+                g.setStroke(Color.web("#FFB74D", 0.28));
+                g.setLineWidth(10.0);
+                g.strokeOval(devourer.bodyCenterX() - aura, devourer.bodyCenterY() - aura,
+                        aura * 2.0, aura * 2.0);
+                if (classicDevourerSuctionPhaseActive) {
+                    int suctionFrame = (int) (simTick % 270);
+                    if (suctionFrame >= 72 && suctionFrame <= 138) {
+                        for (int ring = 0; ring < 3; ring++) {
+                            double r = 190.0 + ring * 95.0 - (suctionFrame - 72) * 1.7;
+                            if (r <= 35.0) continue;
+                            g.setStroke(Color.web("#FFE0B2", 0.30));
+                            g.setLineWidth(7.0);
+                            g.strokeOval(devourer.bodyCenterX() - r, devourer.bodyCenterY() - r,
+                                    r * 2.0, r * 2.0);
+                        }
+                    }
+                }
+            }
+        }
         g.restore();
     }
 
@@ -42768,6 +43453,97 @@ public class BirdGame3 {
         double[] flowerX = {850, 1_520, 2_180, 2_850, 3_520, 4_180, 4_850};
         for (int i = 0; i < flowerCount && i < flowerX.length; i++) {
             windVents.add(new WindVent(flowerX[i], GROUND_Y - 330 - (i % 2) * 150, 260));
+        }
+    }
+
+    private void setupHarvestTribunalArena() {
+        resetBossRushArenaState();
+        activeArenaGeometryVariant = MapVariant.HARVEST_TRIBUNAL;
+
+        classicHarvestWestTable = new Platform(720, GROUND_Y - 330, 1_350, 92);
+        Platform centralTable = new Platform(2_070, GROUND_Y - 330, 1_860, 102);
+        classicHarvestEastTable = new Platform(3_930, GROUND_Y - 330, 1_350, 92);
+        centralTable.signText = "HARVEST TRIBUNAL";
+        platforms.add(classicHarvestWestTable);
+        platforms.add(centralTable);
+        platforms.add(classicHarvestEastTable);
+
+        platforms.add(new Platform(1_100, GROUND_Y - 760, 520, 44));
+        platforms.add(new Platform(4_380, GROUND_Y - 760, 520, 44));
+        platforms.add(new Platform(2_560, GROUND_Y - 980, 880, 50));
+        platforms.add(new Platform(1_760, GROUND_Y - 560, 360, 38));
+        platforms.add(new Platform(3_880, GROUND_Y - 560, 360, 38));
+
+        battlefieldIslandX = 720.0;
+        battlefieldIslandW = 4_560.0;
+        battlefieldIslandY = GROUND_Y - 330.0;
+        windVents.add(new WindVent(850, GROUND_Y - 360, 260));
+        windVents.add(new WindVent(2_870, GROUND_Y - 390, 260));
+        windVents.add(new WindVent(4_890, GROUND_Y - 360, 260));
+    }
+
+    private void drawHarvestTribunalArena(GraphicsContext g, boolean ambientFx) {
+        Color skyTop = Color.web("#080916");
+        Color skyBottom = Color.web("#4A2630");
+        for (int i = 0; i < 520; i++) {
+            double ratio = i / 520.0;
+            g.setFill(skyTop.interpolate(skyBottom, ratio));
+            g.fillRect(0, i * (WORLD_HEIGHT / 520.0), WORLD_WIDTH, WORLD_HEIGHT / 520.0 + 3);
+        }
+
+        // The moon remains far behind every solid surface, with the court and
+        // mountain silhouettes establishing the stage's extreme scale.
+        g.setFill(Color.web("#F8E7B0", 0.74));
+        g.fillOval(WORLD_WIDTH * 0.5 - 350, 130, 700, 700);
+        g.setFill(Color.web("#151522", 0.92));
+        for (int i = 0; i < 8; i++) {
+            double x = i * 840 - 260;
+            double peak = 800 + (i % 3) * 210;
+            g.fillPolygon(new double[]{x, x + 510, x + 1_020},
+                    new double[]{GROUND_Y + 240, peak, GROUND_Y + 240}, 3);
+        }
+
+        g.setFill(Color.web("#1B1720"));
+        for (int i = 0; i < 7; i++) {
+            double x = 250 + i * 900;
+            double h = 760 + (i % 2) * 180;
+            g.fillRect(x, GROUND_Y - h, 150, h + 200);
+            g.fillPolygon(new double[]{x - 80, x + 75, x + 230},
+                    new double[]{GROUND_Y - h, GROUND_Y - h - 180, GROUND_Y - h}, 3);
+            g.setFill(Color.web(i % 2 == 0 ? "#7B2D26" : "#5D243C", 0.88));
+            g.fillPolygon(new double[]{x + 24, x + 126, x + 112, x + 75, x + 38},
+                    new double[]{GROUND_Y - h + 110, GROUND_Y - h + 110, GROUND_Y - h + 430,
+                            GROUND_Y - h + 500, GROUND_Y - h + 430}, 5);
+            g.setFill(Color.web("#1B1720"));
+        }
+
+        g.setFill(Color.web("#211A18"));
+        g.fillRect(0, GROUND_Y + 40, WORLD_WIDTH, WORLD_HEIGHT - GROUND_Y + 120);
+        for (Platform platform : platforms) {
+            g.setFill(Color.web("#3E3A43"));
+            g.fillRoundRect(platform.x, platform.y, platform.w, platform.h, 28, 28);
+            g.setStroke(Color.web("#D39A45"));
+            g.setLineWidth(platform.h >= 80 ? 10.0 : 6.0);
+            g.strokeRoundRect(platform.x, platform.y, platform.w, platform.h, 28, 28);
+            g.setFill(Color.web("#6B2737", 0.76));
+            g.fillRoundRect(platform.x + 24, platform.y + 18,
+                    Math.max(0.0, platform.w - 48), Math.min(26.0, platform.h - 18), 18, 18);
+        }
+
+        double flicker = ambientFx ? 0.72 + 0.18 * Math.sin(System.currentTimeMillis() / 130.0) : 0.82;
+        double[] brazierX = {930, 1_880, 4_120, 5_070};
+        for (double x : brazierX) {
+            g.setFill(Color.web("#17151A"));
+            g.fillRect(x - 34, GROUND_Y - 620, 68, 300);
+            g.setFill(Color.web("#FF9E40", flicker));
+            g.fillOval(x - 62, GROUND_Y - 700, 124, 145);
+            g.setFill(Color.web("#FFE082", flicker));
+            g.fillOval(x - 30, GROUND_Y - 674, 60, 96);
+        }
+
+        for (WindVent vent : windVents) {
+            g.setFill(Color.web("#FFD180", ambientFx ? 0.20 : 0.14));
+            g.fillOval(vent.x + vent.w * 0.5 - 90, vent.y - 190, 180, 350);
         }
     }
 
@@ -43239,7 +44015,8 @@ public class BirdGame3 {
         claimDestroyedClassicBonusTargets();
         boolean playerWon = didPlayerWinClassic(winner);
         if (classicEncounter.style == ClassicEncounterStyle.BONUS_RELAY
-                || classicEncounter.style == ClassicEncounterStyle.NECTAR_DASH) {
+                || classicEncounter.style == ClassicEncounterStyle.NECTAR_DASH
+                || classicEncounter.style == ClassicEncounterStyle.HARVEST_DEFENSE) {
             recordClassicEncounterScore(playerWon);
             classicRoundIndex++;
             classicEncounter = classicRun.get(classicRoundIndex);
@@ -43273,6 +44050,8 @@ public class BirdGame3 {
                 frozenCalderaUnlocked = true;
             } else if (classicSelectedBird == BirdType.HUMMINGBIRD) {
                 heartbloomSanctuaryUnlocked = true;
+            } else if (classicSelectedBird == BirdType.TURKEY) {
+                harvestTribunalUnlocked = true;
             }
             profileProgressController.onClassicRunCompleted(classicSelectedBird, achievementEvaluator::onClassicRunCompleted);
             String reward = classicRewardFor(classicSelectedBird);
@@ -43283,6 +44062,7 @@ public class BirdGame3 {
                 case FALCON -> "\nMap variant unlocked: Peregrine Run.";
                 case PHOENIX -> "\nMap variant unlocked: Frozen Caldera.";
                 case HUMMINGBIRD -> "\nMap variant unlocked: Heartbloom Sanctuary.";
+                case TURKEY -> "\nMap variant unlocked: Harvest Tribunal.";
                 default -> "";
             };
             String ending = switch (classicSelectedBird) {
@@ -43291,6 +44071,7 @@ public class BirdGame3 {
                 case FALCON -> "\n\nThe last target disappears beneath the shattered Crown. Falcon turns away before the old hunt can name another master.";
                 case PHOENIX -> "\n\nThe caldera exhales. Ice gives way to sunrise, and Phoenix carries the last flame forward instead of guarding its ashes.";
                 case HUMMINGBIRD -> "\n\nThe eclipse breaks across Heartbloom. Hummingbird leaves no crown behind, only a living route of flowers that every small wing can follow.";
+                case TURKEY -> "\n\nThe last flame settles over the Tribunal. Turkey leaves the throne empty and the table open: the hunted bird now decides who is welcome at the feast.";
                 default -> "";
             };
             showStoryDialogue(
@@ -43299,12 +44080,14 @@ public class BirdGame3 {
                             : (classicSelectedBird == BirdType.EAGLE ? "The Sky Has One King"
                             : (classicSelectedBird == BirdType.FALCON ? "Nothing Escapes"
                             : (classicSelectedBird == BirdType.PHOENIX ? "The Flame That Returns"
-                            : (classicSelectedBird == BirdType.HUMMINGBIRD ? "Beat of the Bloom" : "Classic Cleared")))),
+                            : (classicSelectedBird == BirdType.HUMMINGBIRD ? "Beat of the Bloom"
+                            : (classicSelectedBird == BirdType.TURKEY ? "The Last Feast" : "Classic Cleared"))))),
                     classicSelectedBird == BirdType.PIGEON ? "The Beacon"
                             : (classicSelectedBird == BirdType.EAGLE ? "Summit Prime"
                             : (classicSelectedBird == BirdType.FALCON ? "Crown Pursuit"
                             : (classicSelectedBird == BirdType.PHOENIX ? "Dawn Oracle"
-                            : (classicSelectedBird == BirdType.HUMMINGBIRD ? "Heartbloom" : "Skycaster Prime")))),
+                            : (classicSelectedBird == BirdType.HUMMINGBIRD ? "Heartbloom"
+                            : (classicSelectedBird == BirdType.TURKEY ? "Harvest Tribunal" : "Skycaster Prime"))))),
                     "Run " + classicRunCodename + " completed with " + classicSelectedBird.name + ".\nReward unlocked: "
                             + reward + (charReward.isBlank() ? "" : "\nCharacter unlocked: " + charReward) + "."
                             + routeReward
@@ -43778,7 +44561,7 @@ public class BirdGame3 {
                 grid.add(buildStageSelectCard(
                         card.name, card.desc, card.color,
                         () -> selectStage.accept(StageChoice.main(card.map))),
-                        i % StageSelectLayout.COLUMNS, i / StageSelectLayout.COLUMNS);
+                        i % StageSelectLayout.MAIN_COLUMNS, i / StageSelectLayout.MAIN_COLUMNS);
             }
             cardSections.getChildren().add(grid);
         } else {
@@ -43807,8 +44590,9 @@ public class BirdGame3 {
                             : (category.equals("Classic Routes") ? "#007C91" : "#6A1B9A");
                     grid.add(buildStageSelectCard(
                             variant.displayName.toUpperCase(), desc, color,
+                            StageSelectLayout.VARIANT_CARD_WIDTH, StageSelectLayout.VARIANT_CARD_INNER_WIDTH,
                             () -> selectStage.accept(new StageChoice(variant.baseMap, variant))),
-                            i % StageSelectLayout.COLUMNS, i / StageSelectLayout.COLUMNS);
+                            i % StageSelectLayout.VARIANT_COLUMNS, i / StageSelectLayout.VARIANT_COLUMNS);
                 }
                 VBox section = new VBox(StageSelectLayout.SECTION_LABEL_GAP, categoryLabel, grid);
                 section.setAlignment(Pos.CENTER);
@@ -43871,24 +44655,30 @@ public class BirdGame3 {
     }
 
     private VBox buildStageSelectCard(String name, String description, String color, Runnable action) {
+        return buildStageSelectCard(name, description, color,
+                StageSelectLayout.CARD_WIDTH, StageSelectLayout.CARD_INNER_WIDTH, action);
+    }
+
+    private VBox buildStageSelectCard(String name, String description, String color,
+                                      double cardWidth, double cardInnerWidth, Runnable action) {
         VBox cardBox = new VBox(6);
         cardBox.setPadding(new Insets(10, 12, 10, 12));
         cardBox.setAlignment(Pos.TOP_CENTER);
-        cardBox.setMinSize(StageSelectLayout.CARD_WIDTH, StageSelectLayout.CARD_HEIGHT);
-        cardBox.setPrefSize(StageSelectLayout.CARD_WIDTH, StageSelectLayout.CARD_HEIGHT);
-        cardBox.setMaxSize(StageSelectLayout.CARD_WIDTH, StageSelectLayout.CARD_HEIGHT);
+        cardBox.setMinSize(cardWidth, StageSelectLayout.CARD_HEIGHT);
+        cardBox.setPrefSize(cardWidth, StageSelectLayout.CARD_HEIGHT);
+        cardBox.setMaxSize(cardWidth, StageSelectLayout.CARD_HEIGHT);
         cardBox.setStyle("-fx-background-color: rgba(0,0,0,0.45); -fx-border-color: #90A4AE; -fx-border-width: 2; -fx-background-radius: 14; -fx-border-radius: 14;");
 
-        Button button = uiFactory.action(name, StageSelectLayout.CARD_INNER_WIDTH, 64, 23, color, 14, action);
+        Button button = uiFactory.action(name, cardInnerWidth, 64, 23, color, 14, action);
         Label desc = getLabel(description);
         desc.setFont(Font.font("Consolas", 15));
         desc.setTextFill(Color.web("#CFD8DC"));
         desc.setWrapText(true);
         desc.setTextAlignment(TextAlignment.CENTER);
         desc.setAlignment(Pos.TOP_CENTER);
-        desc.setMinWidth(StageSelectLayout.CARD_INNER_WIDTH);
-        desc.setPrefWidth(StageSelectLayout.CARD_INNER_WIDTH);
-        desc.setMaxWidth(StageSelectLayout.CARD_INNER_WIDTH);
+        desc.setMinWidth(cardInnerWidth);
+        desc.setPrefWidth(cardInnerWidth);
+        desc.setMaxWidth(cardInnerWidth);
         desc.setMinHeight(58);
         desc.setPrefHeight(58);
         desc.setMaxHeight(58);
@@ -46025,7 +46815,7 @@ public class BirdGame3 {
         }
         int enemyStocks = switch (classicEncounter.style) {
             case STORM_TYRANT_BOSS, PHOENIX_REBIRTH, BLIGHTWING_BOSS -> 2;
-            case NULL_ROC_BOSS, LONG_WINTER_BOSS -> 3;
+            case NULL_ROC_BOSS, LONG_WINTER_BOSS, DEVOURER_BOSS -> 3;
             default -> 0;
         };
         if (enemyStocks <= 0) return;
@@ -46157,6 +46947,7 @@ public class BirdGame3 {
             applyFalconClassicRuntimeEffects();
             applyPhoenixClassicRuntimeEffects();
             applyHummingbirdClassicRuntimeEffects();
+            applyTurkeyClassicRuntimeEffects();
         }
         if (bossRushModeActive && classicModeActive) {
             applyBossRushRuntimeEffects();
@@ -48844,6 +49635,7 @@ public class BirdGame3 {
                 || activeArenaGeometryVariant == MapVariant.PEREGRINE_RUN
                 || activeArenaGeometryVariant == MapVariant.TEMPEST_SUMMIT
                 || activeArenaGeometryVariant == MapVariant.HEARTBLOOM_SANCTUARY
+                || activeArenaGeometryVariant == MapVariant.HARVEST_TRIBUNAL
                 || isCrownDuelArena();
     }
 
@@ -49385,6 +50177,7 @@ public class BirdGame3 {
             case TEMPEST_SUMMIT -> setupTempestSummitArena();
             case FROZEN_CALDERA -> setupFrozenCalderaArena();
             case HEARTBLOOM_SANCTUARY -> setupHeartbloomSanctuaryArena();
+            case HARVEST_TRIBUNAL -> setupHarvestTribunalArena();
             case CARRION_THRONE -> setupBossRushCarrionThrone();
             case NULL_ROC_ASCENDING -> setupBossRushNullRocArena();
             case VOID_CROWN -> setupBossRushVoidCrownArena();
@@ -50793,6 +51586,11 @@ public class BirdGame3 {
                 lines.add("FLOWER GATES " + classicNectarRingIndex + "/" + classicNectarRings.size()
                         + "  BLOSSOMS " + classicHummingbirdBlossomCount() + "/7"
                         + "  FALLING RESETS POSITION");
+            } else if (classicEncounter.style == ClassicEncounterStyle.HARVEST_DEFENSE) {
+                int waveCount = classicEncounter.waves == null ? 0 : classicEncounter.waves.length;
+                lines.add("HARVEST " + classicTurkeyDefenseHealth + "%  WAVE "
+                        + Math.min(waveCount, classicTurkeyDefenseWaveIndex + 1) + "/" + waveCount
+                        + "  BONUS COINS +" + classicBonusCoins);
             } else {
                 lines.add(dailyChallengeModeActive
                     ? "LIVES " + livesLeft + "/3  SEED " + formatDailyChallengeSeed(dailyChallengeSeed)
@@ -50803,7 +51601,13 @@ public class BirdGame3 {
                     : "DIFFICULTY " + String.format(Locale.US, "%.1f", classicDifficulty)
                     + "  SCORE " + String.format(Locale.US, "%,d", classicRunScore)
                     + (classicSelectedBird == BirdType.HUMMINGBIRD
-                    ? "  BLOSSOMS " + classicHummingbirdBlossomCount() + "/7" : ""));
+                    ? "  BLOSSOMS " + classicHummingbirdBlossomCount() + "/7"
+                    : (classicEncounter.style == ClassicEncounterStyle.FEAST_GAUNTLET
+                    ? "  COURSE " + (classicTurkeyWaveIndex + 1) + "/"
+                    + (classicEncounter.waves == null ? 1 : classicEncounter.waves.length)
+                    + (classicTurkeyFeastDecisionActive ? "  CHOOSE: FEAST OR BLOCK" : "")
+                    : (classicEncounter.style == ClassicEncounterStyle.DEVOURER_BOSS
+                    ? "  DEVOURER MEALS " + classicDevourerMeals : ""))));
             }
             return lines;
         }
@@ -53566,6 +54370,22 @@ public class BirdGame3 {
         classicNectarRingIndex = 0;
         classicHummingbirdDashCompleted = false;
         classicHeartbloomPollenHitCooldown = 0;
+        classicTurkeyWaveIndex = 0;
+        classicTurkeyFeastDecisionActive = false;
+        classicTurkeyFeastDecisionFrames = 0;
+        classicTurkeyBlockWasDown = false;
+        classicTurkeyStuffedFrames = 0;
+        classicTurkeyFamineFrames = 0;
+        classicHarvestPlate = null;
+        classicTurkeyDefenseWaveIndex = 0;
+        classicTurkeyDefenseHealth = 100;
+        classicTurkeyDefenseCompleted = false;
+        classicDevourerMeals = 0;
+        classicDevourerTrapCooldown = 0;
+        classicDevourerSuctionPhaseActive = false;
+        classicDevourerFinalPhaseActive = false;
+        classicHarvestWestTable = null;
+        classicHarvestEastTable = null;
     }
 
     private void resetSuddenDeathState() {
@@ -53694,6 +54514,7 @@ public class BirdGame3 {
         state.peregrineRunUnlocked = peregrineRunUnlocked;
         state.frozenCalderaUnlocked = frozenCalderaUnlocked;
         state.heartbloomSanctuaryUnlocked = heartbloomSanctuaryUnlocked;
+        state.harvestTribunalUnlocked = harvestTribunalUnlocked;
         state.towerDefenseDifficultyBadges = copyBooleanMatrix(towerDefenseDifficultyBadges);
         state.cityPigeonUnlocked = cityPigeonUnlocked;
         state.noirPigeonUnlocked = noirPigeonUnlocked;
@@ -53837,6 +54658,7 @@ public class BirdGame3 {
         peregrineRunUnlocked = resolved.peregrineRunUnlocked;
         frozenCalderaUnlocked = resolved.frozenCalderaUnlocked;
         heartbloomSanctuaryUnlocked = resolved.heartbloomSanctuaryUnlocked;
+        harvestTribunalUnlocked = resolved.harvestTribunalUnlocked;
         copyInto(resolved.towerDefenseDifficultyBadges, towerDefenseDifficultyBadges);
 
         cityPigeonUnlocked = resolved.cityPigeonUnlocked;
@@ -53988,6 +54810,9 @@ public class BirdGame3 {
         }
         if (classicCompleted[BirdType.HUMMINGBIRD.ordinal()]) {
             heartbloomSanctuaryUnlocked = true;
+        }
+        if (classicCompleted[BirdType.TURKEY.ordinal()]) {
+            harvestTribunalUnlocked = true;
         }
         boolean unitedFinaleCompleted = unitedIdx >= 0
                 && unitedIdx < mainAdventureCompleted.length

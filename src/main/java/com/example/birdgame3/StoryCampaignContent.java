@@ -396,8 +396,9 @@ final class StoryCampaignContent {
 
     private static StoryCampaign.Mission morningLine() {
         return mission("morning_line", "Morning Line",
-                "Keep the grain road open until every ground flock reaches the forest shelter.",
-                FOREST, EVACUATION, StoryCampaign.PlayablePolicy.choice(TURKEY, ROOSTER),
+                "Hold the moonlit Harvest Tribunal until every ground flock crosses the grain road.",
+                FOREST, BirdGame3.MapVariant.HARVEST_TRIBUNAL, EVACUATION,
+                StoryCampaign.PlayablePolicy.choice(TURKEY, ROOSTER),
                 List.of(),
                 fighters(enemy(GRINCHHAWK, "Grinch-Hawk"), enemy(VULTURE, "Carrion Driver")),
                 phases(

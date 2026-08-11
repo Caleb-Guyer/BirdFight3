@@ -29,9 +29,12 @@ class StageSelectLayoutTest {
             if ("Classic Routes".equals(variant.category)) classicRoutes++;
         }
 
-        assertEquals(1, StageSelectLayout.rowsFor(storyArenas));
-        assertEquals(2, StageSelectLayout.rowsFor(bossArenas));
-        assertEquals(1, StageSelectLayout.rowsFor(classicRoutes));
+        assertEquals(1, StageSelectLayout.variantRowsFor(storyArenas));
+        assertEquals(2, StageSelectLayout.variantRowsFor(bossArenas));
+        assertEquals(1, StageSelectLayout.variantRowsFor(classicRoutes));
+        assertTrue(StageSelectLayout.variantGridWidth()
+                        <= BirdGame3.WIDTH - StageSelectLayout.ROOT_HORIZONTAL_PADDING * 2.0,
+                "Six compact variant cards should fit inside the logical screen width.");
         assertTrue(StageSelectLayout.requiredScreenHeight(
                         StageSelectLayout.groupedCatalogHeight(storyArenas, bossArenas, classicRoutes)) <= BirdGame3.HEIGHT,
                 "All labeled variant sections and random choices should fit without scrolling.");

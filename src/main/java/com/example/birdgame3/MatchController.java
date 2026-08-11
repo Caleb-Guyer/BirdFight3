@@ -520,6 +520,9 @@ final class MatchController {
         if (game.isClassicNectarDashActive()) {
             return;
         }
+        if (game.holdClassicTurkeyEncounterOpen()) {
+            return;
+        }
         if (game.campaignModeActive) {
             game.checkCampaignMissionCompletion();
             return;

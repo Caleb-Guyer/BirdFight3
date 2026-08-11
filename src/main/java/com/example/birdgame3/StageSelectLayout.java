@@ -1,13 +1,16 @@
 package com.example.birdgame3;
 
 final class StageSelectLayout {
-    static final int COLUMNS = 5;
+    static final int MAIN_COLUMNS = 5;
+    static final int VARIANT_COLUMNS = 6;
     static final double ROOT_TOP_PADDING = 22.0;
     static final double ROOT_BOTTOM_PADDING = 24.0;
     static final double ROOT_HORIZONTAL_PADDING = 32.0;
     static final double TOP_BAR_HEIGHT = 74.0;
     static final double CARD_WIDTH = 340.0;
     static final double CARD_INNER_WIDTH = 316.0;
+    static final double VARIANT_CARD_WIDTH = 284.0;
+    static final double VARIANT_CARD_INNER_WIDTH = 260.0;
     static final double CARD_HEIGHT = 154.0;
     static final double HORIZONTAL_GAP = 18.0;
     static final double VERTICAL_GAP = 14.0;
@@ -21,15 +24,32 @@ final class StageSelectLayout {
     }
 
     static int rowsFor(int cardCount) {
-        return cardCount <= 0 ? 0 : (cardCount + COLUMNS - 1) / COLUMNS;
+        return rowsFor(cardCount, MAIN_COLUMNS);
+    }
+
+    static int variantRowsFor(int cardCount) {
+        return rowsFor(cardCount, VARIANT_COLUMNS);
+    }
+
+    private static int rowsFor(int cardCount, int columns) {
+        return cardCount <= 0 ? 0 : (cardCount + columns - 1) / columns;
     }
 
     static double gridWidth() {
-        return COLUMNS * CARD_WIDTH + (COLUMNS - 1) * HORIZONTAL_GAP;
+        return MAIN_COLUMNS * CARD_WIDTH + (MAIN_COLUMNS - 1) * HORIZONTAL_GAP;
+    }
+
+    static double variantGridWidth() {
+        return VARIANT_COLUMNS * VARIANT_CARD_WIDTH + (VARIANT_COLUMNS - 1) * HORIZONTAL_GAP;
     }
 
     static double gridHeight(int cardCount) {
         int rows = rowsFor(cardCount);
+        return rows == 0 ? 0.0 : rows * CARD_HEIGHT + (rows - 1) * VERTICAL_GAP;
+    }
+
+    static double variantGridHeight(int cardCount) {
+        int rows = variantRowsFor(cardCount);
         return rows == 0 ? 0.0 : rows * CARD_HEIGHT + (rows - 1) * VERTICAL_GAP;
     }
 
@@ -41,7 +61,7 @@ final class StageSelectLayout {
             if (visibleSections++ > 0) {
                 height += SECTION_GAP;
             }
-            height += SECTION_LABEL_HEIGHT + SECTION_LABEL_GAP + gridHeight(count);
+            height += SECTION_LABEL_HEIGHT + SECTION_LABEL_GAP + variantGridHeight(count);
         }
         return height;
     }

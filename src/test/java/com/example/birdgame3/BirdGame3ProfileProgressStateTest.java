@@ -137,6 +137,19 @@ class BirdGame3ProfileProgressStateTest {
     }
 
     @Test
+    void savesAndLoadsHarvestTribunalClassicReward() {
+        BirdGame3ProfileProgressState.Schema schema = new BirdGame3ProfileProgressState.Schema(
+                BirdGame3Achievement.values().length, 4, 16, 0, 0);
+        BirdGame3ProfileProgressState state = new BirdGame3ProfileProgressState();
+        state.harvestTribunalUnlocked = true;
+
+        state.saveTo(prefs, schema);
+        BirdGame3ProfileProgressState loaded = BirdGame3ProfileProgressState.load(prefs, schema);
+
+        assertTrue(loaded.harvestTribunalUnlocked);
+    }
+
+    @Test
     void existingPigeonClassicClearMigratesToRooftopRelayReward() throws Exception {
         BirdGame3ProfileProgressState.Schema schema = new BirdGame3ProfileProgressState.Schema(
                 BirdGame3Achievement.values().length,

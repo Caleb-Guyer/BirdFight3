@@ -50,6 +50,8 @@ class StoryCampaignContentTest {
                 campaign.mission("last_thermal").mapVariant());
         assertEquals(BirdGame3.MapVariant.HEARTBLOOM_SANCTUARY,
                 campaign.mission("needle_route").mapVariant());
+        assertEquals(BirdGame3.MapVariant.HARVEST_TRIBUNAL,
+                campaign.mission("morning_line").mapVariant());
         assertEquals(BirdGame3.MapVariant.VOID_CROWN,
                 campaign.mission("the_null_rock").mapVariant());
     }
