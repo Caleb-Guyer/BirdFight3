@@ -14440,6 +14440,17 @@ public class Bird {
 
     private void respawnAfterStageLoss(boolean trainingDummy, boolean islandBounds, double leftBound, double rightBound,
                                        double fallbackX, double fallbackY) {
+        if (game.isClassicNectarDashParticipant(this)) {
+            health = STARTING_HEALTH;
+            x = 520.0;
+            y = BirdGame3.GROUND_Y - 620.0;
+            prevX = x;
+            prevY = y;
+            vx = 0.0;
+            vy = 0.0;
+            canDoubleJump = true;
+            return;
+        }
         if (game.usesSmashCombatRules()) {
             if (!game.playerHasStocksRemaining(playerIndex)) {
                 retireFromStockMatch();
@@ -36780,6 +36791,7 @@ public class Bird {
         double cx = x + drawSize * 0.50;
         BirdAnimationState state = currentBirdAnimationState();
         boolean herald = isVoidHeraldSkin;
+        boolean blightwing = BirdGame3.BLIGHTWING_RAVEN_SKIN.equals(appliedSkinKey);
         boolean nightshade = isClassicSkin;
         boolean faction = isCampaignFactionSkin();
 
@@ -36805,6 +36817,17 @@ public class Bird {
             billShade = campaignFactionPrimaryColor().darker().darker().darker();
             leg = campaignFactionAccentColor().darker();
             iris = campaignFactionAccentColor();
+        } else if (blightwing) {
+            back = Color.web("#08070B");
+            body = Color.web("#17101B");
+            breast = Color.web("#38203A");
+            wing = Color.web("#211326");
+            edge = Color.web("#B55291");
+            head = Color.web("#130C18");
+            bill = Color.web("#423044");
+            billShade = Color.web("#120C14");
+            leg = Color.web("#72516C");
+            iris = Color.web("#B7FF55");
         } else if (herald) {
             back = Color.web("#08060C");
             body = Color.web("#120D18");
@@ -36893,6 +36916,18 @@ public class Bird {
         g.fill();
         g.setFill(breast.deriveColor(0, 0.86, 1.0, herald ? 0.52 : 0.66));
         g.fillOval(cx + dir * 1.0 * s - 11.5 * s, y + 37.0 * s, 23.0 * s, 28.0 * s);
+        if (blightwing) {
+            g.setStroke(Color.web("#D85AAF", 0.82));
+            g.setLineWidth(2.2 * s);
+            g.strokeArc(cx - 16.0 * s, y + 31.0 * s, 32.0 * s, 34.0 * s,
+                    facingRight ? 205 : -25, 120, ArcType.OPEN);
+            g.setFill(Color.web("#A6D95A"));
+            for (int bloom = 0; bloom < 3; bloom++) {
+                double bx = cx - dir * (9.0 - bloom * 8.0) * s;
+                double by = y + (39.0 + bloom * 8.5) * s;
+                g.fillOval(bx - 3.2 * s, by - 3.2 * s, 6.4 * s, 6.4 * s);
+            }
+        }
         if (visualAuditBodyOnly) {
             lastVisualRavenTorso = new VisualFeatureBounds(
                     cx - 29.0 * s, y + 18.0 * s, cx + 29.0 * s, y + 71.0 * s);
@@ -36947,6 +36982,17 @@ public class Bird {
 
         if (herald) {
             drawRavenHeraldMask(g, headCx, headCy, aimX, aimY, normalX, normalY, mask, edge);
+        }
+        if (blightwing) {
+            g.setFill(Color.web("#6E214F"));
+            for (int thorn = -1; thorn <= 1; thorn++) {
+                double tx = headCx - aimX * 5.0 * s + normalX * thorn * 7.0 * s;
+                double ty = headCy - aimY * 5.0 * s + normalY * thorn * 7.0 * s;
+                g.fillPolygon(new double[]{tx - normalX * 3.0 * s, tx - aimX * 13.0 * s,
+                                tx + normalX * 3.0 * s},
+                        new double[]{ty - normalY * 3.0 * s, ty - aimY * 13.0 * s,
+                                ty + normalY * 3.0 * s}, 3);
+            }
         }
 
         double eyeCx = headCx + aimX * 4.0 * s - normalX * 4.1 * s;

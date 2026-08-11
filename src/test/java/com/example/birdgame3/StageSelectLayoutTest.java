@@ -11,7 +11,7 @@ class StageSelectLayoutTest {
         assertEquals(3, StageSelectLayout.rowsFor(BirdGame3.MapType.values().length));
         assertTrue(StageSelectLayout.gridWidth()
                         <= BirdGame3.WIDTH - StageSelectLayout.ROOT_HORIZONTAL_PADDING * 2.0,
-                "Four stage cards should fit inside the logical screen width.");
+                "Five stage cards should fit inside the logical screen width.");
         assertTrue(StageSelectLayout.requiredScreenHeight(
                         StageSelectLayout.gridHeight(BirdGame3.MapType.values().length)) <= BirdGame3.HEIGHT,
                 "Every main stage and both random choices should fit without a scroll pane.");

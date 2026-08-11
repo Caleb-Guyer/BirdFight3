@@ -694,7 +694,8 @@ public class BirdGame3 {
         ROOFTOP_RELAY(MapType.CITY, "Classic Routes", "Rooftop Relay", "A sunrise sprint across connected city rooftops toward the distant Beacon."),
         PEREGRINE_RUN(MapType.SKYCLIFFS, "Classic Routes", "Peregrine Run", "Three open cliff shelves crossed by fast, predictable dive lanes and recovery vents."),
         TEMPEST_SUMMIT(MapType.SKYCLIFFS, "Classic Routes", "Tempest Summit", "An open crown of storm-beaten peaks above the clouds, with predictable recovery vents and no enclosing walls."),
-        FROZEN_CALDERA(MapType.ASHFALL_CATHEDRAL, "Classic Routes", "Frozen Caldera", "The last Ashfall thermal sealed beneath a melting crown of ice, with an open sky and mirrored recovery vents.");
+        FROZEN_CALDERA(MapType.ASHFALL_CATHEDRAL, "Classic Routes", "Frozen Caldera", "The last Ashfall thermal sealed beneath a melting crown of ice, with an open sky and mirrored recovery vents."),
+        HEARTBLOOM_SANCTUARY(MapType.VIBRANT_JUNGLE, "Classic Routes", "Heartbloom Sanctuary", "An eclipse garden of enormous flower platforms, open flight lanes, and nectar updrafts that wake at dawn.");
 
         final MapType baseMap;
         final String category;
@@ -841,6 +842,7 @@ public class BirdGame3 {
     private boolean tempestSummitUnlocked = false;
     private boolean peregrineRunUnlocked = false;
     private boolean frozenCalderaUnlocked = false;
+    private boolean heartbloomSanctuaryUnlocked = false;
     private final boolean[][] towerDefenseDifficultyBadges = new boolean[MapType.values().length][TowerDefenseMode.Difficulty.values().length];
     private static final int DOCK_LEVER_COOLDOWN_FRAMES = 900;
     private static final int DOCK_BOMB_FUSE_FRAMES = 88;
@@ -4818,6 +4820,7 @@ public class BirdGame3 {
     private static final String SUNFORGE_ROOSTER_SKIN = "SUNFORGE_ROOSTER";
     private static final String MIRAGE_ROADRUNNER_SKIN = "MIRAGE_ROADRUNNER";
     private static final String VOID_HERALD_RAVEN_SKIN = "VOID_HERALD_RAVEN";
+    static final String BLIGHTWING_RAVEN_SKIN = "BLIGHTWING_RAVEN";
     static final String CAMPAIGN_CROWN_TROOP_SKIN = "CAMPAIGN_CROWN_TROOP";
     static final String CAMPAIGN_HARBOR_CREW_SKIN = "CAMPAIGN_HARBOR_CREW";
     static final String CAMPAIGN_CARRION_PACT_SKIN = "CAMPAIGN_CARRION_PACT";
@@ -4873,6 +4876,15 @@ public class BirdGame3 {
     private boolean classicLongWinterBlizzardPhaseActive = false;
     private boolean classicLongWinterFinalPhaseActive = false;
     private int classicPhoenixRelayCollapseStage = 0;
+    private final boolean[] classicHummingbirdBlossoms = new boolean[7];
+    private final List<ClassicNectarRing> classicNectarRings = new ArrayList<>();
+    private final List<ClassicBlightPollen> classicBlightPollen = new ArrayList<>();
+    private final List<Platform> classicHeartbloomPetals = new ArrayList<>();
+    private int classicNectarRingIndex = 0;
+    private boolean classicHummingbirdDashCompleted = false;
+    private Platform classicClosedHeartbloomPetal = null;
+    private int classicHeartbloomClosureIndex = -1;
+    private int classicHeartbloomPollenHitCooldown = 0;
     private boolean bossRushModeActive = false;
     private long bossRushRunStartMillis = 0L;
     private long bossRushBestClearMillis = Long.MAX_VALUE;
@@ -4927,7 +4939,10 @@ public class BirdGame3 {
         RAGE_RITUAL("Rage Ritual", "Rage and speed drops spark early momentum."),
         SHADOW_CACHE("Shadow Cache", "Shrink and neon drops keep spacing tight."),
         STORM_CROWN("Storm Crown", "Predictable crosswinds awaken when the Storm Tyrant loses a stock."),
-        LONG_WINTER("The Long Winter", "The frozen caldera thaws as each phase of the Winter King falls.");
+        LONG_WINTER("The Long Winter", "The frozen caldera thaws as each phase of the Winter King falls."),
+        NECTAR_CHAIN("Nectar Chain", "Fly through three flower rings in order to bank a blossom for the final battle."),
+        HUNDRED_FLOWER_DASH("Hundred-Flower Dash", "Follow the flower gates to the sanctuary before the route closes."),
+        BLIGHTWING_ECLIPSE("Blightwing Eclipse", "Banked blossoms awaken recovery flowers while Blightwing wilts the arena.");
 
         final String label;
         final String description;
@@ -4951,7 +4966,38 @@ public class BirdGame3 {
         STORM_TYRANT_BOSS,
         PHOENIX_REBIRTH,
         NULL_ROC_BOSS,
-        LONG_WINTER_BOSS
+        LONG_WINTER_BOSS,
+        NECTAR_DASH,
+        BLIGHTWING_BOSS
+    }
+
+    static final class ClassicNectarRing {
+        final double x;
+        final double y;
+        final double radius;
+        boolean collected;
+
+        ClassicNectarRing(double x, double y, double radius) {
+            this.x = x;
+            this.y = y;
+            this.radius = radius;
+        }
+    }
+
+    static final class ClassicBlightPollen {
+        double x;
+        double y;
+        final double vx;
+        final double vy;
+        int life;
+
+        ClassicBlightPollen(double x, double y, double vx, double vy, int life) {
+            this.x = x;
+            this.y = y;
+            this.vx = vx;
+            this.vy = vy;
+            this.life = life;
+        }
     }
 
     record ClassicFighter(BirdType type, String title, double health, double powerMult, double speedMult,
@@ -8675,6 +8721,7 @@ public class BirdGame3 {
         if (variant == MapVariant.TEMPEST_SUMMIT) return tempestSummitUnlocked;
         if (variant == MapVariant.PEREGRINE_RUN) return peregrineRunUnlocked;
         if (variant == MapVariant.FROZEN_CALDERA) return frozenCalderaUnlocked;
+        if (variant == MapVariant.HEARTBLOOM_SANCTUARY) return heartbloomSanctuaryUnlocked;
         return isMapUnlocked(variant.baseMap);
     }
 
@@ -13268,6 +13315,10 @@ public class BirdGame3 {
                 }
             }
             case VIBRANT_JUNGLE -> {
+                if (activeArenaGeometryVariant == MapVariant.HEARTBLOOM_SANCTUARY) {
+                    drawHeartbloomSanctuary(g, ambientFx);
+                    break;
+                }
                 for (int i = 0; i < 600; i++) {
                     double ratio = i / 600.0;
                     Color c = Color.TEAL.interpolate(Color.LIMEGREEN.darker(), ratio);
@@ -13470,6 +13521,7 @@ public class BirdGame3 {
             case CITY -> drawCityArena(g, ambientFx);
         }
 
+        drawClassicHummingbirdRouteFeatures(g);
         drawUltimateReadyScreenDarken(g);
         drawCampaignObjectiveMarkers(g);
 
@@ -29577,6 +29629,7 @@ public class BirdGame3 {
         tempestSummitUnlocked = true;
         peregrineRunUnlocked = true;
         frozenCalderaUnlocked = true;
+        heartbloomSanctuaryUnlocked = true;
 
         cityPigeonUnlocked = true;
         noirPigeonUnlocked = true;
@@ -38720,7 +38773,7 @@ public class BirdGame3 {
             case EAGLE -> "Sky King Eagle";
             case FALCON -> "Crimson Falcon";
             case PHOENIX -> "Dawnfire Phoenix";
-            case HUMMINGBIRD -> "Plasma Hummingbird";
+            case HUMMINGBIRD -> "Prismatic Courier Hummingbird";
             case TURKEY -> "Warpaint Turkey";
             case ROADRUNNER -> "Dust Devil Roadrunner";
             case ROOSTER -> "Dawn Rooster";
@@ -39405,6 +39458,9 @@ public class BirdGame3 {
         }
         if (useAuthoredRoutes && playerType == BirdType.PHOENIX) {
             return buildPhoenixClassicRun();
+        }
+        if (useAuthoredRoutes && playerType == BirdType.HUMMINGBIRD) {
+            return buildHummingbirdClassicRun();
         }
         List<ClassicEncounter> run = new ArrayList<>();
         Set<MapType> usedMaps = new HashSet<>();
@@ -40372,6 +40428,92 @@ public class BirdGame3 {
         return run;
     }
 
+    private List<ClassicEncounter> buildHummingbirdClassicRun() {
+        List<ClassicEncounter> run = new ArrayList<>();
+
+        ClassicEncounter firstFlutter = new ClassicEncounter(
+                "First Flutter", "Forest Bloom",
+                "Titmouse guards the first nectar line. Win the fight and thread the three flower rings to bank a blossom.",
+                MapType.FOREST, MapVariant.STANDARD, MatchMutator.NONE, ClassicTwist.NECTAR_CHAIN,
+                ClassicEncounterStyle.STANDARD, 92 * 60, new ClassicFighter[0],
+                new ClassicFighter[]{classicFighter(BirdType.TITMOUSE, "First Flutter: Titmouse", 108, 0.96, 1.10)}, false);
+        firstFlutter.cpuLevel = 3;
+        run.add(firstFlutter);
+
+        ClassicEncounter big = new ClassicEncounter(
+                "Too Big to Miss", "Canopy Giant",
+                "A giant Turkey blocks the canopy. Circle the giant, finish the nectar chain, and launch it from the bloom.",
+                MapType.VIBRANT_JUNGLE, MapVariant.STANDARD, MatchMutator.NONE, ClassicTwist.NECTAR_CHAIN,
+                ClassicEncounterStyle.GIANT, 105 * 60, new ClassicFighter[0],
+                new ClassicFighter[]{classicFighter(BirdType.TURKEY, "Giant: Canopy Turkey", 255, 1.12, 0.84)}, true);
+        big.cpuLevel = 4;
+        run.add(big);
+
+        ClassicEncounter night = new ClassicEncounter(
+                "Night Garden", "Moonlit Cavern",
+                "Bat and Opium Bird have poisoned the night garden. Keep the flower route in sight through the haze.",
+                MapType.CAVE, MapVariant.STANDARD, MatchMutator.NONE, ClassicTwist.NECTAR_CHAIN,
+                ClassicEncounterStyle.STANDARD, 102 * 60, new ClassicFighter[0],
+                new ClassicFighter[]{
+                        classicFighter(BirdType.BAT, "Night Garden: Bat", 112, 1.00, 1.08),
+                        classicFighter(BirdType.OPIUMBIRD, "Night Garden: Opium Bird", 112, 1.00, 1.05)}, false);
+        night.cpuLevel = 5;
+        run.add(night);
+
+        ClassicEncounter tailwind = new ClassicEncounter(
+                "Tailwind Team", "Rooftop Relay",
+                "Roadrunner carries the ground lane while Hummingbird races Falcon and Eagle through the sky lane.",
+                MapType.CITY, MapVariant.ROOFTOP_RELAY, MatchMutator.TURBO_BRAWL, ClassicTwist.NECTAR_CHAIN,
+                ClassicEncounterStyle.STANDARD, 105 * 60,
+                new ClassicFighter[]{classicFighter(BirdType.ROADRUNNER, "Ally: Tailwind Runner", 112, 1.00, 1.15)},
+                new ClassicFighter[]{
+                        classicFighter(BirdType.FALCON, "Tailwind Rival: Falcon", 118, 1.04, 1.12),
+                        classicFighter(BirdType.EAGLE, "Tailwind Rival: Eagle", 126, 1.05, 1.04)}, false);
+        tailwind.cpuLevel = 6;
+        run.add(tailwind);
+
+        ClassicEncounter poison = new ClassicEncounter(
+                "Poison in the Pollen", "Carrion Bloom",
+                "Heisenbird and Vulture foul the throne with black pollen that drifts across the next flower ring.",
+                MapType.VIBRANT_JUNGLE, MapVariant.CARRION_THRONE, MatchMutator.NONE, ClassicTwist.NECTAR_CHAIN,
+                ClassicEncounterStyle.STANDARD, 108 * 60, new ClassicFighter[0],
+                new ClassicFighter[]{
+                        classicFighter(BirdType.HEISENBIRD, "Poisoner: Heisenbird", 122, 1.04, 1.02),
+                        classicFighter(BirdType.VULTURE, "Carrion Keeper: Vulture", 134, 1.05, 0.98)}, false);
+        poison.cpuLevel = 6;
+        run.add(poison);
+
+        ClassicEncounter spear = new ClassicEncounter(
+                "Needle Against Spear", "Fjord Needle",
+                "A giant Shoebill turns the frozen crossing into a wall. Find the tiny openings and finish the last battle chain.",
+                MapType.FROSTBITE_FJORD, MapVariant.STANDARD, MatchMutator.NONE, ClassicTwist.NECTAR_CHAIN,
+                ClassicEncounterStyle.GIANT, 112 * 60, new ClassicFighter[0],
+                new ClassicFighter[]{classicFighter(BirdType.SHOEBILL, "Giant: Frozen Spear", 270, 1.15, 0.82)}, true);
+        spear.cpuLevel = 7;
+        run.add(spear);
+
+        ClassicEncounter dash = new ClassicEncounter(
+                "Bonus: Hundred-Flower Dash", "Bloom Course",
+                "No targets and no opponents: fly through every flower gate before time expires. Falling only resets the course position.",
+                MapType.VIBRANT_JUNGLE, MapVariant.HEARTBLOOM_SANCTUARY, MatchMutator.NONE,
+                ClassicTwist.HUNDRED_FLOWER_DASH, ClassicEncounterStyle.NECTAR_DASH, 72 * 60,
+                new ClassicFighter[0], new ClassicFighter[0], false);
+        dash.cpuLevel = 1;
+        run.add(dash);
+
+        ClassicEncounter blightwing = new ClassicEncounter(
+                "The Bloom That Wouldn't Die", "Heartbloom Eclipse",
+                "Blightwing Raven wilts the sanctuary one petal at a time. Every blossom banked along the route awakens a recovery flower.",
+                MapType.VIBRANT_JUNGLE, MapVariant.HEARTBLOOM_SANCTUARY, MatchMutator.NONE,
+                ClassicTwist.BLIGHTWING_ECLIPSE, ClassicEncounterStyle.BLIGHTWING_BOSS, 155 * 60,
+                new ClassicFighter[0],
+                new ClassicFighter[]{classicFighter(BirdType.RAVEN, "Boss: Blightwing Raven", 225, 1.15, 1.07,
+                        BLIGHTWING_RAVEN_SKIN)}, true);
+        blightwing.cpuLevel = 8;
+        run.add(blightwing);
+        return run;
+    }
+
     private List<ClassicEncounter> buildBossRushRun() {
         List<ClassicEncounter> run = new ArrayList<>();
 
@@ -40893,6 +41035,7 @@ public class BirdGame3 {
         classicRunScore = 0;
         classicBonusCoins = 0;
         classicContinuesUsed = 0;
+        Arrays.fill(classicHummingbirdBlossoms, false);
         if (!bossRush && !ashfallTrial && !dailyChallengeModeActive) {
             resetClassicAdaptiveDifficulty();
         }
@@ -40910,6 +41053,7 @@ public class BirdGame3 {
         if (type == BirdType.EAGLE) return "THE SKY HAS ONE KING";
         if (type == BirdType.FALCON) return "NOTHING ESCAPES";
         if (type == BirdType.PHOENIX) return "THE FLAME THAT RETURNS";
+        if (type == BirdType.HUMMINGBIRD) return "BEAT OF THE BLOOM";
         return "TEMPORARY FLIGHT PLAN";
     }
 
@@ -40917,23 +41061,31 @@ public class BirdGame3 {
         HBox strip = new HBox(0);
         strip.setAlignment(Pos.CENTER_LEFT);
         int total = Math.max(1, totalRounds);
+        boolean hummingbirdRoute = classicSelectedBird == BirdType.HUMMINGBIRD && !bossRoute;
         for (int i = 0; i < total; i++) {
             if (i > 0) {
                 Region connector = new Region();
                 lockRegionSize(connector, 32, 5);
-                connector.setStyle("-fx-background-color: " + (i <= currentIndex ? "#A7FFEB" : "#31565C") + ";");
+                boolean blossomBridge = hummingbirdRoute && i - 1 < classicHummingbirdBlossoms.length
+                        && classicHummingbirdBlossoms[i - 1];
+                connector.setStyle("-fx-background-color: " + (blossomBridge ? "#FFE66D"
+                        : (i <= currentIndex ? "#A7FFEB" : "#31565C")) + ";");
                 strip.getChildren().add(connector);
             }
             boolean current = i == currentIndex;
             boolean complete = i < currentIndex;
             boolean finalNode = i == total - 1;
-            Label node = new Label(finalNode ? "★" : (complete ? "✓" : Integer.toString(i + 1)));
+            boolean blossom = hummingbirdRoute && i < classicHummingbirdBlossoms.length
+                    && classicHummingbirdBlossoms[i];
+            Label node = new Label(finalNode ? "★" : (blossom ? "✿" : (complete ? "✓" : Integer.toString(i + 1))));
             node.setAlignment(Pos.CENTER);
             node.setFont(Font.font("Arial Black", finalNode ? 18 : 14));
             node.setTextFill(current ? Color.web("#111111") : Color.WHITE);
             lockRegionSize(node, current ? 42 : 34, current ? 42 : 34);
-            String fill = current ? "#E8FFF9" : (complete ? "#00BFA5" : (finalNode ? "#B5121B" : "#143238"));
-            String border = current ? "#64FFDA" : (finalNode || bossRoute ? "#FF5252" : "#4DB6AC");
+            String fill = current ? "#E8FFF9" : (blossom ? "#E7B91B"
+                    : (complete ? "#00BFA5" : (finalNode ? "#B5121B" : "#143238")));
+            String border = blossom ? "#FFF59D" : (current ? "#64FFDA"
+                    : (finalNode || bossRoute ? "#FF5252" : "#4DB6AC"));
             node.setStyle("-fx-background-color: " + fill + "; -fx-background-radius: 30; "
                     + "-fx-border-color: " + border + "; -fx-border-width: " + (current ? "4" : "2")
                     + "; -fx-border-radius: 30;");
@@ -40951,8 +41103,9 @@ public class BirdGame3 {
         boolean tempestSummit = variant == MapVariant.TEMPEST_SUMMIT;
         boolean peregrineRun = variant == MapVariant.PEREGRINE_RUN;
         boolean frozenCaldera = variant == MapVariant.FROZEN_CALDERA;
+        boolean heartbloom = variant == MapVariant.HEARTBLOOM_SANCTUARY;
 
-        Color skyTop = frozenCaldera ? Color.web("#071328") : (tempestSummit ? Color.web("#070B20")
+        Color skyTop = heartbloom ? Color.web("#100725") : (frozenCaldera ? Color.web("#071328") : (tempestSummit ? Color.web("#070B20")
                 : (peregrineRun ? Color.web("#12345C") : switch (map) {
             case CITY, BEACON_CROWN, PRISON -> Color.web("#100D35");
             case SKYCLIFFS -> Color.web("#234A78");
@@ -40963,8 +41116,8 @@ public class BirdGame3 {
             case DESERT -> Color.web("#D17A2D");
             case FOREST, VIBRANT_JUNGLE -> Color.web("#123E35");
             default -> Color.web("#17233D");
-        }));
-        Color skyBottom = frozenCaldera ? Color.web("#6DA4C2") : (tempestSummit ? Color.web("#536D91")
+        })));
+        Color skyBottom = heartbloom ? Color.web("#C14B91") : (frozenCaldera ? Color.web("#6DA4C2") : (tempestSummit ? Color.web("#536D91")
                 : (peregrineRun ? Color.web("#C8F3FF") : switch (map) {
             case CITY, BEACON_CROWN, PRISON -> Color.web("#291753");
             case SKYCLIFFS -> Color.web("#A7D8E8");
@@ -40975,7 +41128,7 @@ public class BirdGame3 {
             case DESERT -> Color.web("#F2C36E");
             case FOREST, VIBRANT_JUNGLE -> Color.web("#3C8B62");
             default -> Color.web("#42577A");
-        }));
+        })));
         g.setFill(new LinearGradient(0, 0, 0, height, false, CycleMethod.NO_CYCLE,
                 new Stop(0, skyTop), new Stop(1, skyBottom)));
         g.fillRect(0, 0, width, height);
@@ -41074,6 +41227,15 @@ public class BirdGame3 {
             drawClassicPreviewPlatform(g, 110, 112, 180, 15);
             drawClassicPreviewPlatform(g, 306, 143, 82, 12);
             drawClassicPreviewPlatform(g, 166, 69, 68, 10);
+        } else if (variant == MapVariant.HEARTBLOOM_SANCTUARY) {
+            g.setStroke(Color.web("#FFF176"));
+            g.setFill(Color.web("#6A245E"));
+            drawClassicPreviewPlatform(g, 18, 142, 86, 12);
+            drawClassicPreviewPlatform(g, 112, 112, 176, 15);
+            drawClassicPreviewPlatform(g, 296, 142, 86, 12);
+            drawClassicPreviewPlatform(g, 164, 65, 72, 11);
+            g.setFill(Color.web("#FF70C5", 0.75));
+            g.fillOval(171, 48, 58, 36);
         } else if (variant == MapVariant.CROWN_DUEL || variant == MapVariant.NULL_ROCK_DUEL) {
             drawClassicPreviewPlatform(g, 82, 138, 205, 14);
             drawClassicPreviewPlatform(g, 150, 92, 72, 10);
@@ -41128,6 +41290,27 @@ public class BirdGame3 {
         target.draw(g);
     }
 
+    private void drawClassicFlowerGatePortrait(Canvas canvas) {
+        GraphicsContext g = canvas.getGraphicsContext2D();
+        double width = canvas.getWidth();
+        double height = canvas.getHeight();
+        g.clearRect(0, 0, width, height);
+        g.setStroke(Color.web("#FFF59D"));
+        g.setLineWidth(Math.max(5.0, width * 0.025));
+        for (int i = 0; i < 3; i++) {
+            double cx = width * (0.24 + i * 0.26);
+            double cy = height * (0.62 - i * 0.15);
+            double r = Math.min(width, height) * (0.14 - i * 0.012);
+            g.strokeOval(cx - r, cy - r, r * 2.0, r * 2.0);
+            g.setFill(Color.web(i == 2 ? "#FF70C5" : "#8CFFB0", 0.40));
+            for (int petal = 0; petal < 6; petal++) {
+                double angle = petal * Math.PI / 3.0;
+                g.fillOval(cx + Math.cos(angle) * r - r * 0.22,
+                        cy + Math.sin(angle) * r - r * 0.22, r * 0.44, r * 0.44);
+            }
+        }
+    }
+
     private void showClassicEncounterIntro(Stage stage) {
         if (!classicModeActive || classicRun.isEmpty()) {
             if (dailyChallengeModeActive) showDailyChallengeSetup(stage);
@@ -41179,7 +41362,9 @@ public class BirdGame3 {
         Label routeName = new Label(classicRunCodename.isBlank() ? "CLASSIC ROUTE" : classicRunCodename);
         routeName.setFont(Font.font("Consolas", FontWeight.BOLD, 24));
         routeName.setTextFill(Color.WHITE);
-        Label round = new Label((classicEncounter.style == ClassicEncounterStyle.BONUS_RELAY ? "BONUS " : "ROUND ")
+        boolean routeBonus = classicEncounter.style == ClassicEncounterStyle.BONUS_RELAY
+                || classicEncounter.style == ClassicEncounterStyle.NECTAR_DASH;
+        Label round = new Label((routeBonus ? "BONUS " : "ROUND ")
                 + (classicRoundIndex + 1));
         round.setFont(Font.font("Arial Black", FontWeight.BOLD, 72));
         round.setTextFill(Color.WHITE);
@@ -41211,6 +41396,7 @@ public class BirdGame3 {
 
         ClassicFighter[] enemies = classicEncounter.enemies == null ? new ClassicFighter[0] : classicEncounter.enemies;
         boolean bonusTargetEncounter = classicEncounter.style == ClassicEncounterStyle.BONUS_RELAY;
+        boolean flowerGateEncounter = classicEncounter.style == ClassicEncounterStyle.NECTAR_DASH;
         int enemyCount = Math.max(1, enemies.length);
         double portraitSize = enemyCount >= 3 ? 215 : (enemyCount == 2 ? 310 : 430);
         HBox enemyLineup = new HBox(enemyCount >= 3 ? 14 : 20);
@@ -41228,16 +41414,23 @@ public class BirdGame3 {
             enemyLineup.getChildren().add(enemyPortrait);
         }
         if (enemies.length == 0) {
-            Label bonusTarget = new Label("BONUS\nTARGETS");
-            bonusTarget.setFont(Font.font("Arial Black", 58));
-            bonusTarget.setTextFill(Color.WHITE);
-            bonusTarget.setTextAlignment(TextAlignment.CENTER);
-            bonusTarget.setAlignment(Pos.CENTER);
-            enemyLineup.getChildren().add(bonusTarget);
+            if (flowerGateEncounter) {
+                Canvas flowerCourse = new Canvas(430, 330);
+                drawClassicFlowerGatePortrait(flowerCourse);
+                enemyLineup.getChildren().add(flowerCourse);
+            } else {
+                Label bonusTarget = new Label("BONUS\nTARGETS");
+                bonusTarget.setFont(Font.font("Arial Black", 58));
+                bonusTarget.setTextFill(Color.WHITE);
+                bonusTarget.setTextAlignment(TextAlignment.CENTER);
+                bonusTarget.setAlignment(Pos.CENTER);
+                enemyLineup.getChildren().add(bonusTarget);
+            }
         }
         root.getChildren().add(enemyLineup);
 
-        String opponentNames = bonusTargetEncounter ? enemies.length + " BONUS TARGETS"
+        String opponentNames = flowerGateEncounter ? "FLOWER GATE COURSE"
+                : bonusTargetEncounter ? enemies.length + " BONUS TARGETS"
                 : enemies.length == 0 ? "BONUS TARGETS" : Arrays.stream(enemies)
                 .map(fighter -> fighter.type.name.toUpperCase(Locale.ROOT))
                 .collect(Collectors.joining("  +  "));
@@ -41651,7 +41844,8 @@ public class BirdGame3 {
                         && encounter.style != ClassicEncounterStyle.BONUS_RELAY
                         && encounter.style != ClassicEncounterStyle.STORM_TYRANT_BOSS
                         && encounter.style != ClassicEncounterStyle.NULL_ROC_BOSS
-                        && encounter.style != ClassicEncounterStyle.LONG_WINTER_BOSS);
+                        && encounter.style != ClassicEncounterStyle.LONG_WINTER_BOSS
+                        && encounter.style != ClassicEncounterStyle.BLIGHTWING_BOSS);
                 if (enemy.skinKey != null) {
                     applyPreviewSkinChoiceToBird(enemyBird, enemy.type, enemy.skinKey);
                 }
@@ -41733,12 +41927,28 @@ public class BirdGame3 {
                         1.12 * enemyPowerScale,
                         1.06
                 );
+            } else if (encounter.style == ClassicEncounterStyle.BLIGHTWING_BOSS) {
+                bird.health = Math.max(1.0, 225.0 * enemyHealthScale);
+                bird.setBaseMultipliers(1.55, 1.15 * enemyPowerScale, 1.07);
             }
         }
     }
 
     private void positionClassicEncounterSpawns(ClassicEncounter encounter) {
-        if (encounter == null || encounter.style != ClassicEncounterStyle.BONUS_RELAY) return;
+        if (encounter == null) return;
+        if (encounter.style == ClassicEncounterStyle.NECTAR_DASH) {
+            Bird player = players[0];
+            if (player != null) {
+                player.x = 520.0;
+                player.y = GROUND_Y - 620.0;
+                player.prevX = player.x;
+                player.prevY = player.y;
+                player.vx = 0.0;
+                player.vy = 0.0;
+            }
+            return;
+        }
+        if (encounter.style != ClassicEncounterStyle.BONUS_RELAY) return;
         boolean stormBeaconAscent = encounter.variant == MapVariant.SKYBREAK_SPIRES;
         boolean peregrineRun = encounter.variant == MapVariant.PEREGRINE_RUN;
         boolean rebirthRelay = "Bonus: Rebirth Relay".equals(encounter.name);
@@ -41816,6 +42026,7 @@ public class BirdGame3 {
 
     private void applyClassicEncounterArenaModifiers(ClassicEncounter encounter) {
         if (encounter == null) return;
+        setupHummingbirdNectarRoute(encounter);
         if (bossRushModeActive) {
             applyBossRushEncounterArenaModifiers(encounter);
         }
@@ -41907,7 +42118,236 @@ public class BirdGame3 {
                 // Frozen Caldera owns its fixed opening vents. Later stock
                 // phases add mirrored blizzard vents without changing solids.
             }
+            case NECTAR_CHAIN, HUNDRED_FLOWER_DASH, BLIGHTWING_ECLIPSE -> {
+                // These authored route mechanics own their deterministic arena
+                // setup and runtime; do not add generic item drops here.
+            }
         }
+    }
+
+    private void setupHummingbirdNectarRoute(ClassicEncounter encounter) {
+        classicNectarRings.clear();
+        classicNectarRingIndex = 0;
+        classicHummingbirdDashCompleted = false;
+        classicBlightPollen.clear();
+        classicHeartbloomPollenHitCooldown = 0;
+        if (!classicModeActive || bossRushModeActive || ashfallTrialModeActive
+                || classicSelectedBird != BirdType.HUMMINGBIRD || encounter == null) {
+            return;
+        }
+        if (encounter.style == ClassicEncounterStyle.NECTAR_DASH) {
+            double[][] gates = {
+                    {800, GROUND_Y - 720}, {1_180, GROUND_Y - 1_080}, {1_620, GROUND_Y - 720},
+                    {2_020, GROUND_Y - 1_300}, {2_430, GROUND_Y - 850}, {2_820, GROUND_Y - 1_520},
+                    {3_200, GROUND_Y - 960}, {3_610, GROUND_Y - 1_300}, {4_020, GROUND_Y - 720},
+                    {4_410, GROUND_Y - 1_150}, {4_830, GROUND_Y - 820}, {5_230, GROUND_Y - 1_180}
+            };
+            for (double[] gate : gates) classicNectarRings.add(new ClassicNectarRing(gate[0], gate[1], 82));
+            addToKillFeed("HUNDRED-FLOWER DASH: follow all 12 gates in order. Falling resets your position.");
+            return;
+        }
+        if (encounter.style == ClassicEncounterStyle.BLIGHTWING_BOSS) {
+            addToKillFeed("HEARTBLOOM: " + classicHummingbirdBlossomCount()
+                    + " banked blossoms have awakened recovery flowers.");
+            return;
+        }
+        if (classicRoundIndex < 0 || classicRoundIndex >= 6
+                || classicHummingbirdBlossoms[classicRoundIndex]) {
+            return;
+        }
+        double[][][] routes = {
+                {{1_250, GROUND_Y - 620}, {2_850, GROUND_Y - 1_020}, {4_600, GROUND_Y - 680}},
+                {{1_100, GROUND_Y - 850}, {3_000, GROUND_Y - 1_360}, {4_820, GROUND_Y - 820}},
+                {{1_160, GROUND_Y - 780}, {3_040, GROUND_Y - 1_220}, {4_750, GROUND_Y - 720}},
+                {{1_200, GROUND_Y - 680}, {3_000, GROUND_Y - 1_180}, {4_740, GROUND_Y - 680}},
+                {{1_100, GROUND_Y - 820}, {3_000, GROUND_Y - 1_650}, {4_850, GROUND_Y - 820}},
+                {{1_280, GROUND_Y - 650}, {3_000, GROUND_Y - 1_100}, {4_680, GROUND_Y - 650}}
+        };
+        for (double[] gate : routes[classicRoundIndex]) {
+            classicNectarRings.add(new ClassicNectarRing(gate[0], gate[1], 74));
+        }
+        addToKillFeed("NECTAR CHAIN: fly through all three flower rings in order to bank this round's blossom.");
+    }
+
+    private void applyHummingbirdClassicRuntimeEffects() {
+        if (!classicModeActive || classicEncounter == null || classicSelectedBird != BirdType.HUMMINGBIRD
+                || matchEnded) return;
+        Bird player = players[0];
+        if (player == null || player.health <= 0.0) return;
+
+        if (classicNectarRingIndex < classicNectarRings.size()) {
+            ClassicNectarRing ring = classicNectarRings.get(classicNectarRingIndex);
+            double dx = player.bodyCenterX() - ring.x;
+            double dy = player.bodyCenterY() - ring.y;
+            if (dx * dx + dy * dy <= ring.radius * ring.radius) {
+                ring.collected = true;
+                classicNectarRingIndex++;
+                classicRunScore += 350;
+                addToKillFeed("FLOWER GATE " + classicNectarRingIndex + "/" + classicNectarRings.size());
+                if (classicNectarRingIndex >= classicNectarRings.size()) {
+                    completeHummingbirdNectarChain();
+                }
+            }
+        }
+
+        if ("Poison in the Pollen".equals(classicEncounter.name) && simTick > 0 && simTick % 240 == 0
+                && classicNectarRingIndex < classicNectarRings.size()) {
+            ClassicNectarRing ring = classicNectarRings.get(classicNectarRingIndex);
+            classicBlightPollen.add(new ClassicBlightPollen(ring.x, ring.y, 0.0, 0.0, 135));
+        }
+        if (classicEncounter.style == ClassicEncounterStyle.BLIGHTWING_BOSS) {
+            applyBlightwingRuntimeEffects(player);
+        }
+        updateClassicBlightPollen(player);
+    }
+
+    private void completeHummingbirdNectarChain() {
+        if (classicEncounter.style == ClassicEncounterStyle.NECTAR_DASH) {
+            classicHummingbirdDashCompleted = true;
+            if (!classicHummingbirdBlossoms[6]) {
+                classicHummingbirdBlossoms[6] = true;
+                classicBonusCoins += 75;
+                classicRunScore += 5_000;
+            }
+            addToKillFeed("HUNDRED-FLOWER DASH COMPLETE! Final blossom banked. Bird Coins +75.");
+            matchController.triggerMatchEnd(players[0]);
+            return;
+        }
+        if (classicRoundIndex >= 0 && classicRoundIndex < 6 && !classicHummingbirdBlossoms[classicRoundIndex]) {
+            classicHummingbirdBlossoms[classicRoundIndex] = true;
+            classicBonusCoins += 15;
+            classicRunScore += 1_500;
+            addToKillFeed("BLOSSOM BANKED! The final sanctuary grows stronger. Bird Coins +15.");
+        }
+    }
+
+    private void applyBlightwingRuntimeEffects(Bird player) {
+        Bird blightwing = null;
+        for (Bird bird : players) {
+            if (bird != null && getEffectiveTeam(bird.playerIndex) == 2 && bird.type == BirdType.RAVEN) {
+                blightwing = bird;
+                break;
+            }
+        }
+        if (blightwing == null) return;
+
+        if (simTick > 0 && simTick % 165 == 0) {
+            double dx = player.bodyCenterX() - blightwing.bodyCenterX();
+            double dy = player.bodyCenterY() - blightwing.bodyCenterY();
+            double length = Math.max(1.0, Math.hypot(dx, dy));
+            for (int fan = -1; fan <= 1; fan++) {
+                double vx = dx / length * 7.2 - dy / length * fan * 0.9;
+                double vy = dy / length * 7.2 + dx / length * fan * 0.9;
+                classicBlightPollen.add(new ClassicBlightPollen(
+                        blightwing.bodyCenterX(), blightwing.bodyCenterY(), vx, vy, 180));
+            }
+        }
+
+        int divePhase = (int) (simTick % 330);
+        if (divePhase >= 115 && divePhase <= 138 && !blightwing.isOnGround()) {
+            blightwing.vx = Math.clamp((player.bodyCenterX() - blightwing.bodyCenterX()) * 0.035, -14.0, 14.0);
+            blightwing.vy = Math.max(blightwing.vy, 10.5);
+        }
+
+        int closurePhase = (int) (simTick % 420);
+        if (closurePhase == 0 && classicClosedHeartbloomPetal == null && !classicHeartbloomPetals.isEmpty()) {
+            classicHeartbloomClosureIndex = (int) ((simTick / 420) % classicHeartbloomPetals.size());
+            Platform petal = classicHeartbloomPetals.get(classicHeartbloomClosureIndex);
+            if (platforms.remove(petal)) {
+                classicClosedHeartbloomPetal = petal;
+                addToKillFeed("BLIGHTWING: a Heartbloom petal has wilted shut.");
+            }
+        } else if (closurePhase == 150 && classicClosedHeartbloomPetal != null) {
+            if (!platforms.contains(classicClosedHeartbloomPetal)) platforms.add(classicClosedHeartbloomPetal);
+            classicClosedHeartbloomPetal = null;
+        }
+    }
+
+    private void updateClassicBlightPollen(Bird player) {
+        if (classicHeartbloomPollenHitCooldown > 0) classicHeartbloomPollenHitCooldown--;
+        Iterator<ClassicBlightPollen> iterator = classicBlightPollen.iterator();
+        while (iterator.hasNext()) {
+            ClassicBlightPollen pollen = iterator.next();
+            pollen.x += pollen.vx;
+            pollen.y += pollen.vy;
+            pollen.life--;
+            if (pollen.life <= 0) {
+                iterator.remove();
+                continue;
+            }
+            double dx = player.bodyCenterX() - pollen.x;
+            double dy = player.bodyCenterY() - pollen.y;
+            double hitRadius = pollen.vx == 0.0 && pollen.vy == 0.0 ? 115.0 : 44.0;
+            if (classicHeartbloomPollenHitCooldown <= 0 && dx * dx + dy * dy <= hitRadius * hitRadius) {
+                player.receiveExternalDamage(pollen.vx == 0.0 ? 3.0 : 7.0);
+                player.vx = Math.clamp(player.vx + Math.copySign(4.2, dx == 0.0 ? 1.0 : dx), -18.0, 18.0);
+                player.vy = Math.min(player.vy, -4.5);
+                player.applyStun(10.0);
+                classicHeartbloomPollenHitCooldown = 28;
+                iterator.remove();
+            }
+        }
+    }
+
+    private void drawClassicHummingbirdRouteFeatures(GraphicsContext g) {
+        if (!classicModeActive || classicSelectedBird != BirdType.HUMMINGBIRD || classicEncounter == null) return;
+        for (int i = 0; i < classicNectarRings.size(); i++) {
+            ClassicNectarRing ring = classicNectarRings.get(i);
+            if (ring.collected) continue;
+            boolean next = i == classicNectarRingIndex;
+            g.setStroke(Color.web(next ? "#FFF176" : "#7CE8C6", next ? 0.96 : 0.34));
+            g.setLineWidth(next ? 13.0 : 7.0);
+            g.strokeOval(ring.x - ring.radius, ring.y - ring.radius, ring.radius * 2.0, ring.radius * 2.0);
+            g.setFill(Color.web(next ? "#FF70C5" : "#75DDBB", next ? 0.72 : 0.26));
+            for (int petal = 0; petal < 8; petal++) {
+                double angle = petal * Math.PI / 4.0;
+                double px = ring.x + Math.cos(angle) * ring.radius;
+                double py = ring.y + Math.sin(angle) * ring.radius;
+                g.fillOval(px - 19, py - 13, 38, 26);
+            }
+        }
+        for (ClassicBlightPollen pollen : classicBlightPollen) {
+            double radius = pollen.vx == 0.0 && pollen.vy == 0.0 ? 110.0 : 34.0;
+            g.setFill(Color.web("#120816", 0.64));
+            g.fillOval(pollen.x - radius, pollen.y - radius, radius * 2.0, radius * 2.0);
+            g.setStroke(Color.web("#9C4D8C", 0.65));
+            g.setLineWidth(4.0);
+            g.strokeOval(pollen.x - radius, pollen.y - radius, radius * 2.0, radius * 2.0);
+        }
+        if (classicClosedHeartbloomPetal != null) {
+            Platform p = classicClosedHeartbloomPetal;
+            g.setFill(Color.web("#25142A", 0.88));
+            g.fillRoundRect(p.x, p.y, p.w, p.h, 70, 70);
+            g.setStroke(Color.web("#75446D"));
+            g.setLineWidth(7.0);
+            g.strokeRoundRect(p.x, p.y, p.w, p.h, 70, 70);
+        }
+    }
+
+    int classicHummingbirdBlossomCount() {
+        int total = 0;
+        for (boolean blossom : classicHummingbirdBlossoms) if (blossom) total++;
+        return total;
+    }
+
+    boolean isClassicNectarDashActive() {
+        return classicModeActive && classicEncounter != null
+                && classicEncounter.style == ClassicEncounterStyle.NECTAR_DASH;
+    }
+
+    boolean isClassicNectarDashParticipant(Bird bird) {
+        return isClassicNectarDashActive() && bird != null && bird.playerIndex == 0;
+    }
+
+    void finishClassicNectarDashFromTimeout() {
+        if (!isClassicNectarDashActive() || matchEnded) return;
+        addToKillFeed("TIME! The flower course closes, but the Classic route continues.");
+        matchController.triggerMatchEnd(players[0]);
+    }
+
+    private boolean isClassicBlightwingEncounter() {
+        return classicModeActive && classicEncounter != null
+                && classicEncounter.style == ClassicEncounterStyle.BLIGHTWING_BOSS;
     }
 
     void onClassicBonusTargetDestroyed(Bird target) {
@@ -42251,6 +42691,98 @@ public class BirdGame3 {
         windVents.add(new WindVent(1_360, GROUND_Y - 310, 300));
         windVents.add(new WindVent(2_850, GROUND_Y - 490, 300));
         windVents.add(new WindVent(4_340, GROUND_Y - 310, 300));
+    }
+
+    private void setupHeartbloomSanctuaryArena() {
+        resetBossRushArenaState();
+        activeArenaGeometryVariant = MapVariant.HEARTBLOOM_SANCTUARY;
+        classicHeartbloomPetals.clear();
+
+        Platform westPetal = new Platform(360, GROUND_Y - 260, 1_120, 70);
+        Platform heart = new Platform(1_700, GROUND_Y - 470, 2_600, 92);
+        Platform eastPetal = new Platform(4_520, GROUND_Y - 260, 1_120, 70);
+        Platform highBloom = new Platform(2_510, GROUND_Y - 1_040, 980, 48);
+        Platform westBud = new Platform(1_050, GROUND_Y - 770, 520, 42);
+        Platform eastBud = new Platform(4_430, GROUND_Y - 770, 520, 42);
+        heart.signText = "HEARTBLOOM";
+        Collections.addAll(platforms, westPetal, heart, eastPetal, highBloom, westBud, eastBud);
+        Collections.addAll(classicHeartbloomPetals, westPetal, heart, eastPetal, highBloom, westBud, eastBud);
+
+        battlefieldIslandX = heart.x;
+        battlefieldIslandW = heart.w;
+        battlefieldIslandY = heart.y;
+
+        int flowerCount = isClassicBlightwingEncounter() ? classicHummingbirdBlossomCount() : 3;
+        double[] flowerX = {850, 1_520, 2_180, 2_850, 3_520, 4_180, 4_850};
+        for (int i = 0; i < flowerCount && i < flowerX.length; i++) {
+            windVents.add(new WindVent(flowerX[i], GROUND_Y - 330 - (i % 2) * 150, 260));
+        }
+    }
+
+    private void drawHeartbloomSanctuary(GraphicsContext g, boolean ambientFx) {
+        double dawn = isClassicBlightwingEncounter()
+                ? Math.clamp(0.18 + (2 - Math.max(0, enemyStockCount())) * 0.34, 0.0, 1.0)
+                : 0.72;
+        Color top = Color.web("#09051A").interpolate(Color.web("#714B86"), dawn);
+        Color bottom = Color.web("#42113E").interpolate(Color.web("#F5A45D"), dawn);
+        for (int i = 0; i < 520; i++) {
+            double ratio = i / 520.0;
+            g.setFill(top.interpolate(bottom, ratio));
+            g.fillRect(0, i * (WORLD_HEIGHT / 520.0), WORLD_WIDTH, WORLD_HEIGHT / 520.0 + 3);
+        }
+
+        g.setFill(Color.web("#05030C", 0.92 - dawn * 0.42));
+        g.fillOval(WORLD_WIDTH * 0.5 - 330, 130, 660, 660);
+        g.setStroke(Color.web("#FFE082", 0.35 + dawn * 0.45));
+        g.setLineWidth(22);
+        g.strokeOval(WORLD_WIDTH * 0.5 - 340, 120, 680, 680);
+
+        for (int layer = 0; layer < 3; layer++) {
+            g.setFill(Color.web(layer == 0 ? "#20102E" : (layer == 1 ? "#391442" : "#571C51"), 0.88));
+            double baseY = GROUND_Y + 240 - layer * 80;
+            for (int i = 0; i < 9; i++) {
+                double x = i * 760 - layer * 170;
+                double h = 500 + ((i * 97 + layer * 61) % 480);
+                g.fillOval(x, baseY - h, 850, h + 230);
+            }
+        }
+
+        for (Platform p : platforms) {
+            boolean closed = p == classicClosedHeartbloomPetal;
+            Color petal = closed ? Color.web("#2A172E") : Color.web("#8D2D78");
+            Color lip = closed ? Color.web("#5A3D5D") : Color.web("#FF70C5");
+            g.setFill(petal);
+            g.fillRoundRect(p.x, p.y, p.w, p.h, 70, 70);
+            g.setStroke(lip);
+            g.setLineWidth(6);
+            g.strokeRoundRect(p.x, p.y, p.w, p.h, 70, 70);
+            if (!closed) {
+                g.setFill(Color.web("#FFF176", 0.50));
+                g.fillOval(p.x + p.w * 0.5 - 40, p.y - 30, 80, 46);
+            }
+        }
+
+        for (WindVent vent : windVents) {
+            double pulse = ambientFx ? 0.55 + 0.45 * Math.sin(System.currentTimeMillis() / 240.0 + vent.x) : 0.65;
+            g.setFill(Color.web("#A7FFEB", 0.13 + pulse * 0.12));
+            g.fillOval(vent.x + vent.w * 0.5 - 115, vent.y - 290, 230, 520);
+            g.setFill(Color.web("#FFF176", 0.72));
+            for (int petal = 0; petal < 6; petal++) {
+                double angle = petal * Math.PI / 3.0;
+                double cx = vent.x + vent.w * 0.5 + Math.cos(angle) * 44;
+                double cy = vent.y + Math.sin(angle) * 25;
+                g.fillOval(cx - 24, cy - 14, 48, 28);
+            }
+        }
+    }
+
+    private int enemyStockCount() {
+        for (Bird bird : players) {
+            if (bird != null && getEffectiveTeam(bird.playerIndex) == 2) {
+                return matchScoreForPlayer(bird.playerIndex);
+            }
+        }
+        return 2;
     }
 
     private void setupBossRushCarrionThrone() {
@@ -42654,7 +43186,8 @@ public class BirdGame3 {
 
         claimDestroyedClassicBonusTargets();
         boolean playerWon = didPlayerWinClassic(winner);
-        if (classicEncounter.style == ClassicEncounterStyle.BONUS_RELAY) {
+        if (classicEncounter.style == ClassicEncounterStyle.BONUS_RELAY
+                || classicEncounter.style == ClassicEncounterStyle.NECTAR_DASH) {
             recordClassicEncounterScore(playerWon);
             classicRoundIndex++;
             classicEncounter = classicRun.get(classicRoundIndex);
@@ -42686,6 +43219,8 @@ public class BirdGame3 {
                 peregrineRunUnlocked = true;
             } else if (classicSelectedBird == BirdType.PHOENIX) {
                 frozenCalderaUnlocked = true;
+            } else if (classicSelectedBird == BirdType.HUMMINGBIRD) {
+                heartbloomSanctuaryUnlocked = true;
             }
             profileProgressController.onClassicRunCompleted(classicSelectedBird, achievementEvaluator::onClassicRunCompleted);
             String reward = classicRewardFor(classicSelectedBird);
@@ -42695,6 +43230,7 @@ public class BirdGame3 {
                 case EAGLE -> "\nMap variant unlocked: Tempest Summit.";
                 case FALCON -> "\nMap variant unlocked: Peregrine Run.";
                 case PHOENIX -> "\nMap variant unlocked: Frozen Caldera.";
+                case HUMMINGBIRD -> "\nMap variant unlocked: Heartbloom Sanctuary.";
                 default -> "";
             };
             String ending = switch (classicSelectedBird) {
@@ -42702,6 +43238,7 @@ public class BirdGame3 {
                 case EAGLE -> "\n\nThe storm breaks around the empty crown. Eagle leaves it on the summit and takes the open sky instead.";
                 case FALCON -> "\n\nThe last target disappears beneath the shattered Crown. Falcon turns away before the old hunt can name another master.";
                 case PHOENIX -> "\n\nThe caldera exhales. Ice gives way to sunrise, and Phoenix carries the last flame forward instead of guarding its ashes.";
+                case HUMMINGBIRD -> "\n\nThe eclipse breaks across Heartbloom. Hummingbird leaves no crown behind, only a living route of flowers that every small wing can follow.";
                 default -> "";
             };
             showStoryDialogue(
@@ -42709,11 +43246,13 @@ public class BirdGame3 {
                     classicSelectedBird == BirdType.PIGEON ? "Rooftop Ascent Complete"
                             : (classicSelectedBird == BirdType.EAGLE ? "The Sky Has One King"
                             : (classicSelectedBird == BirdType.FALCON ? "Nothing Escapes"
-                            : (classicSelectedBird == BirdType.PHOENIX ? "The Flame That Returns" : "Classic Cleared"))),
+                            : (classicSelectedBird == BirdType.PHOENIX ? "The Flame That Returns"
+                            : (classicSelectedBird == BirdType.HUMMINGBIRD ? "Beat of the Bloom" : "Classic Cleared")))),
                     classicSelectedBird == BirdType.PIGEON ? "The Beacon"
                             : (classicSelectedBird == BirdType.EAGLE ? "Summit Prime"
                             : (classicSelectedBird == BirdType.FALCON ? "Crown Pursuit"
-                            : (classicSelectedBird == BirdType.PHOENIX ? "Dawn Oracle" : "Skycaster Prime"))),
+                            : (classicSelectedBird == BirdType.PHOENIX ? "Dawn Oracle"
+                            : (classicSelectedBird == BirdType.HUMMINGBIRD ? "Heartbloom" : "Skycaster Prime")))),
                     "Run " + classicRunCodename + " completed with " + classicSelectedBird.name + ".\nReward unlocked: "
                             + reward + (charReward.isBlank() ? "" : "\nCharacter unlocked: " + charReward) + "."
                             + routeReward
@@ -45396,6 +45935,7 @@ public class BirdGame3 {
             return false;
         }
         return classicEncounter.style != ClassicEncounterStyle.BONUS_RELAY
+                && classicEncounter.style != ClassicEncounterStyle.NECTAR_DASH
                 && classicEncounter.style != ClassicEncounterStyle.NULL_ROCK_BOSS;
     }
 
@@ -45432,7 +45972,7 @@ public class BirdGame3 {
             return;
         }
         int enemyStocks = switch (classicEncounter.style) {
-            case STORM_TYRANT_BOSS, PHOENIX_REBIRTH -> 2;
+            case STORM_TYRANT_BOSS, PHOENIX_REBIRTH, BLIGHTWING_BOSS -> 2;
             case NULL_ROC_BOSS, LONG_WINTER_BOSS -> 3;
             default -> 0;
         };
@@ -45564,6 +46104,7 @@ public class BirdGame3 {
             applyStormTyrantRuntimeEffects();
             applyFalconClassicRuntimeEffects();
             applyPhoenixClassicRuntimeEffects();
+            applyHummingbirdClassicRuntimeEffects();
         }
         if (bossRushModeActive && classicModeActive) {
             applyBossRushRuntimeEffects();
@@ -48250,6 +48791,7 @@ public class BirdGame3 {
                 || activeArenaGeometryVariant == MapVariant.PARLIAMENT_ROOFTOPS
                 || activeArenaGeometryVariant == MapVariant.PEREGRINE_RUN
                 || activeArenaGeometryVariant == MapVariant.TEMPEST_SUMMIT
+                || activeArenaGeometryVariant == MapVariant.HEARTBLOOM_SANCTUARY
                 || isCrownDuelArena();
     }
 
@@ -48790,6 +49332,7 @@ public class BirdGame3 {
             case PEREGRINE_RUN -> setupPeregrineRunArena();
             case TEMPEST_SUMMIT -> setupTempestSummitArena();
             case FROZEN_CALDERA -> setupFrozenCalderaArena();
+            case HEARTBLOOM_SANCTUARY -> setupHeartbloomSanctuaryArena();
             case CARRION_THRONE -> setupBossRushCarrionThrone();
             case NULL_ROC_ASCENDING -> setupBossRushNullRocArena();
             case VOID_CROWN -> setupBossRushVoidCrownArena();
@@ -50194,6 +50737,10 @@ public class BirdGame3 {
                         .count();
                 lines.add("TARGETS " + targetsRemaining + "/3  BONUS COINS +" + classicBonusCoins
                         + "  FALLING DOES NOT COST A LIFE");
+            } else if (classicEncounter.style == ClassicEncounterStyle.NECTAR_DASH) {
+                lines.add("FLOWER GATES " + classicNectarRingIndex + "/" + classicNectarRings.size()
+                        + "  BLOSSOMS " + classicHummingbirdBlossomCount() + "/7"
+                        + "  FALLING RESETS POSITION");
             } else {
                 lines.add(dailyChallengeModeActive
                     ? "LIVES " + livesLeft + "/3  SEED " + formatDailyChallengeSeed(dailyChallengeSeed)
@@ -50202,7 +50749,9 @@ public class BirdGame3 {
                     : bossRushModeActive
                     ? "REPAIR STOCKS " + livesLeft + "/3"
                     : "DIFFICULTY " + String.format(Locale.US, "%.1f", classicDifficulty)
-                    + "  SCORE " + String.format(Locale.US, "%,d", classicRunScore));
+                    + "  SCORE " + String.format(Locale.US, "%,d", classicRunScore)
+                    + (classicSelectedBird == BirdType.HUMMINGBIRD
+                    ? "  BLOSSOMS " + classicHummingbirdBlossomCount() + "/7" : ""));
             }
             return lines;
         }
@@ -52955,6 +53504,16 @@ public class BirdGame3 {
         classicLongWinterBlizzardPhaseActive = false;
         classicLongWinterFinalPhaseActive = false;
         classicPhoenixRelayCollapseStage = 0;
+        if (classicClosedHeartbloomPetal != null && !platforms.contains(classicClosedHeartbloomPetal)) {
+            platforms.add(classicClosedHeartbloomPetal);
+        }
+        classicClosedHeartbloomPetal = null;
+        classicHeartbloomClosureIndex = -1;
+        classicNectarRings.clear();
+        classicBlightPollen.clear();
+        classicNectarRingIndex = 0;
+        classicHummingbirdDashCompleted = false;
+        classicHeartbloomPollenHitCooldown = 0;
     }
 
     private void resetSuddenDeathState() {
@@ -53082,6 +53641,7 @@ public class BirdGame3 {
         state.tempestSummitUnlocked = tempestSummitUnlocked;
         state.peregrineRunUnlocked = peregrineRunUnlocked;
         state.frozenCalderaUnlocked = frozenCalderaUnlocked;
+        state.heartbloomSanctuaryUnlocked = heartbloomSanctuaryUnlocked;
         state.towerDefenseDifficultyBadges = copyBooleanMatrix(towerDefenseDifficultyBadges);
         state.cityPigeonUnlocked = cityPigeonUnlocked;
         state.noirPigeonUnlocked = noirPigeonUnlocked;
@@ -53224,6 +53784,7 @@ public class BirdGame3 {
         tempestSummitUnlocked = resolved.tempestSummitUnlocked;
         peregrineRunUnlocked = resolved.peregrineRunUnlocked;
         frozenCalderaUnlocked = resolved.frozenCalderaUnlocked;
+        heartbloomSanctuaryUnlocked = resolved.heartbloomSanctuaryUnlocked;
         copyInto(resolved.towerDefenseDifficultyBadges, towerDefenseDifficultyBadges);
 
         cityPigeonUnlocked = resolved.cityPigeonUnlocked;
@@ -53372,6 +53933,9 @@ public class BirdGame3 {
         }
         if (classicCompleted[BirdType.PHOENIX.ordinal()]) {
             frozenCalderaUnlocked = true;
+        }
+        if (classicCompleted[BirdType.HUMMINGBIRD.ordinal()]) {
+            heartbloomSanctuaryUnlocked = true;
         }
         boolean unitedFinaleCompleted = unitedIdx >= 0
                 && unitedIdx < mainAdventureCompleted.length

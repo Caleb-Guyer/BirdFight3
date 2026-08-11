@@ -227,6 +227,28 @@ class MapVariantTest {
     }
 
     @Test
+    void heartbloomSanctuaryIsAnOpenFlowerArenaAndUnlockableVariant() throws Exception {
+        BirdGame3 game = buildVariant(MapVariant.HEARTBLOOM_SANCTUARY);
+
+        Field activeVariant = BirdGame3.class.getDeclaredField("activeArenaGeometryVariant");
+        activeVariant.setAccessible(true);
+        assertEquals(MapVariant.HEARTBLOOM_SANCTUARY, activeVariant.get(game));
+        assertFalse(game.platforms.stream().anyMatch(platform -> platform.w >= BirdGame3.WORLD_WIDTH));
+        assertFalse(game.platforms.stream().anyMatch(platform -> platform.y <= 0.0));
+        assertTrue(game.platforms.stream().anyMatch(platform -> platform.w == 2_600.0));
+        assertEquals(3, game.windVents.size());
+        assertTrue(game.usesIslandBoundsForCurrentArena());
+
+        assertFalse(game.availableStageChoices(StageRandomPool.VARIANTS).stream()
+                .anyMatch(choice -> choice.variant() == MapVariant.HEARTBLOOM_SANCTUARY));
+        Field unlocked = BirdGame3.class.getDeclaredField("heartbloomSanctuaryUnlocked");
+        unlocked.setAccessible(true);
+        unlocked.setBoolean(game, true);
+        assertTrue(game.availableStageChoices(StageRandomPool.VARIANTS).stream()
+                .anyMatch(choice -> choice.variant() == MapVariant.HEARTBLOOM_SANCTUARY));
+    }
+
+    @Test
     void ashfallRebirthLeavesTheTopBlastRouteOpen() throws Exception {
         BirdGame3 game = buildVariant(MapVariant.ASHFALL_REBIRTH);
 
@@ -246,6 +268,7 @@ class MapVariantTest {
         BirdGame3 tempestSummit = buildVariant(MapVariant.TEMPEST_SUMMIT);
         BirdGame3 peregrineRun = buildVariant(MapVariant.PEREGRINE_RUN);
         BirdGame3 frozenCaldera = buildVariant(MapVariant.FROZEN_CALDERA);
+        BirdGame3 heartbloom = buildVariant(MapVariant.HEARTBLOOM_SANCTUARY);
 
         assertFalse(titanDock.platforms.stream().anyMatch(platform -> platform.x == 720.0 && platform.w == 1820.0));
         assertFalse(parliament.platforms.stream().anyMatch(platform -> platform.w >= BirdGame3.WORLD_WIDTH));
@@ -256,6 +279,7 @@ class MapVariantTest {
         assertTrue(tempestSummit.usesIslandBoundsForCurrentArena());
         assertTrue(peregrineRun.usesIslandBoundsForCurrentArena());
         assertTrue(frozenCaldera.usesIslandBoundsForCurrentArena());
+        assertTrue(heartbloom.usesIslandBoundsForCurrentArena());
     }
 
     private BirdGame3 buildVariant(MapVariant variant) throws Exception {

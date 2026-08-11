@@ -476,6 +476,11 @@ final class MatchController {
             return;
         }
 
+        if (game.isClassicNectarDashActive() && game.matchTimer <= 0) {
+            game.finishClassicNectarDashFromTimeout();
+            return;
+        }
+
         if (game.usesSmashCombatRules()) {
             if (game.matchTimer <= 0 && !game.suddenDeath.isActive()) {
                 if (hasSmashTimeoutStockTie()) {
@@ -512,6 +517,9 @@ final class MatchController {
     }
 
     void checkForMatchCompletion() {
+        if (game.isClassicNectarDashActive()) {
+            return;
+        }
         if (game.campaignModeActive) {
             game.checkCampaignMissionCompletion();
             return;

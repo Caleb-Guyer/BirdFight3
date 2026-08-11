@@ -124,6 +124,19 @@ class BirdGame3ProfileProgressStateTest {
     }
 
     @Test
+    void savesAndLoadsHeartbloomSanctuaryClassicReward() {
+        BirdGame3ProfileProgressState.Schema schema = new BirdGame3ProfileProgressState.Schema(
+                BirdGame3Achievement.values().length, 4, 16, 0, 0);
+        BirdGame3ProfileProgressState state = new BirdGame3ProfileProgressState();
+        state.heartbloomSanctuaryUnlocked = true;
+
+        state.saveTo(prefs, schema);
+        BirdGame3ProfileProgressState loaded = BirdGame3ProfileProgressState.load(prefs, schema);
+
+        assertTrue(loaded.heartbloomSanctuaryUnlocked);
+    }
+
+    @Test
     void existingPigeonClassicClearMigratesToRooftopRelayReward() throws Exception {
         BirdGame3ProfileProgressState.Schema schema = new BirdGame3ProfileProgressState.Schema(
                 BirdGame3Achievement.values().length,
@@ -200,6 +213,25 @@ class BirdGame3ProfileProgressStateTest {
         apply.invoke(game, legacy);
 
         Field unlocked = BirdGame3.class.getDeclaredField("frozenCalderaUnlocked");
+        unlocked.setAccessible(true);
+        assertTrue(unlocked.getBoolean(game));
+    }
+
+    @Test
+    void existingHummingbirdClassicClearMigratesToHeartbloomReward() throws Exception {
+        BirdGame3ProfileProgressState.Schema schema = new BirdGame3ProfileProgressState.Schema(
+                BirdGame3Achievement.values().length, 4, 16, 0, 0);
+        BirdGame3ProfileProgressState legacy = BirdGame3ProfileProgressState.load(null, schema);
+        legacy.classicCompleted[BirdGame3.BirdType.HUMMINGBIRD.ordinal()] = true;
+        legacy.heartbloomSanctuaryUnlocked = false;
+        BirdGame3 game = new BirdGame3();
+        Method apply = BirdGame3.class.getDeclaredMethod(
+                "applyProfileProgressState", BirdGame3ProfileProgressState.class);
+        apply.setAccessible(true);
+
+        apply.invoke(game, legacy);
+
+        Field unlocked = BirdGame3.class.getDeclaredField("heartbloomSanctuaryUnlocked");
         unlocked.setAccessible(true);
         assertTrue(unlocked.getBoolean(game));
     }

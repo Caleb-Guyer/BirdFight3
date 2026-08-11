@@ -370,7 +370,8 @@ final class StoryCampaignContent {
     private static StoryCampaign.Mission needleRoute() {
         return mission("needle_route", "Needle Route",
                 "Carry the warning through the canopy and light all four nectar relays.",
-                VIBRANT_JUNGLE, STILLNESS, StoryCampaign.PlayablePolicy.forced(HUMMINGBIRD),
+                VIBRANT_JUNGLE, BirdGame3.MapVariant.HEARTBLOOM_SANCTUARY, STILLNESS,
+                StoryCampaign.PlayablePolicy.forced(HUMMINGBIRD),
                 List.of(),
                 fighters(enemy(GRINCHHAWK, "Green Thief"), enemy(RAVEN, "Pact Runner")),
                 phases(

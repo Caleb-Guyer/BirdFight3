@@ -1,13 +1,13 @@
 package com.example.birdgame3;
 
 final class StageSelectLayout {
-    static final int COLUMNS = 4;
+    static final int COLUMNS = 5;
     static final double ROOT_TOP_PADDING = 22.0;
     static final double ROOT_BOTTOM_PADDING = 24.0;
     static final double ROOT_HORIZONTAL_PADDING = 32.0;
     static final double TOP_BAR_HEIGHT = 74.0;
-    static final double CARD_WIDTH = 424.0;
-    static final double CARD_INNER_WIDTH = 400.0;
+    static final double CARD_WIDTH = 340.0;
+    static final double CARD_INNER_WIDTH = 316.0;
     static final double CARD_HEIGHT = 154.0;
     static final double HORIZONTAL_GAP = 18.0;
     static final double VERTICAL_GAP = 14.0;
