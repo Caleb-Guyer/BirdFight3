@@ -4953,6 +4953,14 @@ public class BirdGame3 {
         }
     }
 
+    private void playClassicNectarRingSfx(int collected, int total) {
+        double progress = Math.clamp(collected / (double) Math.max(1, total), 0.0, 1.0);
+        playManagedSfxVaried(steamAchievementClip, 0.34 + progress * 0.12,
+                1.18 + progress * 0.34, 0.015);
+        playManagedSfxVaried(swingClip, 0.18 + progress * 0.08,
+                1.58 + progress * 0.22, 0.018);
+    }
+
     private void playClassicEncounterMusic() {
         startOrContinueMusicTrack(CLASSIC_ENCOUNTER_MUSIC_FILE, true);
     }
@@ -42182,6 +42190,7 @@ public class BirdGame3 {
             if (dx * dx + dy * dy <= ring.radius * ring.radius) {
                 ring.collected = true;
                 classicNectarRingIndex++;
+                playClassicNectarRingSfx(classicNectarRingIndex, classicNectarRings.size());
                 classicRunScore += 350;
                 addToKillFeed("FLOWER GATE " + classicNectarRingIndex + "/" + classicNectarRings.size());
                 if (classicNectarRingIndex >= classicNectarRings.size()) {
@@ -42291,6 +42300,7 @@ public class BirdGame3 {
 
     private void drawClassicHummingbirdRouteFeatures(GraphicsContext g) {
         if (!classicModeActive || classicSelectedBird != BirdType.HUMMINGBIRD || classicEncounter == null) return;
+        drawClassicNectarGuideMarker(g);
         for (int i = 0; i < classicNectarRings.size(); i++) {
             ClassicNectarRing ring = classicNectarRings.get(i);
             if (ring.collected) continue;
@@ -42322,6 +42332,48 @@ public class BirdGame3 {
             g.setLineWidth(7.0);
             g.strokeRoundRect(p.x, p.y, p.w, p.h, 70, 70);
         }
+    }
+
+    private void drawClassicNectarGuideMarker(GraphicsContext g) {
+        if (classicNectarRingIndex < 0 || classicNectarRingIndex >= classicNectarRings.size()) return;
+        Bird player = players[0];
+        if (player == null || player.health <= 0.0) return;
+
+        ClassicNectarRing next = classicNectarRings.get(classicNectarRingIndex);
+        double playerX = player.bodyCenterX();
+        double playerY = player.bodyCenterY();
+        double dx = next.x - playerX;
+        double dy = next.y - playerY;
+        double distance = Math.hypot(dx, dy);
+        if (distance < 1.0) return;
+
+        double ux = dx / distance;
+        double uy = dy / distance;
+        double markerDistance = Math.clamp(distance * 0.22, 92.0, 142.0);
+        double markerX = playerX + ux * markerDistance;
+        double markerY = playerY + uy * markerDistance;
+        double angle = Math.atan2(dy, dx);
+
+        g.save();
+        g.translate(markerX, markerY);
+        g.rotate(Math.toDegrees(angle));
+        g.setFill(Color.web("#09120F", 0.72));
+        g.fillOval(-34, -34, 68, 68);
+        g.setStroke(Color.web("#FFF176", 0.96));
+        g.setLineWidth(4.0);
+        g.strokeOval(-31, -31, 62, 62);
+
+        g.setFill(Color.web("#FF70C5", 0.92));
+        for (int petal = 0; petal < 6; petal++) {
+            double petalAngle = petal * Math.PI / 3.0;
+            double px = Math.cos(petalAngle) * 15.0;
+            double py = Math.sin(petalAngle) * 15.0;
+            g.fillOval(px - 7.5, py - 5.5, 15.0, 11.0);
+        }
+        g.setFill(Color.web("#FFF59D"));
+        g.fillOval(-6.5, -6.5, 13.0, 13.0);
+        g.fillPolygon(new double[]{26, 49, 26}, new double[]{-13, 0, 13}, 3);
+        g.restore();
     }
 
     int classicHummingbirdBlossomCount() {
