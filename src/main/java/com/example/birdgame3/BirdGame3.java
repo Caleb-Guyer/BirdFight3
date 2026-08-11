@@ -4834,7 +4834,7 @@ public class BirdGame3 {
     private static final String MAP_DOCK_KEY = "MAP_DOCK";
     private static final String MAP_PRISON_KEY = "MAP_PRISON";
     private static final String DEVELOPER_UNLOCK_CODE = "FEATHERDEV";
-    private static final int DEVELOPER_BADGE_POLICY_VERSION = 1;
+    private static final int DEVELOPER_BADGE_POLICY_VERSION = 2;
     static final double CLASSIC_STARTING_DIFFICULTY = 5.0;
     static final double CLASSIC_DIFFICULTY_STEP = 0.5;
     static final int CLASSIC_CONTINUE_BIRD_COIN_COST = 100;
@@ -29518,6 +29518,47 @@ public class BirdGame3 {
         }
     }
 
+    /**
+     * Policy v1 could be stamped onto a legacy FEATHERDEV save before its old
+     * all-birds Classic grant was removed. When that exact corruption is
+     * present, rebuild the completion set from recent final-round victories so
+     * genuine clears survive while the developer-granted badges disappear.
+     */
+    private void recoverLegacyDeveloperClassicBadges() {
+        boolean everyBirdMarkedComplete = classicCompleted.length > 0;
+        for (boolean completed : classicCompleted) {
+            everyBirdMarkedComplete &= completed;
+        }
+        if (!everyBirdMarkedComplete) {
+            return;
+        }
+
+        boolean[] recovered = new boolean[classicCompleted.length];
+        int[] finalRounds = new int[BirdType.values().length];
+        for (BirdType type : BirdType.values()) {
+            finalRounds[type.ordinal()] = Math.max(1, buildClassicRun(type).size());
+        }
+        for (MatchHistoryEntry entry : matchHistory) {
+            if (entry == null || !"CLASSIC".equals(entry.mode())) {
+                continue;
+            }
+            for (BirdType type : BirdType.values()) {
+                String finalRoundPrefix = "Round " + finalRounds[type.ordinal()] + ":";
+                if (!entry.detail().contains(finalRoundPrefix)) {
+                    continue;
+                }
+                boolean playerWonWithBird = entry.participants().stream().anyMatch(participant ->
+                        participant.winner()
+                                && "You".equalsIgnoreCase(participant.slotLabel())
+                                && type.name.equalsIgnoreCase(participant.birdName()));
+                if (playerWonWithBird) {
+                    recovered[type.ordinal()] = true;
+                }
+            }
+        }
+        System.arraycopy(recovered, 0, classicCompleted, 0, classicCompleted.length);
+    }
+
     private void grantBirdCoins(int amount) {
         birdCoinLedger.grant(amount);
     }
@@ -52901,7 +52942,11 @@ public class BirdGame3 {
         // receive birds, skins, maps, and other content added by later updates.
         if (developerInfiniteBirdCoins) {
             if (developerBadgePolicyVersion < DEVELOPER_BADGE_POLICY_VERSION) {
-                removeLegacyDeveloperBadgeEntitlements();
+                if (developerBadgePolicyVersion < 1) {
+                    removeLegacyDeveloperBadgeEntitlements();
+                } else {
+                    recoverLegacyDeveloperClassicBadges();
+                }
             }
             unlockEverythingForDeveloperProfile();
         }

@@ -446,7 +446,7 @@ class BirdGame3SettingsTest {
 
         assertNoDeveloperGrantedBadges(migrated);
         migrated.persistAchievements(prefs);
-        assertEquals(1, prefs.getInt("developer_badge_policy_version", 0));
+        assertEquals(2, prefs.getInt("developer_badge_policy_version", 0));
 
         setClassicCompletion(migrated, BirdGame3.BirdType.PIGEON, true);
         migrated.setAchievementUnlocked(BirdGame3Achievement.FIRST_BLOOD, true);
@@ -456,6 +456,45 @@ class BirdGame3SettingsTest {
         loadProfileProgress.invoke(reloaded, prefs);
         assertTrue(reloaded.shouldShowClassicSelectBadge(BirdGame3.BirdType.PIGEON, false));
         assertTrue(reloaded.isAchievementUnlocked(BirdGame3Achievement.FIRST_BLOOD));
+    }
+
+    @Test
+    void stuckVersionOneDeveloperClassicBadgesRecoverOnlyProvenRouteClears() throws Exception {
+        prefs.putBoolean("developer_infinite_bird_coins", true);
+        prefs.putInt("developer_badge_policy_version", 1);
+        for (BirdGame3.BirdType type : BirdGame3.BirdType.values()) {
+            prefs.putBoolean("classic_done_" + type.name(), true);
+        }
+        List<MatchHistoryEntry.Participant> pigeonVictory = List.of(
+                new MatchHistoryEntry.Participant("You", "Pigeon", 300, 3, 0, 1, 80, true));
+        List<MatchHistoryEntry.Participant> eagleVictory = List.of(
+                new MatchHistoryEntry.Participant("You", "Eagle", 280, 3, 0, 1, 70, true));
+        prefs.putInt("match_history_count", 3);
+        prefs.put("match_history_entry_0", new MatchHistoryEntry(
+                3L, "CLASSIC", "2P | Team Battle | Round 8: The Weight of the Crown",
+                "Tempest Summit", "TEAM A", 140, eagleVictory).serialize());
+        prefs.put("match_history_entry_1", new MatchHistoryEntry(
+                2L, "CLASSIC", "2P | Team Battle | Round 8: No Crown, No King",
+                "Final Duel", "TEAM A", 120, pigeonVictory).serialize());
+        prefs.put("match_history_entry_2", new MatchHistoryEntry(
+                1L, "CLASSIC", "2P | Team Battle | Round 8: Failed Attempt",
+                "Final Duel", "TEAM B", 0, List.of(
+                        new MatchHistoryEntry.Participant("You", "Falcon", 20, 0, 1, 0, 150, false))).serialize());
+
+        BirdGame3 migrated = new BirdGame3();
+        Method loadProfileProgress = BirdGame3.class.getDeclaredMethod("loadProfileProgress", Preferences.class);
+        loadProfileProgress.setAccessible(true);
+        loadProfileProgress.invoke(migrated, prefs);
+
+        assertTrue(migrated.isClassicCompleted(BirdGame3.BirdType.PIGEON));
+        assertTrue(migrated.isClassicCompleted(BirdGame3.BirdType.EAGLE));
+        assertFalse(migrated.isClassicCompleted(BirdGame3.BirdType.FALCON));
+        assertFalse(migrated.isClassicCompleted(BirdGame3.BirdType.RAVEN));
+        migrated.persistAchievements(prefs);
+        assertEquals(2, prefs.getInt("developer_badge_policy_version", 0));
+        assertTrue(prefs.getBoolean("classic_done_PIGEON", false));
+        assertTrue(prefs.getBoolean("classic_done_EAGLE", false));
+        assertFalse(prefs.getBoolean("classic_done_FALCON", true));
     }
 
     @Test
