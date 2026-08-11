@@ -21716,11 +21716,17 @@ public class BirdGame3 {
     }
 
     private Node buildRosterSelectionIcon(BirdType type, boolean randomPick, double iconSize) {
-        return buildRosterSelectionIcon(type, randomPick, iconSize, false);
+        return buildRosterSelectionIcon(type, randomPick, iconSize, BirdSelectBadgeMode.NONE);
     }
 
     private Node buildRosterSelectionIcon(BirdType type, boolean randomPick, double iconSize,
                                           boolean bossRush) {
+        return buildRosterSelectionIcon(type, randomPick, iconSize,
+                bossRush ? BirdSelectBadgeMode.BOSS_RUSH : BirdSelectBadgeMode.CLASSIC);
+    }
+
+    private Node buildRosterSelectionIcon(BirdType type, boolean randomPick, double iconSize,
+                                          BirdSelectBadgeMode badgeMode) {
         Canvas icon = new Canvas(iconSize, iconSize);
         drawRosterSprite(icon, type, null, randomPick);
         BirdType echoBase = echoBaseBird(type);
@@ -21737,7 +21743,9 @@ public class BirdGame3 {
             renderedIcon = echoStack;
         }
 
-        String badgeLabel = randomPick ? null : birdSelectBadgeLabel(type, bossRush);
+        String badgeLabel = randomPick || badgeMode == BirdSelectBadgeMode.NONE
+                ? null
+                : birdSelectBadgeLabel(type, badgeMode == BirdSelectBadgeMode.BOSS_RUSH);
         if (badgeLabel == null) {
             return renderedIcon;
         }
@@ -21751,6 +21759,12 @@ public class BirdGame3 {
         StackPane.setMargin(badge, new Insets(1, 1, 0, 0));
         badgedIcon.getChildren().add(badge);
         return badgedIcon;
+    }
+
+    private enum BirdSelectBadgeMode {
+        NONE,
+        CLASSIC,
+        BOSS_RUSH
     }
 
     String birdSelectBadgeLabel(BirdType type, boolean bossRush) {

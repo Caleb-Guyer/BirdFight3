@@ -61,6 +61,20 @@ class BirdGame3BossRushUiTest {
     }
 
     @Test
+    void normalFighterSelectDoesNotInheritClassicRouteBadges() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        setClassicCompleted(game, BirdGame3.BirdType.PIGEON, true);
+
+        Method builder = BirdGame3.class.getDeclaredMethod("buildRosterSelectionIcon",
+                BirdGame3.BirdType.class, boolean.class, double.class);
+        builder.setAccessible(true);
+        Node icon = (Node) builder.invoke(game, BirdGame3.BirdType.PIGEON, false, 88.0);
+
+        assertNull(findNodeById(icon, "bird-select-badge"),
+                "Normal fighter select must not display Classic route badges.");
+    }
+
+    @Test
     void bossRushStatusSeparatesSelectedBirdFromOverallBest() throws Exception {
         BirdGame3 game = new BirdGame3();
         setBossRushRecord(game, BirdGame3.BirdType.PIGEON, 610_000L, "A");
