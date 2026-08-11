@@ -4849,6 +4849,11 @@ public class BirdGame3 {
     static final double CLASSIC_STARTING_DIFFICULTY = 5.0;
     static final double CLASSIC_DIFFICULTY_STEP = 0.5;
     static final int CLASSIC_CONTINUE_BIRD_COIN_COST = 100;
+    static final double CLASSIC_INTRO_STATUS_X = 1_240.0;
+    static final double CLASSIC_INTRO_DIFFICULTY_Y = 24.0;
+    static final double CLASSIC_INTRO_MORALE_Y = 92.0;
+    static final double CLASSIC_INTRO_STATUS_WIDTH = 300.0;
+    static final double CLASSIC_INTRO_STATUS_HEIGHT = 56.0;
 
     // === CLASSIC MODE ===
     boolean classicModeActive = false;
@@ -41862,8 +41867,10 @@ public class BirdGame3 {
         difficulty.setFont(Font.font("Arial Black", 24));
         difficulty.setTextFill(Color.web("#FFE45C"));
         difficulty.setPadding(new Insets(9, 22, 9, 22));
-        difficulty.setLayoutX(1240);
-        difficulty.setLayoutY(24);
+        lockRegionSize(difficulty, CLASSIC_INTRO_STATUS_WIDTH, CLASSIC_INTRO_STATUS_HEIGHT);
+        difficulty.setAlignment(Pos.CENTER);
+        difficulty.setLayoutX(CLASSIC_INTRO_STATUS_X);
+        difficulty.setLayoutY(CLASSIC_INTRO_DIFFICULTY_Y);
         difficulty.setStyle("-fx-background-color: rgba(0,0,0,0.72); -fx-background-radius: 20; "
                 + "-fx-border-color: #FFE45C; -fx-border-width: 2; -fx-border-radius: 20;");
         root.getChildren().add(difficulty);
@@ -41874,8 +41881,10 @@ public class BirdGame3 {
             morale.setFont(Font.font("Arial Black", 20));
             morale.setTextFill(Color.web("#FFF0A8"));
             morale.setPadding(new Insets(8, 18, 8, 18));
-            morale.setLayoutX(1_030);
-            morale.setLayoutY(28);
+            lockRegionSize(morale, CLASSIC_INTRO_STATUS_WIDTH, CLASSIC_INTRO_STATUS_HEIGHT);
+            morale.setAlignment(Pos.CENTER);
+            morale.setLayoutX(CLASSIC_INTRO_STATUS_X);
+            morale.setLayoutY(CLASSIC_INTRO_MORALE_Y);
             morale.setStyle("-fx-background-color: rgba(29,18,12,0.80); -fx-background-radius: 18; "
                     + "-fx-border-color: #D89A2B; -fx-border-width: 2; -fx-border-radius: 18;");
             root.getChildren().add(morale);

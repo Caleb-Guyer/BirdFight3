@@ -14,6 +14,13 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class RoosterClassicRouteTest {
     @Test
+    void broodMoraleUsesItsOwnRowBelowDifficulty() {
+        assertTrue(BirdGame3.CLASSIC_INTRO_MORALE_Y
+                        >= BirdGame3.CLASSIC_INTRO_DIFFICULTY_Y + BirdGame3.CLASSIC_INTRO_STATUS_HEIGHT + 8.0,
+                "Brood Morale must clear the Difficulty pill with a visible gap.");
+    }
+
+    @Test
     void roosterHasTheApprovedEightEncounterNoOneLeftBehindRoute() throws Exception {
         List<ClassicEncounter> route = route(new BirdGame3());
 
