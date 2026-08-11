@@ -266,7 +266,8 @@ final class StoryCampaignContent {
     private static StoryCampaign.Mission lastThermal() {
         return mission("last_thermal", "The Last Thermal",
                 "Protect Penguin while the last cathedral thermal is separated from the Crown line.",
-                ASHFALL_CATHEDRAL, STILLNESS, StoryCampaign.PlayablePolicy.forced(PHOENIX),
+                ASHFALL_CATHEDRAL, BirdGame3.MapVariant.FROZEN_CALDERA, STILLNESS,
+                StoryCampaign.PlayablePolicy.forced(PHOENIX),
                 fighters(ally(PENGUIN, "Penguin")),
                 fighters(enemy(OPIUMBIRD, "Haze Surveyor"), enemy(VULTURE, "Carrion Collector")),
                 phases(

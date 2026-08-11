@@ -35641,6 +35641,8 @@ public class Bird {
         BirdAnimationState state = currentBirdAnimationState();
         HeadPose headPose = standardHeadPose(pose);
         boolean classic = isClassicSkin;
+        boolean winterKing = BirdGame3.WINTER_KING_GRINCHHAWK_SKIN.equals(appliedSkinKey);
+        boolean winterArmored = winterKing && game.isLongWinterFinalForm(this);
         boolean faction = isCampaignFactionSkin();
 
         Color back;
@@ -35664,6 +35666,17 @@ public class Bird {
             iris = campaignFactionAccentColor();
             hat = campaignFactionPrimaryColor().darker();
             hatTrim = campaignFactionAccentColor().brighter();
+        } else if (winterKing) {
+            back = Color.web("#102A42");
+            body = Color.web("#24536B");
+            head = Color.web("#17394F");
+            chest = Color.web("#D9F6FF");
+            wing = Color.web("#163A54");
+            featherEdge = Color.web("#A9E8F7");
+            leg = Color.web("#29485A");
+            iris = Color.web("#7DF9FF");
+            hat = Color.web("#274C72");
+            hatTrim = Color.web("#E9FCFF");
         } else if (classic) {
             back = Color.web("#1B1110");
             body = Color.web("#3A1715");
@@ -35850,7 +35863,7 @@ public class Bird {
                 eyeCenterX + aimX * 8.0 * s + upX * 5.7 * s,
                 eyeCenterY + aimY * 8.0 * s + upY * 5.7 * s);
 
-        drawGrinchhawkHat(g, headPose, aimX, aimY, upX, upY, hat, hatTrim, classic);
+        drawGrinchhawkHat(g, headPose, aimX, aimY, upX, upY, hat, hatTrim, classic || winterKing);
 
         if (classic) {
             g.setStroke(Color.web("#E5C78D").deriveColor(0, 0.76, 1.0, 0.58));
@@ -35860,7 +35873,57 @@ public class Bird {
                     facingRight ? 125.0 : -125.0,
                     ArcType.OPEN);
         }
+        if (winterArmored) {
+            drawWinterKingIceArmor(g, headPose, dir);
+        }
         drawVectorBirdStateAccents(g, drawSize, headPose);
+    }
+
+    private void drawWinterKingIceArmor(GraphicsContext g, HeadPose headPose, double dir) {
+        double s = sizeMultiplier;
+        Color ice = Color.web("#B8F3FF", 0.86);
+        Color iceCore = Color.web("#E9FCFF", 0.72);
+        Color edge = Color.web("#67D7EE", 0.90);
+
+        g.setFill(ice);
+        for (int i = 0; i < 4; i++) {
+            double rootX = grinchhawkBodyX(20.0 + i * 10.0);
+            double rootY = y + (23.0 - Math.abs(1.5 - i) * 2.0) * s;
+            double lean = (i - 1.5) * 2.2 * s;
+            g.fillPolygon(
+                    new double[]{rootX - 6.0 * s, rootX + 6.0 * s, rootX + lean},
+                    new double[]{rootY + 4.0 * s, rootY + 4.0 * s, rootY - (18.0 + i % 2 * 5.0) * s},
+                    3);
+        }
+
+        double chestX = grinchhawkBodyX(42.0);
+        double chestY = y + 48.0 * s;
+        g.setFill(iceCore);
+        g.fillPolygon(
+                new double[]{chestX, chestX + dir * 17.0 * s, chestX + dir * 10.0 * s,
+                        chestX, chestX - dir * 10.0 * s, chestX - dir * 17.0 * s},
+                new double[]{chestY - 19.0 * s, chestY - 7.0 * s, chestY + 15.0 * s,
+                        chestY + 22.0 * s, chestY + 15.0 * s, chestY - 7.0 * s},
+                6);
+        g.setStroke(edge);
+        g.setLineWidth(1.5 * s);
+        g.strokePolygon(
+                new double[]{chestX, chestX + dir * 17.0 * s, chestX + dir * 10.0 * s,
+                        chestX, chestX - dir * 10.0 * s, chestX - dir * 17.0 * s},
+                new double[]{chestY - 19.0 * s, chestY - 7.0 * s, chestY + 15.0 * s,
+                        chestY + 22.0 * s, chestY + 15.0 * s, chestY - 7.0 * s},
+                6);
+
+        g.setFill(iceCore);
+        double crownY = headPose.centerY() - 27.0 * s;
+        for (int i = -1; i <= 1; i++) {
+            double crownX = headPose.centerX() + i * 9.0 * s;
+            g.fillPolygon(
+                    new double[]{crownX - 5.0 * s, crownX + 5.0 * s, crownX + i * 2.0 * s},
+                    new double[]{crownY + 7.0 * s, crownY + 7.0 * s,
+                            crownY - (i == 0 ? 13.0 : 8.0) * s},
+                    3);
+        }
     }
 
     /** Mirrors authored 80-unit Grinch-Hawk body coordinates without duplicating left-facing curves. */
