@@ -41252,6 +41252,10 @@ public class BirdGame3 {
             classicSelectedSkinKey = normalizeAdventureSkinChoice(selected[0], selectedSkin[0]);
             showClassicRunBriefing(stage, selected[0]);
         });
+        Button endingGallery = uiFactory.action("ENDING GALLERY", 300, 66, 22, "#5E35B1", 18,
+                () -> showClassicEndingGallery(stage));
+        endingGallery.setVisible(!bossRush);
+        endingGallery.setManaged(!bossRush);
 
         skin.setOnAction(e -> {
             playButtonClick();
@@ -41296,9 +41300,11 @@ public class BirdGame3 {
         center.setPadding(new Insets(12, 0, 0, 0));
         content.setCenter(center);
 
-        HBox bottom = new HBox(start);
-        bottom.setAlignment(Pos.CENTER_RIGHT);
-        bottom.setPadding(new Insets(6, 40, 0, 0));
+        Region bottomSpacer = new Region();
+        HBox.setHgrow(bottomSpacer, Priority.ALWAYS);
+        HBox bottom = new HBox(20, endingGallery, bottomSpacer, start);
+        bottom.setAlignment(Pos.CENTER);
+        bottom.setPadding(new Insets(6, 40, 0, 40));
         content.setBottom(bottom);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
@@ -41308,6 +41314,122 @@ public class BirdGame3 {
         setScenePreservingFullscreen(stage, scene);
         refreshRef[0].run();
         if (selected[0] != null && tiles.get(selected[0]) != null) tiles.get(selected[0]).requestFocus();
+    }
+
+    private void showClassicEndingGallery(Stage stage) {
+        classicModeActive = false;
+        classicEncounter = null;
+        classicRun.clear();
+        classicRoundIndex = 0;
+        playMenuMusic();
+
+        final double layoutW = 1600.0;
+        final double layoutH = 900.0;
+        StackPane root = new StackPane();
+        root.getProperties().put("noAutoScale", true);
+        root.setStyle("-fx-background-color: linear-gradient(to bottom, #05070D, #11182A 58%, #07090F 100%);");
+
+        BorderPane content = new BorderPane();
+        lockRegionSize(content, layoutW, layoutH);
+        content.setPadding(new Insets(18, 28, 24, 28));
+        root.getChildren().add(content);
+
+        Button back = uiFactory.action("BACK", 170, 60, 22, "#B5121B", 16,
+                () -> showClassicBirdSelect(stage));
+        Label title = new Label("CLASSIC ENDINGS");
+        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 42));
+        title.setTextFill(Color.web("#FFE45C"));
+        long unlockedCount = ClassicEndingContent.endings().stream()
+                .filter(ending -> isClassicEndingUnlocked(ending.bird()))
+                .count();
+        Label count = new Label(unlockedCount + "/" + ClassicEndingContent.endings().size() + " ENDINGS UNLOCKED");
+        count.setFont(Font.font("Consolas", FontWeight.BOLD, 20));
+        count.setTextFill(Color.web("#B3E5FC"));
+        Region headerSpacer = new Region();
+        HBox.setHgrow(headerSpacer, Priority.ALWAYS);
+        HBox header = new HBox(24, back, title, headerSpacer, count);
+        header.setAlignment(Pos.CENTER_LEFT);
+        header.setPadding(new Insets(0, 8, 12, 8));
+        content.setTop(header);
+
+        GridPane grid = new GridPane();
+        grid.setHgap(16);
+        grid.setVgap(16);
+        grid.setAlignment(Pos.CENTER);
+        List<Button> unlockedCards = new ArrayList<>();
+        List<ClassicEndingContent.Ending> endings = ClassicEndingContent.endings();
+        for (int index = 0; index < endings.size(); index++) {
+            ClassicEndingContent.Ending ending = endings.get(index);
+            boolean unlocked = isClassicEndingUnlocked(ending.bird());
+            Node portrait = buildRosterSelectionIcon(ending.bird(), false, 92, false);
+            portrait.setOpacity(unlocked ? 1.0 : 0.26);
+
+            Label bird = new Label(ending.bird().name.toUpperCase(Locale.ROOT));
+            bird.setFont(Font.font("Arial Black", 20));
+            bird.setTextFill(Color.WHITE);
+            Label route = new Label(ending.routeTitle());
+            route.setFont(Font.font("Consolas", FontWeight.BOLD, 14));
+            route.setTextFill(Color.web(unlocked ? "#FFE082" : "#78909C"));
+            Label endingTitle = new Label(unlocked ? ending.title() : "LOCKED ENDING");
+            endingTitle.setFont(Font.font("Arial Black", 17));
+            endingTitle.setTextFill(Color.web(unlocked ? "#E1F5FE" : "#607D8B"));
+            endingTitle.setWrapText(true);
+            endingTitle.setTextAlignment(TextAlignment.CENTER);
+            endingTitle.setAlignment(Pos.CENTER);
+            endingTitle.setMaxWidth(300);
+            Label choice = new Label(unlocked ? ending.crownChoice() : "Earn this bird's Classic route badge to unlock.");
+            choice.setFont(Font.font("Consolas", FontWeight.BOLD, 13));
+            choice.setTextFill(Color.web(unlocked ? "#CFD8DC" : "#78909C"));
+            choice.setWrapText(true);
+            choice.setTextAlignment(TextAlignment.CENTER);
+            choice.setAlignment(Pos.CENTER);
+            choice.setMaxWidth(310);
+
+            VBox cardGraphic = new VBox(4, portrait, bird, route, endingTitle, choice);
+            cardGraphic.setAlignment(Pos.CENTER);
+            Button card = new Button();
+            card.setGraphic(cardGraphic);
+            card.setPadding(new Insets(10));
+            lockRegionSize(card, 364, 292);
+            String accent = switch (ending.alignment()) {
+                case HOPEFUL -> "#168A86";
+                case AMBIGUOUS -> "#B66A18";
+                case DOMINATING -> "#7B1F45";
+            };
+            card.setStyle("-fx-background-color: linear-gradient(to bottom, "
+                    + (unlocked ? accent : "#242A31") + ", #0A0D13); "
+                    + "-fx-background-radius: 18; -fx-border-color: "
+                    + (unlocked ? "#FFE082" : "#455A64")
+                    + "; -fx-border-width: 3; -fx-border-radius: 18;");
+            card.setDisable(!unlocked);
+            card.setAccessibleText(unlocked
+                    ? ending.bird().name + " Classic ending: " + ending.title()
+                    : ending.bird().name + " Classic ending locked");
+            card.setOnAction(event -> {
+                playButtonClick();
+                playClassicEnding(stage, ending.cutscene(), ending.bird(), null,
+                        () -> showClassicEndingGallery(stage));
+            });
+            if (unlocked) unlockedCards.add(card);
+            grid.add(card, index % 4, index / 4);
+        }
+        content.setCenter(grid);
+
+        Label hint = new Label("Every route badge unlocks its bird's alternate Crown epilogue. Select an ending to replay it.");
+        hint.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
+        hint.setTextFill(Color.web("#B0BEC5"));
+        hint.setAlignment(Pos.CENTER);
+        BorderPane.setAlignment(hint, Pos.CENTER);
+        BorderPane.setMargin(hint, new Insets(14, 0, 0, 0));
+        content.setBottom(hint);
+
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, back);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        bindFixedFrameScale(scene, content, 0.0, layoutW, layoutH);
+        setScenePreservingFullscreen(stage, scene);
+        (unlockedCards.isEmpty() ? back : unlockedCards.getFirst()).requestFocus();
     }
 
     private boolean isDailyChallengeRetired() {
@@ -44915,28 +45037,21 @@ public class BirdGame3 {
                 dawnwatchBastionUnlocked = true;
             }
             profileProgressController.onClassicRunCompleted(classicSelectedBird, achievementEvaluator::onClassicRunCompleted);
+            ClassicEndingContent.Ending authoredEnding = ClassicEndingContent.endingFor(classicSelectedBird);
+            if (authoredEnding != null) {
+                StoryCampaign.Cutscene playback = ClassicEndingContent.withRouteRecord(
+                        authoredEnding,
+                        routePayout,
+                        finalScore,
+                        classicRouteMapRewardName(classicSelectedBird));
+                playClassicEnding(stage, playback, classicSelectedBird, classicSelectedSkinKey,
+                        () -> runAfterUnlockCards(stage, () -> showClassicBirdSelect(stage)));
+                return;
+            }
             String reward = classicRewardFor(classicSelectedBird);
             String charReward = classicCharacterReward(classicSelectedBird);
-            String routeReward = switch (classicSelectedBird) {
-                case PIGEON -> "\nMap variant unlocked: Rooftop Relay.";
-                case EAGLE -> "\nMap variant unlocked: Tempest Summit.";
-                case FALCON -> "\nMap variant unlocked: Peregrine Run.";
-                case PHOENIX -> "\nMap variant unlocked: Frozen Caldera.";
-                case HUMMINGBIRD -> "\nMap variant unlocked: Heartbloom Sanctuary.";
-                case TURKEY -> "\nMap variant unlocked: Harvest Tribunal.";
-                case ROOSTER -> "\nMap variant unlocked: Dawnwatch Bastion.";
-                default -> "";
-            };
-            String ending = switch (classicSelectedBird) {
-                case PIGEON -> "\n\nDawn reaches the rooftops. Pigeon returns to the nest as the Beacon answers from across the city: no crown was needed to make the sky home.";
-                case EAGLE -> "\n\nThe storm breaks around the empty crown. Eagle leaves it on the summit and takes the open sky instead.";
-                case FALCON -> "\n\nThe last target disappears beneath the shattered Crown. Falcon turns away before the old hunt can name another master.";
-                case PHOENIX -> "\n\nThe caldera exhales. Ice gives way to sunrise, and Phoenix carries the last flame forward instead of guarding its ashes.";
-                case HUMMINGBIRD -> "\n\nThe eclipse breaks across Heartbloom. Hummingbird leaves no crown behind, only a living route of flowers that every small wing can follow.";
-                case TURKEY -> "\n\nThe last flame settles over the Tribunal. Turkey leaves the throne empty and the table open: the hunted bird now decides who is welcome at the feast.";
-                case ROOSTER -> "\n\nThe eclipse breaks over Dawnwatch. Rooster counts every returning wing before he sounds the bell: dawn belongs to the flock that reached it together.";
-                default -> "";
-            };
+            String routeReward = "";
+            String ending = "";
             showStoryDialogue(
                     stage,
                     classicSelectedBird == BirdType.PIGEON ? "Rooftop Ascent Complete"
@@ -44969,6 +45084,35 @@ public class BirdGame3 {
         classicEncounter = classicRun.get(classicRoundIndex);
         saveAchievements();
         showClassicEncounterIntro(stage);
+    }
+
+    private void playClassicEnding(Stage stage, StoryCampaign.Cutscene cutscene, BirdType bird,
+                                   String skinKey, Runnable after) {
+        if (cutscene == null) {
+            if (after != null) after.run();
+            return;
+        }
+        storyCutscenePlayer.play(stage, cutscene, bird, skinKey, () -> {
+            saveAchievements();
+            if (after != null) after.run();
+        });
+    }
+
+    boolean isClassicEndingUnlocked(BirdType bird) {
+        return ClassicEndingContent.hasEnding(bird) && isClassicCompleted(bird);
+    }
+
+    private String classicRouteMapRewardName(BirdType bird) {
+        return switch (bird) {
+            case PIGEON -> "Rooftop Relay";
+            case EAGLE -> "Tempest Summit";
+            case FALCON -> "Peregrine Run";
+            case PHOENIX -> "Frozen Caldera";
+            case HUMMINGBIRD -> "Heartbloom Sanctuary";
+            case TURKEY -> "Harvest Tribunal";
+            case ROOSTER -> "Dawnwatch Bastion";
+            default -> "";
+        };
     }
 
     private void handleAshfallTrialMatchEnd(Stage stage, Bird winner) {
