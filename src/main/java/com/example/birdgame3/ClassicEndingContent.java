@@ -2,14 +2,67 @@ package com.example.birdgame3;
 
 import java.util.EnumMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
-/** Authored "what if" epilogues earned by completing a bird's Classic route. */
+/** Authored moving-picture epilogues earned by completing a bird's Classic route. */
 final class ClassicEndingContent {
     enum Alignment {
         HOPEFUL,
         AMBIGUOUS,
         DOMINATING
+    }
+
+    enum Tableau {
+        BOSS_AFTERMATH,
+        CROWN_DISCOVERY,
+        DECISION,
+        CROWN_TRANSFORMATION,
+        CHANGED_WORLD,
+        FINAL_PORTRAIT
+    }
+
+    record Beat(String narration, Tableau tableau, double durationSeconds) {
+        Beat {
+            narration = narration == null ? "" : narration.strip();
+            tableau = tableau == null ? Tableau.FINAL_PORTRAIT : tableau;
+            durationSeconds = Math.clamp(durationSeconds, 2.5, 12.0);
+        }
+    }
+
+    record RouteRecord(int birdCoins, int score, String mapReward) {
+        RouteRecord {
+            birdCoins = Math.max(0, birdCoins);
+            score = Math.max(0, score);
+            mapReward = mapReward == null ? "" : mapReward.strip();
+        }
+    }
+
+    record Cinematic(
+            String id,
+            String title,
+            BirdGame3.BirdType narrator,
+            BirdGame3.BirdType defeatedBoss,
+            String defeatedBossName,
+            String defeatedBossSkin,
+            BirdGame3.MapType location,
+            String musicCue,
+            List<Beat> beats,
+            RouteRecord routeRecord
+    ) {
+        Cinematic {
+            id = id == null ? "classic_ending" : id.strip();
+            title = title == null ? "Classic Ending" : title.strip();
+            defeatedBossName = defeatedBossName == null ? "The Final Boss" : defeatedBossName.strip();
+            defeatedBossSkin = defeatedBossSkin == null ? "" : defeatedBossSkin.strip();
+            musicCue = musicCue == null ? "" : musicCue.strip();
+            beats = beats == null ? List.of() : List.copyOf(beats);
+        }
+
+        Cinematic withRouteRecord(RouteRecord record) {
+            return new Cinematic(id, title, narrator, defeatedBoss, defeatedBossName,
+                    defeatedBossSkin, location, musicCue, beats, record);
+        }
     }
 
     record Ending(
@@ -18,9 +71,11 @@ final class ClassicEndingContent {
             String title,
             String crownChoice,
             Alignment alignment,
-            BirdGame3.BirdType defeatedBoss,
-            StoryCampaign.Cutscene cutscene
+            Cinematic cinematic
     ) {
+        BirdGame3.BirdType defeatedBoss() {
+            return cinematic.defeatedBoss();
+        }
     }
 
     private static final List<Ending> ENDINGS = List.of(
@@ -28,219 +83,135 @@ final class ClassicEndingContent {
                     BirdGame3.BirdType.PIGEON,
                     "ROOFTOP ASCENT",
                     "EVERY NEST, ITS OWN VOICE",
-                    "LIBERATION — Dismantle the Crown into independent rooftop beacons.",
+                    "LIBERATION - The Crown becomes independent rooftop beacons.",
                     Alignment.HOPEFUL,
                     BirdGame3.BirdType.VULTURE,
+                    "The Null Rock",
+                    "NULL_ROCK_VULTURE",
                     BirdGame3.MapType.BEACON_CROWN,
                     "music-city.mp3",
-                    lines(
-                            system("NULL ROCK AUTHORITY ENDED. THE CROWN'S COMMAND CORE AWAITS ONE OWNER.",
-                                    StoryCampaign.ShotStyle.REVEAL, StoryCampaign.ActorMotion.RISE),
-                            line("The Null Rock", BirdGame3.BirdType.VULTURE,
-                                    "One voice can still make every rooftop kneel. Take it.",
-                                    StoryCampaign.ShotStyle.WIDE, StoryCampaign.ActorMotion.RECOIL),
-                            line("Pigeon", BirdGame3.BirdType.PIGEON,
-                                    "That's exactly why nobody gets it.",
-                                    StoryCampaign.ShotStyle.ACTION, StoryCampaign.ActorMotion.ENTER_LEFT),
-                            system("SELECT A MASTER.", StoryCampaign.ShotStyle.CLOSE, StoryCampaign.ActorMotion.IDLE),
-                            line("Pigeon", BirdGame3.BirdType.PIGEON,
-                                    "Select every nest.",
-                                    StoryCampaign.ShotStyle.ACTION, StoryCampaign.ActorMotion.ATTACK),
-                            system("CENTRAL COMMAND DELETED. ROOFTOP BEACONS NOW ANSWER ONLY TO THEIR OWN FLOCKS.",
-                                    StoryCampaign.ShotStyle.REVEAL, StoryCampaign.ActorMotion.RECOIL),
-                            line("Pigeon", BirdGame3.BirdType.PIGEON,
-                                    "Good. Now the city can answer itself.",
-                                    StoryCampaign.ShotStyle.ESTABLISHING, StoryCampaign.ActorMotion.TURN_AWAY,
-                                    "music-victory.mp3")
-                    )
-            ),
+                    monologue(
+                            beat("The Null Rock fell believing the whole sky needed one voice.", Tableau.BOSS_AFTERMATH),
+                            beat("Then I heard the Crown waiting for me to become that voice.", Tableau.CROWN_DISCOVERY),
+                            beat("I had climbed too far beside too many birds to call their freedom mine.", Tableau.DECISION),
+                            beat("So I broke its command core and carried every shining piece back across the rooftops.", Tableau.CROWN_TRANSFORMATION),
+                            beat("Now each nest keeps its own beacon. They can call one another, but none can give an order.", Tableau.CHANGED_WORLD),
+                            beat("No king. No master. Just a city finally loud enough to answer itself.", Tableau.FINAL_PORTRAIT)
+                    )),
             ending(
                     BirdGame3.BirdType.EAGLE,
                     "THE SKY HAS ONE KING",
                     "THE UNBROKEN CROWN",
-                    "DOMINION — Bind every skyway and wing to Eagle's absolute order.",
+                    "DOMINION - Every skyway is bound to Eagle's absolute order.",
                     Alignment.DOMINATING,
                     BirdGame3.BirdType.EAGLE,
+                    "The Storm Tyrant",
+                    "SKY_KING_EAGLE",
                     BirdGame3.MapType.SKYCLIFFS,
                     "music-boss.mp3",
-                    lines(
-                            system("STORM TYRANT DEFEATED. THE CROWN CAN BIND EVERY CURRENT TO ONE WILL.",
-                                    StoryCampaign.ShotStyle.REVEAL, StoryCampaign.ActorMotion.RISE),
-                            line("Storm Tyrant", BirdGame3.BirdType.EAGLE,
-                                    "Without one ruler, the open sky fractures.",
-                                    StoryCampaign.ShotStyle.WIDE, StoryCampaign.ActorMotion.RECOIL),
-                            line("Eagle", BirdGame3.BirdType.EAGLE,
-                                    "Then it will have one.",
-                                    StoryCampaign.ShotStyle.ACTION, StoryCampaign.ActorMotion.ENTER_RIGHT),
-                            system("CROWN BINDING READY. ACCEPT TOTAL SKY AUTHORITY?",
-                                    StoryCampaign.ShotStyle.CLOSE, StoryCampaign.ActorMotion.IDLE),
-                            line("Eagle", BirdGame3.BirdType.EAGLE,
-                                    "Every current. Every border. Every wing — under my protection.",
-                                    StoryCampaign.ShotStyle.ACTION, StoryCampaign.ActorMotion.RISE),
-                            system("AUTHORITY ACCEPTED. ALL SKYWAYS NOW ANSWER TO THE KING.",
-                                    StoryCampaign.ShotStyle.REVEAL, StoryCampaign.ActorMotion.ATTACK),
-                            line("Eagle", BirdGame3.BirdType.EAGLE,
-                                    "No storm will challenge my sky again.",
-                                    StoryCampaign.ShotStyle.CLOSE, StoryCampaign.ActorMotion.TURN_AWAY,
-                                    "music-skycliffs.mp3")
-                    )
-            ),
+                    monologue(
+                            beat("The Storm Tyrant wore my face, but mistook violence for authority.", Tableau.BOSS_AFTERMATH),
+                            beat("When the thunder cleared, the Crown offered every current, border, and wing.", Tableau.CROWN_DISCOVERY),
+                            beat("A lesser bird would have shattered it and called the chaos freedom.", Tableau.DECISION),
+                            beat("I took the Crown whole. The storm bent first. The mountains followed.", Tableau.CROWN_TRANSFORMATION),
+                            beat("No flock is lost now. No rival crosses my sky without being seen.", Tableau.CHANGED_WORLD),
+                            beat("The heavens are safe, because at last they belong to one king.", Tableau.FINAL_PORTRAIT)
+                    )),
             ending(
                     BirdGame3.BirdType.FALCON,
                     "NOTHING ESCAPES",
                     "SEVEN TARGETS REMAIN",
-                    "VIGILANCE — Rewrite the Crown's hunt to pursue only cage-builders and tyrants.",
+                    "VIGILANCE - The Crown hunts only cage-builders and tyrants.",
                     Alignment.AMBIGUOUS,
                     BirdGame3.BirdType.VULTURE,
+                    "Null Roc",
+                    "NULL_ROCK_VULTURE",
                     BirdGame3.MapType.BEACON_CROWN,
                     "music-null-rock.mp3",
-                    lines(
-                            system("NULL ROC DESTROYED. EVERY LIVING TARGET REMAINS VISIBLE TO THE CROWN.",
-                                    StoryCampaign.ShotStyle.REVEAL, StoryCampaign.ActorMotion.RISE),
-                            line("Null Roc", BirdGame3.BirdType.VULTURE,
-                                    "The hunt never ends.",
-                                    StoryCampaign.ShotStyle.WIDE, StoryCampaign.ActorMotion.FALL),
-                            line("Falcon", BirdGame3.BirdType.FALCON,
-                                    "It ends when I say.",
-                                    StoryCampaign.ShotStyle.ACTION, StoryCampaign.ActorMotion.FLY_BY),
-                            system("TARGET LAW UNLOCKED. NAME THE PREY.",
-                                    StoryCampaign.ShotStyle.CLOSE, StoryCampaign.ActorMotion.IDLE),
-                            line("Falcon", BirdGame3.BirdType.FALCON,
-                                    "Erase the weak. Mark only the birds who build cages.",
-                                    StoryCampaign.ShotStyle.ACTION, StoryCampaign.ActorMotion.ATTACK),
-                            system("TARGET LAW REWRITTEN. SEVEN TYRANTS REMAIN.",
-                                    StoryCampaign.ShotStyle.REVEAL, StoryCampaign.ActorMotion.RECOIL),
-                            line("Falcon", BirdGame3.BirdType.FALCON,
-                                    "Seven is a short flight.",
-                                    StoryCampaign.ShotStyle.PAN, StoryCampaign.ActorMotion.EXIT_RIGHT,
-                                    "music-victory.mp3")
-                    )
-            ),
+                    monologue(
+                            beat("Null Roc climbed until there was nowhere left to run. I still caught it.", Tableau.BOSS_AFTERMATH),
+                            beat("Inside its broken armor, the Crown showed me every living target at once.", Tableau.CROWN_DISCOVERY),
+                            beat("Power like that should frighten me. Instead, I thought of every locked cage.", Tableau.DECISION),
+                            beat("I erased the weak from its sight and marked only the birds who build prisons.", Tableau.CROWN_TRANSFORMATION),
+                            beat("Seven lights remained. Seven rulers who believed height made them untouchable.", Tableau.CHANGED_WORLD),
+                            beat("Seven is a short flight.", Tableau.FINAL_PORTRAIT)
+                    )),
             ending(
                     BirdGame3.BirdType.PHOENIX,
                     "THE FLAME THAT RETURNS",
                     "THE FOUR SEASONS",
-                    "RENEWAL — Divide the Crown's climate authority so no single keeper controls rebirth.",
+                    "RENEWAL - Climate authority is divided between four seasons.",
                     Alignment.HOPEFUL,
                     BirdGame3.BirdType.GRINCHHAWK,
+                    "The Winter King",
+                    "WINTER_KING_GRINCHHAWK",
                     BirdGame3.MapType.FROSTBITE_FJORD,
                     "music-frostbite.mp3",
-                    lines(
-                            system("WINTER KING DEFEATED. THE CROWN'S CLIMATE THRONE REQUIRES A KEEPER.",
-                                    StoryCampaign.ShotStyle.REVEAL, StoryCampaign.ActorMotion.RISE),
-                            line("Winter King", BirdGame3.BirdType.GRINCHHAWK,
-                                    "Take control, or winter returns the moment you leave.",
-                                    StoryCampaign.ShotStyle.WIDE, StoryCampaign.ActorMotion.RECOIL),
-                            line("Phoenix", BirdGame3.BirdType.PHOENIX,
-                                    "Control is still a cage.",
-                                    StoryCampaign.ShotStyle.ACTION, StoryCampaign.ActorMotion.RISE),
-                            system("SEASONAL AUTHORITY CANNOT REMAIN EMPTY.",
-                                    StoryCampaign.ShotStyle.CLOSE, StoryCampaign.ActorMotion.IDLE),
-                            line("Phoenix", BirdGame3.BirdType.PHOENIX,
-                                    "Then keep only one command: everything returns.",
-                                    StoryCampaign.ShotStyle.ACTION, StoryCampaign.ActorMotion.ATTACK,
-                                    "music-ashfall.mp3"),
-                            system("CORE DIVIDED: FIRE. RAIN. FROST. BLOOM. NO SINGLE MASTER REMAINS.",
-                                    StoryCampaign.ShotStyle.REVEAL, StoryCampaign.ActorMotion.RECOIL),
-                            line("Phoenix", BirdGame3.BirdType.PHOENIX,
-                                    "Let the world choose what rises from the ash.",
-                                    StoryCampaign.ShotStyle.ESTABLISHING, StoryCampaign.ActorMotion.FLY_BY,
-                                    "music-victory.mp3")
-                    )
-            ),
+                    monologue(
+                            beat("The Winter King promised that nothing would hurt again if nothing could change.", Tableau.BOSS_AFTERMATH),
+                            beat("Beneath the ice, the Crown still held enough power to choose the world's weather forever.", Tableau.CROWN_DISCOVERY),
+                            beat("I know what endless fire becomes. I would not replace his winter with mine.", Tableau.DECISION),
+                            beat("I divided the core into rain, frost, bloom, and flame, then let each piece turn.", Tableau.CROWN_TRANSFORMATION),
+                            beat("The caldera thawed. Rivers moved. Seeds opened where an eternal season had stood.", Tableau.CHANGED_WORLD),
+                            beat("Nothing rules forever. That is why everything gets another beginning.", Tableau.FINAL_PORTRAIT)
+                    )),
             ending(
                     BirdGame3.BirdType.HUMMINGBIRD,
                     "BEAT OF THE BLOOM",
                     "A GARDEN WITHOUT ORDERS",
-                    "CONNECTION — Root the Crown in Heartbloom as a shared path rather than a command.",
+                    "CONNECTION - The Crown becomes a living path through Heartbloom.",
                     Alignment.HOPEFUL,
                     BirdGame3.BirdType.RAVEN,
+                    "Blightwing Raven",
+                    "BLIGHTWING_RAVEN",
                     BirdGame3.MapType.VIBRANT_JUNGLE,
                     "music-jungle.mp3",
-                    lines(
-                            system("BLIGHTWING ROOT DESTROYED. ALL NECTAR ROUTES ACCEPT CENTRAL COMMAND.",
-                                    StoryCampaign.ShotStyle.REVEAL, StoryCampaign.ActorMotion.RISE),
-                            line("Blightwing", BirdGame3.BirdType.RAVEN,
-                                    "One poisoned flower was enough to own the whole garden.",
-                                    StoryCampaign.ShotStyle.WIDE, StoryCampaign.ActorMotion.FALL),
-                            line("Hummingbird", BirdGame3.BirdType.HUMMINGBIRD,
-                                    "And one healthy flower is never alone.",
-                                    StoryCampaign.ShotStyle.ACTION, StoryCampaign.ActorMotion.FLY_BY),
-                            system("DEFINE THE NEW POLLINATION COMMAND.",
-                                    StoryCampaign.ShotStyle.CLOSE, StoryCampaign.ActorMotion.IDLE),
-                            line("Hummingbird", BirdGame3.BirdType.HUMMINGBIRD,
-                                    "No commands. Only directions.",
-                                    StoryCampaign.ShotStyle.ACTION, StoryCampaign.ActorMotion.ATTACK),
-                            system("CROWN ROOTED IN HEARTBLOOM. EVERY FLOWER NOW HOLDS ONE LIVING PATH.",
-                                    StoryCampaign.ShotStyle.REVEAL, StoryCampaign.ActorMotion.RISE),
-                            line("Hummingbird", BirdGame3.BirdType.HUMMINGBIRD,
-                                    "Catch me if you need the next one.",
-                                    StoryCampaign.ShotStyle.PAN, StoryCampaign.ActorMotion.EXIT_RIGHT,
-                                    "music-victory.mp3")
-                    )
-            ),
+                    monologue(
+                            beat("Blightwing Raven poisoned one root and expected the whole garden to die quietly.", Tableau.BOSS_AFTERMATH),
+                            beat("The Crown could reach every flower. It only needed someone to decide where every wing would go.", Tableau.CROWN_DISCOVERY),
+                            beat("But a route is not an order. It is an invitation to keep moving.", Tableau.DECISION),
+                            beat("I planted the command core in Heartbloom and beat my wings until it grew roots.", Tableau.CROWN_TRANSFORMATION),
+                            beat("The paths now light one by one, from flower to flower, whenever a traveler needs them.", Tableau.CHANGED_WORLD),
+                            beat("The garden has no ruler. If you need the next bloom, catch me.", Tableau.FINAL_PORTRAIT)
+                    )),
             ending(
                     BirdGame3.BirdType.TURKEY,
                     "THE LAST FEAST",
                     "THE FIRST OPEN TABLE",
-                    "PROVISION — Forge the Crown into table bells that open every locked food store.",
+                    "PROVISION - The Crown becomes bells that open every food store.",
                     Alignment.HOPEFUL,
                     BirdGame3.BirdType.PELICAN,
+                    "The Devourer",
+                    "IRONCLAD_PELICAN",
                     BirdGame3.MapType.FOREST,
                     "music-forest.mp3",
-                    lines(
-                            system("THE GREAT HUNGER ENDED. THE CROWN CONTROLS EVERY LOCKED STOREHOUSE.",
-                                    StoryCampaign.ShotStyle.REVEAL, StoryCampaign.ActorMotion.RISE),
-                            line("The Devourer", BirdGame3.BirdType.PELICAN,
-                                    "If you do not take it, somebody hungry will.",
-                                    StoryCampaign.ShotStyle.WIDE, StoryCampaign.ActorMotion.RECOIL),
-                            line("Turkey", BirdGame3.BirdType.TURKEY,
-                                    "That's why it won't be a throne.",
-                                    StoryCampaign.ShotStyle.ACTION, StoryCampaign.ActorMotion.ENTER_LEFT),
-                            system("DEFINE THE NEW DISTRIBUTION LAW.",
-                                    StoryCampaign.ShotStyle.CLOSE, StoryCampaign.ActorMotion.IDLE),
-                            line("Turkey", BirdGame3.BirdType.TURKEY,
-                                    "First plate to the smallest. Last plate to me.",
-                                    StoryCampaign.ShotStyle.ACTION, StoryCampaign.ActorMotion.ATTACK),
-                            system("CROWN FORGED INTO SEVEN TABLE BELLS. ALL STOREHOUSES OPEN.",
-                                    StoryCampaign.ShotStyle.REVEAL, StoryCampaign.ActorMotion.RECOIL),
-                            line("Turkey", BirdGame3.BirdType.TURKEY,
-                                    "Sit down. Nobody eats alone.",
-                                    StoryCampaign.ShotStyle.CROWD, StoryCampaign.ActorMotion.IDLE,
-                                    "music-victory.mp3")
-                    )
-            ),
+                    monologue(
+                            beat("The Devourer swallowed every offering because hunger had taught him that sharing was surrender.", Tableau.BOSS_AFTERMATH),
+                            beat("The Crown held the keys to every sealed storehouse in the forest.", Tableau.CROWN_DISCOVERY),
+                            beat("I could have guarded those doors and made every hungry bird ask my permission.", Tableau.DECISION),
+                            beat("Instead, I hammered the core into seven bells and sent one to every table.", Tableau.CROWN_TRANSFORMATION),
+                            beat("Whenever a bell rings, the locks open. The smallest plate is filled first.", Tableau.CHANGED_WORLD),
+                            beat("There is no throne at my feast. Sit down. Nobody eats alone.", Tableau.FINAL_PORTRAIT)
+                    )),
             ending(
                     BirdGame3.BirdType.ROOSTER,
                     "NO ONE LEFT BEHIND",
                     "A BELL FOR EVERY WING",
-                    "PROTECTION — Split the Crown into recall bells that can guide but never compel.",
+                    "PROTECTION - Recall bells guide the flock but can never compel it.",
                     Alignment.HOPEFUL,
                     BirdGame3.BirdType.RAVEN,
+                    "The Broodbreaker",
+                    "VOID_HERALD_RAVEN",
                     BirdGame3.MapType.BEACON_CROWN,
                     "music-boss.mp3",
-                    lines(
-                            system("BROODBREAKER ECLIPSE ENDED. TOTAL FLOCK CONTROL REMAINS AVAILABLE.",
-                                    StoryCampaign.ShotStyle.REVEAL, StoryCampaign.ActorMotion.RISE),
-                            line("The Broodbreaker", BirdGame3.BirdType.RAVEN,
-                                    "They scattered once. They will scatter again.",
-                                    StoryCampaign.ShotStyle.WIDE, StoryCampaign.ActorMotion.RECOIL),
-                            line("Rooster", BirdGame3.BirdType.ROOSTER,
-                                    "Then I'll call. I won't compel.",
-                                    StoryCampaign.ShotStyle.ACTION, StoryCampaign.ActorMotion.ENTER_LEFT),
-                            system("THE CROWN CAN MAKE EVERY WING ANSWER.",
-                                    StoryCampaign.ShotStyle.CLOSE, StoryCampaign.ActorMotion.IDLE),
-                            line("Rooster", BirdGame3.BirdType.ROOSTER,
-                                    "Break it into one bell for every wing.",
-                                    StoryCampaign.ShotStyle.ACTION, StoryCampaign.ActorMotion.ATTACK),
-                            system("CENTRAL COMMAND ENDED. RECALL BELLS ANSWER ONLY TO THEIR HOLDERS.",
-                                    StoryCampaign.ShotStyle.REVEAL, StoryCampaign.ActorMotion.RECOIL),
-                            line("Rooster", BirdGame3.BirdType.ROOSTER,
-                                    "Count them. Nobody leaves Dawnwatch alone.",
-                                    StoryCampaign.ShotStyle.CROWD, StoryCampaign.ActorMotion.RISE,
-                                    "music-victory.mp3")
-                    )
-            )
+                    monologue(
+                            beat("The Broodbreaker scattered my flock and called their fear proof that loyalty was fragile.", Tableau.BOSS_AFTERMATH),
+                            beat("The Crown could have forced every missing wing to return the instant I called.", Tableau.CROWN_DISCOVERY),
+                            beat("But a flock brought home by chains is only another kind of prison.", Tableau.DECISION),
+                            beat("I split the core into recall bells, one for every bird, each answering only its holder.", Tableau.CROWN_TRANSFORMATION),
+                            beat("Across the dark, the bells became a path. They returned because they chose one another.", Tableau.CHANGED_WORLD),
+                            beat("I counted every wing before sunrise. This time, no one was left behind.", Tableau.FINAL_PORTRAIT)
+                    ))
     );
 
     private static final Map<BirdGame3.BirdType, Ending> BY_BIRD = indexEndings();
@@ -260,36 +231,38 @@ final class ClassicEndingContent {
         return endingFor(bird) != null;
     }
 
-    static StoryCampaign.Cutscene withRouteRecord(Ending ending, int birdCoins, int score, String mapReward) {
+    static Cinematic withRouteRecord(Ending ending, int birdCoins, int score, String mapReward) {
         if (ending == null) return null;
-        List<StoryCampaign.DialogueLine> lines = new java.util.ArrayList<>(ending.cutscene().lines());
-        String unlockedMap = mapReward == null || mapReward.isBlank()
+        return ending.cinematic().withRouteRecord(new RouteRecord(birdCoins, score, mapReward));
+    }
+
+    static String routeRecordText(RouteRecord record) {
+        if (record == null) return "";
+        String map = record.mapReward().isBlank()
                 ? ""
-                : " " + mapReward.strip().toUpperCase(java.util.Locale.ROOT) + " UNLOCKED.";
-        lines.add(system("ROUTE BADGE RECORDED." + unlockedMap + " BIRD COINS +" + Math.max(0, birdCoins)
-                        + ". FINAL SCORE " + String.format(java.util.Locale.US, "%,d", Math.max(0, score)) + ".",
-                StoryCampaign.ShotStyle.REVEAL, StoryCampaign.ActorMotion.RISE));
-        StoryCampaign.Cutscene base = ending.cutscene();
-        return new StoryCampaign.Cutscene(
-                base.id(), base.title(), base.location(), base.musicCue(), lines,
-                base.handoffBirds(), base.deathScene(), base.finale());
+                : "  |  " + record.mapReward().toUpperCase(Locale.ROOT) + " UNLOCKED";
+        return "ROUTE BADGE EARNED" + map + "  |  BIRD COINS +" + record.birdCoins()
+                + "  |  SCORE " + String.format(Locale.US, "%,d", record.score());
     }
 
     private static Ending ending(BirdGame3.BirdType bird, String routeTitle, String title,
                                  String crownChoice, Alignment alignment,
-                                 BirdGame3.BirdType defeatedBoss, BirdGame3.MapType location,
-                                 String musicCue, List<StoryCampaign.DialogueLine> lines) {
-        StoryCampaign.Cutscene cutscene = new StoryCampaign.Cutscene(
-                "classic_ending_" + bird.name().toLowerCase(java.util.Locale.ROOT),
+                                 BirdGame3.BirdType defeatedBoss, String defeatedBossName,
+                                 String defeatedBossSkin, BirdGame3.MapType location,
+                                 String musicCue, List<Beat> beats) {
+        Cinematic cinematic = new Cinematic(
+                "classic_ending_" + bird.name().toLowerCase(Locale.ROOT),
                 title,
+                bird,
+                defeatedBoss,
+                defeatedBossName,
+                defeatedBossSkin,
                 location,
                 musicCue,
-                lines,
-                List.of(),
-                false,
-                true
+                beats,
+                null
         );
-        return new Ending(bird, routeTitle, title, crownChoice, alignment, defeatedBoss, cutscene);
+        return new Ending(bird, routeTitle, title, crownChoice, alignment, cinematic);
     }
 
     private static Map<BirdGame3.BirdType, Ending> indexEndings() {
@@ -302,26 +275,11 @@ final class ClassicEndingContent {
         return Map.copyOf(endings);
     }
 
-    private static List<StoryCampaign.DialogueLine> lines(StoryCampaign.DialogueLine... entries) {
-        return List.of(entries);
+    private static List<Beat> monologue(Beat... beats) {
+        return List.of(beats);
     }
 
-    private static StoryCampaign.DialogueLine system(String text, StoryCampaign.ShotStyle shot,
-                                                      StoryCampaign.ActorMotion motion) {
-        return line("Crown System", null, text, shot, motion);
-    }
-
-    private static StoryCampaign.DialogueLine line(String speaker, BirdGame3.BirdType bird,
-                                                   String text, StoryCampaign.ShotStyle shot,
-                                                   StoryCampaign.ActorMotion motion) {
-        return line(speaker, bird, text, shot, motion, "");
-    }
-
-    private static StoryCampaign.DialogueLine line(String speaker, BirdGame3.BirdType bird,
-                                                   String text, StoryCampaign.ShotStyle shot,
-                                                   StoryCampaign.ActorMotion motion,
-                                                   String musicCue) {
-        return new StoryCampaign.DialogueLine(
-                speaker, bird, text, shot, motion, null, musicCue);
+    private static Beat beat(String narration, Tableau tableau) {
+        return new Beat(narration, tableau, tableau == Tableau.FINAL_PORTRAIT ? 7.2 : 6.2);
     }
 }

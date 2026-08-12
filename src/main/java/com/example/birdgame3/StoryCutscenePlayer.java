@@ -35,7 +35,7 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * Presentation-only Canvas cinematics for The Still Sky and Classic route epilogues.
+ * Presentation-only Canvas dialogue cinematics for The Still Sky.
  *
  * <p>The player uses {@link AnimationTimer} and closed-form animation. It never
  * reads or advances {@link SimRng}; combat is not running while a story scene

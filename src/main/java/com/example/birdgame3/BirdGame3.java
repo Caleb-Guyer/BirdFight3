@@ -5384,6 +5384,7 @@ public class BirdGame3 {
     private final StoryCampaign stillSkyCampaign = StoryCampaignContent.create();
     private StoryCampaignProgress stillSkyProgress = new StoryCampaignProgress();
     private final StoryCutscenePlayer storyCutscenePlayer = new StoryCutscenePlayer(this);
+    private final ClassicEndingPlayer classicEndingPlayer = new ClassicEndingPlayer(this);
     private final StorybookProloguePlayer storybookProloguePlayer = new StorybookProloguePlayer(this);
     private final CaveEscapeSequence caveEscapeSequence = new CaveEscapeSequence(this);
     private final StillSkyCreditsPlayer stillSkyCreditsPlayer = new StillSkyCreditsPlayer(this);
@@ -18418,6 +18419,24 @@ public class BirdGame3 {
             startOrContinueMusicTrack(cue, true);
         }
         playCampaignCutsceneCue(cutscene, line);
+    }
+
+    void playClassicEndingTableauCue(ClassicEndingContent.Tableau tableau) {
+        if (tableau == null) return;
+        switch (tableau) {
+            case BOSS_AFTERMATH -> {
+                playManagedSfxVaried(vaseBreakingClip, 0.42, 0.72, 0.025);
+                playManagedSfxVaried(hugewaveClip, 0.34, 0.58, 0.018);
+            }
+            case CROWN_DISCOVERY -> playManagedSfxVaried(hugewaveClip, 0.54, 1.10, 0.022);
+            case DECISION -> playManagedSfxVaried(buttonClickClip, 0.34, 0.70, 0.018);
+            case CROWN_TRANSFORMATION -> {
+                playManagedSfxVaried(vaseBreakingClip, 0.58, 1.38, 0.030);
+                playManagedSfxVaried(hugewaveClip, 0.64, 0.82, 0.020);
+            }
+            case CHANGED_WORLD -> playManagedSfxVaried(swingClip, 0.38, 1.26, 0.030);
+            case FINAL_PORTRAIT -> playManagedSfxVaried(steamAchievementClip, 0.52, 0.92, 0.018);
+        }
     }
 
     void resetAfterCampaignCutscene() {
@@ -41407,7 +41426,7 @@ public class BirdGame3 {
                     : ending.bird().name + " Classic ending locked");
             card.setOnAction(event -> {
                 playButtonClick();
-                playClassicEnding(stage, ending.cutscene(), ending.bird(), null,
+                playClassicEnding(stage, ending.cinematic(), null,
                         () -> showClassicEndingGallery(stage));
             });
             if (unlocked) unlockedCards.add(card);
@@ -45039,12 +45058,12 @@ public class BirdGame3 {
             profileProgressController.onClassicRunCompleted(classicSelectedBird, achievementEvaluator::onClassicRunCompleted);
             ClassicEndingContent.Ending authoredEnding = ClassicEndingContent.endingFor(classicSelectedBird);
             if (authoredEnding != null) {
-                StoryCampaign.Cutscene playback = ClassicEndingContent.withRouteRecord(
+                ClassicEndingContent.Cinematic playback = ClassicEndingContent.withRouteRecord(
                         authoredEnding,
                         routePayout,
                         finalScore,
                         classicRouteMapRewardName(classicSelectedBird));
-                playClassicEnding(stage, playback, classicSelectedBird, classicSelectedSkinKey,
+                playClassicEnding(stage, playback, classicSelectedSkinKey,
                         () -> runAfterUnlockCards(stage, () -> showClassicBirdSelect(stage)));
                 return;
             }
@@ -45086,13 +45105,13 @@ public class BirdGame3 {
         showClassicEncounterIntro(stage);
     }
 
-    private void playClassicEnding(Stage stage, StoryCampaign.Cutscene cutscene, BirdType bird,
+    private void playClassicEnding(Stage stage, ClassicEndingContent.Cinematic cinematic,
                                    String skinKey, Runnable after) {
-        if (cutscene == null) {
+        if (cinematic == null) {
             if (after != null) after.run();
             return;
         }
-        storyCutscenePlayer.play(stage, cutscene, bird, skinKey, () -> {
+        classicEndingPlayer.play(stage, cinematic, skinKey, () -> {
             saveAchievements();
             if (after != null) after.run();
         });

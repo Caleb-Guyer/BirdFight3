@@ -187,6 +187,23 @@ class StoryCutsceneDeterminismAuditTest {
     }
 
     @Test
+    void classicEndingMontageCannotConsumeSimulationRandomnessAndFillsTheFrame() throws IOException {
+        String source = Files.readString(Path.of(
+                "src", "main", "java", "com", "example", "birdgame3", "ClassicEndingPlayer.java"));
+
+        assertFalse(source.contains("SimRng"));
+        assertFalse(source.contains("game.random"));
+        assertFalse(source.contains("random.next"));
+        assertFalse(source.contains("simTick"));
+        assertTrue(source.contains("AnimationTimer"));
+        assertTrue(source.contains("new Canvas(BACKING_WIDTH, BACKING_HEIGHT)"));
+        assertTrue(source.contains("canvas.setScaleX(LOGICAL_WIDTH / BACKING_WIDTH)"));
+        assertTrue(source.contains("canvas.setScaleY(LOGICAL_HEIGHT / BACKING_HEIGHT)"));
+        assertFalse(source.contains("canvas.widthProperty().bind"));
+        assertFalse(source.contains("canvas.heightProperty().bind"));
+    }
+
+    @Test
     void midMissionCutsceneParksAndRestoresTheFullscreenGameplayScene() throws IOException {
         String source = Files.readString(Path.of(
                 "src", "main", "java", "com", "example", "birdgame3", "BirdGame3.java"));

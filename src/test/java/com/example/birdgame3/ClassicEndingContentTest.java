@@ -10,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ClassicEndingContentTest {
     @Test
-    void allSevenAuthoredRoutesHaveUniqueAnimatedCrownEpilogues() {
+    void allSevenAuthoredRoutesHaveUniqueMovingPictureMonologues() {
         List<ClassicEndingContent.Ending> endings = ClassicEndingContent.endings();
 
         assertEquals(List.of(
@@ -24,20 +24,21 @@ class ClassicEndingContentTest {
                 endings.stream().map(ClassicEndingContent.Ending::bird).toList());
         assertEquals(7, new HashSet<>(endings.stream().map(ClassicEndingContent.Ending::title).toList()).size());
         assertEquals(7, new HashSet<>(endings.stream().map(ClassicEndingContent.Ending::crownChoice).toList()).size());
-        assertEquals(7, new HashSet<>(endings.stream().map(ending -> ending.cutscene().id()).toList()).size());
+        assertEquals(7, new HashSet<>(endings.stream().map(ending -> ending.cinematic().id()).toList()).size());
 
         for (ClassicEndingContent.Ending ending : endings) {
-            StoryCampaign.Cutscene cutscene = ending.cutscene();
-            assertTrue(cutscene.finale());
-            assertTrue(cutscene.lines().size() >= 7);
-            assertTrue(cutscene.lines().stream().anyMatch(line -> "Crown System".equals(line.speaker())),
-                    ending.bird() + " must visibly confront the Crown command core.");
-            assertTrue(cutscene.lines().stream().anyMatch(line -> line.bird() == ending.bird()),
-                    ending.bird() + " must act in its own ending.");
-            assertTrue(cutscene.lines().stream().anyMatch(line -> line.bird() == ending.defeatedBoss()),
-                    ending.bird() + " must resolve its final boss conflict.");
-            assertTrue(cutscene.lines().stream().anyMatch(line -> line.motion() == StoryCampaign.ActorMotion.ATTACK),
-                    ending.bird() + " must animate its choice rather than only narrating it.");
+            ClassicEndingContent.Cinematic cinematic = ending.cinematic();
+            assertEquals(ending.bird(), cinematic.narrator());
+            assertEquals(ending.defeatedBoss(), cinematic.defeatedBoss());
+            assertFalse(cinematic.defeatedBossSkin().isBlank());
+            assertEquals(List.of(ClassicEndingContent.Tableau.values()),
+                    cinematic.beats().stream().map(ClassicEndingContent.Beat::tableau).toList());
+            assertTrue(cinematic.beats().stream().allMatch(beat -> !beat.narration().isBlank()));
+            assertTrue(cinematic.beats().stream().allMatch(beat -> beat.durationSeconds() >= 5.0));
+            assertTrue(cinematic.beats().getFirst().narration().contains(cinematic.defeatedBossName()),
+                    ending.bird() + " must open by resolving its actual final boss.");
+            assertTrue(cinematic.beats().stream().anyMatch(beat -> beat.narration().contains("Crown")),
+                    ending.bird() + " must monologue about its choice for the Crown.");
         }
     }
 
@@ -58,19 +59,21 @@ class ClassicEndingContentTest {
     }
 
     @Test
-    void routeRecordIsPartOfTheCinematicAndIncludesTheMapReward() {
+    void routeRecordIsAnEndCardInsteadOfAnotherDialogueLine() {
         ClassicEndingContent.Ending ending = ClassicEndingContent.endingFor(BirdGame3.BirdType.ROOSTER);
 
-        StoryCampaign.Cutscene recorded = ClassicEndingContent.withRouteRecord(
+        ClassicEndingContent.Cinematic recorded = ClassicEndingContent.withRouteRecord(
                 ending, 275, 123_456, "Dawnwatch Bastion");
 
-        assertEquals(ending.cutscene().lines().size() + 1, recorded.lines().size());
-        StoryCampaign.DialogueLine record = recorded.lines().getLast();
-        assertEquals("Crown System", record.speaker());
-        assertTrue(record.text().contains("ROUTE BADGE RECORDED"));
-        assertTrue(record.text().contains("DAWNWATCH BASTION UNLOCKED"));
-        assertTrue(record.text().contains("BIRD COINS +275"));
-        assertTrue(record.text().contains("123,456"));
+        assertEquals(ending.cinematic().beats(), recorded.beats(),
+                "Progress rewards must not be inserted into the bird's monologue.");
+        assertEquals(275, recorded.routeRecord().birdCoins());
+        assertEquals(123_456, recorded.routeRecord().score());
+        String endCard = ClassicEndingContent.routeRecordText(recorded.routeRecord());
+        assertTrue(endCard.contains("ROUTE BADGE EARNED"));
+        assertTrue(endCard.contains("DAWNWATCH BASTION UNLOCKED"));
+        assertTrue(endCard.contains("BIRD COINS +275"));
+        assertTrue(endCard.contains("123,456"));
     }
 
     @Test
