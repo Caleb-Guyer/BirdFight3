@@ -698,7 +698,8 @@ public class BirdGame3 {
         FROZEN_CALDERA(MapType.ASHFALL_CATHEDRAL, "Classic Routes", "Frozen Caldera", "The last Ashfall thermal sealed beneath a melting crown of ice, with an open sky and mirrored recovery vents."),
         HEARTBLOOM_SANCTUARY(MapType.VIBRANT_JUNGLE, "Classic Routes", "Heartbloom Sanctuary", "An eclipse garden of enormous flower platforms, open flight lanes, and nectar updrafts that wake at dawn."),
         HARVEST_TRIBUNAL(MapType.FOREST, "Classic Routes", "Harvest Tribunal", "A moonlit autumn court built around a monumental stone table, braziers, and open recovery lanes."),
-        DAWNWATCH_BASTION(MapType.BEACON_CROWN, "Classic Routes", "Dawnwatch Bastion", "A golden mountaintop citadel of watchtowers, structural bridges, banners, and a colossal dawn bell.");
+        DAWNWATCH_BASTION(MapType.BEACON_CROWN, "Classic Routes", "Dawnwatch Bastion", "A golden mountaintop citadel of watchtowers, structural bridges, banners, and a colossal dawn bell."),
+        REDLINE_CANYON(MapType.DESERT, "Classic Routes", "Redline Canyon", "A sunset highway carved through towering mesas, stone arches, tunnels, switchbacks, and dust-devil lifts.");
 
         final MapType baseMap;
         final String category;
@@ -848,6 +849,7 @@ public class BirdGame3 {
     private boolean heartbloomSanctuaryUnlocked = false;
     private boolean harvestTribunalUnlocked = false;
     private boolean dawnwatchBastionUnlocked = false;
+    private boolean redlineCanyonUnlocked = false;
     private final boolean[][] towerDefenseDifficultyBadges = new boolean[MapType.values().length][TowerDefenseMode.Difficulty.values().length];
     private static final int DOCK_LEVER_COOLDOWN_FRAMES = 900;
     private static final int DOCK_BOMB_FUSE_FRAMES = 88;
@@ -4926,6 +4928,19 @@ public class BirdGame3 {
     private boolean classicBroodbreakerCaptureResolved = false;
     private boolean classicBroodbreakerFinalPhaseActive = false;
     private boolean classicBroodbreakerEclipseBroken = false;
+    private final boolean[] classicRoadrunnerBolts = new boolean[7];
+    private double classicRoadrunnerRedline = 0.0;
+    private int classicRoadrunnerHighMomentumTicks = 0;
+    private boolean classicRoadrunnerBoltAwardedThisEncounter = false;
+    private int classicRoadrunnerLastDamageDealt = 0;
+    private int classicRoadrunnerPursuitWaveIndex = 0;
+    private boolean classicRoadrunnerRunCompleted = false;
+    private String classicRoadrunnerRunRank = "";
+    private double classicRoadrunnerCheckpointX = 420.0;
+    private int classicStillKingLastStocks = 3;
+    private int classicStillKingHazardCooldown = 0;
+    private int classicStillKingCollapseCooldown = 0;
+    private int classicStillKingCollapsedRoads = 0;
     private boolean bossRushModeActive = false;
     private long bossRushRunStartMillis = 0L;
     private long bossRushBestClearMillis = Long.MAX_VALUE;
@@ -4989,7 +5004,10 @@ public class BirdGame3 {
         GREAT_HUNGER("The Great Hunger", "The Devourer grows by consuming offerings until Turkey turns the feast traps against it."),
         BROOD_MORALE("Brood Morale", "Protect the veteran brood and complete command objectives to strengthen every chick in the route."),
         GREAT_MUSTER("The Great Muster", "Complete Call, Toss, Lift, and Recall commands at the Dawnwatch markers."),
-        FALSE_DAWN("False Dawn", "Break the shadow cages and ring the three dawn bells to strip the Broodbreaker's eclipse armor.");
+        FALSE_DAWN("False Dawn", "Break the shadow cages and ring the three dawn bells to strip the Broodbreaker's eclipse armor."),
+        REDLINE_SPLITS("Redline Splits", "Hold top speed through the fight to bank a Redline Bolt for the final battle."),
+        REDLINE_RUN("Redline Run", "Race the canyon route before its collapsing road disappears behind you."),
+        FINAL_STILLNESS("Final Stillness", "Redline Bolts break the Still King's speed-dampening control field.");
 
         final String label;
         final String description;
@@ -5034,7 +5052,11 @@ public class BirdGame3 {
         BROOD_HUNT,
         NIGHT_COMMAND,
         DAWN_MUSTER,
-        BROODBREAKER_BOSS
+        BROODBREAKER_BOSS,
+        REDLINE_MIRROR,
+        REDLINE_PURSUIT,
+        REDLINE_RUN,
+        STILL_KING_BOSS
     }
 
     static final class ClassicNectarRing {
@@ -8839,6 +8861,7 @@ public class BirdGame3 {
         if (variant == MapVariant.HEARTBLOOM_SANCTUARY) return heartbloomSanctuaryUnlocked;
         if (variant == MapVariant.HARVEST_TRIBUNAL) return harvestTribunalUnlocked;
         if (variant == MapVariant.DAWNWATCH_BASTION) return dawnwatchBastionUnlocked;
+        if (variant == MapVariant.REDLINE_CANYON) return redlineCanyonUnlocked;
         return isMapUnlocked(variant.baseMap);
     }
 
@@ -13501,7 +13524,13 @@ public class BirdGame3 {
                     g.fillOval(v.x + v.w / 2 - ventWidth / 2, v.y - ventHeight * 0.72, ventWidth, ventHeight);
                 }
             }
-            case DESERT -> drawDesertArena(g, ambientFx);
+            case DESERT -> {
+                if (activeArenaGeometryVariant == MapVariant.REDLINE_CANYON) {
+                    drawRedlineCanyonArena(g, ambientFx);
+                } else {
+                    drawDesertArena(g, ambientFx);
+                }
+            }
             case DOCK -> drawDockArena(g, ambientFx);
             case FROSTBITE_FJORD -> drawFrostbiteFjordArena(g, ambientFx);
             case ASHFALL_CATHEDRAL -> {
@@ -13653,6 +13682,7 @@ public class BirdGame3 {
         drawClassicHummingbirdRouteFeatures(g);
         drawClassicTurkeyRouteFeatures(g);
         drawClassicRoosterRouteFeatures(g);
+        drawClassicRoadrunnerRouteFeatures(g);
         drawUltimateReadyScreenDarken(g);
         drawCampaignObjectiveMarkers(g);
 
@@ -29781,6 +29811,7 @@ public class BirdGame3 {
         heartbloomSanctuaryUnlocked = true;
         harvestTribunalUnlocked = true;
         dawnwatchBastionUnlocked = true;
+        redlineCanyonUnlocked = true;
 
         cityPigeonUnlocked = true;
         noirPigeonUnlocked = true;
@@ -39077,7 +39108,7 @@ public class BirdGame3 {
             case ROADRUNNER -> Color.web("#C87A39");
             case ROOSTER -> Color.web("#D84315");
             case PENGUIN -> Color.web("#80DEEA");
-            case SHOEBILL -> Color.web("#1E88E5");
+            case SHOEBILL -> Color.web("#171922");
             case MOCKINGBIRD -> Color.web("#EC407A");
             case RAZORBILL -> Color.web("#26C6DA");
             case GRINCHHAWK -> Color.web("#8BC34A");
@@ -39100,7 +39131,8 @@ public class BirdGame3 {
             case FALCON, PHOENIX -> Color.web("#FFE082");
             case HUMMINGBIRD -> Color.web("#B2FF59");
             case TURKEY -> Color.web("#F06292");
-            case ROADRUNNER, SHOEBILL -> Color.web("#90CAF9");
+            case ROADRUNNER -> Color.web("#90CAF9");
+            case SHOEBILL -> Color.web("#D6A84A");
             case ROOSTER, TITMOUSE -> Color.web("#FFF59D");
             case PENGUIN -> Color.web("#E1F5FE");
             case MOCKINGBIRD -> Color.web("#F8BBD0");
@@ -39618,6 +39650,9 @@ public class BirdGame3 {
         }
         if (useAuthoredRoutes && playerType == BirdType.ROOSTER) {
             return buildRoosterClassicRun();
+        }
+        if (useAuthoredRoutes && playerType == BirdType.ROADRUNNER) {
+            return buildRoadrunnerClassicRun();
         }
         List<ClassicEncounter> run = new ArrayList<>();
         Set<MapType> usedMaps = new HashSet<>();
@@ -40872,6 +40907,96 @@ public class BirdGame3 {
         return run;
     }
 
+    private List<ClassicEncounter> buildRoadrunnerClassicRun() {
+        List<ClassicEncounter> run = new ArrayList<>();
+
+        ClassicEncounter offTheLine = new ClassicEncounter(
+                "Off the Line", "City Starting Grid",
+                "Break through three miniature speedsters and keep moving long enough to bank the first Redline Bolt.",
+                MapType.CITY, MapVariant.STANDARD, MatchMutator.NONE, ClassicTwist.REDLINE_SPLITS,
+                ClassicEncounterStyle.MINIATURE_FLOCK, 105 * 60, new ClassicFighter[0],
+                new ClassicFighter[]{
+                        classicFighter(BirdType.HUMMINGBIRD, "Pocket Rocket: Hummingbird", 76, 0.82, 1.18),
+                        classicFighter(BirdType.TITMOUSE, "Pocket Rocket: Tufted Titmouse", 74, 0.80, 1.15),
+                        classicFighter(BirdType.FALCON, "Pocket Rocket: Falcon", 78, 0.84, 1.16)}, false);
+        offTheLine.cpuLevel = 3;
+        run.add(offTheLine);
+
+        ClassicEncounter speedTrap = new ClassicEncounter(
+                "Speed Trap", "Crownlock Prison",
+                "Heisenbird and Opium Bird have turned the prison lanes into a checkpoint. Refuse to stop.",
+                MapType.PRISON, MapVariant.STANDARD, MatchMutator.NONE, ClassicTwist.REDLINE_SPLITS,
+                ClassicEncounterStyle.STANDARD, 112 * 60, new ClassicFighter[0],
+                new ClassicFighter[]{
+                        classicFighter(BirdType.HEISENBIRD, "Warden: Heisenbird", 120, 1.00, 1.00),
+                        classicFighter(BirdType.OPIUMBIRD, "Warden: Opium Bird", 116, 0.98, 1.06)}, false);
+        speedTrap.cpuLevel = 4;
+        run.add(speedTrap);
+
+        ClassicEncounter noStraightLines = new ClassicEncounter(
+                "No Straight Lines", "Peregrine Run",
+                "Outrace Falcon through open dive lanes where every turn can become an attack.",
+                MapType.SKYCLIFFS, MapVariant.PEREGRINE_RUN, MatchMutator.TURBO_BRAWL,
+                ClassicTwist.REDLINE_SPLITS, ClassicEncounterStyle.STANDARD, 105 * 60,
+                new ClassicFighter[0],
+                new ClassicFighter[]{classicFighter(BirdType.FALCON, "Pursuer: Falcon", 155, 1.05, 1.12)}, false);
+        noStraightLines.cpuLevel = 5;
+        run.add(noStraightLines);
+
+        ClassicEncounter roadblock = new ClassicEncounter(
+                "The Roadblock", "Titan Dock",
+                "A giant Ironclad Pelican blocks the harbor road. Build speed, choose a gap, and punch through.",
+                MapType.DOCK, MapVariant.TITAN_DOCK, MatchMutator.NONE, ClassicTwist.REDLINE_SPLITS,
+                ClassicEncounterStyle.GIANT, 115 * 60, new ClassicFighter[0],
+                new ClassicFighter[]{classicFighter(BirdType.PELICAN, "Giant Roadblock: Ironclad Pelican", 230,
+                        1.12, 0.90, IRONCLAD_PELICAN_SKIN)}, false);
+        roadblock.cpuLevel = 5;
+        run.add(roadblock);
+
+        ClassicEncounter otherMe = new ClassicEncounter(
+                "The Other Me", "Mirage Highway",
+                "A Mirage Roadrunner paints false roads across the desert. Trust momentum, not the horizon.",
+                MapType.DESERT, MapVariant.STANDARD, MatchMutator.TURBO_BRAWL, ClassicTwist.REDLINE_SPLITS,
+                ClassicEncounterStyle.REDLINE_MIRROR, 108 * 60, new ClassicFighter[0],
+                new ClassicFighter[]{classicFighter(BirdType.ROADRUNNER, "Mirage Roadrunner", 165, 1.04, 1.08,
+                        MIRAGE_ROADRUNNER_SKIN)}, false);
+        otherMe.cpuLevel = 6;
+        run.add(otherMe);
+
+        ClassicEncounter pursuit = new ClassicEncounter(
+                "Break the Pursuit", "Rooftop Relay",
+                "Fight beside Pigeon and break Raven, Vulture, and Goose as they enter the chase one wave at a time.",
+                MapType.CITY, MapVariant.ROOFTOP_RELAY, MatchMutator.TURBO_BRAWL, ClassicTwist.REDLINE_SPLITS,
+                ClassicEncounterStyle.REDLINE_PURSUIT, 132 * 60,
+                new ClassicFighter[]{classicFighter(BirdType.PIGEON, "Ally: Rooftop Pigeon", 128, 1.00, 1.08)},
+                new ClassicFighter[]{classicFighter(BirdType.RAVEN, "Pursuit Captain: Raven", 132, 1.03, 1.05)}, false)
+                .withWaves(
+                        new ClassicFighter[]{classicFighter(BirdType.RAVEN, "Pursuit Captain: Raven", 132, 1.03, 1.05)},
+                        new ClassicFighter[]{classicFighter(BirdType.VULTURE, "Pursuit Wing: Vulture", 136, 1.04, 1.02)},
+                        new ClassicFighter[]{classicFighter(BirdType.GOOSE, "Pursuit Wall: Goose", 142, 1.05, 0.99)});
+        pursuit.cpuLevel = 7;
+        run.add(pursuit);
+
+        ClassicEncounter redlineRun = new ClassicEncounter(
+                "Bonus: Redline Run", "Redline Canyon",
+                "Race through arches, tunnels, dust-devil lifts, collapsing switchbacks, and the finish gate.",
+                MapType.DESERT, MapVariant.REDLINE_CANYON, MatchMutator.NONE, ClassicTwist.REDLINE_RUN,
+                ClassicEncounterStyle.REDLINE_RUN, 72 * 60, new ClassicFighter[0], new ClassicFighter[0], false);
+        redlineRun.cpuLevel = 1;
+        run.add(redlineRun);
+
+        ClassicEncounter stillKing = new ClassicEncounter(
+                "The Still King", "The Final Stillness",
+                "Shatter the sundial field before the Still King can command every road to end beneath your feet.",
+                MapType.DESERT, MapVariant.REDLINE_CANYON, MatchMutator.NONE, ClassicTwist.FINAL_STILLNESS,
+                ClassicEncounterStyle.STILL_KING_BOSS, 175 * 60, new ClassicFighter[0],
+                new ClassicFighter[]{classicFighter(BirdType.SHOEBILL, "Boss: The Still King", 250, 1.15, 0.86,
+                        classicSkinDataKey(BirdType.SHOEBILL))}, true);
+        stillKing.cpuLevel = 8;
+        run.add(stillKing);
+        return run;
+    }
+
     private List<ClassicEncounter> buildBossRushRun() {
         List<ClassicEncounter> run = new ArrayList<>();
 
@@ -41517,6 +41642,7 @@ public class BirdGame3 {
         classicContinuesUsed = 0;
         classicRoosterMorale = 0;
         Arrays.fill(classicHummingbirdBlossoms, false);
+        Arrays.fill(classicRoadrunnerBolts, false);
         if (!bossRush && !ashfallTrial && !dailyChallengeModeActive) {
             resetClassicAdaptiveDifficulty();
         }
@@ -41537,6 +41663,7 @@ public class BirdGame3 {
         if (type == BirdType.HUMMINGBIRD) return "BEAT OF THE BLOOM";
         if (type == BirdType.TURKEY) return "THE LAST FEAST";
         if (type == BirdType.ROOSTER) return "NO ONE LEFT BEHIND";
+        if (type == BirdType.ROADRUNNER) return "NO FINISH LINE";
         return "TEMPORARY FLIGHT PLAN";
     }
 
@@ -41599,8 +41726,9 @@ public class BirdGame3 {
         boolean heartbloom = variant == MapVariant.HEARTBLOOM_SANCTUARY;
         boolean harvestTribunal = variant == MapVariant.HARVEST_TRIBUNAL;
         boolean dawnwatchBastion = variant == MapVariant.DAWNWATCH_BASTION;
+        boolean redlineCanyon = variant == MapVariant.REDLINE_CANYON;
 
-        Color skyTop = heartbloom ? Color.web("#100725") : (frozenCaldera ? Color.web("#071328") : (tempestSummit ? Color.web("#070B20")
+        Color skyTop = redlineCanyon ? Color.web("#351448") : (heartbloom ? Color.web("#100725") : (frozenCaldera ? Color.web("#071328") : (tempestSummit ? Color.web("#070B20")
                 : (peregrineRun ? Color.web("#12345C") : switch (map) {
             case CITY, BEACON_CROWN, PRISON -> Color.web("#100D35");
             case SKYCLIFFS -> Color.web("#234A78");
@@ -41611,8 +41739,8 @@ public class BirdGame3 {
             case DESERT -> Color.web("#D17A2D");
             case FOREST, VIBRANT_JUNGLE -> Color.web("#123E35");
             default -> Color.web("#17233D");
-        })));
-        Color skyBottom = heartbloom ? Color.web("#C14B91") : (frozenCaldera ? Color.web("#6DA4C2") : (tempestSummit ? Color.web("#536D91")
+        }))));
+        Color skyBottom = redlineCanyon ? Color.web("#F0773D") : (heartbloom ? Color.web("#C14B91") : (frozenCaldera ? Color.web("#6DA4C2") : (tempestSummit ? Color.web("#536D91")
                 : (peregrineRun ? Color.web("#C8F3FF") : switch (map) {
             case CITY, BEACON_CROWN, PRISON -> Color.web("#291753");
             case SKYCLIFFS -> Color.web("#A7D8E8");
@@ -41623,7 +41751,7 @@ public class BirdGame3 {
             case DESERT -> Color.web("#F2C36E");
             case FOREST, VIBRANT_JUNGLE -> Color.web("#3C8B62");
             default -> Color.web("#42577A");
-        })));
+        }))));
         g.setFill(new LinearGradient(0, 0, 0, height, false, CycleMethod.NO_CYCLE,
                 new Stop(0, skyTop), new Stop(1, skyBottom)));
         g.fillRect(0, 0, width, height);
@@ -41635,7 +41763,13 @@ public class BirdGame3 {
             g.fillOval(width * 0.5 - 55, 18, 110, 110);
         }
 
-        if (dawnwatchBastion) {
+        if (redlineCanyon) {
+            g.setFill(Color.web("#68303C"));
+            g.fillPolygon(new double[]{0, 42, 88, 128, 170}, new double[]{height, 54, 54, 110, height}, 5);
+            g.fillPolygon(new double[]{230, 275, 335, 370, width}, new double[]{height, 72, 72, 118, height}, 5);
+            g.setFill(Color.web("#FFE3A1", 0.75));
+            g.fillOval(width - 105, 20, 74, 74);
+        } else if (dawnwatchBastion) {
             g.setFill(Color.web("#25273A"));
             g.fillRect(18, 88, 82, height - 88);
             g.fillRect(116, 58, 74, height - 58);
@@ -41768,6 +41902,15 @@ public class BirdGame3 {
             drawClassicPreviewPlatform(g, 112, 105, 56, 10);
             drawClassicPreviewPlatform(g, 232, 105, 56, 10);
             drawClassicPreviewPlatform(g, 165, 66, 70, 11);
+        } else if (variant == MapVariant.REDLINE_CANYON) {
+            g.setStroke(Color.web("#FFD180"));
+            g.setFill(Color.web("#3A3335"));
+            drawClassicPreviewPlatform(g, 10, 142, 94, 13);
+            drawClassicPreviewPlatform(g, 102, 119, 196, 15);
+            drawClassicPreviewPlatform(g, 296, 142, 94, 13);
+            drawClassicPreviewPlatform(g, 62, 94, 58, 9);
+            drawClassicPreviewPlatform(g, 171, 72, 58, 9);
+            drawClassicPreviewPlatform(g, 280, 94, 58, 9);
         } else if (variant == MapVariant.CROWN_DUEL || variant == MapVariant.NULL_ROCK_DUEL) {
             drawClassicPreviewPlatform(g, 82, 138, 205, 14);
             drawClassicPreviewPlatform(g, 150, 92, 72, 10);
@@ -41897,7 +42040,8 @@ public class BirdGame3 {
         boolean routeBonus = classicEncounter.style == ClassicEncounterStyle.BONUS_RELAY
                 || classicEncounter.style == ClassicEncounterStyle.NECTAR_DASH
                 || classicEncounter.style == ClassicEncounterStyle.HARVEST_DEFENSE
-                || classicEncounter.style == ClassicEncounterStyle.DAWN_MUSTER;
+                || classicEncounter.style == ClassicEncounterStyle.DAWN_MUSTER
+                || classicEncounter.style == ClassicEncounterStyle.REDLINE_RUN;
         Label round = new Label((routeBonus ? "BONUS " : "ROUND ")
                 + (classicRoundIndex + 1));
         round.setFont(Font.font("Arial Black", FontWeight.BOLD, 72));
@@ -41936,6 +42080,7 @@ public class BirdGame3 {
         boolean bonusTargetEncounter = classicEncounter.style == ClassicEncounterStyle.BONUS_RELAY;
         boolean flowerGateEncounter = classicEncounter.style == ClassicEncounterStyle.NECTAR_DASH;
         boolean musterEncounter = classicEncounter.style == ClassicEncounterStyle.DAWN_MUSTER;
+        boolean redlineRunEncounter = classicEncounter.style == ClassicEncounterStyle.REDLINE_RUN;
         int enemyCount = Math.max(1, enemies.length);
         double portraitSize = enemyCount >= 3 ? 215 : (enemyCount == 2 ? 310 : 430);
         HBox enemyLineup = new HBox(enemyCount >= 3 ? 14 : 20);
@@ -41958,7 +42103,8 @@ public class BirdGame3 {
                 drawClassicFlowerGatePortrait(flowerCourse);
                 enemyLineup.getChildren().add(flowerCourse);
             } else {
-                Label bonusTarget = new Label(musterEncounter ? "CALL  •  TOSS\nLIFT  •  RECALL" : "BONUS\nTARGETS");
+                Label bonusTarget = new Label(musterEncounter ? "CALL  •  TOSS\nLIFT  •  RECALL"
+                        : (redlineRunEncounter ? "REDLINE\nRUN" : "BONUS\nTARGETS"));
                 bonusTarget.setFont(Font.font("Arial Black", 58));
                 bonusTarget.setTextFill(Color.WHITE);
                 bonusTarget.setTextAlignment(TextAlignment.CENTER);
@@ -41970,6 +42116,7 @@ public class BirdGame3 {
 
         String opponentNames = musterEncounter ? "THE GREAT MUSTER"
                 : flowerGateEncounter ? "FLOWER GATE COURSE"
+                : redlineRunEncounter ? "CANYON SPEED COURSE"
                 : bonusTargetEncounter ? enemies.length + " BONUS TARGETS"
                 : authoredWaveCount > 0 ? authoredWaveCount + " WAVES"
                 : enemies.length == 0 ? "BONUS TARGETS" : Arrays.stream(enemies)
@@ -42029,6 +42176,19 @@ public class BirdGame3 {
             morale.setStyle("-fx-background-color: rgba(29,18,12,0.80); -fx-background-radius: 18; "
                     + "-fx-border-color: #D89A2B; -fx-border-width: 2; -fx-border-radius: 18;");
             root.getChildren().add(morale);
+        }
+        if (classicSelectedBird == BirdType.ROADRUNNER && !bossRushModeActive) {
+            Label bolts = new Label("REDLINE BOLTS  " + classicRoadrunnerBoltCount() + "/7");
+            bolts.setFont(Font.font("Arial Black", 20));
+            bolts.setTextFill(Color.web("#FFD180"));
+            bolts.setPadding(new Insets(8, 18, 8, 18));
+            lockRegionSize(bolts, CLASSIC_INTRO_STATUS_WIDTH, CLASSIC_INTRO_STATUS_HEIGHT);
+            bolts.setAlignment(Pos.CENTER);
+            bolts.setLayoutX(CLASSIC_INTRO_STATUS_X);
+            bolts.setLayoutY(CLASSIC_INTRO_MORALE_Y);
+            bolts.setStyle("-fx-background-color: rgba(42,18,14,0.82); -fx-background-radius: 18; "
+                    + "-fx-border-color: #FF7043; -fx-border-width: 2; -fx-border-radius: 18;");
+            root.getChildren().add(bolts);
         }
 
         HBox routeStrip = buildClassicRouteStrip(classicRoundIndex, classicRun.size(), bossRushModeActive);
@@ -42411,7 +42571,8 @@ public class BirdGame3 {
                         && encounter.style != ClassicEncounterStyle.DEVOURER_BOSS
                         && encounter.style != ClassicEncounterStyle.BROOD_RECRUITMENT
                         && encounter.style != ClassicEncounterStyle.DAWN_MUSTER
-                        && encounter.style != ClassicEncounterStyle.BROODBREAKER_BOSS);
+                        && encounter.style != ClassicEncounterStyle.BROODBREAKER_BOSS
+                        && classicSelectedBird != BirdType.ROADRUNNER);
                 if (enemy.skinKey != null) {
                     applyPreviewSkinChoiceToBird(enemyBird, enemy.type, enemy.skinKey);
                 }
@@ -42513,12 +42674,29 @@ public class BirdGame3 {
                 bird.health = Math.max(1.0, 245.0 * enemyHealthScale);
                 bird.setBaseMultipliers(1.68, 1.16 * enemyPowerScale, 1.02);
                 bird.setUltimateEnabled(false);
+            } else if (encounter.style == ClassicEncounterStyle.STILL_KING_BOSS) {
+                bird.health = Math.max(1.0, 250.0 * enemyHealthScale);
+                bird.setBaseMultipliers(1.78, 1.15 * enemyPowerScale, 0.86);
+                bird.setUltimateEnabled(false);
             }
         }
     }
 
     private void positionClassicEncounterSpawns(ClassicEncounter encounter) {
         if (encounter == null) return;
+        if (encounter.style == ClassicEncounterStyle.REDLINE_RUN) {
+            Bird player = players[0];
+            if (player != null) {
+                player.x = 330.0;
+                player.y = GROUND_Y - 250.0 - player.bodyHeight();
+                player.prevX = player.x;
+                player.prevY = player.y;
+                player.vx = 0.0;
+                player.vy = 0.0;
+                player.facingRight = true;
+            }
+            return;
+        }
         if (encounter.style == ClassicEncounterStyle.DAWN_MUSTER) {
             Bird player = players[0];
             if (player != null) {
@@ -42645,6 +42823,7 @@ public class BirdGame3 {
         setupHummingbirdNectarRoute(encounter);
         setupTurkeyClassicRoute(encounter);
         setupRoosterClassicRoute(encounter);
+        setupRoadrunnerClassicRoute(encounter);
         if (bossRushModeActive) {
             applyBossRushEncounterArenaModifiers(encounter);
         }
@@ -42738,7 +42917,8 @@ public class BirdGame3 {
             }
             case NECTAR_CHAIN, HUNDRED_FLOWER_DASH, BLIGHTWING_ECLIPSE,
                     FEAST_OR_FAMINE, HARVEST_WATCH, GREAT_HUNGER,
-                    BROOD_MORALE, GREAT_MUSTER, FALSE_DAWN -> {
+                    BROOD_MORALE, GREAT_MUSTER, FALSE_DAWN,
+                    REDLINE_SPLITS, REDLINE_RUN, FINAL_STILLNESS -> {
                 // These authored route mechanics own their deterministic arena
                 // setup and runtime; do not add generic item drops here.
             }
@@ -43948,6 +44128,19 @@ public class BirdGame3 {
         matchController.triggerMatchEnd(players[0]);
     }
 
+    boolean isClassicRedlineRunActive() {
+        return classicModeActive && classicEncounter != null
+                && classicEncounter.style == ClassicEncounterStyle.REDLINE_RUN;
+    }
+
+    void finishClassicRedlineRunFromTimeout() {
+        if (!isClassicRedlineRunActive() || matchEnded) return;
+        classicRoadrunnerRunCompleted = true;
+        classicRoadrunnerRunRank = "C";
+        addToKillFeed("TIME! Redline Run closes at C rank. The Classic route continues.");
+        matchController.triggerMatchEnd(players[0]);
+    }
+
     private boolean isClassicBlightwingEncounter() {
         return classicModeActive && classicEncounter != null
                 && classicEncounter.style == ClassicEncounterStyle.BLIGHTWING_BOSS;
@@ -44379,6 +44572,373 @@ public class BirdGame3 {
         windVents.add(new WindVent(650, westTower.y, 280));
         windVents.add(new WindVent(2_850, courtyard.y, 300));
         windVents.add(new WindVent(5_070, eastTower.y, 280));
+    }
+
+    private void setupRoadrunnerClassicRoute(ClassicEncounter encounter) {
+        classicRoadrunnerRedline = 0.0;
+        classicRoadrunnerHighMomentumTicks = 0;
+        classicRoadrunnerBoltAwardedThisEncounter = classicRoundIndex >= 0
+                && classicRoundIndex < 6 && classicRoadrunnerBolts[classicRoundIndex];
+        classicRoadrunnerPursuitWaveIndex = 0;
+        classicRoadrunnerRunCompleted = false;
+        classicRoadrunnerRunRank = "";
+        classicRoadrunnerCheckpointX = 420.0;
+        classicRoadrunnerLastDamageDealt = Math.max(0, damageDealt[0]);
+        classicStillKingLastStocks = 3;
+        classicStillKingHazardCooldown = 0;
+        classicStillKingCollapseCooldown = 0;
+        classicStillKingCollapsedRoads = 0;
+        if (!classicModeActive || bossRushModeActive || ashfallTrialModeActive
+                || classicSelectedBird != BirdType.ROADRUNNER || encounter == null) {
+            return;
+        }
+        if (encounter.style == ClassicEncounterStyle.REDLINE_RUN) {
+            addToKillFeed("REDLINE RUN: reach the final gate. Canyon markers bank safe progress.");
+        } else if (encounter.style == ClassicEncounterStyle.STILL_KING_BOSS) {
+            addToKillFeed("FINAL STILLNESS: " + classicRoadrunnerBoltCount()
+                    + "/7 Redline Bolts have cracked the sundial field.");
+        } else {
+            addToKillFeed("REDLINE SPLIT: sustain top speed to bank this round's bolt.");
+        }
+    }
+
+    void applyRoadrunnerClassicRuntimeEffects() {
+        if (!classicModeActive || classicEncounter == null || classicSelectedBird != BirdType.ROADRUNNER
+                || bossRushModeActive || ashfallTrialModeActive || matchEnded) {
+            return;
+        }
+        Bird player = players[0];
+        if (player == null || player.health <= 0.0 || !playerHasStocksRemaining(0)) return;
+
+        if (classicEncounter.style == ClassicEncounterStyle.REDLINE_RUN) {
+            updateRoadrunnerRedlineRun(player);
+            return;
+        }
+        if (classicEncounter.style == ClassicEncounterStyle.STILL_KING_BOSS) {
+            updateClassicStillKing(player);
+            return;
+        }
+        updateRoadrunnerRedlineSplit(player);
+    }
+
+    private void updateRoadrunnerRedlineSplit(Bird player) {
+        if (classicRoundIndex < 0 || classicRoundIndex >= 6 || classicRoadrunnerBoltAwardedThisEncounter) return;
+        double momentumRatio = player.roadrunnerMomentum / Bird.ROADRUNNER_MOMENTUM_MAX;
+        boolean atSpeed = momentumRatio >= 0.64 || Math.abs(player.vx) >= 10.5;
+        if (atSpeed) {
+            classicRoadrunnerHighMomentumTicks++;
+            classicRoadrunnerRedline = Math.min(420.0, classicRoadrunnerRedline
+                    + 1.0 + (player.attackCooldown > 0 ? 0.35 : 0.0));
+        } else {
+            classicRoadrunnerHighMomentumTicks = Math.max(0, classicRoadrunnerHighMomentumTicks - 2);
+            classicRoadrunnerRedline = Math.max(0.0, classicRoadrunnerRedline - 0.62);
+        }
+        int newDamage = Math.max(0, damageDealt[0]);
+        if (newDamage > classicRoadrunnerLastDamageDealt && atSpeed) {
+            classicRoadrunnerRedline = Math.min(420.0, classicRoadrunnerRedline
+                    + Math.min(36.0, (newDamage - classicRoadrunnerLastDamageDealt) * 1.8));
+        }
+        classicRoadrunnerLastDamageDealt = newDamage;
+        if (classicRoadrunnerRedline < 420.0) return;
+
+        classicRoadrunnerBoltAwardedThisEncounter = true;
+        classicRoadrunnerBolts[classicRoundIndex] = true;
+        classicBonusCoins += 15;
+        classicRunScore += 1_750;
+        playManagedSfxVaried(steamAchievementClip, 0.50, 1.32, 0.014);
+        addToKillFeed("REDLINE BOLT BANKED! The Still King's control field weakens. Bird Coins +15.");
+    }
+
+    private void updateRoadrunnerRedlineRun(Bird player) {
+        double centerX = player.bodyCenterX();
+        double[] checkpoints = {1_250.0, 2_350.0, 3_600.0, 4_650.0};
+        for (double checkpoint : checkpoints) {
+            if (centerX >= checkpoint && classicRoadrunnerCheckpointX < checkpoint) {
+                classicRoadrunnerCheckpointX = checkpoint;
+                platforms.removeIf(platform -> platform.w < 800.0
+                        && platform.x + platform.w < checkpoint - 420.0);
+                classicRunScore += 350;
+                playManagedSfxVaried(swingClip, 0.34, 1.42, 0.014);
+                addToKillFeed("CANYON SPLIT " + (int) checkpoint + " CLEARED.");
+            }
+        }
+        // Painted shortcut lanes reward commitment without taking control away
+        // from the player or changing the fixed-timestep simulation.
+        if ((centerX >= 1_700.0 && centerX <= 2_050.0)
+                || (centerX >= 3_850.0 && centerX <= 4_180.0)) {
+            int direction = player.horizontalInputDirection();
+            if (direction > 0) player.vx = Math.min(17.5, player.vx + 0.22);
+        }
+        double movingDustX = 850.0 + Math.floorMod(simTick * 7L, 4_500L);
+        if (Math.abs(centerX - movingDustX) < 105.0 && player.bodyCenterY() > GROUND_Y - 1_050.0) {
+            player.vx = Math.min(18.0, player.vx + 0.28);
+            player.vy = Math.min(player.vy, -5.8);
+        }
+        if (centerX < 5_500.0 || classicRoadrunnerRunCompleted) return;
+
+        classicRoadrunnerRunCompleted = true;
+        int remaining = Math.max(0, matchTimer);
+        classicRoadrunnerRunRank = remaining >= 42 * 60 ? "S" : (remaining >= 25 * 60 ? "A" : "B");
+        classicRoadrunnerBolts[6] = true;
+        classicBonusCoins += "S".equals(classicRoadrunnerRunRank) ? 75 : 50;
+        classicRunScore += "S".equals(classicRoadrunnerRunRank) ? 6_000 : 4_000;
+        playClassicNectarRingSfx(7, 7);
+        addToKillFeed("REDLINE RUN " + classicRoadrunnerRunRank + " RANK! Final Bolt banked.");
+        matchController.triggerMatchEnd(player);
+    }
+
+    private void updateClassicStillKing(Bird player) {
+        Bird king = firstClassicEnemyWithStocks();
+        if (king == null || king.type != BirdType.SHOEBILL) return;
+        int stocks = Math.max(0, scores[king.playerIndex]);
+        if (stocks != classicStillKingLastStocks) {
+            classicStillKingLastStocks = stocks;
+            classicStillKingHazardCooldown = 90;
+            if (stocks == 2) addToKillFeed("THE STILL KING: the sundial casts its dead zones.");
+            if (stocks == 1) addToKillFeed("THE STILL KING: the road collapses into Final Stillness.");
+        }
+
+        int bolts = classicRoadrunnerBoltCount();
+        int activeZones = stocks <= 2 ? Math.max(0, 3 - bolts / 2) : 0;
+        double[] zoneX = {1_650.0, 3_000.0, 4_350.0};
+        if (stocks == 3) {
+            double shadowX = 900.0 + Math.floorMod(simTick * 5L, 4_200L);
+            if (Math.abs(player.bodyCenterX() - shadowX) <= 190.0) {
+                player.vx *= 0.98;
+                player.roadrunnerMomentum = Math.max(0.0, player.roadrunnerMomentum - 0.18);
+            }
+        }
+        for (int i = 0; i < activeZones; i++) {
+            if (Math.abs(player.bodyCenterX() - zoneX[i]) <= 330.0) {
+                player.vx *= 0.955;
+                player.roadrunnerMomentum = Math.max(0.0, player.roadrunnerMomentum - 0.55);
+            }
+        }
+
+        if (classicStillKingHazardCooldown > 0) classicStillKingHazardCooldown--;
+        if (classicStillKingCollapseCooldown > 0) classicStillKingCollapseCooldown--;
+        if (stocks == 1 && classicStillKingCollapsedRoads < 4 && classicStillKingCollapseCooldown <= 0) {
+            Platform collapsing = platforms.stream()
+                    .filter(platform -> platform.w < 800.0 && platform.y < GROUND_Y - 500.0)
+                    .findFirst().orElse(null);
+            if (collapsing != null) {
+                platforms.remove(collapsing);
+                classicStillKingCollapsedRoads++;
+                classicStillKingCollapseCooldown = 300 + bolts * 24;
+                addToKillFeed("FINAL STILLNESS: a switchback falls away.");
+            }
+        }
+        if (stocks == 1 && classicStillKingHazardCooldown <= 0 && king.shoebillFinalStillnessTimer <= 0) {
+            ShoebillSpecials.use(king, true);
+            classicStillKingHazardCooldown = 430 + bolts * 34;
+        }
+    }
+
+    boolean holdClassicRoadrunnerEncounterOpen() {
+        if (!classicModeActive || classicEncounter == null || classicSelectedBird != BirdType.ROADRUNNER
+                || bossRushModeActive || ashfallTrialModeActive || matchEnded || !playerHasStocksRemaining(0)) {
+            return false;
+        }
+        if (classicEncounter.style == ClassicEncounterStyle.REDLINE_RUN) {
+            return !classicRoadrunnerRunCompleted && matchTimer > 1;
+        }
+        if (classicEncounter.style != ClassicEncounterStyle.REDLINE_PURSUIT
+                || classicEncounter.waves == null || classicEncounter.waves.length == 0) {
+            return false;
+        }
+        if (classicEnemyTeamHasStocks()) return false;
+        if (classicRoadrunnerPursuitWaveIndex + 1 >= classicEncounter.waves.length) return false;
+        classicRoadrunnerPursuitWaveIndex++;
+        spawnRoadrunnerPursuitWave(classicEncounter.waves[classicRoadrunnerPursuitWaveIndex]);
+        return true;
+    }
+
+    private void spawnRoadrunnerPursuitWave(ClassicFighter[] wave) {
+        if (wave == null || wave.length == 0 || classicEncounter == null) return;
+        for (int slot = 1; slot < MAX_COMBATANTS; slot++) {
+            if (players[slot] != null && getEffectiveTeam(slot) == 2) {
+                players[slot] = null;
+                isAI[slot] = false;
+                scores[slot] = 0;
+                classicCpuLevels[slot] = 0;
+            }
+        }
+        int slot = 1;
+        while (slot < MAX_COMBATANTS && players[slot] != null) slot++;
+        if (slot >= MAX_COMBATANTS) return;
+        ClassicFighter fighter = wave[0];
+        double difficultyDelta = classicDifficulty - CLASSIC_STARTING_DIFFICULTY;
+        Bird enemy = createStoryBird(0.0, fighter.type, slot, fighter.title,
+                fighter.health * (1.0 + difficultyDelta * 0.045),
+                fighter.powerMult * (1.0 + difficultyDelta * 0.015), fighter.speedMult, true);
+        if (fighter.skinKey != null) applyPreviewSkinChoiceToBird(enemy, fighter.type, fighter.skinKey);
+        enemy.setUltimateEnabled(false);
+        classicTeams[slot] = 2;
+        classicCpuLevels[slot] = resolvedClassicFighterCpuLevel(fighter, classicEncounter);
+        scores[slot] = 1;
+        enemy.x = 4_750.0 - enemy.bodyWidth() * 0.5;
+        enemy.y = battlefieldSpawnY(enemy.sizeMultiplier);
+        enemy.prevX = enemy.x;
+        enemy.prevY = enemy.y;
+        enemy.facingRight = false;
+        activePlayers = Math.max(activePlayers, slot + 1);
+        addToKillFeed("PURSUIT WAVE " + (classicRoadrunnerPursuitWaveIndex + 1) + "/3 ENTERS.");
+    }
+
+    private int classicRoadrunnerBoltCount() {
+        int count = 0;
+        for (boolean bolt : classicRoadrunnerBolts) if (bolt) count++;
+        return count;
+    }
+
+    private void drawClassicRoadrunnerRouteFeatures(GraphicsContext g) {
+        if (!classicModeActive || classicEncounter == null || classicSelectedBird != BirdType.ROADRUNNER) return;
+        if (classicEncounter.style == ClassicEncounterStyle.REDLINE_MIRROR) {
+            double drift = (simTick * 7.0) % 900.0;
+            g.setFill(Color.web("#FFB74D", 0.16));
+            for (int i = 0; i < 7; i++) {
+                double x = i * 980.0 - drift;
+                g.fillPolygon(new double[]{x, x + 680, x + 850, x + 170},
+                        new double[]{GROUND_Y - 90, GROUND_Y - 90, GROUND_Y + 30, GROUND_Y + 30}, 4);
+            }
+        }
+        if (classicEncounter.style == ClassicEncounterStyle.REDLINE_RUN) {
+            g.setFill(Color.web("#F2E7C4"));
+            g.fillRect(5_500, GROUND_Y - 720, 36, 470);
+            g.setFill(Color.web("#D7263D"));
+            g.fillPolygon(new double[]{5_536, 5_536, 5_790},
+                    new double[]{GROUND_Y - 720, GROUND_Y - 560, GROUND_Y - 640}, 3);
+            g.setFill(Color.web("#41221F", 0.38));
+            g.fillRect(0, GROUND_Y - 120, Math.max(0.0, classicRoadrunnerCheckpointX - 520.0), 420);
+            double dustX = 850.0 + Math.floorMod(simTick * 7L, 4_500L);
+            g.setStroke(Color.web("#FFD09A", 0.68));
+            g.setLineWidth(11);
+            for (int ring = 0; ring < 5; ring++) {
+                double width = 70 + ring * 42;
+                g.strokeOval(dustX - width * 0.5, GROUND_Y - 310 - ring * 75, width, 48 + ring * 10);
+            }
+        }
+        if (classicEncounter.style == ClassicEncounterStyle.STILL_KING_BOSS) {
+            Bird king = firstClassicEnemyWithStocks();
+            int stocks = king == null ? 3 : Math.max(0, scores[king.playerIndex]);
+            int activeZones = stocks <= 2 ? Math.max(0, 3 - classicRoadrunnerBoltCount() / 2) : 0;
+            double[] zoneX = {1_650.0, 3_000.0, 4_350.0};
+            if (stocks == 3) {
+                double shadowX = 900.0 + Math.floorMod(simTick * 5L, 4_200L);
+                g.setFill(Color.web("#05040A", 0.32));
+                g.fillPolygon(new double[]{shadowX - 220, shadowX + 90, shadowX + 260, shadowX - 50},
+                        new double[]{GROUND_Y, 120, 120, GROUND_Y}, 4);
+            }
+            for (int i = 0; i < activeZones; i++) {
+                g.setFill(Color.web("#09060D", 0.26));
+                g.fillOval(zoneX[i] - 330, GROUND_Y - 820, 660, 820);
+                g.setStroke(Color.web("#FFD54F", 0.55));
+                g.setLineWidth(12);
+                g.strokeOval(zoneX[i] - 300, GROUND_Y - 780, 600, 600);
+            }
+            if (king != null) {
+                double cx = king.bodyCenterX();
+                double cy = king.bodyCenterY() - 80.0;
+                g.setStroke(Color.web("#FFE082", 0.78));
+                g.setLineWidth(14);
+                g.strokeOval(cx - 190, cy - 190, 380, 380);
+                for (int i = 0; i < 12; i++) {
+                    double angle = i * Math.PI / 6.0;
+                    g.strokeLine(cx + Math.cos(angle) * 205, cy + Math.sin(angle) * 205,
+                            cx + Math.cos(angle) * 250, cy + Math.sin(angle) * 250);
+                }
+            }
+        }
+    }
+
+    private void setupRedlineCanyonArena() {
+        resetBossRushArenaState();
+        activeArenaGeometryVariant = MapVariant.REDLINE_CANYON;
+
+        Platform westRoad = new Platform(180, GROUND_Y - 250, 1_420, 82);
+        Platform centerRoad = new Platform(1_600, GROUND_Y - 430, 2_800, 92);
+        Platform eastRoad = new Platform(4_400, GROUND_Y - 250, 1_420, 82);
+        westRoad.signText = "MILE 01";
+        centerRoad.signText = "REDLINE CANYON";
+        eastRoad.signText = "NO FINISH LINE";
+        Collections.addAll(platforms, westRoad, centerRoad, eastRoad);
+
+        // Switchbacks are built into mesa faces; none of these combat ledges
+        // are visually unsupported floating slabs.
+        platforms.add(new Platform(760, GROUND_Y - 610, 620, 46));
+        platforms.add(new Platform(1_420, GROUND_Y - 770, 610, 46));
+        platforms.add(new Platform(2_300, GROUND_Y - 720, 560, 44));
+        platforms.add(new Platform(3_140, GROUND_Y - 720, 560, 44));
+        platforms.add(new Platform(3_970, GROUND_Y - 770, 610, 46));
+        platforms.add(new Platform(4_620, GROUND_Y - 610, 620, 46));
+        platforms.add(new Platform(2_650, GROUND_Y - 1_080, 700, 48));
+
+        battlefieldIslandX = centerRoad.x;
+        battlefieldIslandW = centerRoad.w;
+        battlefieldIslandY = centerRoad.y;
+        windVents.add(new WindVent(930, GROUND_Y - 640, 250));
+        windVents.add(new WindVent(2_870, GROUND_Y - 750, 260));
+        windVents.add(new WindVent(4_820, GROUND_Y - 640, 250));
+    }
+
+    private void drawRedlineCanyonArena(GraphicsContext g, boolean ambientFx) {
+        Color top = Color.web("#351448");
+        Color bottom = Color.web("#F0773D");
+        for (int i = 0; i < 560; i++) {
+            double ratio = i / 560.0;
+            g.setFill(top.interpolate(bottom, ratio));
+            g.fillRect(0, i * (WORLD_HEIGHT / 560.0), WORLD_WIDTH, WORLD_HEIGHT / 560.0 + 3);
+        }
+        g.setFill(Color.web("#FFE3A1", 0.82));
+        g.fillOval(WORLD_WIDTH - 1_120, 170, 650, 650);
+
+        for (int layer = 0; layer < 3; layer++) {
+            Color mesa = Color.web(layer == 0 ? "#54273B" : layer == 1 ? "#753642" : "#9C493E");
+            g.setFill(mesa);
+            double baseY = GROUND_Y + 260 - layer * 105;
+            for (int i = 0; i < 7; i++) {
+                double x = i * 1_030 - 360 - layer * 125;
+                double h = 470 + ((i * 173 + layer * 97) % 500);
+                g.fillPolygon(new double[]{x, x + 90, x + 210, x + 720, x + 860, x + 980},
+                        new double[]{baseY, baseY - h + 150, baseY - h, baseY - h,
+                                baseY - h + 190, baseY}, 6);
+            }
+        }
+
+        // The road supports and stone arches continue to the canyon floor.
+        for (Platform p : platforms) {
+            double supportY = p.y + p.h;
+            g.setFill(Color.web("#6E382F"));
+            if (p.w >= 600) {
+                int supports = Math.max(2, (int) Math.floor(p.w / 520));
+                for (int i = 0; i <= supports; i++) {
+                    double sx = p.x + 55 + i * Math.max(1.0, (p.w - 110) / supports);
+                    g.fillRect(sx - 24, supportY, 48, Math.max(0, GROUND_Y + 300 - supportY));
+                }
+            }
+            g.setFill(Color.web("#3A3335"));
+            g.fillRoundRect(p.x, p.y, p.w, p.h, 24, 24);
+            g.setFill(Color.web("#D95B36"));
+            g.fillRoundRect(p.x + 14, p.y + 12, Math.max(0, p.w - 28), Math.min(18, p.h - 12), 10, 10);
+            g.setStroke(Color.web("#FFD180", 0.72));
+            g.setLineWidth(4);
+            g.strokeRoundRect(p.x, p.y, p.w, p.h, 24, 24);
+            for (double stripe = p.x + 80; stripe < p.x + p.w - 40; stripe += 210) {
+                g.setFill(Color.web("#FFF3C4", 0.78));
+                g.fillRoundRect(stripe, p.y + p.h * 0.62, 92, 8, 5, 5);
+            }
+        }
+
+        double swirl = ambientFx ? Math.sin(System.currentTimeMillis() / 160.0) * 18 : 0.0;
+        for (WindVent vent : windVents) {
+            g.setStroke(Color.web("#FFD09A", 0.34));
+            g.setLineWidth(10);
+            for (int ring = 0; ring < 4; ring++) {
+                double w = 70 + ring * 45;
+                g.strokeOval(vent.x + vent.w * 0.5 - w * 0.5 + swirl * ring / 5.0,
+                        vent.y - 100 - ring * 68, w, 42 + ring * 12);
+            }
+        }
     }
 
     private void drawDawnwatchBastionArena(GraphicsContext g, boolean ambientFx) {
@@ -45016,7 +45576,8 @@ public class BirdGame3 {
         if (classicEncounter.style == ClassicEncounterStyle.BONUS_RELAY
                 || classicEncounter.style == ClassicEncounterStyle.NECTAR_DASH
                 || classicEncounter.style == ClassicEncounterStyle.HARVEST_DEFENSE
-                || classicEncounter.style == ClassicEncounterStyle.DAWN_MUSTER) {
+                || classicEncounter.style == ClassicEncounterStyle.DAWN_MUSTER
+                || classicEncounter.style == ClassicEncounterStyle.REDLINE_RUN) {
             recordClassicEncounterScore(playerWon);
             classicRoundIndex++;
             classicEncounter = classicRun.get(classicRoundIndex);
@@ -45054,6 +45615,8 @@ public class BirdGame3 {
                 harvestTribunalUnlocked = true;
             } else if (classicSelectedBird == BirdType.ROOSTER) {
                 dawnwatchBastionUnlocked = true;
+            } else if (classicSelectedBird == BirdType.ROADRUNNER) {
+                redlineCanyonUnlocked = true;
             }
             profileProgressController.onClassicRunCompleted(classicSelectedBird, achievementEvaluator::onClassicRunCompleted);
             ClassicEndingContent.Ending authoredEnding = ClassicEndingContent.endingFor(classicSelectedBird);
@@ -45130,6 +45693,7 @@ public class BirdGame3 {
             case HUMMINGBIRD -> "Heartbloom Sanctuary";
             case TURKEY -> "Harvest Tribunal";
             case ROOSTER -> "Dawnwatch Bastion";
+            case ROADRUNNER -> "Redline Canyon";
             default -> "";
         };
     }
@@ -47806,6 +48370,7 @@ public class BirdGame3 {
         }
         return classicEncounter.style != ClassicEncounterStyle.BONUS_RELAY
                 && classicEncounter.style != ClassicEncounterStyle.NECTAR_DASH
+                && classicEncounter.style != ClassicEncounterStyle.REDLINE_RUN
                 && classicEncounter.style != ClassicEncounterStyle.NULL_ROCK_BOSS;
     }
 
@@ -47843,7 +48408,7 @@ public class BirdGame3 {
         }
         int enemyStocks = switch (classicEncounter.style) {
             case STORM_TYRANT_BOSS, PHOENIX_REBIRTH, BLIGHTWING_BOSS -> 2;
-            case NULL_ROC_BOSS, LONG_WINTER_BOSS, DEVOURER_BOSS, BROODBREAKER_BOSS -> 3;
+            case NULL_ROC_BOSS, LONG_WINTER_BOSS, DEVOURER_BOSS, BROODBREAKER_BOSS, STILL_KING_BOSS -> 3;
             default -> 0;
         };
         if (enemyStocks <= 0) return;
@@ -47977,6 +48542,7 @@ public class BirdGame3 {
             applyHummingbirdClassicRuntimeEffects();
             applyTurkeyClassicRuntimeEffects();
             applyRoosterClassicRuntimeEffects();
+            applyRoadrunnerClassicRuntimeEffects();
         }
         if (bossRushModeActive && classicModeActive) {
             applyBossRushRuntimeEffects();
@@ -51208,6 +51774,7 @@ public class BirdGame3 {
             case HEARTBLOOM_SANCTUARY -> setupHeartbloomSanctuaryArena();
             case HARVEST_TRIBUNAL -> setupHarvestTribunalArena();
             case DAWNWATCH_BASTION -> setupDawnwatchBastionArena();
+            case REDLINE_CANYON -> setupRedlineCanyonArena();
             case CARRION_THRONE -> setupBossRushCarrionThrone();
             case NULL_ROC_ASCENDING -> setupBossRushNullRocArena();
             case VOID_CROWN -> setupBossRushVoidCrownArena();
@@ -52626,6 +53193,9 @@ public class BirdGame3 {
                 lines.add("COMMAND " + Math.min(4, classicRoosterMusterStep + 1) + "/4  "
                         + commands[Math.clamp(classicRoosterMusterStep, 0, 4)]
                         + "  MORALE " + classicRoosterMorale + "/3");
+            } else if (classicEncounter.style == ClassicEncounterStyle.REDLINE_RUN) {
+                lines.add("NEXT SPLIT " + (int) classicRoadrunnerCheckpointX
+                        + "  FINISH 5500  BOLTS " + classicRoadrunnerBoltCount() + "/7");
             } else {
                 lines.add(dailyChallengeModeActive
                     ? "LIVES " + livesLeft + "/3  SEED " + formatDailyChallengeSeed(dailyChallengeSeed)
@@ -52653,6 +53223,13 @@ public class BirdGame3 {
                         : (classicEncounter.style == ClassicEncounterStyle.BROODBREAKER_BOSS
                         ? "  DAWN BELLS " + litDawnBellCount() + "/3" : ""));
                 lines.add("BROOD MORALE " + classicRoosterMorale + "/3" + detail);
+            }
+            if (classicSelectedBird == BirdType.ROADRUNNER
+                    && classicEncounter.style != ClassicEncounterStyle.REDLINE_RUN) {
+                int meter = (int) Math.round(Math.clamp(classicRoadrunnerRedline / 420.0, 0.0, 1.0) * 100.0);
+                lines.add("REDLINE " + meter + "%  BOLTS " + classicRoadrunnerBoltCount() + "/7"
+                        + (classicEncounter.style == ClassicEncounterStyle.STILL_KING_BOSS
+                        ? "  CONTROL FIELD " + Math.max(0, 3 - classicRoadrunnerBoltCount() / 2) + "/3" : ""));
             }
             return lines;
         }
@@ -55575,6 +56152,7 @@ public class BirdGame3 {
         state.heartbloomSanctuaryUnlocked = heartbloomSanctuaryUnlocked;
         state.harvestTribunalUnlocked = harvestTribunalUnlocked;
         state.dawnwatchBastionUnlocked = dawnwatchBastionUnlocked;
+        state.redlineCanyonUnlocked = redlineCanyonUnlocked;
         state.towerDefenseDifficultyBadges = copyBooleanMatrix(towerDefenseDifficultyBadges);
         state.cityPigeonUnlocked = cityPigeonUnlocked;
         state.noirPigeonUnlocked = noirPigeonUnlocked;
@@ -55720,6 +56298,7 @@ public class BirdGame3 {
         heartbloomSanctuaryUnlocked = resolved.heartbloomSanctuaryUnlocked;
         harvestTribunalUnlocked = resolved.harvestTribunalUnlocked;
         dawnwatchBastionUnlocked = resolved.dawnwatchBastionUnlocked;
+        redlineCanyonUnlocked = resolved.redlineCanyonUnlocked;
         copyInto(resolved.towerDefenseDifficultyBadges, towerDefenseDifficultyBadges);
 
         cityPigeonUnlocked = resolved.cityPigeonUnlocked;
@@ -55877,6 +56456,9 @@ public class BirdGame3 {
         }
         if (classicCompleted[BirdType.ROOSTER.ordinal()]) {
             dawnwatchBastionUnlocked = true;
+        }
+        if (classicCompleted[BirdType.ROADRUNNER.ordinal()]) {
+            redlineCanyonUnlocked = true;
         }
         boolean unitedFinaleCompleted = unitedIdx >= 0
                 && unitedIdx < mainAdventureCompleted.length

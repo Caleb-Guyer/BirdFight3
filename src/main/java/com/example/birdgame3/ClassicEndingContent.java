@@ -211,6 +211,25 @@ final class ClassicEndingContent {
                             beat("I split the core into recall bells, one for every bird, each answering only its holder.", Tableau.CROWN_TRANSFORMATION),
                             beat("Across the dark, the bells became a path. They returned because they chose one another.", Tableau.CHANGED_WORLD),
                             beat("I counted every wing before sunrise. This time, no one was left behind.", Tableau.FINAL_PORTRAIT)
+                    )),
+            ending(
+                    BirdGame3.BirdType.ROADRUNNER,
+                    "NO FINISH LINE",
+                    "THE ROAD AFTER THE MAP",
+                    "PASSAGE - The Crown becomes a road that opens borders but commands no destination.",
+                    Alignment.HOPEFUL,
+                    BirdGame3.BirdType.SHOEBILL,
+                    "The Still King",
+                    "CLASSIC_SKIN_SHOEBILL",
+                    BirdGame3.MapType.DESERT,
+                    "music-desert.mp3",
+                    monologue(
+                            beat("The Still King built an ending for every road. I arrived before mine could close.", Tableau.BOSS_AFTERMATH),
+                            beat("The Crown offered me every route at once, and the power to decide where every traveler stopped.", Tableau.CROWN_DISCOVERY),
+                            beat("A road should help you leave. It should never choose the place you have to become.", Tableau.DECISION),
+                            beat("So I melted the Crown into one bright line and ran it through every wall, cage, and border I could find.", Tableau.CROWN_TRANSFORMATION),
+                            beat("It opened the prison, joined the nests, crossed the jungle, and vanished behind every bird who chose a turn.", Tableau.CHANGED_WORLD),
+                            beat("At the edge of the map, I broke its compass needle. The horizon can draw itself after I get there.", Tableau.FINAL_PORTRAIT)
                     ))
     );
 
@@ -229,6 +248,10 @@ final class ClassicEndingContent {
 
     static boolean hasEnding(BirdGame3.BirdType bird) {
         return endingFor(bird) != null;
+    }
+
+    static boolean isContinuousPanorama(Cinematic cinematic) {
+        return cinematic != null && cinematic.narrator() == BirdGame3.BirdType.ROADRUNNER;
     }
 
     static Cinematic withRouteRecord(Ending ending, int birdCoins, int score, String mapReward) {

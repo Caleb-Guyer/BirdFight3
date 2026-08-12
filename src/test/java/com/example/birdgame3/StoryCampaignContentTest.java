@@ -46,6 +46,8 @@ class StoryCampaignContentTest {
                 campaign.mission("open_sky").mapVariant());
         assertEquals(BirdGame3.MapVariant.PEREGRINE_RUN,
                 campaign.mission("orders_from_above").mapVariant());
+        assertEquals(BirdGame3.MapVariant.REDLINE_CANYON,
+                campaign.mission("painted_road").mapVariant());
         assertEquals(BirdGame3.MapVariant.FROZEN_CALDERA,
                 campaign.mission("last_thermal").mapVariant());
         assertEquals(BirdGame3.MapVariant.HEARTBLOOM_SANCTUARY,

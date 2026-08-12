@@ -179,13 +179,144 @@ final class ClassicEndingPlayer {
         double progress = Math.clamp(elapsed / duration, 0.0, 1.0);
         g.save();
         g.scale(canvas.getWidth() / LOGICAL_WIDTH, canvas.getHeight() / LOGICAL_HEIGHT);
-        drawBackground(g, now / 1_000_000_000.0, progress);
-        drawTableau(g, currentBeat().tableau(), progress, now / 1_000_000_000.0);
+        boolean continuousPanorama = ClassicEndingContent.isContinuousPanorama(cinematic);
+        if (continuousPanorama) {
+            double routeProgress = Math.clamp((beatIndex + progress) / cinematic.beats().size(), 0.0, 1.0);
+            drawRoadrunnerPanorama(g, now / 1_000_000_000.0, routeProgress);
+        } else {
+            drawBackground(g, now / 1_000_000_000.0, progress);
+            drawTableau(g, currentBeat().tableau(), progress, now / 1_000_000_000.0);
+        }
         drawCinematicFrame(g, progress);
         drawNarration(g, currentBeat().narration());
         drawProgress(g);
-        drawTransition(g, progress);
+        if (!continuousPanorama) drawTransition(g, progress);
         g.restore();
+    }
+
+    private void drawRoadrunnerPanorama(GraphicsContext g, double time, double progress) {
+        Color skyTop = Color.web("#31123F").interpolate(Color.web("#123A5A"), progress);
+        Color skyBottom = Color.web("#F36B3D").interpolate(Color.web("#F8D47B"), progress);
+        g.setFill(new LinearGradient(0, 0, 0, LOGICAL_HEIGHT, false, CycleMethod.NO_CYCLE,
+                new Stop(0, skyTop), new Stop(1, skyBottom)));
+        g.fillRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
+        drawStars(g, time, progress * 420.0);
+
+        g.setFill(Color.web("#FFE7A2", 0.72));
+        g.fillOval(1_490 - progress * 360, 120 + progress * 90, 360, 360);
+
+        double travel = progress * 8_400.0;
+        for (int segment = 0; segment < 7; segment++) {
+            double x = 900 + segment * 1_420.0 - travel;
+            drawRoadrunnerLandmark(g, segment, x, progress);
+        }
+
+        // The Crown is not carried: it melts into the unbroken road beneath
+        // the tracking camera and fades after every traveler chooses a turn.
+        g.setStroke(new LinearGradient(0, 0, 1, 0, true, CycleMethod.NO_CYCLE,
+                new Stop(0, Color.web("#FFB300", 0.04)),
+                new Stop(0.42, Color.web("#FFD54F", 0.92)),
+                new Stop(1, Color.web("#FFF8D0", 0.62))));
+        g.setLineWidth(34);
+        g.strokePolyline(
+                new double[]{-80, 250, 600, 940, 1_300, 1_650, 2_030},
+                new double[]{760, 738, 770, 706, 748, 682, 710}, 7);
+        g.setStroke(Color.web("#4B3430", 0.92));
+        g.setLineWidth(118);
+        g.strokePolyline(
+                new double[]{-80, 250, 600, 940, 1_300, 1_650, 2_030},
+                new double[]{800, 778, 810, 746, 788, 722, 750}, 7);
+        g.setStroke(Color.web("#FFD54F", 0.88));
+        g.setLineWidth(11);
+        g.strokePolyline(
+                new double[]{-80, 250, 600, 940, 1_300, 1_650, 2_030},
+                new double[]{800, 778, 810, 746, 788, 722, 750}, 7);
+
+        double bossAlpha = Math.clamp(1.0 - progress * 8.0, 0.0, 1.0);
+        if (bossAlpha > 0.0) {
+            drawBird(g, boss, 1_230 + progress * 320, 610, 1.18, false, bossAlpha);
+            g.setStroke(Color.web("#FFE082", bossAlpha * 0.78));
+            g.setLineWidth(12);
+            g.strokeOval(1_030 + progress * 320, 315, 400, 400);
+        }
+
+        // Roadrunner remains framed in one tracking position while every
+        // country moves past; there are no cuts or tableau resets.
+        narrator.roadrunnerMomentum = Bird.ROADRUNNER_MOMENTUM_MAX;
+        narrator.roadrunnerMomentumFxTimer = 18;
+        drawBird(g, narrator, 680, 665 + Math.sin(time * 11.0) * 7.0, 1.0, true, 1.0);
+        g.setStroke(Color.web("#FFF3C4", 0.54));
+        g.setLineWidth(5);
+        for (int i = 0; i < 8; i++) {
+            double y = 520 + i * 30 + Math.sin(time * 2.0 + i) * 8;
+            g.strokeLine(185 - i * 18, y, 520 - i * 12, y - 24);
+        }
+
+        if (progress > 0.82) {
+            double reveal = ease((progress - 0.82) / 0.18);
+            g.setStroke(Color.web("#D7DCE2", 0.75 * reveal));
+            g.setLineWidth(14);
+            g.strokeOval(1_470, 300, 250, 250);
+            g.strokeLine(1_595, 425, 1_690, 330);
+            g.setStroke(Color.web("#FF5252", reveal));
+            g.setLineWidth(12);
+            g.strokeLine(1_630, 385, 1_730, 485);
+            g.strokeLine(1_730, 385, 1_630, 485);
+            drawFinalTitle(g, reveal);
+        }
+    }
+
+    private void drawRoadrunnerLandmark(GraphicsContext g, int segment, double x, double progress) {
+        if (x < -900 || x > LOGICAL_WIDTH + 900) return;
+        switch (segment) {
+            case 0 -> {
+                g.setFill(Color.web("#8C4439"));
+                g.fillPolygon(new double[]{x - 360, x - 210, x + 220, x + 390},
+                        new double[]{820, 330, 330, 820}, 4);
+            }
+            case 1 -> {
+                g.setFill(Color.web("#12172B"));
+                for (int i = 0; i < 6; i++) {
+                    double h = 280 + (i % 3) * 110;
+                    g.fillRect(x - 360 + i * 125, 820 - h, 92, h);
+                    g.setFill(Color.web("#52E1E8", 0.55));
+                    g.fillRect(x - 342 + i * 125, 580, 48, 8);
+                    g.setFill(Color.web("#12172B"));
+                }
+            }
+            case 2 -> {
+                g.setFill(Color.web("#374D58"));
+                g.fillPolygon(new double[]{x - 430, x - 140, x + 10, x + 250, x + 430},
+                        new double[]{820, 360, 690, 290, 820}, 5);
+            }
+            case 3 -> {
+                g.setFill(Color.web("#184531"));
+                for (int i = 0; i < 7; i++) {
+                    g.fillRect(x - 390 + i * 125, 390, 28, 430);
+                    g.fillOval(x - 445 + i * 125, 300, 140, 150);
+                }
+            }
+            case 4 -> {
+                g.setStroke(Color.web("#8B97A5"));
+                g.setLineWidth(16);
+                for (int i = 0; i < 4; i++) {
+                    double cageX = x - 300 + i * 190;
+                    g.strokeRect(cageX, 420, 125, 280);
+                    if (progress > 0.54) g.strokeLine(cageX + 125, 420, cageX + 215, 350);
+                }
+            }
+            case 5 -> {
+                g.setFill(Color.web("#40204F"));
+                g.fillPolygon(new double[]{x - 420, x, x + 420}, new double[]{820, 220, 820}, 3);
+                g.setFill(Color.web("#FFE082", 0.72));
+                g.fillOval(x - 75, 260, 150, 150);
+            }
+            default -> {
+                g.setStroke(Color.web("#FFF3C4", 0.38));
+                g.setLineWidth(8);
+                g.strokeLine(x - 500, 650, x + 600, 600);
+            }
+        }
     }
 
     private void drawBackground(GraphicsContext g, double time, double progress) {
@@ -675,6 +806,7 @@ final class ClassicEndingPlayer {
 
     private void presentBeat() {
         if (cinematic == null || cinematic.beats().isEmpty()) return;
+        if (ClassicEndingContent.isContinuousPanorama(cinematic) && beatIndex > 0) return;
         game.playClassicEndingTableauCue(currentBeat().tableau());
     }
 

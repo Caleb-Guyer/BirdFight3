@@ -480,6 +480,10 @@ final class MatchController {
             game.finishClassicNectarDashFromTimeout();
             return;
         }
+        if (game.isClassicRedlineRunActive() && game.matchTimer <= 0) {
+            game.finishClassicRedlineRunFromTimeout();
+            return;
+        }
 
         if (game.usesSmashCombatRules()) {
             if (game.matchTimer <= 0 && !game.suddenDeath.isActive()) {
@@ -520,10 +524,16 @@ final class MatchController {
         if (game.isClassicNectarDashActive()) {
             return;
         }
+        if (game.isClassicRedlineRunActive()) {
+            return;
+        }
         if (game.holdClassicTurkeyEncounterOpen()) {
             return;
         }
         if (game.holdClassicRoosterEncounterOpen()) {
+            return;
+        }
+        if (game.holdClassicRoadrunnerEncounterOpen()) {
             return;
         }
         if (game.campaignModeActive) {

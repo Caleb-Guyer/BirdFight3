@@ -327,7 +327,8 @@ final class StoryCampaignContent {
     private static StoryCampaign.Mission paintedRoad() {
         return mission("painted_road", "Painted Road",
                 "Outrun the Crown pursuit, trip both desert checkpoints, and reach the canyon exit.",
-                DESERT, CROWN_OCCUPIED, StoryCampaign.PlayablePolicy.forced(ROADRUNNER),
+                DESERT, BirdGame3.MapVariant.REDLINE_CANYON, CROWN_OCCUPIED,
+                StoryCampaign.PlayablePolicy.forced(ROADRUNNER),
                 List.of(),
                 fighters(enemy(FALCON, "Falcon"), enemy(RAVEN, "Crown Tracker")),
                 phases(

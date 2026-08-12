@@ -10,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ClassicEndingContentTest {
     @Test
-    void allSevenAuthoredRoutesHaveUniqueMovingPictureMonologues() {
+    void allEightAuthoredRoutesHaveUniqueMovingPictureMonologues() {
         List<ClassicEndingContent.Ending> endings = ClassicEndingContent.endings();
 
         assertEquals(List.of(
@@ -20,11 +20,12 @@ class ClassicEndingContentTest {
                         BirdGame3.BirdType.PHOENIX,
                         BirdGame3.BirdType.HUMMINGBIRD,
                         BirdGame3.BirdType.TURKEY,
-                        BirdGame3.BirdType.ROOSTER),
+                        BirdGame3.BirdType.ROOSTER,
+                        BirdGame3.BirdType.ROADRUNNER),
                 endings.stream().map(ClassicEndingContent.Ending::bird).toList());
-        assertEquals(7, new HashSet<>(endings.stream().map(ClassicEndingContent.Ending::title).toList()).size());
-        assertEquals(7, new HashSet<>(endings.stream().map(ClassicEndingContent.Ending::crownChoice).toList()).size());
-        assertEquals(7, new HashSet<>(endings.stream().map(ending -> ending.cinematic().id()).toList()).size());
+        assertEquals(8, new HashSet<>(endings.stream().map(ClassicEndingContent.Ending::title).toList()).size());
+        assertEquals(8, new HashSet<>(endings.stream().map(ClassicEndingContent.Ending::crownChoice).toList()).size());
+        assertEquals(8, new HashSet<>(endings.stream().map(ending -> ending.cinematic().id()).toList()).size());
 
         for (ClassicEndingContent.Ending ending : endings) {
             ClassicEndingContent.Cinematic cinematic = ending.cinematic();
@@ -85,7 +86,8 @@ class ClassicEndingContentTest {
         assertTrue(game.isClassicEndingUnlocked(BirdGame3.BirdType.PIGEON));
 
         game.setClassicCompleted(BirdGame3.BirdType.ROADRUNNER);
-        assertFalse(game.isClassicEndingUnlocked(BirdGame3.BirdType.ROADRUNNER),
-                "A placeholder route badge must not expose an ending that has not been authored yet.");
+        assertTrue(game.isClassicEndingUnlocked(BirdGame3.BirdType.ROADRUNNER));
+        assertTrue(ClassicEndingContent.isContinuousPanorama(
+                ClassicEndingContent.endingFor(BirdGame3.BirdType.ROADRUNNER).cinematic()));
     }
 }

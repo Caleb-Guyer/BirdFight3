@@ -34,7 +34,7 @@ class StageSelectLayoutTest {
         assertEquals(1, StageSelectLayout.variantRowsFor(classicRoutes));
         assertTrue(StageSelectLayout.variantGridWidth()
                         <= BirdGame3.WIDTH - StageSelectLayout.ROOT_HORIZONTAL_PADDING * 2.0,
-                "Seven compact variant cards should fit inside the logical screen width.");
+                "Eight compact variant cards should fit inside the logical screen width.");
         assertTrue(StageSelectLayout.requiredScreenHeight(
                         StageSelectLayout.groupedCatalogHeight(storyArenas, bossArenas, classicRoutes)) <= BirdGame3.HEIGHT,
                 "All labeled variant sections and random choices should fit without scrolling.");
