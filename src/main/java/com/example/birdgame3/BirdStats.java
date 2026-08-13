@@ -134,7 +134,7 @@ final class BirdStats {
     /**
      * The updater intentionally preserves this file. Upgrade only complete,
      * unmodified presets that shipped in an older build; changing even one of
-     * these four values marks the bird's preset as player-owned.
+     * a migrated bird's tracked values marks that preset as player-owned.
      */
     private static void migrateLegacyShippedTuning(Properties props) {
         migrateLegacyPreset(props, "goose",
@@ -149,6 +149,26 @@ final class BirdStats {
         migrateLegacyPreset(props, "titmouse",
                 new double[]{1.45, 0.68, 1.40, 1.25},
                 new double[]{1.10, 0.92, 1.40, 1.25});
+        migrateLegacyRoadrunnerTuning(props);
+    }
+
+    private static void migrateLegacyRoadrunnerTuning(Properties props) {
+        String[] stats = {"power", "jumpHeight", "speed", "flyUpForce",
+                "damageDealtMult", "damageTakenMult", "cooldownRate", "ultimateRate"};
+        double[] legacyValues = {4.0, 14.0, 4.7, 0.0, 0.78, 1.45, 0.65, 0.50};
+        double[] replacementValues = {6.0, 14.0, 4.9, 0.0, 0.92, 1.18, 0.90, 0.85};
+        for (int i = 0; i < stats.length; i++) {
+            Double value = readDouble(props, "roadrunner." + stats[i]);
+            if (value == null || Double.compare(value, legacyValues[i]) != 0) {
+                return;
+            }
+        }
+        for (int i = 0; i < stats.length; i++) {
+            String replacement = i < 2
+                    ? Integer.toString((int) replacementValues[i])
+                    : Double.toString(replacementValues[i]);
+            props.setProperty("roadrunner." + stats[i], replacement);
+        }
     }
 
     private static void migrateLegacyPreset(Properties props, String bird,

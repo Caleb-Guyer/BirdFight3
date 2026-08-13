@@ -15,6 +15,9 @@ final class RoadrunnerSpecials {
     static final double MAX_MOMENTUM_DAMAGE_REDUCTION = 0.18;
     static final double MAX_MOMENTUM_DAMAGE_BONUS = 0.12;
     static final double CORE_SPECIAL_KNOCKBACK_MULTIPLIER = 1.15;
+    static final double BEEP_MOMENTUM_COST = 0.26;
+    static final double RICOCHET_MOMENTUM_COST = 0.24;
+    static final double DUST_DEVIL_MOMENTUM_COST = 0.20;
 
     private RoadrunnerSpecials() {
     }
@@ -215,7 +218,7 @@ final class RoadrunnerSpecials {
         bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, bird.roadrunnerBeepBurstTimer + 2);
         bird.specialCooldown = 0;
         bird.specialMaxCooldown = 0;
-        spendMomentum(bird, bird.roadrunnerBeepUltimate ? 0.22 : 0.42);
+        spendMomentum(bird, bird.roadrunnerBeepUltimate ? 0.14 : BEEP_MOMENTUM_COST);
         bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, 4 + powerRatio * 5.0);
         applyBeepBlitzHit(bird, powerRatio);
         emitBurstDust(bird, bird.bodyCenterX(), bird.bodyBottomY() - 12.0 * bird.sizeMultiplier,
@@ -280,7 +283,7 @@ final class RoadrunnerSpecials {
         bird.isBlocking = false;
         bird.parryWindowFrames = 0;
         bird.shieldStunFrames = 0;
-        spendMomentum(bird, ultimate ? 0.18 : 0.38);
+        spendMomentum(bird, ultimate ? 0.12 : RICOCHET_MOMENTUM_COST);
         emitBurstDust(bird, bird.bodyCenterX() - dir * 24.0 * bird.sizeMultiplier,
                 bird.bodyBottomY() - 10.0 * bird.sizeMultiplier, dir, ultimate ? 42 : 28,
                 warmDustColor(bird, ultimate));
@@ -301,7 +304,7 @@ final class RoadrunnerSpecials {
         bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, 14);
         bird.specialCooldown = 0;
         bird.specialMaxCooldown = 0;
-        spendMomentum(bird, ultimate ? 0.16 : 0.34);
+        spendMomentum(bird, ultimate ? 0.12 : DUST_DEVIL_MOMENTUM_COST);
         emitBurstDust(bird, bird.bodyCenterX(), bird.bodyBottomY() - 4.0 * bird.sizeMultiplier,
                 bird.facingDirection(), ultimate ? 54 : 36, sandColor(bird, ultimate));
     }

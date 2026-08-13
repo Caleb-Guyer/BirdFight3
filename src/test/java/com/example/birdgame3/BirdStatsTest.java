@@ -147,6 +147,14 @@ class BirdStatsTest {
                 titmouse.damageTakenMult=0.68
                 titmouse.cooldownRate=1.40
                 titmouse.ultimateRate=1.25
+                roadrunner.power=4
+                roadrunner.jumpHeight=14
+                roadrunner.speed=4.7
+                roadrunner.flyUpForce=0.0
+                roadrunner.damageDealtMult=0.78
+                roadrunner.damageTakenMult=1.45
+                roadrunner.cooldownRate=0.65
+                roadrunner.ultimateRate=0.50
                 """);
 
         BirdStats.reload(file);
@@ -167,6 +175,14 @@ class BirdStatsTest {
         assertEquals(0.92, BirdGame3.BirdType.TITMOUSE.damageTakenMult);
         assertEquals(1.40, BirdGame3.BirdType.TITMOUSE.cooldownRate);
         assertEquals(1.25, BirdGame3.BirdType.TITMOUSE.ultimateRate);
+        assertEquals(6, BirdGame3.BirdType.ROADRUNNER.power);
+        assertEquals(14, BirdGame3.BirdType.ROADRUNNER.jumpHeight);
+        assertEquals(4.9, BirdGame3.BirdType.ROADRUNNER.speed);
+        assertEquals(0.0, BirdGame3.BirdType.ROADRUNNER.flyUpForce);
+        assertEquals(0.92, BirdGame3.BirdType.ROADRUNNER.damageDealtMult);
+        assertEquals(1.18, BirdGame3.BirdType.ROADRUNNER.damageTakenMult);
+        assertEquals(0.90, BirdGame3.BirdType.ROADRUNNER.cooldownRate);
+        assertEquals(0.85, BirdGame3.BirdType.ROADRUNNER.ultimateRate);
     }
 
     @Test
@@ -181,6 +197,14 @@ class BirdStatsTest {
                 titmouse.damageTakenMult=0.68
                 titmouse.cooldownRate=1.40
                 titmouse.ultimateRate=1.25
+                roadrunner.power=5
+                roadrunner.jumpHeight=14
+                roadrunner.speed=4.7
+                roadrunner.flyUpForce=0.0
+                roadrunner.damageDealtMult=0.78
+                roadrunner.damageTakenMult=1.45
+                roadrunner.cooldownRate=0.65
+                roadrunner.ultimateRate=0.50
                 """);
 
         BirdStats.reload(file);
@@ -192,5 +216,9 @@ class BirdStatsTest {
         assertEquals(1.44, BirdGame3.BirdType.TITMOUSE.damageDealtMult,
                 "Changing one Titmouse value must preserve the complete player-owned preset.");
         assertEquals(0.68, BirdGame3.BirdType.TITMOUSE.damageTakenMult);
+        assertEquals(5, BirdGame3.BirdType.ROADRUNNER.power,
+                "Changing one Roadrunner value must preserve the complete player-owned preset.");
+        assertEquals(0.78, BirdGame3.BirdType.ROADRUNNER.damageDealtMult);
+        assertEquals(1.45, BirdGame3.BirdType.ROADRUNNER.damageTakenMult);
     }
 }

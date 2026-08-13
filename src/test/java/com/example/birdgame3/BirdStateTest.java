@@ -2249,6 +2249,27 @@ class BirdStateTest {
     }
 
     @Test
+    void roadrunnerSpecialsPreserveEnoughMomentumToChainMovement() {
+        BirdGame3 game = new BirdGame3();
+        Bird runner = new Bird(220.0, BirdGame3.BirdType.ROADRUNNER, 0, game);
+        runner.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = runner;
+
+        runner.roadrunnerMomentum = 100.0;
+        RoadrunnerSpecials.side(runner, false);
+        assertEquals(100.0 * (1.0 - RoadrunnerSpecials.RICOCHET_MOMENTUM_COST),
+                runner.roadrunnerMomentum, 0.0001,
+                "Ricochet should carry most of an established momentum chain into the next action.");
+
+        runner.roadrunnerMomentum = 100.0;
+        runner.roadrunnerDustDevilUsed = false;
+        RoadrunnerSpecials.up(runner, false);
+        assertEquals(100.0 * (1.0 - RoadrunnerSpecials.DUST_DEVIL_MOMENTUM_COST),
+                runner.roadrunnerMomentum, 0.0001,
+                "Recovery should not erase the momentum Roadrunner earned before going offstage.");
+    }
+
+    @Test
     void roadrunnerMomentumSoftensDamageWithoutProtectingAnIdleRunner() {
         double originalDamageTaken = BirdGame3.BirdType.ROADRUNNER.damageTakenMult;
         try {

@@ -134,12 +134,12 @@ tracks — keep music serious/intense. SFX get pitch/volume variation via
 `playManagedSfxVaried` (presentation-only `audioRandom`); match music ducks
 under KO slow-mo.
 
-## Balance state (2026-08-10, see audit/balance-report.md)
+## Balance state (2026-08-12, see audit/balance-report.md)
 
 AI-vs-AI results — treat as "where to look," not verdicts (the AI can't pilot
 technical kits like Razorbill/Charles):
-- The post-Titmouse-tuning 11,088-match audit completed with only 1 draw.
-  Results range from Roadrunner at 20.2% to Raven at 74.8%. Combined with the
+- The post-Roadrunner-tuning 11,088-match audit completed with only 1 draw.
+  Results range from Rooster at 32.0% to Raven at 74.4%. Combined with the
   owner's hands-on fighter passes, the roster remains an accepted playable
   baseline, though not a claim of tournament-perfect balance.
 - Titmouse's campaign-era 1.45 dealt / 0.68 taken preset produced an 84.6%
@@ -150,11 +150,12 @@ technical kits like Razorbill/Charles):
   run scored 51.2%. Honk has charge commitment, sharp distance falloff,
   velocity caps, and shared damage-scaled launch; legacy whole-kit penalties
   were eased to 0.68 dealt / 1.35 taken / 0.70 cooldown / 0.62 ultimate.
-- Raven leads the fresh audit at 74.8%; Roadrunner/Rooster are the low end at
-  20.2%/33.8%. Roadrunner already passed the owner's feel test. Focused tests
-  showed its Battlefield rate is inflated by opponent falls and that aggressive
-  CPU special-navigation changes make it worse, so future work must target AI
-  stage routing without changing the player-facing kit.
+- Roadrunner's obsolete 4 power / 0.78 dealt / 1.45 taken / 0.65 cooldown /
+  0.50 ultimate preset contradicted its momentum payoff. The player-facing pass
+  moved it to 6 / 0.92 / 1.18 / 0.90 / 0.85 and reduced special momentum costs;
+  its full-audit result rose from 20.2% to 34.6% without becoming a map leader.
+  The pass still needs the owner's hands-on feel test. Aggressive CPU navigation
+  changes previously made it worse, so keep future AI stage-routing work separate.
 - Phoenix's normal-attack correction now scores 38.2% in the full audit. Bat's
   eased legacy penalties score 39.7%; its strong map variance remains a useful
   owner-playtest target rather than an automatic tuning order.
@@ -176,9 +177,9 @@ technical kits like Razorbill/Charles):
 
 ## Open threads
 
-1. Competitive balance polish — Raven/Eagle remain AI-high and Roadrunner/
-   Rooster AI-low. None are roster-playability blockers; use owner matchup
-   reports before further tuning.
+1. Competitive balance polish — Raven remains AI-high, while Rooster/Turkey and
+   Roadrunner are the lower end. Roadrunner's new fighter pass awaits owner
+   playtesting; use owner matchup reports before further tuning.
 2. Real sprite art — pipeline complete and waiting; owner draws.
 3. Rollback, matchmaking, and relay infrastructure — direct internet lockstep
    now exists, but no-setup play through CGNAT still needs a hosted relay and
