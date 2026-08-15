@@ -153,10 +153,20 @@ final class BirdStats {
     }
 
     private static void migrateLegacyRoadrunnerTuning(Properties props) {
+        double[] replacementValues = {7.0, 14.0, 5.0, 0.0, 1.00, 1.08, 1.05, 1.00};
+        migrateLegacyRoadrunnerPreset(props,
+                new double[]{4.0, 14.0, 4.7, 0.0, 0.78, 1.45, 0.65, 0.50},
+                replacementValues);
+        migrateLegacyRoadrunnerPreset(props,
+                new double[]{6.0, 14.0, 4.9, 0.0, 0.92, 1.18, 0.90, 0.85},
+                replacementValues);
+    }
+
+    private static void migrateLegacyRoadrunnerPreset(Properties props,
+                                                       double[] legacyValues,
+                                                       double[] replacementValues) {
         String[] stats = {"power", "jumpHeight", "speed", "flyUpForce",
                 "damageDealtMult", "damageTakenMult", "cooldownRate", "ultimateRate"};
-        double[] legacyValues = {4.0, 14.0, 4.7, 0.0, 0.78, 1.45, 0.65, 0.50};
-        double[] replacementValues = {6.0, 14.0, 4.9, 0.0, 0.92, 1.18, 0.90, 0.85};
         for (int i = 0; i < stats.length; i++) {
             Double value = readDouble(props, "roadrunner." + stats[i]);
             if (value == null || Double.compare(value, legacyValues[i]) != 0) {

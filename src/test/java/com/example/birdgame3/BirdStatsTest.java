@@ -175,14 +175,39 @@ class BirdStatsTest {
         assertEquals(0.92, BirdGame3.BirdType.TITMOUSE.damageTakenMult);
         assertEquals(1.40, BirdGame3.BirdType.TITMOUSE.cooldownRate);
         assertEquals(1.25, BirdGame3.BirdType.TITMOUSE.ultimateRate);
-        assertEquals(6, BirdGame3.BirdType.ROADRUNNER.power);
+        assertEquals(7, BirdGame3.BirdType.ROADRUNNER.power);
         assertEquals(14, BirdGame3.BirdType.ROADRUNNER.jumpHeight);
-        assertEquals(4.9, BirdGame3.BirdType.ROADRUNNER.speed);
+        assertEquals(5.0, BirdGame3.BirdType.ROADRUNNER.speed);
         assertEquals(0.0, BirdGame3.BirdType.ROADRUNNER.flyUpForce);
-        assertEquals(0.92, BirdGame3.BirdType.ROADRUNNER.damageDealtMult);
-        assertEquals(1.18, BirdGame3.BirdType.ROADRUNNER.damageTakenMult);
-        assertEquals(0.90, BirdGame3.BirdType.ROADRUNNER.cooldownRate);
-        assertEquals(0.85, BirdGame3.BirdType.ROADRUNNER.ultimateRate);
+        assertEquals(1.00, BirdGame3.BirdType.ROADRUNNER.damageDealtMult);
+        assertEquals(1.08, BirdGame3.BirdType.ROADRUNNER.damageTakenMult);
+        assertEquals(1.05, BirdGame3.BirdType.ROADRUNNER.cooldownRate);
+        assertEquals(1.00, BirdGame3.BirdType.ROADRUNNER.ultimateRate);
+    }
+
+    @Test
+    void reloadMigratesPreviousRoadrunnerPass(@TempDir Path dir) throws Exception {
+        Path file = dir.resolve("bird-stats.properties");
+        Files.writeString(file, """
+                roadrunner.power=6
+                roadrunner.jumpHeight=14
+                roadrunner.speed=4.9
+                roadrunner.flyUpForce=0.0
+                roadrunner.damageDealtMult=0.92
+                roadrunner.damageTakenMult=1.18
+                roadrunner.cooldownRate=0.90
+                roadrunner.ultimateRate=0.85
+                """);
+
+        BirdStats.reload(file);
+
+        assertEquals(7, BirdGame3.BirdType.ROADRUNNER.power);
+        assertEquals(14, BirdGame3.BirdType.ROADRUNNER.jumpHeight);
+        assertEquals(5.0, BirdGame3.BirdType.ROADRUNNER.speed);
+        assertEquals(1.00, BirdGame3.BirdType.ROADRUNNER.damageDealtMult);
+        assertEquals(1.08, BirdGame3.BirdType.ROADRUNNER.damageTakenMult);
+        assertEquals(1.05, BirdGame3.BirdType.ROADRUNNER.cooldownRate);
+        assertEquals(1.00, BirdGame3.BirdType.ROADRUNNER.ultimateRate);
     }
 
     @Test

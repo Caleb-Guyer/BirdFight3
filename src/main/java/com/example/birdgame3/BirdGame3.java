@@ -40910,15 +40910,22 @@ public class BirdGame3 {
     private List<ClassicEncounter> buildRoadrunnerClassicRun() {
         List<ClassicEncounter> run = new ArrayList<>();
 
+        ClassicFighter pocketHummingbird = classicFighter(
+                BirdType.HUMMINGBIRD, "Pocket Rocket: Hummingbird", 76, 0.72, 1.10);
+        ClassicFighter pocketTitmouse = classicFighter(
+                BirdType.TITMOUSE, "Pocket Rocket: Tufted Titmouse", 74, 0.70, 1.08);
+        ClassicFighter pocketFalcon = classicFighter(
+                BirdType.FALCON, "Pocket Rocket: Falcon", 78, 0.74, 1.09);
         ClassicEncounter offTheLine = new ClassicEncounter(
                 "Off the Line", "City Starting Grid",
-                "Break through three miniature speedsters and keep moving long enough to bank the first Redline Bolt.",
+                "Break through three miniature speed waves and keep moving long enough to bank the first Redline Bolt.",
                 MapType.CITY, MapVariant.STANDARD, MatchMutator.NONE, ClassicTwist.REDLINE_SPLITS,
                 ClassicEncounterStyle.MINIATURE_FLOCK, 105 * 60, new ClassicFighter[0],
-                new ClassicFighter[]{
-                        classicFighter(BirdType.HUMMINGBIRD, "Pocket Rocket: Hummingbird", 76, 0.82, 1.18),
-                        classicFighter(BirdType.TITMOUSE, "Pocket Rocket: Tufted Titmouse", 74, 0.80, 1.15),
-                        classicFighter(BirdType.FALCON, "Pocket Rocket: Falcon", 78, 0.84, 1.16)}, false);
+                new ClassicFighter[]{pocketHummingbird, pocketTitmouse, pocketFalcon}, false)
+                .withWaves(
+                        new ClassicFighter[]{pocketHummingbird},
+                        new ClassicFighter[]{pocketTitmouse},
+                        new ClassicFighter[]{pocketFalcon});
         offTheLine.cpuLevel = 3;
         run.add(offTheLine);
 
@@ -44742,18 +44749,26 @@ public class BirdGame3 {
         if (classicEncounter.style == ClassicEncounterStyle.REDLINE_RUN) {
             return !classicRoadrunnerRunCompleted && matchTimer > 1;
         }
-        if (classicEncounter.style != ClassicEncounterStyle.REDLINE_PURSUIT
+        boolean sequentialSpeedWave = classicEncounter.style == ClassicEncounterStyle.MINIATURE_FLOCK;
+        if ((!sequentialSpeedWave && classicEncounter.style != ClassicEncounterStyle.REDLINE_PURSUIT)
                 || classicEncounter.waves == null || classicEncounter.waves.length == 0) {
             return false;
         }
         if (classicEnemyTeamHasStocks()) return false;
         if (classicRoadrunnerPursuitWaveIndex + 1 >= classicEncounter.waves.length) return false;
         classicRoadrunnerPursuitWaveIndex++;
-        spawnRoadrunnerPursuitWave(classicEncounter.waves[classicRoadrunnerPursuitWaveIndex]);
+        if (sequentialSpeedWave) {
+            Bird player = players[0];
+            if (player != null) {
+                player.heal(30.0);
+                addToKillFeed("REDLINE CHECKPOINT: 30% damage repaired before the next sprint.");
+            }
+        }
+        spawnRoadrunnerClassicWave(classicEncounter.waves[classicRoadrunnerPursuitWaveIndex]);
         return true;
     }
 
-    private void spawnRoadrunnerPursuitWave(ClassicFighter[] wave) {
+    private void spawnRoadrunnerClassicWave(ClassicFighter[] wave) {
         if (wave == null || wave.length == 0 || classicEncounter == null) return;
         for (int slot = 1; slot < MAX_COMBATANTS; slot++) {
             if (players[slot] != null && getEffectiveTeam(slot) == 2) {
@@ -44763,26 +44778,35 @@ public class BirdGame3 {
                 classicCpuLevels[slot] = 0;
             }
         }
-        int slot = 1;
-        while (slot < MAX_COMBATANTS && players[slot] != null) slot++;
-        if (slot >= MAX_COMBATANTS) return;
-        ClassicFighter fighter = wave[0];
         double difficultyDelta = classicDifficulty - CLASSIC_STARTING_DIFFICULTY;
-        Bird enemy = createStoryBird(0.0, fighter.type, slot, fighter.title,
-                fighter.health * (1.0 + difficultyDelta * 0.045),
-                fighter.powerMult * (1.0 + difficultyDelta * 0.015), fighter.speedMult, true);
-        if (fighter.skinKey != null) applyPreviewSkinChoiceToBird(enemy, fighter.type, fighter.skinKey);
-        enemy.setUltimateEnabled(false);
-        classicTeams[slot] = 2;
-        classicCpuLevels[slot] = resolvedClassicFighterCpuLevel(fighter, classicEncounter);
-        scores[slot] = 1;
-        enemy.x = 4_750.0 - enemy.bodyWidth() * 0.5;
-        enemy.y = battlefieldSpawnY(enemy.sizeMultiplier);
-        enemy.prevX = enemy.x;
-        enemy.prevY = enemy.y;
-        enemy.facingRight = false;
-        activePlayers = Math.max(activePlayers, slot + 1);
-        addToKillFeed("PURSUIT WAVE " + (classicRoadrunnerPursuitWaveIndex + 1) + "/3 ENTERS.");
+        int spawned = 0;
+        for (ClassicFighter fighter : wave) {
+            int slot = 1;
+            while (slot < MAX_COMBATANTS && players[slot] != null) slot++;
+            if (slot >= MAX_COMBATANTS) break;
+            Bird enemy = createStoryBird(0.0, fighter.type, slot, fighter.title,
+                    fighter.health * (1.0 + difficultyDelta * 0.045),
+                    fighter.powerMult * (1.0 + difficultyDelta * 0.015), fighter.speedMult, true);
+            if (fighter.skinKey != null) applyPreviewSkinChoiceToBird(enemy, fighter.type, fighter.skinKey);
+            if (classicEncounter.style == ClassicEncounterStyle.MINIATURE_FLOCK) {
+                scaleBossRushBird(enemy, 0.68, 0.96, 1.08);
+            }
+            enemy.setUltimateEnabled(false);
+            classicTeams[slot] = 2;
+            classicCpuLevels[slot] = resolvedClassicFighterCpuLevel(fighter, classicEncounter);
+            scores[slot] = 1;
+            enemy.x = 4_750.0 + spawned * 360.0 - enemy.bodyWidth() * 0.5;
+            enemy.y = battlefieldSpawnY(enemy.sizeMultiplier);
+            enemy.prevX = enemy.x;
+            enemy.prevY = enemy.y;
+            enemy.facingRight = false;
+            activePlayers = Math.max(activePlayers, slot + 1);
+            spawned++;
+        }
+        String waveName = classicEncounter.style == ClassicEncounterStyle.MINIATURE_FLOCK
+                ? "STARTING WAVE " : "PURSUIT WAVE ";
+        addToKillFeed(waveName + (classicRoadrunnerPursuitWaveIndex + 1)
+                + "/" + classicEncounter.waves.length + " ENTERS.");
     }
 
     private int classicRoadrunnerBoltCount() {
@@ -48406,6 +48430,11 @@ public class BirdGame3 {
         if (!classicModeActive || classicEncounter == null) {
             return;
         }
+        if (classicSelectedBird == BirdType.ROADRUNNER
+                && classicRoundIndex == 0
+                && classicEncounter.style == ClassicEncounterStyle.MINIATURE_FLOCK) {
+            scores[0] = 2;
+        }
         int enemyStocks = switch (classicEncounter.style) {
             case STORM_TYRANT_BOSS, PHOENIX_REBIRTH, BLIGHTWING_BOSS -> 2;
             case NULL_ROC_BOSS, LONG_WINTER_BOSS, DEVOURER_BOSS, BROODBREAKER_BOSS, STILL_KING_BOSS -> 3;
@@ -50122,6 +50151,32 @@ public class BirdGame3 {
 
     /** Sets up a plain 1v1 smash-rules AI match on the selected map, fully reset. */
     void harnessPrepareMatch(BirdType leftType, BirdType rightType, long seed, MapType map) {
+        resetHeadlessHarness(seed);
+
+        selectedMap = map == null ? MapType.BATTLEFIELD : map;
+        selectedMapVariant = MapVariant.STANDARD;
+        setupMatchArenaGeometry();
+
+        Arrays.fill(players, null);
+        Arrays.fill(isAI, false);
+        activePlayers = 2;
+        players[0] = new Bird(300, leftType, 0, this);
+        players[1] = new Bird(WORLD_WIDTH - 380, rightType, 1, this);
+        for (int i = 0; i < 2; i++) {
+            players[i].y = GROUND_Y - 160;
+            isAI[i] = true;
+        }
+        positionBattlefieldSpawns();
+        smashCombatRulesActive = true;
+        Arrays.fill(scores, 0);
+        scores[0] = smashStartingStocks();
+        scores[1] = smashStartingStocks();
+        matchTimer = MATCH_DURATION_FRAMES;
+        matchIntroOverlayFrames = 0; // no 3-2-1: fight from tick one
+        matchIntroLastAnnouncedPhase = -1;
+    }
+
+    private void resetHeadlessHarness(long seed) {
         headlessHarnessMode = true;
         harnessWinner = null;
         currentMatchSeed = seed;
@@ -50155,27 +50210,81 @@ public class BirdGame3 {
         killFeed.clear();
         Arrays.fill(damageDealt, 0);
         clearGameplayInputs();
+    }
 
-        selectedMap = map == null ? MapType.BATTLEFIELD : map;
-        setupMatchArenaGeometry();
+    /** Returns the deterministic authored route used by the Classic balance lab. */
+    List<ClassicEncounter> harnessClassicRoute(BirdType playerType, long seed) {
+        if (playerType == null) {
+            return List.of();
+        }
+        return List.copyOf(buildClassicRun(playerType,
+                new Random(seed ^ 0x434C_4153_5349_434CL), true));
+    }
 
+    int harnessClassicRoadrunnerBoltCount() {
+        return classicRoadrunnerBoltCount();
+    }
+
+    /**
+     * Sets up one real Classic encounter for headless AI play, including the
+     * authored roster, difficulty scaling, map variant, mutator, route effects,
+     * stocks, and timer used by the playable mode.
+     */
+    ClassicEncounter harnessPrepareClassicEncounter(BirdType playerType, int roundIndex,
+                                                     double difficulty, int playerCpuLevel,
+                                                     long routeSeed, long matchSeed) {
+        resetHeadlessHarness(matchSeed);
+        classicModeActive = true;
+        classicSelectedBird = playerType;
+        classicSelectedSkinKey = null;
+        classicDifficulty = Math.clamp(difficulty, 1.0, 9.0);
+        classicRun.clear();
+        classicRun.addAll(harnessClassicRoute(playerType, routeSeed));
+        if (classicRun.isEmpty()) {
+            throw new IllegalArgumentException("No Classic route exists for " + playerType);
+        }
+        classicRoundIndex = Math.clamp(roundIndex, 0, classicRun.size() - 1);
+        classicEncounter = classicRun.get(classicRoundIndex);
+        classicDeaths = 0;
+        classicRunScore = 0;
+        classicBonusCoins = 0;
+        Arrays.fill(classicRoadrunnerBolts, false);
+        if (playerType == BirdType.ROADRUNNER) {
+            int earnedBolts = Math.min(classicRoundIndex, classicRoadrunnerBolts.length);
+            Arrays.fill(classicRoadrunnerBolts, 0, earnedBolts, true);
+        }
+
+        selectedMap = classicEncounter.map;
+        selectedMapVariant = classicEncounter.variant;
         Arrays.fill(players, null);
         Arrays.fill(isAI, false);
-        activePlayers = 2;
-        players[0] = new Bird(300, leftType, 0, this);
-        players[1] = new Bird(WORLD_WIDTH - 380, rightType, 1, this);
-        for (int i = 0; i < 2; i++) {
-            players[i].y = GROUND_Y - 160;
-            isAI[i] = true;
-        }
-        positionBattlefieldSpawns();
-        smashCombatRulesActive = true;
+        setupClassicEncounterRoster(classicEncounter);
+        isAI[0] = true;
+        classicCpuLevels[0] = Math.clamp(playerCpuLevel, 1, 9);
+
+        smashCombatRulesActive = classicUsesSmashRules();
         Arrays.fill(scores, 0);
-        scores[0] = smashStartingStocks();
-        scores[1] = smashStartingStocks();
-        matchTimer = MATCH_DURATION_FRAMES;
-        matchIntroOverlayFrames = 0; // no 3-2-1: fight from tick one
+        if (smashCombatRulesActive) {
+            for (int i = 0; i < activePlayers; i++) {
+                if (players[i] != null) {
+                    scores[i] = smashStartingStocks();
+                }
+            }
+            applyClassicEncounterStockOverrides();
+        }
+
+        setupMatchArenaGeometry();
+        applySelectedMapVariantArena();
+        applyClassicEncounterArenaModifiers(classicEncounter);
+        matchTimer = classicEncounter.timerFrames > 0
+                ? classicEncounter.timerFrames
+                : MATCH_DURATION_FRAMES;
+        configureMatchModes();
+        positionBattlefieldSpawns();
+        positionClassicEncounterSpawns(classicEncounter);
+        matchIntroOverlayFrames = 0;
         matchIntroLastAnnouncedPhase = -1;
+        return classicEncounter;
     }
 
     /**

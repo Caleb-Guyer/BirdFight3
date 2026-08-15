@@ -13,12 +13,15 @@ are known debt — work within them; don't attempt a grand refactor.
 
 ## Build / test / run
 
-- Tests: `.\mvnw.cmd test` (505 tests; CI runs them on every push — see CI section)
+- Tests: `.\mvnw.cmd test` (CI runs them on every push — see CI section)
 - Run from source: `.\mvnw.cmd javafx:run`
 - Package for players: `.\build-installer.ps1 [-AppVersion X.Y.Z] [-Type msi]`
   → jpackage app-image + zip in `target\`. MSI needs the WiX Toolset.
-- Balance lab (headless AI-vs-AI, ~20s): `.\mvnw.cmd test -Dtest=BalanceLabRun`
+- Balance lab (headless AI-vs-AI, ~7m): `.\mvnw.cmd test -Dtest=BalanceLabRun`
   → writes `audit/balance-report.md`
+- Classic encounter lab (headless, ~12s for one route):
+  `.\mvnw.cmd test -Dtest=ClassicBalanceLabRun -DclassicBird=ROADRUNNER -DclassicMatches=64`
+  → writes `audit/classic-balance-report.md`; use `-DclassicBird=ALL` for every route
 
 ## THE DETERMINISM CONTRACT (most important thing in this file)
 
@@ -104,6 +107,11 @@ causes silent desyncs. Rules:
 - **Balance lab**: `BalanceLab` + harness bridge (`harnessPrepareMatch`/
   `harnessTick` in BirdGame3, `headlessHarnessMode` gate in
   MatchController.triggerMatchEnd). No JavaFX toolkit, no UI, no progression.
+- **Classic balance lab**: `ClassicBalanceLab` runs authored route encounters
+  headlessly with their real teams, map variants, mutators, difficulty, stocks,
+  timers, and route mechanics. It reports each combat round independently;
+  objective rounds are excluded by default because their result primarily
+  measures AI navigation. Later Roadrunner rounds preload prior Redline Bolts.
 - **Null Rock cooldowns**: player-controlled Null Rock uses four independent
   directional reuse timers; CPU Null Rock deliberately retains one shared,
   difficulty-scaled boss timer so higher difficulties increase cadence safely.
@@ -134,12 +142,12 @@ tracks — keep music serious/intense. SFX get pitch/volume variation via
 `playManagedSfxVaried` (presentation-only `audioRandom`); match music ducks
 under KO slow-mo.
 
-## Balance state (2026-08-12, see audit/balance-report.md)
+## Balance state (2026-08-15, see audit/balance-report.md)
 
 AI-vs-AI results — treat as "where to look," not verdicts (the AI can't pilot
 technical kits like Razorbill/Charles):
-- The post-Roadrunner-tuning 11,088-match audit completed with only 1 draw.
-  Results range from Rooster at 32.0% to Raven at 74.4%. Combined with the
+- The latest 11,088-match audit completed with only 1 draw. Results range from
+  Rooster at 32.0% to Raven at 74.5%. Combined with the
   owner's hands-on fighter passes, the roster remains an accepted playable
   baseline, though not a claim of tournament-perfect balance.
 - Titmouse's campaign-era 1.45 dealt / 0.68 taken preset produced an 84.6%
@@ -151,11 +159,12 @@ technical kits like Razorbill/Charles):
   velocity caps, and shared damage-scaled launch; legacy whole-kit penalties
   were eased to 0.68 dealt / 1.35 taken / 0.70 cooldown / 0.62 ultimate.
 - Roadrunner's obsolete 4 power / 0.78 dealt / 1.45 taken / 0.65 cooldown /
-  0.50 ultimate preset contradicted its momentum payoff. The player-facing pass
-  moved it to 6 / 0.92 / 1.18 / 0.90 / 0.85 and reduced special momentum costs;
-  its full-audit result rose from 20.2% to 34.6% without becoming a map leader.
-  The pass still needs the owner's hands-on feel test. Aggressive CPU navigation
-  changes previously made it worse, so keep future AI stage-routing work separate.
+  0.50 ultimate preset contradicted its momentum payoff. After owner feedback
+  that the first pass was still weak, it moved to 7 / 1.00 / 1.08 / 1.05 / 1.00;
+  its full-audit result is now 45.8% without becoming a roster outlier. Its
+  Classic Round 1 rose from 12.5% to 67.2% by becoming a three-wave miniature
+  gauntlet with checkpoint repairs and a second opening stock. Aggressive CPU
+  navigation changes previously made it worse, so keep AI stage-routing separate.
 - Phoenix's normal-attack correction now scores 38.2% in the full audit. Bat's
   eased legacy penalties score 39.7%; its strong map variance remains a useful
   owner-playtest target rather than an automatic tuning order.
@@ -177,9 +186,11 @@ technical kits like Razorbill/Charles):
 
 ## Open threads
 
-1. Competitive balance polish — Raven remains AI-high, while Rooster/Turkey and
-   Roadrunner are the lower end. Roadrunner's new fighter pass awaits owner
-   playtesting; use owner matchup reports before further tuning.
+1. Competitive balance polish — Raven remains AI-high, while Rooster/Turkey are
+   the lower end. Roadrunner is now 45.8% in the full audit; its stronger fighter
+   pass and rebalanced Classic opening await owner playtesting. The Classic lab
+   flags Roadrunner Round 3 as a likely AI-routing failure and the independently
+   tested final boss as too hard; verify those with human play before tuning.
 2. Real sprite art — pipeline complete and waiting; owner draws.
 3. Rollback, matchmaking, and relay infrastructure — direct internet lockstep
    now exists, but no-setup play through CGNAT still needs a hosted relay and

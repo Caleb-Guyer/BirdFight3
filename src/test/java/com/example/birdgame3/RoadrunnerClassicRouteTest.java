@@ -42,6 +42,9 @@ class RoadrunnerClassicRouteTest {
 
         assertEquals(List.of(BirdType.HUMMINGBIRD, BirdType.TITMOUSE, BirdType.FALCON),
                 List.of(route.get(0).enemies[0].type(), route.get(0).enemies[1].type(), route.get(0).enemies[2].type()));
+        assertEquals(List.of(BirdType.HUMMINGBIRD, BirdType.TITMOUSE, BirdType.FALCON),
+                List.of(route.get(0).waves[0][0].type(), route.get(0).waves[1][0].type(),
+                        route.get(0).waves[2][0].type()));
         assertEquals(List.of(BirdType.HEISENBIRD, BirdType.OPIUMBIRD),
                 List.of(route.get(1).enemies[0].type(), route.get(1).enemies[1].type()));
         assertEquals(BirdType.FALCON, route.get(2).enemies[0].type());
@@ -87,6 +90,42 @@ class RoadrunnerClassicRouteTest {
 
         eliminateEnemyTeam(game);
         assertFalse(game.holdClassicRoadrunnerEncounterOpen());
+    }
+
+    @Test
+    void openingSpeedstersArriveInThreeWaves() throws Exception {
+        BirdGame3 game = preparedGame();
+        prepareEncounter(game, route(game).getFirst());
+
+        assertEquals(1, countLivingEnemies(game));
+        game.players[0].setTrailerSmashDamagePercent(80.0);
+        eliminateEnemyTeam(game);
+        assertTrue(game.holdClassicRoadrunnerEncounterOpen());
+        assertEquals(50.0, game.players[0].smashDamagePercent(), 0.0001);
+        assertEquals(1, countLivingEnemies(game));
+        assertEquals(BirdType.TITMOUSE, firstEnemy(game).type);
+
+        eliminateEnemyTeam(game);
+        assertTrue(game.holdClassicRoadrunnerEncounterOpen());
+        assertEquals(1, countLivingEnemies(game));
+        assertEquals(BirdType.FALCON, firstEnemy(game).type);
+        assertEquals(0.68, firstEnemy(game).sizeMultiplier, 0.0001);
+        assertFalse(firstEnemy(game).hasUltimate());
+
+        eliminateEnemyTeam(game);
+        assertFalse(game.holdClassicRoadrunnerEncounterOpen());
+    }
+
+    @Test
+    void openingGauntletGivesRoadrunnerTwoStocks() throws Exception {
+        BirdGame3 game = preparedGame();
+        prepareEncounter(game, route(game).getFirst());
+        invoke(game, "applyClassicEncounterStockOverrides", new Class<?>[0]);
+
+        assertEquals(2, game.scores[0]);
+        for (int slot = 1; slot < game.activePlayers; slot++) {
+            assertEquals(1, game.scores[slot]);
+        }
     }
 
     @Test
@@ -145,6 +184,17 @@ class RoadrunnerClassicRouteTest {
         return null;
     }
 
+    private static int countLivingEnemies(BirdGame3 game) {
+        int count = 0;
+        for (Bird bird : game.players) {
+            if (bird != null && game.getEffectiveTeam(bird.playerIndex) == 2
+                    && game.scores[bird.playerIndex] > 0) {
+                count++;
+            }
+        }
+        return count;
+    }
+
     private static void eliminateEnemyTeam(BirdGame3 game) {
         for (Bird bird : game.players) {
             if (bird != null && game.getEffectiveTeam(bird.playerIndex) == 2) {
@@ -164,6 +214,7 @@ class RoadrunnerClassicRouteTest {
         game.classicEncounter = encounter;
         game.selectedMap = encounter.map;
         game.selectedMapVariant = encounter.variant;
+        setField(game, "smashCombatRulesActive", true);
         invoke(game, "setupClassicEncounterRoster", new Class<?>[]{ClassicEncounter.class}, encounter);
         invoke(game, "setupMatchArenaGeometry", new Class<?>[0]);
         invoke(game, "applySelectedMapVariantArena", new Class<?>[0]);
