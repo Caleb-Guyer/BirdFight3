@@ -32,6 +32,7 @@ class RoadrunnerClassicRouteTest {
         assertEquals(ClassicEncounterStyle.REDLINE_MIRROR, route.get(4).style);
         assertEquals(ClassicEncounterStyle.REDLINE_PURSUIT, route.get(5).style);
         assertEquals(ClassicEncounterStyle.REDLINE_RUN, route.get(6).style);
+        assertEquals(90 * 60, route.get(6).timerFrames);
         assertEquals(ClassicEncounterStyle.STILL_KING_BOSS, route.get(7).style);
         assertTrue(route.getLast().bossFight);
     }
@@ -145,6 +146,40 @@ class RoadrunnerClassicRouteTest {
     }
 
     @Test
+    void redlineRunHasContinuousSupportedGroundFromSpawnThroughFinish() throws Exception {
+        BirdGame3 game = preparedGame();
+        prepareEncounter(game, route(game).get(6));
+
+        for (double x = BirdGame3.REDLINE_RUN_START_X; x <= BirdGame3.REDLINE_RUN_FINISH_X; x += 50.0) {
+            double sampleX = x;
+            assertTrue(game.platforms.stream().anyMatch(platform -> sampleX >= platform.x
+                            && sampleX <= platform.x + platform.w
+                            && Math.abs(platform.y - BirdGame3.REDLINE_RUN_ROAD_Y) < 0.001),
+                    "The required race line has no supporting road at x=" + sampleX);
+        }
+        assertTrue(game.windVents.isEmpty(), "The time trial must not launch the runner off its required line.");
+        assertEquals(1_250.0, BirdGame3.nextRedlineCheckpointAfter(330.0));
+        assertEquals(BirdGame3.REDLINE_RUN_FINISH_X, BirdGame3.nextRedlineCheckpointAfter(4_900.0));
+    }
+
+    @Test
+    void fallingDuringRedlineRunReturnsToTheLastClearedSplitWithoutTakingAStock() throws Exception {
+        BirdGame3 game = preparedGame();
+        prepareEncounter(game, route(game).get(6));
+        Bird player = game.players[0];
+        setField(game, "classicRoadrunnerCheckpointX", 2_350.0);
+        int stocksBefore = game.scores[0];
+        player.y = BirdGame3.GROUND_Y + 300.0;
+
+        game.applyRoadrunnerClassicRuntimeEffects();
+
+        assertEquals(stocksBefore, game.scores[0]);
+        assertEquals(2_260.0, player.bodyCenterX(), 0.001);
+        assertEquals(BirdGame3.REDLINE_RUN_ROAD_Y, player.bodyBottomY(), 0.001);
+        assertEquals(0.0, player.vy, 0.001);
+    }
+
+    @Test
     void stillKingUsesThreeStocksLargeBodyAndNoAutomaticUltimate() throws Exception {
         BirdGame3 game = preparedGame();
         ClassicEncounter bossEncounter = route(game).getLast();
@@ -167,7 +202,7 @@ class RoadrunnerClassicRouteTest {
         invoke(game, "setupMatchArenaGeometry", new Class<?>[0]);
         invoke(game, "applySelectedMapVariantArena", new Class<?>[0]);
 
-        assertTrue(game.platforms.stream().anyMatch(platform -> platform.w == 2_800.0));
+        assertTrue(game.platforms.stream().anyMatch(platform -> platform.w == 5_640.0));
         assertFalse(game.availableStageChoices(BirdGame3.StageRandomPool.VARIANTS).stream()
                 .anyMatch(choice -> choice.variant() == MapVariant.REDLINE_CANYON));
         setField(game, "redlineCanyonUnlocked", true);

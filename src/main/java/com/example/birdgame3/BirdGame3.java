@@ -511,6 +511,7 @@ public class BirdGame3 {
     private Scene gameplayScene;
     private WiimoteInputManager wiimoteInputManager;
     private XboxInputManager xboxInputManager;
+    private final Object inputManagerLock = new Object();
     private AnimationTimer wiimoteMenuTimer;
     private boolean wiimoteMenuSelectHeld = false;
     private boolean wiimoteMenuBackHeld = false;
@@ -1630,54 +1631,66 @@ public class BirdGame3 {
     }
 
     private void shutdownAndExit() {
-        if (shuttingDown) return;
+        if (!shutdownCoordinator.beginShutdown()) return;
         shuttingDown = true;
         shutdownInProgress = true;
         appendStartLog("shutdown initiated");
-        // Stop render loops BEFORE tearing the toolkit down: a canvas render
-        // mid-pulse during Platform.exit() dies inside the D3D texture teardown
-        // (D3DTexture.getContext NPE) on Windows.
-        try { if (timer != null) timer.stop(); } catch (Throwable ignore) {}
-        try { if (wiimoteMenuTimer != null) wiimoteMenuTimer.stop(); } catch (Throwable ignore) {}
-        // Quickly request JavaFX exit so UI can close without waiting for cleanup
-        try { javafx.application.Platform.exit(); } catch (Throwable ignore) {}
 
-        // Perform cleanup on a background daemon thread to avoid blocking the JavaFX thread.
+        // Dispose JavaFX-owned objects before Platform.exit(). The old shutdown
+        // worker disposed MediaPlayers after Prism teardown had begun, racing
+        // NGCanvas/RTTexture cleanup on Windows.
+        performFxShutdownCleanup();
+
+        // Native input and socket teardown can block, so keep only that work off
+        // the JavaFX thread. Application.stop() may overlap this callback;
+        // ShutdownCoordinator guarantees each cleanup phase has one owner.
         Thread shutdownThread = new Thread(() -> {
             appendStartLog("shutdown worker start");
-            try { if (timer != null) timer.stop(); } catch (Throwable ignore) {}
-            // Stop and dispose media players
-            try { disposeAllManagedMediaPlayers(); } catch (Throwable ignore) {}
-            // Stop audio clips
-            try { if (bonkClip != null) bonkClip.stop(); } catch (Throwable ignore) {}
-            try { if (butterClip != null) butterClip.stop(); } catch (Throwable ignore) {}
-            try { if (jalapenoClip != null) jalapenoClip.stop(); } catch (Throwable ignore) {}
-            try { if (swingClip != null) swingClip.stop(); } catch (Throwable ignore) {}
-            try { if (hugewaveClip != null) hugewaveClip.stop(); } catch (Throwable ignore) {}
-            try { if (vaseBreakingClip != null) vaseBreakingClip.stop(); } catch (Throwable ignore) {}
-            try { if (cherrybombClip != null) cherrybombClip.stop(); } catch (Throwable ignore) {}
-            try { if (steamAchievementClip != null) steamAchievementClip.stop(); } catch (Throwable ignore) {}
-            try { if (buttonClickClip != null) buttonClickClip.stop(); } catch (Throwable ignore) {}
-            try { if (zombieFallingClip != null) zombieFallingClip.stop(); } catch (Throwable ignore) {}
-
-            // Close input managers
-            try { if (wiimoteInputManager != null) wiimoteInputManager.close(); } catch (Throwable ignore) {}
-            try { if (xboxInputManager != null) xboxInputManager.close(); } catch (Throwable ignore) {}
-
-            // Disconnect LAN
-            try { if (lanClient != null) lanClient.disconnect(); } catch (Throwable ignore) {}
-            try { if (lanHost != null) lanHost.stop(); } catch (Throwable ignore) {}
-
-            // Give native subsystems a bit more time to unwind
+            performNativeShutdownCleanup();
             try { Thread.sleep(150); } catch (InterruptedException ignore) { Thread.currentThread().interrupt(); }
-
             appendStartLog("shutdown worker halting JVM");
             try { System.exit(0); } catch (Throwable ignore) {}
-            // As a last-resort fallback, forcibly halt the JVM to avoid hangs from native shutdown hooks.
             try { Runtime.getRuntime().halt(0); } catch (Throwable ignore) {}
         }, "Shutdown-Worker");
         shutdownThread.setDaemon(true);
         shutdownThread.start();
+        try { javafx.application.Platform.exit(); } catch (Throwable ignore) {}
+    }
+
+    private void performFxShutdownCleanup() {
+        if (!shutdownCoordinator.claimFxCleanup()) return;
+        try { if (timer != null) timer.stop(); } catch (Throwable ignore) {}
+        timer = null;
+        try { if (wiimoteMenuTimer != null) wiimoteMenuTimer.stop(); } catch (Throwable ignore) {}
+        wiimoteMenuTimer = null;
+        try { stopLanCountdown(); } catch (Throwable ignore) {}
+        try { flushAchievementsNow(); } catch (Throwable ignore) {}
+        try { disposeAllManagedMediaPlayers(); } catch (Throwable ignore) {}
+        for (AudioClip clip : new AudioClip[]{bonkClip, butterClip, jalapenoClip, swingClip, hugewaveClip,
+                vaseBreakingClip, cherrybombClip, steamAchievementClip, buttonClickClip, zombieFallingClip,
+                fightReadyClip, rebirthNovaClip}) {
+            try { if (clip != null) clip.stop(); } catch (Throwable ignore) {}
+        }
+    }
+
+    private void performNativeShutdownCleanup() {
+        if (!shutdownCoordinator.claimNativeCleanup()) return;
+        WiimoteInputManager wiimote;
+        XboxInputManager xbox;
+        NetworkSessionClient client = lanClient;
+        NetworkSessionHost host = lanHost;
+        lanClient = null;
+        lanHost = null;
+        synchronized (inputManagerLock) {
+            wiimote = wiimoteInputManager;
+            xbox = xboxInputManager;
+            wiimoteInputManager = null;
+            xboxInputManager = null;
+        }
+        try { if (wiimote != null) wiimote.close(); } catch (Throwable ignore) {}
+        try { if (xbox != null) xbox.close(); } catch (Throwable ignore) {}
+        try { if (client != null) client.disconnect(); } catch (Throwable ignore) {}
+        try { if (host != null) host.stop(); } catch (Throwable ignore) {}
     }
 
     private void loadSounds() {
@@ -4598,6 +4611,7 @@ public class BirdGame3 {
 
     // Guard to prevent reentrant shutdowns
     private volatile boolean shuttingDown = false;
+    private final ShutdownCoordinator shutdownCoordinator = new ShutdownCoordinator();
     /** Set once shutdown begins so crash reporting can ignore teardown-race exceptions. */
     static volatile boolean shutdownInProgress = false;
 
@@ -4936,6 +4950,10 @@ public class BirdGame3 {
     private int classicRoadrunnerPursuitWaveIndex = 0;
     private boolean classicRoadrunnerRunCompleted = false;
     private String classicRoadrunnerRunRank = "";
+    static final double REDLINE_RUN_START_X = 330.0;
+    static final double REDLINE_RUN_ROAD_Y = GROUND_Y - 250.0;
+    static final double REDLINE_RUN_FINISH_X = 5_500.0;
+    static final List<Double> REDLINE_RUN_CHECKPOINTS = List.of(1_250.0, 2_350.0, 3_600.0, 4_650.0);
     private double classicRoadrunnerCheckpointX = 420.0;
     private int classicStillKingLastStocks = 3;
     private int classicStillKingHazardCooldown = 0;
@@ -18095,7 +18113,13 @@ public class BirdGame3 {
                             t
                     );
                 }
-                wiimoteInputManager = w;
+                synchronized (inputManagerLock) {
+                    if (!shuttingDown) {
+                        wiimoteInputManager = w;
+                        w = null;
+                    }
+                }
+                try { if (w != null) w.close(); } catch (Throwable ignore) {}
 
                 XboxInputManager x = null;
                 try {
@@ -18111,7 +18135,13 @@ public class BirdGame3 {
                             t
                     );
                 }
-                xboxInputManager = x;
+                synchronized (inputManagerLock) {
+                    if (!shuttingDown) {
+                        xboxInputManager = x;
+                        x = null;
+                    }
+                }
+                try { if (x != null) x.close(); } catch (Throwable ignore) {}
             } catch (Throwable t) {
                 appendStartLog("input init thread top-level failure: " + t);
                 ThrowableLogSupport.log(LOGGER, Level.SEVERE, "Input init thread failed", t);
@@ -19337,6 +19367,35 @@ public class BirdGame3 {
 
     private record RosterSpriteFit(double extentMultiplier, double xBias, double yBias) {
         private static final RosterSpriteFit DEFAULT = new RosterSpriteFit(1.0, 0.0, 0.0);
+    }
+
+    record ClassicPortraitLayout(double sizeMultiplier, double x, double y,
+                                 double visualLeft, double visualTop,
+                                 double visualRight, double visualBottom) {
+    }
+
+    ClassicPortraitLayout classicPortraitLayout(BirdType type, String skinKey,
+                                                  double width, double height) {
+        double baseSize = Math.max(1.0, Math.min(width, height));
+        double padding = baseSize * 0.12;
+        double extentFactor = Math.max(0.1, rosterSpriteExtentFactor(type, skinKey));
+        double visualSize = Math.max(1.0, baseSize - padding * 2.0);
+        double scale = visualSize / (80.0 * extentFactor);
+        double halfExtent = visualSize * 0.5;
+        double desiredCenterX = width * (0.5 + rosterSpriteXBias(type, skinKey));
+        double desiredCenterY = height * (0.5 + rosterSpriteYBias(type, skinKey));
+        double minCenterX = padding + halfExtent;
+        double maxCenterX = width - padding - halfExtent;
+        double minCenterY = padding + halfExtent;
+        double maxCenterY = height - padding - halfExtent;
+        double centerX = minCenterX <= maxCenterX
+                ? Math.max(minCenterX, Math.min(maxCenterX, desiredCenterX)) : width * 0.5;
+        double centerY = minCenterY <= maxCenterY
+                ? Math.max(minCenterY, Math.min(maxCenterY, desiredCenterY)) : height * 0.5;
+        double drawSize = 80.0 * scale;
+        return new ClassicPortraitLayout(scale, centerX - drawSize * 0.5, centerY - drawSize * 0.5,
+                centerX - halfExtent, centerY - halfExtent,
+                centerX + halfExtent, centerY + halfExtent);
     }
 
     /** Extra safety padding for silhouettes and accessories that exceed their species' normal bounds. */
@@ -40988,7 +41047,7 @@ public class BirdGame3 {
                 "Bonus: Redline Run", "Redline Canyon",
                 "Race through arches, tunnels, dust-devil lifts, collapsing switchbacks, and the finish gate.",
                 MapType.DESERT, MapVariant.REDLINE_CANYON, MatchMutator.NONE, ClassicTwist.REDLINE_RUN,
-                ClassicEncounterStyle.REDLINE_RUN, 72 * 60, new ClassicFighter[0], new ClassicFighter[0], false);
+                ClassicEncounterStyle.REDLINE_RUN, 90 * 60, new ClassicFighter[0], new ClassicFighter[0], false);
         redlineRun.cpuLevel = 1;
         run.add(redlineRun);
 
@@ -41946,13 +42005,10 @@ public class BirdGame3 {
         preview.name = fighterName;
         preview.suppressSelectEffects = true;
         applyPreviewSkinChoiceToBird(preview, type, skinKey);
-        double baseSize = Math.min(width, height);
-        double pad = baseSize * 0.06;
-        double extentFactor = rosterSpriteExtentFactor(type, skinKey);
-        preview.sizeMultiplier = Math.max(0.1, (baseSize - pad * 2.0) / (80.0 * extentFactor));
-        double drawSize = 80.0 * preview.sizeMultiplier;
-        preview.x = (width - drawSize) / 2.0 + width * rosterSpriteXBias(type, skinKey);
-        preview.y = (height - drawSize) / 2.0 + pad + height * rosterSpriteYBias(type, skinKey);
+        ClassicPortraitLayout layout = classicPortraitLayout(type, skinKey, width, height);
+        preview.sizeMultiplier = layout.sizeMultiplier();
+        preview.x = layout.x();
+        preview.y = layout.y();
         preview.facingRight = facingRight;
         preview.draw(g);
     }
@@ -42694,8 +42750,8 @@ public class BirdGame3 {
         if (encounter.style == ClassicEncounterStyle.REDLINE_RUN) {
             Bird player = players[0];
             if (player != null) {
-                player.x = 330.0;
-                player.y = GROUND_Y - 250.0 - player.bodyHeight();
+                player.x = REDLINE_RUN_START_X;
+                player.y = REDLINE_RUN_ROAD_Y - player.bodyHeight();
                 player.prevX = player.x;
                 player.prevY = player.y;
                 player.vx = 0.0;
@@ -44658,8 +44714,11 @@ public class BirdGame3 {
 
     private void updateRoadrunnerRedlineRun(Bird player) {
         double centerX = player.bodyCenterX();
-        double[] checkpoints = {1_250.0, 2_350.0, 3_600.0, 4_650.0};
-        for (double checkpoint : checkpoints) {
+        if (player.bodyCenterY() > GROUND_Y + 180.0) {
+            recoverRoadrunnerAtLastCheckpoint(player);
+            centerX = player.bodyCenterX();
+        }
+        for (double checkpoint : REDLINE_RUN_CHECKPOINTS) {
             if (centerX >= checkpoint && classicRoadrunnerCheckpointX < checkpoint) {
                 classicRoadrunnerCheckpointX = checkpoint;
                 platforms.removeIf(platform -> platform.w < 800.0
@@ -44681,7 +44740,7 @@ public class BirdGame3 {
             player.vx = Math.min(18.0, player.vx + 0.28);
             player.vy = Math.min(player.vy, -5.8);
         }
-        if (centerX < 5_500.0 || classicRoadrunnerRunCompleted) return;
+        if (centerX < REDLINE_RUN_FINISH_X || classicRoadrunnerRunCompleted) return;
 
         classicRoadrunnerRunCompleted = true;
         int remaining = Math.max(0, matchTimer);
@@ -44692,6 +44751,25 @@ public class BirdGame3 {
         playClassicNectarRingSfx(7, 7);
         addToKillFeed("REDLINE RUN " + classicRoadrunnerRunRank + " RANK! Final Bolt banked.");
         matchController.triggerMatchEnd(player);
+    }
+
+    private void recoverRoadrunnerAtLastCheckpoint(Bird player) {
+        double safeCenterX = Math.max(420.0, classicRoadrunnerCheckpointX - 90.0);
+        player.x = safeCenterX - player.bodyWidth() * 0.5;
+        player.y = REDLINE_RUN_ROAD_Y - player.bodyHeight();
+        player.prevX = player.x;
+        player.prevY = player.y;
+        player.vx = 4.5;
+        player.vy = 0.0;
+        player.facingRight = true;
+        addToKillFeed("CANYON RESCUE: returned to the last cleared split.");
+    }
+
+    static double nextRedlineCheckpointAfter(double centerX) {
+        for (double checkpoint : REDLINE_RUN_CHECKPOINTS) {
+            if (centerX < checkpoint) return checkpoint;
+        }
+        return REDLINE_RUN_FINISH_X;
     }
 
     private void updateClassicStillKing(Bird player) {
@@ -44879,13 +44957,13 @@ public class BirdGame3 {
         resetBossRushArenaState();
         activeArenaGeometryVariant = MapVariant.REDLINE_CANYON;
 
-        Platform westRoad = new Platform(180, GROUND_Y - 250, 1_420, 82);
-        Platform centerRoad = new Platform(1_600, GROUND_Y - 430, 2_800, 92);
-        Platform eastRoad = new Platform(4_400, GROUND_Y - 250, 1_420, 82);
-        westRoad.signText = "MILE 01";
-        centerRoad.signText = "REDLINE CANYON";
-        eastRoad.signText = "NO FINISH LINE";
-        Collections.addAll(platforms, westRoad, centerRoad, eastRoad);
+        // One continuous road keeps the time-trial line readable and removes
+        // the old 180px vertical wall at x=1600 that trapped Roadrunner in the
+        // platform collision resolver. Mesa supports and upper switchbacks keep
+        // the stage's canyon silhouette without compromising the main route.
+        Platform raceRoad = new Platform(180, REDLINE_RUN_ROAD_Y, 5_640, 88);
+        raceRoad.signText = "REDLINE CANYON  //  NO FINISH LINE";
+        platforms.add(raceRoad);
 
         // Switchbacks are built into mesa faces; none of these combat ledges
         // are visually unsupported floating slabs.
@@ -44897,12 +44975,16 @@ public class BirdGame3 {
         platforms.add(new Platform(4_620, GROUND_Y - 610, 620, 46));
         platforms.add(new Platform(2_650, GROUND_Y - 1_080, 700, 48));
 
-        battlefieldIslandX = centerRoad.x;
-        battlefieldIslandW = centerRoad.w;
-        battlefieldIslandY = centerRoad.y;
-        windVents.add(new WindVent(930, GROUND_Y - 640, 250));
-        windVents.add(new WindVent(2_870, GROUND_Y - 750, 260));
-        windVents.add(new WindVent(4_820, GROUND_Y - 640, 250));
+        battlefieldIslandX = raceRoad.x;
+        battlefieldIslandW = raceRoad.w;
+        battlefieldIslandY = raceRoad.y;
+        boolean timeTrial = classicEncounter != null
+                && classicEncounter.style == ClassicEncounterStyle.REDLINE_RUN;
+        if (!timeTrial) {
+            windVents.add(new WindVent(930, GROUND_Y - 640, 250));
+            windVents.add(new WindVent(2_870, GROUND_Y - 750, 260));
+            windVents.add(new WindVent(4_820, GROUND_Y - 640, 250));
+        }
     }
 
     private void drawRedlineCanyonArena(GraphicsContext g, boolean ambientFx) {
@@ -45535,6 +45617,11 @@ public class BirdGame3 {
     private void adjustClassicDifficulty(boolean won) {
         double delta = won ? CLASSIC_DIFFICULTY_STEP : -CLASSIC_DIFFICULTY_STEP;
         classicDifficulty = Math.clamp(classicDifficulty + delta, 1.0, 9.0);
+    }
+
+    void applyClassicRestartPenalty() {
+        classicDeaths++;
+        adjustClassicDifficulty(false);
     }
 
     private void evaluateRoosterClassicEncounter(boolean playerWon) {
@@ -51915,6 +52002,20 @@ public class BirdGame3 {
         closePauseMenuWithoutResuming();
         stopGameplayTimer();
         resetMatchStats();
+        if (classicModeActive && classicEncounter != null) {
+            try {
+                if (dailyChallengeModeActive || ashfallTrialModeActive || bossRushModeActive) {
+                    handleClassicMatchEnd(stage, null);
+                } else {
+                    applyClassicRestartPenalty();
+                    saveAchievements();
+                    showClassicContinuePrompt(stage);
+                }
+            } finally {
+                matchRestartQueued = false;
+            }
+            return;
+        }
         javafx.application.Platform.runLater(() -> {
             try {
                 startMatch(stage);
@@ -53303,8 +53404,11 @@ public class BirdGame3 {
                         + commands[Math.clamp(classicRoosterMusterStep, 0, 4)]
                         + "  MORALE " + classicRoosterMorale + "/3");
             } else if (classicEncounter.style == ClassicEncounterStyle.REDLINE_RUN) {
-                lines.add("NEXT SPLIT " + (int) classicRoadrunnerCheckpointX
-                        + "  FINISH 5500  BOLTS " + classicRoadrunnerBoltCount() + "/7");
+                Bird runner = players[0];
+                double runnerX = runner == null ? REDLINE_RUN_START_X : runner.bodyCenterX();
+                lines.add("NEXT SPLIT " + (int) nextRedlineCheckpointAfter(runnerX)
+                        + "  FINISH " + (int) REDLINE_RUN_FINISH_X
+                        + "  BOLTS " + classicRoadrunnerBoltCount() + "/7");
             } else {
                 lines.add(dailyChallengeModeActive
                     ? "LIVES " + livesLeft + "/3  SEED " + formatDailyChallengeSeed(dailyChallengeSeed)
@@ -58875,8 +58979,8 @@ public class BirdGame3 {
                 togglePause(stage);
             });
 
-            Button restartButton = new Button("Restart");
-            restartButton.setPrefSize(300, 60);
+            Button restartButton = new Button(classicModeActive ? "Forfeit Encounter" : "Restart");
+            restartButton.setPrefSize(classicModeActive ? 390 : 300, 60);
             restartButton.setFont(Font.font("Arial Black", 30));
             restartButton.setStyle("-fx-background-color: #FFC107; -fx-text-fill: white; -fx-background-radius: 20;");
             restartButton.setFocusTraversable(true);
@@ -58937,13 +59041,11 @@ public class BirdGame3 {
         togglePause(stage);
     }
 
-    public void stop() throws Exception {
-        if (timer != null) timer.stop();
-        if (wiimoteMenuTimer != null) wiimoteMenuTimer.stop();
-        if (wiimoteInputManager != null) wiimoteInputManager.close();
-        if (xboxInputManager != null) xboxInputManager.close();
-        stopLanSession();
-        flushAchievementsNow();
-        disposeAllManagedMediaPlayers();
+    public void stop() {
+        shutdownCoordinator.beginShutdown();
+        shuttingDown = true;
+        shutdownInProgress = true;
+        performFxShutdownCleanup();
+        performNativeShutdownCleanup();
     }
 }
