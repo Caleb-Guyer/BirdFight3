@@ -183,6 +183,7 @@ final class ClassicEndingPlayer {
         boolean subglacialMontage = ClassicEndingContent.isSubglacialMontage(cinematic);
         boolean stillwaterRevelation = ClassicEndingContent.isStillwaterRevelation(cinematic);
         boolean charlesLivingScore = ClassicEndingContent.isCharlesLivingScore(cinematic);
+        boolean razorbillFinalCut = ClassicEndingContent.isRazorbillFinalCut(cinematic);
         if (continuousPanorama) {
             double routeProgress = Math.clamp((beatIndex + progress) / cinematic.beats().size(), 0.0, 1.0);
             drawRoadrunnerPanorama(g, now / 1_000_000_000.0, routeProgress);
@@ -195,6 +196,9 @@ final class ClassicEndingPlayer {
         } else if (charlesLivingScore) {
             double routeProgress = Math.clamp((beatIndex + progress) / cinematic.beats().size(), 0.0, 1.0);
             drawCharlesLivingScore(g, now / 1_000_000_000.0, routeProgress);
+        } else if (razorbillFinalCut) {
+            double routeProgress = Math.clamp((beatIndex + progress) / cinematic.beats().size(), 0.0, 1.0);
+            drawRazorbillFinalCut(g, now / 1_000_000_000.0, routeProgress);
         } else {
             drawBackground(g, now / 1_000_000_000.0, progress);
             drawTableau(g, currentBeat().tableau(), progress, now / 1_000_000_000.0);
@@ -202,7 +206,8 @@ final class ClassicEndingPlayer {
         drawCinematicFrame(g, progress);
         drawNarration(g, currentBeat().narration());
         drawProgress(g);
-        if (!continuousPanorama && !subglacialMontage && !stillwaterRevelation && !charlesLivingScore) {
+        if (!continuousPanorama && !subglacialMontage && !stillwaterRevelation
+                && !charlesLivingScore && !razorbillFinalCut) {
             drawTransition(g, progress);
         }
         g.restore();
@@ -288,6 +293,112 @@ final class ClassicEndingPlayer {
             g.fillOval(520, 120, 900, 780);
             drawFinalTitle(g, finale);
         }
+    }
+
+    private void drawRazorbillFinalCut(GraphicsContext g, double time, double progress) {
+        Color skyTop = Color.web("#02030B").interpolate(Color.web("#17112B"), progress);
+        Color skyBottom = Color.web("#160A25").interpolate(Color.web("#164052"), progress * 0.82);
+        g.setFill(new LinearGradient(0, 0, 0, LOGICAL_HEIGHT, false, CycleMethod.NO_CYCLE,
+                new Stop(0, skyTop), new Stop(1, skyBottom)));
+        g.fillRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
+
+        double camera = ease(progress) * 520.0;
+        g.setFill(Color.web("#0B0D1A"));
+        for (int tower = -1; tower < 7; tower++) {
+            double x = tower * 390.0 - camera * (0.16 + tower % 2 * 0.04);
+            double top = 360.0 + Math.floorMod(tower * 137, 210);
+            g.fillRect(x, top, 260.0, LOGICAL_HEIGHT - top);
+            g.setFill(Color.web("#69F0E7", 0.13));
+            for (double y = top + 55.0; y < LOGICAL_HEIGHT; y += 90.0) {
+                g.fillRect(x + 44.0, y, 32.0, 18.0);
+                g.fillRect(x + 170.0, y, 32.0, 18.0);
+            }
+            g.setFill(Color.web("#0B0D1A"));
+        }
+
+        double seamClose = ease(Math.clamp((progress - 0.46) / 0.28, 0.0, 1.0));
+        double seamWidth = 270.0 * (1.0 - seamClose) + 16.0;
+        g.setFill(Color.web("#69F0E7", 0.10 + (1.0 - seamClose) * 0.18));
+        g.fillPolygon(new double[]{960 - seamWidth, 960 + seamWidth, 1_070 + seamWidth * 0.4,
+                        890 - seamWidth * 0.3},
+                new double[]{0, 0, LOGICAL_HEIGHT, LOGICAL_HEIGHT}, 4);
+        g.setStroke(Color.web("#EA80FC", 0.72));
+        g.setLineWidth(12.0 + (1.0 - seamClose) * 18.0);
+        g.strokePolyline(new double[]{960, 1_010, 945, 1_020, 970},
+                new double[]{0, 220, 430, 690, LOGICAL_HEIGHT}, 5);
+
+        double bossFade = Math.clamp(1.0 - progress * 4.3, 0.0, 1.0);
+        if (bossFade > 0.0) {
+            g.save();
+            g.setGlobalAlpha(bossFade);
+            drawEndingSeamreaver(g, 1_360 + progress * 110.0, 470 + progress * 90.0,
+                    1.15, time);
+            g.restore();
+        }
+
+        double crownRise = ease(Math.clamp((progress - 0.10) / 0.22, 0.0, 1.0));
+        double crownSplit = ease(Math.clamp((progress - 0.42) / 0.25, 0.0, 1.0));
+        if (crownRise > 0.0 && crownSplit < 1.0) {
+            drawCrown(g, 1_055, 650 - crownRise * 330.0, 1.15, time,
+                    Math.clamp(1.0 - crownSplit, 0.0, 1.0));
+        }
+        for (int seal = 0; seal < 7; seal++) {
+            double reveal = ease(Math.clamp((crownSplit - seal * 0.07), 0.0, 1.0));
+            if (reveal <= 0.0) continue;
+            double angle = -Math.PI * 0.86 + seal * Math.PI * 0.285;
+            double distance = 80.0 + crownSplit * 340.0;
+            double x = 1_055 + Math.cos(angle) * distance;
+            double y = 390 + Math.sin(angle) * distance * 0.52;
+            Color color = seal % 2 == 0 ? Color.web("#69F0E7") : Color.web("#EA80FC");
+            g.setFill(color.deriveColor(0, 1, 1, 0.28 * reveal));
+            g.fillOval(x - 42.0, y - 42.0, 84.0, 84.0);
+            g.setStroke(color);
+            g.setLineWidth(6.0);
+            g.strokePolygon(new double[]{x, x + 28, x, x - 28},
+                    new double[]{y - 36, y, y + 36, y}, 4);
+        }
+
+        double razorbillX = 300.0 + ease(progress) * 520.0;
+        double razorbillY = 690.0 - Math.sin(progress * Math.PI) * 82.0;
+        drawBird(g, narrator, razorbillX, razorbillY, 1.22 + progress * 0.14, true, 1.0);
+
+        double gates = ease(Math.clamp((progress - 0.66) / 0.20, 0.0, 1.0));
+        for (int side : new int[]{-1, 1}) {
+            double x = side < 0 ? 250.0 : 1_670.0;
+            g.setStroke(Color.web(side < 0 ? "#00E5FF" : "#EA80FC", gates * 0.82));
+            g.setLineWidth(12.0);
+            g.strokeOval(x - 90.0, 350.0, 180.0, 340.0);
+        }
+        if (progress > 0.86) drawFinalTitle(g, ease((progress - 0.86) / 0.14));
+    }
+
+    private void drawEndingSeamreaver(GraphicsContext g, double x, double y,
+                                      double scale, double time) {
+        g.save();
+        g.translate(x, y);
+        g.scale(scale, scale);
+        g.rotate(Math.sin(time * 0.7) * 6.0);
+        Color accent = Color.web("#EA80FC");
+        g.setStroke(accent.deriveColor(0, 1, 1, 0.42));
+        g.setLineWidth(11.0);
+        for (int ring = 0; ring < 3; ring++) {
+            double radius = 125.0 + ring * 38.0 + Math.sin(time * 1.3 + ring) * 7.0;
+            g.strokeOval(-radius, -radius, radius * 2.0, radius * 2.0);
+        }
+        g.setFill(Color.web("#060711"));
+        g.fillPolygon(new double[]{-155, -76, -28, 0, 28, 76, 155, 82, 28, 0, -28, -82},
+                new double[]{0, -70, -34, -148, -34, -70, 0, 58, 34, 156, 34, 58}, 12);
+        g.setStroke(Color.web("#00E5FF"));
+        g.setLineWidth(10.0);
+        g.strokePolygon(new double[]{-155, -76, -28, 0, 28, 76, 155, 82, 28, 0, -28, -82},
+                new double[]{0, -70, -34, -148, -34, -70, 0, 58, 34, 156, 34, 58}, 12);
+        g.setFill(Color.web("#E7F4F6"));
+        g.fillPolygon(new double[]{-60, 0, 60, 34, 0, -34},
+                new double[]{-35, -80, -35, 48, 86, 48}, 6);
+        g.setFill(Color.web("#05050B"));
+        g.fillOval(-30, -28, 22, 50);
+        g.fillOval(8, -28, 22, 50);
+        g.restore();
     }
 
     private void drawHollowMaestroMask(GraphicsContext g, double x, double y, double scale, double time) {

@@ -683,7 +683,8 @@ public class BirdGame3 {
         FOREST, CITY, SKYCLIFFS, VIBRANT_JUNGLE, DESERT, CAVE, BATTLEFIELD, BEACON_CROWN,
         DOCK, FROSTBITE_FJORD, ASHFALL_CATHEDRAL, PRISON,
         // Append-only: map ordinals are persisted by replays and network setup.
-        RESONANCE_HALL, SIGNAL_SPIRE, SILENT_AMPHITHEATER
+        RESONANCE_HALL, SIGNAL_SPIRE, SILENT_AMPHITHEATER,
+        GLASSWIND_CAUSEWAY, WORLDSEAM
     }
 
     /** Reusable arena layouts originally authored for story and boss modes. */
@@ -707,7 +708,8 @@ public class BirdGame3 {
         DAWNWATCH_BASTION(MapType.BEACON_CROWN, "Classic Routes", "Dawnwatch Bastion", "A golden mountaintop citadel of watchtowers, structural bridges, banners, and a colossal dawn bell."),
         REDLINE_CANYON(MapType.DESERT, "Classic Routes", "Redline Canyon", "A sunset highway carved through towering mesas, stone arches, tunnels, switchbacks, and dust-devil lifts."),
         LAST_ICE_SHELF(MapType.FROSTBITE_FJORD, "Classic Routes", "Last Ice Shelf", "An aurora-lit iceberg fortress whose terraces, arches, and recovery shelves are carved from one connected glacier."),
-        STILLWATER_MARSH(MapType.FOREST, "Classic Routes", "Stillwater Marsh", "A moonlit flooded marsh whose fighting surfaces grow from one web of cypress roots and ruined shrine stone.");
+        STILLWATER_MARSH(MapType.FOREST, "Classic Routes", "Stillwater Marsh", "A moonlit flooded marsh whose fighting surfaces grow from one web of cypress roots and ruined shrine stone."),
+        OBSIDIAN_FOUNDRY(MapType.ASHFALL_CATHEDRAL, "Classic Routes", "Obsidian Foundry", "A cooled volcanic blade foundry whose basalt floor, suspended presses, and recovery shelves form one readable industrial structure.");
 
         final MapType baseMap;
         final String category;
@@ -1811,6 +1813,10 @@ public class BirdGame3 {
                 && classicEncounter.style == ClassicEncounterStyle.HOLLOW_MAESTRO_BOSS) {
             return "music-charles-maestro.mp3";
         }
+        if (classicModeActive && classicEncounter != null
+                && classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS) {
+            return "music-razorbill-seamreaver.mp3";
+        }
         boolean bossMusic = isBossEncounterActive() || selectedMap == MapType.BEACON_CROWN;
         return bossMusic
                 ? "music-boss.mp3"
@@ -1829,6 +1835,8 @@ public class BirdGame3 {
                     case RESONANCE_HALL -> "music-charles-hall.mp3";
                     case SIGNAL_SPIRE -> "music-charles-spire.mp3";
                     case SILENT_AMPHITHEATER -> "music-charles-maestro.mp3";
+                    case GLASSWIND_CAUSEWAY -> "music-razorbill-glasswind.mp3";
+                    case WORLDSEAM -> "music-razorbill-worldseam.mp3";
             default -> throw new IllegalStateException("Unexpected value: " + selectedMap);
         };
     }
@@ -5052,6 +5060,43 @@ public class BirdGame3 {
     private double classicCharlesBossAttackTargetY = SILENT_FIELD_CENTER_Y;
     private double classicCharlesBossAttackOriginX = SILENT_FIELD_CENTER_X;
     private double classicCharlesBossAttackOriginY = SILENT_FIELD_CENTER_Y;
+    static final double SEAMREAVER_BASE_HEALTH = 320.0;
+    static final double SEAMREAVER_OPEN_DAMAGE_SCALE = 1.45;
+    static final double SEAMREAVER_GUARD_DAMAGE_SCALE = 0.22;
+    static final double SEAMREAVER_BURST_TRIGGER_DAMAGE = 42.0;
+    static final int SEAMREAVER_BURST_WINDOW_FRAMES = 72;
+    static final int SEAMREAVER_GUARD_FRAMES = 58;
+    static final int SEAMREAVER_GUARD_IMPACT_FRAME = 18;
+    static final double[] SEAMREAVER_FLIGHT_X = {1_260.0, 2_320.0, 4_740.0, 3_680.0, 3_000.0};
+    static final double[] SEAMREAVER_FLIGHT_Y = {
+            GROUND_Y - 900.0, GROUND_Y - 1_180.0, GROUND_Y - 900.0,
+            GROUND_Y - 1_180.0, GROUND_Y - 720.0
+    };
+    static final int[] RAZORBILL_BONUS_SAFE_LANES = {1, 3, 0, 2};
+    private final boolean[] classicRazorbillSeals = new boolean[3];
+    private final List<ClassicRiftAnchor> classicRiftAnchors = new ArrayList<>();
+    private final List<ClassicSeamShard> classicSeamShards = new ArrayList<>();
+    private final int[] worldseamGateCooldowns = new int[MAX_COMBATANTS];
+    private int classicRazorbillWaveIndex = 0;
+    private int classicRazorbillBonusPatternIndex = 0;
+    private int classicRazorbillBonusPatternTimer = 0;
+    private boolean classicRazorbillBonusReady = false;
+    private boolean classicRazorbillAttackWasHeld = false;
+    private int classicRazorbillAttackHitCooldown = 0;
+    private int classicRazorbillReflectionTimer = 0;
+    private double classicRazorbillReflectionTargetX = 3_000.0;
+    private double classicRazorbillReflectionTargetY = GROUND_Y - 500.0;
+    private int classicSeamreaverPhase = 0;
+    private int classicSeamreaverAttackTimer = 104;
+    private int classicSeamreaverAttackKind = 0;
+    private int classicSeamreaverHitCooldown = 0;
+    private int classicSeamreaverFlightWaypoint = 0;
+    private int classicSeamreaverGuardTimer = 0;
+    private int classicSeamreaverGuardCooldown = 0;
+    private int classicSeamreaverBurstWindow = 0;
+    private double classicSeamreaverBurstDamage = 0.0;
+    private double classicSeamreaverTargetX = 3_000.0;
+    private double classicSeamreaverTargetY = GROUND_Y - 700.0;
     private static final double STILLWATER_MAIN_X = 900.0;
     private static final double STILLWATER_MAIN_Y = GROUND_Y - 330.0;
     private static final double STILLWATER_MAIN_W = 4_200.0;
@@ -5136,7 +5181,11 @@ public class BirdGame3 {
         AUDITION_ORDER("Audition Order", "Choose the order of three distinct auditions without changing Charles's ordinary moves."),
         PERFECT_PITCH("Perfect Pitch", "Watch the visual score, then strike the four brass bells in the shown order."),
         DEAD_AIR("Dead Air", "Launch the Maestro's original Choir Masks through the blast zones."),
-        HOLLOW_SCORE("Hollow Score", "Break the Hollow Maestro's stamina across three escalating movements.");
+        HOLLOW_SCORE("Hollow Score", "Break the Hollow Maestro's stamina across three escalating movements."),
+        SEAM_MAP("Seam Map", "Optional Rift Anchors repair the route for score and Bird Coins without changing Razorbill's normal kit."),
+        BETWEEN_LINES("Between the Lines", "Remember each safe lane, survive four dimensional cuts, then strike the exposed anchor."),
+        BROKEN_GUARD("The Broken Guard", "Defeat three original Seam Wardens in sequence; each owns a different geometric cut pattern."),
+        ZERO_DIVIDE("Zero Divide", "Break the Seamreaver's stamina while reading its horizontal, diagonal, and rift-gate attacks.");
 
         final String label;
         final String description;
@@ -5156,12 +5205,18 @@ public class BirdGame3 {
     }
 
     private void playClassicEncounterMusic() {
-        String track = classicSelectedBird == BirdType.MOCKINGBIRD && classicEncounter != null
-                ? (classicEncounter.style == ClassicEncounterStyle.HOLLOW_MAESTRO_BOSS
-                ? "music-charles-maestro.mp3"
-                : (classicEncounter.map == MapType.SIGNAL_SPIRE
-                ? "music-charles-spire.mp3" : "music-charles-hall.mp3"))
-                : CLASSIC_ENCOUNTER_MUSIC_FILE;
+        String track = CLASSIC_ENCOUNTER_MUSIC_FILE;
+        if (classicEncounter != null && classicSelectedBird == BirdType.MOCKINGBIRD) {
+            track = classicEncounter.style == ClassicEncounterStyle.HOLLOW_MAESTRO_BOSS
+                    ? "music-charles-maestro.mp3"
+                    : (classicEncounter.map == MapType.SIGNAL_SPIRE
+                    ? "music-charles-spire.mp3" : "music-charles-hall.mp3");
+        } else if (classicEncounter != null && classicSelectedBird == BirdType.RAZORBILL) {
+            track = classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS
+                    ? "music-razorbill-seamreaver.mp3"
+                    : (classicEncounter.map == MapType.WORLDSEAM
+                    ? "music-razorbill-worldseam.mp3" : "music-razorbill-glasswind.mp3");
+        }
         startOrContinueMusicTrack(track, true);
     }
 
@@ -5203,7 +5258,45 @@ public class BirdGame3 {
         CHARLES_UNDERSTUDIES,
         PERFECT_PITCH,
         CHOIR_MASK_GAUNTLET,
-        HOLLOW_MAESTRO_BOSS
+        HOLLOW_MAESTRO_BOSS,
+        RAZORBILL_SPLINTERS,
+        RAZORBILL_REFLECTION,
+        BETWEEN_LINES,
+        SEAM_WARDEN_GAUNTLET,
+        SEAMREAVER_BOSS
+    }
+
+    static final class ClassicRiftAnchor {
+        final double x;
+        final double y;
+        final int sealIndex;
+        boolean closed;
+        int pulseFrames;
+
+        ClassicRiftAnchor(double x, double y, int sealIndex, boolean closed) {
+            this.x = x;
+            this.y = y;
+            this.sealIndex = sealIndex;
+            this.closed = closed;
+        }
+    }
+
+    static final class ClassicSeamShard {
+        double x;
+        double y;
+        double vx;
+        double vy;
+        int life;
+        final int phase;
+
+        ClassicSeamShard(double x, double y, double vx, double vy, int life, int phase) {
+            this.x = x;
+            this.y = y;
+            this.vx = vx;
+            this.vy = vy;
+            this.life = life;
+            this.phase = phase;
+        }
     }
 
     static final class ClassicPitchBell {
@@ -9094,6 +9187,9 @@ public class BirdGame3 {
                 || map == MapType.SILENT_AMPHITHEATER) {
             return isClassicCompleted(BirdType.MOCKINGBIRD);
         }
+        if (map == MapType.GLASSWIND_CAUSEWAY || map == MapType.WORLDSEAM) {
+            return isClassicCompleted(BirdType.RAZORBILL);
+        }
         return true;
     }
 
@@ -9110,6 +9206,7 @@ public class BirdGame3 {
         if (variant == MapVariant.REDLINE_CANYON) return redlineCanyonUnlocked;
         if (variant == MapVariant.LAST_ICE_SHELF) return lastIceShelfUnlocked;
         if (variant == MapVariant.STILLWATER_MARSH) return stillwaterMarshUnlocked;
+        if (variant == MapVariant.OBSIDIAN_FOUNDRY) return isClassicCompleted(BirdType.RAZORBILL);
         return isMapUnlocked(variant.baseMap);
     }
 
@@ -13792,6 +13889,8 @@ public class BirdGame3 {
             case ASHFALL_CATHEDRAL -> {
                 if (activeArenaGeometryVariant == MapVariant.FROZEN_CALDERA) {
                     drawFrozenCalderaArena(g, ambientFx);
+                } else if (activeArenaGeometryVariant == MapVariant.OBSIDIAN_FOUNDRY) {
+                    drawObsidianFoundryArena(g, ambientFx);
                 } else {
                     drawAshfallCathedralArena(g, ambientFx);
                 }
@@ -13800,6 +13899,8 @@ public class BirdGame3 {
             case RESONANCE_HALL -> drawResonanceHallArena(g, ambientFx);
             case SIGNAL_SPIRE -> drawSignalSpireArena(g, ambientFx);
             case SILENT_AMPHITHEATER -> drawSilentAmphitheaterArena(g, ambientFx);
+            case GLASSWIND_CAUSEWAY -> drawGlasswindCausewayArena(g, ambientFx);
+            case WORLDSEAM -> drawWorldseamArena(g, ambientFx);
             case BATTLEFIELD -> {
                 if (isBeaconCrownBattlefieldContext()) {
                     drawBeaconCrownBattlefield(g, ambientFx);
@@ -13945,6 +14046,7 @@ public class BirdGame3 {
         drawClassicPenguinRouteFeatures(g);
         drawClassicShoebillRouteFeatures(g);
         drawClassicCharlesRouteFeatures(g);
+        drawClassicRazorbillRouteFeatures(g);
         drawUltimateReadyScreenDarken(g);
         drawCampaignObjectiveMarkers(g);
 
@@ -14026,7 +14128,7 @@ public class BirdGame3 {
                     continue;
                 }
                 // Always draw birds at full opacity; HUD elements will fade when they overlap birds.
-                if (!drawClassicCharlesConstruct(g, b)) {
+                if (!drawClassicCharlesConstruct(g, b) && !drawClassicRazorbillConstruct(g, b)) {
                     b.draw(g);
                 }
                 drawPlayerTag(g, b);
@@ -14330,6 +14432,119 @@ public class BirdGame3 {
         g.setLineDashes();
 
         drawSilentAmphitheaterPlatforms(g);
+    }
+
+    private void drawGlasswindCausewayArena(GraphicsContext g, boolean ambientFx) {
+        double time = ambientFx ? System.currentTimeMillis() / 1000.0 : 0.0;
+        for (int band = 0; band < 520; band++) {
+            double t = band / 520.0;
+            g.setFill(Color.web("#050817").interpolate(Color.web("#214A67"), t));
+            g.fillRect(0, band * WORLD_HEIGHT / 520.0, WORLD_WIDTH, WORLD_HEIGHT / 520.0 + 3.0);
+        }
+        g.setFill(Color.web("#E8F8FF", 0.10));
+        for (int cloud = 0; cloud < 12; cloud++) {
+            double drift = ambientFx ? Math.sin(time * 0.18 + cloud) * 75.0 : 0.0;
+            g.fillOval(cloud * 560.0 - 250.0 + drift, 650.0 + (cloud % 4) * 145.0, 920.0, 250.0);
+        }
+        g.setStroke(Color.web("#577B91", 0.82));
+        g.setLineWidth(32.0);
+        for (double x : new double[]{900.0, 2_100.0, 3_900.0, 5_100.0}) {
+            g.strokeLine(x, GROUND_Y + 260.0, x - 150.0, 640.0);
+            g.strokeLine(x, GROUND_Y + 260.0, x + 150.0, 640.0);
+            g.setLineWidth(10.0);
+            for (double y = 800.0; y < GROUND_Y; y += 260.0) {
+                g.strokeLine(x - 105.0, y, x + 105.0, y + 180.0);
+                g.strokeLine(x + 105.0, y, x - 105.0, y + 180.0);
+            }
+            g.setLineWidth(32.0);
+        }
+        double pulse = 0.5 + (ambientFx ? 0.5 * Math.sin(time * 2.2) : 0.0);
+        g.setStroke(Color.web("#80DEEA", 0.25 + pulse * 0.22));
+        g.setLineWidth(9.0);
+        for (int seam = 0; seam < 7; seam++) {
+            double x = 520.0 + seam * 830.0;
+            g.strokeLine(x, 220.0, x + 360.0, GROUND_Y - 520.0);
+        }
+        drawWorldseamPlatforms(g, Color.web("#142838"), Color.web("#80DEEA"));
+    }
+
+    private void drawWorldseamArena(GraphicsContext g, boolean ambientFx) {
+        double time = ambientFx ? System.currentTimeMillis() / 1000.0 : 0.0;
+        for (int band = 0; band < 520; band++) {
+            double t = band / 520.0;
+            g.setFill(Color.web("#03030A").interpolate(Color.web("#241136"), t));
+            g.fillRect(0, band * WORLD_HEIGHT / 520.0, WORLD_WIDTH, WORLD_HEIGHT / 520.0 + 3.0);
+        }
+        double pulse = 0.5 + (ambientFx ? 0.5 * Math.sin(time * 1.35) : 0.0);
+        g.setFill(Color.web("#69F0E7", 0.08 + pulse * 0.06));
+        g.fillPolygon(new double[]{2_780, 3_220, 3_430, 3_160, 3_360, 2_710, 2_910, 2_570},
+                new double[]{0, 0, 740, 1_080, 1_760, 2_080, 1_090, 650}, 8);
+        g.setStroke(Color.web("#7C4DFF", 0.55 + pulse * 0.28));
+        g.setLineWidth(28.0 + pulse * 12.0);
+        g.strokePolyline(new double[]{2_960, 3_170, 2_900, 3_120, 2_820},
+                new double[]{0, 520, 1_020, 1_520, GROUND_Y + 200.0}, 5);
+
+        for (int side : new int[]{-1, 1}) {
+            double gateX = side < 0 ? 1_450.0 : 4_550.0;
+            g.setFill(Color.web(side < 0 ? "#00E5FF" : "#EA80FC", 0.10 + pulse * 0.10));
+            g.fillOval(gateX - 125.0, GROUND_Y - 650.0, 250.0, 420.0);
+            g.setStroke(Color.web(side < 0 ? "#00E5FF" : "#EA80FC", 0.72 + pulse * 0.22));
+            g.setLineWidth(15.0);
+            g.strokeOval(gateX - 125.0, GROUND_Y - 650.0, 250.0, 420.0);
+            g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.78));
+            g.setFont(Font.font("Consolas", FontWeight.BOLD, 28));
+            g.setTextAlign(TextAlignment.CENTER);
+            g.fillText(side < 0 ? "I" : "II", gateX, GROUND_Y - 675.0);
+        }
+        g.setTextAlign(TextAlignment.LEFT);
+        drawWorldseamPlatforms(g, Color.web("#171426"), Color.web("#B388FF"));
+    }
+
+    private void drawObsidianFoundryArena(GraphicsContext g, boolean ambientFx) {
+        double time = ambientFx ? System.currentTimeMillis() / 1000.0 : 0.0;
+        g.setFill(Color.web("#100B12"));
+        g.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+        g.setFill(Color.web("#3A1718"));
+        for (int bay = 0; bay < 8; bay++) {
+            double x = bay * 820.0 - 180.0;
+            g.fillRect(x, 250.0, 560.0, GROUND_Y + 180.0);
+            g.setStroke(Color.web("#FF7043", 0.22));
+            g.setLineWidth(18.0);
+            g.strokeLine(x + 80.0, 260.0, x + 80.0, GROUND_Y);
+            g.strokeLine(x + 480.0, 260.0, x + 480.0, GROUND_Y);
+        }
+        double glow = 0.30 + (ambientFx ? 0.12 * Math.sin(time * 1.8) : 0.0);
+        g.setFill(Color.web("#FF5722", glow));
+        g.fillRect(0, GROUND_Y + 180.0, WORLD_WIDTH, 260.0);
+        for (double x : new double[]{1_280.0, 3_000.0, 4_720.0}) {
+            g.setFill(Color.web("#241A20"));
+            g.fillRect(x - 190.0, 80.0, 380.0, 650.0);
+            g.setStroke(Color.web("#FFAB40", 0.58));
+            g.setLineWidth(18.0);
+            g.strokePolygon(new double[]{x - 190.0, x + 190.0, x + 80.0, x - 80.0},
+                    new double[]{730.0, 730.0, 860.0, 860.0}, 4);
+        }
+        drawWorldseamPlatforms(g, Color.web("#211C24"), Color.web("#FF8A65"));
+    }
+
+    private void drawWorldseamPlatforms(GraphicsContext g, Color fill, Color edge) {
+        for (Platform p : platforms) {
+            g.setFill(fill);
+            g.fillRoundRect(p.x, p.y, p.w, p.h, 18, 18);
+            g.setStroke(edge.deriveColor(0, 1, 1, 0.85));
+            g.setLineWidth(8.0);
+            g.strokeRoundRect(p.x, p.y, p.w, p.h, 18, 18);
+            g.setFill(edge.deriveColor(0, 1, 1, 0.28));
+            g.fillRoundRect(p.x + 16.0, p.y + 8.0, Math.max(0.0, p.w - 32.0), 10.0, 8, 8);
+            if (p.y < battlefieldIslandY - 70.0) {
+                g.setStroke(edge.deriveColor(0, 0.65, 0.55, 0.42));
+                g.setLineWidth(6.0);
+                g.strokeLine(p.x + 24.0, p.y + p.h, p.x + p.w * 0.28,
+                        Math.min(GROUND_Y + 120.0, p.y + 420.0));
+                g.strokeLine(p.x + p.w - 24.0, p.y + p.h, p.x + p.w * 0.72,
+                        Math.min(GROUND_Y + 120.0, p.y + 420.0));
+            }
+        }
     }
 
     private void drawResonanceHallPlatforms(GraphicsContext g) {
@@ -28892,6 +29107,8 @@ public class BirdGame3 {
             case RESONANCE_HALL -> "Resonance Hall";
             case SIGNAL_SPIRE -> "Signal Spire";
             case SILENT_AMPHITHEATER -> "Silent Amphitheater";
+            case GLASSWIND_CAUSEWAY -> "Glasswind Causeway";
+            case WORLDSEAM -> "The Worldseam";
             default -> "Big Forest";
         };
     }
@@ -36115,6 +36332,8 @@ public class BirdGame3 {
                 new MapEntry(MapType.RESONANCE_HALL, "Resonance Hall", mapDescription(MapType.RESONANCE_HALL), mapHowToGet(MapType.RESONANCE_HALL)),
                 new MapEntry(MapType.SIGNAL_SPIRE, "Signal Spire", mapDescription(MapType.SIGNAL_SPIRE), mapHowToGet(MapType.SIGNAL_SPIRE)),
                 new MapEntry(MapType.SILENT_AMPHITHEATER, "Silent Amphitheater", mapDescription(MapType.SILENT_AMPHITHEATER), mapHowToGet(MapType.SILENT_AMPHITHEATER)),
+                new MapEntry(MapType.GLASSWIND_CAUSEWAY, "Glasswind Causeway", mapDescription(MapType.GLASSWIND_CAUSEWAY), mapHowToGet(MapType.GLASSWIND_CAUSEWAY)),
+                new MapEntry(MapType.WORLDSEAM, "The Worldseam", mapDescription(MapType.WORLDSEAM), mapHowToGet(MapType.WORLDSEAM)),
                 new MapEntry(MapType.BEACON_CROWN, "Beacon Crown", mapDescription(MapType.BEACON_CROWN), mapHowToGet(MapType.BEACON_CROWN))
         );
     }
@@ -36142,6 +36361,9 @@ public class BirdGame3 {
                 || map == MapType.SILENT_AMPHITHEATER) {
             return "Complete Charles's Classic route: No Voice But His Own";
         }
+        if (map == MapType.GLASSWIND_CAUSEWAY || map == MapType.WORLDSEAM) {
+            return "Complete Razorbill's Classic route: The Line Between Worlds";
+        }
         return "Unlocked by default";
     }
 
@@ -36160,6 +36382,8 @@ public class BirdGame3 {
             case RESONANCE_HALL -> "A grand abandoned opera house with a full stage, fly loft, box balconies, and orchestra pit. Hold position on one of three glowing acoustic plates to charge a musical launch that refreshes your double jump.";
             case SIGNAL_SPIRE -> "An asymmetric climb across a colossal broadcast mast above the cloud deck. Permanent power lines warn in amber before turning blue-white and shocking any fighter who touches them.";
             case SILENT_AMPHITHEATER -> "A monumental empty theater beneath an eclipsed crown. The faint central stillness field softens horizontal launch speed while a fighter is in hitstun, creating a contested refuge without stopping combat.";
+            case GLASSWIND_CAUSEWAY -> "A black-glass storm bridge supported by immense wind pylons. Its broad connected deck and stepped service spans create clean duel lanes without decorative floating ledges.";
+            case WORLDSEAM -> "A stable stone causeway built around a luminous tear in reality. Two clearly paired rift gates exchange fighters while preserving their movement.";
             case BEACON_CROWN -> "The Beacon Crown opens into a giant sky arena with long lanes, staggered perches, and a lethal drop on every side.";
             default -> "Dense trees and long platforms for classic brawls. A steady arena that rewards smart positioning.";
         };
@@ -40483,6 +40707,9 @@ public class BirdGame3 {
         if (useAuthoredRoutes && playerType == BirdType.MOCKINGBIRD) {
             return buildCharlesClassicRun();
         }
+        if (useAuthoredRoutes && playerType == BirdType.RAZORBILL) {
+            return buildRazorbillClassicRun();
+        }
         List<ClassicEncounter> run = new ArrayList<>();
         Set<MapType> usedMaps = new HashSet<>();
         Set<BirdType> usedBirds = new HashSet<>();
@@ -42124,6 +42351,103 @@ public class BirdGame3 {
         return run;
     }
 
+    private List<ClassicEncounter> buildRazorbillClassicRun() {
+        List<ClassicEncounter> run = new ArrayList<>();
+
+        ClassicEncounter incision = new ClassicEncounter(
+                "First Incision", "Glasswind Causeway",
+                "Falcon tests the first fault line in a clean duel. The glowing Rift Anchor is optional and never changes Razorbill's kit.",
+                MapType.GLASSWIND_CAUSEWAY, MapVariant.STANDARD, MatchMutator.NONE,
+                ClassicTwist.SEAM_MAP, ClassicEncounterStyle.STANDARD, 108 * 60,
+                new ClassicFighter[0],
+                new ClassicFighter[]{classicFighter(BirdType.FALCON, "First Edge: Falcon", 148, 1.03, 1.10)}, false);
+        incision.cpuLevel = 4;
+        run.add(incision);
+
+        ClassicEncounter splinters = new ClassicEncounter(
+                "Death by a Thousand Cuts", "Parliament Towers",
+                "Three tiny speed specialists attack in separate waves above the city. None of the splinters can use an ultimate.",
+                MapType.CITY, MapVariant.PARLIAMENT_ROOFTOPS, MatchMutator.NONE,
+                ClassicTwist.SEAM_MAP, ClassicEncounterStyle.RAZORBILL_SPLINTERS, 132 * 60,
+                new ClassicFighter[0],
+                new ClassicFighter[]{classicFighter(BirdType.HUMMINGBIRD, "Splinter I: Hummingbird", 64, 0.72, 1.13)}, false)
+                .withWaves(
+                        new ClassicFighter[]{classicFighter(BirdType.HUMMINGBIRD, "Splinter I: Hummingbird", 64, 0.72, 1.13)},
+                        new ClassicFighter[]{classicFighter(BirdType.ROADRUNNER, "Splinter II: Roadrunner", 68, 0.74, 1.10)},
+                        new ClassicFighter[]{classicFighter(BirdType.TITMOUSE, "Splinter III: Tufted Titmouse", 66, 0.73, 1.10)});
+        splinters.cpuLevel = 4;
+        run.add(splinters);
+
+        ClassicEncounter blunt = new ClassicEncounter(
+                "The Blunt Edge", "Obsidian Foundry",
+                "A giant Ironclad Shoebill guards the second Rift Anchor among the cooled presses.",
+                MapType.ASHFALL_CATHEDRAL, MapVariant.OBSIDIAN_FOUNDRY, MatchMutator.NONE,
+                ClassicTwist.SEAM_MAP, ClassicEncounterStyle.GIANT, 120 * 60,
+                new ClassicFighter[0],
+                new ClassicFighter[]{classicFighter(BirdType.SHOEBILL, "Giant: The Blunt Edge", 188,
+                        0.92, 0.90, classicSkinDataKey(BirdType.SHOEBILL))}, false);
+        blunt.cpuLevel = 5;
+        run.add(blunt);
+
+        ClassicEncounter hand = new ClassicEncounter(
+                "The Hand That Holds", "Crownlock Prison",
+                "Fight beside Penguin against Eagle and Goose. Protection must not become another kind of control.",
+                MapType.PRISON, MapVariant.STANDARD, MatchMutator.NONE,
+                ClassicTwist.SEAM_MAP, ClassicEncounterStyle.STANDARD, 128 * 60,
+                new ClassicFighter[]{classicFighter(BirdType.PENGUIN, "Ally: The Anchor", 145, 0.98, 1.02)},
+                new ClassicFighter[]{
+                        classicFighter(BirdType.EAGLE, "Warden: Eagle", 124, 0.96, 1.02),
+                        classicFighter(BirdType.GOOSE, "Warden: Goose", 132, 0.96, 0.98)}, false);
+        hand.cpuLevel = 5;
+        run.add(hand);
+
+        ClassicEncounter reflection = new ClassicEncounter(
+                "A Perfect Reflection", "Glasswind Causeway",
+                "A prism reflection repeats delayed cut-lines while using Razorbill's ordinary fighter kit.",
+                MapType.GLASSWIND_CAUSEWAY, MapVariant.STANDARD, MatchMutator.NONE,
+                ClassicTwist.SEAM_MAP, ClassicEncounterStyle.RAZORBILL_REFLECTION, 120 * 60,
+                new ClassicFighter[0],
+                new ClassicFighter[]{classicFighter(BirdType.RAZORBILL, "Elite: Prism Reflection", 178,
+                        1.04, 1.04, PRISM_RAZORBILL_SKIN)}, false);
+        reflection.cpuLevel = 6;
+        run.add(reflection);
+
+        ClassicEncounter betweenLines = new ClassicEncounter(
+                "Bonus: Between the Lines", "Worldseam Gallery",
+                "Remember four safe lanes, survive each dimensional cut, then strike the exposed anchor with an ordinary attack.",
+                MapType.WORLDSEAM, MapVariant.STANDARD, MatchMutator.NONE,
+                ClassicTwist.BETWEEN_LINES, ClassicEncounterStyle.BETWEEN_LINES, 92 * 60,
+                new ClassicFighter[0], new ClassicFighter[0], false);
+        betweenLines.cpuLevel = 1;
+        run.add(betweenLines);
+
+        ClassicFighter firstWarden = classicFighter(BirdType.RAVEN, "Seam Warden: Meridian", 86, 0.72, 1.00);
+        ClassicEncounter brokenGuard = new ClassicEncounter(
+                "The Broken Guard", "The Worldseam",
+                "Three original constructs defend horizontal, vertical, and diagonal seams in separate waves.",
+                MapType.WORLDSEAM, MapVariant.STANDARD, MatchMutator.NONE,
+                ClassicTwist.BROKEN_GUARD, ClassicEncounterStyle.SEAM_WARDEN_GAUNTLET, 225 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{firstWarden}, false)
+                .withWaves(
+                        new ClassicFighter[]{firstWarden},
+                        new ClassicFighter[]{classicFighter(BirdType.RAVEN, "Seam Warden: Plumb", 92, 0.75, 1.02)},
+                        new ClassicFighter[]{classicFighter(BirdType.RAVEN, "Seam Warden: Bias", 98, 0.78, 1.04)});
+        brokenGuard.cpuLevel = 2;
+        run.add(brokenGuard);
+
+        ClassicEncounter seamreaver = new ClassicEncounter(
+                "The Last Division", "Worldseam: Zero Divide",
+                "Break the original Seamreaver's stamina across three readable phases before it divides the sky permanently.",
+                MapType.WORLDSEAM, MapVariant.STANDARD, MatchMutator.NONE,
+                ClassicTwist.ZERO_DIVIDE, ClassicEncounterStyle.SEAMREAVER_BOSS, 210 * 60,
+                new ClassicFighter[0],
+                new ClassicFighter[]{classicFighter(BirdType.RAVEN, "Boss: The Seamreaver",
+                        SEAMREAVER_BASE_HEALTH, 1.04, 0.98)}, true);
+        seamreaver.cpuLevel = 8;
+        run.add(seamreaver);
+        return run;
+    }
+
     private ClassicEncounter buildShoebillSwiftTrailEncounter() {
         ClassicEncounter encounter = new ClassicEncounter(
                 "Swift Trail", "Redline Track",
@@ -42811,6 +43135,7 @@ public class BirdGame3 {
         classicCharlesAuditionReadyRound = -1;
         Arrays.fill(classicHummingbirdBlossoms, false);
         Arrays.fill(classicRoadrunnerBolts, false);
+        Arrays.fill(classicRazorbillSeals, false);
         if (!bossRush && !ashfallTrial && !dailyChallengeModeActive) {
             resetClassicAdaptiveDifficulty();
         }
@@ -42835,6 +43160,7 @@ public class BirdGame3 {
         if (type == BirdType.PENGUIN) return "THE ICE HOLDS";
         if (type == BirdType.SHOEBILL) return "THE LONG WATCH";
         if (type == BirdType.MOCKINGBIRD) return "NO VOICE BUT HIS OWN";
+        if (type == BirdType.RAZORBILL) return "THE LINE BETWEEN WORLDS";
         return "TEMPORARY FLIGHT PLAN";
     }
 
@@ -43435,7 +43761,8 @@ public class BirdGame3 {
                 || classicEncounter.style == ClassicEncounterStyle.REDLINE_RUN
                 || classicEncounter.style == ClassicEncounterStyle.ICE_ARCHITECT
                 || classicEncounter.style == ClassicEncounterStyle.RIPPLE_HUNT
-                || classicEncounter.style == ClassicEncounterStyle.PERFECT_PITCH;
+                || classicEncounter.style == ClassicEncounterStyle.PERFECT_PITCH
+                || classicEncounter.style == ClassicEncounterStyle.BETWEEN_LINES;
         Label round = new Label((routeBonus ? "BONUS " : "ROUND ")
                 + (classicRoundIndex + 1));
         round.setFont(Font.font("Arial Black", FontWeight.BOLD, 72));
@@ -43480,6 +43807,9 @@ public class BirdGame3 {
         boolean perfectPitchEncounter = classicEncounter.style == ClassicEncounterStyle.PERFECT_PITCH;
         boolean choirMaskEncounter = classicEncounter.style == ClassicEncounterStyle.CHOIR_MASK_GAUNTLET;
         boolean maestroEncounter = classicEncounter.style == ClassicEncounterStyle.HOLLOW_MAESTRO_BOSS;
+        boolean betweenLinesEncounter = classicEncounter.style == ClassicEncounterStyle.BETWEEN_LINES;
+        boolean seamWardenEncounter = classicEncounter.style == ClassicEncounterStyle.SEAM_WARDEN_GAUNTLET;
+        boolean seamreaverEncounter = classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS;
         int enemyCount = Math.max(1, enemies.length);
         double portraitSize = enemyCount >= 3 ? 215 : (enemyCount == 2 ? 310 : 430);
         HBox enemyLineup = new HBox(enemyCount >= 3 ? 14 : 20);
@@ -43491,6 +43821,8 @@ public class BirdGame3 {
             Canvas enemyPortrait = new Canvas(portraitSize, portraitSize);
             if (choirMaskEncounter || maestroEncounter) {
                 drawClassicCharlesConstructPortrait(enemyPortrait, maestroEncounter, enemy.title);
+            } else if (seamWardenEncounter || seamreaverEncounter) {
+                drawClassicRazorbillConstructPortrait(enemyPortrait, seamreaverEncounter, enemy.title);
             } else if (bonusTargetEncounter) {
                 drawClassicBonusTargetPortrait(enemyPortrait);
             } else {
@@ -43499,7 +43831,11 @@ public class BirdGame3 {
             enemyLineup.getChildren().add(enemyPortrait);
         }
         if (enemies.length == 0) {
-            if (perfectPitchEncounter) {
+            if (betweenLinesEncounter) {
+                Canvas course = new Canvas(430, 330);
+                drawClassicBetweenLinesPortrait(course);
+                enemyLineup.getChildren().add(course);
+            } else if (perfectPitchEncounter) {
                 Canvas score = new Canvas(430, 330);
                 drawClassicPerfectPitchPortrait(score);
                 enemyLineup.getChildren().add(score);
@@ -43527,6 +43863,9 @@ public class BirdGame3 {
                 : perfectPitchEncounter ? "THE PERFECT PITCH SCORE"
                 : choirMaskEncounter ? "THE ORIGINAL CHOIR MASKS"
                 : maestroEncounter ? "THE HOLLOW MAESTRO"
+                : betweenLinesEncounter ? "THE FOUR DIMENSIONAL CUTS"
+                : seamWardenEncounter ? "THE ORIGINAL SEAM WARDENS"
+                : seamreaverEncounter ? "THE SEAMREAVER"
                 : bonusTargetEncounter ? enemies.length + " BONUS TARGETS"
                 : authoredWaveCount > 0 ? authoredWaveCount + " WAVES"
                 : enemies.length == 0 ? "BONUS TARGETS" : Arrays.stream(enemies)
@@ -43812,7 +44151,8 @@ public class BirdGame3 {
                     || encounter.style == ClassicEncounterStyle.REDLINE_RUN
                     || encounter.style == ClassicEncounterStyle.ICE_ARCHITECT
                     || encounter.style == ClassicEncounterStyle.RIPPLE_HUNT
-                    || encounter.style == ClassicEncounterStyle.PERFECT_PITCH;
+                    || encounter.style == ClassicEncounterStyle.PERFECT_PITCH
+                    || encounter.style == ClassicEncounterStyle.BETWEEN_LINES;
             int roundIndex = i;
             Button card = uiFactory.action(
                     (bonus ? "BONUS " : "ROUND ") + (i + 1) + "\n"
@@ -44209,6 +44549,9 @@ public class BirdGame3 {
                         && encounter.style != ClassicEncounterStyle.CHARLES_UNDERSTUDIES
                         && encounter.style != ClassicEncounterStyle.CHOIR_MASK_GAUNTLET
                         && encounter.style != ClassicEncounterStyle.HOLLOW_MAESTRO_BOSS
+                        && encounter.style != ClassicEncounterStyle.RAZORBILL_SPLINTERS
+                        && encounter.style != ClassicEncounterStyle.SEAM_WARDEN_GAUNTLET
+                        && encounter.style != ClassicEncounterStyle.SEAMREAVER_BOSS
                         && classicSelectedBird != BirdType.ROADRUNNER
                         && classicSelectedBird != BirdType.PENGUIN
                         && classicSelectedBird != BirdType.SHOEBILL);
@@ -44376,12 +44719,44 @@ public class BirdGame3 {
                 bird.setBaseMultipliers(1.72, 0.92 * enemyPowerScale, 0.94);
                 bird.setUltimateEnabled(false);
                 isAI[bird.playerIndex] = false;
+            } else if (encounter.style == ClassicEncounterStyle.RAZORBILL_SPLINTERS) {
+                scaleBossRushBird(bird, 0.64, 0.76, 1.10);
+                bird.setUltimateEnabled(false);
+            } else if (encounter.style == ClassicEncounterStyle.RAZORBILL_REFLECTION) {
+                bird.setUltimateEnabled(false);
+            } else if (encounter.style == ClassicEncounterStyle.SEAM_WARDEN_GAUNTLET) {
+                bird.health = Math.max(1.0, bird.health * 1.12);
+                bird.setBaseMultipliers(0.62, 0.20 * enemyPowerScale, 0.90);
+                bird.setUltimateEnabled(false);
+                isAI[bird.playerIndex] = true;
+            } else if (encounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS) {
+                bird.health = Math.max(1.0, SEAMREAVER_BASE_HEALTH * enemyHealthScale);
+                bird.classicMaxHealthOverride = bird.health;
+                bird.setBaseMultipliers(1.88, 0.90 * enemyPowerScale, 0.96);
+                bird.setUltimateEnabled(false);
+                isAI[bird.playerIndex] = false;
             }
         }
     }
 
     private void positionClassicEncounterSpawns(ClassicEncounter encounter) {
         if (encounter == null) return;
+        if (encounter.style == ClassicEncounterStyle.BETWEEN_LINES) {
+            positionClassicBirdOnSurface(players[0], 1_250.0, battlefieldIslandY, true);
+            return;
+        }
+        if (encounter.style == ClassicEncounterStyle.SEAM_WARDEN_GAUNTLET
+                || encounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS) {
+            positionClassicBirdOnSurface(players[0], 1_450.0, battlefieldIslandY, true);
+            for (int slot = 1; slot < activePlayers; slot++) {
+                if (players[slot] != null) {
+                    double enemyX = encounter.style == ClassicEncounterStyle.SEAM_WARDEN_GAUNTLET
+                            ? 2_350.0 : 4_450.0;
+                    positionClassicBirdOnSurface(players[slot], enemyX, battlefieldIslandY, false);
+                }
+            }
+            return;
+        }
         if (encounter.style == ClassicEncounterStyle.RIPPLE_HUNT) {
             positionClassicBirdOnSurface(players[0], 820.0, STILLWATER_MAIN_Y, true);
             double[] targetX = {1_650.0, 3_000.0, 4_350.0};
@@ -44598,6 +44973,7 @@ public class BirdGame3 {
         setupPenguinClassicRoute(encounter);
         setupShoebillClassicRoute(encounter);
         setupCharlesClassicRoute(encounter);
+        setupRazorbillClassicRoute(encounter);
         if (bossRushModeActive) {
             applyBossRushEncounterArenaModifiers(encounter);
         }
@@ -44699,7 +45075,8 @@ public class BirdGame3 {
                     BROOD_MORALE, GREAT_MUSTER, FALSE_DAWN,
                     REDLINE_SPLITS, REDLINE_RUN, FINAL_STILLNESS,
                     ICEWORKS, ICE_ARCHITECT, LAST_SUN,
-                    AUDITION_ORDER, PERFECT_PITCH, DEAD_AIR, HOLLOW_SCORE -> {
+                    AUDITION_ORDER, PERFECT_PITCH, DEAD_AIR, HOLLOW_SCORE,
+                    SEAM_MAP, BETWEEN_LINES, BROKEN_GUARD, ZERO_DIVIDE -> {
                 // These authored route mechanics own their deterministic arena
                 // setup and runtime; do not add generic item drops here.
             }
@@ -45536,10 +45913,23 @@ public class BirdGame3 {
 
     void onClassicStaminaBossDamaged(Bird boss, Bird attacker, double dealtDamage) {
         if (!isClassicStaminaBoss(boss) || boss.health <= 0.0 || attacker == null || attacker == boss
-                || dealtDamage <= 0.0 || classicCharlesBossReversalTimer > 0
-                || classicCharlesBossReversalCooldown > 0) {
+                || dealtDamage <= 0.0) {
             return;
         }
+        if (classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS) {
+            if (classicSeamreaverGuardTimer > 0 || classicSeamreaverGuardCooldown > 0) return;
+            classicSeamreaverBurstDamage += dealtDamage;
+            classicSeamreaverBurstWindow = SEAMREAVER_BURST_WINDOW_FRAMES;
+            if (classicSeamreaverBurstDamage >= SEAMREAVER_BURST_TRIGGER_DAMAGE) {
+                classicSeamreaverGuardTimer = SEAMREAVER_GUARD_FRAMES;
+                classicSeamreaverGuardCooldown = 230;
+                classicSeamreaverBurstDamage = 0.0;
+                classicSeamreaverBurstWindow = 0;
+                addToKillFeed("SEAM GUARD — disengage before the fracture burst!");
+            }
+            return;
+        }
+        if (classicCharlesBossReversalTimer > 0 || classicCharlesBossReversalCooldown > 0) return;
         double distance = Math.hypot(attacker.bodyCenterX() - boss.bodyCenterX(),
                 attacker.bodyCenterY() - boss.bodyCenterY());
         if (distance > 390.0) return;
@@ -45585,12 +45975,17 @@ public class BirdGame3 {
         return bird != null
                 && classicModeActive
                 && classicEncounter != null
-                && classicEncounter.style == ClassicEncounterStyle.HOLLOW_MAESTRO_BOSS
+                && (classicEncounter.style == ClassicEncounterStyle.HOLLOW_MAESTRO_BOSS
+                || classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS)
                 && getEffectiveTeam(bird.playerIndex) == 2;
     }
 
     double classicStaminaBossIncomingDamageScale(Bird bird) {
         if (!isClassicStaminaBoss(bird)) return 1.0;
+        if (classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS) {
+            return classicSeamreaverGuardTimer > 0
+                    ? SEAMREAVER_GUARD_DAMAGE_SCALE : SEAMREAVER_OPEN_DAMAGE_SCALE;
+        }
         return HOLLOW_MAESTRO_STAGGER_DAMAGE_SCALE
                 * (classicCharlesBossReversalTimer > 0 ? HOLLOW_MAESTRO_REVERSAL_ARMOR_SCALE : 1.0);
     }
@@ -45607,7 +46002,15 @@ public class BirdGame3 {
     }
 
     int classicStaminaBossMovement() {
-        return Math.clamp(classicCharlesBossPhase + 1, 1, 3);
+        return classicEncounter != null && classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS
+                ? Math.clamp(classicSeamreaverPhase + 1, 1, 3)
+                : Math.clamp(classicCharlesBossPhase + 1, 1, 3);
+    }
+
+    String classicStaminaBossTimeoutMessage() {
+        return classicEncounter != null && classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS
+                ? "TIME! The Seamreaver completes Zero Divide."
+                : "TIME! The Hollow Maestro's score remains unbroken.";
     }
 
     void onClassicStaminaBossDefeated(Bird boss, Bird attacker) {
@@ -45616,10 +46019,14 @@ public class BirdGame3 {
         scores[boss.playerIndex] = 0;
         if (attacker != null && attacker != boss && attacker.playerIndex >= 0) {
             eliminations[attacker.playerIndex]++;
-            recordMoveKo(attacker, boss, lastTelemetryMoveName(attacker.playerIndex, "Hollow Score"));
+            String fallback = classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS
+                    ? "Final Division" : "Hollow Score";
+            recordMoveKo(attacker, boss, lastTelemetryMoveName(attacker.playerIndex, fallback));
             checkAchievements(attacker);
         }
-        addToKillFeed("THE HOLLOW MAESTRO'S SCORE SHATTERS.");
+        addToKillFeed(classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS
+                ? "THE SEAMREAVER'S ZERO DIVIDE COLLAPSES."
+                : "THE HOLLOW MAESTRO'S SCORE SHATTERS.");
         shakeIntensity = Math.max(shakeIntensity, 32.0);
         triggerFlash(0.76, true);
     }
@@ -45675,6 +46082,64 @@ public class BirdGame3 {
         return true;
     }
 
+    boolean holdClassicRazorbillEncounterOpen() {
+        if (!classicModeActive || classicEncounter == null || classicSelectedBird != BirdType.RAZORBILL
+                || bossRushModeActive || ashfallTrialModeActive || matchEnded
+                || (classicEncounter.style != ClassicEncounterStyle.RAZORBILL_SPLINTERS
+                && classicEncounter.style != ClassicEncounterStyle.SEAM_WARDEN_GAUNTLET)
+                || classicEncounter.waves == null || classicEncounter.waves.length == 0
+                || !playerHasStocksRemaining(0) || classicEnemyTeamHasStocks()
+                || classicRazorbillWaveIndex + 1 >= classicEncounter.waves.length) return false;
+        classicRazorbillWaveIndex++;
+        Bird player = players[0];
+        if (player != null) player.heal(classicEncounter.style == ClassicEncounterStyle.SEAM_WARDEN_GAUNTLET
+                ? 40.0 : 18.0);
+        spawnRazorbillClassicWave(classicEncounter.waves[classicRazorbillWaveIndex]);
+        return true;
+    }
+
+    private void spawnRazorbillClassicWave(ClassicFighter[] wave) {
+        for (int slot = 1; slot < MAX_COMBATANTS; slot++) {
+            if (players[slot] != null && getEffectiveTeam(slot) == 2) {
+                players[slot] = null;
+                isAI[slot] = false;
+                scores[slot] = 0;
+                classicCpuLevels[slot] = 0;
+            }
+        }
+        double difficultyDelta = classicDifficulty - CLASSIC_STARTING_DIFFICULTY;
+        int spawned = 0;
+        for (ClassicFighter fighter : wave) {
+            int slot = 1;
+            while (slot < MAX_COMBATANTS && players[slot] != null) slot++;
+            if (slot >= MAX_COMBATANTS) break;
+            boolean construct = classicEncounter.style == ClassicEncounterStyle.SEAM_WARDEN_GAUNTLET;
+            Bird enemy = createStoryBird(0.0, fighter.type, slot, fighter.title,
+                    fighter.health * (1.0 + difficultyDelta * 0.045),
+                    fighter.powerMult * (1.0 + difficultyDelta * 0.015), fighter.speedMult, true);
+            if (fighter.skinKey != null) applyPreviewSkinChoiceToBird(enemy, fighter.type, fighter.skinKey);
+            enemy.setUltimateEnabled(false);
+            if (construct) enemy.setBaseMultipliers(0.62, 0.20, 0.90);
+            else scaleBossRushBird(enemy, 0.64, 0.76, 1.10);
+            classicTeams[slot] = 2;
+            classicCpuLevels[slot] = resolvedClassicFighterCpuLevel(fighter, classicEncounter);
+            scores[slot] = 1;
+            isAI[slot] = true;
+            double spawnX = 4_250.0 + spawned * 360.0;
+            if (construct && players[0] != null) {
+                double playerX = players[0].bodyCenterX();
+                spawnX = Math.clamp(playerX + (playerX > 3_250.0 ? -780.0 : 780.0),
+                        1_150.0, 4_850.0);
+            }
+            positionClassicBirdOnSurface(enemy, spawnX, battlefieldIslandY, false);
+            activePlayers = Math.max(activePlayers, slot + 1);
+            spawned++;
+        }
+        addToKillFeed((classicEncounter.style == ClassicEncounterStyle.SEAM_WARDEN_GAUNTLET
+                ? "SEAM WARDEN " : "SPLINTER ") + (classicRazorbillWaveIndex + 1)
+                + "/" + classicEncounter.waves.length + " ENTERS.");
+    }
+
     boolean isClassicPerfectPitchActive() {
         return classicModeActive && !bossRushModeActive && !ashfallTrialModeActive
                 && classicEncounter != null
@@ -45721,6 +46186,125 @@ public class BirdGame3 {
         addToKillFeed((classicEncounter.style == ClassicEncounterStyle.CHARLES_UNDERSTUDIES
                 ? "UNDERSTUDY " : "CHOIR MASK ") + (classicCharlesWaveIndex + 1)
                 + "/" + classicEncounter.waves.length + " ENTERS.");
+    }
+
+    private void drawClassicRazorbillRouteFeatures(GraphicsContext g) {
+        if (!classicModeActive || classicEncounter == null || classicSelectedBird != BirdType.RAZORBILL) return;
+        double pulse = 0.5 + 0.5 * Math.sin(simTick * 0.09);
+        for (ClassicRiftAnchor anchor : classicRiftAnchors) {
+            g.setFill(Color.web(anchor.closed ? "#263238" : "#00E5FF", anchor.closed ? 0.46 : 0.18 + pulse * 0.12));
+            g.fillOval(anchor.x - 78.0, anchor.y - 78.0, 156.0, 156.0);
+            g.setStroke(Color.web(anchor.closed ? "#78909C" : "#69F0E7", 0.78 + pulse * 0.20));
+            g.setLineWidth(anchor.closed ? 7.0 : 12.0);
+            g.strokePolygon(new double[]{anchor.x, anchor.x + 58.0, anchor.x, anchor.x - 58.0},
+                    new double[]{anchor.y - 72.0, anchor.y, anchor.y + 72.0, anchor.y}, 4);
+            g.setFill(Color.WHITE);
+            g.setFont(Font.font("Consolas", FontWeight.BOLD, 24));
+            g.setTextAlign(TextAlignment.CENTER);
+            g.fillText(anchor.closed ? "SEALED" : "RIFT ANCHOR", anchor.x, anchor.y - 104.0);
+        }
+        if (classicEncounter.style == ClassicEncounterStyle.RAZORBILL_REFLECTION
+                && classicRazorbillReflectionTimer <= 80 && classicRazorbillReflectionTimer > 32) {
+            double alpha = 0.18 + (80 - classicRazorbillReflectionTimer) / 48.0 * 0.48;
+            g.setFill(Color.web("#EA80FC", alpha));
+            g.fillRect(0.0, classicRazorbillReflectionTargetY - 135.0, WORLD_WIDTH, 270.0);
+            g.setFill(Color.web("#00E5FF", alpha));
+            g.fillRect(classicRazorbillReflectionTargetX - 150.0, 0.0, 300.0, WORLD_HEIGHT);
+        }
+        if (classicEncounter.style == ClassicEncounterStyle.BETWEEN_LINES) {
+            if (!classicRazorbillBonusReady) {
+                int safe = RAZORBILL_BONUS_SAFE_LANES[Math.min(classicRazorbillBonusPatternIndex, 3)];
+                for (int lane = 0; lane < 4; lane++) {
+                    double x = 900.0 + lane * 1_050.0;
+                    g.setFill(Color.web(lane == safe ? "#69F0E7" : "#FF1744",
+                            lane == safe ? 0.12 + pulse * 0.08 : 0.04));
+                    g.fillRect(x, 0.0, 1_050.0, WORLD_HEIGHT);
+                }
+                g.setFill(Color.WHITE);
+                g.setFont(Font.font("Consolas", FontWeight.BOLD, 32));
+                g.setTextAlign(TextAlignment.CENTER);
+                g.fillText("SAFE LANE " + (safe + 1) + "  •  CUT IN "
+                                + Math.max(0, classicRazorbillBonusPatternTimer - 42),
+                        3_000.0, 320.0);
+            } else {
+                g.setFill(Color.web("#69F0E7", 0.16 + pulse * 0.12));
+                g.fillOval(2_850.0, battlefieldIslandY - 320.0, 300.0, 300.0);
+                g.setStroke(Color.WHITE);
+                g.setLineWidth(12.0);
+                g.strokePolygon(new double[]{3_000, 3_105, 3_000, 2_895},
+                        new double[]{battlefieldIslandY - 300, battlefieldIslandY - 170,
+                                battlefieldIslandY - 40, battlefieldIslandY - 170}, 4);
+            }
+        }
+        for (ClassicSeamShard shard : classicSeamShards) {
+            Color color = shard.phase >= 2 ? Color.web("#FF1744")
+                    : shard.phase == 1 ? Color.web("#EA80FC") : Color.web("#00E5FF");
+            g.setStroke(color.deriveColor(0, 1, 1, 0.42));
+            g.setLineWidth(14.0);
+            g.strokeLine(shard.x - shard.vx * 5.0, shard.y - shard.vy * 5.0, shard.x, shard.y);
+            g.setFill(Color.WHITE);
+            g.fillPolygon(new double[]{shard.x, shard.x + 22.0, shard.x, shard.x - 22.0},
+                    new double[]{shard.y - 38.0, shard.y, shard.y + 38.0, shard.y}, 4);
+        }
+        if (classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS
+                && classicSeamreaverGuardTimer > 0) {
+            Bird boss = firstClassicEnemyWithStocks();
+            if (boss != null) {
+                double radius = 280.0 + classicSeamreaverGuardTimer * 4.0;
+                g.setStroke(Color.web("#FF1744", 0.72));
+                g.setLineWidth(18.0);
+                g.strokeOval(boss.bodyCenterX() - radius, boss.bodyCenterY() - radius,
+                        radius * 2.0, radius * 2.0);
+            }
+        }
+        g.setTextAlign(TextAlignment.LEFT);
+    }
+
+    private boolean drawClassicRazorbillConstruct(GraphicsContext g, Bird bird) {
+        if (!classicModeActive || classicEncounter == null || classicSelectedBird != BirdType.RAZORBILL
+                || bird == null || getEffectiveTeam(bird.playerIndex) != 2) return false;
+        boolean boss = classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS;
+        if (!boss && classicEncounter.style != ClassicEncounterStyle.SEAM_WARDEN_GAUNTLET) return false;
+        drawSeamConstruct(g, bird.bodyCenterX(), bird.bodyCenterY(),
+                boss ? 1.75 : 0.90 + classicRazorbillWaveIndex * 0.08, boss,
+                boss ? classicSeamreaverPhase : classicRazorbillWaveIndex);
+        return true;
+    }
+
+    private void drawSeamConstruct(GraphicsContext g, double cx, double cy, double scale,
+                                   boolean boss, int phase) {
+        Color accent = phase >= 2 ? Color.web("#FF1744")
+                : phase == 1 ? Color.web("#EA80FC") : Color.web("#00E5FF");
+        double pulse = 0.5 + 0.5 * Math.sin(simTick * 0.08);
+        g.save();
+        g.translate(cx, cy);
+        g.scale(scale, scale);
+        g.rotate(boss ? Math.sin(simTick * 0.025) * 8.0 : phase * 12.0 - 12.0);
+        if (boss) {
+            g.setStroke(accent.deriveColor(0, 1, 1, 0.28 + pulse * 0.28));
+            g.setLineWidth(12.0);
+            for (int ring = 0; ring < 3; ring++) {
+                double r = 145.0 + ring * 42.0 + pulse * 8.0;
+                g.strokeOval(-r, -r, r * 2.0, r * 2.0);
+            }
+        }
+        g.setFill(Color.web("#070813"));
+        g.fillPolygon(new double[]{-150, -76, -28, 0, 28, 76, 150, 82, 30, 0, -30, -82},
+                new double[]{0, -68, -34, -142, -34, -68, 0, 58, 34, 152, 34, 58}, 12);
+        g.setStroke(accent);
+        g.setLineWidth(boss ? 11.0 : 8.0);
+        g.strokePolygon(new double[]{-150, -76, -28, 0, 28, 76, 150, 82, 30, 0, -30, -82},
+                new double[]{0, -68, -34, -142, -34, -68, 0, 58, 34, 152, 34, 58}, 12);
+        g.setFill(Color.web("#DCEFF5"));
+        g.fillPolygon(new double[]{-62, 0, 62, 36, 0, -36},
+                new double[]{-34, -78, -34, 48, 84, 48}, 6);
+        g.setFill(Color.web("#05050B"));
+        g.fillOval(-31, -29, 24, 52);
+        g.fillOval(7, -29, 24, 52);
+        g.setFill(accent.deriveColor(0, 1, 1, 0.76 + pulse * 0.24));
+        g.fillOval(-23, -16, 10, 27);
+        g.fillOval(13, -16, 10, 27);
+        g.restore();
     }
 
     private void drawClassicCharlesRouteFeatures(GraphicsContext g) {
@@ -46047,6 +46631,372 @@ public class BirdGame3 {
         g.setTextAlign(TextAlignment.CENTER);
         g.fillText(title == null ? (boss ? "THE HOLLOW MAESTRO" : "CHOIR MASK") : title.toUpperCase(Locale.ROOT),
                 canvas.getWidth() / 2.0, canvas.getHeight() - 22.0);
+    }
+
+    private void drawClassicRazorbillConstructPortrait(Canvas canvas, boolean boss, String title) {
+        GraphicsContext g = canvas.getGraphicsContext2D();
+        g.setFill(Color.web(boss ? "#09030F" : "#050E16"));
+        g.fillRect(0, 0, canvas.getWidth(), canvas.getHeight());
+        double scale = Math.min(canvas.getWidth(), canvas.getHeight()) / (boss ? 410.0 : 330.0);
+        drawSeamConstruct(g, canvas.getWidth() / 2.0, canvas.getHeight() * 0.47,
+                scale, boss, boss ? 2 : classicRazorbillWaveIndex);
+        g.setFill(Color.WHITE);
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, Math.max(14, canvas.getWidth() * 0.05)));
+        g.setTextAlign(TextAlignment.CENTER);
+        g.fillText(title == null ? (boss ? "THE SEAMREAVER" : "SEAM WARDEN")
+                        : title.toUpperCase(Locale.ROOT),
+                canvas.getWidth() / 2.0, canvas.getHeight() - 22.0);
+    }
+
+    private void drawClassicBetweenLinesPortrait(Canvas canvas) {
+        GraphicsContext g = canvas.getGraphicsContext2D();
+        g.setFill(Color.web("#070713"));
+        g.fillRect(0, 0, canvas.getWidth(), canvas.getHeight());
+        Color[] colors = {Color.web("#FF1744"), Color.web("#69F0E7"),
+                Color.web("#FF1744"), Color.web("#FF1744")};
+        for (int lane = 0; lane < 4; lane++) {
+            double x = 22.0 + lane * 102.0;
+            g.setFill(colors[lane].deriveColor(0, 1, 1, lane == 1 ? 0.40 : 0.13));
+            g.fillRoundRect(x, 34.0, 82.0, 236.0, 18.0, 18.0);
+            g.setStroke(colors[lane]);
+            g.setLineWidth(lane == 1 ? 8.0 : 3.0);
+            g.strokeRoundRect(x, 34.0, 82.0, 236.0, 18.0, 18.0);
+        }
+        g.setFill(Color.WHITE);
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, 25));
+        g.setTextAlign(TextAlignment.CENTER);
+        g.fillText("REMEMBER THE SAFE LINE", canvas.getWidth() / 2.0, 310.0);
+    }
+
+    private void setupRazorbillClassicRoute(ClassicEncounter encounter) {
+        classicRiftAnchors.clear();
+        classicSeamShards.clear();
+        classicRazorbillWaveIndex = 0;
+        classicRazorbillBonusPatternIndex = 0;
+        classicRazorbillBonusPatternTimer = 150;
+        classicRazorbillBonusReady = false;
+        classicRazorbillAttackWasHeld = false;
+        classicRazorbillAttackHitCooldown = 0;
+        classicRazorbillReflectionTimer = 170;
+        classicSeamreaverPhase = 0;
+        classicSeamreaverAttackTimer = 104;
+        classicSeamreaverAttackKind = 0;
+        classicSeamreaverHitCooldown = 0;
+        classicSeamreaverFlightWaypoint = 0;
+        classicSeamreaverGuardTimer = 0;
+        classicSeamreaverGuardCooldown = 0;
+        classicSeamreaverBurstWindow = 0;
+        classicSeamreaverBurstDamage = 0.0;
+        if (!classicModeActive || bossRushModeActive || ashfallTrialModeActive
+                || classicSelectedBird != BirdType.RAZORBILL || encounter == null) return;
+
+        int seal = switch (classicRoundIndex) {
+            case 0 -> 0;
+            case 2 -> 1;
+            case 4 -> 2;
+            default -> -1;
+        };
+        if (seal >= 0) {
+            double[] anchorX = {3_000.0, 1_720.0, 4_260.0};
+            double anchorY = battlefieldIslandY - 110.0;
+            classicRiftAnchors.add(new ClassicRiftAnchor(anchorX[seal], anchorY,
+                    seal, classicRazorbillSeals[seal]));
+            addToKillFeed("RIFT ANCHOR: strike the optional cyan seal to repair this fault line.");
+        }
+        if (encounter.style == ClassicEncounterStyle.BETWEEN_LINES) {
+            addToKillFeed("BETWEEN THE LINES: remember the highlighted lane, evade the cut, then strike the anchor.");
+        } else if (encounter.style == ClassicEncounterStyle.SEAM_WARDEN_GAUNTLET) {
+            addToKillFeed("SEAM WARDEN 1/3: each construct cuts on a different axis.");
+        } else if (encounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS) {
+            Bird boss = firstClassicEnemyWithStocks();
+            if (boss != null) boss.classicMaxHealthOverride = Math.max(1.0, boss.health);
+            addToKillFeed("ZERO DIVIDE: read the cut, use the paired gates, and punish the open core.");
+        }
+    }
+
+    void applyRazorbillArenaRuntimeEffects() {
+        if (matchEnded || selectedMap != MapType.WORLDSEAM) return;
+        final double gateY = GROUND_Y - 440.0;
+        for (int slot = 0; slot < activePlayers; slot++) {
+            if (worldseamGateCooldowns[slot] > 0) worldseamGateCooldowns[slot]--;
+            Bird bird = players[slot];
+            if (bird == null || bird.health <= 0.0 || bird.classicBonusTarget
+                    || worldseamGateCooldowns[slot] > 0) continue;
+            double cx = bird.bodyCenterX();
+            double cy = bird.bodyCenterY();
+            boolean left = Math.pow((cx - 1_450.0) / 125.0, 2.0)
+                    + Math.pow((cy - gateY) / 210.0, 2.0) <= 1.0;
+            boolean right = Math.pow((cx - 4_550.0) / 125.0, 2.0)
+                    + Math.pow((cy - gateY) / 210.0, 2.0) <= 1.0;
+            if (!left && !right) continue;
+            double destination = left ? 4_550.0 : 1_450.0;
+            bird.x = destination - bird.bodyWidth() * 0.5 + (left ? 165.0 : -165.0);
+            bird.y = gateY - bird.bodyHeight() * 0.5;
+            bird.prevX = bird.x;
+            bird.prevY = bird.y;
+            worldseamGateCooldowns[slot] = 42;
+            playManagedSfxVaried(steamAchievementClip, 0.24, left ? 1.28 : 1.06, 0.0);
+        }
+    }
+
+    void applyRazorbillClassicRuntimeEffects() {
+        if (!classicModeActive || classicEncounter == null || classicSelectedBird != BirdType.RAZORBILL
+                || bossRushModeActive || ashfallTrialModeActive || matchEnded) return;
+        Bird player = players[0];
+        if (player == null || !playerHasStocksRemaining(0)) return;
+        if (classicRazorbillAttackHitCooldown > 0) classicRazorbillAttackHitCooldown--;
+        if (classicSeamreaverHitCooldown > 0) classicSeamreaverHitCooldown--;
+
+        boolean attackHeld = isAttackPressed(0);
+        boolean newStrike = attackHeld && !classicRazorbillAttackWasHeld
+                && classicRazorbillAttackHitCooldown == 0;
+        classicRazorbillAttackWasHeld = attackHeld;
+        if (newStrike) {
+            closeNearbyRazorbillAnchor(player);
+            if (classicEncounter.style == ClassicEncounterStyle.BETWEEN_LINES
+                    && classicRazorbillBonusReady
+                    && Math.hypot(player.bodyCenterX() - 3_000.0,
+                    player.bodyCenterY() - (battlefieldIslandY - 170.0)) <= 290.0) {
+                completeRazorbillBetweenLines();
+            }
+        }
+
+        switch (classicEncounter.style) {
+            case RAZORBILL_REFLECTION -> updateRazorbillReflection(player);
+            case BETWEEN_LINES -> updateRazorbillBetweenLines(player);
+            case SEAM_WARDEN_GAUNTLET -> updateRazorbillSeamWarden(player);
+            case SEAMREAVER_BOSS -> updateRazorbillSeamreaver(player);
+            default -> updateClassicSeamShards(player);
+        }
+    }
+
+    private void closeNearbyRazorbillAnchor(Bird player) {
+        for (ClassicRiftAnchor anchor : classicRiftAnchors) {
+            if (anchor.closed || Math.hypot(player.bodyCenterX() - anchor.x,
+                    player.bodyCenterY() - anchor.y) > 260.0) continue;
+            anchor.closed = true;
+            anchor.pulseFrames = 32;
+            classicRazorbillSeals[anchor.sealIndex] = true;
+            classicRazorbillAttackHitCooldown = 12;
+            classicBonusCoins += 15;
+            classicRunScore += 1_500;
+            playClassicNectarRingSfx(anchor.sealIndex + 1, 3);
+            addToKillFeed("RIFT ANCHOR SEALED! Bird Coins +15.");
+        }
+    }
+
+    private void updateRazorbillReflection(Bird player) {
+        if (--classicRazorbillReflectionTimer == 80) {
+            classicRazorbillReflectionTargetX = player.bodyCenterX();
+            classicRazorbillReflectionTargetY = player.bodyCenterY();
+            addToKillFeed("PRISM ECHO: move away from your recorded line.");
+        }
+        if (classicRazorbillReflectionTimer == 32) {
+            boolean horizontal = Math.abs(player.bodyCenterY() - classicRazorbillReflectionTargetY) < 135.0;
+            boolean vertical = Math.abs(player.bodyCenterX() - classicRazorbillReflectionTargetX) < 150.0;
+            if (horizontal || vertical) {
+                double dealt = player.receiveExternalDamage(7.0);
+                player.applyExternalDamageScaledLaunch(
+                        Math.signum(player.bodyCenterX() - 3_000.0) * 8.0, -6.0, dealt);
+                shakeIntensity = Math.max(shakeIntensity, 10.0);
+            }
+        }
+        if (classicRazorbillReflectionTimer <= 0) classicRazorbillReflectionTimer = 170;
+        updateClassicSeamShards(player);
+    }
+
+    private void updateRazorbillBetweenLines(Bird player) {
+        if (classicRazorbillBonusReady) return;
+        if (classicRazorbillBonusPatternTimer > 0) classicRazorbillBonusPatternTimer--;
+        if (classicRazorbillBonusPatternTimer == 42) {
+            int safeLane = RAZORBILL_BONUS_SAFE_LANES[classicRazorbillBonusPatternIndex];
+            int playerLane = Math.clamp((int) ((player.bodyCenterX() - 900.0) / 1_050.0), 0, 3);
+            if (playerLane != safeLane) {
+                double dealt = player.receiveExternalDamage(10.0);
+                player.applyExternalDamageScaledLaunch(playerLane < safeLane ? -8.0 : 8.0, -7.0, dealt);
+                shakeIntensity = Math.max(shakeIntensity, 15.0);
+                playManagedSfxVaried(hugewaveClip, 0.36, 1.22, 0.0);
+            } else {
+                classicRunScore += 500;
+                playClassicNectarRingSfx(classicRazorbillBonusPatternIndex + 1, 4);
+            }
+        }
+        if (classicRazorbillBonusPatternTimer <= 0) {
+            classicRazorbillBonusPatternIndex++;
+            classicRazorbillBonusPatternTimer = 150;
+            if (classicRazorbillBonusPatternIndex >= RAZORBILL_BONUS_SAFE_LANES.length) {
+                classicRazorbillBonusReady = true;
+                addToKillFeed("THE ANCHOR IS EXPOSED — strike the center seal!");
+            }
+        }
+    }
+
+    boolean registerRazorbillBonusAnchorStrike() {
+        if (!isClassicBetweenLinesActive() || !classicRazorbillBonusReady) return false;
+        completeRazorbillBetweenLines();
+        return true;
+    }
+
+    private void completeRazorbillBetweenLines() {
+        if (!isClassicBetweenLinesActive()) return;
+        classicBonusCoins += 75;
+        classicRunScore += 5_000;
+        addToKillFeed("BETWEEN THE LINES COMPLETE! Bird Coins +75.");
+        playClassicNectarRingSfx(4, 4);
+        matchController.triggerMatchEnd(players[0]);
+    }
+
+    boolean isClassicBetweenLinesActive() {
+        return classicModeActive && !bossRushModeActive && !ashfallTrialModeActive
+                && classicEncounter != null
+                && classicEncounter.style == ClassicEncounterStyle.BETWEEN_LINES
+                && !matchEnded;
+    }
+
+    void finishClassicBetweenLinesFromTimeout() {
+        if (!isClassicBetweenLinesActive()) return;
+        addToKillFeed("TIME! The Worldseam closes before the last line is crossed.");
+        matchController.triggerMatchEnd(null);
+    }
+
+    boolean isClassicSeamWardenActive() {
+        return classicModeActive && !bossRushModeActive && !ashfallTrialModeActive
+                && classicSelectedBird == BirdType.RAZORBILL
+                && classicEncounter != null
+                && classicEncounter.style == ClassicEncounterStyle.SEAM_WARDEN_GAUNTLET
+                && !matchEnded;
+    }
+
+    void finishClassicSeamWardenFromTimeout() {
+        if (!isClassicSeamWardenActive()) return;
+        addToKillFeed("TIME! The remaining Seam Warden seals the Worldseam.");
+        matchController.triggerMatchEnd(firstClassicEnemyWithStocks());
+    }
+
+    private void updateRazorbillSeamWarden(Bird player) {
+        Bird warden = firstClassicEnemyWithStocks();
+        if (warden == null) return;
+        int cadence = Math.max(70, 118 - classicRazorbillWaveIndex * 16);
+        if ((simTick + 30L) % cadence == 0L) {
+            spawnRazorbillPattern(warden, player, classicRazorbillWaveIndex, 0.82);
+        }
+        updateClassicSeamShards(player);
+    }
+
+    private void updateRazorbillSeamreaver(Bird player) {
+        Bird boss = firstClassicEnemyWithStocks();
+        if (boss == null) return;
+        if (boss.health <= 0.0) {
+            onClassicStaminaBossDefeated(boss, null);
+            return;
+        }
+        int nextPhase = hollowMaestroPhaseForHealth(boss.health, boss.getMaxHealth());
+        if (nextPhase > classicSeamreaverPhase) {
+            int crossed = nextPhase - classicSeamreaverPhase;
+            classicSeamreaverPhase = nextPhase;
+            player.heal(12.0 * crossed);
+            classicSeamreaverAttackTimer = 108;
+            addToKillFeed(classicSeamreaverPhase == 1
+                    ? "SECOND DIVISION: diagonal seams awaken. 12% repaired."
+                    : "ZERO DIVIDE: every axis is armed. 12% repaired.");
+        }
+        steerRazorbillConstruct(boss, classicSeamreaverPhase + 1);
+        if (classicSeamreaverBurstWindow > 0 && --classicSeamreaverBurstWindow == 0) {
+            classicSeamreaverBurstDamage = 0.0;
+        }
+        if (classicSeamreaverGuardCooldown > 0) classicSeamreaverGuardCooldown--;
+        if (classicSeamreaverGuardTimer > 0) {
+            classicSeamreaverGuardTimer--;
+            if (classicSeamreaverGuardTimer == SEAMREAVER_GUARD_IMPACT_FRAME) {
+                double distance = Math.hypot(player.bodyCenterX() - boss.bodyCenterX(),
+                        player.bodyCenterY() - boss.bodyCenterY());
+                if (distance < 520.0) {
+                    double dealt = player.receiveExternalDamage(7.0 + classicSeamreaverPhase * 2.0);
+                    player.applyExternalDamageScaledLaunch(
+                            Math.signum(player.bodyCenterX() - boss.bodyCenterX()) * 13.0,
+                            -8.0, dealt);
+                }
+            }
+        } else if (--classicSeamreaverAttackTimer <= 0) {
+            classicSeamreaverAttackKind = (classicSeamreaverAttackKind + 1) % 3;
+            classicSeamreaverFlightWaypoint = (classicSeamreaverFlightWaypoint + 1)
+                    % SEAMREAVER_FLIGHT_X.length;
+            classicSeamreaverTargetX = player.bodyCenterX();
+            classicSeamreaverTargetY = player.bodyCenterY();
+            spawnRazorbillPattern(boss, player, classicSeamreaverAttackKind,
+                    1.0 + classicSeamreaverPhase * 0.16);
+            classicSeamreaverAttackTimer = Math.max(68, 112 - classicSeamreaverPhase * 15);
+        }
+        updateClassicSeamShards(player);
+    }
+
+    private void steerRazorbillConstruct(Bird construct, int phase) {
+        int waypoint = Math.floorMod(classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS
+                ? classicSeamreaverFlightWaypoint : classicRazorbillWaveIndex,
+                SEAMREAVER_FLIGHT_X.length);
+        double targetX = SEAMREAVER_FLIGHT_X[waypoint];
+        double targetY = SEAMREAVER_FLIGHT_Y[waypoint];
+        double maxSpeed = 5.0 + phase * 0.65;
+        steerRazorbillConstructToward(construct, targetX, targetY, maxSpeed);
+    }
+
+    private void steerRazorbillConstructToward(Bird construct, double targetX, double targetY,
+                                                double maxSpeed) {
+        construct.vx += (Math.clamp((targetX - construct.bodyCenterX()) * 0.018,
+                -maxSpeed, maxSpeed) - construct.vx) * 0.20;
+        construct.vy += (Math.clamp((targetY - construct.bodyCenterY()) * 0.024,
+                -maxSpeed, maxSpeed) - construct.vy) * 0.24 - GRAVITY * 0.78;
+        construct.vx = Math.clamp(construct.vx, -maxSpeed, maxSpeed);
+        construct.vy = Math.clamp(construct.vy, -maxSpeed, maxSpeed);
+    }
+
+    private void spawnRazorbillPattern(Bird source, Bird player, int kind, double power) {
+        double sx = source.bodyCenterX();
+        double sy = source.bodyCenterY();
+        int count = kind == 2 ? 7 : 5;
+        for (int i = 0; i < count; i++) {
+            double vx;
+            double vy;
+            if (kind == 0) {
+                vx = Math.signum(player.bodyCenterX() - sx) * (9.5 + i * 0.45) * power;
+                vy = (i - (count - 1) / 2.0) * 1.3;
+            } else if (kind == 1) {
+                vx = (i - (count - 1) / 2.0) * 1.35;
+                vy = Math.signum(player.bodyCenterY() - sy) * (8.5 + i * 0.35) * power;
+            } else {
+                double angle = -0.85 + i * 1.70 / Math.max(1, count - 1);
+                double direction = Math.signum(player.bodyCenterX() - sx);
+                vx = Math.cos(angle) * direction * 10.5 * power;
+                vy = Math.sin(angle) * 10.5 * power;
+            }
+            classicSeamShards.add(new ClassicSeamShard(sx, sy, vx, vy, 210,
+                    classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS
+                            ? classicSeamreaverPhase : classicRazorbillWaveIndex));
+        }
+        playManagedSfxVaried(hugewaveClip, 0.34, 1.04 + kind * 0.10, 0.0);
+    }
+
+    private void updateClassicSeamShards(Bird player) {
+        for (int i = classicSeamShards.size() - 1; i >= 0; i--) {
+            ClassicSeamShard shard = classicSeamShards.get(i);
+            shard.x += shard.vx;
+            shard.y += shard.vy;
+            shard.life--;
+            if (Math.hypot(player.bodyCenterX() - shard.x, player.bodyCenterY() - shard.y)
+                    <= player.combatRadius() + 28.0 && classicSeamreaverHitCooldown == 0) {
+                boolean bossShard = classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS;
+                double dealt = player.receiveExternalDamage(bossShard
+                        ? 4.5 + shard.phase * 1.1 : 2.0 + shard.phase * 0.40);
+                player.applyExternalDamageScaledLaunch(
+                        Math.signum(shard.vx) * (bossShard ? 6.0 + shard.phase : 3.3 + shard.phase * 0.4),
+                        bossShard ? -4.5 - shard.phase * 0.5 : -2.8 - shard.phase * 0.20, dealt);
+                classicSeamreaverHitCooldown = 12;
+                classicSeamShards.remove(i);
+            } else if (shard.life <= 0 || shard.x < -250.0 || shard.x > WORLD_WIDTH + 250.0
+                    || shard.y < -250.0 || shard.y > WORLD_HEIGHT + 250.0) {
+                classicSeamShards.remove(i);
+            }
+        }
     }
 
     private void setupHummingbirdNectarRoute(ClassicEncounter encounter) {
@@ -48923,7 +49873,8 @@ public class BirdGame3 {
                 || classicEncounter.style == ClassicEncounterStyle.REDLINE_RUN
                 || classicEncounter.style == ClassicEncounterStyle.ICE_ARCHITECT
                 || classicEncounter.style == ClassicEncounterStyle.RIPPLE_HUNT
-                || classicEncounter.style == ClassicEncounterStyle.PERFECT_PITCH) {
+                || classicEncounter.style == ClassicEncounterStyle.PERFECT_PITCH
+                || classicEncounter.style == ClassicEncounterStyle.BETWEEN_LINES) {
             recordClassicEncounterScore(playerWon);
             classicRoundIndex++;
             classicEncounter = classicRun.get(classicRoundIndex);
@@ -48972,6 +49923,10 @@ public class BirdGame3 {
                 queueMapUnlockCard(MapType.RESONANCE_HALL);
                 queueMapUnlockCard(MapType.SIGNAL_SPIRE);
                 queueMapUnlockCard(MapType.SILENT_AMPHITHEATER);
+            } else if (classicSelectedBird == BirdType.RAZORBILL
+                    && !isClassicCompleted(BirdType.RAZORBILL)) {
+                queueMapUnlockCard(MapType.GLASSWIND_CAUSEWAY);
+                queueMapUnlockCard(MapType.WORLDSEAM);
             }
             profileProgressController.onClassicRunCompleted(classicSelectedBird, achievementEvaluator::onClassicRunCompleted);
             ClassicEndingContent.Ending authoredEnding = ClassicEndingContent.endingFor(classicSelectedBird);
@@ -49052,6 +50007,7 @@ public class BirdGame3 {
             case PENGUIN -> "Last Ice Shelf";
             case SHOEBILL -> "Stillwater Marsh";
             case MOCKINGBIRD -> "Resonance Hall + Signal Spire + Silent Amphitheater";
+            case RAZORBILL -> "Glasswind Causeway + The Worldseam";
             default -> "";
         };
     }
@@ -51724,6 +52680,7 @@ public class BirdGame3 {
                 && classicEncounter.style != ClassicEncounterStyle.ICE_ARCHITECT
                 && classicEncounter.style != ClassicEncounterStyle.RIPPLE_HUNT
                 && classicEncounter.style != ClassicEncounterStyle.PERFECT_PITCH
+                && classicEncounter.style != ClassicEncounterStyle.BETWEEN_LINES
                 && classicEncounter.style != ClassicEncounterStyle.NULL_ROCK_BOSS;
     }
 
@@ -51800,6 +52757,11 @@ public class BirdGame3 {
         if (classicSelectedBird == BirdType.MOCKINGBIRD
                 && classicEncounter.style == ClassicEncounterStyle.HOLLOW_MAESTRO_BOSS) {
             scores[0] = 3;
+        }
+        if (classicSelectedBird == BirdType.RAZORBILL
+                && classicEncounter.style != ClassicEncounterStyle.BETWEEN_LINES) {
+            scores[0] = classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS
+                    || classicEncounter.style == ClassicEncounterStyle.SEAM_WARDEN_GAUNTLET ? 3 : 2;
         }
         int enemyStocks = switch (classicEncounter.style) {
             case STORM_TYRANT_BOSS, PHOENIX_REBIRTH, BLIGHTWING_BOSS, ICEWORKS_MIRROR -> 2;
@@ -51934,6 +52896,7 @@ public class BirdGame3 {
     private void applyMatchModeRuntimeEffects() {
         applyPeregrineRunJetstreams();
         applyCharlesArenaRuntimeEffects();
+        applyRazorbillArenaRuntimeEffects();
         if (classicModeActive && !bossRushModeActive && !ashfallTrialModeActive) {
             applyStormTyrantRuntimeEffects();
             applyFalconClassicRuntimeEffects();
@@ -51945,6 +52908,7 @@ public class BirdGame3 {
             applyPenguinClassicRuntimeEffects();
             applyShoebillClassicRuntimeEffects();
             applyCharlesClassicRuntimeEffects();
+            applyRazorbillClassicRuntimeEffects();
         }
         if (bossRushModeActive && classicModeActive) {
             applyBossRushRuntimeEffects();
@@ -54886,6 +55850,8 @@ public class BirdGame3 {
                 || selectedMap == MapType.RESONANCE_HALL
                 || selectedMap == MapType.SIGNAL_SPIRE
                 || selectedMap == MapType.SILENT_AMPHITHEATER
+                || selectedMap == MapType.GLASSWIND_CAUSEWAY
+                || selectedMap == MapType.WORLDSEAM
                 || activeArenaGeometryVariant == MapVariant.TITAN_DOCK
                 || activeArenaGeometryVariant == MapVariant.PARLIAMENT_ROOFTOPS
                 || activeArenaGeometryVariant == MapVariant.PEREGRINE_RUN
@@ -55272,6 +56238,10 @@ public class BirdGame3 {
             setupSignalSpireArena();
         } else if (selectedMap == MapType.SILENT_AMPHITHEATER) {
             setupSilentAmphitheaterArena();
+        } else if (selectedMap == MapType.GLASSWIND_CAUSEWAY) {
+            setupGlasswindCausewayArena();
+        } else if (selectedMap == MapType.WORLDSEAM) {
+            setupWorldseamArena();
         } else {
             platforms.add(new Platform(0, GROUND_Y, WORLD_WIDTH, 600));
             platforms.add(new Platform(-100, 0, 100, WORLD_HEIGHT));
@@ -55376,7 +56346,9 @@ public class BirdGame3 {
                 || selectedMap == MapType.DESERT
                 || selectedMap == MapType.RESONANCE_HALL
                 || selectedMap == MapType.SIGNAL_SPIRE
-                || selectedMap == MapType.SILENT_AMPHITHEATER) {
+                || selectedMap == MapType.SILENT_AMPHITHEATER
+                || selectedMap == MapType.GLASSWIND_CAUSEWAY
+                || selectedMap == MapType.WORLDSEAM) {
             mountainPeaks = null;
         } else {
             double[] buildingX = {400, 1400, 2400, 3400, 4400, 5400};
@@ -55459,6 +56431,7 @@ public class BirdGame3 {
             case REDLINE_CANYON -> setupRedlineCanyonArena();
             case LAST_ICE_SHELF -> setupLastIceShelfArena();
             case STILLWATER_MARSH -> setupStillwaterMarshArena();
+            case OBSIDIAN_FOUNDRY -> setupObsidianFoundryArena();
             case CARRION_THRONE -> setupBossRushCarrionThrone();
             case NULL_ROC_ASCENDING -> setupBossRushNullRocArena();
             case VOID_CROWN -> setupBossRushVoidCrownArena();
@@ -55529,6 +56502,64 @@ public class BirdGame3 {
         battlefieldIslandX = stageX;
         battlefieldIslandW = stageW;
         battlefieldIslandY = stageY;
+    }
+
+    private void setupGlasswindCausewayArena() {
+        double bridgeX = 720.0;
+        double bridgeY = GROUND_Y - 300.0;
+        double bridgeW = 4_560.0;
+        platforms.add(new Platform(bridgeX, bridgeY, bridgeW, 88.0));
+        platforms.add(new Platform(470.0, bridgeY + 145.0, 460.0, 48.0));
+        platforms.add(new Platform(5_070.0, bridgeY + 145.0, 460.0, 48.0));
+        platforms.add(new Platform(960.0, bridgeY - 370.0, 980.0, 50.0));
+        platforms.add(new Platform(2_350.0, bridgeY - 560.0, 1_300.0, 56.0));
+        platforms.add(new Platform(4_060.0, bridgeY - 370.0, 980.0, 50.0));
+        platforms.add(new Platform(1_610.0, bridgeY - 760.0, 560.0, 44.0));
+        platforms.add(new Platform(3_830.0, bridgeY - 760.0, 560.0, 44.0));
+        windVents.add(new WindVent(560.0, bridgeY + 120.0, 300.0));
+        windVents.add(new WindVent(5_140.0, bridgeY + 120.0, 300.0));
+        battlefieldIslandX = bridgeX;
+        battlefieldIslandW = bridgeW;
+        battlefieldIslandY = bridgeY;
+    }
+
+    private void setupWorldseamArena() {
+        double causewayX = 900.0;
+        double causewayY = GROUND_Y - 320.0;
+        double causewayW = 4_200.0;
+        platforms.add(new Platform(causewayX, causewayY, causewayW, 92.0));
+        platforms.add(new Platform(560.0, causewayY + 150.0, 620.0, 50.0));
+        platforms.add(new Platform(4_820.0, causewayY + 150.0, 620.0, 50.0));
+        platforms.add(new Platform(1_080.0, causewayY - 360.0, 920.0, 50.0));
+        platforms.add(new Platform(4_000.0, causewayY - 360.0, 920.0, 50.0));
+        platforms.add(new Platform(2_390.0, causewayY - 540.0, 1_220.0, 56.0));
+        platforms.add(new Platform(1_720.0, causewayY - 760.0, 580.0, 44.0));
+        platforms.add(new Platform(3_700.0, causewayY - 760.0, 580.0, 44.0));
+        battlefieldIslandX = causewayX;
+        battlefieldIslandW = causewayW;
+        battlefieldIslandY = causewayY;
+        Arrays.fill(worldseamGateCooldowns, 0);
+    }
+
+    private void setupObsidianFoundryArena() {
+        resetBossRushArenaState();
+        activeArenaGeometryVariant = MapVariant.OBSIDIAN_FOUNDRY;
+        double floorX = 760.0;
+        double floorY = GROUND_Y - 280.0;
+        double floorW = 4_480.0;
+        platforms.add(new Platform(floorX, floorY, floorW, 104.0));
+        platforms.add(new Platform(500.0, floorY + 145.0, 500.0, 48.0));
+        platforms.add(new Platform(5_000.0, floorY + 145.0, 500.0, 48.0));
+        platforms.add(new Platform(1_040.0, floorY - 350.0, 900.0, 52.0));
+        platforms.add(new Platform(4_060.0, floorY - 350.0, 900.0, 52.0));
+        platforms.add(new Platform(2_390.0, floorY - 510.0, 1_220.0, 58.0));
+        platforms.add(new Platform(1_750.0, floorY - 760.0, 560.0, 46.0));
+        platforms.add(new Platform(3_690.0, floorY - 760.0, 560.0, 46.0));
+        windVents.add(new WindVent(570.0, floorY + 120.0, 300.0));
+        windVents.add(new WindVent(5_130.0, floorY + 120.0, 300.0));
+        battlefieldIslandX = floorX;
+        battlefieldIslandW = floorW;
+        battlefieldIslandY = floorY;
     }
 
     private void stopMatchSummaryBackgroundTimer() {
@@ -57026,6 +58057,24 @@ public class BirdGame3 {
                             : "NEXT CUE " + Math.max(0, classicCharlesBossAttackTimer)));
                 }
             }
+            if (classicSelectedBird == BirdType.RAZORBILL) {
+                int seals = 0;
+                for (boolean closed : classicRazorbillSeals) if (closed) seals++;
+                if (classicEncounter.style == ClassicEncounterStyle.BETWEEN_LINES) {
+                    lines.add(classicRazorbillBonusReady ? "ANCHOR EXPOSED — STRIKE CENTER"
+                            : "DIMENSIONAL CUT " + (classicRazorbillBonusPatternIndex + 1) + "/4");
+                } else if (classicEncounter.style == ClassicEncounterStyle.SEAM_WARDEN_GAUNTLET) {
+                    int count = classicEncounter.waves == null ? 1 : classicEncounter.waves.length;
+                    lines.add("SEAM WARDEN " + (classicRazorbillWaveIndex + 1) + "/" + count
+                            + "  RIFT SEALS " + seals + "/3");
+                } else if (classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS) {
+                    lines.add("ZERO DIVIDE  DIVISION " + classicStaminaBossMovement() + "/3  "
+                            + (classicSeamreaverGuardTimer > 0 ? "GUARD " + classicSeamreaverGuardTimer
+                            : "RIFT SEALS " + seals + "/3"));
+                } else {
+                    lines.add("RIFT SEALS " + seals + "/3");
+                }
+            }
             return lines;
         }
 
@@ -57064,6 +58113,7 @@ public class BirdGame3 {
     private void drawClassicStaminaBossHud(GraphicsContext g) {
         Bird boss = firstClassicEnemyWithStocks();
         if (!isClassicStaminaBoss(boss) || boss.health <= 0.0) return;
+        boolean seamreaver = classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS;
 
         double width = Math.min(980.0, WIDTH - 580.0);
         double height = 92.0;
@@ -57074,8 +58124,11 @@ public class BirdGame3 {
         int shownHealth = Math.max(0, (int) Math.ceil(boss.health));
         int shownMax = Math.max(1, (int) Math.round(maxHealth));
         double pulse = 0.5 + 0.5 * Math.sin(simTick * 0.09);
-        Color phaseColor = classicStaminaBossMovement() == 1 ? Color.web("#FFE082")
-                : classicStaminaBossMovement() == 2 ? Color.web("#FFB74D") : Color.web("#FF5252");
+        Color phaseColor = seamreaver
+                ? (classicStaminaBossMovement() == 1 ? Color.web("#00E5FF")
+                : classicStaminaBossMovement() == 2 ? Color.web("#EA80FC") : Color.web("#FF1744"))
+                : (classicStaminaBossMovement() == 1 ? Color.web("#FFE082")
+                : classicStaminaBossMovement() == 2 ? Color.web("#FFB74D") : Color.web("#FF5252"));
 
         g.save();
         g.setFill(Color.BLACK.deriveColor(0, 1, 1, 0.58));
@@ -57086,14 +58139,19 @@ public class BirdGame3 {
         g.setLineWidth(4.0 + pulse * 1.5);
         g.strokeRoundRect(x, y, width, height, 28, 28);
 
-        drawHollowMaestroMask(g, x + 52.0, y + 47.0, 0.24, phaseColor, true);
+        if (seamreaver) {
+            drawSeamConstruct(g, x + 52.0, y + 47.0, 0.22, true, classicSeamreaverPhase);
+        } else {
+            drawHollowMaestroMask(g, x + 52.0, y + 47.0, 0.24, phaseColor, true);
+        }
         g.setTextAlign(TextAlignment.LEFT);
         g.setFill(Color.WHITE);
         g.setFont(Font.font("Arial Black", FontWeight.BOLD, 25));
-        g.fillText("THE HOLLOW MAESTRO", x + 105.0, y + 31.0);
+        g.fillText(seamreaver ? "THE SEAMREAVER" : "THE HOLLOW MAESTRO", x + 105.0, y + 31.0);
         g.setFill(phaseColor);
         g.setFont(Font.font("Consolas", FontWeight.BOLD, 16));
-        g.fillText("MOVEMENT " + classicStaminaBossMovement() + " / 3", x + 106.0, y + 53.0);
+        g.fillText((seamreaver ? "DIVISION " : "MOVEMENT ")
+                + classicStaminaBossMovement() + " / 3", x + 106.0, y + 53.0);
 
         double barX = x + 410.0;
         double barY = y + 28.0;
@@ -57563,9 +58621,14 @@ public class BirdGame3 {
         }
         String skinKey = skinKeyForBird(bird);
         boolean charlesConstruct = isClassicCharlesConstructBird(bird);
+        boolean razorbillConstruct = isClassicRazorbillConstructBird(bird);
         boolean charlesBoss = charlesConstruct
                 && classicEncounter.style == ClassicEncounterStyle.HOLLOW_MAESTRO_BOSS;
-        String cacheKey = charlesConstruct
+        boolean razorbillBoss = razorbillConstruct
+                && classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS;
+        String cacheKey = razorbillConstruct
+                ? (razorbillBoss ? "CLASSIC_SEAMREAVER" : "CLASSIC_SEAM_WARDEN|" + shortName(bird.name))
+                : charlesConstruct
                 ? (charlesBoss ? "CLASSIC_HOLLOW_MAESTRO" : "CLASSIC_CHOIR_MASK|" + shortName(bird.name))
                 : bird.classicBonusTarget
                 ? "CLASSIC_BONUS_TARGET"
@@ -57582,7 +58645,11 @@ public class BirdGame3 {
         }
 
         Canvas portrait = new Canvas(128, 128);
-        if (charlesConstruct) {
+        if (razorbillConstruct) {
+            drawSeamConstruct(portrait.getGraphicsContext2D(), 64.0, 63.0,
+                    razorbillBoss ? 0.31 : 0.34, razorbillBoss,
+                    razorbillBoss ? classicSeamreaverPhase : classicRazorbillWaveIndex);
+        } else if (charlesConstruct) {
             drawHollowMaestroMask(portrait.getGraphicsContext2D(), 64.0, 63.0,
                     charlesBoss ? 0.39 : 0.34,
                     charlesBoss ? Color.web("#FFE082") : Color.web("#80DEEA"), charlesBoss);
@@ -57604,6 +58671,14 @@ public class BirdGame3 {
                 && getEffectiveTeam(bird.playerIndex) == 2
                 && (classicEncounter.style == ClassicEncounterStyle.CHOIR_MASK_GAUNTLET
                 || classicEncounter.style == ClassicEncounterStyle.HOLLOW_MAESTRO_BOSS);
+    }
+
+    private boolean isClassicRazorbillConstructBird(Bird bird) {
+        return bird != null && classicModeActive && classicEncounter != null
+                && classicSelectedBird == BirdType.RAZORBILL
+                && getEffectiveTeam(bird.playerIndex) == 2
+                && (classicEncounter.style == ClassicEncounterStyle.SEAM_WARDEN_GAUNTLET
+                || classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS);
     }
 
     record FightHudNameFit(Font font, double maxWidth, double naturalWidth) {
@@ -59295,6 +60370,10 @@ public class BirdGame3 {
     }
 
     private String matchSummaryBirdLabel(Bird bird) {
+        if (isClassicRazorbillConstructBird(bird)) {
+            return classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS
+                    ? "SEAMREAVER" : "SEAM WARDEN";
+        }
         if (isClassicCharlesConstructBird(bird)) {
             return classicEncounter.style == ClassicEncounterStyle.HOLLOW_MAESTRO_BOSS
                     ? "HOLLOW MAESTRO" : "CHOIR MASK";

@@ -488,9 +488,17 @@ final class MatchController {
             game.finishClassicPerfectPitchFromTimeout();
             return;
         }
+        if (game.isClassicBetweenLinesActive() && game.matchTimer <= 0) {
+            game.finishClassicBetweenLinesFromTimeout();
+            return;
+        }
+        if (game.isClassicSeamWardenActive() && game.matchTimer <= 0) {
+            game.finishClassicSeamWardenFromTimeout();
+            return;
+        }
         Bird staminaBoss = game.activeClassicStaminaBoss();
         if (staminaBoss != null && game.matchTimer <= 0 && !game.suddenDeath.isActive()) {
-            game.addToKillFeed("TIME! The Hollow Maestro's score remains unbroken.");
+            game.addToKillFeed(game.classicStaminaBossTimeoutMessage());
             triggerMatchEnd(staminaBoss);
             return;
         }
@@ -553,6 +561,9 @@ final class MatchController {
             return;
         }
         if (game.holdClassicCharlesEncounterOpen()) {
+            return;
+        }
+        if (game.holdClassicRazorbillEncounterOpen()) {
             return;
         }
         if (game.campaignModeActive) {

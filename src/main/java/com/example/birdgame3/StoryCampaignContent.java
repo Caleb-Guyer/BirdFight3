@@ -488,7 +488,8 @@ final class StoryCampaignContent {
     private static StoryCampaign.Mission borrowedFire() {
         return mission("borrowed_fire", "Borrowed Fire",
                 "Return the stolen thermal charge to Ashfall without burning the cathedral apart.",
-                ASHFALL_CATHEDRAL, CROWN_OCCUPIED, StoryCampaign.PlayablePolicy.forced(PHOENIX),
+                ASHFALL_CATHEDRAL, BirdGame3.MapVariant.OBSIDIAN_FOUNDRY, CROWN_OCCUPIED,
+                StoryCampaign.PlayablePolicy.forced(PHOENIX),
                 fighters(ally(PENGUIN, "Penguin")),
                 fighters(enemy(VULTURE, "Thermal Collector"), enemy(FALCON, "Crown Recovery Wing")),
                 phases(
@@ -632,8 +633,8 @@ final class StoryCampaignContent {
 
     private static StoryCampaign.Mission futureThatMoves() {
         return mission("future_that_moves", "A Future That Moves",
-                "Break Opium Bird's forecast lattice by choosing routes it marked impossible.",
-                VIBRANT_JUNGLE, ANCHOR_ASSAULT,
+                "Break Opium Bird's forecast lattice across Glasswind by choosing routes it marked impossible.",
+                GLASSWIND_CAUSEWAY, ANCHOR_ASSAULT,
                 StoryCampaign.PlayablePolicy.choice(HUMMINGBIRD, TITMOUSE),
                 List.of(),
                 fighters(boss(OPIUMBIRD, "Opium Bird", 340, 1.38, 1.22)),
@@ -751,7 +752,7 @@ final class StoryCampaignContent {
     private static StoryCampaign.Mission echoChain() {
         return mission("echo_chain", "Echo Chain",
                 "Send a counter-pulse through the caves and sever the Crown's underground anchor.",
-                CAVE, ANCHOR_ASSAULT,
+                WORLDSEAM, ANCHOR_ASSAULT,
                 StoryCampaign.PlayablePolicy.choice(BAT, OPIUMBIRD, SHOEBILL),
                 List.of(),
                 fighters(enemy(RAVEN, "Echo Warden"), enemy(VULTURE, "Null Listener")),

@@ -287,6 +287,25 @@ final class ClassicEndingContent {
                             beat("I returned what the Maestro had stolen, then tore command out of the Crown note by note.", Tableau.CROWN_TRANSFORMATION),
                             beat("It remembers every voice now, but it cannot force a single throat to speak. I kept the archive. Someone must hear what power tries to erase.", Tableau.CHANGED_WORLD),
                             beat("A voice matters because it can refuse. I will remember every voice. I will answer in my own.", Tableau.FINAL_PORTRAIT)
+                    )),
+            ending(
+                    BirdGame3.BirdType.RAZORBILL,
+                    "THE LINE BETWEEN WORLDS",
+                    "THE FINAL CUT",
+                    "RESTRAINT - The Crown's command is severed into seven boundary seals.",
+                    Alignment.AMBIGUOUS,
+                    BirdGame3.BirdType.RAVEN,
+                    "The Seamreaver",
+                    "",
+                    BirdGame3.MapType.WORLDSEAM,
+                    "music-razorbill-ending.mp3",
+                    monologue(
+                            beat("The Seamreaver wanted every boundary erased until nothing could stand apart from its command.", Tableau.BOSS_AFTERMATH),
+                            beat("Beyond its broken core, the Crown showed me every border in creation as one line waiting to be cut.", Tableau.CROWN_DISCOVERY),
+                            beat("Some walls are cages. Some are the distance that lets a voice remain its own.", Tableau.DECISION),
+                            beat("I cut command away from the Crown, then divided its power into seven seals no single ruler can open.", Tableau.CROWN_TRANSFORMATION),
+                            beat("The Worldseam closed. Gates still join distant skies, but they open only when both sides choose the crossing.", Tableau.CHANGED_WORLD),
+                            beat("A blade is not freedom. It only makes the space where freedom must decide what comes next.", Tableau.FINAL_PORTRAIT)
                     ))
     );
 
@@ -321,6 +340,10 @@ final class ClassicEndingContent {
 
     static boolean isCharlesLivingScore(Cinematic cinematic) {
         return cinematic != null && cinematic.narrator() == BirdGame3.BirdType.MOCKINGBIRD;
+    }
+
+    static boolean isRazorbillFinalCut(Cinematic cinematic) {
+        return cinematic != null && cinematic.narrator() == BirdGame3.BirdType.RAZORBILL;
     }
 
     static Cinematic withRouteRecord(Ending ending, int birdCoins, int score, String mapReward) {
