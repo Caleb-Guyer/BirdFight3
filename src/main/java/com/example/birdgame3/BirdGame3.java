@@ -42364,7 +42364,14 @@ public class BirdGame3 {
                 () -> startClassicEncounter(stage));
         start.setLayoutX(1270);
         start.setLayoutY(805);
-        root.getChildren().addAll(menu, start);
+        Button developerLevelSelect = uiFactory.action("DEV LEVEL SELECT", 180, 58, 17, "#5E35B1", 15,
+                () -> showClassicDeveloperLevelSelect(stage));
+        developerLevelSelect.setLayoutX(25);
+        developerLevelSelect.setLayoutY(742);
+        developerLevelSelect.setVisible(isClassicDeveloperLevelSelectContext());
+        developerLevelSelect.setManaged(isClassicDeveloperLevelSelectContext());
+        developerLevelSelect.setAccessibleText("FEATHERDEV Classic level select");
+        root.getChildren().addAll(menu, start, developerLevelSelect);
 
         StackPane viewport = new StackPane(root);
         viewport.getProperties().put("noAutoScale", true);
@@ -42375,6 +42382,133 @@ public class BirdGame3 {
         bindFixedFrameScale(scene, root, 0.0, layoutW, layoutH);
         setScenePreservingFullscreen(stage, scene);
         start.requestFocus();
+    }
+
+    private boolean isClassicDeveloperLevelSelectContext() {
+        return classicModeActive && !dailyChallengeModeActive && !ashfallTrialModeActive
+                && !bossRushModeActive && !classicRun.isEmpty();
+    }
+
+    boolean canUseClassicDeveloperLevelSelect() {
+        return developerInfiniteBirdCoins && isClassicDeveloperLevelSelectContext();
+    }
+
+    boolean selectClassicDeveloperRound(int requestedRoundIndex) {
+        if (!canUseClassicDeveloperLevelSelect()) return false;
+        classicRoundIndex = Math.clamp(requestedRoundIndex, 0, classicRun.size() - 1);
+        classicEncounter = classicRun.get(classicRoundIndex);
+        classicDeaths = 0;
+        seedClassicDeveloperRouteProgress(classicRoundIndex);
+        return true;
+    }
+
+    private void seedClassicDeveloperRouteProgress(int selectedRoundIndex) {
+        int clearedRounds = Math.max(0, selectedRoundIndex);
+        if (classicSelectedBird == BirdType.HUMMINGBIRD) {
+            Arrays.fill(classicHummingbirdBlossoms, false);
+            Arrays.fill(classicHummingbirdBlossoms, 0,
+                    Math.min(clearedRounds, classicHummingbirdBlossoms.length), true);
+        } else if (classicSelectedBird == BirdType.ROOSTER) {
+            classicRoosterMorale = Math.min(3, clearedRounds);
+        } else if (classicSelectedBird == BirdType.ROADRUNNER) {
+            Arrays.fill(classicRoadrunnerBolts, false);
+            Arrays.fill(classicRoadrunnerBolts, 0,
+                    Math.min(clearedRounds, classicRoadrunnerBolts.length), true);
+        }
+    }
+
+    private void showClassicDeveloperLevelSelect(Stage stage) {
+        if (!canUseClassicDeveloperLevelSelect()) {
+            playErrorSound();
+            Alert alert = new Alert(
+                    Alert.AlertType.INFORMATION,
+                    "Only FEATHERDEV-enabled profiles can use Classic Level Select.\n\n"
+                            + "Enter FEATHERDEV in Settings to enable developer tools for this profile.",
+                    ButtonType.OK
+            );
+            alert.setTitle("FEATHERDEV Required");
+            alert.setHeaderText("Classic Level Select is a developer tool.");
+            if (stage != null) alert.initOwner(stage);
+            alert.showAndWait();
+            return;
+        }
+
+        BorderPane root = buildModernMenuPage();
+        Button back = uiFactory.action("BACK TO BATTLE", 280, 66, 20, "#B5121B", 17,
+                () -> showClassicEncounterIntro(stage));
+        StackPane title = buildMenuTitleBanner("CLASSIC LEVEL SELECT", 620, 72, 30);
+        root.setTop(buildMenuTopStrip(back, title,
+                buildMenuChip("FEATHERDEV", "#5E35B1", "#E1BEE7")));
+
+        Label route = buildMenuEyebrow(
+                classicSelectedBird.name.toUpperCase(Locale.ROOT) + " ROUTE  /  "
+                        + (classicRunCodename.isBlank() ? "CLASSIC" : classicRunCodename),
+                "#CE93D8");
+        Label heading = buildMenuPanelTitle(
+                "ROUND " + (classicRoundIndex + 1) + " OF " + classicRun.size(), 39);
+        Label current = buildMenuPanelBody(
+                classicEncounter.name.toUpperCase(Locale.ROOT) + "  —  "
+                        + encounterMapDisplayName(classicEncounter).toUpperCase(Locale.ROOT), 1260);
+        current.setTextAlignment(TextAlignment.CENTER);
+        current.setAlignment(Pos.CENTER);
+
+        FlowPane rounds = new FlowPane(14, 14);
+        rounds.setAlignment(Pos.CENTER);
+        rounds.setPrefWrapLength(1320);
+        Button selectedCard = null;
+        for (int i = 0; i < classicRun.size(); i++) {
+            ClassicEncounter encounter = classicRun.get(i);
+            boolean selected = i == classicRoundIndex;
+            boolean bonus = encounter.style == ClassicEncounterStyle.BONUS_RELAY
+                    || encounter.style == ClassicEncounterStyle.NECTAR_DASH
+                    || encounter.style == ClassicEncounterStyle.HARVEST_DEFENSE
+                    || encounter.style == ClassicEncounterStyle.DAWN_MUSTER
+                    || encounter.style == ClassicEncounterStyle.REDLINE_RUN;
+            int roundIndex = i;
+            Button card = uiFactory.action(
+                    (bonus ? "BONUS " : "ROUND ") + (i + 1) + "\n"
+                            + encounter.name.toUpperCase(Locale.ROOT) + "\n"
+                            + encounterMapDisplayName(encounter).toUpperCase(Locale.ROOT),
+                    310, 116, 17, selected ? "#B8860B" : "#29364A", 14,
+                    () -> {
+                        selectClassicDeveloperRound(roundIndex);
+                        showClassicDeveloperLevelSelect(stage);
+                    });
+            card.setWrapText(true);
+            card.setAccessibleText("Select Classic round " + (i + 1) + ": " + encounter.name);
+            rounds.getChildren().add(card);
+            if (selected) selectedCard = card;
+        }
+
+        Button previous = uiFactory.action("<  PREVIOUS LEVEL", 330, 74, 21, "#1565C0", 17, () -> {
+            if (selectClassicDeveloperRound(classicRoundIndex - 1)) {
+                showClassicDeveloperLevelSelect(stage);
+            }
+        });
+        previous.setDisable(classicRoundIndex <= 0);
+        Button useLevel = uiFactory.action(
+                "USE ROUND " + (classicRoundIndex + 1), 360, 82, 24, "#00A854", 19,
+                () -> showClassicEncounterIntro(stage));
+        Button next = uiFactory.action("NEXT LEVEL  >", 330, 74, 21, "#1565C0", 17, () -> {
+            if (selectClassicDeveloperRound(classicRoundIndex + 1)) {
+                showClassicDeveloperLevelSelect(stage);
+            }
+        });
+        next.setDisable(classicRoundIndex >= classicRun.size() - 1);
+        HBox navigation = new HBox(18, previous, useLevel, next);
+        navigation.setAlignment(Pos.CENTER);
+
+        VBox panel = buildModernMenuPanel("#CE93D8", 1460, 18,
+                route, heading, current, rounds, navigation);
+        panel.setAlignment(Pos.CENTER);
+        root.setCenter(panel);
+
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, back);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        setScenePreservingFullscreen(stage, scene);
+        (selectedCard == null ? useLevel : selectedCard).requestFocus();
     }
 
     private void startClassicEncounter(Stage stage) {
