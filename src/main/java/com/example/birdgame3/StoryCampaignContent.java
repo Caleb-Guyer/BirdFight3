@@ -472,7 +472,8 @@ final class StoryCampaignContent {
     private static StoryCampaign.Mission whiteoutEquation() {
         return mission("whiteout_equation", "Whiteout Equation",
                 "Repair the fjord stabilizer while admitting exactly what it was built to do.",
-                FROSTBITE_FJORD, STILLNESS, StoryCampaign.PlayablePolicy.forced(PENGUIN),
+                FROSTBITE_FJORD, BirdGame3.MapVariant.LAST_ICE_SHELF, STILLNESS,
+                StoryCampaign.PlayablePolicy.forced(PENGUIN),
                 fighters(ally(PHOENIX, "Phoenix")),
                 fighters(enemy(FALCON, "Crown Recovery Wing"), enemy(HEISENBIRD, "Blue Technician")),
                 phases(

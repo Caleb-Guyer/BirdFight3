@@ -700,7 +700,8 @@ public class BirdGame3 {
         HEARTBLOOM_SANCTUARY(MapType.VIBRANT_JUNGLE, "Classic Routes", "Heartbloom Sanctuary", "An eclipse garden of enormous flower platforms, open flight lanes, and nectar updrafts that wake at dawn."),
         HARVEST_TRIBUNAL(MapType.FOREST, "Classic Routes", "Harvest Tribunal", "A moonlit autumn court built around a monumental stone table, braziers, and open recovery lanes."),
         DAWNWATCH_BASTION(MapType.BEACON_CROWN, "Classic Routes", "Dawnwatch Bastion", "A golden mountaintop citadel of watchtowers, structural bridges, banners, and a colossal dawn bell."),
-        REDLINE_CANYON(MapType.DESERT, "Classic Routes", "Redline Canyon", "A sunset highway carved through towering mesas, stone arches, tunnels, switchbacks, and dust-devil lifts.");
+        REDLINE_CANYON(MapType.DESERT, "Classic Routes", "Redline Canyon", "A sunset highway carved through towering mesas, stone arches, tunnels, switchbacks, and dust-devil lifts."),
+        LAST_ICE_SHELF(MapType.FROSTBITE_FJORD, "Classic Routes", "Last Ice Shelf", "An aurora-lit iceberg fortress whose terraces, arches, and recovery shelves are carved from one connected glacier.");
 
         final MapType baseMap;
         final String category;
@@ -851,6 +852,7 @@ public class BirdGame3 {
     private boolean harvestTribunalUnlocked = false;
     private boolean dawnwatchBastionUnlocked = false;
     private boolean redlineCanyonUnlocked = false;
+    private boolean lastIceShelfUnlocked = false;
     private final boolean[][] towerDefenseDifficultyBadges = new boolean[MapType.values().length][TowerDefenseMode.Difficulty.values().length];
     private static final int DOCK_LEVER_COOLDOWN_FRAMES = 900;
     private static final int DOCK_BOMB_FUSE_FRAMES = 88;
@@ -4962,6 +4964,19 @@ public class BirdGame3 {
     private int classicStillKingHazardCooldown = 0;
     private int classicStillKingCollapseCooldown = 0;
     private int classicStillKingCollapsedRoads = 0;
+    private final List<ClassicIceworkAnchor> classicPenguinIceworks = new ArrayList<>();
+    private final List<ClassicIceworkSnowball> classicPenguinSnowballs = new ArrayList<>();
+    private final List<Platform> classicLastIceMeltPlatforms = new ArrayList<>();
+    private final boolean[] classicPenguinArchitectTargets = new boolean[3];
+    private int classicPenguinSiegeWaveIndex = 0;
+    private boolean classicPenguinArchitectExitOpen = false;
+    private boolean classicPenguinArchitectCompleted = false;
+    private int classicLastSunLastStocks = 3;
+    private int classicLastSunPhase = 0;
+    static final double LAST_ICE_MAIN_X = 1_000.0;
+    static final double LAST_ICE_MAIN_Y = GROUND_Y - 360.0;
+    static final double LAST_ICE_MAIN_W = 4_000.0;
+    static final double LAST_ICE_EXIT_X = 5_420.0;
     private boolean bossRushModeActive = false;
     private long bossRushRunStartMillis = 0L;
     private long bossRushBestClearMillis = Long.MAX_VALUE;
@@ -5028,7 +5043,10 @@ public class BirdGame3 {
         FALSE_DAWN("False Dawn", "Break the shadow cages and ring the three dawn bells to strip the Broodbreaker's eclipse armor."),
         REDLINE_SPLITS("Redline Splits", "Hold top speed through the fight to bank a Redline Bolt for the final battle."),
         REDLINE_RUN("Redline Run", "Race the canyon route before its collapsing road disappears behind you."),
-        FINAL_STILLNESS("Final Stillness", "Redline Bolts break the Still King's speed-dampening control field.");
+        FINAL_STILLNESS("Final Stillness", "Redline Bolts break the Still King's speed-dampening control field."),
+        ICEWORKS("Iceworks", "Build Snow Forts on glowing foundations to construct, claim, and repair the battlefield."),
+        ICE_ARCHITECT("Ice Architect", "Raise three launch ramps, strike every frozen target, then Belly Slide through the open gate."),
+        LAST_SUN("The Last Sun", "Rebuild the Last Ice Shelf as the Crown's artificial sun melts it stock by stock.");
 
         final String label;
         final String description;
@@ -5077,7 +5095,66 @@ public class BirdGame3 {
         REDLINE_MIRROR,
         REDLINE_PURSUIT,
         REDLINE_RUN,
-        STILL_KING_BOSS
+        STILL_KING_BOSS,
+        ICEWORKS_MIRROR,
+        ICEWORKS_SIEGE,
+        ICE_ARCHITECT,
+        LAST_SUN_BOSS
+    }
+
+    static final class ClassicIceworkAnchor {
+        final double x;
+        final double y;
+        final double platformX;
+        final double platformY;
+        final double platformWidth;
+        final double platformHeight;
+        final int maxHealth;
+        Platform platform;
+        int health;
+        int ownerTeam;
+        int damageCooldown;
+        int launchTimer;
+        boolean launchStarted;
+
+        ClassicIceworkAnchor(double x, double y, double platformX, double platformY,
+                             double platformWidth, double platformHeight, int maxHealth) {
+            this.x = x;
+            this.y = y;
+            this.platformX = platformX;
+            this.platformY = platformY;
+            this.platformWidth = platformWidth;
+            this.platformHeight = platformHeight;
+            this.maxHealth = Math.max(1, maxHealth);
+        }
+
+        boolean built() {
+            return platform != null && health > 0;
+        }
+    }
+
+    static final class ClassicIceworkSnowball {
+        final double startX;
+        final double startY;
+        final double targetX;
+        final double targetY;
+        final int targetIndex;
+        final int duration;
+        int age;
+        double x;
+        double y;
+
+        ClassicIceworkSnowball(double startX, double startY, double targetX, double targetY,
+                               int targetIndex, int duration) {
+            this.startX = startX;
+            this.startY = startY;
+            this.targetX = targetX;
+            this.targetY = targetY;
+            this.targetIndex = targetIndex;
+            this.duration = Math.max(1, duration);
+            this.x = startX;
+            this.y = startY;
+        }
     }
 
     static final class ClassicNectarRing {
@@ -8883,6 +8960,7 @@ public class BirdGame3 {
         if (variant == MapVariant.HARVEST_TRIBUNAL) return harvestTribunalUnlocked;
         if (variant == MapVariant.DAWNWATCH_BASTION) return dawnwatchBastionUnlocked;
         if (variant == MapVariant.REDLINE_CANYON) return redlineCanyonUnlocked;
+        if (variant == MapVariant.LAST_ICE_SHELF) return lastIceShelfUnlocked;
         return isMapUnlocked(variant.baseMap);
     }
 
@@ -13553,7 +13631,13 @@ public class BirdGame3 {
                 }
             }
             case DOCK -> drawDockArena(g, ambientFx);
-            case FROSTBITE_FJORD -> drawFrostbiteFjordArena(g, ambientFx);
+            case FROSTBITE_FJORD -> {
+                if (activeArenaGeometryVariant == MapVariant.LAST_ICE_SHELF) {
+                    drawLastIceShelfArena(g, ambientFx);
+                } else {
+                    drawFrostbiteFjordArena(g, ambientFx);
+                }
+            }
             case ASHFALL_CATHEDRAL -> {
                 if (activeArenaGeometryVariant == MapVariant.FROZEN_CALDERA) {
                     drawFrozenCalderaArena(g, ambientFx);
@@ -13704,6 +13788,7 @@ public class BirdGame3 {
         drawClassicTurkeyRouteFeatures(g);
         drawClassicRoosterRouteFeatures(g);
         drawClassicRoadrunnerRouteFeatures(g);
+        drawClassicPenguinRouteFeatures(g);
         drawUltimateReadyScreenDarken(g);
         drawCampaignObjectiveMarkers(g);
 
@@ -15253,6 +15338,71 @@ public class BirdGame3 {
             g.setStroke(Color.web("#FFFFFF", 0.18 + pulse * 0.18));
             g.setLineWidth(2.2);
             g.strokeOval(centerX - v.w * 0.34, v.y - 190, v.w * 0.68, 248);
+        }
+    }
+
+    private void drawLastIceShelfArena(GraphicsContext g, boolean ambientFx) {
+        double time = System.currentTimeMillis() / 1000.0;
+        for (int i = 0; i < 620; i++) {
+            double ratio = i / 620.0;
+            g.setFill(Color.web("#050C25").interpolate(Color.web("#2A6689"), ratio));
+            g.fillRect(0, i * (WORLD_HEIGHT / 620.0), WORLD_WIDTH, WORLD_HEIGHT / 620.0 + 3);
+        }
+        if (ambientFx) {
+            drawFrostbiteAurora(g, time * 0.74);
+        }
+        g.setFill(Color.web("#DDF9FF", 0.78));
+        g.fillOval(4_650, 130, 360, 360);
+        g.setFill(Color.web("#72F2E2", 0.12));
+        g.fillOval(4_520, 0, 620, 620);
+
+        g.setFill(Color.web("#173951", 0.72));
+        for (int i = 0; i < 9; i++) {
+            double x = -280 + i * 790.0;
+            double peak = LAST_ICE_MAIN_Y + 110 - (i % 3) * 170.0;
+            g.fillPolygon(new double[]{x, x + 330, x + 690},
+                    new double[]{LAST_ICE_MAIN_Y + 470, peak, LAST_ICE_MAIN_Y + 470}, 3);
+        }
+
+        double waterY = LAST_ICE_MAIN_Y + 260;
+        g.setFill(Color.web("#031B31", 0.96));
+        g.fillRect(0, waterY, WORLD_WIDTH, WORLD_HEIGHT - waterY);
+        g.setStroke(Color.web("#76DDEA", 0.24));
+        g.setLineWidth(3.0);
+        for (int i = 0; i < 17; i++) {
+            double waveY = waterY + 34 + i * 54.0;
+            double shift = ambientFx ? Math.sin(time * 0.85 + i * 0.62) * 42.0 : 0.0;
+            g.strokeLine(100 + shift, waveY, WORLD_WIDTH - 100 - shift * 0.25, waveY + 8);
+        }
+
+        // Every playable ledge grows from the same glacier. Wide tapered
+        // columns visually connect collision surfaces to the waterline.
+        for (Platform p : platforms) {
+            double center = p.x + p.w * 0.5;
+            double supportTop = p.y + p.h * 0.55;
+            double supportBottom = waterY + 520;
+            double shoulder = Math.max(54.0, Math.min(p.w * 0.34, 330.0));
+            g.setFill(new LinearGradient(0, supportTop, 0, supportBottom, false, CycleMethod.NO_CYCLE,
+                    new Stop(0, Color.web("#A9EAF4", 0.86)),
+                    new Stop(0.45, Color.web("#2C7894", 0.78)),
+                    new Stop(1, Color.web("#092B49", 0.60))));
+            g.fillPolygon(new double[]{p.x + 24, p.x + p.w - 24, center + shoulder, center - shoulder},
+                    new double[]{supportTop, supportTop, supportBottom, supportBottom}, 4);
+        }
+
+        for (Platform p : platforms) {
+            drawFrostbitePlatform(g, p);
+        }
+
+        g.setStroke(Color.web("#D9FFFF", 0.34));
+        g.setLineWidth(9.0);
+        for (WindVent vent : windVents) {
+            double pulse = ambientFx ? Math.sin(time * 2.1 + vent.x * 0.01) * 20.0 : 0.0;
+            for (int ring = 0; ring < 4; ring++) {
+                double w = 90 + ring * 58.0 + pulse;
+                g.strokeOval(vent.x + vent.w * 0.5 - w * 0.5,
+                        vent.y - 95 - ring * 70.0, w, 44 + ring * 14.0);
+            }
         }
     }
 
@@ -29899,6 +30049,7 @@ public class BirdGame3 {
         harvestTribunalUnlocked = true;
         dawnwatchBastionUnlocked = true;
         redlineCanyonUnlocked = true;
+        lastIceShelfUnlocked = true;
 
         cityPigeonUnlocked = true;
         noirPigeonUnlocked = true;
@@ -39727,6 +39878,9 @@ public class BirdGame3 {
         if (useAuthoredRoutes && playerType == BirdType.ROADRUNNER) {
             return buildRoadrunnerClassicRun();
         }
+        if (useAuthoredRoutes && playerType == BirdType.PENGUIN) {
+            return buildPenguinClassicRun();
+        }
         List<ClassicEncounter> run = new ArrayList<>();
         Set<MapType> usedMaps = new HashSet<>();
         Set<BirdType> usedBirds = new HashSet<>();
@@ -41077,6 +41231,101 @@ public class BirdGame3 {
         return run;
     }
 
+    private List<ClassicEncounter> buildPenguinClassicRun() {
+        List<ClassicEncounter> run = new ArrayList<>();
+
+        ClassicEncounter coldWater = new ClassicEncounter(
+                "Cold Water", "Fjord Watch",
+                "Goose and Razorbill test the first wall. Build the recovery shelves and hold the shore.",
+                MapType.FROSTBITE_FJORD, MapVariant.STANDARD, MatchMutator.NONE, ClassicTwist.ICEWORKS,
+                ClassicEncounterStyle.STANDARD, 110 * 60, new ClassicFighter[0],
+                new ClassicFighter[]{
+                        classicFighter(BirdType.GOOSE, "Shorebreaker: Goose", 104, 0.95, 1.00),
+                        classicFighter(BirdType.RAZORBILL, "Shorebreaker: Razorbill", 100, 0.94, 1.04)}, false);
+        coldWater.cpuLevel = 3;
+        run.add(coldWater);
+
+        ClassicEncounter heatRises = new ClassicEncounter(
+                "Heat Rises", "Rooftop Weatherline",
+                "Falcon and a Sunflare courier carry the thaw above the city. Raise a path between their dive lanes.",
+                MapType.CITY, MapVariant.STANDARD, MatchMutator.TURBO_BRAWL, ClassicTwist.ICEWORKS,
+                ClassicEncounterStyle.STANDARD, 110 * 60, new ClassicFighter[0],
+                new ClassicFighter[]{
+                        classicFighter(BirdType.FALCON, "Heatwing: Falcon", 112, 0.98, 1.08),
+                        classicFighter(BirdType.HUMMINGBIRD, "Sunflare Courier", 88, 0.90, 1.14,
+                                SUNFLARE_HUMMINGBIRD_SKIN)}, false);
+        heatRises.cpuLevel = 4;
+        run.add(heatRises);
+
+        ClassicEncounter icebreaker = new ClassicEncounter(
+                "The Icebreaker", "Titan Dock",
+                "A giant Ironclad Pelican blocks the harbor. Fortify its charge lanes and punish the opening.",
+                MapType.DOCK, MapVariant.TITAN_DOCK, MatchMutator.NONE, ClassicTwist.ICEWORKS,
+                ClassicEncounterStyle.GIANT, 118 * 60, new ClassicFighter[0],
+                new ClassicFighter[]{classicFighter(BirdType.PELICAN, "Giant Icebreaker: Ironclad Pelican",
+                        225, 1.08, 0.91, IRONCLAD_PELICAN_SKIN)}, false);
+        icebreaker.cpuLevel = 5;
+        run.add(icebreaker);
+
+        ClassicEncounter fireAtTheFjord = new ClassicEncounter(
+                "Fire at the Fjord", "Frozen Caldera",
+                "Phoenix and Rooster guard the Crown's furnace while the caldera cracks beneath them.",
+                MapType.ASHFALL_CATHEDRAL, MapVariant.FROZEN_CALDERA, MatchMutator.NONE,
+                ClassicTwist.ICEWORKS, ClassicEncounterStyle.STANDARD, 116 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{
+                        classicFighter(BirdType.PHOENIX, "Furnace Wing: Phoenix", 124, 1.00, 1.03),
+                        classicFighter(BirdType.ROOSTER, "Furnace Guard: Rooster", 120, 0.98, 1.00,
+                                SUNFORGE_ROOSTER_SKIN)}, false);
+        fireAtTheFjord.cpuLevel = 5;
+        run.add(fireAtTheFjord);
+
+        ClassicEncounter coldKing = new ClassicEncounter(
+                "The Cold King", "Crownlock Ice Cell",
+                "Mint Penguin offers perfect safety through permanent stillness. Break the rival fortress without surrendering your own.",
+                MapType.PRISON, MapVariant.STANDARD, MatchMutator.NONE, ClassicTwist.ICEWORKS,
+                ClassicEncounterStyle.ICEWORKS_MIRROR, 120 * 60, new ClassicFighter[0],
+                new ClassicFighter[]{classicFighter(BirdType.PENGUIN, "The Cold King", 175, 1.04, 1.02,
+                        MINT_PENGUIN_SKIN)}, false);
+        coldKing.cpuLevel = 6;
+        run.add(coldKing);
+
+        ClassicFighter raven = classicFighter(BirdType.RAVEN, "Gatebreaker: Raven", 126, 1.00, 1.05);
+        ClassicFighter vulture = classicFighter(BirdType.VULTURE, "Gatebreaker: Vulture", 132, 1.01, 1.00);
+        ClassicFighter heisenbird = classicFighter(BirdType.HEISENBIRD, "Furnace Keeper: Heisenbird", 136, 1.02, 0.98);
+        ClassicEncounter holdTheGate = new ClassicEncounter(
+                "Hold the Gate", "Beacon Iceworks",
+                "Fight beside Shoebill while three Crown enforcers breach the last constructed approach one at a time.",
+                MapType.BEACON_CROWN, MapVariant.STANDARD, MatchMutator.NONE, ClassicTwist.ICEWORKS,
+                ClassicEncounterStyle.ICEWORKS_SIEGE, 138 * 60,
+                new ClassicFighter[]{classicFighter(BirdType.SHOEBILL, "Ally: Fjord Shoebill", 128, 1.00, 1.02)},
+                new ClassicFighter[]{raven}, false)
+                .withWaves(new ClassicFighter[]{raven}, new ClassicFighter[]{vulture},
+                        new ClassicFighter[]{heisenbird});
+        holdTheGate.cpuLevel = 7;
+        run.add(holdTheGate);
+
+        ClassicEncounter iceArchitect = new ClassicEncounter(
+                "Bonus: Ice Architect", "Last Ice Workshop",
+                "Raise three launch ramps, strike every frozen target, then Belly Slide through the opened gate.",
+                MapType.FROSTBITE_FJORD, MapVariant.LAST_ICE_SHELF, MatchMutator.NONE,
+                ClassicTwist.ICE_ARCHITECT, ClassicEncounterStyle.ICE_ARCHITECT, 100 * 60,
+                new ClassicFighter[0], new ClassicFighter[0], false);
+        iceArchitect.cpuLevel = 1;
+        run.add(iceArchitect);
+
+        ClassicEncounter lastSun = new ClassicEncounter(
+                "The Last Sun", "Crown Solstice",
+                "Break all three lives of the Crown's artificial sun while rebuilding the shelf it melts beneath you.",
+                MapType.FROSTBITE_FJORD, MapVariant.LAST_ICE_SHELF, MatchMutator.NONE,
+                ClassicTwist.LAST_SUN, ClassicEncounterStyle.LAST_SUN_BOSS, 180 * 60,
+                new ClassicFighter[0],
+                new ClassicFighter[]{classicFighter(BirdType.PHOENIX, "Boss: The Last Sun", 245, 1.14, 1.04,
+                        ASHEN_SOVEREIGN_PHOENIX_SKIN)}, true);
+        lastSun.cpuLevel = 8;
+        run.add(lastSun);
+        return run;
+    }
+
     private List<ClassicEncounter> buildBossRushRun() {
         List<ClassicEncounter> run = new ArrayList<>();
 
@@ -41744,6 +41993,7 @@ public class BirdGame3 {
         if (type == BirdType.TURKEY) return "THE LAST FEAST";
         if (type == BirdType.ROOSTER) return "NO ONE LEFT BEHIND";
         if (type == BirdType.ROADRUNNER) return "NO FINISH LINE";
+        if (type == BirdType.PENGUIN) return "THE ICE HOLDS";
         return "TEMPORARY FLIGHT PLAN";
     }
 
@@ -41882,8 +42132,9 @@ public class BirdGame3 {
         boolean harvestTribunal = variant == MapVariant.HARVEST_TRIBUNAL;
         boolean dawnwatchBastion = variant == MapVariant.DAWNWATCH_BASTION;
         boolean redlineCanyon = variant == MapVariant.REDLINE_CANYON;
+        boolean lastIceShelf = variant == MapVariant.LAST_ICE_SHELF;
 
-        Color skyTop = redlineCanyon ? Color.web("#351448") : (heartbloom ? Color.web("#100725") : (frozenCaldera ? Color.web("#071328") : (tempestSummit ? Color.web("#070B20")
+        Color skyTop = lastIceShelf ? Color.web("#050C25") : (redlineCanyon ? Color.web("#351448") : (heartbloom ? Color.web("#100725") : (frozenCaldera ? Color.web("#071328") : (tempestSummit ? Color.web("#070B20")
                 : (peregrineRun ? Color.web("#12345C") : switch (map) {
             case CITY, BEACON_CROWN, PRISON -> Color.web("#100D35");
             case SKYCLIFFS -> Color.web("#234A78");
@@ -41894,8 +42145,8 @@ public class BirdGame3 {
             case DESERT -> Color.web("#D17A2D");
             case FOREST, VIBRANT_JUNGLE -> Color.web("#123E35");
             default -> Color.web("#17233D");
-        }))));
-        Color skyBottom = redlineCanyon ? Color.web("#F0773D") : (heartbloom ? Color.web("#C14B91") : (frozenCaldera ? Color.web("#6DA4C2") : (tempestSummit ? Color.web("#536D91")
+        })))));
+        Color skyBottom = lastIceShelf ? Color.web("#2A6689") : (redlineCanyon ? Color.web("#F0773D") : (heartbloom ? Color.web("#C14B91") : (frozenCaldera ? Color.web("#6DA4C2") : (tempestSummit ? Color.web("#536D91")
                 : (peregrineRun ? Color.web("#C8F3FF") : switch (map) {
             case CITY, BEACON_CROWN, PRISON -> Color.web("#291753");
             case SKYCLIFFS -> Color.web("#A7D8E8");
@@ -41906,7 +42157,7 @@ public class BirdGame3 {
             case DESERT -> Color.web("#F2C36E");
             case FOREST, VIBRANT_JUNGLE -> Color.web("#3C8B62");
             default -> Color.web("#42577A");
-        }))));
+        })))));
         g.setFill(new LinearGradient(0, 0, 0, height, false, CycleMethod.NO_CYCLE,
                 new Stop(0, skyTop), new Stop(1, skyBottom)));
         g.fillRect(0, 0, width, height);
@@ -41997,6 +42248,12 @@ public class BirdGame3 {
             g.setFill(frozenCaldera ? Color.web("#173957", 0.9) : Color.rgb(25, 10, 14, 0.9));
             g.fillPolygon(new double[]{40, 95, 150}, new double[]{height, 32, height}, 3);
             g.fillPolygon(new double[]{205, 270, 335}, new double[]{height, 24, height}, 3);
+        } else if (lastIceShelf) {
+            g.setFill(Color.web("#76DDEA", 0.22));
+            g.fillPolygon(new double[]{0, 70, 145, 225, 310, width},
+                    new double[]{height, 74, height, 42, height, height}, 6);
+            g.setFill(Color.web("#DDF9FF", 0.70));
+            g.fillOval(width - 92, 18, 58, 58);
         } else if (map == MapType.FROSTBITE_FJORD) {
             g.setFill(Color.web("#EAFBFF"));
             g.fillPolygon(new double[]{0, 75, 130, 195, 250, width},
@@ -42066,6 +42323,15 @@ public class BirdGame3 {
             drawClassicPreviewPlatform(g, 62, 94, 58, 9);
             drawClassicPreviewPlatform(g, 171, 72, 58, 9);
             drawClassicPreviewPlatform(g, 280, 94, 58, 9);
+        } else if (variant == MapVariant.LAST_ICE_SHELF) {
+            g.setStroke(Color.web("#D9FFFF"));
+            g.setFill(Color.web("#75CBE1"));
+            drawClassicPreviewPlatform(g, 55, 143, 290, 17);
+            drawClassicPreviewPlatform(g, 22, 157, 52, 10);
+            drawClassicPreviewPlatform(g, 326, 157, 52, 10);
+            drawClassicPreviewPlatform(g, 86, 106, 72, 10);
+            drawClassicPreviewPlatform(g, 164, 69, 72, 10);
+            drawClassicPreviewPlatform(g, 242, 106, 72, 10);
         } else if (variant == MapVariant.CROWN_DUEL || variant == MapVariant.NULL_ROCK_DUEL) {
             drawClassicPreviewPlatform(g, 82, 138, 205, 14);
             drawClassicPreviewPlatform(g, 150, 92, 72, 10);
@@ -42193,7 +42459,8 @@ public class BirdGame3 {
                 || classicEncounter.style == ClassicEncounterStyle.NECTAR_DASH
                 || classicEncounter.style == ClassicEncounterStyle.HARVEST_DEFENSE
                 || classicEncounter.style == ClassicEncounterStyle.DAWN_MUSTER
-                || classicEncounter.style == ClassicEncounterStyle.REDLINE_RUN;
+                || classicEncounter.style == ClassicEncounterStyle.REDLINE_RUN
+                || classicEncounter.style == ClassicEncounterStyle.ICE_ARCHITECT;
         Label round = new Label((routeBonus ? "BONUS " : "ROUND ")
                 + (classicRoundIndex + 1));
         round.setFont(Font.font("Arial Black", FontWeight.BOLD, 72));
@@ -42233,6 +42500,7 @@ public class BirdGame3 {
         boolean flowerGateEncounter = classicEncounter.style == ClassicEncounterStyle.NECTAR_DASH;
         boolean musterEncounter = classicEncounter.style == ClassicEncounterStyle.DAWN_MUSTER;
         boolean redlineRunEncounter = classicEncounter.style == ClassicEncounterStyle.REDLINE_RUN;
+        boolean iceArchitectEncounter = classicEncounter.style == ClassicEncounterStyle.ICE_ARCHITECT;
         int enemyCount = Math.max(1, enemies.length);
         double portraitSize = enemyCount >= 3 ? 215 : (enemyCount == 2 ? 310 : 430);
         HBox enemyLineup = new HBox(enemyCount >= 3 ? 14 : 20);
@@ -42256,7 +42524,8 @@ public class BirdGame3 {
                 enemyLineup.getChildren().add(flowerCourse);
             } else {
                 Label bonusTarget = new Label(musterEncounter ? "CALL  •  TOSS\nLIFT  •  RECALL"
-                        : (redlineRunEncounter ? "REDLINE\nRUN" : "BONUS\nTARGETS"));
+                        : (redlineRunEncounter ? "REDLINE\nRUN"
+                        : (iceArchitectEncounter ? "BUILD  •  LAUNCH\nBELLY SLIDE" : "BONUS\nTARGETS")));
                 bonusTarget.setFont(Font.font("Arial Black", 58));
                 bonusTarget.setTextFill(Color.WHITE);
                 bonusTarget.setTextAlignment(TextAlignment.CENTER);
@@ -42269,6 +42538,7 @@ public class BirdGame3 {
         String opponentNames = musterEncounter ? "THE GREAT MUSTER"
                 : flowerGateEncounter ? "FLOWER GATE COURSE"
                 : redlineRunEncounter ? "CANYON SPEED COURSE"
+                : iceArchitectEncounter ? "ICE ARCHITECT WORKSHOP"
                 : bonusTargetEncounter ? enemies.length + " BONUS TARGETS"
                 : authoredWaveCount > 0 ? authoredWaveCount + " WAVES"
                 : enemies.length == 0 ? "BONUS TARGETS" : Arrays.stream(enemies)
@@ -42466,7 +42736,8 @@ public class BirdGame3 {
                     || encounter.style == ClassicEncounterStyle.NECTAR_DASH
                     || encounter.style == ClassicEncounterStyle.HARVEST_DEFENSE
                     || encounter.style == ClassicEncounterStyle.DAWN_MUSTER
-                    || encounter.style == ClassicEncounterStyle.REDLINE_RUN;
+                    || encounter.style == ClassicEncounterStyle.REDLINE_RUN
+                    || encounter.style == ClassicEncounterStyle.ICE_ARCHITECT;
             int roundIndex = i;
             Button card = uiFactory.action(
                     (bonus ? "BONUS " : "ROUND ") + (i + 1) + "\n"
@@ -42858,7 +43129,9 @@ public class BirdGame3 {
                         && encounter.style != ClassicEncounterStyle.BROOD_RECRUITMENT
                         && encounter.style != ClassicEncounterStyle.DAWN_MUSTER
                         && encounter.style != ClassicEncounterStyle.BROODBREAKER_BOSS
-                        && classicSelectedBird != BirdType.ROADRUNNER);
+                        && encounter.style != ClassicEncounterStyle.LAST_SUN_BOSS
+                        && classicSelectedBird != BirdType.ROADRUNNER
+                        && classicSelectedBird != BirdType.PENGUIN);
                 if (enemy.skinKey != null) {
                     applyPreviewSkinChoiceToBird(enemyBird, enemy.type, enemy.skinKey);
                 }
@@ -42964,12 +43237,37 @@ public class BirdGame3 {
                 bird.health = Math.max(1.0, 250.0 * enemyHealthScale);
                 bird.setBaseMultipliers(1.78, 1.15 * enemyPowerScale, 0.86);
                 bird.setUltimateEnabled(false);
+            } else if (encounter.style == ClassicEncounterStyle.LAST_SUN_BOSS) {
+                bird.health = Math.max(1.0, 220.0 * enemyHealthScale);
+                // Size scaling already increases the giant Phoenix's damage,
+                // launch, and resistance. Keep its authored power neutral so
+                // the three-stock duel remains difficult without double-dipping.
+                bird.setBaseMultipliers(1.58, 1.00 * enemyPowerScale, 1.00);
+                bird.setUltimateEnabled(false);
             }
         }
     }
 
     private void positionClassicEncounterSpawns(ClassicEncounter encounter) {
         if (encounter == null) return;
+        if (encounter.style == ClassicEncounterStyle.ICE_ARCHITECT) {
+            Bird player = players[0];
+            if (player != null) {
+                positionClassicBirdOnSurface(player, 760.0, LAST_ICE_MAIN_Y + 155.0, true);
+            }
+            return;
+        }
+        if (encounter.style == ClassicEncounterStyle.LAST_SUN_BOSS) {
+            Bird player = players[0];
+            if (player != null) {
+                positionClassicBirdOnSurface(player, 1_650.0, LAST_ICE_MAIN_Y, true);
+            }
+            for (int slot = 1; slot < activePlayers; slot++) {
+                Bird boss = players[slot];
+                if (boss != null) positionClassicBirdOnSurface(boss, 4_350.0, LAST_ICE_MAIN_Y, false);
+            }
+            return;
+        }
         if (encounter.style == ClassicEncounterStyle.STILL_KING_BOSS) {
             Bird player = players[0];
             if (player != null) {
@@ -43132,6 +43430,7 @@ public class BirdGame3 {
         setupTurkeyClassicRoute(encounter);
         setupRoosterClassicRoute(encounter);
         setupRoadrunnerClassicRoute(encounter);
+        setupPenguinClassicRoute(encounter);
         if (bossRushModeActive) {
             applyBossRushEncounterArenaModifiers(encounter);
         }
@@ -43226,9 +43525,368 @@ public class BirdGame3 {
             case NECTAR_CHAIN, HUNDRED_FLOWER_DASH, BLIGHTWING_ECLIPSE,
                     FEAST_OR_FAMINE, HARVEST_WATCH, GREAT_HUNGER,
                     BROOD_MORALE, GREAT_MUSTER, FALSE_DAWN,
-                    REDLINE_SPLITS, REDLINE_RUN, FINAL_STILLNESS -> {
+                    REDLINE_SPLITS, REDLINE_RUN, FINAL_STILLNESS,
+                    ICEWORKS, ICE_ARCHITECT, LAST_SUN -> {
                 // These authored route mechanics own their deterministic arena
                 // setup and runtime; do not add generic item drops here.
+            }
+        }
+    }
+
+    private void setupPenguinClassicRoute(ClassicEncounter encounter) {
+        for (ClassicIceworkAnchor anchor : classicPenguinIceworks) {
+            if (anchor.platform != null) platforms.remove(anchor.platform);
+        }
+        classicPenguinIceworks.clear();
+        classicPenguinSnowballs.clear();
+        Arrays.fill(classicPenguinArchitectTargets, false);
+        classicPenguinSiegeWaveIndex = 0;
+        classicPenguinArchitectExitOpen = false;
+        classicPenguinArchitectCompleted = false;
+        classicLastSunLastStocks = 3;
+        classicLastSunPhase = 0;
+        if (!classicModeActive || bossRushModeActive || ashfallTrialModeActive
+                || classicSelectedBird != BirdType.PENGUIN || encounter == null) {
+            return;
+        }
+
+        double surfaceY = activeArenaGeometryVariant == MapVariant.LAST_ICE_SHELF
+                ? LAST_ICE_MAIN_Y
+                : (battlefieldIslandW > 0 ? battlefieldIslandY : GROUND_Y);
+        double[] anchorX = activeArenaGeometryVariant == MapVariant.LAST_ICE_SHELF
+                ? new double[]{1_650.0, 3_000.0, 4_350.0}
+                : new double[]{1_350.0, 3_000.0, 4_650.0};
+        for (int i = 0; i < anchorX.length; i++) {
+            double platformY = surfaceY - (i == 1 ? 355.0 : 255.0);
+            classicPenguinIceworks.add(new ClassicIceworkAnchor(
+                    anchorX[i], surfaceY, anchorX[i] - 285.0, platformY,
+                    570.0, 42.0, encounter.style == ClassicEncounterStyle.LAST_SUN_BOSS ? 74 : 62));
+        }
+
+        if (encounter.style == ClassicEncounterStyle.ICE_ARCHITECT) {
+            addToKillFeed("ICE ARCHITECT: build all three launch ramps, then Belly Slide through the gate.");
+        } else if (encounter.style == ClassicEncounterStyle.ICEWORKS_SIEGE) {
+            addToKillFeed("HOLD THE GATE: rebuild the iceworks between three one-bird assault waves.");
+        } else if (encounter.style == ClassicEncounterStyle.LAST_SUN_BOSS) {
+            addToKillFeed("THE LAST SUN: each lost stock melts another terrace. Your Iceworks can be rebuilt.");
+        } else {
+            addToKillFeed("ICEWORKS: use Snow Fort at a glowing foundation to build or repair a shelf.");
+        }
+    }
+
+    void applyPenguinClassicRuntimeEffects() {
+        if (!classicModeActive || classicEncounter == null || classicSelectedBird != BirdType.PENGUIN
+                || bossRushModeActive || ashfallTrialModeActive || matchEnded) {
+            return;
+        }
+        for (ClassicIceworkAnchor anchor : classicPenguinIceworks) {
+            if (anchor.damageCooldown > 0) anchor.damageCooldown--;
+            if (anchor.launchTimer > 0) anchor.launchTimer--;
+        }
+        claimPenguinIceworkSnowForts();
+
+        if (classicEncounter.style == ClassicEncounterStyle.ICEWORKS_MIRROR) {
+            autoClaimColdKingIcework();
+        } else if (classicEncounter.style == ClassicEncounterStyle.ICE_ARCHITECT) {
+            updatePenguinIceArchitect();
+        } else if (classicEncounter.style == ClassicEncounterStyle.LAST_SUN_BOSS) {
+            updatePenguinLastSun();
+        }
+    }
+
+    private void claimPenguinIceworkSnowForts() {
+        for (Bird bird : players) {
+            if (bird == null || bird.type != BirdType.PENGUIN || bird.penguinSnowFort == null
+                    || bird.penguinSnowFort.health <= 0) continue;
+            Bird.PenguinSnowFort fort = bird.penguinSnowFort;
+            ClassicIceworkAnchor nearest = null;
+            double nearestDistance = Double.MAX_VALUE;
+            for (ClassicIceworkAnchor anchor : classicPenguinIceworks) {
+                double dx = fort.x - anchor.x;
+                double dy = fort.y - anchor.y;
+                double distance = dx * dx + dy * dy;
+                if (Math.abs(dx) <= 230.0 && Math.abs(dy) <= 210.0 && distance < nearestDistance) {
+                    nearest = anchor;
+                    nearestDistance = distance;
+                }
+            }
+            if (nearest == null) continue;
+            int team = getEffectiveTeam(bird.playerIndex);
+            if (nearest.built() && nearest.ownerTeam != team) continue;
+
+            if (!nearest.built()) {
+                nearest.platform = new Platform(nearest.platformX, nearest.platformY,
+                        nearest.platformWidth, nearest.platformHeight);
+                nearest.platform.signText = team == 1 ? "REFUGE ICEWORK" : "COLD KING ICEWORK";
+                platforms.add(nearest.platform);
+                nearest.ownerTeam = team;
+                nearest.health = nearest.maxHealth;
+                addToKillFeed(team == 1 ? "ICEWORK RAISED." : "THE COLD KING CLAIMED AN ICEWORK.");
+            } else {
+                nearest.health = Math.min(nearest.maxHealth, nearest.health + 24);
+                addToKillFeed(team == 1 ? "ICEWORK REPAIRED." : "COLD KING ICEWORK RESTORED.");
+            }
+            nearest.damageCooldown = 8;
+            bird.penguinSnowFort = null;
+            bird.penguinSnowFortReuseTimer = Math.min(bird.penguinSnowFortReuseTimer, 18);
+            playManagedSfxVaried(swingClip, 0.34, team == 1 ? 1.24 : 0.82, 0.012);
+        }
+    }
+
+    private void autoClaimColdKingIcework() {
+        if (simTick % 240L != 90L) return;
+        Bird king = firstClassicEnemyWithStocks();
+        if (king == null || king.type != BirdType.PENGUIN) return;
+        for (int i = classicPenguinIceworks.size() - 1; i >= 0; i--) {
+            ClassicIceworkAnchor anchor = classicPenguinIceworks.get(i);
+            if (anchor.built()) continue;
+            king.penguinSnowFort = new Bird.PenguinSnowFort(anchor.x, anchor.y, -1, false);
+            break;
+        }
+    }
+
+    void damageClassicPenguinIcework(Bird attacker, double attackCenterX, double attackCenterY,
+                                     double range, double verticalRange, int damage) {
+        if (!classicModeActive || classicSelectedBird != BirdType.PENGUIN || attacker == null
+                || classicPenguinIceworks.isEmpty() || damage <= 0) return;
+        int attackingTeam = getEffectiveTeam(attacker.playerIndex);
+        for (ClassicIceworkAnchor anchor : classicPenguinIceworks) {
+            if (!anchor.built() || anchor.ownerTeam == attackingTeam || anchor.damageCooldown > 0) continue;
+            double centerX = anchor.platform.x + anchor.platform.w * 0.5;
+            double centerY = anchor.platform.y + anchor.platform.h * 0.5;
+            if (Math.abs(centerX - attackCenterX) > anchor.platform.w * 0.5 + range
+                    || Math.abs(centerY - attackCenterY) > anchor.platform.h * 0.5 + verticalRange) continue;
+            anchor.health = Math.max(0, anchor.health - Math.max(1, damage));
+            anchor.damageCooldown = 5;
+            if (anchor.health == 0) {
+                platforms.remove(anchor.platform);
+                anchor.platform = null;
+                anchor.ownerTeam = 0;
+                addToKillFeed("ICEWORK SHATTERED — its foundation can be reclaimed.");
+                shakeIntensity = Math.max(shakeIntensity, 9.0);
+            }
+        }
+    }
+
+    private void updatePenguinIceArchitect() {
+        Bird player = players[0];
+        if (!isPenguinClassicPlayerActive(player)) return;
+        double[][] targets = penguinArchitectTargetPositions();
+        for (int i = 0; i < classicPenguinIceworks.size(); i++) {
+            ClassicIceworkAnchor anchor = classicPenguinIceworks.get(i);
+            if (!anchor.built() || anchor.ownerTeam != 1 || anchor.launchStarted) continue;
+            anchor.launchStarted = true;
+            anchor.launchTimer = 18;
+        }
+        for (int i = 0; i < classicPenguinIceworks.size(); i++) {
+            final int targetIndex = i;
+            ClassicIceworkAnchor anchor = classicPenguinIceworks.get(i);
+            if (!anchor.launchStarted || anchor.launchTimer != 0 || classicPenguinArchitectTargets[i]
+                    || classicPenguinSnowballs.stream().anyMatch(snowball -> snowball.targetIndex == targetIndex)) continue;
+            classicPenguinSnowballs.add(new ClassicIceworkSnowball(
+                    anchor.platformX + anchor.platformWidth * 0.5, anchor.platformY - 22.0,
+                    targets[i][0], targets[i][1], i, 72));
+        }
+        Iterator<ClassicIceworkSnowball> iterator = classicPenguinSnowballs.iterator();
+        while (iterator.hasNext()) {
+            ClassicIceworkSnowball snowball = iterator.next();
+            snowball.age++;
+            double t = Math.clamp(snowball.age / (double) snowball.duration, 0.0, 1.0);
+            snowball.x = snowball.startX + (snowball.targetX - snowball.startX) * t;
+            snowball.y = snowball.startY + (snowball.targetY - snowball.startY) * t
+                    - Math.sin(t * Math.PI) * 390.0;
+            if (snowball.age < snowball.duration) continue;
+            classicPenguinArchitectTargets[snowball.targetIndex] = true;
+            classicRunScore += 800;
+            playClassicNectarRingSfx(snowball.targetIndex + 1, classicPenguinArchitectTargets.length);
+            addToKillFeed("FROZEN TARGET " + (snowball.targetIndex + 1) + "/3 SHATTERED.");
+            iterator.remove();
+        }
+        if (!classicPenguinArchitectExitOpen) {
+            classicPenguinArchitectExitOpen = true;
+            for (boolean target : classicPenguinArchitectTargets) {
+                if (!target) classicPenguinArchitectExitOpen = false;
+            }
+            if (classicPenguinArchitectExitOpen) {
+                classicRunScore += 1_500;
+                addToKillFeed("THE REFUGE GATE IS OPEN — BELLY SLIDE THROUGH IT!");
+            }
+        }
+        if (player.bodyCenterY() > GROUND_Y + 180.0) {
+            positionClassicBirdOnSurface(player, 760.0, LAST_ICE_MAIN_Y + 155.0, true);
+        }
+        if (classicPenguinArchitectExitOpen && player.penguinBellySlideTimer > 0
+                && player.bodyCenterX() >= LAST_ICE_EXIT_X && !classicPenguinArchitectCompleted) {
+            classicPenguinArchitectCompleted = true;
+            classicBonusCoins += 50;
+            classicRunScore += 4_000;
+            addToKillFeed("ICE ARCHITECT COMPLETE! The last shelter route is open.");
+            matchController.triggerMatchEnd(player);
+        }
+        if (matchTimer <= 0 && !classicPenguinArchitectCompleted) {
+            matchController.triggerMatchEnd(null);
+        }
+    }
+
+    private double[][] penguinArchitectTargetPositions() {
+        return new double[][]{
+                {1_650.0, LAST_ICE_MAIN_Y - 900.0},
+                {3_000.0, LAST_ICE_MAIN_Y - 1_160.0},
+                {4_350.0, LAST_ICE_MAIN_Y - 900.0}
+        };
+    }
+
+    private void updatePenguinLastSun() {
+        Bird boss = firstClassicEnemyWithStocks();
+        if (boss == null || boss.type != BirdType.PHOENIX) return;
+        int stocks = Math.max(0, matchScoreForPlayer(boss.playerIndex));
+        if (stocks < classicLastSunLastStocks) {
+            classicLastSunLastStocks = stocks;
+            Bird player = players[0];
+            if (player != null && playerHasStocksRemaining(0)) {
+                player.heal(36.0);
+                addToKillFeed("REFUGE HEARTH: 36% repaired before the next melt phase.");
+            }
+            int targetPhase = Math.clamp(3 - stocks, 0, 2);
+            while (classicLastSunPhase < targetPhase) {
+                int offset = classicLastSunPhase * 2;
+                for (int i = offset; i < Math.min(offset + 2, classicLastIceMeltPlatforms.size()); i++) {
+                    platforms.remove(classicLastIceMeltPlatforms.get(i));
+                }
+                classicLastSunPhase++;
+                boss.setBaseMultipliers(boss.baseSizeMultiplier,
+                        boss.basePowerMultiplier * 1.045, boss.baseSpeedMultiplier * 1.025);
+                addToKillFeed(classicLastSunPhase == 1
+                        ? "THE LAST SUN MELTS THE HIGH ARCHES."
+                        : "THE LAST SUN MELTS THE OUTER TOWERS — REBUILD YOUR PATH.");
+                shakeIntensity = Math.max(shakeIntensity, 22.0);
+            }
+        }
+        if (simTick % 150L == 0L) {
+            for (ClassicIceworkAnchor anchor : classicPenguinIceworks) {
+                if (!anchor.built()) continue;
+                anchor.health = Math.max(0, anchor.health - 7 - classicLastSunPhase * 2);
+                if (anchor.health == 0) {
+                    platforms.remove(anchor.platform);
+                    anchor.platform = null;
+                    anchor.ownerTeam = 0;
+                }
+            }
+        }
+    }
+
+    boolean holdClassicPenguinEncounterOpen() {
+        if (!classicModeActive || classicEncounter == null || classicSelectedBird != BirdType.PENGUIN
+                || bossRushModeActive || ashfallTrialModeActive || matchEnded
+                || !isPenguinClassicPlayerActive(players[0])) {
+            return false;
+        }
+        if (classicEncounter.style == ClassicEncounterStyle.ICE_ARCHITECT) {
+            return !classicPenguinArchitectCompleted;
+        }
+        if (classicEncounter.style != ClassicEncounterStyle.ICEWORKS_SIEGE
+                || classicEncounter.waves == null || classicEncounter.waves.length == 0
+                || classicEnemyTeamHasStocks()) {
+            return false;
+        }
+        if (classicPenguinSiegeWaveIndex + 1 >= classicEncounter.waves.length) return false;
+        classicPenguinSiegeWaveIndex++;
+        Bird player = players[0];
+        if (player != null) player.heal(22.0);
+        spawnPenguinClassicSiegeWave(classicEncounter.waves[classicPenguinSiegeWaveIndex]);
+        return true;
+    }
+
+    private boolean isPenguinClassicPlayerActive(Bird player) {
+        if (player == null) return false;
+        return usesSmashCombatRules() ? playerHasStocksRemaining(0) : player.health > 0.0;
+    }
+
+    private void spawnPenguinClassicSiegeWave(ClassicFighter[] wave) {
+        if (wave == null || wave.length == 0 || classicEncounter == null) return;
+        for (int slot = 1; slot < MAX_COMBATANTS; slot++) {
+            if (players[slot] != null && getEffectiveTeam(slot) == 2) {
+                players[slot] = null;
+                isAI[slot] = false;
+                scores[slot] = 0;
+                classicCpuLevels[slot] = 0;
+            }
+        }
+        double difficultyDelta = classicDifficulty - CLASSIC_STARTING_DIFFICULTY;
+        int spawned = 0;
+        for (ClassicFighter fighter : wave) {
+            int slot = 1;
+            while (slot < MAX_COMBATANTS && players[slot] != null) slot++;
+            if (slot >= MAX_COMBATANTS) break;
+            Bird enemy = createStoryBird(0.0, fighter.type, slot, fighter.title,
+                    fighter.health * (1.0 + difficultyDelta * 0.045),
+                    fighter.powerMult * (1.0 + difficultyDelta * 0.015), fighter.speedMult, true);
+            if (fighter.skinKey != null) applyPreviewSkinChoiceToBird(enemy, fighter.type, fighter.skinKey);
+            enemy.setUltimateEnabled(false);
+            classicTeams[slot] = 2;
+            classicCpuLevels[slot] = resolvedClassicFighterCpuLevel(fighter, classicEncounter);
+            scores[slot] = 1;
+            positionClassicBirdOnSurface(enemy, 4_550.0 + spawned * 380.0, battlefieldIslandY, false);
+            activePlayers = Math.max(activePlayers, slot + 1);
+            spawned++;
+        }
+        addToKillFeed("GATEBREAKER WAVE " + (classicPenguinSiegeWaveIndex + 1)
+                + "/" + classicEncounter.waves.length + " ENTERS.");
+    }
+
+    private void drawClassicPenguinRouteFeatures(GraphicsContext g) {
+        if (!classicModeActive || classicEncounter == null || classicSelectedBird != BirdType.PENGUIN) return;
+        double pulse = 0.55 + 0.25 * Math.sin(simTick * 0.08);
+        for (ClassicIceworkAnchor anchor : classicPenguinIceworks) {
+            Color teamColor = anchor.ownerTeam == 2 ? Color.web("#B388FF") : Color.web("#80DEEA");
+            g.setFill(teamColor.deriveColor(0, 1, 1, anchor.built() ? 0.12 : 0.16 + pulse * 0.18));
+            g.fillOval(anchor.x - 94.0, anchor.y - 34.0, 188.0, 68.0);
+            g.setStroke(teamColor.deriveColor(0, 1, 1, 0.58 + pulse * 0.24));
+            g.setLineWidth(anchor.built() ? 5.0 : 8.0);
+            g.strokeOval(anchor.x - 94.0, anchor.y - 34.0, 188.0, 68.0);
+            if (anchor.built()) {
+                double ratio = anchor.health / (double) anchor.maxHealth;
+                g.setFill(Color.web("#07131F", 0.84));
+                g.fillRoundRect(anchor.platformX, anchor.platformY - 30.0, anchor.platformWidth, 16.0, 8, 8);
+                g.setFill(teamColor);
+                g.fillRoundRect(anchor.platformX + 2.0, anchor.platformY - 28.0,
+                        Math.max(0.0, (anchor.platformWidth - 4.0) * ratio), 12.0, 7, 7);
+            }
+        }
+        if (classicEncounter.style == ClassicEncounterStyle.ICE_ARCHITECT) {
+            double[][] targets = penguinArchitectTargetPositions();
+            for (int i = 0; i < targets.length; i++) {
+                g.setFill(classicPenguinArchitectTargets[i]
+                        ? Color.web("#80DEEA", 0.22) : Color.web("#E1F5FE", 0.76));
+                g.fillOval(targets[i][0] - 54, targets[i][1] - 54, 108, 108);
+                g.setStroke(Color.web("#4DD0E1", 0.82));
+                g.setLineWidth(7);
+                g.strokeOval(targets[i][0] - 62, targets[i][1] - 62, 124, 124);
+            }
+            for (ClassicIceworkSnowball snowball : classicPenguinSnowballs) {
+                g.setFill(Color.WHITE);
+                g.fillOval(snowball.x - 27, snowball.y - 27, 54, 54);
+                g.setStroke(Color.web("#80DEEA"));
+                g.setLineWidth(5);
+                g.strokeOval(snowball.x - 27, snowball.y - 27, 54, 54);
+            }
+            g.setFill(classicPenguinArchitectExitOpen ? Color.web("#69F0AE", 0.48) : Color.web("#EF5350", 0.48));
+            g.fillRect(LAST_ICE_EXIT_X, LAST_ICE_MAIN_Y - 390.0, 48.0, 545.0);
+            g.setStroke(Color.WHITE);
+            g.setLineWidth(7);
+            g.strokeRect(LAST_ICE_EXIT_X - 36.0, LAST_ICE_MAIN_Y - 410.0, 120.0, 565.0);
+        }
+        if (classicEncounter.style == ClassicEncounterStyle.LAST_SUN_BOSS) {
+            Bird boss = firstClassicEnemyWithStocks();
+            if (boss != null) {
+                double radius = 250.0 + classicLastSunPhase * 65.0 + pulse * 24.0;
+                g.setFill(Color.web("#FFE082", 0.14 + classicLastSunPhase * 0.05));
+                g.fillOval(boss.bodyCenterX() - radius, boss.bodyCenterY() - radius,
+                        radius * 2.0, radius * 2.0);
+                g.setStroke(Color.web("#FFF59D", 0.72));
+                g.setLineWidth(12.0);
+                g.strokeOval(boss.bodyCenterX() - radius, boss.bodyCenterY() - radius,
+                        radius * 2.0, radius * 2.0);
             }
         }
     }
@@ -45208,6 +45866,43 @@ public class BirdGame3 {
         }
     }
 
+    private void setupLastIceShelfArena() {
+        resetBossRushArenaState();
+        activeArenaGeometryVariant = MapVariant.LAST_ICE_SHELF;
+        classicLastIceMeltPlatforms.clear();
+
+        Platform mainShelf = new Platform(LAST_ICE_MAIN_X, LAST_ICE_MAIN_Y, LAST_ICE_MAIN_W, 112.0);
+        mainShelf.signText = "THE LAST ICE SHELF";
+        platforms.add(mainShelf);
+
+        // Paired with glacier columns in the renderer, these shelves read as
+        // one carved fortress instead of unrelated floating platforms.
+        Platform west = new Platform(520.0, LAST_ICE_MAIN_Y + 155.0, 760.0, 56.0);
+        Platform east = new Platform(4_720.0, LAST_ICE_MAIN_Y + 155.0, 760.0, 56.0);
+        Platform westTower = new Platform(1_260.0, LAST_ICE_MAIN_Y - 360.0, 820.0, 48.0);
+        Platform crown = new Platform(2_470.0, LAST_ICE_MAIN_Y - 650.0, 1_060.0, 52.0);
+        Platform eastTower = new Platform(3_920.0, LAST_ICE_MAIN_Y - 360.0, 820.0, 48.0);
+        Platform westArch = new Platform(1_920.0, LAST_ICE_MAIN_Y - 890.0, 520.0, 42.0);
+        Platform eastArch = new Platform(3_560.0, LAST_ICE_MAIN_Y - 890.0, 520.0, 42.0);
+        platforms.add(west);
+        platforms.add(east);
+        platforms.add(westTower);
+        platforms.add(crown);
+        platforms.add(eastTower);
+        platforms.add(westArch);
+        platforms.add(eastArch);
+        classicLastIceMeltPlatforms.add(westArch);
+        classicLastIceMeltPlatforms.add(eastArch);
+        classicLastIceMeltPlatforms.add(westTower);
+        classicLastIceMeltPlatforms.add(eastTower);
+
+        battlefieldIslandX = LAST_ICE_MAIN_X;
+        battlefieldIslandW = LAST_ICE_MAIN_W;
+        battlefieldIslandY = LAST_ICE_MAIN_Y;
+        windVents.add(new WindVent(650.0, LAST_ICE_MAIN_Y + 130.0, 280.0));
+        windVents.add(new WindVent(5_070.0, LAST_ICE_MAIN_Y + 130.0, 280.0));
+    }
+
     private void setupRedlineCanyonArena() {
         resetBossRushArenaState();
         activeArenaGeometryVariant = MapVariant.REDLINE_CANYON;
@@ -46040,7 +46735,8 @@ public class BirdGame3 {
                 || classicEncounter.style == ClassicEncounterStyle.NECTAR_DASH
                 || classicEncounter.style == ClassicEncounterStyle.HARVEST_DEFENSE
                 || classicEncounter.style == ClassicEncounterStyle.DAWN_MUSTER
-                || classicEncounter.style == ClassicEncounterStyle.REDLINE_RUN) {
+                || classicEncounter.style == ClassicEncounterStyle.REDLINE_RUN
+                || classicEncounter.style == ClassicEncounterStyle.ICE_ARCHITECT) {
             recordClassicEncounterScore(playerWon);
             classicRoundIndex++;
             classicEncounter = classicRun.get(classicRoundIndex);
@@ -46080,6 +46776,8 @@ public class BirdGame3 {
                 dawnwatchBastionUnlocked = true;
             } else if (classicSelectedBird == BirdType.ROADRUNNER) {
                 redlineCanyonUnlocked = true;
+            } else if (classicSelectedBird == BirdType.PENGUIN) {
+                lastIceShelfUnlocked = true;
             }
             profileProgressController.onClassicRunCompleted(classicSelectedBird, achievementEvaluator::onClassicRunCompleted);
             ClassicEndingContent.Ending authoredEnding = ClassicEndingContent.endingFor(classicSelectedBird);
@@ -46157,6 +46855,7 @@ public class BirdGame3 {
             case TURKEY -> "Harvest Tribunal";
             case ROOSTER -> "Dawnwatch Bastion";
             case ROADRUNNER -> "Redline Canyon";
+            case PENGUIN -> "Last Ice Shelf";
             default -> "";
         };
     }
@@ -48826,6 +49525,7 @@ public class BirdGame3 {
         return classicEncounter.style != ClassicEncounterStyle.BONUS_RELAY
                 && classicEncounter.style != ClassicEncounterStyle.NECTAR_DASH
                 && classicEncounter.style != ClassicEncounterStyle.REDLINE_RUN
+                && classicEncounter.style != ClassicEncounterStyle.ICE_ARCHITECT
                 && classicEncounter.style != ClassicEncounterStyle.NULL_ROCK_BOSS;
     }
 
@@ -48861,14 +49561,23 @@ public class BirdGame3 {
         if (!classicModeActive || classicEncounter == null) {
             return;
         }
+        if (classicSelectedBird == BirdType.PENGUIN
+                && classicEncounter.style != ClassicEncounterStyle.ICE_ARCHITECT) {
+            // The Iceworks route is built around holding and rebuilding a
+            // position. Two stocks keep its 2-on-1 and wave battles from ending
+            // before that mechanic can matter; the three-life finale mirrors
+            // The Last Sun's full stock structure.
+            scores[0] = classicEncounter.style == ClassicEncounterStyle.LAST_SUN_BOSS ? 3 : 2;
+        }
         if (classicSelectedBird == BirdType.ROADRUNNER
                 && classicRoundIndex == 0
                 && classicEncounter.style == ClassicEncounterStyle.MINIATURE_FLOCK) {
             scores[0] = 2;
         }
         int enemyStocks = switch (classicEncounter.style) {
-            case STORM_TYRANT_BOSS, PHOENIX_REBIRTH, BLIGHTWING_BOSS -> 2;
-            case NULL_ROC_BOSS, LONG_WINTER_BOSS, DEVOURER_BOSS, BROODBREAKER_BOSS, STILL_KING_BOSS -> 3;
+            case STORM_TYRANT_BOSS, PHOENIX_REBIRTH, BLIGHTWING_BOSS, ICEWORKS_MIRROR -> 2;
+            case NULL_ROC_BOSS, LONG_WINTER_BOSS, DEVOURER_BOSS, BROODBREAKER_BOSS,
+                    STILL_KING_BOSS, LAST_SUN_BOSS -> 3;
             default -> 0;
         };
         if (enemyStocks <= 0) return;
@@ -49003,6 +49712,7 @@ public class BirdGame3 {
             applyTurkeyClassicRuntimeEffects();
             applyRoosterClassicRuntimeEffects();
             applyRoadrunnerClassicRuntimeEffects();
+            applyPenguinClassicRuntimeEffects();
         }
         if (bossRushModeActive && classicModeActive) {
             applyBossRushRuntimeEffects();
@@ -51788,6 +52498,9 @@ public class BirdGame3 {
         if (activeArenaGeometryVariant == MapVariant.REDLINE_CANYON) {
             return 600.0;
         }
+        if (activeArenaGeometryVariant == MapVariant.LAST_ICE_SHELF) {
+            return 850.0;
+        }
         if (activeArenaGeometryVariant == MapVariant.VOID_CROWN) {
             return 1600.0;
         }
@@ -52319,6 +53032,7 @@ public class BirdGame3 {
             case HARVEST_TRIBUNAL -> setupHarvestTribunalArena();
             case DAWNWATCH_BASTION -> setupDawnwatchBastionArena();
             case REDLINE_CANYON -> setupRedlineCanyonArena();
+            case LAST_ICE_SHELF -> setupLastIceShelfArena();
             case CARRION_THRONE -> setupBossRushCarrionThrone();
             case NULL_ROC_ASCENDING -> setupBossRushNullRocArena();
             case VOID_CROWN -> setupBossRushVoidCrownArena();
@@ -53791,6 +54505,24 @@ public class BirdGame3 {
                 lines.add("REDLINE " + meter + "%  BOLTS " + classicRoadrunnerBoltCount() + "/7"
                         + (classicEncounter.style == ClassicEncounterStyle.STILL_KING_BOSS
                         ? "  CONTROL FIELD " + Math.max(0, 3 - classicRoadrunnerBoltCount() / 2) + "/3" : ""));
+            }
+            if (classicSelectedBird == BirdType.PENGUIN) {
+                int built = 0;
+                for (ClassicIceworkAnchor anchor : classicPenguinIceworks) if (anchor.built()) built++;
+                if (classicEncounter.style == ClassicEncounterStyle.ICE_ARCHITECT) {
+                    int targets = 0;
+                    for (boolean target : classicPenguinArchitectTargets) if (target) targets++;
+                    lines.add("ICEWORKS " + built + "/3  TARGETS " + targets + "/3"
+                            + (classicPenguinArchitectExitOpen ? "  GATE OPEN" : ""));
+                } else if (classicEncounter.style == ClassicEncounterStyle.ICEWORKS_SIEGE) {
+                    int waveCount = classicEncounter.waves == null ? 1 : classicEncounter.waves.length;
+                    lines.add("ICEWORKS " + built + "/3  ASSAULT "
+                            + Math.min(waveCount, classicPenguinSiegeWaveIndex + 1) + "/" + waveCount);
+                } else {
+                    lines.add("ICEWORKS " + built + "/3"
+                            + (classicEncounter.style == ClassicEncounterStyle.LAST_SUN_BOSS
+                            ? "  MELT PHASE " + classicLastSunPhase + "/2" : ""));
+                }
             }
             return lines;
         }
@@ -56707,6 +57439,7 @@ public class BirdGame3 {
         state.harvestTribunalUnlocked = harvestTribunalUnlocked;
         state.dawnwatchBastionUnlocked = dawnwatchBastionUnlocked;
         state.redlineCanyonUnlocked = redlineCanyonUnlocked;
+        state.lastIceShelfUnlocked = lastIceShelfUnlocked;
         state.towerDefenseDifficultyBadges = copyBooleanMatrix(towerDefenseDifficultyBadges);
         state.cityPigeonUnlocked = cityPigeonUnlocked;
         state.noirPigeonUnlocked = noirPigeonUnlocked;
@@ -56853,6 +57586,7 @@ public class BirdGame3 {
         harvestTribunalUnlocked = resolved.harvestTribunalUnlocked;
         dawnwatchBastionUnlocked = resolved.dawnwatchBastionUnlocked;
         redlineCanyonUnlocked = resolved.redlineCanyonUnlocked;
+        lastIceShelfUnlocked = resolved.lastIceShelfUnlocked;
         copyInto(resolved.towerDefenseDifficultyBadges, towerDefenseDifficultyBadges);
 
         cityPigeonUnlocked = resolved.cityPigeonUnlocked;
@@ -57013,6 +57747,9 @@ public class BirdGame3 {
         }
         if (classicCompleted[BirdType.ROADRUNNER.ordinal()]) {
             redlineCanyonUnlocked = true;
+        }
+        if (classicCompleted[BirdType.PENGUIN.ordinal()]) {
+            lastIceShelfUnlocked = true;
         }
         boolean unitedFinaleCompleted = unitedIdx >= 0
                 && unitedIdx < mainAdventureCompleted.length

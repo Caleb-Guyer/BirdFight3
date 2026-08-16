@@ -10,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ClassicEndingContentTest {
     @Test
-    void allEightAuthoredRoutesHaveUniqueMovingPictureMonologues() {
+    void allNineAuthoredRoutesHaveUniqueMovingPictureMonologues() {
         List<ClassicEndingContent.Ending> endings = ClassicEndingContent.endings();
 
         assertEquals(List.of(
@@ -21,11 +21,12 @@ class ClassicEndingContentTest {
                         BirdGame3.BirdType.HUMMINGBIRD,
                         BirdGame3.BirdType.TURKEY,
                         BirdGame3.BirdType.ROOSTER,
-                        BirdGame3.BirdType.ROADRUNNER),
+                        BirdGame3.BirdType.ROADRUNNER,
+                        BirdGame3.BirdType.PENGUIN),
                 endings.stream().map(ClassicEndingContent.Ending::bird).toList());
-        assertEquals(8, new HashSet<>(endings.stream().map(ClassicEndingContent.Ending::title).toList()).size());
-        assertEquals(8, new HashSet<>(endings.stream().map(ClassicEndingContent.Ending::crownChoice).toList()).size());
-        assertEquals(8, new HashSet<>(endings.stream().map(ending -> ending.cinematic().id()).toList()).size());
+        assertEquals(9, new HashSet<>(endings.stream().map(ClassicEndingContent.Ending::title).toList()).size());
+        assertEquals(9, new HashSet<>(endings.stream().map(ClassicEndingContent.Ending::crownChoice).toList()).size());
+        assertEquals(9, new HashSet<>(endings.stream().map(ending -> ending.cinematic().id()).toList()).size());
 
         for (ClassicEndingContent.Ending ending : endings) {
             ClassicEndingContent.Cinematic cinematic = ending.cinematic();
@@ -89,5 +90,9 @@ class ClassicEndingContentTest {
         assertTrue(game.isClassicEndingUnlocked(BirdGame3.BirdType.ROADRUNNER));
         assertTrue(ClassicEndingContent.isContinuousPanorama(
                 ClassicEndingContent.endingFor(BirdGame3.BirdType.ROADRUNNER).cinematic()));
+        game.setClassicCompleted(BirdGame3.BirdType.PENGUIN);
+        assertTrue(game.isClassicEndingUnlocked(BirdGame3.BirdType.PENGUIN));
+        assertTrue(ClassicEndingContent.isSubglacialMontage(
+                ClassicEndingContent.endingFor(BirdGame3.BirdType.PENGUIN).cinematic()));
     }
 }

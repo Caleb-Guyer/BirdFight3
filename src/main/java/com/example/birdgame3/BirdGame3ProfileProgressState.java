@@ -46,6 +46,7 @@ final class BirdGame3ProfileProgressState {
     private static final String KEY_HARVEST_TRIBUNAL_UNLOCKED = "map_variant_harvest_tribunal_unlocked";
     private static final String KEY_DAWNWATCH_BASTION_UNLOCKED = "map_variant_dawnwatch_bastion_unlocked";
     private static final String KEY_REDLINE_CANYON_UNLOCKED = "map_variant_redline_canyon_unlocked";
+    private static final String KEY_LAST_ICE_SHELF_UNLOCKED = "map_variant_last_ice_shelf_unlocked";
 
     int achievementSchemaVersion = 0;
     BirdGame3AchievementProfile achievementProfile = new BirdGame3AchievementProfile();
@@ -65,6 +66,7 @@ final class BirdGame3ProfileProgressState {
     boolean harvestTribunalUnlocked = false;
     boolean dawnwatchBastionUnlocked = false;
     boolean redlineCanyonUnlocked = false;
+    boolean lastIceShelfUnlocked = false;
     boolean[][] towerDefenseDifficultyBadges =
             new boolean[BirdGame3.MapType.values().length][TowerDefenseMode.Difficulty.values().length];
     boolean cityPigeonUnlocked = true;
@@ -172,6 +174,7 @@ final class BirdGame3ProfileProgressState {
         state.harvestTribunalUnlocked = prefs.getBoolean(KEY_HARVEST_TRIBUNAL_UNLOCKED, false);
         state.dawnwatchBastionUnlocked = prefs.getBoolean(KEY_DAWNWATCH_BASTION_UNLOCKED, false);
         state.redlineCanyonUnlocked = prefs.getBoolean(KEY_REDLINE_CANYON_UNLOCKED, false);
+        state.lastIceShelfUnlocked = prefs.getBoolean(KEY_LAST_ICE_SHELF_UNLOCKED, false);
         loadTowerDefenseBadges(prefs, state);
         loadSkinUnlocks(prefs, state);
         loadCharacterUnlocks(prefs, state);
@@ -214,6 +217,7 @@ final class BirdGame3ProfileProgressState {
         prefs.putBoolean(KEY_HARVEST_TRIBUNAL_UNLOCKED, harvestTribunalUnlocked);
         prefs.putBoolean(KEY_DAWNWATCH_BASTION_UNLOCKED, dawnwatchBastionUnlocked);
         prefs.putBoolean(KEY_REDLINE_CANYON_UNLOCKED, redlineCanyonUnlocked);
+        prefs.putBoolean(KEY_LAST_ICE_SHELF_UNLOCKED, lastIceShelfUnlocked);
         saveTowerDefenseBadges(prefs);
         saveSkinUnlocks(prefs);
         saveCharacterUnlocks(prefs);

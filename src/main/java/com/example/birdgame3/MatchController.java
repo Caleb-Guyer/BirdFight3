@@ -536,6 +536,9 @@ final class MatchController {
         if (game.holdClassicRoadrunnerEncounterOpen()) {
             return;
         }
+        if (game.holdClassicPenguinEncounterOpen()) {
+            return;
+        }
         if (game.campaignModeActive) {
             game.checkCampaignMissionCompletion();
             return;

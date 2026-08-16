@@ -6,18 +6,18 @@
 - Objective/bonus rounds: listed but not simulated
 - Metric: team clear rate in the real Classic encounter setup
 
-## Roadrunner
+## Penguin
 
 | Round | Encounter | Kind | Map | W-L-D | Clear rate | Avg time | Damage dealt | Read |
 |---:|---|---|---|---:|---:|---:|---:|---|
-| 1 | Off the Line | Combat | City | 43-21-0 | 67.2% | 110.0s | 209 | Target band |
-| 2 | Speed Trap | Combat | Prison | 12-52-0 | 18.8% | 36.3s | 52 | Too hard / weak matchup |
-| 3 | No Straight Lines | Combat | Peregrine Run | 17-47-0 | 26.6% | 9.0s | 7 | Likely AI routing failure |
-| 4 | The Roadblock | Combat | Titan Dock | 21-43-0 | 32.8% | 59.3s | 21 | Too hard / weak matchup |
-| 5 | The Other Me | Combat | Desert | 28-36-0 | 43.8% | 50.2s | 72 | Target band |
-| 6 | Break the Pursuit | Combat | Rooftop Relay | 51-13-0 | 79.7% | 69.0s | 95 | Possibly too easy |
-| 7 | Bonus: Redline Run | Objective | Redline Canyon | — | — | — | — | Not scored |
-| 8 | The Still King | Combat | Redline Canyon | 0-64-0 | 0.0% | 138.2s | 36 | Too hard / weak matchup |
+| 1 | Cold Water | Combat | Frostbite Fjord | 30-34-0 | 46.9% | 94.5s | 318 | Target band |
+| 2 | Heat Rises | Combat | City | 27-37-0 | 42.2% | 59.9s | 148 | Target band |
+| 3 | The Icebreaker | Combat | Titan Dock | 41-23-0 | 64.1% | 84.1s | 160 | Target band |
+| 4 | Fire at the Fjord | Combat | Frozen Caldera | 41-23-0 | 64.1% | 104.6s | 287 | Target band |
+| 5 | The Cold King | Combat | Prison | 36-28-0 | 56.3% | 122.2s | 286 | Target band |
+| 6 | Hold the Gate | Combat | Beacon Crown | 42-22-0 | 65.6% | 90.4s | 205 | Target band |
+| 7 | Bonus: Ice Architect | Objective | Last Ice Shelf | — | — | — | — | Not scored |
+| 8 | The Last Sun | Combat | Last Ice Shelf | 26-38-0 | 40.6% | 168.2s | 444 | Target band |
 
 ## How to use this report
 

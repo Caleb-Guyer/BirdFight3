@@ -15637,6 +15637,7 @@ public class Bird {
     private void attackPenguinSnowForts(double attackCenterX, double attackCenterY,
                                         double range, double verticalRange, int dmg) {
         PenguinSpecials.attackSnowForts(this, attackCenterX, attackCenterY, range, verticalRange, dmg);
+        game.damageClassicPenguinIcework(this, attackCenterX, attackCenterY, range, verticalRange, dmg);
     }
 
     private void attackGrinchhawkPresents(double attackCenterX, double attackCenterY,

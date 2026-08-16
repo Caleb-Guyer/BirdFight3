@@ -180,9 +180,13 @@ final class ClassicEndingPlayer {
         g.save();
         g.scale(canvas.getWidth() / LOGICAL_WIDTH, canvas.getHeight() / LOGICAL_HEIGHT);
         boolean continuousPanorama = ClassicEndingContent.isContinuousPanorama(cinematic);
+        boolean subglacialMontage = ClassicEndingContent.isSubglacialMontage(cinematic);
         if (continuousPanorama) {
             double routeProgress = Math.clamp((beatIndex + progress) / cinematic.beats().size(), 0.0, 1.0);
             drawRoadrunnerPanorama(g, now / 1_000_000_000.0, routeProgress);
+        } else if (subglacialMontage) {
+            double routeProgress = Math.clamp((beatIndex + progress) / cinematic.beats().size(), 0.0, 1.0);
+            drawPenguinSubglacialMontage(g, now / 1_000_000_000.0, routeProgress);
         } else {
             drawBackground(g, now / 1_000_000_000.0, progress);
             drawTableau(g, currentBeat().tableau(), progress, now / 1_000_000_000.0);
@@ -190,8 +194,104 @@ final class ClassicEndingPlayer {
         drawCinematicFrame(g, progress);
         drawNarration(g, currentBeat().narration());
         drawProgress(g);
-        if (!continuousPanorama) drawTransition(g, progress);
+        if (!continuousPanorama && !subglacialMontage) drawTransition(g, progress);
         g.restore();
+    }
+
+    private void drawPenguinSubglacialMontage(GraphicsContext g, double time, double progress) {
+        Color skyTop = Color.web("#06112C").interpolate(Color.web("#183D65"), progress);
+        Color skyBottom = Color.web("#4A8AA3").interpolate(Color.web("#79DCC8"), progress);
+        g.setFill(new LinearGradient(0, 0, 0, LOGICAL_HEIGHT, false, CycleMethod.NO_CYCLE,
+                new Stop(0, skyTop), new Stop(1, skyBottom)));
+        g.fillRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
+        drawStars(g, time, progress * 280.0);
+
+        // One unbroken cross-section follows the Crown from the battlefield,
+        // beneath the ice, and back out into shelters around the world.
+        double iceY = 430.0;
+        g.setFill(Color.web("#DDFBFF", 0.94));
+        g.fillPolygon(new double[]{0, 260, 520, 850, 1_160, 1_520, LOGICAL_WIDTH},
+                new double[]{iceY + 20, iceY - 24, iceY + 12, iceY - 38,
+                        iceY + 14, iceY - 18, iceY + 22}, 7);
+        g.setFill(new LinearGradient(0, iceY, 0, LOGICAL_HEIGHT, false, CycleMethod.NO_CYCLE,
+                new Stop(0, Color.web("#20708C", 0.88)), new Stop(1, Color.web("#031B39", 0.98))));
+        g.fillRect(0, iceY + 22, LOGICAL_WIDTH, LOGICAL_HEIGHT - iceY - 22);
+        g.setStroke(Color.web("#9DF7FF", 0.28));
+        g.setLineWidth(4.0);
+        for (int i = 0; i < 10; i++) {
+            double wave = Math.sin(time * 0.85 + i) * 24.0;
+            g.strokeLine(80 + wave, iceY + 78 + i * 55.0, LOGICAL_WIDTH - 80 - wave, iceY + 84 + i * 55.0);
+        }
+
+        double bossFade = Math.clamp(1.0 - progress * 5.2, 0.0, 1.0);
+        if (bossFade > 0.0) {
+            g.setFill(Color.web("#FFD54F", bossFade * 0.24));
+            g.fillOval(1_170, 30, 520, 520);
+            drawBird(g, boss, 1_300, 285 + progress * 80.0, 1.18, false, bossFade);
+        }
+
+        double dive = ease(Math.clamp((progress - 0.06) / 0.25, 0.0, 1.0));
+        double penguinX = 420 + dive * 250.0;
+        double penguinY = 310 + dive * 300.0 + Math.sin(time * 2.0) * 7.0;
+        drawBird(g, narrator, penguinX, penguinY, 1.03, true, 1.0);
+
+        double crownSink = ease(Math.clamp((progress - 0.05) / 0.30, 0.0, 1.0));
+        double crownX = 930.0;
+        double crownY = 270.0 + crownSink * 410.0;
+        double crownAlpha = Math.clamp(1.0 - Math.max(0.0, progress - 0.38) * 4.5, 0.0, 1.0);
+        if (crownAlpha > 0.0) {
+            g.setStroke(Color.web("#FFE082", crownAlpha));
+            g.setLineWidth(14.0);
+            g.strokePolygon(new double[]{crownX - 115, crownX - 62, crownX, crownX + 62, crownX + 115,
+                            crownX + 92, crownX - 92},
+                    new double[]{crownY + 68, crownY - 45, crownY + 28, crownY - 45, crownY + 68,
+                            crownY + 115, crownY + 115}, 7);
+        }
+
+        double shatter = ease(Math.clamp((progress - 0.34) / 0.24, 0.0, 1.0));
+        if (shatter > 0.0) {
+            for (int i = 0; i < 14; i++) {
+                double angle = -Math.PI * 0.9 + i * Math.PI * 1.8 / 13.0;
+                double distance = 60.0 + shatter * (340.0 + (i % 4) * 80.0);
+                double hx = crownX + Math.cos(angle) * distance;
+                double hy = 680.0 + Math.sin(angle) * distance * 0.46;
+                g.setFill(Color.web(i % 3 == 0 ? "#FFF3B0" : "#80DEEA", 0.86));
+                g.fillPolygon(new double[]{hx, hx + 22, hx + 7, hx - 16},
+                        new double[]{hy - 19, hy + 3, hy + 25, hy + 5}, 4);
+            }
+        }
+
+        double shelterReveal = ease(Math.clamp((progress - 0.54) / 0.30, 0.0, 1.0));
+        if (shelterReveal > 0.0) {
+            double[] shelterX = {230.0, 720.0, 1_210.0, 1_670.0};
+            Color[] shelterLight = {Color.web("#80DEEA"), Color.web("#FFE082"),
+                    Color.web("#A5D6A7"), Color.web("#FFAB91")};
+            for (int i = 0; i < shelterX.length; i++) {
+                double x = shelterX[i];
+                double rise = (1.0 - shelterReveal) * 210.0;
+                g.setFill(Color.web("#10263B", 0.92));
+                g.fillRoundRect(x - 150, 690 + rise, 300, 210, 42, 42);
+                g.fillPolygon(new double[]{x - 175, x, x + 175},
+                        new double[]{710 + rise, 590 + rise, 710 + rise}, 3);
+                g.setFill(shelterLight[i].deriveColor(0, 1, 1, 0.82));
+                g.fillRoundRect(x - 44, 760 + rise, 88, 140, 42, 42);
+                g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.44));
+                g.setLineWidth(5.0);
+                g.strokeRoundRect(x - 150, 690 + rise, 300, 210, 42, 42);
+                if (i < flock.size()) {
+                    drawBird(g, flock.get(i), x - 36, 805 + rise, 0.48, i % 2 == 0, shelterReveal);
+                }
+            }
+        }
+
+        if (progress > 0.82) {
+            double finale = ease((progress - 0.82) / 0.18);
+            g.setFill(Color.web("#A7FFEB", 0.16 * finale));
+            g.fillPolygon(new double[]{0, 380, 820, 1_210, 1_580, LOGICAL_WIDTH},
+                    new double[]{80, 170, 50, 160, 42, 130}, 6);
+            drawBird(g, narrator, 900, 525 - Math.sin(time * 1.4) * 12.0, 1.42, true, finale);
+            drawFinalTitle(g, finale);
+        }
     }
 
     private void drawRoadrunnerPanorama(GraphicsContext g, double time, double progress) {
@@ -806,7 +906,8 @@ final class ClassicEndingPlayer {
 
     private void presentBeat() {
         if (cinematic == null || cinematic.beats().isEmpty()) return;
-        if (ClassicEndingContent.isContinuousPanorama(cinematic) && beatIndex > 0) return;
+        if ((ClassicEndingContent.isContinuousPanorama(cinematic)
+                || ClassicEndingContent.isSubglacialMontage(cinematic)) && beatIndex > 0) return;
         game.playClassicEndingTableauCue(currentBeat().tableau());
     }
 

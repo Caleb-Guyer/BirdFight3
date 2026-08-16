@@ -176,6 +176,19 @@ class BirdGame3ProfileProgressStateTest {
     }
 
     @Test
+    void savesAndLoadsLastIceShelfClassicReward() {
+        BirdGame3ProfileProgressState.Schema schema = new BirdGame3ProfileProgressState.Schema(
+                BirdGame3Achievement.values().length, 4, 16, 0, 0);
+        BirdGame3ProfileProgressState state = new BirdGame3ProfileProgressState();
+        state.lastIceShelfUnlocked = true;
+
+        state.saveTo(prefs, schema);
+        BirdGame3ProfileProgressState loaded = BirdGame3ProfileProgressState.load(prefs, schema);
+
+        assertTrue(loaded.lastIceShelfUnlocked);
+    }
+
+    @Test
     void existingPigeonClassicClearMigratesToRooftopRelayReward() throws Exception {
         BirdGame3ProfileProgressState.Schema schema = new BirdGame3ProfileProgressState.Schema(
                 BirdGame3Achievement.values().length,

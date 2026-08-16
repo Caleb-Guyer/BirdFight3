@@ -230,6 +230,25 @@ final class ClassicEndingContent {
                             beat("So I melted the Crown into one bright line and ran it through every wall, cage, and border I could find.", Tableau.CROWN_TRANSFORMATION),
                             beat("It opened the prison, joined the nests, crossed the jungle, and vanished behind every bird who chose a turn.", Tableau.CHANGED_WORLD),
                             beat("At the edge of the map, I broke its compass needle. The horizon can draw itself after I get there.", Tableau.FINAL_PORTRAIT)
+                    )),
+            ending(
+                    BirdGame3.BirdType.PENGUIN,
+                    "THE ICE HOLDS",
+                    "A SHELTER IN EVERY STORM",
+                    "REFUGE - The Crown becomes shelter hearthstones that protect without commanding.",
+                    Alignment.HOPEFUL,
+                    BirdGame3.BirdType.PHOENIX,
+                    "The Last Sun",
+                    "ASHEN_SOVEREIGN_PHOENIX",
+                    BirdGame3.MapType.FROSTBITE_FJORD,
+                    "music-frostbite.mp3",
+                    monologue(
+                            beat("The Last Sun burned every shelter and called exposure freedom.", Tableau.BOSS_AFTERMATH),
+                            beat("The Crown waited beneath the meltwater. One command could have frozen every ocean in place.", Tableau.CROWN_DISCOVERY),
+                            beat("But a fort is not a kingdom. It is a promise that the storm stops here.", Tableau.DECISION),
+                            beat("I broke its power into a thousand hearthstones and sent them beyond the ice.", Tableau.CROWN_TRANSFORMATION),
+                            beat("Where each stone came to rest, walls rose with no locks and doors that opened from either side.", Tableau.CHANGED_WORLD),
+                            beat("Let the world change. We will be ready when it does.", Tableau.FINAL_PORTRAIT)
                     ))
     );
 
@@ -252,6 +271,10 @@ final class ClassicEndingContent {
 
     static boolean isContinuousPanorama(Cinematic cinematic) {
         return cinematic != null && cinematic.narrator() == BirdGame3.BirdType.ROADRUNNER;
+    }
+
+    static boolean isSubglacialMontage(Cinematic cinematic) {
+        return cinematic != null && cinematic.narrator() == BirdGame3.BirdType.PENGUIN;
     }
 
     static Cinematic withRouteRecord(Ending ending, int birdCoins, int score, String mapReward) {
