@@ -359,12 +359,20 @@ class BirdGame3SettingsTest {
         applyCode.setAccessible(true);
         Method isMapUnlocked = BirdGame3.class.getDeclaredMethod("isMapUnlocked", BirdGame3.MapType.class);
         isMapUnlocked.setAccessible(true);
+        Method isMapVariantUnlocked = BirdGame3.class.getDeclaredMethod(
+                "isMapVariantUnlocked", BirdGame3.MapVariant.class);
+        isMapVariantUnlocked.setAccessible(true);
         Method spendBirdCoins = BirdGame3.class.getDeclaredMethod("spendBirdCoins", int.class);
         spendBirdCoins.setAccessible(true);
 
         assertTrue((boolean) applyCode.invoke(game, " feather-dev "));
         assertTrue(game.roadrunnerUnlocked);
-        assertTrue((boolean) isMapUnlocked.invoke(game, BirdGame3.MapType.DESERT));
+        for (BirdGame3.MapType map : BirdGame3.MapType.values()) {
+            assertTrue((boolean) isMapUnlocked.invoke(game, map), map.name());
+        }
+        for (BirdGame3.MapVariant variant : BirdGame3.MapVariant.values()) {
+            assertTrue((boolean) isMapVariantUnlocked.invoke(game, variant), variant.name());
+        }
         assertTrue(getPrivateBoolean(game));
         assertTrue(game.ashenSovereignPhoenixUnlocked);
         assertTrue((boolean) spendBirdCoins.invoke(game, 99_999));
@@ -387,7 +395,12 @@ class BirdGame3SettingsTest {
         loadProfileProgress.invoke(reloaded, prefs);
 
         assertTrue(reloaded.roadrunnerUnlocked);
-        assertTrue((boolean) isMapUnlocked.invoke(reloaded, BirdGame3.MapType.DESERT));
+        for (BirdGame3.MapType map : BirdGame3.MapType.values()) {
+            assertTrue((boolean) isMapUnlocked.invoke(reloaded, map), map.name());
+        }
+        for (BirdGame3.MapVariant variant : BirdGame3.MapVariant.values()) {
+            assertTrue((boolean) isMapVariantUnlocked.invoke(reloaded, variant), variant.name());
+        }
         assertTrue(getPrivateBoolean(reloaded));
         assertTrue(reloaded.ashenSovereignPhoenixUnlocked);
         assertTrue((boolean) spendBirdCoins.invoke(reloaded, Integer.MAX_VALUE));
@@ -417,6 +430,9 @@ class BirdGame3SettingsTest {
         assertTrue(reloaded.roadrunnerUnlocked);
         assertTrue(getPrivateBooleanField(reloaded, "voidHeraldRavenUnlocked"));
         assertTrue((boolean) isMapUnlocked.invoke(reloaded, BirdGame3.MapType.PRISON));
+        for (BirdGame3.MapType map : BirdGame3.MapType.values()) {
+            assertTrue((boolean) isMapUnlocked.invoke(reloaded, map), map.name());
+        }
         assertEveryDeveloperUnlockEnabled(reloaded);
     }
 

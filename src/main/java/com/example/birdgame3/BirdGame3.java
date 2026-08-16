@@ -9040,6 +9040,10 @@ public class BirdGame3 {
     }
 
     private boolean isMapUnlocked(MapType map) {
+        // FEATHERDEV is a live entitlement, not a snapshot of whichever map
+        // booleans existed when the code was entered.  Bypass every individual
+        // unlock gate so old developer saves also receive maps added later.
+        if (developerInfiniteBirdCoins) return true;
         if (map == MapType.DESERT) return desertMapUnlocked;
         if (map == MapType.CAVE) return caveMapUnlocked;
         if (map == MapType.BATTLEFIELD) return battlefieldMapUnlocked;
@@ -9048,12 +9052,13 @@ public class BirdGame3 {
         if (map == MapType.PRISON) return prisonMapUnlocked;
         if (map == MapType.RESONANCE_HALL || map == MapType.SIGNAL_SPIRE
                 || map == MapType.SILENT_AMPHITHEATER) {
-            return developerInfiniteBirdCoins || isClassicCompleted(BirdType.MOCKINGBIRD);
+            return isClassicCompleted(BirdType.MOCKINGBIRD);
         }
         return true;
     }
 
     private boolean isMapVariantUnlocked(MapVariant variant) {
+        if (developerInfiniteBirdCoins) return true;
         if (variant == null || variant == MapVariant.STANDARD) return true;
         if (variant == MapVariant.ROOFTOP_RELAY) return rooftopRelayUnlocked;
         if (variant == MapVariant.TEMPEST_SUMMIT) return tempestSummitUnlocked;
