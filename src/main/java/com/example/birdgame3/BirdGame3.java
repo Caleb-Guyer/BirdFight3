@@ -14161,10 +14161,29 @@ public class BirdGame3 {
     }
 
     private void drawCityBalconyBraces(GraphicsContext g, Platform balcony, Platform building) {
+        boolean integratedIntoFacade = balcony.x >= building.x - 1.0
+                && balcony.x + balcony.w <= building.x + building.w + 1.0;
+        double undersideY = balcony.y + balcony.h;
+        if (integratedIntoFacade) {
+            double leftMount = balcony.x + 48.0;
+            double rightMount = balcony.x + balcony.w - 48.0;
+            double braceDepth = 108.0;
+            g.setFill(Color.web("#171B2D", 0.92));
+            g.fillRect(balcony.x + 18.0, undersideY, Math.max(40.0, balcony.w - 36.0), 18.0);
+            g.setStroke(Color.web("#46516E", 0.92));
+            g.setLineWidth(8.0);
+            g.strokeLine(leftMount, undersideY, leftMount + 34.0, undersideY + braceDepth);
+            g.strokeLine(rightMount, undersideY, rightMount - 34.0, undersideY + braceDepth);
+            g.setStroke(Color.web("#2DE2E6", 0.16));
+            g.setLineWidth(2.0);
+            g.strokeLine(leftMount, undersideY + 2.0, leftMount + 34.0, undersideY + braceDepth - 2.0);
+            g.strokeLine(rightMount, undersideY + 2.0, rightMount - 34.0, undersideY + braceDepth - 2.0);
+            return;
+        }
+
         boolean leftSide = balcony.x < building.x;
         double wallX = leftSide ? building.x : building.x + building.w;
         double outerX = leftSide ? balcony.x + 34.0 : balcony.x + balcony.w - 34.0;
-        double undersideY = balcony.y + balcony.h;
         g.setStroke(Color.web("#39435F", 0.88));
         g.setLineWidth(8.0);
         g.strokeLine(outerX, undersideY, wallX, undersideY + 112.0);
@@ -51974,11 +51993,11 @@ public class BirdGame3 {
                 platforms.add(penthouseRoof);
 
                 double balconyW = 280.0;
-                double balconyOverlap = 92.0;
+                double balconyInset = 76.0 + (i % 3) * 22.0;
                 boolean balconyOnLeft = i > 0 && i % 2 == 0;
                 double balconyX = balconyOnLeft
-                        ? rooftop.x - balconyW + balconyOverlap
-                        : rooftop.x + rooftop.w - balconyOverlap;
+                        ? rooftop.x + balconyInset
+                        : rooftop.x + rooftop.w - balconyW - balconyInset;
                 platforms.add(new Platform(
                         balconyX,
                         roofY + 270.0 + (i % 3) * 48.0,

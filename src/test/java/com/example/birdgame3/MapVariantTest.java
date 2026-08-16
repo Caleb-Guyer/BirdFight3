@@ -62,11 +62,10 @@ class MapVariantTest {
         assertTrue(cityPlatforms.stream()
                         .filter(platform -> platform.w < 650.0)
                         .allMatch(platform -> skyscraperRoofs.stream().anyMatch(roof -> {
-                            double overlap = Math.min(platform.x + platform.w, roof.x + roof.w)
-                                    - Math.max(platform.x, roof.x);
-                            return overlap >= 70.0;
+                            return platform.x >= roof.x
+                                    && platform.x + platform.w <= roof.x + roof.w;
                         })),
-                "secondary City platforms should remain attached to a skyscraper facade");
+                "secondary City platforms should sit fully within a skyscraper facade");
     }
 
     @Test
