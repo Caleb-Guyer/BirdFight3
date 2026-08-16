@@ -5,10 +5,29 @@ import org.junit.jupiter.api.Test;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class ClassicEndingContentTest {
+    @Test
+    void galleryCardsStayClippedBelowPersistentHeaderControls() throws Exception {
+        String source = Files.readString(Path.of("src/main/java/com/example/birdgame3/BirdGame3.java"));
+        int start = source.indexOf("private void showClassicEndingGallery(Stage stage)");
+        int end = source.indexOf("private boolean isDailyChallengeRetired()", start);
+        assertTrue(start >= 0 && end > start);
+        String gallery = source.substring(start, end);
+
+        assertTrue(gallery.contains("int galleryColumns = Math.min(5"));
+        assertTrue(gallery.contains("new ScrollPane(grid)"));
+        assertTrue(gallery.contains("ScrollPane.ScrollBarPolicy.NEVER"));
+        assertTrue(gallery.contains("ScrollPane.ScrollBarPolicy.AS_NEEDED"));
+        assertTrue(gallery.contains("installTransparentScrollViewport(galleryViewport)"));
+        assertTrue(gallery.contains("index % galleryColumns"));
+        assertTrue(gallery.contains("bindEscape(scene, back)"));
+    }
+
     @Test
     void allNineAuthoredRoutesHaveUniqueMovingPictureMonologues() {
         List<ClassicEndingContent.Ending> endings = ClassicEndingContent.endings();

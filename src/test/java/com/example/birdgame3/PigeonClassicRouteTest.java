@@ -207,7 +207,7 @@ class PigeonClassicRouteTest {
     void classicPresentationUsesRosterGridRouteStripAndRenderedStageInsteadOfBriefingLists() throws Exception {
         String source = Files.readString(Path.of("src/main/java/com/example/birdgame3/BirdGame3.java"));
         String select = methodSource(source, "private void showClassicBirdSelect(Stage stage)",
-                "private boolean isDailyChallengeRetired()");
+                "private void showClassicEndingGallery(Stage stage)");
         String launch = methodSource(source, "private void showClassicRunBriefing(Stage stage, BirdType birdType)",
                 "private HBox buildClassicRouteStrip");
         String versus = methodSource(source, "private void showClassicEncounterIntro(Stage stage)",
@@ -217,6 +217,7 @@ class PigeonClassicRouteTest {
         assertTrue(select.contains("buildRosterSelectionIcon"));
         assertTrue(select.contains("final double layoutH = 900.0"));
         assertTrue(select.contains("bindFixedFrameScale(scene, content, 0.0, layoutW, layoutH)"));
+        assertTrue(select.contains("bindEscape(scene, back)"));
         assertFalse(select.contains("ScrollPane"));
         assertTrue(launch.contains("showClassicEncounterIntro(stage)"));
         assertFalse(launch.contains("new Scene"));
@@ -229,6 +230,7 @@ class PigeonClassicRouteTest {
         assertTrue(versus.contains("StackPane viewport = new StackPane(root)"));
         assertTrue(versus.contains("final double layoutH = 900.0"));
         assertTrue(versus.contains("bindFixedFrameScale(scene, root, 0.0, layoutW, layoutH)"));
+        assertTrue(versus.contains("bindEscape(scene, menu)"));
         assertTrue(versus.contains("playClassicEncounterMusic()"));
         assertFalse(versus.contains("playMenuMusic()"));
         assertFalse(versus.contains("classicEncounter.briefing"));

@@ -41781,6 +41781,7 @@ public class BirdGame3 {
         content.setBottom(bottom);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, back);
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
         bindFixedFrameScale(scene, content, 0.0, layoutW, layoutH);
@@ -41826,44 +41827,46 @@ public class BirdGame3 {
         content.setTop(header);
 
         GridPane grid = new GridPane();
-        grid.setHgap(16);
-        grid.setVgap(16);
+        grid.setHgap(12);
+        grid.setVgap(12);
         grid.setAlignment(Pos.CENTER);
+        grid.setPadding(new Insets(10, 0, 10, 0));
         List<Button> unlockedCards = new ArrayList<>();
         List<ClassicEndingContent.Ending> endings = ClassicEndingContent.endings();
+        int galleryColumns = Math.min(5, Math.max(1, endings.size()));
         for (int index = 0; index < endings.size(); index++) {
             ClassicEndingContent.Ending ending = endings.get(index);
             boolean unlocked = isClassicEndingUnlocked(ending.bird());
-            Node portrait = buildRosterSelectionIcon(ending.bird(), false, 92, false);
+            Node portrait = buildRosterSelectionIcon(ending.bird(), false, 76, false);
             portrait.setOpacity(unlocked ? 1.0 : 0.26);
 
             Label bird = new Label(ending.bird().name.toUpperCase(Locale.ROOT));
-            bird.setFont(Font.font("Arial Black", 20));
+            bird.setFont(Font.font("Arial Black", 18));
             bird.setTextFill(Color.WHITE);
             Label route = new Label(ending.routeTitle());
             route.setFont(Font.font("Consolas", FontWeight.BOLD, 14));
             route.setTextFill(Color.web(unlocked ? "#FFE082" : "#78909C"));
             Label endingTitle = new Label(unlocked ? ending.title() : "LOCKED ENDING");
-            endingTitle.setFont(Font.font("Arial Black", 17));
+            endingTitle.setFont(Font.font("Arial Black", 15));
             endingTitle.setTextFill(Color.web(unlocked ? "#E1F5FE" : "#607D8B"));
             endingTitle.setWrapText(true);
             endingTitle.setTextAlignment(TextAlignment.CENTER);
             endingTitle.setAlignment(Pos.CENTER);
-            endingTitle.setMaxWidth(300);
+            endingTitle.setMaxWidth(250);
             Label choice = new Label(unlocked ? ending.crownChoice() : "Earn this bird's Classic route badge to unlock.");
             choice.setFont(Font.font("Consolas", FontWeight.BOLD, 13));
             choice.setTextFill(Color.web(unlocked ? "#CFD8DC" : "#78909C"));
             choice.setWrapText(true);
             choice.setTextAlignment(TextAlignment.CENTER);
             choice.setAlignment(Pos.CENTER);
-            choice.setMaxWidth(310);
+            choice.setMaxWidth(252);
 
             VBox cardGraphic = new VBox(4, portrait, bird, route, endingTitle, choice);
             cardGraphic.setAlignment(Pos.CENTER);
             Button card = new Button();
             card.setGraphic(cardGraphic);
             card.setPadding(new Insets(10));
-            lockRegionSize(card, 364, 292);
+            lockRegionSize(card, 286, 258);
             String accent = switch (ending.alignment()) {
                 case HOPEFUL -> "#168A86";
                 case AMBIGUOUS -> "#B66A18";
@@ -41884,9 +41887,19 @@ public class BirdGame3 {
                         () -> showClassicEndingGallery(stage));
             });
             if (unlocked) unlockedCards.add(card);
-            grid.add(card, index % 4, index / 4);
+            grid.add(card, index % galleryColumns, index / galleryColumns);
         }
-        content.setCenter(grid);
+        ScrollPane galleryViewport = new ScrollPane(grid);
+        galleryViewport.setFitToWidth(true);
+        galleryViewport.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        galleryViewport.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        galleryViewport.setPannable(true);
+        galleryViewport.setStyle("-fx-background: transparent; -fx-background-color: transparent; "
+                + "-fx-control-inner-background: transparent; -fx-border-color: transparent; "
+                + "-fx-background-insets: 0;");
+        galleryViewport.setPadding(new Insets(0));
+        installTransparentScrollViewport(galleryViewport);
+        content.setCenter(galleryViewport);
 
         Label hint = new Label("Every route badge unlocks its bird's alternate Crown epilogue. Select an ending to replay it.");
         hint.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
@@ -42650,6 +42663,7 @@ public class BirdGame3 {
         viewport.getProperties().put("noAutoScale", true);
         viewport.setStyle("-fx-background-color: linear-gradient(to bottom right, #070812, #18112F 55%, #05060A);");
         Scene scene = new Scene(viewport, WIDTH, HEIGHT);
+        bindEscape(scene, menu);
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
         bindFixedFrameScale(scene, root, 0.0, layoutW, layoutH);
