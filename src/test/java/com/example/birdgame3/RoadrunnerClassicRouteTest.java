@@ -234,6 +234,44 @@ class RoadrunnerClassicRouteTest {
     }
 
     @Test
+    void stillKingStartsGroundedOnItsOwnCenteredBossArena() {
+        BirdGame3 game = new BirdGame3();
+        ClassicEncounter encounter = game.harnessPrepareClassicEncounter(
+                BirdType.ROADRUNNER, 7, 5.0, 5, 24_680L, 13_579L);
+        Bird player = game.players[0];
+        Bird boss = game.players[1];
+
+        assertEquals(ClassicEncounterStyle.STILL_KING_BOSS, encounter.style);
+        assertTrue(game.usesIslandBoundsForCurrentArena());
+        assertFalse(player.hasSolidGroundFloorUnderBody(),
+                "Redline Canyon must not inherit the normal desert's invisible ground floor.");
+
+        Platform mainArena = game.platforms.stream()
+                .filter(platform -> Math.abs(platform.x - BirdGame3.STILL_KING_ARENA_X) < 0.001
+                        && Math.abs(platform.y - BirdGame3.STILL_KING_ARENA_Y) < 0.001
+                        && Math.abs(platform.w - BirdGame3.STILL_KING_ARENA_W) < 0.001)
+                .findFirst().orElseThrow();
+        assertEquals("THE FINAL STILLNESS", mainArena.signText);
+        assertEquals(BirdGame3.STILL_KING_ARENA_Y, player.bodyBottomY(), 0.001);
+        assertEquals(BirdGame3.STILL_KING_ARENA_Y, boss.bodyBottomY(), 0.001);
+        assertTrue(isSupportedBy(game, player));
+        assertTrue(isSupportedBy(game, boss));
+        assertEquals(1_750.0, player.bodyCenterX(), 0.001);
+        assertEquals(4_250.0, boss.bodyCenterX(), 0.001);
+        assertEquals(2_500.0, boss.bodyCenterX() - player.bodyCenterX(), 0.001,
+                "The opening camera should frame the arena instead of zooming out across the whole world.");
+        assertTrue(player.facingRight);
+        assertFalse(boss.facingRight);
+
+        long collapsibleSundialSteps = game.platforms.stream()
+                .filter(platform -> platform.w < 800.0 && platform.y < BirdGame3.GROUND_Y - 500.0)
+                .count();
+        assertEquals(4, collapsibleSundialSteps,
+                "The final phase needs exactly four authored upper steps to collapse.");
+        assertEquals(2, game.windVents.size(), "Only the two mirrored recovery vents belong in the boss arena.");
+    }
+
+    @Test
     void redlineCanyonIsStableUnlockableAndBackfilledFromTheBadge() throws Exception {
         BirdGame3 game = preparedGame();
         game.selectedMap = BirdGame3.MapType.DESERT;
@@ -276,6 +314,14 @@ class RoadrunnerClassicRouteTest {
                 bird.health = 0.0;
             }
         }
+    }
+
+    private static boolean isSupportedBy(BirdGame3 game, Bird bird) {
+        double centerX = bird.bodyCenterX();
+        double bottomY = bird.bodyBottomY();
+        return game.platforms.stream().anyMatch(platform -> centerX >= platform.x
+                && centerX <= platform.x + platform.w
+                && Math.abs(bottomY - platform.y) < 0.001);
     }
 
     private static int countBolts(boolean[] bolts) {

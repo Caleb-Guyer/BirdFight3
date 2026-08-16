@@ -4954,6 +4954,9 @@ public class BirdGame3 {
     static final double REDLINE_RUN_ROAD_Y = GROUND_Y - 250.0;
     static final double REDLINE_RUN_FINISH_X = 5_500.0;
     static final List<Double> REDLINE_RUN_CHECKPOINTS = List.of(1_250.0, 2_350.0, 3_600.0, 4_650.0);
+    static final double STILL_KING_ARENA_X = 900.0;
+    static final double STILL_KING_ARENA_Y = GROUND_Y - 340.0;
+    static final double STILL_KING_ARENA_W = 4_200.0;
     private double classicRoadrunnerCheckpointX = 420.0;
     private int classicStillKingLastStocks = 3;
     private int classicStillKingHazardCooldown = 0;
@@ -42967,6 +42970,18 @@ public class BirdGame3 {
 
     private void positionClassicEncounterSpawns(ClassicEncounter encounter) {
         if (encounter == null) return;
+        if (encounter.style == ClassicEncounterStyle.STILL_KING_BOSS) {
+            Bird player = players[0];
+            if (player != null) {
+                positionClassicBirdOnSurface(player, 1_750.0, STILL_KING_ARENA_Y, true);
+            }
+            for (int slot = 1; slot < activePlayers; slot++) {
+                Bird boss = players[slot];
+                if (boss == null) continue;
+                positionClassicBirdOnSurface(boss, 4_250.0, STILL_KING_ARENA_Y, false);
+            }
+            return;
+        }
         if (encounter.style == ClassicEncounterStyle.REDLINE_RUN) {
             Bird player = players[0];
             if (player != null) {
@@ -43065,6 +43080,16 @@ public class BirdGame3 {
             target.vx = 0.0;
             target.vy = 0.0;
         }
+    }
+
+    private void positionClassicBirdOnSurface(Bird bird, double centerX, double surfaceY, boolean facingRight) {
+        bird.x = centerX - bird.bodyWidth() * 0.5;
+        bird.y = surfaceY - bird.bodyHeight();
+        bird.prevX = bird.x;
+        bird.prevY = bird.y;
+        bird.vx = 0.0;
+        bird.vy = 0.0;
+        bird.facingRight = facingRight;
     }
 
     private void applyAshfallTrialEncounterArenaModifiers(ClassicEncounter encounter) {
@@ -45187,6 +45212,11 @@ public class BirdGame3 {
         resetBossRushArenaState();
         activeArenaGeometryVariant = MapVariant.REDLINE_CANYON;
 
+        if (isClassicStillKingArena()) {
+            setupStillKingRedlineArena();
+            return;
+        }
+
         // One continuous road keeps the time-trial line readable and removes
         // the old 180px vertical wall at x=1600 that trapped Roadrunner in the
         // platform collision resolver. Mesa supports and upper switchbacks keep
@@ -45217,16 +45247,48 @@ public class BirdGame3 {
         }
     }
 
+    private boolean isClassicStillKingArena() {
+        return classicModeActive && classicEncounter != null
+                && classicEncounter.style == ClassicEncounterStyle.STILL_KING_BOSS;
+    }
+
+    private void setupStillKingRedlineArena() {
+        Platform throneRoad = new Platform(
+                STILL_KING_ARENA_X, STILL_KING_ARENA_Y, STILL_KING_ARENA_W, 112.0);
+        throneRoad.signText = "THE FINAL STILLNESS";
+        platforms.add(throneRoad);
+
+        // Low recovery terraces make both edges readable and reachable. The
+        // four upper sundial steps are the only pieces removed in phase three.
+        platforms.add(new Platform(420.0, GROUND_Y - 175.0, 520.0, 64.0));
+        platforms.add(new Platform(5_060.0, GROUND_Y - 175.0, 520.0, 64.0));
+        platforms.add(new Platform(1_250.0, STILL_KING_ARENA_Y - 360.0, 650.0, 48.0));
+        platforms.add(new Platform(2_130.0, STILL_KING_ARENA_Y - 630.0, 620.0, 46.0));
+        platforms.add(new Platform(3_250.0, STILL_KING_ARENA_Y - 630.0, 620.0, 46.0));
+        platforms.add(new Platform(4_100.0, STILL_KING_ARENA_Y - 360.0, 650.0, 48.0));
+
+        battlefieldIslandX = throneRoad.x;
+        battlefieldIslandW = throneRoad.w;
+        battlefieldIslandY = throneRoad.y;
+        windVents.add(new WindVent(560.0, GROUND_Y - 205.0, 250.0));
+        windVents.add(new WindVent(5_190.0, GROUND_Y - 205.0, 250.0));
+    }
+
     private void drawRedlineCanyonArena(GraphicsContext g, boolean ambientFx) {
-        Color top = Color.web("#351448");
-        Color bottom = Color.web("#F0773D");
+        boolean stillKingArena = isClassicStillKingArena();
+        Color top = Color.web(stillKingArena ? "#140F27" : "#351448");
+        Color bottom = Color.web(stillKingArena ? "#9A342E" : "#F0773D");
         for (int i = 0; i < 560; i++) {
             double ratio = i / 560.0;
             g.setFill(top.interpolate(bottom, ratio));
             g.fillRect(0, i * (WORLD_HEIGHT / 560.0), WORLD_WIDTH, WORLD_HEIGHT / 560.0 + 3);
         }
-        g.setFill(Color.web("#FFE3A1", 0.82));
-        g.fillOval(WORLD_WIDTH - 1_120, 170, 650, 650);
+        if (stillKingArena) {
+            drawStillKingSundialBackdrop(g);
+        } else {
+            g.setFill(Color.web("#FFE3A1", 0.82));
+            g.fillOval(WORLD_WIDTH - 1_120, 170, 650, 650);
+        }
 
         for (int layer = 0; layer < 3; layer++) {
             Color mesa = Color.web(layer == 0 ? "#54273B" : layer == 1 ? "#753642" : "#9C493E");
@@ -45241,27 +45303,42 @@ public class BirdGame3 {
             }
         }
 
-        // The road supports and stone arches continue to the canyon floor.
+        if (stillKingArena) {
+            drawStillKingArenaFoundation(g);
+        }
+
+        // The race course uses bridge supports. The boss arena instead sits on
+        // one broad temple foundation so fighters are never hidden by poles.
         for (Platform p : platforms) {
             double supportY = p.y + p.h;
-            g.setFill(Color.web("#6E382F"));
-            if (p.w >= 600) {
+            if (!stillKingArena) {
+                g.setFill(Color.web("#6E382F"));
+            }
+            if (!stillKingArena && p.w >= 600) {
                 int supports = Math.max(2, (int) Math.floor(p.w / 520));
                 for (int i = 0; i <= supports; i++) {
                     double sx = p.x + 55 + i * Math.max(1.0, (p.w - 110) / supports);
                     g.fillRect(sx - 24, supportY, 48, Math.max(0, GROUND_Y + 300 - supportY));
                 }
             }
-            g.setFill(Color.web("#3A3335"));
+            g.setFill(Color.web(stillKingArena ? "#241B27" : "#3A3335"));
             g.fillRoundRect(p.x, p.y, p.w, p.h, 24, 24);
-            g.setFill(Color.web("#D95B36"));
+            g.setFill(Color.web(stillKingArena ? "#C79035" : "#D95B36"));
             g.fillRoundRect(p.x + 14, p.y + 12, Math.max(0, p.w - 28), Math.min(18, p.h - 12), 10, 10);
-            g.setStroke(Color.web("#FFD180", 0.72));
+            g.setStroke(Color.web(stillKingArena ? "#FFE082" : "#FFD180", stillKingArena ? 0.90 : 0.72));
             g.setLineWidth(4);
             g.strokeRoundRect(p.x, p.y, p.w, p.h, 24, 24);
-            for (double stripe = p.x + 80; stripe < p.x + p.w - 40; stripe += 210) {
-                g.setFill(Color.web("#FFF3C4", 0.78));
-                g.fillRoundRect(stripe, p.y + p.h * 0.62, 92, 8, 5, 5);
+            if (stillKingArena && p.w >= 3_000.0) {
+                g.setFont(Font.font("Arial Black", 34));
+                g.setTextAlign(TextAlignment.CENTER);
+                g.setFill(Color.web("#FFE6A3", 0.92));
+                g.fillText("THE FINAL STILLNESS", p.x + p.w * 0.5, p.y + 78.0);
+                g.setTextAlign(TextAlignment.LEFT);
+            } else if (!stillKingArena) {
+                for (double stripe = p.x + 80; stripe < p.x + p.w - 40; stripe += 210) {
+                    g.setFill(Color.web("#FFF3C4", 0.78));
+                    g.fillRoundRect(stripe, p.y + p.h * 0.62, 92, 8, 5, 5);
+                }
             }
         }
 
@@ -45274,6 +45351,51 @@ public class BirdGame3 {
                 g.strokeOval(vent.x + vent.w * 0.5 - w * 0.5 + swirl * ring / 5.0,
                         vent.y - 100 - ring * 68, w, 42 + ring * 12);
             }
+        }
+    }
+
+    private void drawStillKingSundialBackdrop(GraphicsContext g) {
+        double cx = WORLD_WIDTH * 0.5;
+        double cy = STILL_KING_ARENA_Y - 560.0;
+        double radius = 520.0;
+        g.setFill(Color.web("#E5A949", 0.24));
+        g.fillOval(cx - radius, cy - radius, radius * 2.0, radius * 2.0);
+        g.setFill(Color.web("#100C1B", 0.90));
+        g.fillOval(cx - radius + 58.0, cy - radius + 58.0,
+                (radius - 58.0) * 2.0, (radius - 58.0) * 2.0);
+        g.setStroke(Color.web("#FFD978", 0.48));
+        g.setLineWidth(16.0);
+        g.strokeOval(cx - radius, cy - radius, radius * 2.0, radius * 2.0);
+        for (int i = 0; i < 12; i++) {
+            double angle = i * Math.PI / 6.0;
+            g.strokeLine(cx + Math.cos(angle) * (radius + 24.0), cy + Math.sin(angle) * (radius + 24.0),
+                    cx + Math.cos(angle) * (radius + 116.0), cy + Math.sin(angle) * (radius + 116.0));
+        }
+        g.setStroke(Color.web("#C23A3A", 0.72));
+        g.setLineWidth(22.0);
+        g.strokeLine(cx, cy, cx + 310.0, cy - 255.0);
+    }
+
+    private void drawStillKingArenaFoundation(GraphicsContext g) {
+        double foundationTop = STILL_KING_ARENA_Y + 96.0;
+        g.setFill(Color.web("#2A1821"));
+        g.fillPolygon(
+                new double[]{STILL_KING_ARENA_X - 90.0, STILL_KING_ARENA_X + STILL_KING_ARENA_W + 90.0,
+                        STILL_KING_ARENA_X + STILL_KING_ARENA_W - 250.0, STILL_KING_ARENA_X + 250.0},
+                new double[]{foundationTop, foundationTop, GROUND_Y + 330.0, GROUND_Y + 330.0}, 4);
+        g.setStroke(Color.web("#B66A3D", 0.56));
+        g.setLineWidth(10.0);
+        for (double x = STILL_KING_ARENA_X + 430.0;
+             x < STILL_KING_ARENA_X + STILL_KING_ARENA_W - 200.0; x += 560.0) {
+            g.strokeRoundRect(x, foundationTop + 90.0, 280.0, 390.0, 120.0, 120.0);
+        }
+        for (Platform p : platforms) {
+            if (p.y >= STILL_KING_ARENA_Y || p.w >= 3_000.0) continue;
+            double centerX = p.x + p.w * 0.5;
+            double bracketTop = p.y + p.h;
+            g.setFill(Color.web("#4D2930"));
+            g.fillPolygon(new double[]{p.x + 70.0, p.x + p.w - 70.0, centerX + 86.0, centerX - 86.0},
+                    new double[]{bracketTop, bracketTop, bracketTop + 145.0, bracketTop + 145.0}, 4);
         }
     }
 
@@ -51476,7 +51598,7 @@ public class BirdGame3 {
         }
         if (active.isEmpty()) return;
 
-        if (selectedMap == MapType.DESERT) {
+        if (selectedMap == MapType.DESERT && activeArenaGeometryVariant != MapVariant.REDLINE_CANYON) {
             double[] spawnCenters = buildSpawnCenters(active.size(), 360.0, WORLD_WIDTH - 360.0);
             for (int i = 0; i < active.size(); i++) {
                 Bird b = active.get(i);
@@ -51649,6 +51771,7 @@ public class BirdGame3 {
                 || activeArenaGeometryVariant == MapVariant.TEMPEST_SUMMIT
                 || activeArenaGeometryVariant == MapVariant.HEARTBLOOM_SANCTUARY
                 || activeArenaGeometryVariant == MapVariant.HARVEST_TRIBUNAL
+                || activeArenaGeometryVariant == MapVariant.REDLINE_CANYON
                 || isCrownDuelArena();
     }
 
@@ -51661,6 +51784,9 @@ public class BirdGame3 {
         }
         if (activeArenaGeometryVariant == MapVariant.PEREGRINE_RUN) {
             return 2500.0;
+        }
+        if (activeArenaGeometryVariant == MapVariant.REDLINE_CANYON) {
+            return 600.0;
         }
         if (activeArenaGeometryVariant == MapVariant.VOID_CROWN) {
             return 1600.0;

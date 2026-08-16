@@ -2790,8 +2790,12 @@ public class Bird {
     }
 
     boolean hasSolidGroundFloorUnderBody() {
-        if (game.selectedMap == MapType.DOCK || game.selectedMap == MapType.DESERT) {
+        if (game.selectedMap == MapType.DOCK) {
             return !game.isDockWaterAt(bodyCenterX(), BirdGame3.GROUND_Y + 8);
+        }
+        if (game.selectedMap == MapType.DESERT) {
+            return !usesIslandBounds()
+                    && !game.isDockWaterAt(bodyCenterX(), BirdGame3.GROUND_Y + 8);
         }
         return !usesIslandBounds();
     }
