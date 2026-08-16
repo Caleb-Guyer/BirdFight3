@@ -4971,12 +4971,13 @@ public class BirdGame3 {
     private int classicPenguinSiegeWaveIndex = 0;
     private boolean classicPenguinArchitectExitOpen = false;
     private boolean classicPenguinArchitectCompleted = false;
+    private int classicPenguinArchitectGateSlideGrace = 0;
     private int classicLastSunLastStocks = 3;
     private int classicLastSunPhase = 0;
     static final double LAST_ICE_MAIN_X = 1_000.0;
     static final double LAST_ICE_MAIN_Y = GROUND_Y - 360.0;
     static final double LAST_ICE_MAIN_W = 4_000.0;
-    static final double LAST_ICE_EXIT_X = 5_420.0;
+    static final double LAST_ICE_EXIT_X = 5_220.0;
     private boolean bossRushModeActive = false;
     private long bossRushRunStartMillis = 0L;
     private long bossRushBestClearMillis = Long.MAX_VALUE;
@@ -43557,6 +43558,7 @@ public class BirdGame3 {
         classicPenguinSiegeWaveIndex = 0;
         classicPenguinArchitectExitOpen = false;
         classicPenguinArchitectCompleted = false;
+        classicPenguinArchitectGateSlideGrace = 0;
         classicLastSunLastStocks = 3;
         classicLastSunPhase = 0;
         if (!classicModeActive || bossRushModeActive || ashfallTrialModeActive
@@ -43578,6 +43580,11 @@ public class BirdGame3 {
         }
 
         if (encounter.style == ClassicEncounterStyle.ICE_ARCHITECT) {
+            // The exit must have a calm, grounded approach. The map's normal
+            // east updraft occupied nearly the entire launch lane and could
+            // lift Penguin away while Belly Slide's timer expired.
+            windVents.removeIf(vent -> vent.x + vent.w >= LAST_ICE_EXIT_X - 420.0
+                    && vent.x <= LAST_ICE_EXIT_X + 180.0);
             addToKillFeed("ICE ARCHITECT: build all three launch ramps, then Belly Slide through the gate.");
         } else if (encounter.style == ClassicEncounterStyle.ICEWORKS_SIEGE) {
             addToKillFeed("HOLD THE GATE: rebuild the iceworks between three one-bird assault waves.");
@@ -43729,8 +43736,18 @@ public class BirdGame3 {
         if (player.bodyCenterY() > GROUND_Y + 180.0) {
             positionClassicBirdOnSurface(player, 760.0, LAST_ICE_MAIN_Y + 155.0, true);
         }
-        if (classicPenguinArchitectExitOpen && player.penguinBellySlideTimer > 0
-                && player.bodyCenterX() >= LAST_ICE_EXIT_X && !classicPenguinArchitectCompleted) {
+        if (player.penguinBellySlideTimer > 0 && player.penguinBellyDirection > 0) {
+            classicPenguinArchitectGateSlideGrace = 8;
+        } else if (classicPenguinArchitectGateSlideGrace > 0) {
+            classicPenguinArchitectGateSlideGrace--;
+        }
+        // Use the leading edge instead of the center: touching the open gate
+        // during a rightward Belly Slide is the authored action. The short
+        // latch also survives Bird.update decrementing the final slide frame
+        // immediately before this route update runs.
+        if (classicPenguinArchitectExitOpen && classicPenguinArchitectGateSlideGrace > 0
+                && player.x + player.bodyWidth() >= LAST_ICE_EXIT_X
+                && !classicPenguinArchitectCompleted) {
             classicPenguinArchitectCompleted = true;
             classicBonusCoins += 50;
             classicRunScore += 4_000;
@@ -43884,11 +43901,28 @@ public class BirdGame3 {
                 g.setLineWidth(5);
                 g.strokeOval(snowball.x - 27, snowball.y - 27, 54, 54);
             }
-            g.setFill(classicPenguinArchitectExitOpen ? Color.web("#69F0AE", 0.48) : Color.web("#EF5350", 0.48));
-            g.fillRect(LAST_ICE_EXIT_X, LAST_ICE_MAIN_Y - 390.0, 48.0, 545.0);
-            g.setStroke(Color.WHITE);
-            g.setLineWidth(7);
-            g.strokeRect(LAST_ICE_EXIT_X - 36.0, LAST_ICE_MAIN_Y - 410.0, 120.0, 565.0);
+            double gateTop = LAST_ICE_MAIN_Y - 390.0;
+            double gateBottom = LAST_ICE_MAIN_Y + 155.0;
+            if (classicPenguinArchitectExitOpen) {
+                g.setFill(Color.web("#69F0AE", 0.24));
+                g.fillRect(LAST_ICE_EXIT_X - 70.0, gateTop, 18.0, gateBottom - gateTop);
+                g.fillRect(LAST_ICE_EXIT_X + 52.0, gateTop, 18.0, gateBottom - gateTop);
+                g.fillRect(LAST_ICE_EXIT_X - 70.0, gateTop, 140.0, 18.0);
+                g.setStroke(Color.web("#B9F6CA"));
+                g.setLineWidth(7);
+                g.strokeLine(LAST_ICE_EXIT_X - 46.0, gateTop + 80.0,
+                        LAST_ICE_EXIT_X + 36.0, gateTop + 80.0);
+                g.strokeLine(LAST_ICE_EXIT_X + 36.0, gateTop + 80.0,
+                        LAST_ICE_EXIT_X + 12.0, gateTop + 56.0);
+                g.strokeLine(LAST_ICE_EXIT_X + 36.0, gateTop + 80.0,
+                        LAST_ICE_EXIT_X + 12.0, gateTop + 104.0);
+            } else {
+                g.setFill(Color.web("#EF5350", 0.48));
+                g.fillRect(LAST_ICE_EXIT_X, gateTop, 48.0, gateBottom - gateTop);
+                g.setStroke(Color.WHITE);
+                g.setLineWidth(7);
+                g.strokeRect(LAST_ICE_EXIT_X - 36.0, gateTop - 20.0, 120.0, gateBottom - gateTop + 20.0);
+            }
         }
         if (classicEncounter.style == ClassicEncounterStyle.LAST_SUN_BOSS) {
             Bird boss = firstClassicEnemyWithStocks();
@@ -45892,7 +45926,10 @@ public class BirdGame3 {
         // Paired with glacier columns in the renderer, these shelves read as
         // one carved fortress instead of unrelated floating platforms.
         Platform west = new Platform(520.0, LAST_ICE_MAIN_Y + 155.0, 760.0, 56.0);
-        Platform east = new Platform(4_720.0, LAST_ICE_MAIN_Y + 155.0, 760.0, 56.0);
+        // Extend well beyond the Ice Architect gate. The old shelf ended only
+        // 60 px after its trigger, leaving less than one Penguin body of safe
+        // runway and making a successful slide look like a fall into the sea.
+        Platform east = new Platform(4_720.0, LAST_ICE_MAIN_Y + 155.0, 1_120.0, 56.0);
         Platform westTower = new Platform(1_260.0, LAST_ICE_MAIN_Y - 360.0, 820.0, 48.0);
         Platform crown = new Platform(2_470.0, LAST_ICE_MAIN_Y - 650.0, 1_060.0, 52.0);
         Platform eastTower = new Platform(3_920.0, LAST_ICE_MAIN_Y - 360.0, 820.0, 48.0);

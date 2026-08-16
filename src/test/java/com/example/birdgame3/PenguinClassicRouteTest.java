@@ -138,6 +138,49 @@ class PenguinClassicRouteTest {
     }
 
     @Test
+    void iceArchitectGateHasCalmRunwayAndAcceptsARealLastFrameSlide() throws Exception {
+        BirdGame3 game = preparedGame();
+        game.headlessHarnessMode = true;
+        prepareEncounter(game, route(game).get(6));
+        Bird player = game.players[0];
+
+        Platform exitShelf = game.platforms.stream()
+                .filter(platform -> platform.y == BirdGame3.LAST_ICE_MAIN_Y + 155.0)
+                .filter(platform -> platform.x <= BirdGame3.LAST_ICE_EXIT_X - 260.0)
+                .filter(platform -> platform.x + platform.w >= BirdGame3.LAST_ICE_EXIT_X + 260.0)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Ice Architect needs grounded runway on both sides of its gate."));
+        assertTrue(game.windVents.stream().noneMatch(vent ->
+                        vent.x + vent.w >= BirdGame3.LAST_ICE_EXIT_X - 420.0
+                                && vent.x <= BirdGame3.LAST_ICE_EXIT_X + 180.0),
+                "An updraft must not lift Penguin out of the gate approach.");
+
+        setField(game, "classicPenguinArchitectExitOpen", true);
+        player.x = BirdGame3.LAST_ICE_EXIT_X - player.bodyWidth() - 4.0;
+        player.y = exitShelf.y - player.bodyHeight();
+        player.prevX = player.x;
+        player.prevY = player.y;
+        player.vx = 12.0;
+        player.vy = 0.0;
+        player.facingRight = true;
+        player.penguinBellyDirection = 1;
+        player.penguinBellySlideTimer = 1;
+
+        // Arm the route while the final slide frame is active. Bird.update()
+        // consumes that frame before it applies movement, which was previously
+        // enough to make a visible gate crossing fail to finish the round.
+        game.applyPenguinClassicRuntimeEffects();
+        assertFalse((boolean) getField(game, "classicPenguinArchitectCompleted"));
+        player.update(1.0);
+        assertEquals(0, player.penguinBellySlideTimer);
+        assertTrue(player.x + player.bodyWidth() >= BirdGame3.LAST_ICE_EXIT_X);
+        game.applyPenguinClassicRuntimeEffects();
+
+        assertTrue((boolean) getField(game, "classicPenguinArchitectCompleted"));
+        assertSame(player, game.harnessWinner);
+    }
+
+    @Test
     void lastSunHasThreeStocksNoUltAndMeltsOnlyAuthoredTerraces() throws Exception {
         BirdGame3 game = preparedGame();
         prepareEncounter(game, route(game).getLast());
