@@ -228,17 +228,53 @@ class CharlesClassicRouteTest {
     }
 
     @Test
-    void signalSpireBroadcastLaneIsTelegraphedDirectionalAndAirborneOnly() {
+    void signalSpirePowerLineWarnsBeforeItCanShock() throws Exception {
         BirdGame3 game = prepared(1, 0xC4A283L, 0xC4A284L);
         Bird charles = game.players[0];
-        game.simTick = 60L;
+        game.simTick = BirdGame3.SIGNAL_POWER_LINE_START_DELAY_FRAMES;
         charles.x = 2_600.0;
         charles.y = BirdGame3.SIGNAL_LANE_Y[0] - charles.bodyHeight() * 0.5;
         charles.vx = 0.0;
+        charles.vy = 0.0;
+        double startingDamage = (double) get(charles, "smashDamage");
 
         game.applyCharlesArenaRuntimeEffects();
+        assertEquals(BirdGame3.SignalPowerLineState.WARNING,
+                BirdGame3.signalPowerLineState(game.simTick, 0));
+        assertEquals(startingDamage, (double) get(charles, "smashDamage"), 0.0001,
+                "The amber warning must never damage a fighter.");
 
-        assertEquals(0.22, charles.vx, 0.0001);
+        game.simTick += BirdGame3.SIGNAL_POWER_LINE_WARNING_FRAMES;
+        game.applyCharlesArenaRuntimeEffects();
+
+        assertEquals(BirdGame3.SignalPowerLineState.LIVE,
+                BirdGame3.signalPowerLineState(game.simTick, 0));
+        assertTrue((double) get(charles, "smashDamage") > startingDamage);
+        assertTrue(charles.vx < 0.0, "The wire should launch away from the mast center.");
+        assertTrue(charles.vy < 0.0);
+        assertTrue(charles.stunTime >= 18);
+        assertEquals(BirdGame3.SIGNAL_POWER_LINE_HIT_COOLDOWN_FRAMES,
+                game.signalPowerLineHitCooldowns[0]);
+
+        double damageAfterShock = (double) get(charles, "smashDamage");
+        game.simTick++;
+        game.applyCharlesArenaRuntimeEffects();
+        assertEquals(damageAfterShock, (double) get(charles, "smashDamage"), 0.0001,
+                "A live wire must not apply damage every simulation frame.");
+    }
+
+    @Test
+    void signalSpireLinesArePermanentlyInstalledButActivateInStaggeredOrder() {
+        assertEquals(BirdGame3.SignalPowerLineState.DORMANT,
+                BirdGame3.signalPowerLineState(0, 0));
+        assertEquals(BirdGame3.SignalPowerLineState.WARNING,
+                BirdGame3.signalPowerLineState(BirdGame3.SIGNAL_POWER_LINE_START_DELAY_FRAMES, 0));
+        assertEquals(BirdGame3.SignalPowerLineState.DORMANT,
+                BirdGame3.signalPowerLineState(BirdGame3.SIGNAL_POWER_LINE_START_DELAY_FRAMES, 1));
+        assertEquals(BirdGame3.SignalPowerLineState.WARNING,
+                BirdGame3.signalPowerLineState(
+                        BirdGame3.SIGNAL_POWER_LINE_START_DELAY_FRAMES
+                                + BirdGame3.SIGNAL_POWER_LINE_STAGGER_FRAMES, 1));
     }
 
     @Test

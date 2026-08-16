@@ -1048,6 +1048,16 @@ public class BirdGame3 {
     static final int RESONANCE_PLATE_HOLD_FRAMES = 38;
     static final int RESONANCE_PLATE_REUSE_FRAMES = 110;
     static final double[] SIGNAL_LANE_Y = {GROUND_Y - 1_340.0, GROUND_Y - 890.0, GROUND_Y - 470.0};
+    static final double SIGNAL_POWER_LINE_MIN_X = 680.0;
+    static final double SIGNAL_POWER_LINE_MAX_X = 5_320.0;
+    static final int SIGNAL_POWER_LINE_START_DELAY_FRAMES = 90;
+    static final int SIGNAL_POWER_LINE_STAGGER_FRAMES = 80;
+    static final int SIGNAL_POWER_LINE_WARNING_FRAMES = 60;
+    static final int SIGNAL_POWER_LINE_LIVE_FRAMES = 42;
+    static final int SIGNAL_POWER_LINE_CYCLE_FRAMES = 240;
+    static final int SIGNAL_POWER_LINE_HIT_COOLDOWN_FRAMES = 48;
+    static final double SIGNAL_POWER_LINE_HALF_THICKNESS = 22.0;
+    static final double SIGNAL_POWER_LINE_DAMAGE = 9.0;
     static final double SILENT_FIELD_CENTER_X = 3_000.0;
     static final double SILENT_FIELD_CENTER_Y = GROUND_Y - 650.0;
     static final double SILENT_FIELD_RADIUS_X = 570.0;
@@ -1055,6 +1065,7 @@ public class BirdGame3 {
     final int[] resonancePlateHoldFrames = new int[MAX_COMBATANTS];
     final int[] resonancePlateReuseFrames = new int[MAX_COMBATANTS];
     final int[] resonancePlateIndex = new int[MAX_COMBATANTS];
+    final int[] signalPowerLineHitCooldowns = new int[MAX_COMBATANTS];
     boolean mutatorModeEnabled = false;
     boolean competitionModeEnabled = false;
     MatchMutator activeMutator = MatchMutator.NONE;
@@ -14114,24 +14125,91 @@ public class BirdGame3 {
 
         drawSignalSpirePlatforms(g);
 
-        int lane = (int) ((simTick / 180L) % SIGNAL_LANE_Y.length);
-        int phase = (int) (simTick % 180L);
-        boolean broadcasting = phase >= 30 && phase <= 155;
-        int direction = ((simTick / 540L) & 1L) == 0L ? 1 : -1;
-        double laneY = SIGNAL_LANE_Y[lane];
-        g.save();
-        g.setStroke(Color.web(broadcasting ? "#67E8F9" : "#FFB74D", broadcasting ? 0.56 : 0.34));
-        g.setLineWidth(broadcasting ? 34.0 : 18.0);
-        g.setLineDashes(80.0, 38.0);
-        g.strokeLine(620.0, laneY, 5_380.0, laneY);
-        g.setLineDashes();
-        g.setFill(Color.web(broadcasting ? "#B2EBF2" : "#FFE0B2", 0.78));
-        for (double x = 940.0; x < 5_150.0; x += 620.0) {
-            double tip = x + direction * 80.0;
-            g.fillPolygon(new double[]{tip, tip - direction * 72.0, tip - direction * 72.0},
-                    new double[]{laneY, laneY - 34.0, laneY + 34.0}, 3);
+        drawSignalSpirePowerLines(g);
+    }
+
+    private void drawSignalSpirePowerLines(GraphicsContext g) {
+        for (int line = 0; line < SIGNAL_LANE_Y.length; line++) {
+            double y = SIGNAL_LANE_Y[line];
+            SignalPowerLineState state = signalPowerLineState(simTick, line);
+            long phase = signalPowerLinePhase(simTick, line);
+            double warningProgress = state == SignalPowerLineState.WARNING
+                    ? phase / (double) SIGNAL_POWER_LINE_WARNING_FRAMES : 0.0;
+            double pulse = 0.5 + 0.5 * Math.sin((simTick + line * 17L) * 0.28);
+
+            g.save();
+            // Permanent transformer brackets and ceramic insulators make these
+            // read as installed power lines even while their current is off.
+            for (double anchorX : new double[]{SIGNAL_POWER_LINE_MIN_X, SIGNAL_POWER_LINE_MAX_X}) {
+                double inward = anchorX == SIGNAL_POWER_LINE_MIN_X ? 1.0 : -1.0;
+                g.setStroke(Color.web("#455A64"));
+                g.setLineWidth(18.0);
+                g.strokeLine(anchorX, y - 70.0, anchorX, y + 70.0);
+                g.strokeLine(anchorX, y, anchorX + inward * 74.0, y);
+                for (int insulator = -1; insulator <= 1; insulator++) {
+                    double ix = anchorX + inward * (25.0 + insulator * 17.0);
+                    g.setFill(Color.web("#D7CCC8"));
+                    g.fillOval(ix - 9.0, y - 17.0, 18.0, 34.0);
+                    g.setStroke(Color.web("#795548", 0.9));
+                    g.setLineWidth(3.0);
+                    g.strokeOval(ix - 9.0, y - 17.0, 18.0, 34.0);
+                }
+            }
+
+            g.setStroke(Color.web("#05090D", 0.88));
+            g.setLineWidth(18.0);
+            g.strokeLine(SIGNAL_POWER_LINE_MIN_X, y, SIGNAL_POWER_LINE_MAX_X, y);
+            g.setStroke(Color.web("#607D8B", 0.82));
+            g.setLineWidth(5.0);
+            g.strokeLine(SIGNAL_POWER_LINE_MIN_X, y, SIGNAL_POWER_LINE_MAX_X, y);
+
+            if (state == SignalPowerLineState.WARNING) {
+                double alpha = 0.30 + warningProgress * 0.46 + pulse * 0.14;
+                g.setStroke(Color.web("#FFB300", Math.clamp(alpha, 0.0, 0.94)));
+                g.setLineWidth(18.0 + warningProgress * 10.0);
+                g.strokeLine(SIGNAL_POWER_LINE_MIN_X, y, SIGNAL_POWER_LINE_MAX_X, y);
+                g.setStroke(Color.web("#FFF176", 0.48 + warningProgress * 0.42));
+                g.setLineWidth(4.0);
+                g.setLineDashes(38.0, 28.0 - warningProgress * 12.0);
+                g.strokeLine(SIGNAL_POWER_LINE_MIN_X, y, SIGNAL_POWER_LINE_MAX_X, y);
+                g.setLineDashes();
+
+                double signW = 460.0;
+                double signX = (SIGNAL_POWER_LINE_MIN_X + SIGNAL_POWER_LINE_MAX_X - signW) * 0.5;
+                g.setFill(Color.web("#160E02", 0.88));
+                g.fillRoundRect(signX, y - 92.0, signW, 56.0, 18, 18);
+                g.setStroke(Color.web("#FFD54F", 0.92));
+                g.setLineWidth(4.0);
+                g.strokeRoundRect(signX, y - 92.0, signW, 56.0, 18, 18);
+                g.setFill(Color.web("#FFF59D"));
+                g.setFont(Font.font("Consolas", FontWeight.BOLD, 25));
+                g.setTextAlign(TextAlignment.CENTER);
+                g.fillText("! HIGH VOLTAGE — CHARGING !", signX + signW * 0.5, y - 55.0);
+                g.setTextAlign(TextAlignment.LEFT);
+            } else if (state == SignalPowerLineState.LIVE) {
+                g.setStroke(Color.web("#00E5FF", 0.22 + pulse * 0.16));
+                g.setLineWidth(46.0 + pulse * 8.0);
+                g.strokeLine(SIGNAL_POWER_LINE_MIN_X, y, SIGNAL_POWER_LINE_MAX_X, y);
+                g.setStroke(Color.web("#80DEEA", 0.9));
+                g.setLineWidth(13.0);
+                g.strokeLine(SIGNAL_POWER_LINE_MIN_X, y, SIGNAL_POWER_LINE_MAX_X, y);
+                g.setStroke(Color.WHITE);
+                g.setLineWidth(4.0);
+                double previousX = SIGNAL_POWER_LINE_MIN_X;
+                double previousY = y;
+                int segment = 0;
+                while (previousX < SIGNAL_POWER_LINE_MAX_X) {
+                    double nextX = Math.min(previousX + 96.0, SIGNAL_POWER_LINE_MAX_X);
+                    double nextY = nextX >= SIGNAL_POWER_LINE_MAX_X
+                            ? y : y + (((segment + simTick / 3L) & 1L) == 0L ? -15.0 : 15.0);
+                    g.strokeLine(previousX, previousY, nextX, nextY);
+                    previousX = nextX;
+                    previousY = nextY;
+                    segment++;
+                }
+            }
+            g.restore();
         }
-        g.restore();
     }
 
     private void drawSilentAmphitheaterArena(GraphicsContext g, boolean ambientFx) {
@@ -36026,7 +36104,7 @@ public class BirdGame3 {
             case ASHFALL_CATHEDRAL -> "A burning sky-temple over a lava sea. Timed phoenix geysers telegraph, erupt, launch, and become dangerous thermals that can save or punish recoveries.";
             case PRISON -> "A breached Crown detention complex beneath the city. Its flat transfer floor supports layered steel catwalks; pull either cell-block lever to release a charging prisoner wave, then launch rivals through the open roof or side blast exits.";
             case RESONANCE_HALL -> "A grand abandoned opera house with a full stage, fly loft, box balconies, and orchestra pit. Hold position on one of three glowing acoustic plates to charge a musical launch that refreshes your double jump.";
-            case SIGNAL_SPIRE -> "An asymmetric climb across a colossal broadcast mast above the cloud deck. Watch the highlighted frequency lane: its timed signal pushes airborne fighters in the direction of its arrows.";
+            case SIGNAL_SPIRE -> "An asymmetric climb across a colossal broadcast mast above the cloud deck. Permanent power lines warn in amber before turning blue-white and shocking any fighter who touches them.";
             case SILENT_AMPHITHEATER -> "A monumental empty theater beneath an eclipsed crown. The faint central stillness field softens horizontal launch speed while a fighter is in hitstun, creating a contested refuge without stopping combat.";
             case BEACON_CROWN -> "The Beacon Crown opens into a giant sky arena with long lanes, staggered perches, and a lethal drop on every side.";
             default -> "Dense trees and long platforms for classic brawls. A steady arena that rewards smart positioning.";
@@ -51479,7 +51557,7 @@ public class BirdGame3 {
         if (matchEnded) return;
         switch (selectedMap) {
             case RESONANCE_HALL -> applyResonanceHallAcousticPlates();
-            case SIGNAL_SPIRE -> applySignalSpireBroadcastLane();
+            case SIGNAL_SPIRE -> applySignalSpirePowerLines();
             case SILENT_AMPHITHEATER -> applySilentAmphitheaterStillnessField();
             default -> {
             }
@@ -51542,18 +51620,84 @@ public class BirdGame3 {
         }
     }
 
-    private void applySignalSpireBroadcastLane() {
-        int lane = (int) ((simTick / 180L) % SIGNAL_LANE_Y.length);
-        int phase = (int) (simTick % 180L);
-        if (phase < 30 || phase > 155) return;
-        double direction = ((simTick / 540L) & 1L) == 0L ? 1.0 : -1.0;
-        double laneY = SIGNAL_LANE_Y[lane];
-        for (Bird bird : players) {
-            if (bird == null || bird.health <= 0.0 || bird.classicBonusTarget || bird.isOnGround()) continue;
-            double centerX = bird.bodyCenterX();
-            double centerY = bird.bodyCenterY();
-            if (centerX < 680.0 || centerX > 5_320.0 || Math.abs(centerY - laneY) > 105.0) continue;
-            bird.vx = Math.clamp(bird.vx + direction * 0.22, -17.0, 17.0);
+    enum SignalPowerLineState {
+        DORMANT, WARNING, LIVE
+    }
+
+    static long signalPowerLinePhase(long tick, int lineIndex) {
+        long localTick = tick - SIGNAL_POWER_LINE_START_DELAY_FRAMES
+                - Math.max(0, lineIndex) * (long) SIGNAL_POWER_LINE_STAGGER_FRAMES;
+        return localTick < 0L ? -1L : Math.floorMod(localTick, SIGNAL_POWER_LINE_CYCLE_FRAMES);
+    }
+
+    static SignalPowerLineState signalPowerLineState(long tick, int lineIndex) {
+        long phase = signalPowerLinePhase(tick, lineIndex);
+        if (phase < 0L) return SignalPowerLineState.DORMANT;
+        if (phase < SIGNAL_POWER_LINE_WARNING_FRAMES) return SignalPowerLineState.WARNING;
+        if (phase < SIGNAL_POWER_LINE_WARNING_FRAMES + SIGNAL_POWER_LINE_LIVE_FRAMES) {
+            return SignalPowerLineState.LIVE;
+        }
+        return SignalPowerLineState.DORMANT;
+    }
+
+    private void applySignalSpirePowerLines() {
+        for (int i = 0; i < signalPowerLineHitCooldowns.length; i++) {
+            if (signalPowerLineHitCooldowns[i] > 0) signalPowerLineHitCooldowns[i]--;
+        }
+        for (int line = 0; line < SIGNAL_LANE_Y.length; line++) {
+            long phase = signalPowerLinePhase(simTick, line);
+            if (phase == 0L) {
+                playManagedSfxVaried(fightReadyClip, 0.22, 1.28, 0.018);
+            }
+            if (signalPowerLineState(simTick, line) != SignalPowerLineState.LIVE) continue;
+
+            double lineY = SIGNAL_LANE_Y[line];
+            for (int slot = 0; slot < activePlayers; slot++) {
+                Bird bird = players[slot];
+                if (bird == null || bird.health <= 0.0 || bird.classicBonusTarget
+                        || signalPowerLineHitCooldowns[slot] > 0) {
+                    continue;
+                }
+                double birdLeft = bird.x;
+                double birdRight = bird.x + bird.bodyWidth();
+                double birdTop = bird.y;
+                double birdBottom = bird.y + bird.bodyHeight();
+                boolean touchesWire = birdRight >= SIGNAL_POWER_LINE_MIN_X
+                        && birdLeft <= SIGNAL_POWER_LINE_MAX_X
+                        && birdBottom >= lineY - SIGNAL_POWER_LINE_HALF_THICKNESS
+                        && birdTop <= lineY + SIGNAL_POWER_LINE_HALF_THICKNESS;
+                if (!touchesWire) continue;
+
+                signalPowerLineHitCooldowns[slot] = SIGNAL_POWER_LINE_HIT_COOLDOWN_FRAMES;
+                double dealt = bird.receiveExternalDamage(SIGNAL_POWER_LINE_DAMAGE);
+                if (dealt <= 0.0) continue;
+                double launchDirection = Math.signum(bird.bodyCenterX() - 3_000.0);
+                if (launchDirection == 0.0) launchDirection = (line & 1) == 0 ? -1.0 : 1.0;
+                double damageLaunch = usesDamageScaledKnockback()
+                        ? Math.min(4.0, displayedDamageForBird(bird) * 0.022) : 0.0;
+                double sizeLaunch = bird.incomingSizeKnockbackMultiplier();
+                bird.vx = Math.clamp(bird.vx + launchDirection * (6.5 + damageLaunch) * sizeLaunch,
+                        -18.0, 18.0);
+                bird.vy = Math.min(bird.vy, -(8.8 + damageLaunch * 0.55) * sizeLaunch);
+                bird.applyStun(18);
+                shakeIntensity = Math.max(shakeIntensity, 7.0);
+                flashAlpha = Math.max(flashAlpha, 0.08);
+                playManagedSfxVaried(bonkClip, 0.40, 1.42, 0.035);
+                addToKillFeed("LIVE WIRE shocked " + shortName(bird.name)
+                        + "! -" + (int) Math.round(dealt) + " DMG");
+                if (particleEffectsEnabled) {
+                    for (int spark = 0; spark < scaledParticleBurstCount(16); spark++) {
+                        double angle = nextParticleRandom() * Math.PI * 2.0;
+                        double speed = 3.0 + nextParticleRandom() * 6.0;
+                        particles.add(new Particle(
+                                bird.bodyCenterX(), bird.bodyCenterY(),
+                                Math.cos(angle) * speed,
+                                Math.sin(angle) * speed,
+                                spark % 3 == 0 ? Color.WHITE : Color.web("#00E5FF")));
+                    }
+                }
+                break;
+            }
         }
     }
 
@@ -53068,6 +53212,7 @@ public class BirdGame3 {
             h = h * 1099511628211L + resonancePlateHoldFrames[i];
             h = h * 1099511628211L + resonancePlateReuseFrames[i];
             h = h * 1099511628211L + resonancePlateIndex[i];
+            h = h * 1099511628211L + signalPowerLineHitCooldowns[i];
         }
         h = h * 1099511628211L + prisonerRushes.size();
         for (PrisonerRush rush : prisonerRushes) {
@@ -54684,6 +54829,7 @@ public class BirdGame3 {
         Arrays.fill(dockLeverHeld, false);
         Arrays.fill(prisonLeverCooldowns, 0);
         Arrays.fill(prisonLeverHeld, false);
+        Arrays.fill(signalPowerLineHitCooldowns, 0);
         prisonerRushes.clear();
 
         if (selectedMap != MapType.CITY || lanModeActive) cityStars.clear();
@@ -59311,6 +59457,7 @@ public class BirdGame3 {
         classicBroodbreakerCaptureResolved = false;
         classicBroodbreakerFinalPhaseActive = false;
         classicBroodbreakerEclipseBroken = false;
+        Arrays.fill(signalPowerLineHitCooldowns, 0);
     }
 
     private void resetSuddenDeathState() {
