@@ -24253,14 +24253,11 @@ public class BirdGame3 {
         selectedMap = MapType.FOREST;
         startMusic();
 
-        VBox root = new VBox(24);
-        root.setAlignment(Pos.TOP_CENTER);
-        root.setPadding(new Insets(40));
-        root.setStyle("-fx-background-color: linear-gradient(to bottom, #08120D, #10281C, #183926);");
-
-        Label title = new Label("TOWER DEFENSE MAPS");
-        title.setFont(Font.font("Arial Black", 72));
-        title.setTextFill(Color.web("#FFF59D"));
+        BorderPane root = buildModernMenuPage();
+        Button back = uiFactory.action("BACK", 180, 64, 23, "#B5121B", 18, () -> showHub(stage));
+        StackPane title = buildMenuTitleBanner("TOWER DEFENSE", 500, 72, 31);
+        root.setTop(buildMenuTopStrip(back, title,
+                buildMenuChip("BIG FOREST", "#2E7D32", "#A5D6A7")));
 
         Label subtitle = new Label("Choose a defense map. Each difficulty on each map has its own badge slot.");
         subtitle.setFont(Font.font("Consolas", 22));
@@ -24353,16 +24350,15 @@ public class BirdGame3 {
             difficultyRow.getChildren().add(difficultyBtn);
         }
 
-        Button back = uiFactory.action("BACK", 360, 88, 30, "#C62828", 24, () -> showHub(stage));
-
-        VBox mapCard = new VBox(18, preview, mapName, mapBody, difficultyRow);
+        VBox mapCard = new VBox(16,
+                buildMenuEyebrow("SELECT A DEFENSE CONTRACT", "#A5D6A7"), subtitle,
+                preview, mapName, mapBody, difficultyRow);
         mapCard.setAlignment(Pos.CENTER);
         mapCard.setPadding(new Insets(26));
-        mapCard.setMaxWidth(900);
-        mapCard.setStyle("-fx-background-color: rgba(0,0,0,0.44); -fx-background-radius: 28; "
-                + "-fx-border-color: #4CAF50; -fx-border-width: 3; -fx-border-radius: 28;");
+        mapCard.setMaxWidth(960);
+        mapCard.setStyle(MenuTheme.panelStyle("#4CAF50", 28));
 
-        root.getChildren().addAll(title, subtitle, mapCard, back);
+        root.setCenter(mapCard);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         bindEscape(scene, back);
@@ -26834,38 +26830,43 @@ public class BirdGame3 {
         startMatch(stage);
     }
 
-    private void showTournamentCpuChoice(Stage stage, TournamentMatch match) {
-        playMenuMusic();
-
-        VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #091426, #1A2B4B);",
-                MENU_PADDING, 30);
-
-        Label title = new Label("CPU VS CPU");
-        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 92));
-        title.setTextFill(Color.GOLD);
-
-        String left = tournamentEntryLabel(match.a) + "  |  " + tournamentBirdLabel(match.a, true);
-        String right = tournamentEntryLabel(match.b) + "  |  " + tournamentBirdLabel(match.b, true);
-        Label info = new Label(left + "\nvs\n" + right + "\nWatch the match or simulate the result.");
-        MenuLayout.styleMenuMessage(info, 30, "#B3E5FC", MENU_TEXT_MAX_WIDTH, this::applyNoEllipsis);
-
-        Button watch = uiFactory.action("WATCH MATCH", 520, 120, 42, "#1565C0", 26, () -> launchTournamentMatch(stage, match));
-        Button skip = uiFactory.action("SIMULATE", 420, 120, 38, "#8E24AA", 26, () -> simulateTournamentMatch(stage, match));
-        Button exit = uiFactory.action("EXIT TO HUB", 420, 120, 34, "#FF1744", 22, () -> {
-            resetTournamentRun();
-            showMenu(stage);
-        });
-
-        HBox buttons = new HBox(24, watch, skip, exit);
-        buttons.setAlignment(Pos.CENTER);
-
-        root.getChildren().addAll(title, info, buttons);
+    private void showModernTournamentDecision(Stage stage, String titleText, String chipText,
+                                              String headline, String body, String accentHex,
+                                              Button exit, HBox actions, Button initialFocus) {
+        BorderPane root = buildModernMenuPage();
+        StackPane title = buildMenuTitleBanner(titleText, 560, 72, 31);
+        root.setTop(buildMenuTopStrip(exit, title, buildMenuChip(chipText, accentHex, "#FFF59D")));
+        VBox panel = buildModernMenuPanel(accentHex, 1120, 20,
+                buildMenuEyebrow("TOURNAMENT CONTROL", accentHex),
+                buildMenuPanelTitle(headline, 44),
+                buildMenuPanelBody(body, 960), actions);
+        root.setCenter(panel);
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         bindEscape(scene, exit);
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
         setScenePreservingFullscreen(stage, scene);
-        watch.requestFocus();
+        initialFocus.requestFocus();
+    }
+
+    private void showTournamentCpuChoice(Stage stage, TournamentMatch match) {
+        playMenuMusic();
+        String left = tournamentEntryLabel(match.a) + "  |  " + tournamentBirdLabel(match.a, true);
+        String right = tournamentEntryLabel(match.b) + "  |  " + tournamentBirdLabel(match.b, true);
+
+        Button watch = uiFactory.action("WATCH MATCH", 520, 120, 42, "#1565C0", 26, () -> launchTournamentMatch(stage, match));
+        Button skip = uiFactory.action("SIMULATE", 420, 120, 38, "#8E24AA", 26, () -> simulateTournamentMatch(stage, match));
+        Button exit = uiFactory.action("EXIT TO HUB", 240, 64, 22, "#B5121B", 18, () -> {
+            resetTournamentRun();
+            showMenu(stage);
+        });
+
+        HBox buttons = new HBox(24, watch, skip);
+        buttons.setAlignment(Pos.CENTER);
+        showModernTournamentDecision(stage, "TOURNAMENT MATCH", "CPU VS CPU",
+                left + "\nVS\n" + right,
+                "Watch the full battle or resolve it immediately with the tournament simulation.",
+                "#64B5F6", exit, buttons, watch);
     }
 
     private void simulateTournamentMatch(Stage stage, TournamentMatch match) {
@@ -26893,16 +26894,6 @@ public class BirdGame3 {
     private void showTournamentSimResult(Stage stage, TournamentEntry winner) {
         playMenuMusic();
 
-        VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #081122, #13294B);",
-                MENU_PADDING, 28);
-
-        Label title = new Label("SIMULATED RESULT");
-        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 88));
-        title.setTextFill(Color.GOLD);
-
-        Label info = getLabel(winner != null ? tournamentEntryLabel(winner) + " advances." : "No winner.");
-        MenuLayout.styleMenuMessage(info, 32, "#C5E1A5", MENU_TEXT_MAX_WIDTH, this::applyNoEllipsis);
-
         boolean complete = isTournamentComplete();
         Button next = uiFactory.action(complete ? "VIEW CHAMPION" : "VIEW BRACKET", 520, 120, 40, "#1565C0", 26, () -> {
             resetMatchStats();
@@ -26912,20 +26903,16 @@ public class BirdGame3 {
                 showTournamentBracket(stage);
             }
         });
-        Button exit = uiFactory.action("EXIT TO HUB", 420, 120, 34, "#FF1744", 22, () -> {
+        Button exit = uiFactory.action("EXIT TO HUB", 240, 64, 22, "#B5121B", 18, () -> {
             resetTournamentRun();
             showMenu(stage);
         });
-        HBox buttons = new HBox(24, next, exit);
+        HBox buttons = new HBox(24, next);
         buttons.setAlignment(Pos.CENTER);
-
-        root.getChildren().addAll(title, info, buttons);
-        Scene scene = new Scene(root, WIDTH, HEIGHT);
-        bindEscape(scene, exit);
-        setupKeyboardNavigation(scene);
-        applyConsoleHighlight(scene);
-        setScenePreservingFullscreen(stage, scene);
-        next.requestFocus();
+        String winnerText = winner != null ? tournamentEntryLabel(winner) + " ADVANCES" : "NO WINNER";
+        showModernTournamentDecision(stage, "SIMULATED RESULT", "BRACKET UPDATED",
+                winnerText, complete ? "The championship bracket is complete." : "The next bracket round is ready.",
+                "#81C784", exit, buttons, next);
     }
 
     private void showTournamentComplete(Stage stage) {
@@ -26939,31 +26926,17 @@ public class BirdGame3 {
             }
         }
 
-        VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #081122, #13294B);",
-                MENU_PADDING, 28);
-
-        Label title = new Label("TOURNAMENT COMPLETE");
-        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 90));
-        title.setTextFill(Color.GOLD);
-
-        Label info = getLabel(champion != null ? (tournamentEntryLabel(champion) + " is champion!") : "No champion.");
-        MenuLayout.styleMenuMessage(info, 34, "#FFE082", MENU_TEXT_MAX_WIDTH, this::applyNoEllipsis);
-
         Button setup = uiFactory.action("NEW TOURNAMENT", 520, 120, 38, "#1565C0", 26, () -> showTournamentSetup(stage));
-        Button exit = uiFactory.action("EXIT TO HUB", 420, 120, 34, "#FF1744", 22, () -> {
+        Button exit = uiFactory.action("EXIT TO HUB", 240, 64, 22, "#B5121B", 18, () -> {
             resetTournamentRun();
             showMenu(stage);
         });
-        HBox buttons = new HBox(24, setup, exit);
+        HBox buttons = new HBox(24, setup);
         buttons.setAlignment(Pos.CENTER);
-
-        root.getChildren().addAll(title, info, buttons);
-        Scene scene = new Scene(root, WIDTH, HEIGHT);
-        bindEscape(scene, exit);
-        setupKeyboardNavigation(scene);
-        applyConsoleHighlight(scene);
-        setScenePreservingFullscreen(stage, scene);
-        setup.requestFocus();
+        String championText = champion != null ? tournamentEntryLabel(champion).toUpperCase(Locale.ROOT) : "NO CHAMPION";
+        showModernTournamentDecision(stage, "TOURNAMENT COMPLETE", "CHAMPION",
+                championText, champion != null ? "The bracket belongs to the new champion." : "The bracket ended without a champion.",
+                "#FFE082", exit, buttons, setup);
     }
 
     private void showLanMenu(Stage stage) {
@@ -26971,27 +26944,32 @@ public class BirdGame3 {
         playMenuMusic();
         currentStage = stage;
 
-        VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #0B1A24, #1C2F3C);",
-                MENU_PADDING, 16);
+        BorderPane root = buildModernMenuPage();
+        Button back = uiFactory.action("BACK TO HUB", 250, 66, 23, "#B5121B", 18, () -> showMenu(stage));
+        StackPane title = buildMenuTitleBanner("NETWORK PLAY", 480, 72, 34);
+        StackPane modeChip = buildMenuChip("DIRECT LOCKSTEP", "#1565C0", "#90CAF9");
+        root.setTop(buildMenuTopStrip(back, title, modeChip));
 
-        Label title = new Label("NETWORK PLAY");
-        title.setFont(Font.font("Impact", FontWeight.BOLD, 92));
-        title.setTextFill(Color.web("#FFE082"));
-
-        Label message = new Label("Fight over the internet with a direct address, or play on the same local network.\nUp to "
-                + LAN_MAX_PLAYERS + " players use deterministic lockstep simulation.");
-        MenuLayout.styleMenuMessage(message, 24, "#B3E5FC", MENU_TEXT_MAX_WIDTH, this::applyNoEllipsis);
-
-        Button internetBtn = uiFactory.action("INTERNET PLAY", 400, 90, 32, "#6A1B9A", 22,
+        Button internetBtn = uiFactory.action("INTERNET PLAY", 340, 82, 29, "#6A1B9A", 20,
                 () -> showInternetMenu(stage));
-        Button lanBtn = uiFactory.action("LAN PLAY", 400, 90, 32, "#1565C0", 22,
+        Button lanBtn = uiFactory.action("LAN PLAY", 340, 82, 29, "#1565C0", 20,
                 () -> showLanDirectMenu(stage));
-        Button back = uiFactory.action("BACK TO HUB", 360, 90, 32, "#D32F2F", 22, () -> showMenu(stage));
+        VBox internetCard = buildMenuActionCard("ONLINE", "INTERNET PLAY",
+                "Host or join through a public IP or DNS address. Best for trusted players in nearby regions.",
+                "#CE93D8", internetBtn);
+        VBox lanCard = buildMenuActionCard("LOCAL NETWORK", "LAN PLAY",
+                "Connect computers on the same router with low-delay deterministic lockstep for up to "
+                        + LAN_MAX_PLAYERS + " players.", "#81D4FA", lanBtn);
+        HBox cards = new HBox(24, internetCard, lanCard);
+        cards.setAlignment(Pos.CENTER);
 
-        VBox buttons = new VBox(16, internetBtn, lanBtn, back);
-        buttons.setAlignment(Pos.CENTER);
-
-        root.getChildren().addAll(title, message, buttons);
+        Label footer = buildMenuPanelBody(
+                "All players run the same simulation. Use the same game version and a wired connection when possible.",
+                1200);
+        VBox center = new VBox(22, cards, footer);
+        center.setAlignment(Pos.CENTER);
+        center.setPadding(new Insets(28, 0, 0, 0));
+        root.setCenter(center);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         bindEscape(scene, back);
@@ -27006,20 +26984,23 @@ public class BirdGame3 {
         playMenuMusic();
         currentStage = stage;
 
-        VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #0B1A24, #1C2F3C);",
-                MENU_PADDING, 16);
-        Label title = new Label("LAN PLAY");
-        title.setFont(Font.font("Impact", FontWeight.BOLD, 86));
-        title.setTextFill(Color.web("#FFE082"));
-        Label message = new Label("Connect computers on the same home or event network.\nNo router setup is normally required.");
-        MenuLayout.styleMenuMessage(message, 24, "#B3E5FC", MENU_TEXT_MAX_WIDTH, this::applyNoEllipsis);
+        BorderPane root = buildModernMenuPage();
+        Button back = uiFactory.action("BACK", 180, 64, 23, "#B5121B", 18, () -> showLanMenu(stage));
+        StackPane title = buildMenuTitleBanner("LAN PLAY", 390, 72, 34);
+        root.setTop(buildMenuTopStrip(back, title,
+                buildMenuChip("SAME NETWORK", "#00838F", "#80DEEA")));
 
-        Button hostBtn = uiFactory.action("HOST LAN", 360, 90, 32, "#2E7D32", 22, () -> startLanHost(stage));
-        Button joinBtn = uiFactory.action("JOIN LAN", 360, 90, 32, "#1565C0", 22, () -> showLanJoin(stage, ""));
-        Button back = uiFactory.action("BACK", 320, 80, 28, "#D32F2F", 20, () -> showLanMenu(stage));
-        VBox buttons = new VBox(16, hostBtn, joinBtn, back);
-        buttons.setAlignment(Pos.CENTER);
-        root.getChildren().addAll(title, message, buttons);
+        Button hostBtn = uiFactory.action("HOST LAN", 320, 82, 29, "#2E7D32", 20, () -> startLanHost(stage));
+        Button joinBtn = uiFactory.action("JOIN LAN", 320, 82, 29, "#1565C0", 20, () -> showLanJoin(stage, ""));
+        VBox hostCard = buildMenuActionCard("CREATE SESSION", "HOST A LOBBY",
+                "Open a lobby on this computer. Other players on your router can join using its local IP address.",
+                "#A5D6A7", hostBtn);
+        VBox joinCard = buildMenuActionCard("FIND SESSION", "JOIN A LOBBY",
+                "Enter the host computer's local IP address. Router port forwarding is not normally required.",
+                "#90CAF9", joinBtn);
+        HBox cards = new HBox(24, hostCard, joinCard);
+        cards.setAlignment(Pos.CENTER);
+        root.setCenter(cards);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         bindEscape(scene, back);
@@ -27034,25 +27015,26 @@ public class BirdGame3 {
         playMenuMusic();
         currentStage = stage;
 
-        VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #170B24, #2D1842);",
-                MENU_PADDING, 14);
-        Label title = new Label("INTERNET PLAY");
-        title.setFont(Font.font("Impact", FontWeight.BOLD, 84));
-        title.setTextFill(Color.web("#FFE082"));
-        Label message = new Label("Direct-connect online matches for nearby players. The host shares a public address\n"
-                + "and forwards one TCP port; no account or central match server is used.");
-        MenuLayout.styleMenuMessage(message, 22, "#D1C4E9", MENU_TEXT_MAX_WIDTH, this::applyNoEllipsis);
-
-        Button hostBtn = uiFactory.action("HOST INTERNET", 400, 84, 30, "#6A1B9A", 21,
-                () -> showInternetHostSetup(stage, ""));
-        Button joinBtn = uiFactory.action("JOIN INTERNET", 400, 84, 30, "#1565C0", 21,
-                () -> showInternetJoin(stage, ""));
-        Button helpBtn = uiFactory.action("SETUP HELP", 340, 72, 26, "#455A64", 18,
+        BorderPane root = buildModernMenuPage();
+        Button back = uiFactory.action("BACK", 180, 64, 23, "#B5121B", 18, () -> showLanMenu(stage));
+        StackPane title = buildMenuTitleBanner("INTERNET PLAY", 470, 72, 32);
+        Button helpBtn = uiFactory.action("SETUP HELP", 220, 62, 21, "#455A64", 18,
                 () -> showInternetHelp(stage));
-        Button back = uiFactory.action("BACK", 300, 72, 26, "#D32F2F", 18, () -> showLanMenu(stage));
-        VBox buttons = new VBox(12, hostBtn, joinBtn, helpBtn, back);
-        buttons.setAlignment(Pos.CENTER);
-        root.getChildren().addAll(title, message, buttons);
+        root.setTop(buildMenuTopStrip(back, title, helpBtn));
+
+        Button hostBtn = uiFactory.action("HOST INTERNET", 340, 82, 28, "#6A1B9A", 20,
+                () -> showInternetHostSetup(stage, ""));
+        Button joinBtn = uiFactory.action("JOIN INTERNET", 340, 82, 28, "#1565C0", 20,
+                () -> showInternetJoin(stage, ""));
+        VBox hostCard = buildMenuActionCard("PORT FORWARD", "HOST A MATCH",
+                "Open a direct lobby on a TCP port, then share your public address with players you trust.",
+                "#CE93D8", hostBtn);
+        VBox joinCard = buildMenuActionCard("DIRECT ADDRESS", "JOIN A MATCH",
+                "Connect with the host's public IP or DNS name. Add the port when it is not the default.",
+                "#90CAF9", joinBtn);
+        HBox cards = new HBox(24, hostCard, joinCard);
+        cards.setAlignment(Pos.CENTER);
+        root.setCenter(cards);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         bindEscape(scene, back);
@@ -27066,26 +27048,24 @@ public class BirdGame3 {
         playMenuMusic();
         currentStage = stage;
 
-        VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #170B24, #2D1842);",
-                MENU_PADDING, 16);
-        Label title = new Label("HOST INTERNET");
-        title.setFont(Font.font("Impact", FontWeight.BOLD, 76));
-        title.setTextFill(Color.web("#FFE082"));
-        Label prompt = new Label("Forward this TCP port in your router to this computer, then share your public IP or DNS name.");
-        MenuLayout.styleMenuMessage(prompt, 22, "#D1C4E9", MENU_TEXT_MAX_WIDTH, this::applyNoEllipsis);
+        BorderPane root = buildModernMenuPage();
+        Button back = uiFactory.action("BACK", 180, 64, 23, "#B5121B", 18, () -> showInternetMenu(stage));
+        StackPane title = buildMenuTitleBanner("HOST INTERNET", 470, 72, 32);
+        Button help = uiFactory.action("SETUP HELP", 220, 62, 21, "#455A64", 18,
+                () -> showInternetHelp(stage));
+        root.setTop(buildMenuTopStrip(back, title, help));
 
         TextField portField = new TextField(Integer.toString(internetHostPort));
-        portField.setMaxWidth(260);
+        styleModernMenuTextField(portField, 300);
         portField.setPromptText(Integer.toString(LanProtocol.DEFAULT_PORT));
-        portField.setFont(Font.font("Consolas", 22));
-        Label portLabel = new Label("TCP PORT");
-        portLabel.setFont(Font.font("Consolas", FontWeight.BOLD, 20));
-        portLabel.setTextFill(Color.web("#D1C4E9"));
+        Label portLabel = buildMenuEyebrow("TCP PORT", "#CE93D8");
         Label status = new Label(error == null ? "" : error);
         status.setFont(Font.font("Consolas", 19));
-        status.setTextFill(Color.ORANGE);
+        status.setTextFill(Color.web("#FFB74D"));
         status.setWrapText(true);
-        status.setMaxWidth(MENU_TEXT_MAX_WIDTH);
+        status.setMaxWidth(760);
+        status.setMinHeight(28);
+        status.setAlignment(Pos.CENTER);
 
         Button host = uiFactory.action("OPEN LOBBY", 360, 84, 30, "#00A152", 21, () -> {
             try {
@@ -27097,10 +27077,14 @@ public class BirdGame3 {
                 status.setText(e.getMessage());
             }
         });
-        Button help = uiFactory.action("SETUP HELP", 300, 70, 25, "#455A64", 18,
-                () -> showInternetHelp(stage));
-        Button back = uiFactory.action("BACK", 280, 70, 25, "#D32F2F", 18, () -> showInternetMenu(stage));
-        root.getChildren().addAll(title, prompt, portLabel, portField, status, host, help, back);
+        Label prompt = buildMenuPanelBody(
+                "Forward this TCP port in your router to this computer, then share your public IP or DNS name.", 760);
+        VBox fieldBox = new VBox(8, portLabel, portField);
+        fieldBox.setAlignment(Pos.CENTER_LEFT);
+        VBox panel = buildModernMenuPanel("#CE93D8", 900, 20,
+                buildMenuEyebrow("CREATE DIRECT SESSION", "#CE93D8"),
+                buildMenuPanelTitle("OPEN YOUR LOBBY", 38), prompt, fieldBox, status, host);
+        root.setCenter(panel);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         bindEscape(scene, back);
@@ -27114,24 +27098,22 @@ public class BirdGame3 {
         playMenuMusic();
         currentStage = stage;
 
-        VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #170B24, #2D1842);",
-                MENU_PADDING, 18);
-        Label title = new Label("JOIN INTERNET");
-        title.setFont(Font.font("Impact", FontWeight.BOLD, 76));
-        title.setTextFill(Color.web("#FFE082"));
-        Label prompt = new Label("Enter the host's public IP or DNS name. Add :port when it is not "
-                + LanProtocol.DEFAULT_PORT + ".");
-        MenuLayout.styleMenuMessage(prompt, 22, "#D1C4E9", MENU_TEXT_MAX_WIDTH, this::applyNoEllipsis);
+        BorderPane root = buildModernMenuPage();
+        Button back = uiFactory.action("BACK", 180, 64, 23, "#B5121B", 18, () -> showInternetMenu(stage));
+        StackPane title = buildMenuTitleBanner("JOIN INTERNET", 470, 72, 32);
+        root.setTop(buildMenuTopStrip(back, title,
+                buildMenuChip("DIRECT ADDRESS", "#1565C0", "#90CAF9")));
 
         TextField endpointField = new TextField(internetLastEndpoint == null ? "" : internetLastEndpoint);
-        endpointField.setMaxWidth(560);
+        styleModernMenuTextField(endpointField, 620);
         endpointField.setPromptText("games.example.com:" + LanProtocol.DEFAULT_PORT);
-        endpointField.setFont(Font.font("Consolas", 22));
         Label status = new Label(error == null ? "" : error);
         status.setFont(Font.font("Consolas", 19));
-        status.setTextFill(Color.ORANGE);
+        status.setTextFill(Color.web("#FFB74D"));
         status.setWrapText(true);
-        status.setMaxWidth(MENU_TEXT_MAX_WIDTH);
+        status.setMaxWidth(760);
+        status.setMinHeight(28);
+        status.setAlignment(Pos.CENTER);
 
         Button connect = uiFactory.action("CONNECT", 320, 80, 28, "#00C853", 20, () -> {
             try {
@@ -27143,8 +27125,14 @@ public class BirdGame3 {
                 status.setText(e.getMessage());
             }
         });
-        Button back = uiFactory.action("BACK", 260, 70, 26, "#D32F2F", 20, () -> showInternetMenu(stage));
-        root.getChildren().addAll(title, prompt, endpointField, status, connect, back);
+        Label prompt = buildMenuPanelBody("Enter the host's public IP or DNS name. Add :port when it is not "
+                + LanProtocol.DEFAULT_PORT + ".", 760);
+        VBox fieldBox = new VBox(8, buildMenuEyebrow("HOST ADDRESS", "#90CAF9"), endpointField);
+        fieldBox.setAlignment(Pos.CENTER_LEFT);
+        VBox panel = buildModernMenuPanel("#64B5F6", 900, 20,
+                buildMenuEyebrow("CONNECT TO SESSION", "#90CAF9"),
+                buildMenuPanelTitle("ENTER THE HOST ADDRESS", 36), prompt, fieldBox, status, connect);
+        root.setCenter(panel);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         setupKeyboardNavigation(scene);
@@ -27157,25 +27145,32 @@ public class BirdGame3 {
     private void showInternetHelp(Stage stage) {
         playMenuMusic();
         currentStage = stage;
-        VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #170B24, #2D1842);",
-                MENU_PADDING, 18);
-        Label title = new Label("INTERNET SETUP");
-        title.setFont(Font.font("Impact", FontWeight.BOLD, 72));
-        title.setTextFill(Color.web("#FFE082"));
-        Label instructions = new Label(
-                "HOST\n1. Allow Bird Fight 3 through the operating-system firewall.\n"
-                        + "2. Forward TCP port " + internetHostPort + " in the router to this computer.\n"
-                        + "3. Give invited players your public IP or DNS name and port.\n\n"
-                        + "JOIN\nEnter the shared address as host:port. Everyone must run the same game version.\n\n"
-                        + "Direct play reveals the participants' IP addresses. Only connect with people you trust.\n"
-                        + "For the best lockstep feel, use wired connections and geographically nearby players.");
-        instructions.setFont(Font.font("Consolas", 21));
-        instructions.setTextFill(Color.web("#EDE7F6"));
-        instructions.setWrapText(true);
-        instructions.setMaxWidth(1100);
-        applyNoEllipsis(instructions);
-        Button back = uiFactory.action("BACK", 300, 76, 26, "#D32F2F", 19, () -> showInternetMenu(stage));
-        root.getChildren().addAll(title, instructions, back);
+        BorderPane root = buildModernMenuPage();
+        Button back = uiFactory.action("BACK", 180, 64, 23, "#B5121B", 18, () -> showInternetMenu(stage));
+        StackPane title = buildMenuTitleBanner("INTERNET SETUP", 500, 72, 31);
+        root.setTop(buildMenuTopStrip(back, title,
+                buildMenuChip("TCP " + internetHostPort, "#6A1B9A", "#CE93D8")));
+
+        VBox hostCard = buildModernMenuPanel("#CE93D8", 640, 15,
+                buildMenuEyebrow("HOST", "#CE93D8"),
+                buildMenuPanelTitle("OPEN THE ROUTE", 32),
+                buildMenuPanelBody("1. Allow Bird Fight 3 through the firewall.\n"
+                        + "2. Forward TCP port " + internetHostPort + " to this computer.\n"
+                        + "3. Share your public IP or DNS name and port.", 540));
+        hostCard.setPrefWidth(600);
+        VBox joinCard = buildModernMenuPanel("#90CAF9", 640, 15,
+                buildMenuEyebrow("JOIN", "#90CAF9"),
+                buildMenuPanelTitle("CONNECT DIRECTLY", 32),
+                buildMenuPanelBody("Enter the shared address as host:port. Everyone must use the same game version.\n\n"
+                        + "Direct play reveals participant IP addresses. Connect only with people you trust.", 540));
+        joinCard.setPrefWidth(600);
+        HBox cards = new HBox(24, hostCard, joinCard);
+        cards.setAlignment(Pos.CENTER);
+        Label footer = buildMenuPanelBody(
+                "For the best lockstep feel, use wired connections and geographically nearby players.", 1200);
+        VBox center = new VBox(22, cards, footer);
+        center.setAlignment(Pos.CENTER);
+        root.setCenter(center);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         bindEscape(scene, back);
@@ -27189,15 +27184,11 @@ public class BirdGame3 {
         playMenuMusic();
         currentStage = stage;
 
-        VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #0B1A24, #1C2F3C);",
-                MENU_PADDING, 18);
-
-        Label title = new Label("JOIN LAN");
-        title.setFont(Font.font("Impact", FontWeight.BOLD, 78));
-        title.setTextFill(Color.web("#FFE082"));
-
-        Label prompt = new Label("Enter host IP (port " + LanProtocol.DEFAULT_PORT + ")");
-        MenuLayout.styleMenuMessage(prompt, 24, "#B3E5FC", MENU_TEXT_MAX_WIDTH, this::applyNoEllipsis);
+        BorderPane root = buildModernMenuPage();
+        Button back = uiFactory.action("BACK", 180, 64, 23, "#B5121B", 18, () -> showLanDirectMenu(stage));
+        StackPane title = buildMenuTitleBanner("JOIN LAN", 390, 72, 34);
+        root.setTop(buildMenuTopStrip(back, title,
+                buildMenuChip("TCP " + LanProtocol.DEFAULT_PORT, "#00838F", "#80DEEA")));
 
         Preferences prefs = saveRepository.globalPrefs();
         if (lanLastHost == null || lanLastHost.isBlank()) {
@@ -27205,13 +27196,14 @@ public class BirdGame3 {
         }
 
         TextField hostField = new TextField(lanLastHost == null ? "" : lanLastHost);
-        hostField.setMaxWidth(420);
+        styleModernMenuTextField(hostField, 520);
         hostField.setPromptText("192.168.1.20");
-        hostField.setFont(Font.font("Consolas", 22));
 
         Label status = new Label(error == null ? "" : error);
         status.setFont(Font.font("Consolas", 20));
-        status.setTextFill(Color.ORANGE);
+        status.setTextFill(Color.web("#FFB74D"));
+        status.setMinHeight(28);
+        status.setAlignment(Pos.CENTER);
         lanStatusLabel = status;
 
         Button connect = uiFactory.action("CONNECT", 320, 80, 28, "#00C853", 20, () -> {
@@ -27225,9 +27217,14 @@ public class BirdGame3 {
             startLanClient(stage, host);
         });
 
-        Button back = uiFactory.action("BACK", 260, 70, 26, "#D32F2F", 20, () -> showLanDirectMenu(stage));
-
-        root.getChildren().addAll(title, prompt, hostField, status, connect, back);
+        Label prompt = buildMenuPanelBody("Enter the host computer's local IP address. The default port is "
+                + LanProtocol.DEFAULT_PORT + ".", 720);
+        VBox fieldBox = new VBox(8, buildMenuEyebrow("LOCAL IP ADDRESS", "#80DEEA"), hostField);
+        fieldBox.setAlignment(Pos.CENTER_LEFT);
+        VBox panel = buildModernMenuPanel("#80DEEA", 860, 20,
+                buildMenuEyebrow("FIND LOCAL SESSION", "#80DEEA"),
+                buildMenuPanelTitle("CONNECT TO THE HOST", 36), prompt, fieldBox, status, connect);
+        root.setCenter(panel);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         setupKeyboardNavigation(scene);
@@ -27260,23 +27257,29 @@ public class BirdGame3 {
         playMenuMusic();
         currentStage = stage;
 
-        VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #0B1A24, #1C2F3C);",
-                new Insets(40, 60, 40, 60), 14);
+        BorderPane root = buildModernMenuPage();
 
         String sessionLabel = networkSessionMode == NetworkSessionMode.INTERNET ? "INTERNET" : "LAN";
-        Label title = getLabel(lanIsHost ? sessionLabel + " LOBBY (HOST)" : sessionLabel + " LOBBY");
-        title.setFont(Font.font("Impact", FontWeight.BOLD, 64));
-        title.setTextFill(Color.web("#FFE082"));
+        Button back = uiFactory.action("LEAVE SESSION", 250, 64, 22, "#B5121B", 18,
+                () -> confirmLeaveLanSession(stage, () -> {
+                    stopLanSession();
+                    showMenu(stage);
+                }));
+        StackPane title = buildMenuTitleBanner(sessionLabel + " LOBBY", 450, 70, 31);
 
         String infoText = networkLobbyInfoText();
 
         Label info = new Label(infoText);
-        MenuLayout.styleMenuMessage(info, 20, "#B3E5FC", MENU_TEXT_MAX_WIDTH, this::applyNoEllipsis);
+        MenuLayout.styleMenuMessage(info, 18, "#B3E5FC", 1120, this::applyNoEllipsis);
         lanLobbyInfoLabel = info;
 
         lanStatusLabel = new Label(lanIsHost ? "Waiting for players..." : "Connecting...");
-        lanStatusLabel.setFont(Font.font("Consolas", 18));
-        lanStatusLabel.setTextFill(Color.web("#80DEEA"));
+        lanStatusLabel.setFont(Font.font("Arial Black", 17));
+        lanStatusLabel.setTextFill(Color.web("#E0F7FA"));
+        StackPane statusChip = new StackPane(lanStatusLabel);
+        statusChip.setPadding(new Insets(10, 18, 10, 18));
+        statusChip.setStyle(MenuTheme.chipStyle("#00838F", "#80DEEA", 24));
+        root.setTop(buildMenuTopStrip(back, title, statusChip));
 
         lanCompanionFeedLabel = null;
         lanCompanionFeedButton = null;
@@ -27287,19 +27290,38 @@ public class BirdGame3 {
             lanCompanionFeedLabel.setTextFill(Color.web("#B2DFDB"));
             applyNoEllipsis(lanCompanionFeedLabel);
             lanCompanionFeedButton = uiFactory.action("COMPANION FEED", 300, 58, 22, "#00695C", 16, this::toggleLanCompanionFeed);
-            companionBox = new VBox(6, lanCompanionFeedLabel, lanCompanionFeedButton);
+            companionBox = new VBox(8, lanCompanionFeedLabel, lanCompanionFeedButton);
             companionBox.setAlignment(Pos.CENTER);
+            companionBox.setPadding(new Insets(12, 18, 12, 18));
+            companionBox.setStyle(MenuTheme.insetPanelStyle("#80CBC4", 18));
         }
 
         lanSlotLabels = new Label[LAN_MAX_PLAYERS];
-        VBox slots = new VBox(6);
+        lanPortraits = new Canvas[LAN_MAX_PLAYERS];
+        HBox slots = new HBox(14);
         slots.setAlignment(Pos.CENTER);
         for (int i = 0; i < LAN_MAX_PLAYERS; i++) {
             Label slot = new Label();
-            slot.setFont(Font.font("Consolas", 20));
+            slot.setFont(Font.font("Consolas", FontWeight.BOLD, 17));
             slot.setTextFill(Color.web("#CFD8DC"));
+            slot.setWrapText(true);
+            slot.setTextAlignment(TextAlignment.CENTER);
+            slot.setAlignment(Pos.CENTER);
+            slot.setMaxWidth(250);
             lanSlotLabels[i] = slot;
-            slots.getChildren().add(slot);
+            Canvas portrait = new Canvas(112, 112);
+            lanPortraits[i] = portrait;
+            StackPane frame = new StackPane(portrait);
+            frame.setPadding(new Insets(8));
+            frame.setStyle(MenuTheme.insetPanelStyle(i == 0 ? "#EF5350" : "#607D8B", 18));
+            Label player = buildMenuEyebrow("PLAYER " + (i + 1), i == 0 ? "#FF8A80" : "#90A4AE");
+            VBox slotCard = new VBox(8, player, frame, slot);
+            slotCard.setAlignment(Pos.CENTER);
+            slotCard.setPadding(new Insets(14));
+            slotCard.setPrefWidth(280);
+            slotCard.setMinHeight(205);
+            slotCard.setStyle(MenuTheme.panelStyle(i == 0 ? "#EF5350" : "#607D8B", 20));
+            slots.getChildren().add(slotCard);
         }
 
         lanMapLabel = null;
@@ -27308,22 +27330,28 @@ public class BirdGame3 {
         lanMapVoteLabel.setTextFill(Color.web("#FFECB3"));
 
         lanSelectMapButton = uiFactory.action("VOTE MAP", 240, 70, 26, "#455A64", 18, () -> openLanMapSelect(stage));
-        VBox mapBox = new VBox(6, lanMapVoteLabel, lanSelectMapButton);
+        VBox mapBox = new VBox(10, buildMenuEyebrow("STAGE", "#80DEEA"), lanMapVoteLabel, lanSelectMapButton);
         mapBox.setAlignment(Pos.CENTER);
+        mapBox.setPadding(new Insets(14, 20, 16, 20));
+        mapBox.setPrefWidth(430);
+        mapBox.setStyle(MenuTheme.insetPanelStyle("#80DEEA", 18));
 
         lanYourBirdLabel = new Label();
         lanYourBirdLabel.setFont(Font.font("Arial Black", 22));
         lanYourBirdLabel.setTextFill(Color.web("#FFECB3"));
 
         lanSelectBirdButton = uiFactory.action("SELECT BIRD", 240, 70, 26, "#455A64", 18, () -> showLanBirdSelect(stage));
-        VBox birdBox = new VBox(6, lanYourBirdLabel, lanSelectBirdButton);
+        VBox birdBox = new VBox(10, buildMenuEyebrow("FIGHTER", "#FFE082"), lanYourBirdLabel, lanSelectBirdButton);
         birdBox.setAlignment(Pos.CENTER);
+        birdBox.setPadding(new Insets(14, 20, 16, 20));
+        birdBox.setPrefWidth(430);
+        birdBox.setStyle(MenuTheme.insetPanelStyle("#FFE082", 18));
 
-        HBox controls = new HBox(30, mapBox, birdBox);
+        HBox controls = new HBox(18, mapBox, birdBox);
         controls.setAlignment(Pos.CENTER);
 
         lanStartButton = null;
-        VBox actions = new VBox(10);
+        HBox actions = new HBox(16);
         actions.setAlignment(Pos.CENTER);
         lanReadyButton = uiFactory.action("READY UP", 260, 70, 26, "#2E7D32", 18, this::toggleLanReady);
         actions.getChildren().add(lanReadyButton);
@@ -27343,35 +27371,13 @@ public class BirdGame3 {
         applyNoEllipsis(lanCountdownLabel);
         updateLanCountdownLabel();
 
-        Button back = uiFactory.action("LEAVE SESSION", 320, 80, 28, "#D32F2F", 20,
-                () -> confirmLeaveLanSession(stage, () -> {
-                    stopLanSession();
-                    showMenu(stage);
-                }));
-        actions.getChildren().add(back);
-
-        lanPortraits = new Canvas[LAN_MAX_PLAYERS];
-        HBox portraitRow = new HBox(12);
-        portraitRow.setAlignment(Pos.CENTER);
-        for (int i = 0; i < LAN_MAX_PLAYERS; i++) {
-            Label pLabel = new Label("P" + (i + 1));
-            pLabel.setFont(Font.font("Consolas", 16));
-            pLabel.setTextFill(Color.web("#B0BEC5"));
-            Canvas portrait = new Canvas(80, 80);
-            lanPortraits[i] = portrait;
-            StackPane frame = new StackPane(portrait);
-            frame.setPadding(new Insets(6));
-            frame.setStyle("-fx-background-color: rgba(0,0,0,0.35); -fx-border-color: #607D8B; -fx-border-width: 2; -fx-background-radius: 14; -fx-border-radius: 14;");
-            VBox slotBox = new VBox(6, pLabel, frame);
-            slotBox.setAlignment(Pos.CENTER);
-            portraitRow.getChildren().add(slotBox);
-        }
-
-        root.getChildren().addAll(title, info, lanStatusLabel);
+        VBox content = buildModernMenuPanel("#64B5F6", 1320, 14,
+                buildMenuEyebrow(lanIsHost ? "HOST SESSION" : "CONNECTED SESSION", "#90CAF9"), info);
         if (companionBox != null) {
-            root.getChildren().add(companionBox);
+            content.getChildren().add(companionBox);
         }
-        root.getChildren().addAll(slots, controls, portraitRow, lanCountdownLabel, actions);
+        content.getChildren().addAll(slots, controls, lanCountdownLabel, actions);
+        root.setCenter(content);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         setupKeyboardNavigation(scene);
@@ -27592,8 +27598,8 @@ public class BirdGame3 {
             boolean ready = canSelect && lanReady[lanPlayerIndex];
             lanReadyButton.setText(ready ? "READY" : "NOT READY");
             lanReadyButton.setStyle(ready
-                    ? "-fx-background-color: #00C853; -fx-text-fill: white;"
-                    : "-fx-background-color: #546E7A; -fx-text-fill: white;");
+                    ? MenuTheme.buttonStyle("#00C853", 18)
+                    : MenuTheme.buttonStyle("#546E7A", 18));
         }
         if (lanStartButton != null) {
             lanStartButton.setDisable(connectedCount < 2 || lanCountdownTimeline != null);
@@ -27646,8 +27652,8 @@ public class BirdGame3 {
             lanCompanionFeedButton.setDisable(false);
             lanCompanionFeedButton.setText(enabled && !available ? "RETRY FEED" : (enabled ? "FEED ON" : "FEED OFF"));
             lanCompanionFeedButton.setStyle(enabled && available
-                    ? "-fx-background-color: #00897B; -fx-text-fill: white;"
-                    : "-fx-background-color: #546E7A; -fx-text-fill: white;");
+                    ? MenuTheme.buttonStyle("#00897B", 16)
+                    : MenuTheme.buttonStyle("#546E7A", 16));
         }
     }
 
@@ -30702,28 +30708,25 @@ public class BirdGame3 {
         }
         playMenuMusic();
 
-        VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #0A1422, #1C2B3C, #16212F);",
-                MENU_PADDING, 26);
+        Runnable advance = () -> {
+            if (pendingUnlockCards.isEmpty()) {
+                if (onComplete != null) onComplete.run();
+            } else {
+                showNextUnlockCard(stage, onComplete);
+            }
+        };
+        BorderPane root = buildModernMenuPage();
+        String unlockType = card.map != null ? "MAP UNLOCKED" : (card.skinKey != null ? "SKIN UNLOCKED" : "BIRD UNLOCKED");
+        StackPane title = buildMenuTitleBanner("NEW FEATHERPEDIA ENTRY", 700, 72, 29);
+        StackPane queueChip = buildMenuChip(unlockType, "#00838F", "#80DEEA");
+        root.setTop(buildMenuTopStrip(buildMenuChip("NEW DISCOVERY", "#FFC107", "#FFF59D"), title, queueChip));
 
-        Label title = new Label("NEW FEATHERPEDIA ENTRY");
-        title.setFont(Font.font("Impact", FontWeight.BOLD, 78));
-        title.setTextFill(Color.web("#FFE082"));
-
-        Label subtitle = getLabel(card.map != null ? "MAP UNLOCKED" : (card.skinKey != null ? "SKIN UNLOCKED" : "BIRD UNLOCKED"));
-        subtitle.setFont(Font.font("Consolas", 24));
-        subtitle.setTextFill(Color.web("#80DEEA"));
-
-        VBox header = new VBox(4, title, subtitle);
-        header.setAlignment(Pos.CENTER);
-
-        String border = "#607D8B";
         VBox sidebar = new VBox(14);
         sidebar.setAlignment(Pos.TOP_CENTER);
-        sidebar.setPadding(new Insets(18));
-        sidebar.setPrefWidth(520);
-        sidebar.setMaxWidth(520);
-        sidebar.setStyle("-fx-background-color: rgba(0,0,0,0.6); -fx-background-radius: 20; -fx-border-color: "
-                + border + "; -fx-border-width: 2; -fx-border-radius: 20;");
+        sidebar.setPadding(new Insets(24));
+        sidebar.setPrefWidth(620);
+        sidebar.setMaxWidth(620);
+        sidebar.setStyle(MenuTheme.panelStyle("#64B5F6", 24));
 
         if (card.map != null) {
             MapEntry entry = findMapEntry(card.map);
@@ -30743,32 +30746,19 @@ public class BirdGame3 {
             showBirdSidebar(sidebar, card.bird);
         }
 
-        Label continueLabel = new Label("CLICK TO CONTINUE");
-        continueLabel.setFont(Font.font("Consolas", 28));
-        continueLabel.setTextFill(Color.web("#C8E6C9"));
-        continueLabel.setEffect(new Glow(0.6));
-        continueLabel.setAlignment(Pos.CENTER);
-        continueLabel.setTextAlignment(TextAlignment.CENTER);
-
-        root.getChildren().addAll(header, sidebar, continueLabel);
+        Button continueButton = uiFactory.action(
+                pendingUnlockCards.isEmpty() ? "CONTINUE" : "NEXT UNLOCK",
+                380, 86, 30, "#00A152", 22, advance);
+        VBox center = new VBox(20,
+                buildMenuEyebrow("ENTRY ADDED TO YOUR COLLECTION", "#80DEEA"), sidebar, continueButton);
+        center.setAlignment(Pos.CENTER);
+        root.setCenter(center);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
         setScenePreservingFullscreen(stage, scene);
 
-        Runnable advance = () -> {
-            if (pendingUnlockCards.isEmpty()) {
-                if (onComplete != null) onComplete.run();
-            } else {
-                showNextUnlockCard(stage, onComplete);
-            }
-        };
-
-        root.setOnMouseClicked(e -> {
-            playButtonClick();
-            advance.run();
-        });
         addSceneEventFilter(scene, KeyEvent.KEY_PRESSED, e -> {
             if (e.getCode() == KeyCode.SPACE || e.getCode() == KeyCode.ENTER) {
                 playButtonClick();
@@ -30776,6 +30766,7 @@ public class BirdGame3 {
                 e.consume();
             }
         });
+        continueButton.requestFocus();
     }
 
     private SkinEntry findSkinEntry(BirdType bird, String key) {
@@ -41781,6 +41772,81 @@ public class BirdGame3 {
         return strip;
     }
 
+    private BorderPane buildModernMenuPage() {
+        BorderPane root = new BorderPane();
+        root.setPadding(new Insets(28, 36, 28, 36));
+        root.setStyle(MenuTheme.pageBackground()
+                + ";-fx-focus-color:transparent;-fx-faint-focus-color:transparent;");
+        return root;
+    }
+
+    private VBox buildModernMenuPanel(String accentHex, double maxWidth, double spacing, Node... children) {
+        VBox panel = new VBox(spacing, children);
+        panel.setAlignment(Pos.CENTER);
+        panel.setPadding(new Insets(28, 34, 30, 34));
+        panel.setMaxWidth(maxWidth);
+        panel.setStyle(MenuTheme.panelStyle(accentHex, 26));
+        return panel;
+    }
+
+    private Label buildMenuEyebrow(String text, String accentHex) {
+        Label label = new Label(text == null ? "" : text.toUpperCase(Locale.ROOT));
+        label.setFont(Font.font("Consolas", FontWeight.BOLD, 17));
+        label.setTextFill(Color.web(accentHex));
+        label.setWrapText(false);
+        applyNoEllipsis(label);
+        return label;
+    }
+
+    private Label buildMenuPanelTitle(String text, double fontSize) {
+        Label label = new Label(text);
+        label.setFont(Font.font("Arial Black", FontWeight.BOLD, fontSize));
+        label.setTextFill(Color.WHITE);
+        label.setTextAlignment(TextAlignment.CENTER);
+        label.setAlignment(Pos.CENTER);
+        label.setWrapText(true);
+        applyNoEllipsis(label);
+        return label;
+    }
+
+    private Label buildMenuPanelBody(String text, double maxWidth) {
+        Label label = new Label(text);
+        label.setFont(Font.font("Consolas", 19));
+        label.setTextFill(Color.web("#CFD8DC"));
+        label.setWrapText(true);
+        label.setTextAlignment(TextAlignment.CENTER);
+        label.setAlignment(Pos.CENTER);
+        label.setMaxWidth(maxWidth);
+        applyNoEllipsis(label);
+        return label;
+    }
+
+    private VBox buildMenuActionCard(String eyebrow, String title, String body,
+                                     String accentHex, Button action) {
+        Label eyebrowLabel = buildMenuEyebrow(eyebrow, accentHex);
+        Label titleLabel = buildMenuPanelTitle(title, 32);
+        Label bodyLabel = buildMenuPanelBody(body, 500);
+        VBox card = buildModernMenuPanel(accentHex, 620, 16,
+                eyebrowLabel, titleLabel, bodyLabel, action);
+        card.setPrefWidth(570);
+        card.setMinHeight(330);
+        return card;
+    }
+
+    private void styleModernMenuTextField(TextField field, double width) {
+        field.setPrefWidth(width);
+        field.setMinWidth(width);
+        field.setMaxWidth(width);
+        field.setPrefHeight(64);
+        field.setFont(Font.font("Consolas", FontWeight.BOLD, 23));
+        field.setStyle("-fx-background-color: rgba(4,7,11,0.94);"
+                + "-fx-text-fill: white;-fx-prompt-text-fill: #78909C;"
+                + "-fx-highlight-fill: #1976D2;-fx-highlight-text-fill: white;"
+                + "-fx-background-radius: 14;-fx-border-radius: 14;"
+                + "-fx-border-color: #64B5F6;-fx-border-width: 2;"
+                + "-fx-padding: 10 18 10 18;");
+    }
+
     private Canvas buildClassicStagePreview(ClassicEncounter encounter, double width, double height) {
         Canvas preview = new Canvas(width, height);
         GraphicsContext g = preview.getGraphicsContext2D();
@@ -46011,28 +46077,7 @@ public class BirdGame3 {
     private void showClassicContinuePrompt(Stage stage) {
         playMenuMusic();
 
-        VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #081122, #13294B);",
-                MENU_PADDING, 30);
-
-        Label title = new Label("CLASSIC CONTINUE");
-        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 84));
-        title.setTextFill(Color.web("#FFE082"));
-
-        VBox card = new VBox(20);
-        card.setAlignment(Pos.CENTER_LEFT);
-        card.setPadding(new Insets(35));
-        card.setMaxWidth(1200);
-        card.setStyle("-fx-background-color: rgba(0,0,0,0.6); -fx-background-radius: 24; -fx-border-color: #4FC3F7; -fx-border-width: 4; -fx-border-radius: 24;");
-
-        Label text = new Label("CONTINUE?\n"
-                + CLASSIC_CONTINUE_BIRD_COIN_COST + " BIRD COINS\n"
-                + "BALANCE  " + birdCoinBalanceText()
-                + "    DIFFICULTY  " + String.format(Locale.US, "%.1f", classicDifficulty));
-        text.setWrapText(true);
-        text.setFont(Font.font("Consolas", 30));
-        text.setTextFill(Color.WHITE);
-
-        card.getChildren().add(text);
+        BorderPane root = buildModernMenuPage();
 
         Button useContinue = uiFactory.action("CONTINUE  " + CLASSIC_CONTINUE_BIRD_COIN_COST, 500, 120, 40, "#00C853", 30, () -> {
             if (!spendBirdCoins(CLASSIC_CONTINUE_BIRD_COIN_COST)) return;
@@ -46048,12 +46093,30 @@ public class BirdGame3 {
             showClassicBirdSelect(stage);
         });
 
-        HBox buttons = new HBox(30, useContinue, endRun);
-        buttons.setAlignment(Pos.CENTER);
+        StackPane title = buildMenuTitleBanner("CLASSIC CONTINUE", 540, 72, 31);
+        root.setTop(buildMenuTopStrip(endRun, title,
+                buildMenuChip("BIRD COINS  " + birdCoinBalanceText(), "#FFC107", "#FFF59D")));
 
-        root.getChildren().addAll(title, card, buttons);
+        String encounterName = classicEncounter == null ? "CURRENT ENCOUNTER" : classicEncounter.name.toUpperCase(Locale.ROOT);
+        String birdName = classicSelectedBird == null ? "CLASSIC ROUTE" : classicSelectedBird.name.toUpperCase(Locale.ROOT);
+        Label price = new Label(Integer.toString(CLASSIC_CONTINUE_BIRD_COIN_COST));
+        price.setFont(Font.font("Arial Black", FontWeight.BOLD, 104));
+        price.setTextFill(Color.web("#FFE45C"));
+        Label priceUnit = buildMenuEyebrow("BIRD COINS", "#FFE082");
+        VBox priceBlock = new VBox(-6, price, priceUnit);
+        priceBlock.setAlignment(Pos.CENTER);
+
+        Label description = buildMenuPanelBody(
+                "Resume " + encounterName + " at difficulty "
+                        + String.format(Locale.US, "%.1f", classicDifficulty) + ".", 760);
+        VBox card = buildModernMenuPanel("#64B5F6", 980, 18,
+                buildMenuEyebrow(birdName, "#80DEEA"),
+                buildMenuPanelTitle("RETURN TO THE ROUTE?", 42),
+                priceBlock, description, useContinue);
+        root.setCenter(card);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, endRun);
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
         setScenePreservingFullscreen(stage, scene);
@@ -46130,43 +46193,38 @@ public class BirdGame3 {
     private void showStoryDialogue(Stage stage, String titleText, String speaker, String dialogue, Runnable onContinue) {
         playMenuMusic();
 
-        VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #081122, #13294B);",
-                MENU_PADDING, 30);
-
-        Label title = new Label(titleText);
-        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 92));
-        title.setTextFill(Color.GOLD);
-
-        VBox card = new VBox(20);
-        card.setAlignment(Pos.CENTER_LEFT);
-        card.setPadding(new Insets(35));
-        card.setMaxWidth(1300);
-        card.setStyle("-fx-background-color: rgba(0,0,0,0.6); -fx-background-radius: 24; -fx-border-color: #4FC3F7; -fx-border-width: 4; -fx-border-radius: 24;");
-
-        Label speakerLabel = new Label(speaker);
-        speakerLabel.setFont(Font.font("Arial Black", 44));
-        speakerLabel.setTextFill(Color.CYAN.brighter());
+        BorderPane root = buildModernMenuPage();
+        Button menuButton = uiFactory.action("BACK TO HUB", 250, 66, 22, "#B5121B", 18, () -> showMenu(stage));
+        StackPane title = buildMenuTitleBanner(titleText.toUpperCase(Locale.ROOT), 600, 72, 31);
+        StackPane speakerChip = buildMenuChip(speaker.toUpperCase(Locale.ROOT), "#00838F", "#80DEEA");
+        root.setTop(buildMenuTopStrip(menuButton, title, speakerChip));
 
         Label text = new Label(dialogue);
         text.setWrapText(true);
-        text.setFont(Font.font("Consolas", 34));
+        text.setFont(Font.font("Consolas", 30));
         text.setTextFill(Color.WHITE);
+        text.setTextAlignment(TextAlignment.LEFT);
+        text.setAlignment(Pos.CENTER_LEFT);
+        text.setMaxWidth(1120);
+        applyNoEllipsis(text);
 
-        card.getChildren().addAll(speakerLabel, text);
+        VBox card = buildModernMenuPanel("#4FC3F7", 1260, 18,
+                buildMenuEyebrow("MISSION DISPATCH", "#80DEEA"),
+                buildMenuPanelTitle(speaker, 40), text);
+        card.setAlignment(Pos.CENTER_LEFT);
 
         HBox buttons = new HBox(30);
         buttons.setAlignment(Pos.CENTER);
 
-        Button continueButton = uiFactory.action("CONTINUE", 460, 120, 52, "#00C853", 32, onContinue);
+        Button continueButton = uiFactory.action("CONTINUE", 460, 104, 42, "#00C853", 26, onContinue);
 
-        Button menuButton = uiFactory.action("BACK TO HUB", 460, 120, 36, "#D32F2F", 32, () -> showMenu(stage));
-        menuButton.setWrapText(false);
-        uiFactory.fitSingleLineOnLayout(menuButton, 36, 20);
-
-        buttons.getChildren().addAll(continueButton, menuButton);
-        root.getChildren().addAll(title, card, buttons);
+        buttons.getChildren().add(continueButton);
+        VBox center = new VBox(24, card, buttons);
+        center.setAlignment(Pos.CENTER);
+        root.setCenter(center);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, menuButton);
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
         setScenePreservingFullscreen(stage, scene);
@@ -54527,18 +54585,12 @@ public class BirdGame3 {
         boolean finalRound = classicRoundIndex >= classicRun.size() - 1;
         int livesLeft = Math.max(0, 3 - classicDeaths);
 
-        VBox root = MenuLayout.buildMenuRoot(
-                "-fx-background-color: linear-gradient(to bottom, #12070A, #2A0807 45%, #050608 100%);",
-                MENU_PADDING,
-                24
-        );
-
-        Label title = new Label(won ? "TRIAL RITE CLEARED" : "TRIAL RITE LOST");
-        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 84));
-        title.setTextFill(won ? Color.web("#FFE082") : Color.web("#FFAB91"));
-        title.setEffect(new DropShadow(28, Color.rgb(0, 0, 0, 0.82)));
-        applyNoEllipsis(title);
-        fitLabelSingleLine(title, 84, 46, 1400);
+        BorderPane root = buildModernMenuPage();
+        StackPane title = buildMenuTitleBanner(won ? "TRIAL RITE CLEARED" : "TRIAL RITE LOST",
+                620, 72, 29);
+        root.setTop(buildMenuTopStrip(
+                buildMenuChip("ASHFALL TRIAL", "#BF360C", "#FFAB91"), title,
+                buildMenuChip("COINS +" + coinsEarned, "#FFC107", "#FFF59D")));
 
         Label subtitle = new Label((classicEncounter == null ? ASHFALL_TRIAL_CODENAME : classicEncounter.name)
                 + "  |  " + (classicRun.isEmpty() ? "Trial" : "Trial " + (classicRoundIndex + 1) + "/" + classicRun.size())
@@ -54558,11 +54610,7 @@ public class BirdGame3 {
         statsPanel.setAlignment(Pos.CENTER_LEFT);
         statsPanel.setPadding(new Insets(20, 26, 20, 26));
         statsPanel.setMaxWidth(1500);
-        statsPanel.setStyle("-fx-background-color: rgba(0,0,0,0.50);"
-                + "-fx-background-radius: 22;"
-                + "-fx-border-color: rgba(255,204,128,0.70);"
-                + "-fx-border-width: 2;"
-                + "-fx-border-radius: 22;");
+        statsPanel.setStyle(MenuTheme.panelStyle("#FFCC80", 22));
 
         Label statsTitle = new Label("ASHFALL RESULT");
         statsTitle.setFont(Font.font("Arial Black", 28));
@@ -54593,7 +54641,10 @@ public class BirdGame3 {
         HBox buttons = buildSummaryButtons(stage, winner);
         buttons.setAlignment(Pos.CENTER);
 
-        root.getChildren().addAll(title, subtitle, routePanel, statsPanel, buttons);
+        VBox center = new VBox(18, subtitle, routePanel, statsPanel, buttons);
+        center.setAlignment(Pos.CENTER);
+        center.setPadding(new Insets(18, 0, 0, 0));
+        root.setCenter(center);
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
@@ -57498,32 +57549,26 @@ public class BirdGame3 {
 
         Color accent = achievementAccentColor(achievementIndex);
         String accentHex = toHex(accent);
+        Runnable advance = () -> {
+            if (onComplete != null) onComplete.run();
+        };
 
-        VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #09131F, #16283A, #101B2A);",
-                MENU_PADDING, 26);
-
-        Label title = new Label("ACHIEVEMENT REWARD CLAIMED");
-        title.setFont(Font.font("Impact", FontWeight.BOLD, 74));
-        title.setTextFill(Color.web("#FFE082"));
-
-        Label subtitle = getLabel(achievementForIndex(Math.clamp(achievementIndex, 0, ACHIEVEMENT_COUNT - 1)).displayName.toUpperCase(Locale.ROOT));
-        subtitle.setFont(Font.font("Consolas", 24));
-        subtitle.setTextFill(accent.brighter());
-
-        VBox header = new VBox(4, title, subtitle);
-        header.setAlignment(Pos.CENTER);
+        BorderPane root = buildModernMenuPage();
+        String achievementName = achievementForIndex(
+                Math.clamp(achievementIndex, 0, ACHIEVEMENT_COUNT - 1)).displayName.toUpperCase(Locale.ROOT);
+        StackPane title = buildMenuTitleBanner("REWARD CLAIMED", 500, 72, 32);
+        root.setTop(buildMenuTopStrip(
+                buildMenuChip("ACHIEVEMENT", "#FFC107", "#FFF59D"), title,
+                buildMenuChip(shopPreviewCategory(preview), accentHex, "#FFFFFF")));
 
         VBox card = new VBox(14);
         card.setAlignment(Pos.TOP_CENTER);
         card.setPadding(new Insets(24));
-        card.setPrefWidth(560);
-        card.setMaxWidth(560);
-        card.setStyle("-fx-background-color: rgba(0,0,0,0.6); -fx-background-radius: 22; -fx-border-color: "
-                + accentHex + "; -fx-border-width: 3; -fx-border-radius: 22;");
+        card.setPrefWidth(620);
+        card.setMaxWidth(620);
+        card.setStyle(MenuTheme.panelStyle(accentHex, 24));
 
-        Label rewardType = getLabel(shopPreviewCategory(preview));
-        rewardType.setFont(Font.font("Consolas", 20));
-        rewardType.setTextFill(accent.brighter());
+        Label rewardType = buildMenuEyebrow(achievementName, accentHex);
 
         Label rewardName = new Label(shopPreviewName(preview).toUpperCase(Locale.ROOT));
         rewardName.setFont(Font.font("Arial Black", 34));
@@ -57540,27 +57585,17 @@ public class BirdGame3 {
         detail.setTextAlignment(TextAlignment.CENTER);
         detail.setMaxWidth(500);
 
-        Label continueLabel = new Label("CLICK TO CONTINUE");
-        continueLabel.setFont(Font.font("Consolas", 28));
-        continueLabel.setTextFill(Color.web("#C8E6C9"));
-        continueLabel.setEffect(new Glow(0.6));
-
         card.getChildren().addAll(rewardType, rewardName, art, detail);
-        root.getChildren().addAll(header, card, continueLabel);
+        Button continueButton = uiFactory.action("CONTINUE", 360, 82, 29, "#00A152", 20, advance);
+        VBox center = new VBox(18, card, continueButton);
+        center.setAlignment(Pos.CENTER);
+        root.setCenter(center);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
         setScenePreservingFullscreen(stage, scene);
 
-        Runnable advance = () -> {
-            if (onComplete != null) onComplete.run();
-        };
-
-        root.setOnMouseClicked(e -> {
-            playButtonClick();
-            advance.run();
-        });
         addSceneEventFilter(scene, KeyEvent.KEY_PRESSED, e -> {
             if (e.getCode() == KeyCode.SPACE || e.getCode() == KeyCode.ENTER) {
                 playButtonClick();
@@ -57568,6 +57603,7 @@ public class BirdGame3 {
                 e.consume();
             }
         });
+        continueButton.requestFocus();
     }
 
     private Color achievementAccentColor(int index) {
