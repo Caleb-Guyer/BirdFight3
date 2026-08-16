@@ -69,7 +69,7 @@ class LanBirdState {
     int mockingbirdCopiedNeutralSourceOrdinal = -1;
     int mockingbirdUncaptureTimer;
     int mockingbirdLoungeReuseTimer;
-    int mockingbirdQuestionTimer;
+    int mockingbirdBlowbackTimer;
     int mockingbirdSideFxTimer;
     int mockingbirdSideReuseTimer;
     boolean mockingbirdMicCharging;
@@ -683,7 +683,7 @@ class LanBirdState {
         out.writeInt(mockingbirdCopiedNeutralSourceOrdinal);
         out.writeInt(mockingbirdUncaptureTimer);
         out.writeInt(mockingbirdLoungeReuseTimer);
-        out.writeInt(mockingbirdQuestionTimer);
+        out.writeInt(mockingbirdBlowbackTimer);
         out.writeInt(mockingbirdSideFxTimer);
         out.writeInt(mockingbirdSideReuseTimer);
         out.writeBoolean(mockingbirdMicCharging);
@@ -1371,7 +1371,7 @@ class LanBirdState {
         state.mockingbirdCopiedNeutralSourceOrdinal = in.readInt();
         state.mockingbirdUncaptureTimer = in.readInt();
         state.mockingbirdLoungeReuseTimer = in.readInt();
-        state.mockingbirdQuestionTimer = in.readInt();
+        state.mockingbirdBlowbackTimer = in.readInt();
         state.mockingbirdSideFxTimer = in.readInt();
         state.mockingbirdSideReuseTimer = in.readInt();
         state.mockingbirdMicCharging = in.readBoolean();

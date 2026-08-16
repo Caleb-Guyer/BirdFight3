@@ -24,26 +24,61 @@ final class MockingbirdSpecials {
 
     static void neutral(Bird bird, boolean ultimate) {
         if (bird.mockingbirdCapturedType == null) {
-            bird.mockingbirdQuestionTimer = Bird.MOCKINGBIRD_QUESTION_FRAMES;
-            bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, 14);
-            bird.specialCooldown = 18;
-            bird.specialMaxCooldown = 18;
-            bird.vx *= 0.72;
-            for (int i = 0; i < bird.scaledParticleCount(12); i++) {
-                double angle = -Math.PI / 2.0 + (bird.game.nextParticleRandom() - 0.5) * 1.4;
-                double speed = 1.4 + bird.game.nextParticleRandom() * 3.2;
-                bird.game.particles.add(new Particle(
-                        bird.bodyCenterX() + (bird.game.nextParticleRandom() - 0.5) * 24.0 * bird.sizeMultiplier,
-                        bird.bodyCenterY() - 34.0 * bird.sizeMultiplier,
-                        Math.cos(angle) * speed,
-                        Math.sin(angle) * speed,
-                        Color.WHITE.deriveColor(0, 1, 1, 0.72)
-                ));
-            }
+            performBlowbackCall(bird);
             return;
         }
 
         performCopiedNeutral(bird, bird.mockingbirdCapturedType, ultimate);
+    }
+
+    private static void performBlowbackCall(Bird bird) {
+        bird.mockingbirdBlowbackTimer = Bird.MOCKINGBIRD_BLOWBACK_FRAMES;
+        bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, 16);
+        bird.specialCooldown = Bird.MOCKINGBIRD_BLOWBACK_FRAMES;
+        // Charles has directional reuse timers and deliberately shows no generic cooldown bar.
+        bird.specialMaxCooldown = 0;
+        bird.vx *= bird.isOnGround() ? 0.58 : 0.78;
+        int dir = bird.facingDirection();
+        double centerX = bird.bodyCenterX();
+        double centerY = bird.bodyCenterY();
+        double size = bird.sizeMultiplier;
+
+        for (Bird other : bird.game.players) {
+            if (!bird.canDamageTarget(other) || other.isCombatInvulnerable()) continue;
+            double dx = other.bodyCenterX() - centerX;
+            double forward = dx * dir;
+            if (forward < -other.combatHalfWidth()
+                    || forward > 245.0 * size + other.combatHalfWidth()) continue;
+            double verticalGap = Math.abs(other.bodyCenterY() - centerY);
+            if (verticalGap > 100.0 * size + other.combatHalfHeight()) continue;
+
+            double falloff = 1.0 - Math.clamp(forward / Math.max(1.0, 270.0 * size), 0.0, 0.72);
+            double sizeScale = bird.outgoingSizeKnockbackMultiplier()
+                    * other.incomingSizeKnockbackMultiplier();
+            double launchX = (7.2 + 5.8 * falloff) * sizeScale;
+            double launchY = (2.0 + 2.2 * falloff) * sizeScale;
+            other.vx = dir > 0
+                    ? Math.max(other.vx, launchX)
+                    : Math.min(other.vx, -launchX);
+            other.vy = Math.min(other.vy, -launchY);
+        }
+
+        for (int i = 0; i < bird.scaledParticleCount(22); i++) {
+            double spread = (bird.game.nextParticleRandom() - 0.5) * 1.0;
+            double speed = 5.0 + bird.game.nextParticleRandom() * 8.0;
+            double angle = (dir > 0 ? 0.0 : Math.PI) + spread;
+            double originX = centerX + dir * (24.0 + bird.game.nextParticleRandom() * 18.0) * size;
+            double originY = centerY + (bird.game.nextParticleRandom() - 0.5) * 42.0 * size;
+            bird.game.particles.add(new Particle(
+                    originX,
+                    originY,
+                    Math.cos(angle) * speed,
+                    Math.sin(angle) * speed * 0.55,
+                    Color.web("#E1F5FE").deriveColor(0, 1, 1, 0.68)
+            ));
+        }
+        bird.game.playSwingSfx();
+        bird.game.addToKillFeed(bird.shortName() + " released a blowback call!");
     }
 
     static void performCopiedNeutral(Bird bird, BirdGame3.BirdType source, boolean ultimate) {
@@ -393,7 +428,7 @@ final class MockingbirdSpecials {
             bird.game.mockingbirdShadowMinions.add(shadow);
             emitShadowBirth(bird, spawnX, spawnY, copiedType, i);
         }
-        bird.mockingbirdQuestionTimer = 0;
+        bird.mockingbirdBlowbackTimer = 0;
         bird.mockingbirdSideReuseTimer = Math.max(bird.mockingbirdSideReuseTimer, 18);
         bird.mockingbirdUpReuseTimer = Math.max(bird.mockingbirdUpReuseTimer, 18);
         bird.specialCooldown = 0;

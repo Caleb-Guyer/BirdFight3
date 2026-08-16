@@ -232,7 +232,7 @@ class BirdStateTest {
         Bird mockingbird = new Bird(160, BirdGame3.BirdType.MOCKINGBIRD, 1, game);
         mockingbird.refillTrainingResources(true);
         assertTrue(mockingbird.isUltimateVisualReady(),
-                "Mockingbird should glow on an empty neutral copy because Shadow Court falls back to the closest bird.");
+                "Mockingbird should glow without a captured neutral because Shadow Court falls back to the closest bird.");
 
         mockingbird.mockingbirdCapturedType = BirdGame3.BirdType.PIGEON;
         assertTrue(mockingbird.isUltimateVisualReady());
@@ -1763,7 +1763,7 @@ class BirdStateTest {
     }
 
     @Test
-    void mockingbirdAiUsesItsKitInsteadOfEmptyNeutral() {
+    void mockingbirdAiUsesItsWholeKit() {
         assertEquals(20, Bird.aiSpecialDecisionCooldownFor(BirdGame3.BirdType.MOCKINGBIRD),
                 "Charles needs the same setup cadence as the other technical fighters.");
         assertEquals(16, Bird.aiSpecialDecisionCooldownFor(BirdGame3.BirdType.PIGEON));
@@ -1799,23 +1799,24 @@ class BirdStateTest {
                 "CPU Charles should move a distant Lounge onto a nearby opponent so he can capture their neutral.");
 
         charles.mockingbirdLoungeReuseTimer = 20;
-        assertEquals(Bird.DirectionalSpecialInput.SIDE,
+        assertEquals(Bird.DirectionalSpecialInput.NEUTRAL,
                 charles.chooseMockingbirdAISpecialInput(target, distance, true, false, false),
-                "While Lounge relocation is committed, CPU Charles should fight instead of requesting an unavailable move.");
+                "While Lounge relocation is committed, CPU Charles should protect himself with blowback.");
         charles.mockingbirdLoungeReuseTimer = 0;
 
         target.x = 390.0;
         distance = Math.hypot(
                 target.bodyCenterX() - charles.bodyCenterX(),
                 target.bodyCenterY() - charles.bodyCenterY());
-        assertEquals(Bird.DirectionalSpecialInput.SIDE,
+        assertEquals(Bird.DirectionalSpecialInput.NEUTRAL,
                 charles.chooseMockingbirdAISpecialInput(target, distance, true, false, false),
-                "Without a captured neutral, the CPU should use Mimic Call instead of the empty question-mark tell.");
+                "Without a captured neutral, CPU Charles should use his close-range blowback call.");
 
-        charles.mockingbirdSideReuseTimer = 20;
+        charles.mockingbirdBlowbackTimer = 20;
         assertEquals(Bird.DirectionalSpecialInput.SIDE,
                 charles.chooseMockingbirdAISpecialInput(target, distance, true, false, false),
-                "When Mimic Call is recharging, its readiness gate should decline the action rather than falling back to empty neutral.");
+                "While blowback is recharging, Charles should keep fighting with his microphone.");
+        charles.mockingbirdBlowbackTimer = 0;
 
         charles.mockingbirdCapturedType = BirdGame3.BirdType.PIGEON;
         assertEquals(Bird.DirectionalSpecialInput.NEUTRAL,
@@ -1825,6 +1826,39 @@ class BirdStateTest {
         assertEquals(Bird.DirectionalSpecialInput.DOWN,
                 charles.chooseMockingbirdAISpecialInput(target, distance, true, true, false),
                 "Low-health Charles should still move the Lounge to his current position for healing.");
+    }
+
+    @Test
+    void mockingbirdEmptyNeutralBlowsEnemiesAwayWithoutDamage() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 3;
+
+        Bird charles = new Bird(220.0, BirdGame3.BirdType.MOCKINGBIRD, 0, game);
+        Bird target = new Bird(365.0, BirdGame3.BirdType.PIGEON, 1, game);
+        Bird behind = new Bird(80.0, BirdGame3.BirdType.EAGLE, 2, game);
+        charles.y = BirdGame3.GROUND_Y - charles.bodyHeight();
+        target.y = BirdGame3.GROUND_Y - target.bodyHeight();
+        behind.y = BirdGame3.GROUND_Y - behind.bodyHeight();
+        charles.facingRight = true;
+        game.players[0] = charles;
+        game.players[1] = target;
+        game.players[2] = behind;
+        double targetHealth = target.health;
+        double targetPercent = getPrivateDouble(target, "smashDamage");
+
+        MockingbirdSpecials.neutral(charles, false);
+
+        assertEquals(targetHealth, target.health, 0.0,
+                "Blowback must never deal stamina damage.");
+        assertEquals(targetPercent, getPrivateDouble(target, "smashDamage"), 0.0,
+                "Blowback must never add Smash percent.");
+        assertTrue(target.vx > 7.0);
+        assertTrue(target.vy < 0.0);
+        assertEquals(0.0, behind.vx, 0.0,
+                "The forward call must not push fighters standing behind Charles.");
+        assertEquals(Bird.MOCKINGBIRD_BLOWBACK_FRAMES, charles.mockingbirdBlowbackTimer);
+        assertEquals(0, charles.specialMaxCooldown,
+                "Charles's replacement neutral must not restore the obsolete cooldown bar.");
     }
 
     @Test
@@ -1909,7 +1943,7 @@ class BirdStateTest {
         game.activePlayers = 1;
         Bird charles = new Bird(220.0, BirdGame3.BirdType.MOCKINGBIRD, 0, game);
         charles.y = BirdGame3.GROUND_Y - charles.bodyHeight();
-        charles.mockingbirdQuestionTimer = 20;
+        charles.mockingbirdBlowbackTimer = 20;
         charles.mockingbirdSideReuseTimer = 20;
         charles.mockingbirdUpSpecialUsed = true;
         charles.mockingbirdLoungeReuseTimer = 20;
@@ -1917,7 +1951,7 @@ class BirdStateTest {
         setPrivateDouble(charles, "ultimateMeter", 100.0);
 
         assertTrue(charles.canStartMockingbirdSpecial(),
-                "Shadow Court must bypass an unavailable empty neutral.");
+                "Shadow Court must bypass an active blowback call.");
 
         game.pressedKeys.add(game.leftKeyForPlayer(0));
         assertTrue(charles.canStartMockingbirdSpecial(),
@@ -6703,6 +6737,37 @@ class BirdStateTest {
 
         assertTrue(game.isRightPressed(0));
         assertTrue(game.isSpecialPressed(0));
+    }
+
+    @Test
+    void mockingbirdAiUsesForestLiftWhenTrappedBelowResonanceHallStage() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+        game.selectedMap = BirdGame3.MapType.RESONANCE_HALL;
+        double stageX = 760.0;
+        double stageY = BirdGame3.GROUND_Y - 220.0;
+        double stageW = 4_480.0;
+        Platform mainStage = new Platform(stageX, stageY, stageW, 92.0);
+        game.platforms.add(mainStage);
+        setPrivateDouble(game, "battlefieldIslandX", stageX);
+        setPrivateDouble(game, "battlefieldIslandY", stageY);
+        setPrivateDouble(game, "battlefieldIslandW", stageW);
+
+        Bird target = new Bird(3_780.0, BirdGame3.BirdType.PIGEON, 0, game);
+        target.y = stageY - target.bodyHeight();
+        Bird understudy = new Bird(2_120.0, BirdGame3.BirdType.MOCKINGBIRD, 1, game);
+        understudy.y = stageY + 170.0;
+        understudy.vy = 4.0;
+        game.players[0] = target;
+        game.players[1] = understudy;
+        game.isAI[1] = true;
+
+        understudy.update(1.0);
+
+        assertTrue(game.isJumpPressed(1),
+                "An offstage Charles must aim Forest Lift upward instead of looping below the platform.");
+        assertTrue(game.isSpecialPressed(1),
+                "Resonance Hall must use the same deterministic recovery behavior as every island arena.");
     }
 
     @Test

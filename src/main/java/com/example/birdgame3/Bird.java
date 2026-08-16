@@ -1416,7 +1416,7 @@ public class Bird {
     boolean loungeRoyal = false;
     private static final int MOCKINGBIRD_LOUNGE_UNCAPTURE_FRAMES = 180;
     static final int MOCKINGBIRD_LOUNGE_REUSE_FRAMES = 90;
-    static final int MOCKINGBIRD_QUESTION_FRAMES = 44;
+    static final int MOCKINGBIRD_BLOWBACK_FRAMES = 24;
     static final int MOCKINGBIRD_SIDE_FX_FRAMES = 20;
     static final int MOCKINGBIRD_SIDE_REUSE_FRAMES = 34;
     static final int MOCKINGBIRD_MIC_MIN_CHARGE_FRAMES = 4;
@@ -1428,7 +1428,7 @@ public class Bird {
     BirdGame3.BirdType mockingbirdCopiedNeutralSource = null;
     int mockingbirdUncaptureTimer = 0;
     int mockingbirdLoungeReuseTimer = 0;
-    int mockingbirdQuestionTimer = 0;
+    int mockingbirdBlowbackTimer = 0;
     int mockingbirdSideFxTimer = 0;
     int mockingbirdSideReuseTimer = 0;
     boolean mockingbirdMicCharging = false;
@@ -6216,7 +6216,7 @@ public class Bird {
         boolean ultimateReady = variant == MockingbirdSpecialVariant.NEUTRAL && isUltimateReady();
         return switch (variant) {
             case NEUTRAL -> ultimateReady || (mockingbirdCapturedType == null
-                    ? mockingbirdQuestionTimer <= 0
+                    ? mockingbirdBlowbackTimer <= 0
                     : mockingbirdCopiedNeutralActive() && mockingbirdCopiedNeutralReady(mockingbirdCapturedType));
             case SIDE -> mockingbirdSideReuseTimer <= 0 && mockingbirdSideFxTimer <= 0
                     && !mockingbirdMicCharging && mockingbirdMicSwingTimer <= 0;
@@ -9484,10 +9484,7 @@ public class Bird {
     }
 
     private boolean isVoidMap() {
-        return game.selectedMap == MapType.BATTLEFIELD
-                || game.selectedMap == MapType.BEACON_CROWN
-                || game.selectedMap == MapType.FROSTBITE_FJORD
-                || game.selectedMap == MapType.ASHFALL_CATHEDRAL;
+        return game.usesIslandBoundsForCurrentArena();
     }
 
     private Platform findAIMainStagePlatform() {
@@ -9824,6 +9821,8 @@ public class Bird {
                     || (vy > 3.5 && depth > 16.0))));
             case SHOEBILL -> !shoebillUpSpecialUsed
                     && (depth > 96.0 || (offstage && (offstageDistance > 16.0 || movingAway || vy > 2.1)));
+            case MOCKINGBIRD -> !mockingbirdUpSpecialUsed
+                    && (depth > 92.0 || (offstage && (offstageDistance > 16.0 || movingAway || vy > 2.0)));
             case RAZORBILL -> !razorbillUpSpecialUsed
                     && (depth > 92.0 || (offstage && (offstageDistance > 16.0 || movingAway || vy > 2.0)));
             case GRINCHHAWK -> !grinchUpSpecialUsed
@@ -9908,6 +9907,7 @@ public class Bird {
                     || type == BirdGame3.BirdType.ROADRUNNER
                     || type == BirdGame3.BirdType.PENGUIN
                     || type == BirdGame3.BirdType.SHOEBILL
+                    || type == BirdGame3.BirdType.MOCKINGBIRD
                     || type == BirdGame3.BirdType.RAZORBILL
                     || type == BirdGame3.BirdType.GRINCHHAWK
                     || type == BirdGame3.BirdType.TITMOUSE
@@ -10473,15 +10473,21 @@ public class Bird {
                 && mockingbirdSpecialReady(MockingbirdSpecialVariant.NEUTRAL)) {
             return DirectionalSpecialInput.NEUTRAL;
         }
+        if (mockingbirdCapturedType == null
+                && target != null
+                && dist < 235.0
+                && Math.abs(target.bodyCenterY() - bodyCenterY()) < 145.0
+                && mockingbirdSpecialReady(MockingbirdSpecialVariant.NEUTRAL)) {
+            return DirectionalSpecialInput.NEUTRAL;
+        }
         if (target != null
                 && dist > 60.0 && dist < 275.0
                 && Math.abs(target.bodyCenterY() - bodyCenterY()) < 135.0) {
             return DirectionalSpecialInput.SIDE;
         }
 
-        // An empty neutral is only a question-mark tell. Selecting SIDE while
-        // Mimic Call is unavailable lets the readiness gate decline the action
-        // instead of making the CPU repeatedly spend offense decisions on a no-op.
+        // Blowback is useful at close range; while it is recharging, keep Charles
+        // active with the microphone instead of spending decisions on a locked move.
         return mockingbirdCapturedType == null
                 ? DirectionalSpecialInput.SIDE
                 : DirectionalSpecialInput.NEUTRAL;
@@ -12011,7 +12017,7 @@ public class Bird {
         roosterDownReuseTimer = Math.max(0, (int)(roosterDownReuseTimer - gameSpeed));
         roosterCommandFxTimer = Math.max(0, (int)(roosterCommandFxTimer - gameSpeed));
         mockingbirdLoungeReuseTimer = Math.max(0, (int)(mockingbirdLoungeReuseTimer - gameSpeed));
-        mockingbirdQuestionTimer = Math.max(0, (int)(mockingbirdQuestionTimer - gameSpeed));
+        mockingbirdBlowbackTimer = Math.max(0, (int)(mockingbirdBlowbackTimer - gameSpeed));
         mockingbirdSideFxTimer = Math.max(0, (int)(mockingbirdSideFxTimer - gameSpeed));
         mockingbirdSideReuseTimer = Math.max(0, (int)(mockingbirdSideReuseTimer - gameSpeed));
         mockingbirdMicSwingTimer = Math.max(0, (int)(mockingbirdMicSwingTimer - gameSpeed));
@@ -16724,7 +16730,7 @@ public class Bird {
         loungeDamageFlash = 0;
         clearMockingbirdCapturedAbility(false);
         mockingbirdLoungeReuseTimer = 0;
-        mockingbirdQuestionTimer = 0;
+        mockingbirdBlowbackTimer = 0;
         mockingbirdSideFxTimer = 0;
         mockingbirdSideReuseTimer = 0;
         MockingbirdSpecials.reset(this, true);
@@ -16810,7 +16816,7 @@ public class Bird {
         state.mockingbirdCopiedNeutralSourceOrdinal = mockingbirdCopiedNeutralSource == null ? -1 : mockingbirdCopiedNeutralSource.ordinal();
         state.mockingbirdUncaptureTimer = mockingbirdUncaptureTimer;
         state.mockingbirdLoungeReuseTimer = mockingbirdLoungeReuseTimer;
-        state.mockingbirdQuestionTimer = mockingbirdQuestionTimer;
+        state.mockingbirdBlowbackTimer = mockingbirdBlowbackTimer;
         state.mockingbirdSideFxTimer = mockingbirdSideFxTimer;
         state.mockingbirdSideReuseTimer = mockingbirdSideReuseTimer;
         state.mockingbirdMicCharging = mockingbirdMicCharging;
@@ -17473,7 +17479,7 @@ public class Bird {
                 : null;
         this.mockingbirdUncaptureTimer = Math.max(0, state.mockingbirdUncaptureTimer);
         this.mockingbirdLoungeReuseTimer = Math.max(0, state.mockingbirdLoungeReuseTimer);
-        this.mockingbirdQuestionTimer = Math.max(0, state.mockingbirdQuestionTimer);
+        this.mockingbirdBlowbackTimer = Math.max(0, state.mockingbirdBlowbackTimer);
         this.mockingbirdSideFxTimer = Math.max(0, state.mockingbirdSideFxTimer);
         this.mockingbirdSideReuseTimer = Math.max(0, state.mockingbirdSideReuseTimer);
         this.mockingbirdMicCharging = state.mockingbirdMicCharging;
@@ -18541,7 +18547,7 @@ public class Bird {
 
     private boolean mockingbirdSpecialPoseActive() {
         return type == BirdGame3.BirdType.MOCKINGBIRD
-                && (mockingbirdQuestionTimer > 0 || mockingbirdMicCharging || mockingbirdMicSwingTimer > 0
+                && (mockingbirdBlowbackTimer > 0 || mockingbirdMicCharging || mockingbirdMicSwingTimer > 0
                 || mockingbirdSideFxTimer > 0 || mockingbirdUpFxTimer > 0);
     }
 
@@ -19463,21 +19469,21 @@ public class Bird {
                     0.95
             );
         }
-        if (mockingbirdQuestionTimer > 0) {
-            double phase = pigeonSpecialPhase(mockingbirdQuestionTimer, MOCKINGBIRD_QUESTION_FRAMES);
-            double wobble = Math.sin(phase * Math.PI * 5.0);
+        if (mockingbirdBlowbackTimer > 0) {
+            double phase = pigeonSpecialPhase(mockingbirdBlowbackTimer, MOCKINGBIRD_BLOWBACK_FRAMES);
+            double pulse = Math.sin(phase * Math.PI);
             return new AttackVisualPose(
-                    -dir * (2.5 + phase * 1.5),
-                    -3.0 - phase * 2.0,
-                    -dir * (5.0 + wobble * 3.0),
-                    facingRight ? 0.03 : Math.PI - 0.03,
-                    4.0 + phase * 4.0,
-                    -7.0 - phase * 3.0,
-                    3.0 + phase * 3.0,
-                    1.20 + phase * 0.12,
-                    -dir * (5.0 + wobble * 4.0),
-                    0.98,
-                    1.04
+                    -dir * (4.0 + pulse * 4.0),
+                    -2.0 - pulse * 2.0,
+                    dir * (7.0 + pulse * 5.0),
+                    facingRight ? -0.02 : Math.PI + 0.02,
+                    11.0 + pulse * 6.0,
+                    -5.0 - pulse * 2.0,
+                    9.0 + pulse * 4.0,
+                    0.90,
+                    -dir * (7.0 + pulse * 4.0),
+                    1.04 + pulse * 0.05,
+                    0.96
             );
         }
         return new AttackVisualPose(0.0, 0.0, 0.0, facingRight ? 0.0 : Math.PI,
@@ -25246,19 +25252,25 @@ public class Bird {
         g.save();
         g.setLineCap(StrokeLineCap.ROUND);
 
-        if (mockingbirdQuestionTimer > 0) {
-            double phase = mockingbirdQuestionTimer / (double) MOCKINGBIRD_QUESTION_FRAMES;
-            double bob = Math.sin((1.0 - phase) * Math.PI * 3.0) * 6.0 * s;
-            double qx = centerX - 10.0 * s;
-            double qy = centerY - (68.0 + (1.0 - phase) * 16.0) * s + bob;
-            g.setFill(Color.BLACK.deriveColor(0, 1, 1, 0.40 * phase));
-            g.setFont(Font.font("Arial Black", 38.0 * s));
-            g.fillText("?", qx + 3.0 * s, qy + 3.0 * s);
-            g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.95 * phase));
-            g.fillText("?", qx, qy);
-            g.setStroke(Color.web("#B388FF").deriveColor(0, 1, 1, 0.64 * phase));
-            g.setLineWidth(2.0 * s);
-            g.strokeOval(centerX - 20.0 * s, qy - 29.0 * s, 42.0 * s, 42.0 * s);
+        if (mockingbirdBlowbackTimer > 0) {
+            double progress = 1.0 - mockingbirdBlowbackTimer / (double) MOCKINGBIRD_BLOWBACK_FRAMES;
+            double envelope = Math.sin(Math.clamp(progress, 0.0, 1.0) * Math.PI);
+            double originX = centerX + dir * 34.0 * s;
+            double originY = centerY - 2.0 * s;
+            g.setStroke(Color.web("#E1F5FE").deriveColor(0, 1, 1, 0.34 + envelope * 0.48));
+            g.setLineWidth((3.0 + envelope * 3.0) * s);
+            for (int stream = -2; stream <= 2; stream++) {
+                double laneY = originY + stream * 15.0 * s;
+                double stagger = (stream + 2) * 13.0 * s;
+                double startX = originX + dir * stagger;
+                double endX = originX + dir * (105.0 + progress * 115.0 + stagger) * s;
+                double flareY = laneY + stream * (8.0 + progress * 10.0) * s;
+                g.strokeLine(startX, laneY, endX, flareY);
+            }
+            g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.45 + envelope * 0.40));
+            g.setLineWidth((1.5 + envelope * 1.5) * s);
+            g.strokeLine(originX, originY,
+                    originX + dir * (155.0 + progress * 105.0) * s, originY);
         }
 
         if (mockingbirdMicCharging || mockingbirdMicSwingTimer > 0) {
@@ -35390,7 +35402,7 @@ public class Bird {
             return 0.34 + 0.34 * Math.sin(mockingbirdMicSwingTimer * Math.PI
                     / Math.max(1.0, MOCKINGBIRD_MIC_SWING_FRAMES));
         }
-        if (mockingbirdQuestionTimer > 0) {
+        if (mockingbirdBlowbackTimer > 0) {
             return 0.24;
         }
         if (state == BirdAnimationState.FLAP) {
@@ -39467,7 +39479,7 @@ public class Bird {
             normalX = -normalX;
             normalY = -normalY;
         }
-        boolean attacking = attackAnimationTimer > 0 || mockingbirdQuestionTimer > 0
+        boolean attacking = attackAnimationTimer > 0 || mockingbirdBlowbackTimer > 0
                 || mockingbirdMicCharging || mockingbirdMicSwingTimer > 0
                 || mockingbirdSideFxTimer > 0 || mockingbirdUpFxTimer > 0;
         double length = (26.0 + (pose == null ? 0.0 : pose.beakLengthBonus() * 0.48)) * s;
