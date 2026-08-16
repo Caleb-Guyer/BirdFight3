@@ -10,14 +10,14 @@
 
 | Round | Encounter | Kind | Map | W-L-D | Clear rate | Avg time | Damage dealt | Read |
 |---:|---|---|---|---:|---:|---:|---:|---|
-| 1 | First Incision | Combat | Glasswind Causeway | 50-14-0 | 78.1% | 82.5s | 127 | Possibly too easy |
+| 1 | First Incision | Combat | Glasswind Causeway | 60-4-0 | 93.8% | 82.7s | 131 | Possibly too easy |
 | 2 | Death by a Thousand Cuts | Combat | Parliament Rooftops | 44-20-0 | 68.8% | 73.0s | 138 | Target band |
-| 3 | The Blunt Edge | Combat | Obsidian Foundry | 33-31-0 | 51.6% | 100.4s | 123 | Target band |
+| 3 | The Blunt Edge | Combat | Obsidian Foundry | 39-25-0 | 60.9% | 86.1s | 142 | Target band |
 | 4 | The Hand That Holds | Combat | Prison | 57-7-0 | 89.1% | 76.4s | 130 | Possibly too easy |
-| 5 | A Perfect Reflection | Combat | Glasswind Causeway | 46-18-0 | 71.9% | 86.0s | 129 | Possibly too easy |
+| 5 | A Perfect Reflection | Combat | Glasswind Causeway | 42-22-0 | 65.6% | 103.0s | 149 | Target band |
 | 6 | Bonus: Between the Lines | Objective | Worldseam | — | — | — | — | Not scored |
-| 7 | The Broken Guard | Combat | Worldseam | 29-35-0 | 45.3% | 176.4s | 255 | Target band |
-| 8 | The Last Division | Combat | Worldseam | 50-14-0 | 78.1% | 129.0s | 257 | Possibly too easy |
+| 7 | The Broken Guard | Combat | Worldseam | 26-38-0 | 40.6% | 199.1s | 259 | Target band |
+| 8 | The Last Division | Combat | Worldseam | 40-24-0 | 62.5% | 151.6s | 252 | Target band |
 
 ## How to use this report
 

@@ -37,8 +37,8 @@ and is also dedicated to the public domain under CC0.
 | music-charles-spire.mp3 | [Battle for Mars — Sperry Lion LLC](https://opengameart.org/content/battle-for-mars) (CC0) | Signal Spire and Dead Air |
 | music-charles-maestro.mp3 | [Boss Fight — Lisboa](https://opengameart.org/content/boss-fight-0) (CC0) | Hollow Maestro and Silent Amphitheater |
 | music-charles-ending.mp3 | [Snow Globe — Bobjt](https://opengameart.org/content/snow-globe) (CC0) | Charles's Classic ending |
-| music-razorbill-glasswind.mp3 | [Pulse — SRG774, Dark Sci-Fi Audio Pack](https://opengameart.org/content/dark-sci-fi-audio-pack) (CC0) | Glasswind Causeway and Razorbill's opening battles |
-| music-razorbill-worldseam.mp3 | [Urgent — SRG774, Dark Sci-Fi Audio Pack](https://opengameart.org/content/dark-sci-fi-audio-pack) (CC0) | The Worldseam and Between the Lines |
+| music-razorbill-glasswind.mp3 | [Prepare to fight — Basil](https://opengameart.org/content/prepare-to-fight) (CC0) | Glasswind Causeway and Obsidian Foundry |
+| music-razorbill-worldseam.mp3 | [JRPG Epic Rock Battle Theme #1 — HydroGene](https://opengameart.org/content/jrpg-epic-rock-battle-theme-1) (CC0) | The Worldseam and Between the Lines |
 | music-razorbill-seamreaver.mp3 | [Intense Boss Battle — haruta](https://opengameart.org/content/intense-boss-battle) (CC0) | The Seamreaver final boss |
 | music-razorbill-ending.mp3 | [Transmission — SRG774, Dark Sci-Fi Audio Pack](https://opengameart.org/content/dark-sci-fi-audio-pack) (CC0) | Razorbill's Final Cut ending |
 

@@ -170,6 +170,61 @@ class RazorbillClassicRouteTest {
         assertEquals(6, ending.beats().size());
     }
 
+    @Test
+    void routeStagesUseDistinctGeometryAndEpicBattleMusicOnlyDuringMatches() throws Exception {
+        BirdGame3 glasswind = prepared(0, 0x5E_AA13L, 0x5E_AA14L);
+        BirdGame3 foundry = prepared(2, 0x5E_AA15L, 0x5E_AA16L);
+        BirdGame3 worldseam = prepared(5, 0x5E_AA17L, 0x5E_AA18L);
+
+        assertNotEquals(platformSignature(glasswind), platformSignature(foundry));
+        assertNotEquals(platformSignature(glasswind), platformSignature(worldseam));
+        assertNotEquals(platformSignature(foundry), platformSignature(worldseam));
+
+        double seamFloorY = (double) get(worldseam, "battlefieldIslandY");
+        assertFalse(worldseam.platforms.stream().anyMatch(platform ->
+                platform.y == seamFloorY && platform.x < 3_000.0 && platform.x + platform.w > 3_000.0),
+                "The Worldseam should visibly divide its two main landmasses.");
+
+        assertEquals("music-razorbill-glasswind.mp3",
+                invoke(glasswind, "gameplayMusicFile", new Class<?>[0]));
+        assertEquals("music-razorbill-glasswind.mp3",
+                invoke(foundry, "gameplayMusicFile", new Class<?>[0]));
+        assertEquals("music-razorbill-worldseam.mp3",
+                invoke(worldseam, "gameplayMusicFile", new Class<?>[0]));
+        assertEquals(BirdGame3.CLASSIC_ENCOUNTER_MUSIC_FILE, glasswind.classicTransitionMusicFile());
+        assertEquals(BirdGame3.CLASSIC_ENCOUNTER_MUSIC_FILE, worldseam.classicTransitionMusicFile());
+    }
+
+    @Test
+    void glasswindTelegraphsAlternatingCrosswindsAndFoundryPressesActuallyStrike() throws Exception {
+        BirdGame3 glasswind = prepared(0, 0x5E_AA19L, 0x5E_AA1AL);
+        Bird flyer = glasswind.players[0];
+        flyer.y = (double) get(glasswind, "battlefieldIslandY") - flyer.bodyHeight() - 120.0;
+        flyer.vx = 0.0;
+        glasswind.simTick = BirdGame3.GLASSWIND_GUST_WARNING_FRAME;
+        assertTrue(glasswind.isGlasswindGustWarning());
+        glasswind.simTick = BirdGame3.GLASSWIND_GUST_ACTIVE_FRAME;
+        glasswind.applyRazorbillArenaRuntimeEffects();
+        assertTrue(flyer.vx > 0.0);
+        flyer.vx = 0.0;
+        glasswind.simTick = BirdGame3.GLASSWIND_GUST_CYCLE_FRAMES
+                + BirdGame3.GLASSWIND_GUST_ACTIVE_FRAME;
+        glasswind.applyRazorbillArenaRuntimeEffects();
+        assertTrue(flyer.vx < 0.0);
+
+        BirdGame3 foundry = prepared(2, 0x5E_AA1BL, 0x5E_AA1CL);
+        Bird target = foundry.players[0];
+        double floorY = (double) get(foundry, "battlefieldIslandY");
+        target.x = BirdGame3.OBSIDIAN_PRESS_X[0] - target.bodyWidth() * 0.5;
+        target.y = floorY - target.bodyHeight();
+        foundry.simTick = BirdGame3.OBSIDIAN_PRESS_WARNING_FRAME;
+        assertTrue(foundry.isObsidianPressWarning(0));
+        double before = target.smashDamagePercent();
+        foundry.simTick = BirdGame3.OBSIDIAN_PRESS_ACTIVE_FRAME;
+        foundry.applyRazorbillArenaRuntimeEffects();
+        assertTrue(target.smashDamagePercent() > before);
+    }
+
     private static void assertThreeWaves(BirdGame3 game, boolean normalAi) {
         for (int wave = 0; wave < 3; wave++) {
             Bird enemy = firstEnemy(game);
@@ -194,6 +249,12 @@ class RazorbillClassicRouteTest {
             if (bird != null && game.getEffectiveTeam(slot) == 2 && game.scores[slot] > 0) return bird;
         }
         return null;
+    }
+
+    private static List<String> platformSignature(BirdGame3 game) {
+        return game.platforms.stream()
+                .map(platform -> platform.x + ":" + platform.y + ":" + platform.w + ":" + platform.h)
+                .toList();
     }
 
     @SuppressWarnings("unchecked")
