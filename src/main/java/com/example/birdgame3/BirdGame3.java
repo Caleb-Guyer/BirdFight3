@@ -35689,7 +35689,7 @@ public class BirdGame3 {
 
         overlay.getChildren().addAll(eyebrow, title, subtitle, dossier,
                 routePanel, utilityRail, footer);
-        installFixedCampaignScene(stage, content, continueButton);
+        installFixedCampaignScene(stage, content, continueButton, back);
     }
 
     private void showCampaignActMissionSelect(Stage stage, int actIndex) {
@@ -35810,7 +35810,7 @@ public class BirdGame3 {
                 () -> showCampaignHub(stage));
         page.getChildren().addAll(eyebrow, title, guidance, missionCards, spacer, back);
         content.getChildren().addAll(backdrop, page);
-        installFixedCampaignScene(stage, content, firstSelectable == null ? back : firstSelectable);
+        installFixedCampaignScene(stage, content, firstSelectable == null ? back : firstSelectable, back);
     }
 
     private String campaignActShortTitle(StoryCampaign.Act act) {
@@ -35894,11 +35894,12 @@ public class BirdGame3 {
         }
     }
 
-    private void installFixedCampaignScene(Stage stage, Region content, Node initialFocus) {
+    private void installFixedCampaignScene(Stage stage, Region content, Node initialFocus, Button escapeButton) {
         StackPane root = new StackPane(content);
         root.getProperties().put("noAutoScale", true);
         root.setStyle("-fx-background-color: #02050A;");
         Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, escapeButton);
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
         bindFixedFrameScale(scene, content, 0.0);
@@ -35999,7 +36000,7 @@ public class BirdGame3 {
         Button back = uiFactory.action("BACK TO STORY", 330, 72, 20, "#455A64", 18,
                 () -> showCampaignHub(stage));
         root.getChildren().addAll(kicker, title, briefing, objectives, rules, deploy, back);
-        installFixedCampaignScene(stage, root, deploy);
+        installFixedCampaignScene(stage, root, deploy, back);
     }
 
     private void beginCampaignMission(Stage stage, StoryCampaign.Mission mission) {
@@ -36089,7 +36090,7 @@ public class BirdGame3 {
         HBox bottom = new HBox(14, skin, deploy, back);
         bottom.setAlignment(Pos.CENTER);
         root.getChildren().addAll(title, portrait, selected, choices, bottom);
-        installFixedCampaignScene(stage, root, deploy);
+        installFixedCampaignScene(stage, root, deploy, back);
     }
 
     private void startCampaignMission(Stage stage, StoryCampaign.Mission mission) {
@@ -36303,7 +36304,7 @@ public class BirdGame3 {
         galleryScroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
         VBox.setVgrow(galleryScroll, Priority.ALWAYS);
         content.getChildren().addAll(title, count, galleryScroll, back);
-        installFixedCampaignScene(stage, content, back);
+        installFixedCampaignScene(stage, content, back, back);
     }
 
     private void showLegacyStories(Stage stage) {
@@ -36332,7 +36333,7 @@ public class BirdGame3 {
         Button back = uiFactory.action("BACK TO THE STILL SKY", 460, 72, 20, "#455A64", 18,
                 () -> showCampaignHub(stage));
         root.getChildren().addAll(title, description, main, tempest, episodes, back);
-        installFixedCampaignScene(stage, root, main);
+        installFixedCampaignScene(stage, root, main, back);
     }
 
     private void showAdventureHub(Stage stage) {

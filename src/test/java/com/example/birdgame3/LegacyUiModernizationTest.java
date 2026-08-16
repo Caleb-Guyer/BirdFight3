@@ -41,6 +41,25 @@ class LegacyUiModernizationTest {
         assertFalse(feedRefresh.contains("-fx-background-color: #00897B"));
     }
 
+    @Test
+    void fixedStoryScreensRegisterTheirBackButtonsForEscape() throws IOException {
+        String source = Files.readString(GAME_SOURCE);
+        String installer = methodBody(source, "installFixedCampaignScene");
+        assertTrue(installer.contains("bindEscape(scene, escapeButton);"),
+                "Fixed Story screens must handle Escape at scene level");
+
+        for (String method : new String[]{
+                "showCampaignHub", "showCampaignActMissionSelect",
+                "showCampaignMissionBriefing", "showCampaignHandoff",
+                "showCampaignGallery", "showLegacyStories"}) {
+            String body = methodBody(source, method);
+            assertTrue(body.contains("installFixedCampaignScene(stage"),
+                    method + " must use the fixed Story scene installer");
+            assertTrue(body.contains(", back);"),
+                    method + " must register its Back button for Escape");
+        }
+    }
+
     private static String methodBody(String source, String methodName) {
         int name = source.indexOf("private void " + methodName + "(");
         assertTrue(name >= 0, "Missing method " + methodName);
