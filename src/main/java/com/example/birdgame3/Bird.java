@@ -6881,6 +6881,7 @@ public class Bird {
     private static final int AI_NAVIGATION_STALL_FRAMES = 105;
     private static final int AI_STACKED_STALL_FRAMES = 24;
     private static final int AI_NAVIGATION_ESCAPE_FRAMES = 48;
+    private static final int AI_DESCENT_COMMIT_FRAMES = 54;
     private static final double AI_NAVIGATION_PROGRESS_DISTANCE = 48.0;
     private int aiProgressTargetIndex = -1;
     private double aiBestTargetDistance = Double.POSITIVE_INFINITY;
@@ -7296,7 +7297,7 @@ public class Bird {
                 dropEdgeX = candidateDropEdgeX;
                 dropPlan = true;
                 aiDropCommitDir = targetCx < platformCenter ? -1 : 1;
-                aiDropCommitFrames = Math.max(aiDropCommitFrames, 24);
+                aiDropCommitFrames = Math.max(aiDropCommitFrames, AI_DESCENT_COMMIT_FRAMES);
                 aiDropOriginY = standing.y;
             }
         }
@@ -7428,13 +7429,13 @@ public class Bird {
             moveDir = 0;
         }
 
+        boolean committedDescent = false;
         if (aiDropCommitFrames > 0) {
             boolean abandonDrop = powerFocus || target == null || !targetBelow;
-            boolean clearedDrop = !Double.isNaN(aiDropOriginY) && y > aiDropOriginY + 4;
             boolean landedLower = onGround && standing != null
                     && !Double.isNaN(aiDropOriginY)
                     && standing.y > aiDropOriginY + 12;
-            if (abandonDrop || clearedDrop || landedLower) {
+            if (abandonDrop || landedLower) {
                 resetAIDropCommit();
             } else if (aiDropCommitDir != 0) {
                 moveDir = aiDropCommitDir;
@@ -7442,6 +7443,15 @@ public class Bird {
                 aiStrafeHoldFrames = 0;
                 aiStrafeTimer = 0;
                 aiMicroPause = 0;
+                if (!onGround && !Double.isNaN(aiDropOriginY) && y > aiDropOriginY + 4.0) {
+                    // Keep crossing the platform edge until we actually land on
+                    // a lower shelf. Releasing this commitment as soon as the
+                    // bird fell four pixels let overlapping canopy platforms
+                    // catch flying CPUs and send them back into the same loop.
+                    game.setAiControlKey(playerIndex, jumpKey(), false);
+                    game.setAiControlKey(playerIndex, blockKey(), true);
+                    committedDescent = true;
+                }
             }
         }
 
@@ -7524,7 +7534,8 @@ public class Bird {
             }
         }
 
-        if (shouldAIUseUtilitySpecial(target, powerUp, onGround, climbPlatform, powerFocus)) {
+        if (!committedDescent
+                && shouldAIUseUtilitySpecial(target, powerUp, onGround, climbPlatform, powerFocus)) {
             if (type == BirdGame3.BirdType.PENGUIN) {
                 game.setAiControlKey(playerIndex, jumpKey(), true);
             }
@@ -7536,7 +7547,7 @@ public class Bird {
 
         // Choose offense on a level-scaled cadence instead of reacting on the exact frame
         // an opponent enters range. This leaves readable openings and occasional whiffs.
-        if (!powerFocus && target != null && aiOffenseDecisionCooldown <= 0) {
+        if (!committedDescent && !powerFocus && target != null && aiOffenseDecisionCooldown <= 0) {
             aiOffenseDecisionCooldown = aiOffenseDecisionIntervalForLevel(cpuLevel) + random.nextInt(4);
             double attackChance = (aiCommitFrames > 0 ? 0.88 : 0.72)
                     * (0.38 + 0.52 * skill)

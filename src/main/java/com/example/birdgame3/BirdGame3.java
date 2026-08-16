@@ -41454,10 +41454,10 @@ public class BirdGame3 {
                 "Fight beside Bat. Raven and Heisenbird hide in the dark, but neither can hide from two patient watchers.",
                 MapType.CAVE, MapVariant.STANDARD, MatchMutator.NONE, ClassicTwist.MARSH_HUNT,
                 ClassicEncounterStyle.STANDARD, 120 * 60,
-                new ClassicFighter[]{classicFighter(BirdType.BAT, "Ally: Cavern Bat", 122, 0.98, 1.08)},
+                new ClassicFighter[]{classicFighter(BirdType.BAT, "Ally: Cavern Bat", 136, 1.10, 1.08)},
                 new ClassicFighter[]{
-                        classicFighter(BirdType.RAVEN, "Night Intruder: Raven", 120, 1.00, 1.05),
-                        classicFighter(BirdType.HEISENBIRD, "Night Intruder: Heisenbird", 124, 1.00, 1.00)}, false);
+                        classicFighter(BirdType.RAVEN, "Night Intruder: Raven", 120, 0.94, 1.05),
+                        classicFighter(BirdType.HEISENBIRD, "Night Intruder: Heisenbird", 124, 0.94, 1.00)}, false);
         eyesInDark.cpuLevel = 5;
         run.add(eyesInDark);
 
@@ -50209,21 +50209,9 @@ public class BirdGame3 {
             scores[0] = 2;
         }
         if (classicSelectedBird == BirdType.SHOEBILL
-                && (classicEncounter.style == ClassicEncounterStyle.MINIATURE_FLOCK
-                || classicEncounter.style == ClassicEncounterStyle.GIANT
+                && (classicEncounter.style == ClassicEncounterStyle.GIANT
                 || classicEncounter.style == ClassicEncounterStyle.SHOEBILL_TRAIL)) {
             scores[0] = 2;
-        }
-        if (classicSelectedBird == BirdType.SHOEBILL
-                && classicEncounter.style == ClassicEncounterStyle.MINIATURE_FLOCK) {
-            for (Bird bird : players) {
-                if (bird != null && getEffectiveTeam(bird.playerIndex) == 2) {
-                    // One persistent lead needle makes this a four-life flock
-                    // against Shoebill's two without adding another combatant.
-                    scores[bird.playerIndex] = 2;
-                    break;
-                }
-            }
         }
         if (classicSelectedBird == BirdType.SHOEBILL
                 && (classicEncounter.style == ClassicEncounterStyle.MARSH_GAUNTLET

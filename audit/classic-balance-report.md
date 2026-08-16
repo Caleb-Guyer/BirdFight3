@@ -10,14 +10,14 @@
 
 | Round | Encounter | Kind | Map | W-L-D | Clear rate | Avg time | Damage dealt | Read |
 |---:|---|---|---|---:|---:|---:|---:|---|
-| 1 | Needles in the Reeds | Combat | Vibrant Jungle | 40-24-0 | 62.5% | 75.3s | 160 | Target band |
-| 2 | The Larger Beak | Combat | Titan Dock | 44-20-0 | 68.8% | 93.2s | 177 | Target band |
-| 3 | Eyes in the Dark | Combat | Cave | 26-38-0 | 40.6% | 83.9s | 130 | Target band |
-| 4 | Swift Trail | Combat | Redline Canyon | 36-28-0 | 56.3% | 66.6s | 218 | Target band |
-| 5 | Statue Court | Combat | Crown Duel | 42-22-0 | 65.6% | 59.0s | 116 | Target band |
+| 1 | Needles in the Reeds | Combat | Vibrant Jungle | 34-30-0 | 53.1% | 39.2s | 107 | Target band |
+| 2 | The Larger Beak | Combat | Titan Dock | 43-21-0 | 67.2% | 84.0s | 151 | Target band |
+| 3 | Eyes in the Dark | Combat | Cave | 33-31-0 | 51.6% | 92.4s | 146 | Target band |
+| 4 | Swift Trail | Combat | Redline Canyon | 38-26-0 | 59.4% | 76.1s | 233 | Target band |
+| 5 | Statue Court | Combat | Crown Duel | 43-21-0 | 67.2% | 60.6s | 107 | Target band |
 | 6 | Bonus: Ripple Hunt | Objective | Stillwater Marsh | — | — | — | — | Not scored |
-| 7 | The Marsh in Panic | Combat | Stillwater Marsh | 44-20-0 | 68.8% | 129.9s | 421 | Target band |
-| 8 | The Mire Oracle | Combat | Stillwater Marsh | 44-20-0 | 68.8% | 84.7s | 300 | Target band |
+| 7 | The Marsh in Panic | Combat | Stillwater Marsh | 37-27-0 | 57.8% | 120.3s | 408 | Target band |
+| 8 | The Mire Oracle | Combat | Stillwater Marsh | 44-20-0 | 68.8% | 84.6s | 283 | Target band |
 
 ## How to use this report
 

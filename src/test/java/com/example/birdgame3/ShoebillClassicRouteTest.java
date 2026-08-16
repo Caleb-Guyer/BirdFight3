@@ -167,10 +167,93 @@ class ShoebillClassicRouteTest {
         }
     }
 
+    @Test
+    void reedNeedleLeavesTheUpperCanopyToReachShoebillBelow() {
+        BirdGame3 game = prepared(0, 0x51A16L, 0x7105L);
+        game.isAI[0] = false;
+        for (int slot = 2; slot < game.activePlayers; slot++) {
+            game.players[slot] = null;
+            game.isAI[slot] = false;
+            game.scores[slot] = 0;
+        }
+        game.activePlayers = 2;
+
+        Platform lowerCenter = game.platforms.stream()
+                .filter(platform -> Math.abs(platform.x - 2_300.0) < 0.01)
+                .filter(platform -> Math.abs(platform.y - (BirdGame3.GROUND_Y - 530.0)) < 0.01)
+                .findFirst().orElseThrow();
+        Platform upperCenter = game.platforms.stream()
+                .filter(platform -> Math.abs(platform.x - 2_520.0) < 0.01)
+                .filter(platform -> Math.abs(platform.y - (BirdGame3.GROUND_Y - 1_540.0)) < 0.01)
+                .findFirst().orElseThrow();
+
+        Bird shoebill = game.players[0];
+        Bird needle = game.players[1];
+        placeOnPlatform(shoebill, lowerCenter, lowerCenter.x + lowerCenter.w * 0.5);
+        placeOnPlatform(needle, upperCenter, upperCenter.x + upperCenter.w * 0.5);
+        double initialDistance = needle.combatDistanceTo(shoebill);
+        double closestDistance = initialDistance;
+
+        for (int tick = 0; tick < 240 && game.harnessTick(); tick++) {
+            closestDistance = Math.min(closestDistance, needle.combatDistanceTo(shoebill));
+        }
+
+        assertTrue(closestDistance < 360.0,
+                "The last Reed Needle must descend through the canopy and engage Shoebill; closest distance was "
+                        + closestDistance + " from " + initialDistance + ".");
+    }
+
+    @Test
+    void reedNeedleKeepsItsFastFallCommitAfterClearingACanopyEdge() throws Exception {
+        BirdGame3 game = prepared(0, 0x51A17L, 0x7106L);
+        game.isAI[0] = false;
+        for (int slot = 2; slot < game.activePlayers; slot++) {
+            game.players[slot] = null;
+            game.isAI[slot] = false;
+            game.scores[slot] = 0;
+        }
+        game.activePlayers = 2;
+
+        Platform lowerCenter = game.platforms.stream()
+                .filter(platform -> Math.abs(platform.x - 2_300.0) < 0.01)
+                .filter(platform -> Math.abs(platform.y - (BirdGame3.GROUND_Y - 530.0)) < 0.01)
+                .findFirst().orElseThrow();
+        Platform upperCenter = game.platforms.stream()
+                .filter(platform -> Math.abs(platform.x - 2_520.0) < 0.01)
+                .filter(platform -> Math.abs(platform.y - (BirdGame3.GROUND_Y - 1_540.0)) < 0.01)
+                .findFirst().orElseThrow();
+        Bird shoebill = game.players[0];
+        Bird needle = game.players[1];
+        placeOnPlatform(shoebill, lowerCenter, lowerCenter.x + lowerCenter.w * 0.5);
+        placeOnPlatform(needle, upperCenter, upperCenter.x + upperCenter.w * 0.5);
+
+        invoke(needle, "aiControl", new Class<?>[0]);
+        assertTrue((int) get(needle, "aiDropCommitFrames") > 0);
+
+        needle.x = upperCenter.x - needle.bodyWidth() - 12.0;
+        needle.y = upperCenter.y + 10.0;
+        invoke(needle, "aiControl", new Class<?>[0]);
+
+        assertTrue((int) get(needle, "aiDropCommitFrames") > 0,
+                "Clearing the lip must not cancel the descent before a lower landing.");
+        assertTrue(game.isBlockPressed(needle.playerIndex),
+                "The committed descent must fast-fall through overlapping canopy shelves.");
+        assertFalse(game.isJumpPressed(needle.playerIndex));
+    }
+
     private static BirdGame3 prepared(int round, long routeSeed, long matchSeed) {
         BirdGame3 game = new BirdGame3();
         game.harnessPrepareClassicEncounter(BirdType.SHOEBILL, round, 5.0, 6, routeSeed, matchSeed);
         return game;
+    }
+
+    private static void placeOnPlatform(Bird bird, Platform platform, double centerX) {
+        bird.x = centerX - bird.bodyWidth() * 0.5;
+        bird.y = platform.y - bird.bodyHeight();
+        bird.prevX = bird.x;
+        bird.prevY = bird.y;
+        bird.vx = 0.0;
+        bird.vy = 0.0;
     }
 
     @SuppressWarnings("unchecked")
