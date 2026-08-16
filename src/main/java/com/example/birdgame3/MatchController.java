@@ -484,6 +484,10 @@ final class MatchController {
             game.finishClassicRedlineRunFromTimeout();
             return;
         }
+        if (game.isClassicPerfectPitchActive() && game.matchTimer <= 0) {
+            game.finishClassicPerfectPitchFromTimeout();
+            return;
+        }
 
         if (game.usesSmashCombatRules()) {
             if (game.matchTimer <= 0 && !game.suddenDeath.isActive()) {
@@ -540,6 +544,9 @@ final class MatchController {
             return;
         }
         if (game.holdClassicShoebillEncounterOpen()) {
+            return;
+        }
+        if (game.holdClassicCharlesEncounterOpen()) {
             return;
         }
         if (game.campaignModeActive) {

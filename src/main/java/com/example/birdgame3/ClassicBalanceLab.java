@@ -232,7 +232,8 @@ final class ClassicBalanceLab {
                 || style == ClassicEncounterStyle.DAWN_MUSTER
                 || style == ClassicEncounterStyle.REDLINE_RUN
                 || style == ClassicEncounterStyle.ICE_ARCHITECT
-                || style == ClassicEncounterStyle.RIPPLE_HUNT;
+                || style == ClassicEncounterStyle.RIPPLE_HUNT
+                || style == ClassicEncounterStyle.PERFECT_PITCH;
     }
 
     private static String encounterMapName(ClassicEncounter encounter) {

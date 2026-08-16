@@ -268,6 +268,25 @@ final class ClassicEndingContent {
                             beat("So I used the Crown once. Across the world, disguises failed, hidden cages shone, and false rulers saw their own shadows named.", Tableau.CROWN_TRANSFORMATION),
                             beat("Then I carried it beneath the cypress roots. The marsh closed above it, quiet and awake.", Tableau.CHANGED_WORLD),
                             beat("Anything worthy of ruling the sky should survive being seen clearly.", Tableau.FINAL_PORTRAIT)
+                    )),
+            ending(
+                    BirdGame3.BirdType.MOCKINGBIRD,
+                    "NO VOICE BUT HIS OWN",
+                    "THE LAST ORIGINAL",
+                    "MEMORY - The Crown remembers every voice, but can command none of them.",
+                    Alignment.AMBIGUOUS,
+                    BirdGame3.BirdType.SHOEBILL,
+                    "The Hollow Maestro",
+                    "",
+                    BirdGame3.MapType.RESONANCE_HALL,
+                    "music-charles-ending.wav",
+                    monologue(
+                            beat("The Hollow Maestro called obedience harmony. When it fell, the silence sounded more honest than its song.", Tableau.BOSS_AFTERMATH),
+                            beat("The Crown opened every voice in the world to me at once. Every promise. Every warning. Every word never answered.", Tableau.CROWN_DISCOVERY),
+                            beat("I spent my life borrowing voices. That did not give me the right to own them.", Tableau.DECISION),
+                            beat("I returned what the Maestro had stolen, then tore command out of the Crown note by note.", Tableau.CROWN_TRANSFORMATION),
+                            beat("It remembers every voice now, but it cannot force a single throat to speak. I kept the archive. Someone must hear what power tries to erase.", Tableau.CHANGED_WORLD),
+                            beat("A voice matters because it can refuse. I will remember every voice. I will answer in my own.", Tableau.FINAL_PORTRAIT)
                     ))
     );
 
@@ -298,6 +317,10 @@ final class ClassicEndingContent {
 
     static boolean isStillwaterRevelation(Cinematic cinematic) {
         return cinematic != null && cinematic.narrator() == BirdGame3.BirdType.SHOEBILL;
+    }
+
+    static boolean isCharlesLivingScore(Cinematic cinematic) {
+        return cinematic != null && cinematic.narrator() == BirdGame3.BirdType.MOCKINGBIRD;
     }
 
     static Cinematic withRouteRecord(Ending ending, int birdCoins, int score, String mapReward) {

@@ -29,7 +29,7 @@ class ClassicEndingContentTest {
     }
 
     @Test
-    void allTenAuthoredRoutesHaveUniqueMovingPictureMonologues() {
+    void allElevenAuthoredRoutesHaveUniqueMovingPictureMonologues() {
         List<ClassicEndingContent.Ending> endings = ClassicEndingContent.endings();
 
         assertEquals(List.of(
@@ -42,17 +42,23 @@ class ClassicEndingContentTest {
                         BirdGame3.BirdType.ROOSTER,
                         BirdGame3.BirdType.ROADRUNNER,
                         BirdGame3.BirdType.PENGUIN,
-                        BirdGame3.BirdType.SHOEBILL),
+                        BirdGame3.BirdType.SHOEBILL,
+                        BirdGame3.BirdType.MOCKINGBIRD),
                 endings.stream().map(ClassicEndingContent.Ending::bird).toList());
-        assertEquals(10, new HashSet<>(endings.stream().map(ClassicEndingContent.Ending::title).toList()).size());
-        assertEquals(10, new HashSet<>(endings.stream().map(ClassicEndingContent.Ending::crownChoice).toList()).size());
-        assertEquals(10, new HashSet<>(endings.stream().map(ending -> ending.cinematic().id()).toList()).size());
+        assertEquals(11, new HashSet<>(endings.stream().map(ClassicEndingContent.Ending::title).toList()).size());
+        assertEquals(11, new HashSet<>(endings.stream().map(ClassicEndingContent.Ending::crownChoice).toList()).size());
+        assertEquals(11, new HashSet<>(endings.stream().map(ending -> ending.cinematic().id()).toList()).size());
 
         for (ClassicEndingContent.Ending ending : endings) {
             ClassicEndingContent.Cinematic cinematic = ending.cinematic();
             assertEquals(ending.bird(), cinematic.narrator());
             assertEquals(ending.defeatedBoss(), cinematic.defeatedBoss());
-            assertFalse(cinematic.defeatedBossSkin().isBlank());
+            if (ending.bird() == BirdGame3.BirdType.MOCKINGBIRD) {
+                assertTrue(cinematic.defeatedBossSkin().isBlank(),
+                        "The Hollow Maestro is original route art, not a skin on another bird.");
+            } else {
+                assertFalse(cinematic.defeatedBossSkin().isBlank());
+            }
             assertEquals(List.of(ClassicEndingContent.Tableau.values()),
                     cinematic.beats().stream().map(ClassicEndingContent.Beat::tableau).toList());
             assertTrue(cinematic.beats().stream().allMatch(beat -> !beat.narration().isBlank()));

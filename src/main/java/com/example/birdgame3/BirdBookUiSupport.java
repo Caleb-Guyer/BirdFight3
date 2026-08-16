@@ -150,6 +150,18 @@ final class BirdBookUiSupport {
                 top = Color.web("#071018");
                 bottom = Color.web("#37474F");
             }
+            case RESONANCE_HALL -> {
+                top = Color.web("#090711");
+                bottom = Color.web("#5A2342");
+            }
+            case SIGNAL_SPIRE -> {
+                top = Color.web("#020612");
+                bottom = Color.web("#3C577A");
+            }
+            case SILENT_AMPHITHEATER -> {
+                top = Color.web("#020206");
+                bottom = Color.web("#29243A");
+            }
             default -> {
                 top = Color.web("#1B5E20");
                 bottom = Color.web("#4CAF50");
@@ -362,6 +374,39 @@ final class BirdBookUiSupport {
                 g.setLineWidth(4);
                 g.strokeLine(0, h * 0.78, w, h * 0.78);
             }
+            case RESONANCE_HALL -> {
+                g.setFill(Color.web("#1A0C18", 0.94));
+                g.fillRect(0, h * 0.60, w, h * 0.40);
+                g.setStroke(Color.web("#D5A34B", 0.84));
+                g.setLineWidth(4);
+                g.strokeOval(w * 0.34, h * 0.08, w * 0.32, h * 0.42);
+                for (int tier = 0; tier < 3; tier++) {
+                    g.strokeRoundRect(w * 0.04, h * (0.20 + tier * 0.18), w * 0.20, h * 0.13, 10, 10);
+                    g.strokeRoundRect(w * 0.76, h * (0.20 + tier * 0.18), w * 0.20, h * 0.13, 10, 10);
+                }
+            }
+            case SIGNAL_SPIRE -> {
+                g.setStroke(Color.web("#90A4AE", 0.92));
+                g.setLineWidth(5);
+                g.strokeLine(w * 0.5, 0, w * 0.5, h);
+                for (int row = 0; row < 4; row++) {
+                    double y = h * (0.16 + row * 0.18);
+                    g.strokeLine(w * 0.28, y, w * 0.72, y);
+                    g.strokeLine(w * 0.28, y, w * 0.5, y + h * 0.16);
+                    g.strokeLine(w * 0.72, y, w * 0.5, y + h * 0.16);
+                }
+                g.setStroke(Color.web("#67E8F9", 0.65));
+                g.strokeOval(w * 0.2, h * 0.20, w * 0.6, h * 0.24);
+            }
+            case SILENT_AMPHITHEATER -> {
+                g.setStroke(Color.web("#FFE082", 0.74));
+                g.setLineWidth(4);
+                for (int tier = 0; tier < 4; tier++) {
+                    double inset = w * (0.05 + tier * 0.08);
+                    g.strokeArc(inset, h * (0.18 + tier * 0.08), w - inset * 2,
+                            h * (0.70 - tier * 0.08), 8, 164, javafx.scene.shape.ArcType.OPEN);
+                }
+            }
             default -> {
                 g.setFill(Color.web("#1B5E20", 0.75));
                 g.fillPolygon(new double[]{0, w * 0.1, w * 0.2}, new double[]{h, h * 0.55, h}, 3);
@@ -391,6 +436,13 @@ final class BirdBookUiSupport {
             g.fillRoundRect(w * 0.19, h * 0.27, w * 0.13, h * 0.045, 6, 6);
             g.fillRoundRect(w * 0.68, h * 0.27, w * 0.13, h * 0.045, 6, 6);
             g.fillRoundRect(w * 0.43, h * 0.18, w * 0.14, h * 0.045, 6, 6);
+        } else if (map == BirdGame3.MapType.RESONANCE_HALL
+                || map == BirdGame3.MapType.SIGNAL_SPIRE
+                || map == BirdGame3.MapType.SILENT_AMPHITHEATER) {
+            g.fillRoundRect(w * 0.10, h * 0.70, w * 0.80, h * 0.08, 10, 10);
+            g.fillRoundRect(w * 0.16, h * 0.52, w * 0.22, h * 0.055, 8, 8);
+            g.fillRoundRect(w * 0.62, h * 0.52, w * 0.22, h * 0.055, 8, 8);
+            g.fillRoundRect(w * 0.34, h * 0.34, w * 0.32, h * 0.06, 8, 8);
         } else {
             g.fillRoundRect(w * 0.1, h * 0.7, w * 0.3, h * 0.08, 10, 10);
             g.fillRoundRect(w * 0.6, h * 0.6, w * 0.28, h * 0.08, 10, 10);
@@ -411,13 +463,17 @@ final class BirdBookUiSupport {
             case FROSTBITE_FJORD -> Color.web("#4FC3F7");
             case ASHFALL_CATHEDRAL -> Color.web("#E64A19");
             case PRISON -> Color.web("#546E7A");
+            case RESONANCE_HALL -> Color.web("#D5A34B");
+            case SIGNAL_SPIRE -> Color.web("#67E8F9");
+            case SILENT_AMPHITHEATER -> Color.web("#FFE082");
             default -> Color.web("#2E7D32");
         };
     }
 
     static BirdGame3.MapType originMapForBird(BirdGame3.BirdType type) {
         return switch (type) {
-            case PIGEON, MOCKINGBIRD, RAVEN -> BirdGame3.MapType.CITY;
+            case MOCKINGBIRD -> BirdGame3.MapType.RESONANCE_HALL;
+            case PIGEON, RAVEN -> BirdGame3.MapType.CITY;
             case EAGLE, FALCON, RAZORBILL -> BirdGame3.MapType.SKYCLIFFS;
             case PENGUIN -> BirdGame3.MapType.FROSTBITE_FJORD;
             case PHOENIX -> BirdGame3.MapType.ASHFALL_CATHEDRAL;

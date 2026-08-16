@@ -182,6 +182,7 @@ final class ClassicEndingPlayer {
         boolean continuousPanorama = ClassicEndingContent.isContinuousPanorama(cinematic);
         boolean subglacialMontage = ClassicEndingContent.isSubglacialMontage(cinematic);
         boolean stillwaterRevelation = ClassicEndingContent.isStillwaterRevelation(cinematic);
+        boolean charlesLivingScore = ClassicEndingContent.isCharlesLivingScore(cinematic);
         if (continuousPanorama) {
             double routeProgress = Math.clamp((beatIndex + progress) / cinematic.beats().size(), 0.0, 1.0);
             drawRoadrunnerPanorama(g, now / 1_000_000_000.0, routeProgress);
@@ -191,6 +192,9 @@ final class ClassicEndingPlayer {
         } else if (stillwaterRevelation) {
             double routeProgress = Math.clamp((beatIndex + progress) / cinematic.beats().size(), 0.0, 1.0);
             drawShoebillStillwaterRevelation(g, now / 1_000_000_000.0, routeProgress);
+        } else if (charlesLivingScore) {
+            double routeProgress = Math.clamp((beatIndex + progress) / cinematic.beats().size(), 0.0, 1.0);
+            drawCharlesLivingScore(g, now / 1_000_000_000.0, routeProgress);
         } else {
             drawBackground(g, now / 1_000_000_000.0, progress);
             drawTableau(g, currentBeat().tableau(), progress, now / 1_000_000_000.0);
@@ -198,7 +202,117 @@ final class ClassicEndingPlayer {
         drawCinematicFrame(g, progress);
         drawNarration(g, currentBeat().narration());
         drawProgress(g);
-        if (!continuousPanorama && !subglacialMontage && !stillwaterRevelation) drawTransition(g, progress);
+        if (!continuousPanorama && !subglacialMontage && !stillwaterRevelation && !charlesLivingScore) {
+            drawTransition(g, progress);
+        }
+        g.restore();
+    }
+
+    private void drawCharlesLivingScore(GraphicsContext g, double time, double progress) {
+        Color top = Color.web("#05030A").interpolate(Color.web("#32152C"), progress * 0.72);
+        Color bottom = Color.web("#180916").interpolate(Color.web("#77502B"), progress);
+        g.setFill(new LinearGradient(0, 0, 0, LOGICAL_HEIGHT, false, CycleMethod.NO_CYCLE,
+                new Stop(0, top), new Stop(1, bottom)));
+        g.fillRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
+
+        // One continuous camera move through the rebuilt Resonance Hall.
+        double drift = progress * 420.0;
+        g.setFill(Color.web("#160A16", 0.96));
+        g.fillRect(-drift * 0.12, 620, LOGICAL_WIDTH + 200, 460);
+        g.setStroke(Color.web("#D8A854", 0.68));
+        g.setLineWidth(10.0);
+        for (int tier = 0; tier < 3; tier++) {
+            double y = 170 + tier * 175.0;
+            for (int side = 0; side < 2; side++) {
+                double x = side == 0 ? 48 - drift * 0.18 : 1_520 + drift * 0.18;
+                g.strokeRoundRect(x, y, 350, 130, 26, 26);
+            }
+        }
+
+        // The original Maestro is a mask, tuning forks, batons, and score
+        // ribbons—not a transformed bird. It breaks apart before the Crown rises.
+        double maestroAlpha = Math.clamp(1.0 - progress * 4.2, 0.0, 1.0);
+        if (maestroAlpha > 0.0) {
+            g.save();
+            g.setGlobalAlpha(maestroAlpha);
+            drawHollowMaestroMask(g, 1_340 + progress * 180.0, 470 + progress * 95.0, 1.05, time);
+            g.restore();
+        }
+
+        double crownRise = ease(Math.clamp((progress - 0.12) / 0.22, 0.0, 1.0));
+        double crownBreak = ease(Math.clamp((progress - 0.50) / 0.20, 0.0, 1.0));
+        if (crownRise > 0.0 && crownBreak < 1.0) {
+            drawCrown(g, 1_070, 650 - crownRise * 310.0, 1.22, time,
+                    Math.clamp(1.0 - crownBreak, 0.0, 1.0));
+        }
+
+        double scoreReveal = ease(Math.clamp((progress - 0.30) / 0.42, 0.0, 1.0));
+        if (scoreReveal > 0.0) {
+            g.setStroke(Color.web("#FFE082", 0.60 * scoreReveal));
+            g.setLineWidth(5.0);
+            for (int staff = 0; staff < 5; staff++) {
+                double y = 260 + staff * 48.0 + Math.sin(time * 0.7 + staff) * 8.0;
+                g.strokeLine(70, y, 1_850, y + Math.sin(staff) * 20.0);
+            }
+            for (int note = 0; note < 24; note++) {
+                double angle = note * Math.PI * 2.0 / 24.0 + time * 0.06;
+                double distance = 70 + crownBreak * (250 + (note % 5) * 54.0);
+                double x = 1_070 + Math.cos(angle) * distance;
+                double y = 405 + Math.sin(angle) * distance * 0.52;
+                Color noteColor = Color.hsb(note * 15.0, 0.62, 1.0, 0.88 * scoreReveal);
+                g.setFill(noteColor);
+                g.fillOval(x - 12, y - 9, 24, 18);
+                g.fillRect(x + 8, y - 52, 5, 48);
+            }
+        }
+
+        double flockReveal = ease(Math.clamp((progress - 0.58) / 0.24, 0.0, 1.0));
+        for (int i = 0; i < flock.size(); i++) {
+            double x = 250 + i * 320.0;
+            double y = 750 - (i % 2) * 80.0 - Math.sin(time + i) * 10.0;
+            drawBird(g, flock.get(i), x, y, 0.58, i % 2 == 0, flockReveal);
+            if (flockReveal > 0.0) {
+                g.setStroke(Color.hsb(i * 63.0, 0.50, 1.0, 0.45 * flockReveal));
+                g.setLineWidth(5.0);
+                g.strokeArc(x - 65, y - 100, 170, 90, 18, 144, javafx.scene.shape.ArcType.OPEN);
+            }
+        }
+
+        double charlesX = 390 + ease(progress) * 430.0;
+        double charlesY = 650 - Math.sin(progress * Math.PI) * 74.0;
+        drawBird(g, narrator, charlesX, charlesY, 1.16 + progress * 0.18, true, 1.0);
+
+        if (progress > 0.84) {
+            double finale = ease((progress - 0.84) / 0.16);
+            g.setFill(Color.web("#FFF3D0", 0.10 * finale));
+            g.fillOval(520, 120, 900, 780);
+            drawFinalTitle(g, finale);
+        }
+    }
+
+    private void drawHollowMaestroMask(GraphicsContext g, double x, double y, double scale, double time) {
+        g.save();
+        g.translate(x, y);
+        g.scale(scale, scale);
+        g.setFill(Color.web("#0A0910"));
+        g.fillOval(-150, -190, 300, 360);
+        g.setStroke(Color.web("#E7D9BF"));
+        g.setLineWidth(16.0);
+        g.strokeOval(-150, -190, 300, 360);
+        g.setFill(Color.web("#050508"));
+        g.fillOval(-92, -62, 58, 94);
+        g.fillOval(34, -62, 58, 94);
+        g.setStroke(Color.web("#FFE082"));
+        g.setLineWidth(9.0);
+        g.strokeArc(-82, 40, 164, 82, 200, 140, javafx.scene.shape.ArcType.OPEN);
+        g.setStroke(Color.web("#B0BEC5"));
+        g.setLineWidth(12.0);
+        for (int side : new int[]{-1, 1}) {
+            double sway = Math.sin(time * 1.5 + side) * 25.0;
+            g.strokeLine(side * 150, -50, side * (280 + sway), -150);
+            g.strokeLine(side * 150, 25, side * (300 - sway), 135);
+            g.strokeLine(side * 270, -205, side * 270, 190);
+        }
         g.restore();
     }
 

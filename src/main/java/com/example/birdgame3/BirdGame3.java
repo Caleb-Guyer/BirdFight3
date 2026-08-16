@@ -679,7 +679,12 @@ public class BirdGame3 {
     private record AchievementClaimResult(ShopPreview preview, String detail, boolean usesUnlockCards) {}
 
     // === MAPS ===
-    public enum MapType { FOREST, CITY, SKYCLIFFS, VIBRANT_JUNGLE, DESERT, CAVE, BATTLEFIELD, BEACON_CROWN, DOCK, FROSTBITE_FJORD, ASHFALL_CATHEDRAL, PRISON }
+    public enum MapType {
+        FOREST, CITY, SKYCLIFFS, VIBRANT_JUNGLE, DESERT, CAVE, BATTLEFIELD, BEACON_CROWN,
+        DOCK, FROSTBITE_FJORD, ASHFALL_CATHEDRAL, PRISON,
+        // Append-only: map ordinals are persisted by replays and network setup.
+        RESONANCE_HALL, SIGNAL_SPIRE, SILENT_AMPHITHEATER
+    }
 
     /** Reusable arena layouts originally authored for story and boss modes. */
     public enum MapVariant {
@@ -1792,6 +1797,9 @@ public class BirdGame3 {
                     case FROSTBITE_FJORD -> "music-frostbite.mp3";
                     case ASHFALL_CATHEDRAL -> "music-ashfall.mp3";
                     case PRISON -> "music-prison.mp3";
+                    case RESONANCE_HALL -> "music-charles-route.wav";
+                    case SIGNAL_SPIRE -> "music-charles-route.wav";
+                    case SILENT_AMPHITHEATER -> "music-charles-maestro.wav";
             default -> throw new IllegalStateException("Unexpected value: " + selectedMap);
         };
     }
@@ -4980,6 +4988,19 @@ public class BirdGame3 {
     private int classicShoebillMarshWaveIndex = 0;
     private int classicMireOracleLastStocks = 3;
     private int classicMireEchoRespawnCooldown = 0;
+    private int classicCharlesAuditionReadyRound = -1;
+    private final List<ClassicPitchBell> classicPitchBells = new ArrayList<>();
+    private int[] classicPitchSequence = new int[0];
+    private int classicPitchSequenceIndex = 0;
+    private int classicPitchRevealFrames = 0;
+    private boolean classicPitchAttackWasHeld = false;
+    private int classicPitchHitCooldown = 0;
+    private boolean classicPitchCompleted = false;
+    private int classicCharlesWaveIndex = 0;
+    private int classicCharlesBossLastStocks = 3;
+    private int classicCharlesBossAttackTimer = 0;
+    private int classicCharlesBossAttackKind = 0;
+    private int classicCharlesBossHitCooldown = 0;
     private static final double STILLWATER_MAIN_X = 900.0;
     private static final double STILLWATER_MAIN_Y = GROUND_Y - 330.0;
     private static final double STILLWATER_MAIN_W = 4_200.0;
@@ -5060,7 +5081,11 @@ public class BirdGame3 {
         LAST_SUN("The Last Sun", "Rebuild the Last Ice Shelf as the Crown's artificial sun melts it stock by stock."),
         MARSH_HUNT("Marsh Hunt", "Read the arena, choose the trail, and outlast each hunter without changing Shoebill's normal kit."),
         RIPPLE_HUNT("Ripple Hunt", "Strike the targets that rise from the water; every ordinary attack works."),
-        MIRE_ORACLE("Mire Oracle", "The real oracle is always marked by a golden ripple beneath its reflection.");
+        MIRE_ORACLE("Mire Oracle", "The real oracle is always marked by a golden ripple beneath its reflection."),
+        AUDITION_ORDER("Audition Order", "Choose the order of three distinct auditions without changing Charles's ordinary moves."),
+        PERFECT_PITCH("Perfect Pitch", "Watch the visual score, then strike the four brass bells in the shown order."),
+        DEAD_AIR("Dead Air", "Launch the Maestro's original Choir Masks through the blast zones."),
+        HOLLOW_SCORE("Hollow Score", "The Hollow Maestro fights through three original movements using Smash-style stocks.");
 
         final String label;
         final String description;
@@ -5080,7 +5105,11 @@ public class BirdGame3 {
     }
 
     private void playClassicEncounterMusic() {
-        startOrContinueMusicTrack(CLASSIC_ENCOUNTER_MUSIC_FILE, true);
+        String track = classicSelectedBird == BirdType.MOCKINGBIRD && classicEncounter != null
+                ? (classicEncounter.style == ClassicEncounterStyle.HOLLOW_MAESTRO_BOSS
+                ? "music-charles-maestro.wav" : "music-charles-route.wav")
+                : CLASSIC_ENCOUNTER_MUSIC_FILE;
+        startOrContinueMusicTrack(track, true);
     }
 
     enum ClassicEncounterStyle {
@@ -5117,7 +5146,26 @@ public class BirdGame3 {
         SHOEBILL_TRAIL,
         RIPPLE_HUNT,
         MARSH_GAUNTLET,
-        MIRE_ORACLE_BOSS
+        MIRE_ORACLE_BOSS,
+        CHARLES_UNDERSTUDIES,
+        PERFECT_PITCH,
+        CHOIR_MASK_GAUNTLET,
+        HOLLOW_MAESTRO_BOSS
+    }
+
+    static final class ClassicPitchBell {
+        final double x;
+        final double y;
+        final Color color;
+        final String symbol;
+        int pulseFrames;
+
+        ClassicPitchBell(double x, double y, Color color, String symbol) {
+            this.x = x;
+            this.y = y;
+            this.color = color;
+            this.symbol = symbol;
+        }
     }
 
     static final class ClassicIceworkAnchor {
@@ -8965,6 +9013,10 @@ public class BirdGame3 {
         if (map == MapType.BEACON_CROWN) return beaconCrownMapUnlocked;
         if (map == MapType.DOCK) return dockMapUnlocked;
         if (map == MapType.PRISON) return prisonMapUnlocked;
+        if (map == MapType.RESONANCE_HALL || map == MapType.SIGNAL_SPIRE
+                || map == MapType.SILENT_AMPHITHEATER) {
+            return developerInfiniteBirdCoins || isClassicCompleted(BirdType.MOCKINGBIRD);
+        }
         return true;
     }
 
@@ -13667,6 +13719,9 @@ public class BirdGame3 {
                 }
             }
             case PRISON -> drawPrisonArena(g, ambientFx);
+            case RESONANCE_HALL -> drawResonanceHallArena(g, ambientFx);
+            case SIGNAL_SPIRE -> drawSignalSpireArena(g, ambientFx);
+            case SILENT_AMPHITHEATER -> drawSilentAmphitheaterArena(g, ambientFx);
             case BATTLEFIELD -> {
                 if (isBeaconCrownBattlefieldContext()) {
                     drawBeaconCrownBattlefield(g, ambientFx);
@@ -13811,6 +13866,7 @@ public class BirdGame3 {
         drawClassicRoadrunnerRouteFeatures(g);
         drawClassicPenguinRouteFeatures(g);
         drawClassicShoebillRouteFeatures(g);
+        drawClassicCharlesRouteFeatures(g);
         drawUltimateReadyScreenDarken(g);
         drawCampaignObjectiveMarkers(g);
 
@@ -13892,7 +13948,9 @@ public class BirdGame3 {
                     continue;
                 }
                 // Always draw birds at full opacity; HUD elements will fade when they overlap birds.
-                b.draw(g);
+                if (!drawClassicCharlesConstruct(g, b)) {
+                    b.draw(g);
+                }
                 drawPlayerTag(g, b);
             }
         }
@@ -13905,6 +13963,117 @@ public class BirdGame3 {
         }
 
         g.restore();
+    }
+
+    private void drawResonanceHallArena(GraphicsContext g, boolean ambientFx) {
+        double time = ambientFx ? System.currentTimeMillis() / 1000.0 : 0.0;
+        for (int i = 0; i < 640; i++) {
+            double ratio = i / 640.0;
+            g.setFill(Color.web("#090711").interpolate(Color.web("#351A2D"), ratio));
+            g.fillRect(0, i * WORLD_HEIGHT / 640.0, WORLD_WIDTH, WORLD_HEIGHT / 640.0 + 3.0);
+        }
+        g.setFill(Color.web("#160A16"));
+        g.fillRect(0, 0, 620, WORLD_HEIGHT);
+        g.fillRect(WORLD_WIDTH - 620, 0, 620, WORLD_HEIGHT);
+        g.setFill(Color.web("#24111F"));
+        for (int tier = 0; tier < 4; tier++) {
+            double y = 420.0 + tier * 390.0;
+            g.fillRoundRect(90, y, 500, 250, 46, 46);
+            g.fillRoundRect(WORLD_WIDTH - 590, y, 500, 250, 46, 46);
+            g.setStroke(Color.web("#C58A42", 0.72));
+            g.setLineWidth(12.0);
+            g.strokeRoundRect(90, y, 500, 250, 46, 46);
+            g.strokeRoundRect(WORLD_WIDTH - 590, y, 500, 250, 46, 46);
+        }
+        g.setFill(Color.web("#3B0C25", 0.92));
+        g.fillPolygon(new double[]{520, 1_500, 1_280, 520},
+                new double[]{0, 0, GROUND_Y + 260, GROUND_Y + 260}, 4);
+        g.fillPolygon(new double[]{WORLD_WIDTH - 520, WORLD_WIDTH - 1_500, WORLD_WIDTH - 1_280, WORLD_WIDTH - 520},
+                new double[]{0, 0, GROUND_Y + 260, GROUND_Y + 260}, 4);
+        double glow = 0.72 + (ambientFx ? Math.sin(time * 1.35) * 0.10 : 0.0);
+        g.setStroke(Color.web("#FFE082", glow));
+        g.setLineWidth(18.0);
+        g.strokeOval(2_570, 210, 860, 860);
+        for (int ray = 0; ray < 12; ray++) {
+            double angle = ray * Math.PI / 6.0;
+            g.strokeLine(3_000 + Math.cos(angle) * 450, 640 + Math.sin(angle) * 450,
+                    3_000 + Math.cos(angle) * 610, 640 + Math.sin(angle) * 610);
+        }
+        drawCharlesArchitecturalPlatforms(g, Color.web("#2A2332"), Color.web("#E0AA55"), Color.web("#7BE3DF"));
+    }
+
+    private void drawSignalSpireArena(GraphicsContext g, boolean ambientFx) {
+        double time = ambientFx ? System.currentTimeMillis() / 1000.0 : 0.0;
+        for (int i = 0; i < 640; i++) {
+            double ratio = i / 640.0;
+            g.setFill(Color.web("#020612").interpolate(Color.web("#25395A"), ratio));
+            g.fillRect(0, i * WORLD_HEIGHT / 640.0, WORLD_WIDTH, WORLD_HEIGHT / 640.0 + 3.0);
+        }
+        g.setFill(Color.web("#07101E", 0.88));
+        for (int i = 0; i < 16; i++) {
+            double x = i * 410.0;
+            double h = 180 + (i % 5) * 95.0;
+            g.fillRect(x, GROUND_Y + 240 - h, 270, h);
+        }
+        g.setStroke(Color.web("#546E7A"));
+        g.setLineWidth(42.0);
+        g.strokeLine(3_000, 0, 3_000, GROUND_Y + 360);
+        g.setLineWidth(18.0);
+        for (int y = 180; y < GROUND_Y; y += 260) {
+            g.strokeLine(2_460, y, 3_540, y);
+            g.strokeLine(2_460, y, 3_000, y + 250);
+            g.strokeLine(3_540, y, 3_000, y + 250);
+        }
+        double pulse = 0.60 + (ambientFx ? 0.24 * Math.sin(time * 2.2) : 0.0);
+        g.setStroke(Color.web("#67E8F9", pulse));
+        g.setLineWidth(12.0);
+        for (int ring = 0; ring < 4; ring++) {
+            double radius = 320 + ring * 250.0;
+            g.strokeOval(3_000 - radius, 520 - radius * 0.25, radius * 2.0, radius * 0.5);
+        }
+        drawCharlesArchitecturalPlatforms(g, Color.web("#202B3B"), Color.web("#8298AA"), Color.web("#67E8F9"));
+    }
+
+    private void drawSilentAmphitheaterArena(GraphicsContext g, boolean ambientFx) {
+        double time = ambientFx ? System.currentTimeMillis() / 1000.0 : 0.0;
+        for (int i = 0; i < 640; i++) {
+            double ratio = i / 640.0;
+            g.setFill(Color.web("#020206").interpolate(Color.web("#191528"), ratio));
+            g.fillRect(0, i * WORLD_HEIGHT / 640.0, WORLD_WIDTH, WORLD_HEIGHT / 640.0 + 3.0);
+        }
+        g.setStroke(Color.web("#403A4B", 0.74));
+        g.setLineWidth(34.0);
+        for (int tier = 0; tier < 6; tier++) {
+            double pad = 260 + tier * 210.0;
+            g.strokeArc(pad, 180 + tier * 115.0, WORLD_WIDTH - pad * 2.0,
+                    2_300 - tier * 130.0, 8, 164, ArcType.OPEN);
+        }
+        double pulse = 0.64 + (ambientFx ? Math.sin(time * 1.6) * 0.16 : 0.0);
+        g.setStroke(Color.web("#FFE082", pulse));
+        g.setLineWidth(22.0);
+        for (double x : new double[]{1_030, 2_020, 3_000, 3_980, 4_970}) {
+            g.strokeLine(x, 300, x, GROUND_Y + 180);
+            g.strokeOval(x - 70, 220, 140, 140);
+        }
+        drawCharlesArchitecturalPlatforms(g, Color.web("#282532"), Color.web("#777080"), Color.web("#FFE082"));
+    }
+
+    private void drawCharlesArchitecturalPlatforms(GraphicsContext g, Color body, Color trim, Color glow) {
+        for (Platform p : platforms) {
+            g.setFill(body);
+            g.fillRoundRect(p.x, p.y, p.w, p.h, 24, 24);
+            g.setStroke(trim);
+            g.setLineWidth(8.0);
+            g.strokeRoundRect(p.x, p.y, p.w, p.h, 24, 24);
+            g.setFill(glow.deriveColor(0, 1, 1, 0.55));
+            g.fillRoundRect(p.x + 18.0, p.y + 8.0, Math.max(0.0, p.w - 36.0), 10.0, 10, 10);
+            if (p.y < battlefieldIslandY - 100.0) {
+                g.setStroke(trim.deriveColor(0, 1, 0.75, 0.55));
+                g.setLineWidth(10.0);
+                g.strokeLine(p.x + p.w * 0.18, p.y + p.h, p.x + p.w * 0.18, battlefieldIslandY);
+                g.strokeLine(p.x + p.w * 0.82, p.y + p.h, p.x + p.w * 0.82, battlefieldIslandY);
+            }
+        }
     }
 
     private void drawCityArena(GraphicsContext g, boolean ambientFx) {
@@ -28404,6 +28573,9 @@ public class BirdGame3 {
             case FROSTBITE_FJORD -> "Frostbite Fjord";
             case ASHFALL_CATHEDRAL -> "Ashfall Cathedral";
             case PRISON -> "Crownlock Prison";
+            case RESONANCE_HALL -> "Resonance Hall";
+            case SIGNAL_SPIRE -> "Signal Spire";
+            case SILENT_AMPHITHEATER -> "Silent Amphitheater";
             default -> "Big Forest";
         };
     }
@@ -35621,6 +35793,9 @@ public class BirdGame3 {
                 new MapEntry(MapType.FROSTBITE_FJORD, "Frostbite Fjord", mapDescription(MapType.FROSTBITE_FJORD), mapHowToGet(MapType.FROSTBITE_FJORD)),
                 new MapEntry(MapType.ASHFALL_CATHEDRAL, "Ashfall Cathedral", mapDescription(MapType.ASHFALL_CATHEDRAL), mapHowToGet(MapType.ASHFALL_CATHEDRAL)),
                 new MapEntry(MapType.PRISON, "Crownlock Prison", mapDescription(MapType.PRISON), mapHowToGet(MapType.PRISON)),
+                new MapEntry(MapType.RESONANCE_HALL, "Resonance Hall", mapDescription(MapType.RESONANCE_HALL), mapHowToGet(MapType.RESONANCE_HALL)),
+                new MapEntry(MapType.SIGNAL_SPIRE, "Signal Spire", mapDescription(MapType.SIGNAL_SPIRE), mapHowToGet(MapType.SIGNAL_SPIRE)),
+                new MapEntry(MapType.SILENT_AMPHITHEATER, "Silent Amphitheater", mapDescription(MapType.SILENT_AMPHITHEATER), mapHowToGet(MapType.SILENT_AMPHITHEATER)),
                 new MapEntry(MapType.BEACON_CROWN, "Beacon Crown", mapDescription(MapType.BEACON_CROWN), mapHowToGet(MapType.BEACON_CROWN))
         );
     }
@@ -35644,6 +35819,10 @@ public class BirdGame3 {
         if (map == MapType.BEACON_CROWN) {
             return "Complete Adventure Chapter 9: Sky of All Wings";
         }
+        if (map == MapType.RESONANCE_HALL || map == MapType.SIGNAL_SPIRE
+                || map == MapType.SILENT_AMPHITHEATER) {
+            return "Complete Charles's Classic route: No Voice But His Own";
+        }
         return "Unlocked by default";
     }
 
@@ -35659,6 +35838,9 @@ public class BirdGame3 {
             case FROSTBITE_FJORD -> "A frozen fjord under bright auroras with slick ice, breakable snowbanks, and glacier shelves built for slides, traps, and vertical recoveries.";
             case ASHFALL_CATHEDRAL -> "A burning sky-temple over a lava sea. Timed phoenix geysers telegraph, erupt, launch, and become dangerous thermals that can save or punish recoveries.";
             case PRISON -> "A breached Crown detention complex beneath the city. Its flat transfer floor supports layered steel catwalks; pull either cell-block lever to release a charging prisoner wave, then launch rivals through the open roof or side blast exits.";
+            case RESONANCE_HALL -> "An abandoned opera house whose stage, balconies, fly loft, and orchestra decks form one connected fighting structure. Brass trim and acoustic rings make every launch readable.";
+            case SIGNAL_SPIRE -> "A colossal broadcast mast above the storm clouds. Maintenance decks, antenna arms, and recovery platforms are visibly anchored to the tower instead of floating in open air.";
+            case SILENT_AMPHITHEATER -> "A monumental stone theater ringed by tuning pylons. Its broad central stage and connected terraces support clean Smash battles beneath an unnaturally quiet sky.";
             case BEACON_CROWN -> "The Beacon Crown opens into a giant sky arena with long lanes, staggered perches, and a lethal drop on every side.";
             default -> "Dense trees and long platforms for classic brawls. A steady arena that rewards smart positioning.";
         };
@@ -39979,6 +40161,9 @@ public class BirdGame3 {
         if (useAuthoredRoutes && playerType == BirdType.SHOEBILL) {
             return buildShoebillClassicRun();
         }
+        if (useAuthoredRoutes && playerType == BirdType.MOCKINGBIRD) {
+            return buildCharlesClassicRun();
+        }
         List<ClassicEncounter> run = new ArrayList<>();
         Set<MapType> usedMaps = new HashSet<>();
         Set<BirdType> usedBirds = new HashSet<>();
@@ -41518,6 +41703,108 @@ public class BirdGame3 {
         return run;
     }
 
+    private List<ClassicEncounter> buildCharlesClassicRun() {
+        List<ClassicEncounter> run = new ArrayList<>();
+
+        ClassicEncounter opening = new ClassicEncounter(
+                "Call and Answer", "Resonance Hall",
+                "Hummingbird opens the abandoned hall with a voice Charles can answer using only his real kit.",
+                MapType.RESONANCE_HALL, MapVariant.STANDARD, MatchMutator.NONE,
+                ClassicTwist.AUDITION_ORDER, ClassicEncounterStyle.STANDARD, 105 * 60,
+                new ClassicFighter[0],
+                new ClassicFighter[]{classicFighter(BirdType.HUMMINGBIRD, "First Voice: Hummingbird",
+                        142, 1.02, 1.10)}, false);
+        opening.cpuLevel = 4;
+        run.add(opening);
+
+        ClassicEncounter inherited = new ClassicEncounter(
+                "Inherited Voice", "Signal Spire",
+                "Eagle and Falcon defend the same signal in two different voices. Separate the original from the echo.",
+                MapType.SIGNAL_SPIRE, MapVariant.STANDARD, MatchMutator.NONE,
+                ClassicTwist.AUDITION_ORDER, ClassicEncounterStyle.STANDARD, 120 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{
+                classicFighter(BirdType.EAGLE, "Inherited Voice: Eagle", 108, 0.94, 1.00),
+                classicFighter(BirdType.FALCON, "Inherited Voice: Falcon", 104, 0.92, 1.04)}, false);
+        inherited.cpuLevel = 5;
+        run.add(inherited);
+
+        ClassicEncounter manufactured = new ClassicEncounter(
+                "Manufactured Voice", "Crownlock Prison",
+                "Opium Bird and Heisenbird turn imitation into an engineered weapon inside the Crown's laboratory wing.",
+                MapType.PRISON, MapVariant.STANDARD, MatchMutator.NONE,
+                ClassicTwist.AUDITION_ORDER, ClassicEncounterStyle.STANDARD, 120 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{
+                classicFighter(BirdType.OPIUMBIRD, "Manufactured Voice: Opium Bird", 108, 0.94, 1.00),
+                classicFighter(BirdType.HEISENBIRD, "Manufactured Voice: Heisenbird", 106, 0.93, 1.00)}, false);
+        manufactured.cpuLevel = 5;
+        run.add(manufactured);
+
+        ClassicEncounter stolen = new ClassicEncounter(
+                "Stolen Voice", "Parliament Towers",
+                "Raven and Vulture turn every borrowed wing into an order above the city.",
+                MapType.CITY, MapVariant.PARLIAMENT_ROOFTOPS, MatchMutator.NONE,
+                ClassicTwist.AUDITION_ORDER, ClassicEncounterStyle.STANDARD, 120 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{
+                classicFighter(BirdType.RAVEN, "Stolen Voice: Raven", 108, 0.94, 1.02),
+                classicFighter(BirdType.VULTURE, "Stolen Voice: Vulture", 112, 0.95, 0.98)}, false);
+        stolen.cpuLevel = 5;
+        run.add(stolen);
+
+        ClassicFighter firstUnderstudy = classicFighter(BirdType.MOCKINGBIRD,
+                "Understudy: The Inherited Voice", 92, 0.82, 1.02, ECLIPSE_MOCKINGBIRD_SKIN);
+        ClassicEncounter understudies = new ClassicEncounter(
+                "The Understudies", "Resonance Hall",
+                "Three Charles understudies enter one at a time. Each uses the ordinary Mimic system, never a route-only move.",
+                MapType.RESONANCE_HALL, MapVariant.STANDARD, MatchMutator.NONE,
+                ClassicTwist.AUDITION_ORDER, ClassicEncounterStyle.CHARLES_UNDERSTUDIES, 145 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{firstUnderstudy}, false)
+                .withWaves(
+                        new ClassicFighter[]{firstUnderstudy},
+                        new ClassicFighter[]{classicFighter(BirdType.MOCKINGBIRD,
+                                "Understudy: The Manufactured Voice", 96, 0.84, 1.02,
+                                classicSkinDataKey(BirdType.MOCKINGBIRD))},
+                        new ClassicFighter[]{classicFighter(BirdType.MOCKINGBIRD,
+                                "Understudy: The Stolen Voice", 100, 0.86, 1.04,
+                                ECLIPSE_MOCKINGBIRD_SKIN)});
+        understudies.cpuLevel = 6;
+        run.add(understudies);
+
+        ClassicEncounter perfectPitch = new ClassicEncounter(
+                "Bonus: Perfect Pitch", "Resonance Hall",
+                "Watch the illuminated score, then strike the four brass bells in order. Every note also has a symbol and color.",
+                MapType.RESONANCE_HALL, MapVariant.STANDARD, MatchMutator.NONE,
+                ClassicTwist.PERFECT_PITCH, ClassicEncounterStyle.PERFECT_PITCH, 85 * 60,
+                new ClassicFighter[0], new ClassicFighter[0], false);
+        perfectPitch.cpuLevel = 1;
+        run.add(perfectPitch);
+
+        ClassicFighter firstMask = classicFighter(BirdType.RAZORBILL, "Choir Mask: Alto", 82, 0.82, 1.00);
+        ClassicEncounter deadAir = new ClassicEncounter(
+                "Dead Air", "Signal Spire",
+                "Three original Choir Masks descend in separate waves. Launch every construct through a blast zone.",
+                MapType.SIGNAL_SPIRE, MapVariant.STANDARD, MatchMutator.NONE,
+                ClassicTwist.DEAD_AIR, ClassicEncounterStyle.CHOIR_MASK_GAUNTLET, 150 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{firstMask}, false)
+                .withWaves(
+                        new ClassicFighter[]{firstMask},
+                        new ClassicFighter[]{classicFighter(BirdType.BAT, "Choir Mask: Soprano", 88, 0.84, 1.04)},
+                        new ClassicFighter[]{classicFighter(BirdType.PELICAN, "Choir Mask: Bass", 102, 0.88, 0.94)});
+        deadAir.cpuLevel = 6;
+        run.add(deadAir);
+
+        ClassicEncounter maestro = new ClassicEncounter(
+                "The Hollow Maestro", "Silent Amphitheater",
+                "Launch the original conductor construct through three movements before it reduces every voice to one command.",
+                MapType.SILENT_AMPHITHEATER, MapVariant.STANDARD, MatchMutator.NONE,
+                ClassicTwist.HOLLOW_SCORE, ClassicEncounterStyle.HOLLOW_MAESTRO_BOSS, 190 * 60,
+                new ClassicFighter[0],
+                new ClassicFighter[]{classicFighter(BirdType.SHOEBILL, "Boss: The Hollow Maestro",
+                        230, 1.08, 0.98)}, true);
+        maestro.cpuLevel = 8;
+        run.add(maestro);
+        return run;
+    }
+
     private ClassicEncounter buildShoebillSwiftTrailEncounter() {
         ClassicEncounter encounter = new ClassicEncounter(
                 "Swift Trail", "Redline Track",
@@ -42202,6 +42489,7 @@ public class BirdGame3 {
         classicContinuesUsed = 0;
         classicRoosterMorale = 0;
         classicShoebillTrail = ShoebillTrail.UNCHOSEN;
+        classicCharlesAuditionReadyRound = -1;
         Arrays.fill(classicHummingbirdBlossoms, false);
         Arrays.fill(classicRoadrunnerBolts, false);
         if (!bossRush && !ashfallTrial && !dailyChallengeModeActive) {
@@ -42227,6 +42515,7 @@ public class BirdGame3 {
         if (type == BirdType.ROADRUNNER) return "NO FINISH LINE";
         if (type == BirdType.PENGUIN) return "THE ICE HOLDS";
         if (type == BirdType.SHOEBILL) return "THE LONG WATCH";
+        if (type == BirdType.MOCKINGBIRD) return "NO VOICE BUT HIS OWN";
         return "TEMPORARY FLIGHT PLAN";
     }
 
@@ -42767,6 +43056,12 @@ public class BirdGame3 {
         }
         classicRoundIndex = Math.clamp(classicRoundIndex, 0, classicRun.size() - 1);
         classicEncounter = classicRun.get(classicRoundIndex);
+        if (classicSelectedBird == BirdType.MOCKINGBIRD
+                && classicRoundIndex >= 1 && classicRoundIndex <= 3
+                && classicCharlesAuditionReadyRound != classicRoundIndex) {
+            showCharlesAuditionChoice(stage);
+            return;
+        }
         if (classicSelectedBird == BirdType.SHOEBILL && classicRoundIndex == 3
                 && classicShoebillTrail == ShoebillTrail.UNCHOSEN) {
             showShoebillTrailChoice(stage);
@@ -42820,7 +43115,8 @@ public class BirdGame3 {
                 || classicEncounter.style == ClassicEncounterStyle.DAWN_MUSTER
                 || classicEncounter.style == ClassicEncounterStyle.REDLINE_RUN
                 || classicEncounter.style == ClassicEncounterStyle.ICE_ARCHITECT
-                || classicEncounter.style == ClassicEncounterStyle.RIPPLE_HUNT;
+                || classicEncounter.style == ClassicEncounterStyle.RIPPLE_HUNT
+                || classicEncounter.style == ClassicEncounterStyle.PERFECT_PITCH;
         Label round = new Label((routeBonus ? "BONUS " : "ROUND ")
                 + (classicRoundIndex + 1));
         round.setFont(Font.font("Arial Black", FontWeight.BOLD, 72));
@@ -42862,6 +43158,9 @@ public class BirdGame3 {
         boolean musterEncounter = classicEncounter.style == ClassicEncounterStyle.DAWN_MUSTER;
         boolean redlineRunEncounter = classicEncounter.style == ClassicEncounterStyle.REDLINE_RUN;
         boolean iceArchitectEncounter = classicEncounter.style == ClassicEncounterStyle.ICE_ARCHITECT;
+        boolean perfectPitchEncounter = classicEncounter.style == ClassicEncounterStyle.PERFECT_PITCH;
+        boolean choirMaskEncounter = classicEncounter.style == ClassicEncounterStyle.CHOIR_MASK_GAUNTLET;
+        boolean maestroEncounter = classicEncounter.style == ClassicEncounterStyle.HOLLOW_MAESTRO_BOSS;
         int enemyCount = Math.max(1, enemies.length);
         double portraitSize = enemyCount >= 3 ? 215 : (enemyCount == 2 ? 310 : 430);
         HBox enemyLineup = new HBox(enemyCount >= 3 ? 14 : 20);
@@ -42871,7 +43170,9 @@ public class BirdGame3 {
         enemyLineup.setLayoutY(190);
         for (ClassicFighter enemy : enemies) {
             Canvas enemyPortrait = new Canvas(portraitSize, portraitSize);
-            if (bonusTargetEncounter) {
+            if (choirMaskEncounter || maestroEncounter) {
+                drawClassicCharlesConstructPortrait(enemyPortrait, maestroEncounter, enemy.title);
+            } else if (bonusTargetEncounter) {
                 drawClassicBonusTargetPortrait(enemyPortrait);
             } else {
                 drawClassicFighterPortrait(enemyPortrait, enemy.type, enemy.skinKey, false, enemy.title);
@@ -42879,7 +43180,11 @@ public class BirdGame3 {
             enemyLineup.getChildren().add(enemyPortrait);
         }
         if (enemies.length == 0) {
-            if (flowerGateEncounter) {
+            if (perfectPitchEncounter) {
+                Canvas score = new Canvas(430, 330);
+                drawClassicPerfectPitchPortrait(score);
+                enemyLineup.getChildren().add(score);
+            } else if (flowerGateEncounter) {
                 Canvas flowerCourse = new Canvas(430, 330);
                 drawClassicFlowerGatePortrait(flowerCourse);
                 enemyLineup.getChildren().add(flowerCourse);
@@ -42900,6 +43205,9 @@ public class BirdGame3 {
                 : flowerGateEncounter ? "FLOWER GATE COURSE"
                 : redlineRunEncounter ? "CANYON SPEED COURSE"
                 : iceArchitectEncounter ? "ICE ARCHITECT WORKSHOP"
+                : perfectPitchEncounter ? "THE PERFECT PITCH SCORE"
+                : choirMaskEncounter ? "THE ORIGINAL CHOIR MASKS"
+                : maestroEncounter ? "THE HOLLOW MAESTRO"
                 : bonusTargetEncounter ? enemies.length + " BONUS TARGETS"
                 : authoredWaveCount > 0 ? authoredWaveCount + " WAVES"
                 : enemies.length == 0 ? "BONUS TARGETS" : Arrays.stream(enemies)
@@ -43019,6 +43327,90 @@ public class BirdGame3 {
         start.requestFocus();
     }
 
+    private void showCharlesAuditionChoice(Stage stage) {
+        if (classicSelectedBird != BirdType.MOCKINGBIRD || classicRoundIndex < 1
+                || classicRoundIndex > 3 || classicRun.size() < 4) {
+            classicCharlesAuditionReadyRound = classicRoundIndex;
+            showClassicEncounterIntro(stage);
+            return;
+        }
+        playClassicEncounterMusic();
+        BorderPane root = buildModernMenuPage();
+        Button back = uiFactory.action("BACK", 190, 62, 22, "#8E0D16", 16,
+                () -> showClassicBirdSelect(stage));
+        StackPane title = buildMenuTitleBanner("CHARLES'S AUDITIONS", 660, 74, 31);
+        root.setTop(buildMenuTopStrip(back, title,
+                buildMenuChip("ACT " + (classicRoundIndex + 1), "#6A1748", "#FFE082")));
+
+        Label eyebrow = buildMenuEyebrow("NO VOICE BUT HIS OWN", "#FFE082");
+        Label heading = buildMenuPanelTitle("CHOOSE THE NEXT VOICE", 42);
+        Label explanation = buildMenuPanelBody(
+                "All three auditions must be cleared. Your choice fixes their order for this run; losing never rerolls it.",
+                1_260);
+        explanation.setTextAlignment(TextAlignment.CENTER);
+        explanation.setAlignment(Pos.CENTER);
+
+        HBox cards = new HBox(20);
+        cards.setAlignment(Pos.CENTER);
+        Button firstCard = null;
+        for (int i = classicRoundIndex; i <= 3; i++) {
+            ClassicEncounter option = classicRun.get(i);
+            int optionIndex = i;
+            Canvas preview = buildClassicStagePreview(option, 330, 175);
+            Label name = new Label(option.name.toUpperCase(Locale.ROOT));
+            name.setFont(Font.font("Arial Black", 23));
+            name.setTextFill(Color.WHITE);
+            Label stageName = new Label(encounterMapDisplayName(option).toUpperCase(Locale.ROOT));
+            stageName.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
+            stageName.setTextFill(Color.web("#FFE082"));
+            Label matchup = new Label(Arrays.stream(option.enemies)
+                    .map(fighter -> fighter.type.name.toUpperCase(Locale.ROOT))
+                    .collect(Collectors.joining("  +  ")));
+            matchup.setFont(Font.font("Consolas", FontWeight.BOLD, 16));
+            matchup.setTextFill(Color.web("#B3E5FC"));
+            VBox graphic = new VBox(10, preview, name, stageName, matchup);
+            graphic.setAlignment(Pos.CENTER);
+            Button card = new Button();
+            card.setGraphic(graphic);
+            card.setPadding(new Insets(16));
+            lockRegionSize(card, 390, 390);
+            card.setStyle("-fx-background-color: linear-gradient(to bottom, #4A1636, #0A0B12); "
+                    + "-fx-background-radius: 20; -fx-border-color: #FFE082; -fx-border-width: 3; "
+                    + "-fx-border-radius: 20;");
+            card.setOnAction(event -> {
+                playButtonClick();
+                selectCharlesAudition(optionIndex);
+                showClassicEncounterIntro(stage);
+            });
+            card.setAccessibleText("Choose " + option.name + " at " + encounterMapDisplayName(option));
+            cards.getChildren().add(card);
+            if (firstCard == null) firstCard = card;
+        }
+
+        VBox panel = buildModernMenuPanel("#FFE082", 1_440, 20,
+                eyebrow, heading, explanation, cards);
+        panel.setAlignment(Pos.CENTER);
+        root.setCenter(panel);
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, back);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        setScenePreservingFullscreen(stage, scene);
+        (firstCard == null ? back : firstCard).requestFocus();
+    }
+
+    boolean selectCharlesAudition(int optionIndex) {
+        if (classicSelectedBird != BirdType.MOCKINGBIRD || classicRoundIndex < 1
+                || classicRoundIndex > 3 || optionIndex < classicRoundIndex
+                || optionIndex > 3 || optionIndex >= classicRun.size()) {
+            return false;
+        }
+        Collections.swap(classicRun, classicRoundIndex, optionIndex);
+        classicCharlesAuditionReadyRound = classicRoundIndex;
+        classicEncounter = classicRun.get(classicRoundIndex);
+        return true;
+    }
+
     private boolean isClassicDeveloperLevelSelectContext() {
         return classicModeActive && !dailyChallengeModeActive && !ashfallTrialModeActive
                 && !bossRushModeActive && !classicRun.isEmpty();
@@ -43100,7 +43492,8 @@ public class BirdGame3 {
                     || encounter.style == ClassicEncounterStyle.DAWN_MUSTER
                     || encounter.style == ClassicEncounterStyle.REDLINE_RUN
                     || encounter.style == ClassicEncounterStyle.ICE_ARCHITECT
-                    || encounter.style == ClassicEncounterStyle.RIPPLE_HUNT;
+                    || encounter.style == ClassicEncounterStyle.RIPPLE_HUNT
+                    || encounter.style == ClassicEncounterStyle.PERFECT_PITCH;
             int roundIndex = i;
             Button card = uiFactory.action(
                     (bonus ? "BONUS " : "ROUND ") + (i + 1) + "\n"
@@ -43494,6 +43887,9 @@ public class BirdGame3 {
                         && encounter.style != ClassicEncounterStyle.DAWN_MUSTER
                         && encounter.style != ClassicEncounterStyle.BROODBREAKER_BOSS
                         && encounter.style != ClassicEncounterStyle.LAST_SUN_BOSS
+                        && encounter.style != ClassicEncounterStyle.CHARLES_UNDERSTUDIES
+                        && encounter.style != ClassicEncounterStyle.CHOIR_MASK_GAUNTLET
+                        && encounter.style != ClassicEncounterStyle.HOLLOW_MAESTRO_BOSS
                         && classicSelectedBird != BirdType.ROADRUNNER
                         && classicSelectedBird != BirdType.PENGUIN
                         && classicSelectedBird != BirdType.SHOEBILL);
@@ -43551,6 +43947,19 @@ public class BirdGame3 {
                 } else {
                     scaleBossRushBird(bird, 1.58, 1.02, 0.94);
                 }
+            } else if (classicSelectedBird == BirdType.MOCKINGBIRD
+                    && encounter.twist == ClassicTwist.AUDITION_ORDER
+                    && classicRoundIndex >= 1 && classicRoundIndex <= 3) {
+                // Charles's route asks for three consecutive 2-on-1 auditions.
+                // Keep his real kit untouched and tune the authored opponents:
+                // lighter bodies launch cleanly while reduced pressure gives
+                // Mimic enough time to establish an actual answer.
+                double auditionSize = "Inherited Voice".equals(encounter.name) ? 0.82
+                        : ("Manufactured Voice".equals(encounter.name) ? 0.92 : 0.88);
+                double auditionPower = "Inherited Voice".equals(encounter.name) ? 0.62
+                        : ("Manufactured Voice".equals(encounter.name) ? 0.74 : 0.70);
+                scaleBossRushBird(bird, auditionSize, auditionPower, 0.95);
+                bird.setUltimateEnabled(false);
             } else if (encounter.style == ClassicEncounterStyle.SHOEBILL_TRAIL) {
                 scaleBossRushBird(bird, 0.90, 0.72, 0.96);
                 bird.setUltimateEnabled(false);
@@ -43634,6 +44043,19 @@ public class BirdGame3 {
                     bird.setBaseMultipliers(0.82, 0.08 * enemyPowerScale, 0.96);
                 }
                 bird.setUltimateEnabled(false);
+            } else if (encounter.style == ClassicEncounterStyle.CHARLES_UNDERSTUDIES) {
+                scaleBossRushBird(bird, 0.94, 0.88, 1.01);
+                bird.setUltimateEnabled(false);
+            } else if (encounter.style == ClassicEncounterStyle.CHOIR_MASK_GAUNTLET) {
+                bird.health = Math.max(1.0, bird.health * 1.18);
+                bird.setBaseMultipliers(1.08, 0.72 * enemyPowerScale, 0.98);
+                bird.setUltimateEnabled(false);
+                isAI[bird.playerIndex] = false;
+            } else if (encounter.style == ClassicEncounterStyle.HOLLOW_MAESTRO_BOSS) {
+                bird.health = Math.max(1.0, 230.0 * enemyHealthScale);
+                bird.setBaseMultipliers(1.42, 0.88 * enemyPowerScale, 0.94);
+                bird.setUltimateEnabled(false);
+                isAI[bird.playerIndex] = false;
             }
         }
     }
@@ -43657,6 +44079,19 @@ public class BirdGame3 {
                     STILLWATER_MAIN_Y - 350.0};
             for (int slot = 1; slot < activePlayers && slot <= 3; slot++) {
                 positionClassicBirdOnSurface(players[slot], enemyX[slot - 1], enemyY[slot - 1], false);
+            }
+            return;
+        }
+        if (encounter.style == ClassicEncounterStyle.PERFECT_PITCH) {
+            positionClassicBirdOnSurface(players[0], 1_080.0, GROUND_Y - 230.0, true);
+            return;
+        }
+        if (encounter.style == ClassicEncounterStyle.HOLLOW_MAESTRO_BOSS) {
+            positionClassicBirdOnSurface(players[0], 1_620.0, GROUND_Y - 320.0, true);
+            for (int slot = 1; slot < activePlayers; slot++) {
+                if (players[slot] != null) {
+                    positionClassicBirdOnSurface(players[slot], 4_320.0, GROUND_Y - 320.0, false);
+                }
             }
             return;
         }
@@ -43842,6 +44277,7 @@ public class BirdGame3 {
         setupRoadrunnerClassicRoute(encounter);
         setupPenguinClassicRoute(encounter);
         setupShoebillClassicRoute(encounter);
+        setupCharlesClassicRoute(encounter);
         if (bossRushModeActive) {
             applyBossRushEncounterArenaModifiers(encounter);
         }
@@ -43942,7 +44378,8 @@ public class BirdGame3 {
                     FEAST_OR_FAMINE, HARVEST_WATCH, GREAT_HUNGER,
                     BROOD_MORALE, GREAT_MUSTER, FALSE_DAWN,
                     REDLINE_SPLITS, REDLINE_RUN, FINAL_STILLNESS,
-                    ICEWORKS, ICE_ARCHITECT, LAST_SUN -> {
+                    ICEWORKS, ICE_ARCHITECT, LAST_SUN,
+                    AUDITION_ORDER, PERFECT_PITCH, DEAD_AIR, HOLLOW_SCORE -> {
                 // These authored route mechanics own their deterministic arena
                 // setup and runtime; do not add generic item drops here.
             }
@@ -44491,6 +44928,455 @@ public class BirdGame3 {
             g.setTextAlign(TextAlignment.CENTER);
             g.fillText("TRUE WAKE", cx, cy + 96.0);
         }
+    }
+
+    private void setupCharlesClassicRoute(ClassicEncounter encounter) {
+        classicPitchBells.clear();
+        classicPitchSequence = new int[0];
+        classicPitchSequenceIndex = 0;
+        classicPitchRevealFrames = 0;
+        classicPitchAttackWasHeld = false;
+        classicPitchHitCooldown = 0;
+        classicPitchCompleted = false;
+        classicCharlesWaveIndex = 0;
+        classicCharlesBossLastStocks = 3;
+        classicCharlesBossAttackTimer = 120;
+        classicCharlesBossAttackKind = 0;
+        classicCharlesBossHitCooldown = 0;
+        if (!classicModeActive || bossRushModeActive || ashfallTrialModeActive
+                || classicSelectedBird != BirdType.MOCKINGBIRD || encounter == null) {
+            return;
+        }
+        if (encounter.style == ClassicEncounterStyle.PERFECT_PITCH) {
+            double surfaceY = GROUND_Y - 230.0;
+            classicPitchBells.add(new ClassicPitchBell(1_380.0, surfaceY, Color.web("#FFCA28"), "I"));
+            classicPitchBells.add(new ClassicPitchBell(2_450.0, surfaceY, Color.web("#80DEEA"), "II"));
+            classicPitchBells.add(new ClassicPitchBell(3_550.0, surfaceY, Color.web("#CE93D8"), "III"));
+            classicPitchBells.add(new ClassicPitchBell(4_620.0, surfaceY, Color.web("#FF8A65"), "IV"));
+            classicPitchSequence = new int[]{0, 2, 1, 3};
+            classicPitchRevealFrames = 150;
+            addToKillFeed("PERFECT PITCH: watch the four-note score, then strike the bells in order.");
+        } else if (encounter.style == ClassicEncounterStyle.CHARLES_UNDERSTUDIES) {
+            addToKillFeed("UNDERSTUDY 1/3 ENTERS — each Charles uses only his normal Mimic kit.");
+        } else if (encounter.style == ClassicEncounterStyle.CHOIR_MASK_GAUNTLET) {
+            addToKillFeed("DEAD AIR: launch three original Choir Masks, one movement at a time.");
+        } else if (encounter.style == ClassicEncounterStyle.HOLLOW_MAESTRO_BOSS) {
+            Bird boss = firstClassicEnemyWithStocks();
+            if (boss != null) classicCharlesBossLastStocks = Math.max(1, scores[boss.playerIndex]);
+            addToKillFeed("HOLLOW SCORE: the Maestro conducts three movements. Its attacks are telegraphed in gold.");
+        }
+    }
+
+    void applyCharlesClassicRuntimeEffects() {
+        if (!classicModeActive || classicEncounter == null || classicSelectedBird != BirdType.MOCKINGBIRD
+                || bossRushModeActive || ashfallTrialModeActive || matchEnded) {
+            return;
+        }
+        if (classicPitchHitCooldown > 0) classicPitchHitCooldown--;
+        if (classicCharlesBossHitCooldown > 0) classicCharlesBossHitCooldown--;
+        for (ClassicPitchBell bell : classicPitchBells) {
+            if (bell.pulseFrames > 0) bell.pulseFrames--;
+        }
+        switch (classicEncounter.style) {
+            case PERFECT_PITCH -> updateCharlesPerfectPitch();
+            case CHOIR_MASK_GAUNTLET -> updateCharlesChoirMasks();
+            case HOLLOW_MAESTRO_BOSS -> updateCharlesHollowMaestro();
+            default -> {
+            }
+        }
+    }
+
+    private void updateCharlesPerfectPitch() {
+        Bird player = players[0];
+        if (player == null || player.health <= 0.0 || classicPitchCompleted) return;
+        if (classicPitchRevealFrames > 0) {
+            classicPitchRevealFrames--;
+            classicPitchAttackWasHeld = isAttackPressed(0);
+            return;
+        }
+        boolean attackHeld = isAttackPressed(0);
+        boolean newStrike = attackHeld && !classicPitchAttackWasHeld && classicPitchHitCooldown == 0;
+        classicPitchAttackWasHeld = attackHeld;
+        if (!newStrike || classicPitchSequence.length == 0) return;
+
+        int nearest = -1;
+        double nearestDistance = Double.MAX_VALUE;
+        for (int i = 0; i < classicPitchBells.size(); i++) {
+            ClassicPitchBell bell = classicPitchBells.get(i);
+            double distance = Math.hypot(player.bodyCenterX() - bell.x,
+                    player.bodyCenterY() - (bell.y - 82.0));
+            if (distance < nearestDistance) {
+                nearestDistance = distance;
+                nearest = i;
+            }
+        }
+        if (nearest < 0 || nearestDistance > 250.0) return;
+        registerCharlesPitchStrike(nearest);
+    }
+
+    boolean registerCharlesPitchStrike(int bellIndex) {
+        if (classicPitchCompleted || classicPitchRevealFrames > 0
+                || classicPitchSequence.length == 0 || bellIndex < 0
+                || bellIndex >= classicPitchBells.size()) {
+            return false;
+        }
+        classicPitchHitCooldown = 12;
+        ClassicPitchBell bell = classicPitchBells.get(bellIndex);
+        bell.pulseFrames = 24;
+        if (bellIndex != classicPitchSequence[classicPitchSequenceIndex]) {
+            classicPitchSequenceIndex = 0;
+            classicPitchRevealFrames = 70;
+            playManagedSfxVaried(bonkClip, 0.32, 0.68, 0.0);
+            addToKillFeed("WRONG NOTE — the score returns to its opening bar.");
+            return false;
+        }
+        classicPitchSequenceIndex++;
+        playClassicNectarRingSfx(classicPitchSequenceIndex, classicPitchSequence.length);
+        classicRunScore += 600;
+        addToKillFeed("TRUE NOTE " + classicPitchSequenceIndex + "/" + classicPitchSequence.length);
+        if (classicPitchSequenceIndex >= classicPitchSequence.length) {
+            classicPitchCompleted = true;
+            classicBonusCoins += 75;
+            classicRunScore += 5_000;
+            addToKillFeed("PERFECT PITCH! Bird Coins +75.");
+            matchController.triggerMatchEnd(players[0]);
+        }
+        return true;
+    }
+
+    private void updateCharlesChoirMasks() {
+        Bird player = players[0];
+        if (player == null || !playerHasStocksRemaining(0)) return;
+        for (int slot = 1; slot < activePlayers; slot++) {
+            Bird mask = players[slot];
+            if (mask == null || getEffectiveTeam(slot) != 2 || !playerHasStocksRemaining(slot)) continue;
+            double dx = player.bodyCenterX() - mask.bodyCenterX();
+            double dy = player.bodyCenterY() - mask.bodyCenterY();
+            mask.facingRight = dx >= 0.0;
+            mask.vx = Math.clamp(mask.vx + Math.signum(dx) * 0.18, -5.4, 5.4);
+            if (dy < -180.0 && mask.isOnGround() && (simTick + slot * 23L) % 82L == 0L) {
+                mask.vy = -12.0;
+            }
+            if ((simTick + slot * 31L) % 82L == 0L && Math.abs(dx) < 285.0 && Math.abs(dy) < 210.0) {
+                double damage = 8.0 + classicCharlesWaveIndex * 2.0;
+                player.receiveExternalDamage(damage);
+                player.vx += Math.signum(dx == 0.0 ? 1.0 : dx) * 7.5;
+                player.vy -= 6.5;
+                playManagedSfxVaried(bonkClip, 0.28, 0.92 + classicCharlesWaveIndex * 0.13, 0.0);
+            }
+        }
+    }
+
+    private void updateCharlesHollowMaestro() {
+        Bird boss = firstClassicEnemyWithStocks();
+        Bird player = players[0];
+        if (boss == null || player == null || !playerHasStocksRemaining(0)) return;
+        int stocks = Math.max(0, scores[boss.playerIndex]);
+        if (stocks < classicCharlesBossLastStocks && stocks > 0) {
+            classicCharlesBossLastStocks = stocks;
+            player.heal(12.0);
+            classicCharlesBossAttackTimer = 104;
+            addToKillFeed(stocks == 2
+                    ? "SECOND MOVEMENT: the Hollow Score accelerates. 12% repaired."
+                    : "FINAL MOVEMENT: the Maestro abandons silence for force. 12% repaired.");
+        }
+        double dx = player.bodyCenterX() - boss.bodyCenterX();
+        boss.facingRight = dx >= 0.0;
+        boss.vx = Math.clamp(boss.vx + Math.signum(dx) * 0.10, -3.1, 3.1);
+        int phase = Math.clamp(3 - stocks, 0, 2);
+        if (classicCharlesBossAttackTimer > 0) {
+            classicCharlesBossAttackTimer--;
+            if (classicCharlesBossAttackTimer == 36 && classicCharlesBossHitCooldown == 0) {
+                performHollowMaestroAttack(boss, player, phase);
+            }
+        } else {
+            classicCharlesBossAttackKind = (classicCharlesBossAttackKind + 1) % 3;
+            classicCharlesBossAttackTimer = Math.max(82, 136 - phase * 18);
+        }
+    }
+
+    private void performHollowMaestroAttack(Bird boss, Bird player, int phase) {
+        double dx = player.bodyCenterX() - boss.bodyCenterX();
+        double dy = player.bodyCenterY() - boss.bodyCenterY();
+        boolean hit = switch (classicCharlesBossAttackKind) {
+            case 0 -> Math.abs(dy) < 260.0;
+            case 1 -> Math.abs(dx) < 620.0;
+            default -> Math.hypot(dx, dy) < 940.0;
+        };
+        if (!hit) return;
+        double damage = 10.0 + phase * 2.5 + classicCharlesBossAttackKind * 1.5;
+        player.receiveExternalDamage(damage);
+        if (classicCharlesBossAttackKind == 0) {
+            player.vx += Math.signum(dx == 0.0 ? 1.0 : dx) * (9.0 + phase);
+            player.vy -= 3.0;
+        } else if (classicCharlesBossAttackKind == 1) {
+            player.vx += Math.signum(dx == 0.0 ? 1.0 : dx) * 4.0;
+            player.vy -= 11.0 + phase;
+        } else {
+            player.vx -= Math.signum(dx == 0.0 ? 1.0 : dx) * (7.5 + phase);
+            player.vy -= 7.0;
+        }
+        classicCharlesBossHitCooldown = 32;
+        shakeIntensity = Math.max(shakeIntensity, 12.0 + phase * 4.0);
+        playManagedSfxVaried(hugewaveClip, 0.46, 0.72 + classicCharlesBossAttackKind * 0.12, 0.0);
+    }
+
+    boolean holdClassicCharlesEncounterOpen() {
+        if (!classicModeActive || classicEncounter == null || classicSelectedBird != BirdType.MOCKINGBIRD
+                || bossRushModeActive || ashfallTrialModeActive || matchEnded) {
+            return false;
+        }
+        if (classicEncounter.style == ClassicEncounterStyle.PERFECT_PITCH) {
+            Bird player = players[0];
+            return player != null && player.health > 0.0 && !classicPitchCompleted;
+        }
+        if ((classicEncounter.style != ClassicEncounterStyle.CHARLES_UNDERSTUDIES
+                && classicEncounter.style != ClassicEncounterStyle.CHOIR_MASK_GAUNTLET)
+                || classicEncounter.waves == null || classicEncounter.waves.length == 0
+                || !playerHasStocksRemaining(0) || classicEnemyTeamHasStocks()) {
+            return false;
+        }
+        if (classicCharlesWaveIndex + 1 >= classicEncounter.waves.length) return false;
+        classicCharlesWaveIndex++;
+        Bird player = players[0];
+        if (player != null) player.heal(classicEncounter.style == ClassicEncounterStyle.CHARLES_UNDERSTUDIES
+                ? 44.0 : 18.0);
+        spawnCharlesClassicWave(classicEncounter.waves[classicCharlesWaveIndex]);
+        return true;
+    }
+
+    boolean isClassicPerfectPitchActive() {
+        return classicModeActive && !bossRushModeActive && !ashfallTrialModeActive
+                && classicEncounter != null
+                && classicEncounter.style == ClassicEncounterStyle.PERFECT_PITCH
+                && !matchEnded;
+    }
+
+    void finishClassicPerfectPitchFromTimeout() {
+        if (!isClassicPerfectPitchActive()) return;
+        addToKillFeed("TIME! The Perfect Pitch score was left unfinished.");
+        matchController.triggerMatchEnd(null);
+    }
+
+    private void spawnCharlesClassicWave(ClassicFighter[] wave) {
+        if (wave == null || classicEncounter == null) return;
+        for (int slot = 1; slot < MAX_COMBATANTS; slot++) {
+            if (players[slot] != null && getEffectiveTeam(slot) == 2) {
+                players[slot] = null;
+                isAI[slot] = false;
+                scores[slot] = 0;
+                classicCpuLevels[slot] = 0;
+            }
+        }
+        double difficultyDelta = classicDifficulty - CLASSIC_STARTING_DIFFICULTY;
+        int spawned = 0;
+        for (ClassicFighter fighter : wave) {
+            int slot = 1;
+            while (slot < MAX_COMBATANTS && players[slot] != null) slot++;
+            if (slot >= MAX_COMBATANTS) break;
+            boolean construct = classicEncounter.style == ClassicEncounterStyle.CHOIR_MASK_GAUNTLET;
+            Bird enemy = createStoryBird(0.0, fighter.type, slot, fighter.title,
+                    fighter.health * (1.0 + difficultyDelta * 0.045),
+                    fighter.powerMult * (1.0 + difficultyDelta * 0.015), fighter.speedMult, !construct);
+            if (fighter.skinKey != null) applyPreviewSkinChoiceToBird(enemy, fighter.type, fighter.skinKey);
+            enemy.setUltimateEnabled(false);
+            if (construct) enemy.setBaseMultipliers(1.08, 0.72, 0.98);
+            classicTeams[slot] = 2;
+            classicCpuLevels[slot] = resolvedClassicFighterCpuLevel(fighter, classicEncounter);
+            scores[slot] = 1;
+            positionClassicBirdOnSurface(enemy, 4_250.0 + spawned * 420.0, battlefieldIslandY, false);
+            activePlayers = Math.max(activePlayers, slot + 1);
+            spawned++;
+        }
+        addToKillFeed((classicEncounter.style == ClassicEncounterStyle.CHARLES_UNDERSTUDIES
+                ? "UNDERSTUDY " : "CHOIR MASK ") + (classicCharlesWaveIndex + 1)
+                + "/" + classicEncounter.waves.length + " ENTERS.");
+    }
+
+    private void drawClassicCharlesRouteFeatures(GraphicsContext g) {
+        if (!classicModeActive || classicEncounter == null || classicSelectedBird != BirdType.MOCKINGBIRD) return;
+        if (classicEncounter.style == ClassicEncounterStyle.PERFECT_PITCH) {
+            for (int i = 0; i < classicPitchBells.size(); i++) {
+                ClassicPitchBell bell = classicPitchBells.get(i);
+                double pulse = bell.pulseFrames > 0 ? 1.16 : 1.0;
+                drawPerfectPitchBell(g, bell, pulse,
+                        classicPitchRevealFrames == 0 && classicPitchSequenceIndex < classicPitchSequence.length
+                                && classicPitchSequence[classicPitchSequenceIndex] == i);
+            }
+            drawPerfectPitchScore(g);
+        } else if (classicEncounter.style == ClassicEncounterStyle.HOLLOW_MAESTRO_BOSS) {
+            drawHollowMaestroTelegraph(g);
+        }
+    }
+
+    private void drawPerfectPitchBell(GraphicsContext g, ClassicPitchBell bell, double pulse, boolean next) {
+        double cx = bell.x;
+        double baseY = bell.y;
+        g.save();
+        g.translate(cx, baseY);
+        g.scale(pulse, pulse);
+        if (next) {
+            double guidePulse = 0.5 + 0.5 * Math.sin(simTick * 0.14);
+            g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.55 + guidePulse * 0.4));
+            g.setLineWidth(12.0);
+            g.strokeOval(-92, -205, 184, 184);
+            g.setFill(Color.WHITE);
+            g.fillPolygon(new double[]{-18, 18, 0}, new double[]{-235, -235, -205}, 3);
+        }
+        g.setStroke(Color.web("#6D4C41"));
+        g.setLineWidth(13.0);
+        g.strokeLine(0, -10, 0, -96);
+        g.setFill(bell.color.deriveColor(0, 0.84, 0.78, 1.0));
+        g.fillOval(-74, -176, 148, 112);
+        g.setStroke(Color.web("#FFF3C4"));
+        g.setLineWidth(9.0);
+        g.strokeOval(-74, -176, 148, 112);
+        g.setFill(Color.web("#17121E"));
+        g.setFont(Font.font("Arial Black", 30));
+        g.setTextAlign(TextAlignment.CENTER);
+        g.fillText(bell.symbol, 0, -104);
+        g.restore();
+    }
+
+    private void drawPerfectPitchScore(GraphicsContext g) {
+        double x = 2_020.0;
+        double y = 210.0;
+        double w = 1_960.0;
+        g.setFill(Color.web("#08070E", 0.92));
+        g.fillRoundRect(x, y, w, 300.0, 36.0, 36.0);
+        g.setStroke(Color.web("#FFE082"));
+        g.setLineWidth(8.0);
+        g.strokeRoundRect(x, y, w, 300.0, 36.0, 36.0);
+        g.setFill(Color.WHITE);
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, 34));
+        g.setTextAlign(TextAlignment.CENTER);
+        g.fillText(classicPitchRevealFrames > 0 ? "WATCH THE SCORE" : "PLAY THE SCORE", x + w / 2.0, y + 62.0);
+        for (int i = 0; i < classicPitchSequence.length; i++) {
+            int bellIndex = classicPitchSequence[i];
+            ClassicPitchBell bell = classicPitchBells.get(bellIndex);
+            double noteX = x + 430.0 + i * 370.0;
+            boolean completed = i < classicPitchSequenceIndex;
+            g.setFill(completed ? Color.web("#A7FFEB") : bell.color);
+            g.fillOval(noteX - 42.0, y + 126.0, 84.0, 84.0);
+            g.setStroke(Color.WHITE);
+            g.setLineWidth(i == classicPitchSequenceIndex && classicPitchRevealFrames == 0 ? 9.0 : 4.0);
+            g.strokeOval(noteX - 42.0, y + 126.0, 84.0, 84.0);
+            g.setFill(Color.WHITE);
+            g.setFont(Font.font("Arial Black", 28));
+            g.fillText(bell.symbol, noteX, y + 187.0);
+        }
+    }
+
+    private boolean drawClassicCharlesConstruct(GraphicsContext g, Bird bird) {
+        if (!classicModeActive || classicEncounter == null || classicSelectedBird != BirdType.MOCKINGBIRD
+                || bird == null || getEffectiveTeam(bird.playerIndex) != 2) return false;
+        boolean boss = classicEncounter.style == ClassicEncounterStyle.HOLLOW_MAESTRO_BOSS;
+        if (!boss && classicEncounter.style != ClassicEncounterStyle.CHOIR_MASK_GAUNTLET) return false;
+        double cx = bird.bodyCenterX();
+        double cy = bird.bodyCenterY();
+        double scale = boss ? 1.55 : 0.92 + classicCharlesWaveIndex * 0.08;
+        Color accent = boss ? Color.web("#FFE082")
+                : (classicCharlesWaveIndex == 0 ? Color.web("#80DEEA")
+                : classicCharlesWaveIndex == 1 ? Color.web("#CE93D8") : Color.web("#FF8A65"));
+        drawHollowMaestroMask(g, cx, cy, scale, accent, boss);
+        return true;
+    }
+
+    private void drawHollowMaestroMask(GraphicsContext g, double cx, double cy, double scale,
+                                        Color accent, boolean boss) {
+        g.save();
+        g.translate(cx, cy);
+        g.scale(scale, scale);
+        double pulse = 0.5 + 0.5 * Math.sin(simTick * 0.075);
+        g.setFill(Color.BLACK.deriveColor(0, 1, 1, 0.46));
+        g.fillOval(-118, 82, 236, 42);
+        if (boss) {
+            g.setStroke(accent.deriveColor(0, 1, 1, 0.28 + pulse * 0.24));
+            g.setLineWidth(12.0);
+            g.strokeOval(-156, -154, 312, 312);
+            for (int i = 0; i < 8; i++) {
+                double a = i * Math.PI / 4.0;
+                g.strokeLine(Math.cos(a) * 164, Math.sin(a) * 164,
+                        Math.cos(a) * 218, Math.sin(a) * 218);
+            }
+        }
+        g.setFill(Color.web("#13131B"));
+        g.fillPolygon(new double[]{-104, -72, -44, 0, 44, 72, 104, 72, 44, 0, -44, -72},
+                new double[]{-72, -126, -92, -144, -92, -126, -72, 56, 96, 124, 96, 56}, 12);
+        g.setStroke(accent);
+        g.setLineWidth(9.0);
+        g.strokePolygon(new double[]{-104, -72, -44, 0, 44, 72, 104, 72, 44, 0, -44, -72},
+                new double[]{-72, -126, -92, -144, -92, -126, -72, 56, 96, 124, 96, 56}, 12);
+        g.setFill(Color.web("#F5F2E8"));
+        g.fillOval(-68, -62, 46, 62);
+        g.fillOval(22, -62, 46, 62);
+        g.setFill(Color.web("#09090E"));
+        g.fillOval(-51, -46, 18, 34);
+        g.fillOval(33, -46, 18, 34);
+        g.setStroke(accent.deriveColor(0, 1, 1, 0.92));
+        g.setLineWidth(7.0);
+        g.strokeArc(-54, 18, 108, 58, 200, 140, javafx.scene.shape.ArcType.OPEN);
+        g.setStroke(Color.web("#CFD8DC"));
+        g.setLineWidth(7.0);
+        g.strokeLine(-106, -15, -178, -78);
+        g.strokeLine(106, -15, 178, -78);
+        g.strokeLine(-106, 24, -194, 72);
+        g.strokeLine(106, 24, 194, 72);
+        g.restore();
+    }
+
+    private void drawHollowMaestroTelegraph(GraphicsContext g) {
+        Bird boss = firstClassicEnemyWithStocks();
+        if (boss == null || classicCharlesBossAttackTimer > 72 || classicCharlesBossAttackTimer < 36) return;
+        double alpha = 0.22 + (72 - classicCharlesBossAttackTimer) / 36.0 * 0.42;
+        g.setFill(Color.web("#FFE082", alpha));
+        if (classicCharlesBossAttackKind == 0) {
+            g.fillRect(0, boss.bodyCenterY() - 145.0, WORLD_WIDTH, 290.0);
+        } else if (classicCharlesBossAttackKind == 1) {
+            g.fillOval(boss.bodyCenterX() - 620.0, battlefieldIslandY - 180.0, 1_240.0, 360.0);
+        } else {
+            g.setStroke(Color.web("#FFE082", Math.min(0.94, alpha + 0.2)));
+            g.setLineWidth(26.0);
+            g.strokeOval(boss.bodyCenterX() - 940.0, boss.bodyCenterY() - 940.0, 1_880.0, 1_880.0);
+        }
+    }
+
+    private void drawClassicPerfectPitchPortrait(Canvas canvas) {
+        GraphicsContext g = canvas.getGraphicsContext2D();
+        g.setFill(Color.web("#090711"));
+        g.fillRect(0, 0, canvas.getWidth(), canvas.getHeight());
+        Color[] colors = {Color.web("#FFCA28"), Color.web("#CE93D8"),
+                Color.web("#80DEEA"), Color.web("#FF8A65")};
+        String[] symbols = {"I", "III", "II", "IV"};
+        for (int i = 0; i < 4; i++) {
+            double x = 55 + i * 105.0;
+            g.setFill(colors[i]);
+            g.fillOval(x - 34, 118 + (i % 2) * 26, 68, 68);
+            g.setStroke(Color.WHITE);
+            g.setLineWidth(4.0);
+            g.strokeOval(x - 34, 118 + (i % 2) * 26, 68, 68);
+            g.setFill(Color.web("#11101A"));
+            g.setFont(Font.font("Arial Black", 22));
+            g.setTextAlign(TextAlignment.CENTER);
+            g.fillText(symbols[i], x, 163 + (i % 2) * 26);
+        }
+        g.setFill(Color.WHITE);
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, 26));
+        g.fillText("WATCH  •  LISTEN  •  ANSWER", canvas.getWidth() / 2.0, 270);
+    }
+
+    private void drawClassicCharlesConstructPortrait(Canvas canvas, boolean boss, String title) {
+        GraphicsContext g = canvas.getGraphicsContext2D();
+        g.setFill(boss ? Color.web("#160B17") : Color.web("#07131A"));
+        g.fillRect(0, 0, canvas.getWidth(), canvas.getHeight());
+        double scale = Math.min(canvas.getWidth(), canvas.getHeight()) / (boss ? 390.0 : 330.0);
+        drawHollowMaestroMask(g, canvas.getWidth() / 2.0, canvas.getHeight() * 0.48,
+                scale, boss ? Color.web("#FFE082") : Color.web("#80DEEA"), boss);
+        g.setFill(Color.WHITE);
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, Math.max(14, canvas.getWidth() * 0.05)));
+        g.setTextAlign(TextAlignment.CENTER);
+        g.fillText(title == null ? (boss ? "THE HOLLOW MAESTRO" : "CHOIR MASK") : title.toUpperCase(Locale.ROOT),
+                canvas.getWidth() / 2.0, canvas.getHeight() - 22.0);
     }
 
     private void setupHummingbirdNectarRoute(ClassicEncounter encounter) {
@@ -47366,7 +48252,8 @@ public class BirdGame3 {
                 || classicEncounter.style == ClassicEncounterStyle.DAWN_MUSTER
                 || classicEncounter.style == ClassicEncounterStyle.REDLINE_RUN
                 || classicEncounter.style == ClassicEncounterStyle.ICE_ARCHITECT
-                || classicEncounter.style == ClassicEncounterStyle.RIPPLE_HUNT) {
+                || classicEncounter.style == ClassicEncounterStyle.RIPPLE_HUNT
+                || classicEncounter.style == ClassicEncounterStyle.PERFECT_PITCH) {
             recordClassicEncounterScore(playerWon);
             classicRoundIndex++;
             classicEncounter = classicRun.get(classicRoundIndex);
@@ -47410,6 +48297,11 @@ public class BirdGame3 {
                 lastIceShelfUnlocked = true;
             } else if (classicSelectedBird == BirdType.SHOEBILL) {
                 stillwaterMarshUnlocked = true;
+            } else if (classicSelectedBird == BirdType.MOCKINGBIRD
+                    && !isClassicCompleted(BirdType.MOCKINGBIRD)) {
+                queueMapUnlockCard(MapType.RESONANCE_HALL);
+                queueMapUnlockCard(MapType.SIGNAL_SPIRE);
+                queueMapUnlockCard(MapType.SILENT_AMPHITHEATER);
             }
             profileProgressController.onClassicRunCompleted(classicSelectedBird, achievementEvaluator::onClassicRunCompleted);
             ClassicEndingContent.Ending authoredEnding = ClassicEndingContent.endingFor(classicSelectedBird);
@@ -47489,6 +48381,7 @@ public class BirdGame3 {
             case ROADRUNNER -> "Redline Canyon";
             case PENGUIN -> "Last Ice Shelf";
             case SHOEBILL -> "Stillwater Marsh";
+            case MOCKINGBIRD -> "Resonance Hall + Signal Spire + Silent Amphitheater";
             default -> "";
         };
     }
@@ -50160,6 +51053,7 @@ public class BirdGame3 {
                 && classicEncounter.style != ClassicEncounterStyle.REDLINE_RUN
                 && classicEncounter.style != ClassicEncounterStyle.ICE_ARCHITECT
                 && classicEncounter.style != ClassicEncounterStyle.RIPPLE_HUNT
+                && classicEncounter.style != ClassicEncounterStyle.PERFECT_PITCH
                 && classicEncounter.style != ClassicEncounterStyle.NULL_ROCK_BOSS;
     }
 
@@ -50221,10 +51115,23 @@ public class BirdGame3 {
             // not Shoebill's ordinary fighter data.
             scores[0] = 3;
         }
+        if (classicSelectedBird == BirdType.MOCKINGBIRD
+                && classicEncounter.twist == ClassicTwist.AUDITION_ORDER
+                && classicRoundIndex >= 1 && classicRoundIndex <= 3) {
+            scores[0] = 2;
+        }
+        if (classicSelectedBird == BirdType.MOCKINGBIRD
+                && classicEncounter.style == ClassicEncounterStyle.CHARLES_UNDERSTUDIES) {
+            scores[0] = 2;
+        }
+        if (classicSelectedBird == BirdType.MOCKINGBIRD
+                && classicEncounter.style == ClassicEncounterStyle.HOLLOW_MAESTRO_BOSS) {
+            scores[0] = 3;
+        }
         int enemyStocks = switch (classicEncounter.style) {
             case STORM_TYRANT_BOSS, PHOENIX_REBIRTH, BLIGHTWING_BOSS, ICEWORKS_MIRROR -> 2;
             case NULL_ROC_BOSS, LONG_WINTER_BOSS, DEVOURER_BOSS, BROODBREAKER_BOSS,
-                    STILL_KING_BOSS, LAST_SUN_BOSS -> 3;
+                    STILL_KING_BOSS, LAST_SUN_BOSS, HOLLOW_MAESTRO_BOSS -> 3;
             default -> 0;
         };
         if (enemyStocks <= 0) return;
@@ -50363,6 +51270,7 @@ public class BirdGame3 {
             applyRoadrunnerClassicRuntimeEffects();
             applyPenguinClassicRuntimeEffects();
             applyShoebillClassicRuntimeEffects();
+            applyCharlesClassicRuntimeEffects();
         }
         if (bossRushModeActive && classicModeActive) {
             applyBossRushRuntimeEffects();
@@ -53125,6 +54033,9 @@ public class BirdGame3 {
                 || selectedMap == MapType.FROSTBITE_FJORD
                 || selectedMap == MapType.ASHFALL_CATHEDRAL
                 || selectedMap == MapType.PRISON
+                || selectedMap == MapType.RESONANCE_HALL
+                || selectedMap == MapType.SIGNAL_SPIRE
+                || selectedMap == MapType.SILENT_AMPHITHEATER
                 || activeArenaGeometryVariant == MapVariant.TITAN_DOCK
                 || activeArenaGeometryVariant == MapVariant.PARLIAMENT_ROOFTOPS
                 || activeArenaGeometryVariant == MapVariant.PEREGRINE_RUN
@@ -53504,6 +54415,12 @@ public class BirdGame3 {
             setupPrisonArena();
         } else if (selectedMap == MapType.DESERT) {
             setupDesertArena();
+        } else if (selectedMap == MapType.RESONANCE_HALL) {
+            setupResonanceHallArena();
+        } else if (selectedMap == MapType.SIGNAL_SPIRE) {
+            setupSignalSpireArena();
+        } else if (selectedMap == MapType.SILENT_AMPHITHEATER) {
+            setupSilentAmphitheaterArena();
         } else {
             platforms.add(new Platform(0, GROUND_Y, WORLD_WIDTH, 600));
             platforms.add(new Platform(-100, 0, 100, WORLD_HEIGHT));
@@ -53605,7 +54522,10 @@ public class BirdGame3 {
                 || selectedMap == MapType.ASHFALL_CATHEDRAL
                 || selectedMap == MapType.DOCK
                 || selectedMap == MapType.PRISON
-                || selectedMap == MapType.DESERT) {
+                || selectedMap == MapType.DESERT
+                || selectedMap == MapType.RESONANCE_HALL
+                || selectedMap == MapType.SIGNAL_SPIRE
+                || selectedMap == MapType.SILENT_AMPHITHEATER) {
             mountainPeaks = null;
         } else {
             double[] buildingX = {400, 1400, 2400, 3400, 4400, 5400};
@@ -53701,6 +54621,63 @@ public class BirdGame3 {
             timer.stop();
             timer = null;
         }
+    }
+
+    private void setupResonanceHallArena() {
+        double stageX = 720.0;
+        double stageY = GROUND_Y - 230.0;
+        double stageW = 4_560.0;
+        platforms.add(new Platform(stageX, stageY, stageW, 92.0));
+        platforms.add(new Platform(950.0, stageY - 330.0, 760.0, 48.0));
+        platforms.add(new Platform(4_290.0, stageY - 330.0, 760.0, 48.0));
+        platforms.add(new Platform(1_780.0, stageY - 600.0, 760.0, 44.0));
+        platforms.add(new Platform(3_460.0, stageY - 600.0, 760.0, 44.0));
+        platforms.add(new Platform(2_610.0, stageY - 850.0, 780.0, 46.0));
+        platforms.add(new Platform(610.0, stageY + 145.0, 420.0, 38.0));
+        platforms.add(new Platform(4_970.0, stageY + 145.0, 420.0, 38.0));
+        windVents.add(new WindVent(1_080.0, stageY - 70.0, 280.0));
+        windVents.add(new WindVent(2_860.0, stageY - 70.0, 280.0));
+        windVents.add(new WindVent(4_640.0, stageY - 70.0, 280.0));
+        battlefieldIslandX = stageX;
+        battlefieldIslandW = stageW;
+        battlefieldIslandY = stageY;
+    }
+
+    private void setupSignalSpireArena() {
+        double deckX = 860.0;
+        double deckY = GROUND_Y - 300.0;
+        double deckW = 4_280.0;
+        platforms.add(new Platform(deckX, deckY, deckW, 78.0));
+        platforms.add(new Platform(1_020.0, deckY - 320.0, 700.0, 44.0));
+        platforms.add(new Platform(4_280.0, deckY - 320.0, 700.0, 44.0));
+        platforms.add(new Platform(1_800.0, deckY - 650.0, 680.0, 42.0));
+        platforms.add(new Platform(3_520.0, deckY - 650.0, 680.0, 42.0));
+        platforms.add(new Platform(2_580.0, deckY - 960.0, 840.0, 46.0));
+        platforms.add(new Platform(640.0, deckY + 150.0, 360.0, 38.0));
+        platforms.add(new Platform(5_000.0, deckY + 150.0, 360.0, 38.0));
+        windVents.add(new WindVent(1_260.0, deckY - 80.0, 320.0));
+        windVents.add(new WindVent(2_840.0, deckY - 80.0, 320.0));
+        windVents.add(new WindVent(4_420.0, deckY - 80.0, 320.0));
+        battlefieldIslandX = deckX;
+        battlefieldIslandW = deckW;
+        battlefieldIslandY = deckY;
+    }
+
+    private void setupSilentAmphitheaterArena() {
+        double stageX = 920.0;
+        double stageY = GROUND_Y - 320.0;
+        double stageW = 4_160.0;
+        platforms.add(new Platform(stageX, stageY, stageW, 90.0));
+        platforms.add(new Platform(1_120.0, stageY - 350.0, 680.0, 46.0));
+        platforms.add(new Platform(4_200.0, stageY - 350.0, 680.0, 46.0));
+        platforms.add(new Platform(1_900.0, stageY - 650.0, 640.0, 42.0));
+        platforms.add(new Platform(3_460.0, stageY - 650.0, 640.0, 42.0));
+        platforms.add(new Platform(2_650.0, stageY - 920.0, 700.0, 44.0));
+        platforms.add(new Platform(620.0, stageY + 150.0, 390.0, 40.0));
+        platforms.add(new Platform(4_990.0, stageY + 150.0, 390.0, 40.0));
+        battlefieldIslandX = stageX;
+        battlefieldIslandW = stageW;
+        battlefieldIslandY = stageY;
     }
 
     private void stopMatchSummaryBackgroundTimer() {
@@ -55107,6 +56084,10 @@ public class BirdGame3 {
                         .count();
                 lines.add("TARGETS " + targetsRemaining + "/3  BONUS COINS +" + classicBonusCoins
                         + "  FALLING DOES NOT COST A LIFE");
+            } else if (classicEncounter.style == ClassicEncounterStyle.PERFECT_PITCH) {
+                lines.add((classicPitchRevealFrames > 0 ? "WATCH" : "PLAY") + " THE SCORE  NOTES "
+                        + classicPitchSequenceIndex + "/" + classicPitchSequence.length
+                        + "  BONUS COINS +" + classicBonusCoins);
             } else if (classicEncounter.style == ClassicEncounterStyle.NECTAR_DASH) {
                 lines.add("FLOWER GATES " + classicNectarRingIndex + "/" + classicNectarRings.size()
                         + "  BLOSSOMS " + classicHummingbirdBlossomCount() + "/7"
@@ -55178,6 +56159,20 @@ public class BirdGame3 {
                     lines.add("ICEWORKS " + built + "/3"
                             + (classicEncounter.style == ClassicEncounterStyle.LAST_SUN_BOSS
                             ? "  MELT PHASE " + classicLastSunPhase + "/2" : ""));
+                }
+            }
+            if (classicSelectedBird == BirdType.MOCKINGBIRD) {
+                if (classicEncounter.style == ClassicEncounterStyle.CHARLES_UNDERSTUDIES
+                        || classicEncounter.style == ClassicEncounterStyle.CHOIR_MASK_GAUNTLET) {
+                    int waveCount = classicEncounter.waves == null ? 1 : classicEncounter.waves.length;
+                    lines.add((classicEncounter.style == ClassicEncounterStyle.CHARLES_UNDERSTUDIES
+                            ? "UNDERSTUDY " : "CHOIR MASK ")
+                            + Math.min(waveCount, classicCharlesWaveIndex + 1) + "/" + waveCount);
+                } else if (classicEncounter.style == ClassicEncounterStyle.HOLLOW_MAESTRO_BOSS) {
+                    Bird boss = firstClassicEnemyWithStocks();
+                    int movement = boss == null ? 3 : Math.clamp(4 - Math.max(1, scores[boss.playerIndex]), 1, 3);
+                    lines.add("HOLLOW SCORE  MOVEMENT " + movement + "/3  NEXT CUE "
+                            + Math.max(0, classicCharlesBossAttackTimer));
                 }
             }
             return lines;
@@ -55641,7 +56636,12 @@ public class BirdGame3 {
             return null;
         }
         String skinKey = skinKeyForBird(bird);
-        String cacheKey = bird.classicBonusTarget
+        boolean charlesConstruct = isClassicCharlesConstructBird(bird);
+        boolean charlesBoss = charlesConstruct
+                && classicEncounter.style == ClassicEncounterStyle.HOLLOW_MAESTRO_BOSS;
+        String cacheKey = charlesConstruct
+                ? (charlesBoss ? "CLASSIC_HOLLOW_MAESTRO" : "CLASSIC_CHOIR_MASK|" + shortName(bird.name))
+                : bird.classicBonusTarget
                 ? "CLASSIC_BONUS_TARGET"
                 : bird.type.name() + "|" + (skinKey == null ? "" : skinKey);
         WritableImage cached = fightHudPortraitCache.get(cacheKey);
@@ -55656,7 +56656,11 @@ public class BirdGame3 {
         }
 
         Canvas portrait = new Canvas(128, 128);
-        if (bird.classicBonusTarget) {
+        if (charlesConstruct) {
+            drawHollowMaestroMask(portrait.getGraphicsContext2D(), 64.0, 63.0,
+                    charlesBoss ? 0.39 : 0.34,
+                    charlesBoss ? Color.web("#FFE082") : Color.web("#80DEEA"), charlesBoss);
+        } else if (bird.classicBonusTarget) {
             drawClassicBonusTargetPortrait(portrait);
         } else {
             drawRosterSprite(portrait, bird.type, skinKey, false, true);
@@ -55666,6 +56670,14 @@ public class BirdGame3 {
         WritableImage image = portrait.snapshot(params, null);
         fightHudPortraitCache.put(cacheKey, image);
         return image;
+    }
+
+    private boolean isClassicCharlesConstructBird(Bird bird) {
+        return bird != null && classicModeActive && classicEncounter != null
+                && classicSelectedBird == BirdType.MOCKINGBIRD
+                && getEffectiveTeam(bird.playerIndex) == 2
+                && (classicEncounter.style == ClassicEncounterStyle.CHOIR_MASK_GAUNTLET
+                || classicEncounter.style == ClassicEncounterStyle.HOLLOW_MAESTRO_BOSS);
     }
 
     private Font fitFightHudNameFont(String text, double maxWidth) {
@@ -57337,6 +58349,10 @@ public class BirdGame3 {
     }
 
     private String matchSummaryBirdLabel(Bird bird) {
+        if (isClassicCharlesConstructBird(bird)) {
+            return classicEncounter.style == ClassicEncounterStyle.HOLLOW_MAESTRO_BOSS
+                    ? "HOLLOW MAESTRO" : "CHOIR MASK";
+        }
         if (bird != null && bird.classicBonusTarget) return "BONUS TARGET";
         if (bird == null || bird.type == null || bird.type.name == null) return "MYSTERY BIRD";
         return bird.type.name.toUpperCase(Locale.ROOT);

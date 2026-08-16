@@ -239,8 +239,9 @@ final class StoryCampaignContent {
 
     private static StoryCampaign.Mission deadAir() {
         return mission("dead_air", "Dead Air",
-                "Wake three rooftop vents, keep Charles moving, and reach the east evacuation light.",
-                CITY, STILLNESS, StoryCampaign.PlayablePolicy.forced(PIGEON),
+                "Wake three stage vents, keep Charles moving, and reach the east evacuation light.",
+                RESONANCE_HALL, BirdGame3.MapVariant.STANDARD, STILLNESS,
+                StoryCampaign.PlayablePolicy.forced(PIGEON),
                 fighters(ally(MOCKINGBIRD, "Charles")),
                 fighters(enemy(RAVEN, "Crown Scout"), enemy(FALCON, "Crown Interceptor")),
                 phases(
@@ -500,7 +501,7 @@ final class StoryCampaignContent {
     private static StoryCampaign.Mission crownArchive() {
         return mission("crown_archive", "The Crown Archive",
                 "Enter Eagle's combat archive and extract the weapon-training ledger.",
-                BATTLEFIELD, CROWN_OCCUPIED, StoryCampaign.PlayablePolicy.choice(PENGUIN, PHOENIX),
+                SIGNAL_SPIRE, CROWN_OCCUPIED, StoryCampaign.PlayablePolicy.choice(PENGUIN, PHOENIX),
                 List.of(),
                 fighters(
                         boss(FALCON, "Falcon", 225, 1.25, 1.19),
@@ -558,7 +559,7 @@ final class StoryCampaignContent {
     private static StoryCampaign.Mission marshalLaw() {
         return mission("marshal_law", "Marshal Law",
                 "Defeat Eagle at the central command platform before the lockdown reaches every region.",
-                BATTLEFIELD, CROWN_OCCUPIED, StoryCampaign.PlayablePolicy.choice(PIGEON, FALCON),
+                SILENT_AMPHITHEATER, CROWN_OCCUPIED, StoryCampaign.PlayablePolicy.choice(PIGEON, FALCON),
                 fighters(ally(MOCKINGBIRD, "Charles")),
                 fighters(boss(EAGLE, "Eagle", 390, 1.48, 1.17)),
                 phases(
@@ -783,7 +784,7 @@ final class StoryCampaignContent {
     private static StoryCampaign.Mission lastApproach() {
         return mission("last_approach", "The Last Approach",
                 "Hold the four Crown approaches while every regional squad reaches the final platform.",
-                BEACON_CROWN, ANCHOR_ASSAULT,
+                BATTLEFIELD, ANCHOR_ASSAULT,
                 StoryCampaign.PlayablePolicy.choice(PIGEON, EAGLE, VULTURE),
                 fighters(ally(FALCON, "Falcon"), ally(RAVEN, "Raven")),
                 fighters(enemy(VULTURE, "Null Herald"), enemy(RAVEN, "Crown Remnant")),
@@ -911,6 +912,8 @@ final class StoryCampaignContent {
             case FROSTBITE_FJORD -> "music-frostbite.mp3";
             case ASHFALL_CATHEDRAL -> "music-ashfall.mp3";
             case PRISON -> "music-prison.mp3";
+            case RESONANCE_HALL, SIGNAL_SPIRE -> "music-charles-route.wav";
+            case SILENT_AMPHITHEATER -> "music-charles-maestro.wav";
             default -> "music-forest.mp3";
         };
     }

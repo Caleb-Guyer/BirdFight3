@@ -32,6 +32,9 @@ and is also dedicated to the public domain under CC0.
 | music-escape.mp3 | Chase — Adiutorium (CC0, OpenGameArt) | Finale cave escape |
 | music-farewell.mp3 | Aftermath — Indieteur (CC0, OpenGameArt) | Pigeon and Eagle's final conversation |
 | music-credits.mp3 | Our Expanse — Bobjt (CC0, OpenGameArt) | Campaign epilogue and credits |
+| music-charles-route.wav | No Voice but His Own (original synthesized composition) | Charles Classic route and Resonance Hall / Signal Spire |
+| music-charles-maestro.wav | Hollow Score (original synthesized composition) | Hollow Maestro and Silent Amphitheater |
+| music-charles-ending.wav | The Last Original (original synthesized composition) | Charles's Classic ending |
 
 ## Sound effects (original)
 
