@@ -56713,15 +56713,28 @@ public class BirdGame3 {
         g.setFont(Font.font("Arial Black", FontWeight.BOLD, 15));
         g.fillText(slotLabel, rect.getMinX() + 24, rect.getMinY() + 28);
 
+        double shownDamage = displayedDamageForBird(bird);
+        int shownHealth = (int) Math.round(shownDamage);
+        String damageText = Integer.toString(shownHealth);
+
         String name = shortName(bird.name);
         if (name.isBlank()) {
             name = bird.type != null ? bird.type.name.toUpperCase(Locale.ROOT) : "PLAYER";
         }
-        Font nameFont = fitFightHudNameFont(name.toUpperCase(Locale.ROOT), rect.getWidth() - portraitRect.getWidth() - 120);
+        String displayName = name.toUpperCase(Locale.ROOT);
+        FightHudNameFit nameFit = fitFightHudNameFont(
+                displayName,
+                rect.getWidth(),
+                portraitRect.getWidth(),
+                damageText
+        );
         double healthBarX = portraitRect.getMaxX() + 16;
         g.setFill(Color.WHITE);
-        g.setFont(nameFont);
-        g.fillText(name.toUpperCase(Locale.ROOT), healthBarX, rect.getMinY() + 40);
+        g.setFont(nameFit.font());
+        // maxWidth is intentional: the font fitter preserves normal proportions
+        // whenever possible, while this final guard prevents long authored
+        // encounter titles from ever painting underneath the damage percentage.
+        g.fillText(displayName, healthBarX, rect.getMinY() + 40, nameFit.maxWidth());
 
         g.setFill(Color.web("#B0BEC5"));
         g.setFont(Font.font("Consolas", FontWeight.BOLD, 15));
@@ -56735,12 +56748,10 @@ public class BirdGame3 {
         }
 
         double maxHealth = Math.max(1.0, bird.getMaxHealth());
-        double shownDamage = displayedDamageForBird(bird);
         double healthRatio = Math.clamp(bird.health / maxHealth, 0.0, 1.0);
         double barRatio = usesSmashCombatRules()
                 ? Math.min(1.0, shownDamage / 180.0)
                 : healthRatio;
-        int shownHealth = (int) Math.round(shownDamage);
         Color healthColor = usesSmashCombatRules()
                 ? fightHudDamageColor(shownDamage)
                 : fightHudHealthColor(healthRatio);
@@ -56751,9 +56762,9 @@ public class BirdGame3 {
         g.setTextAlign(TextAlignment.RIGHT);
         g.setFill(Color.BLACK.deriveColor(0, 1, 1, 0.42));
         g.setFont(FIGHT_HUD_DAMAGE_FONT);
-        g.fillText(Integer.toString(shownHealth), rect.getMaxX() - 31, rect.getMinY() + 81);
+        g.fillText(damageText, rect.getMaxX() - 31, rect.getMinY() + 81);
         g.setFill(healthColor);
-        g.fillText(Integer.toString(shownHealth), rect.getMaxX() - 36, rect.getMinY() + 76);
+        g.fillText(damageText, rect.getMaxX() - 36, rect.getMinY() + 76);
         g.setFont(Font.font("Arial Black", FontWeight.BOLD, 22));
         g.setFill(Color.web("#ECEFF1"));
         g.fillText("%", rect.getMaxX() - 12, rect.getMinY() + 76);
@@ -56980,14 +56991,34 @@ public class BirdGame3 {
                 || classicEncounter.style == ClassicEncounterStyle.HOLLOW_MAESTRO_BOSS);
     }
 
-    private Font fitFightHudNameFont(String text, double maxWidth) {
-        for (int size = 22; size >= 16; size--) {
-            Font trial = Font.font("Arial Black", size);
-            if (measureTextWidth(text, trial) <= maxWidth) {
-                return trial;
+    record FightHudNameFit(Font font, double maxWidth, double naturalWidth) {
+        double renderedWidth() {
+            return Math.min(maxWidth, naturalWidth);
+        }
+    }
+
+    FightHudNameFit fitFightHudNameFont(String text, double panelWidth, double portraitWidth,
+                                         String damageText) {
+        String safeText = text == null ? "" : text;
+        String safeDamageText = damageText == null || damageText.isBlank() ? "0" : damageText;
+        double contentStart = portraitWidth + 34.0;
+        double damageWidth = measureTextWidth(safeDamageText, FIGHT_HUD_DAMAGE_FONT);
+        // The number is right-aligned 36 px from the card edge. Keep a 12 px
+        // breathing gap between its measured left edge and the fighter title.
+        double maxWidth = Math.max(24.0, panelWidth - contentStart - damageWidth - 48.0);
+
+        Font smallest = null;
+        double smallestWidth = Double.POSITIVE_INFINITY;
+        for (int size = 22; size >= 11; size--) {
+            Font trial = Font.font("Arial Black", FontWeight.BOLD, size);
+            double width = measureTextWidth(safeText, trial);
+            smallest = trial;
+            smallestWidth = width;
+            if (width <= maxWidth) {
+                return new FightHudNameFit(trial, maxWidth, width);
             }
         }
-        return Font.font("Arial Black", 16);
+        return new FightHudNameFit(smallest, maxWidth, smallestWidth);
     }
 
     private Color fightHudAccentColor(Bird bird) {
