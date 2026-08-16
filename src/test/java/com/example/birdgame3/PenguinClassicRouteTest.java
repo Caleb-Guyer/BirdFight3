@@ -109,7 +109,7 @@ class PenguinClassicRouteTest {
     }
 
     @Test
-    void iceArchitectUsesThreeRealIceworksThenRequiresBellySlideAtTheGate() throws Exception {
+    void iceArchitectUsesThreeRealIceworksThenOpensAWalkThroughExit() throws Exception {
         BirdGame3 game = preparedGame();
         game.headlessHarnessMode = true;
         prepareEncounter(game, route(game).get(6));
@@ -129,8 +129,8 @@ class PenguinClassicRouteTest {
         assertTrue((boolean) getField(game, "classicPenguinArchitectExitOpen"));
         assertTrue(game.holdClassicPenguinEncounterOpen());
 
-        player.penguinBellySlideTimer = 20;
-        player.x = BirdGame3.LAST_ICE_EXIT_X - player.bodyWidth() * 0.25;
+        player.penguinBellySlideTimer = 0;
+        player.x = BirdGame3.LAST_ICE_EXIT_TRIGGER_X - player.bodyWidth() * 0.25;
         game.applyPenguinClassicRuntimeEffects();
 
         assertTrue((boolean) getField(game, "classicPenguinArchitectCompleted"));
@@ -138,7 +138,7 @@ class PenguinClassicRouteTest {
     }
 
     @Test
-    void iceArchitectGateHasCalmRunwayAndAcceptsARealLastFrameSlide() throws Exception {
+    void iceArchitectFullObjectiveHasSupportedRunwayAndAcceptsNormalMovement() throws Exception {
         BirdGame3 game = preparedGame();
         game.headlessHarnessMode = true;
         prepareEncounter(game, route(game).get(6));
@@ -155,25 +155,30 @@ class PenguinClassicRouteTest {
                                 && vent.x <= BirdGame3.LAST_ICE_EXIT_X + 180.0),
                 "An updraft must not lift Penguin out of the gate approach.");
 
-        setField(game, "classicPenguinArchitectExitOpen", true);
-        player.x = BirdGame3.LAST_ICE_EXIT_X - player.bodyWidth() - 4.0;
+        for (BirdGame3.ClassicIceworkAnchor anchor : iceworks(game)) {
+            player.penguinSnowFort = new Bird.PenguinSnowFort(anchor.x, anchor.y, 1, false);
+            game.applyPenguinClassicRuntimeEffects();
+        }
+        for (int tick = 0; tick < 100; tick++) {
+            game.simTick++;
+            game.applyPenguinClassicRuntimeEffects();
+        }
+        assertTrue((boolean) getField(game, "classicPenguinArchitectExitOpen"));
+
+        player.x = BirdGame3.LAST_ICE_EXIT_TRIGGER_X - player.bodyWidth() - 4.0;
         player.y = exitShelf.y - player.bodyHeight();
         player.prevX = player.x;
         player.prevY = player.y;
         player.vx = 12.0;
         player.vy = 0.0;
         player.facingRight = true;
-        player.penguinBellyDirection = 1;
-        player.penguinBellySlideTimer = 1;
+        player.penguinBellySlideTimer = 0;
 
-        // Arm the route while the final slide frame is active. Bird.update()
-        // consumes that frame before it applies movement, which was previously
-        // enough to make a visible gate crossing fail to finish the round.
-        game.applyPenguinClassicRuntimeEffects();
-        assertFalse((boolean) getField(game, "classicPenguinArchitectCompleted"));
+        // Exercise the real Bird update and route update ordering with ordinary
+        // movement. An open exit must never depend on a hidden special timer.
         player.update(1.0);
         assertEquals(0, player.penguinBellySlideTimer);
-        assertTrue(player.x + player.bodyWidth() >= BirdGame3.LAST_ICE_EXIT_X);
+        assertTrue(player.x + player.bodyWidth() >= BirdGame3.LAST_ICE_EXIT_TRIGGER_X);
         game.applyPenguinClassicRuntimeEffects();
 
         assertTrue((boolean) getField(game, "classicPenguinArchitectCompleted"));

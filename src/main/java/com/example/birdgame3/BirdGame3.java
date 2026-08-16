@@ -4971,13 +4971,13 @@ public class BirdGame3 {
     private int classicPenguinSiegeWaveIndex = 0;
     private boolean classicPenguinArchitectExitOpen = false;
     private boolean classicPenguinArchitectCompleted = false;
-    private int classicPenguinArchitectGateSlideGrace = 0;
     private int classicLastSunLastStocks = 3;
     private int classicLastSunPhase = 0;
     static final double LAST_ICE_MAIN_X = 1_000.0;
     static final double LAST_ICE_MAIN_Y = GROUND_Y - 360.0;
     static final double LAST_ICE_MAIN_W = 4_000.0;
     static final double LAST_ICE_EXIT_X = 5_220.0;
+    static final double LAST_ICE_EXIT_TRIGGER_X = LAST_ICE_EXIT_X - 90.0;
     private boolean bossRushModeActive = false;
     private long bossRushRunStartMillis = 0L;
     private long bossRushBestClearMillis = Long.MAX_VALUE;
@@ -5046,7 +5046,7 @@ public class BirdGame3 {
         REDLINE_RUN("Redline Run", "Race the canyon route before its collapsing road disappears behind you."),
         FINAL_STILLNESS("Final Stillness", "Redline Bolts break the Still King's speed-dampening control field."),
         ICEWORKS("Iceworks", "Build Snow Forts on glowing foundations to construct, claim, and repair the battlefield."),
-        ICE_ARCHITECT("Ice Architect", "Raise three launch ramps, strike every frozen target, then Belly Slide through the open gate."),
+        ICE_ARCHITECT("Ice Architect", "Raise three launch ramps, strike every frozen target, then enter the open refuge gate."),
         LAST_SUN("The Last Sun", "Rebuild the Last Ice Shelf as the Crown's artificial sun melts it stock by stock.");
 
         final String label;
@@ -43558,7 +43558,6 @@ public class BirdGame3 {
         classicPenguinSiegeWaveIndex = 0;
         classicPenguinArchitectExitOpen = false;
         classicPenguinArchitectCompleted = false;
-        classicPenguinArchitectGateSlideGrace = 0;
         classicLastSunLastStocks = 3;
         classicLastSunPhase = 0;
         if (!classicModeActive || bossRushModeActive || ashfallTrialModeActive
@@ -43585,7 +43584,7 @@ public class BirdGame3 {
             // lift Penguin away while Belly Slide's timer expired.
             windVents.removeIf(vent -> vent.x + vent.w >= LAST_ICE_EXIT_X - 420.0
                     && vent.x <= LAST_ICE_EXIT_X + 180.0);
-            addToKillFeed("ICE ARCHITECT: build all three launch ramps, then Belly Slide through the gate.");
+            addToKillFeed("ICE ARCHITECT: build all three launch ramps, then enter the open refuge gate.");
         } else if (encounter.style == ClassicEncounterStyle.ICEWORKS_SIEGE) {
             addToKillFeed("HOLD THE GATE: rebuild the iceworks between three one-bird assault waves.");
         } else if (encounter.style == ClassicEncounterStyle.LAST_SUN_BOSS) {
@@ -43730,23 +43729,19 @@ public class BirdGame3 {
             }
             if (classicPenguinArchitectExitOpen) {
                 classicRunScore += 1_500;
-                addToKillFeed("THE REFUGE GATE IS OPEN — BELLY SLIDE THROUGH IT!");
+                addToKillFeed("THE REFUGE GATE IS OPEN — FOLLOW THE EXIT ARROW!");
             }
         }
         if (player.bodyCenterY() > GROUND_Y + 180.0) {
             positionClassicBirdOnSurface(player, 760.0, LAST_ICE_MAIN_Y + 155.0, true);
         }
-        if (player.penguinBellySlideTimer > 0 && player.penguinBellyDirection > 0) {
-            classicPenguinArchitectGateSlideGrace = 8;
-        } else if (classicPenguinArchitectGateSlideGrace > 0) {
-            classicPenguinArchitectGateSlideGrace--;
-        }
-        // Use the leading edge instead of the center: touching the open gate
-        // during a rightward Belly Slide is the authored action. The short
-        // latch also survives Bird.update decrementing the final slide frame
-        // immediately before this route update runs.
-        if (classicPenguinArchitectExitOpen && classicPenguinArchitectGateSlideGrace > 0
-                && player.x + player.bodyWidth() >= LAST_ICE_EXIT_X
+        // An open gate is an exit, not a one-tick input check. Requiring the
+        // neutral-special slide state here made visibly successful crossings
+        // fail whenever the move ended at the threshold (or the player simply
+        // walked through the open doorway). The entire supported doorway is a
+        // deterministic finish corridor once all three targets are destroyed.
+        if (classicPenguinArchitectExitOpen
+                && player.x + player.bodyWidth() >= LAST_ICE_EXIT_TRIGGER_X
                 && !classicPenguinArchitectCompleted) {
             classicPenguinArchitectCompleted = true;
             classicBonusCoins += 50;
@@ -43905,9 +43900,12 @@ public class BirdGame3 {
             double gateBottom = LAST_ICE_MAIN_Y + 155.0;
             if (classicPenguinArchitectExitOpen) {
                 g.setFill(Color.web("#69F0AE", 0.24));
-                g.fillRect(LAST_ICE_EXIT_X - 70.0, gateTop, 18.0, gateBottom - gateTop);
+                g.fillRect(LAST_ICE_EXIT_X - 90.0, gateTop, 18.0, gateBottom - gateTop);
                 g.fillRect(LAST_ICE_EXIT_X + 52.0, gateTop, 18.0, gateBottom - gateTop);
-                g.fillRect(LAST_ICE_EXIT_X - 70.0, gateTop, 140.0, 18.0);
+                g.fillRect(LAST_ICE_EXIT_X - 90.0, gateTop, 160.0, 18.0);
+                g.setFill(Color.web("#69F0AE", 0.18));
+                g.fillRect(LAST_ICE_EXIT_TRIGGER_X, gateBottom - 20.0,
+                        LAST_ICE_EXIT_X + 70.0 - LAST_ICE_EXIT_TRIGGER_X, 20.0);
                 g.setStroke(Color.web("#B9F6CA"));
                 g.setLineWidth(7);
                 g.strokeLine(LAST_ICE_EXIT_X - 46.0, gateTop + 80.0,
@@ -43916,6 +43914,10 @@ public class BirdGame3 {
                         LAST_ICE_EXIT_X + 12.0, gateTop + 56.0);
                 g.strokeLine(LAST_ICE_EXIT_X + 36.0, gateTop + 80.0,
                         LAST_ICE_EXIT_X + 12.0, gateTop + 104.0);
+                g.setFill(Color.web("#E8FFF1"));
+                g.setFont(Font.font("Arial Black", FontWeight.BOLD, 34));
+                g.setTextAlign(TextAlignment.CENTER);
+                g.fillText("EXIT", LAST_ICE_EXIT_X - 10.0, gateTop + 145.0);
             } else {
                 g.setFill(Color.web("#EF5350", 0.48));
                 g.fillRect(LAST_ICE_EXIT_X, gateTop, 48.0, gateBottom - gateTop);
