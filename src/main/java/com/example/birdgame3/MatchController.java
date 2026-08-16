@@ -488,6 +488,12 @@ final class MatchController {
             game.finishClassicPerfectPitchFromTimeout();
             return;
         }
+        Bird staminaBoss = game.activeClassicStaminaBoss();
+        if (staminaBoss != null && game.matchTimer <= 0 && !game.suddenDeath.isActive()) {
+            game.addToKillFeed("TIME! The Hollow Maestro's score remains unbroken.");
+            triggerMatchEnd(staminaBoss);
+            return;
+        }
 
         if (game.usesSmashCombatRules()) {
             if (game.matchTimer <= 0 && !game.suddenDeath.isActive()) {

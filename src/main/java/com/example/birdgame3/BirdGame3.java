@@ -1804,6 +1804,13 @@ public class BirdGame3 {
                 && currentCampaignMission.arenaVariant() == StoryCampaign.ArenaVariant.NULL_ROCK) {
             return "music-null-rock.mp3";
         }
+        // The Hollow Maestro owns Silent Amphitheater's authored score. Resolve
+        // it before the generic boss override so this finale does not sound like
+        // every other Classic boss.
+        if (classicModeActive && classicEncounter != null
+                && classicEncounter.style == ClassicEncounterStyle.HOLLOW_MAESTRO_BOSS) {
+            return "music-charles-maestro.mp3";
+        }
         boolean bossMusic = isBossEncounterActive() || selectedMap == MapType.BEACON_CROWN;
         return bossMusic
                 ? "music-boss.mp3"
@@ -5019,7 +5026,9 @@ public class BirdGame3 {
     private int classicPitchHitCooldown = 0;
     private boolean classicPitchCompleted = false;
     private int classicCharlesWaveIndex = 0;
-    private int classicCharlesBossLastStocks = 3;
+    static final double HOLLOW_MAESTRO_BASE_HEALTH = 240.0;
+    static final double HOLLOW_MAESTRO_STAGGER_DAMAGE_SCALE = 2.0;
+    private int classicCharlesBossPhase = 0;
     private int classicCharlesBossAttackTimer = 0;
     private int classicCharlesBossAttackKind = 0;
     private int classicCharlesBossHitCooldown = 0;
@@ -5107,7 +5116,7 @@ public class BirdGame3 {
         AUDITION_ORDER("Audition Order", "Choose the order of three distinct auditions without changing Charles's ordinary moves."),
         PERFECT_PITCH("Perfect Pitch", "Watch the visual score, then strike the four brass bells in the shown order."),
         DEAD_AIR("Dead Air", "Launch the Maestro's original Choir Masks through the blast zones."),
-        HOLLOW_SCORE("Hollow Score", "The Hollow Maestro fights through three original movements using Smash-style stocks.");
+        HOLLOW_SCORE("Hollow Score", "Break the Hollow Maestro's stamina across three escalating movements.");
 
         final String label;
         final String description;
@@ -42059,12 +42068,12 @@ public class BirdGame3 {
 
         ClassicEncounter maestro = new ClassicEncounter(
                 "The Hollow Maestro", "Silent Amphitheater",
-                "Launch the original conductor construct through three movements before it reduces every voice to one command.",
+                "Shatter the original conductor construct's stamina through three movements before it reduces every voice to one command.",
                 MapType.SILENT_AMPHITHEATER, MapVariant.STANDARD, MatchMutator.NONE,
-                ClassicTwist.HOLLOW_SCORE, ClassicEncounterStyle.HOLLOW_MAESTRO_BOSS, 190 * 60,
+                ClassicTwist.HOLLOW_SCORE, ClassicEncounterStyle.HOLLOW_MAESTRO_BOSS, 210 * 60,
                 new ClassicFighter[0],
                 new ClassicFighter[]{classicFighter(BirdType.SHOEBILL, "Boss: The Hollow Maestro",
-                        230, 1.08, 0.98)}, true);
+                        HOLLOW_MAESTRO_BASE_HEALTH, 1.08, 0.98)}, true);
         maestro.cpuLevel = 8;
         run.add(maestro);
         return run;
@@ -44317,8 +44326,9 @@ public class BirdGame3 {
                 bird.setUltimateEnabled(false);
                 isAI[bird.playerIndex] = false;
             } else if (encounter.style == ClassicEncounterStyle.HOLLOW_MAESTRO_BOSS) {
-                bird.health = Math.max(1.0, 230.0 * enemyHealthScale);
-                bird.setBaseMultipliers(1.42, 0.88 * enemyPowerScale, 0.94);
+                bird.health = Math.max(1.0, HOLLOW_MAESTRO_BASE_HEALTH * enemyHealthScale);
+                bird.classicMaxHealthOverride = bird.health;
+                bird.setBaseMultipliers(1.72, 0.92 * enemyPowerScale, 0.94);
                 bird.setUltimateEnabled(false);
                 isAI[bird.playerIndex] = false;
             }
@@ -45204,7 +45214,7 @@ public class BirdGame3 {
         classicPitchHitCooldown = 0;
         classicPitchCompleted = false;
         classicCharlesWaveIndex = 0;
-        classicCharlesBossLastStocks = 3;
+        classicCharlesBossPhase = 0;
         classicCharlesBossAttackTimer = 120;
         classicCharlesBossAttackKind = 0;
         classicCharlesBossHitCooldown = 0;
@@ -45227,8 +45237,8 @@ public class BirdGame3 {
             addToKillFeed("DEAD AIR: launch three original Choir Masks, one movement at a time.");
         } else if (encounter.style == ClassicEncounterStyle.HOLLOW_MAESTRO_BOSS) {
             Bird boss = firstClassicEnemyWithStocks();
-            if (boss != null) classicCharlesBossLastStocks = Math.max(1, scores[boss.playerIndex]);
-            addToKillFeed("HOLLOW SCORE: the Maestro conducts three movements. Its attacks are telegraphed in gold.");
+            if (boss != null) boss.classicMaxHealthOverride = Math.max(1.0, boss.health);
+            addToKillFeed("HOLLOW SCORE: drain the Maestro's stamina through three movements. Gold marks every cue.");
         }
     }
 
@@ -45336,19 +45346,25 @@ public class BirdGame3 {
         Bird boss = firstClassicEnemyWithStocks();
         Bird player = players[0];
         if (boss == null || player == null || !playerHasStocksRemaining(0)) return;
-        int stocks = Math.max(0, scores[boss.playerIndex]);
-        if (stocks < classicCharlesBossLastStocks && stocks > 0) {
-            classicCharlesBossLastStocks = stocks;
-            player.heal(12.0);
+        if (boss.health <= 0.0) {
+            onClassicStaminaBossDefeated(boss, null);
+            return;
+        }
+        int nextPhase = hollowMaestroPhaseForHealth(boss.health, boss.getMaxHealth());
+        if (nextPhase > classicCharlesBossPhase) {
+            int movementsCrossed = nextPhase - classicCharlesBossPhase;
+            classicCharlesBossPhase = nextPhase;
+            player.heal(12.0 * movementsCrossed);
             classicCharlesBossAttackTimer = 104;
-            addToKillFeed(stocks == 2
+            addToKillFeed(classicCharlesBossPhase == 1
                     ? "SECOND MOVEMENT: the Hollow Score accelerates. 12% repaired."
-                    : "FINAL MOVEMENT: the Maestro abandons silence for force. 12% repaired.");
+                    : "FINAL MOVEMENT: the Maestro abandons silence for force. 12% repaired per movement.");
+            shakeIntensity = Math.max(shakeIntensity, 18.0 + classicCharlesBossPhase * 4.0);
         }
         double dx = player.bodyCenterX() - boss.bodyCenterX();
         boss.facingRight = dx >= 0.0;
         boss.vx = Math.clamp(boss.vx + Math.signum(dx) * 0.10, -3.1, 3.1);
-        int phase = Math.clamp(3 - stocks, 0, 2);
+        int phase = classicCharlesBossPhase;
         if (classicCharlesBossAttackTimer > 0) {
             classicCharlesBossAttackTimer--;
             if (classicCharlesBossAttackTimer == 36 && classicCharlesBossHitCooldown == 0) {
@@ -45358,6 +45374,50 @@ public class BirdGame3 {
             classicCharlesBossAttackKind = (classicCharlesBossAttackKind + 1) % 3;
             classicCharlesBossAttackTimer = Math.max(82, 136 - phase * 18);
         }
+    }
+
+    static int hollowMaestroPhaseForHealth(double health, double maxHealth) {
+        double ratio = Math.clamp(health / Math.max(1.0, maxHealth), 0.0, 1.0);
+        if (ratio <= 1.0 / 3.0) return 2;
+        if (ratio <= 2.0 / 3.0) return 1;
+        return 0;
+    }
+
+    boolean isClassicStaminaBoss(Bird bird) {
+        return bird != null
+                && classicModeActive
+                && classicEncounter != null
+                && classicEncounter.style == ClassicEncounterStyle.HOLLOW_MAESTRO_BOSS
+                && getEffectiveTeam(bird.playerIndex) == 2;
+    }
+
+    Bird activeClassicStaminaBoss() {
+        Bird boss = firstClassicEnemyWithStocks();
+        return isClassicStaminaBoss(boss) && boss.health > 0.0 ? boss : null;
+    }
+
+    double classicStaminaBossHealthRatio() {
+        Bird boss = firstClassicEnemyWithStocks();
+        if (!isClassicStaminaBoss(boss)) return 0.0;
+        return Math.clamp(boss.health / Math.max(1.0, boss.getMaxHealth()), 0.0, 1.0);
+    }
+
+    int classicStaminaBossMovement() {
+        return Math.clamp(classicCharlesBossPhase + 1, 1, 3);
+    }
+
+    void onClassicStaminaBossDefeated(Bird boss, Bird attacker) {
+        if (!isClassicStaminaBoss(boss) || scores[boss.playerIndex] <= 0) return;
+        boss.health = 0.0;
+        scores[boss.playerIndex] = 0;
+        if (attacker != null && attacker != boss && attacker.playerIndex >= 0) {
+            eliminations[attacker.playerIndex]++;
+            recordMoveKo(attacker, boss, lastTelemetryMoveName(attacker.playerIndex, "Hollow Score"));
+            checkAchievements(attacker);
+        }
+        addToKillFeed("THE HOLLOW MAESTRO'S SCORE SHATTERS.");
+        shakeIntensity = Math.max(shakeIntensity, 32.0);
+        triggerFlash(0.76, true);
     }
 
     private void performHollowMaestroAttack(Bird boss, Bird player, int phase) {
@@ -45539,7 +45599,7 @@ public class BirdGame3 {
         if (!boss && classicEncounter.style != ClassicEncounterStyle.CHOIR_MASK_GAUNTLET) return false;
         double cx = bird.bodyCenterX();
         double cy = bird.bodyCenterY();
-        double scale = boss ? 1.55 : 0.92 + classicCharlesWaveIndex * 0.08;
+        double scale = boss ? 1.90 : 0.92 + classicCharlesWaveIndex * 0.08;
         Color accent = boss ? Color.web("#FFE082")
                 : (classicCharlesWaveIndex == 0 ? Color.web("#80DEEA")
                 : classicCharlesWaveIndex == 1 ? Color.web("#CE93D8") : Color.web("#FF8A65"));
@@ -45556,14 +45616,9 @@ public class BirdGame3 {
         g.setFill(Color.BLACK.deriveColor(0, 1, 1, 0.46));
         g.fillOval(-118, 82, 236, 42);
         if (boss) {
-            g.setStroke(accent.deriveColor(0, 1, 1, 0.28 + pulse * 0.24));
-            g.setLineWidth(12.0);
-            g.strokeOval(-156, -154, 312, 312);
-            for (int i = 0; i < 8; i++) {
-                double a = i * Math.PI / 4.0;
-                g.strokeLine(Math.cos(a) * 164, Math.sin(a) * 164,
-                        Math.cos(a) * 218, Math.sin(a) * 218);
-            }
+            drawAscendedHollowMaestroMask(g, accent, pulse);
+            g.restore();
+            return;
         }
         g.setFill(Color.web("#13131B"));
         g.fillPolygon(new double[]{-104, -72, -44, 0, 44, 72, 104, 72, 44, 0, -44, -72},
@@ -45588,6 +45643,102 @@ public class BirdGame3 {
         g.strokeLine(-106, 24, -194, 72);
         g.strokeLine(106, 24, 194, 72);
         g.restore();
+    }
+
+    private void drawAscendedHollowMaestroMask(GraphicsContext g, Color accent, double pulse) {
+        // A cathedral-sized silhouette and broken crown make the Maestro read as
+        // an entity, not a reskinned bird. Every animated value is derived from
+        // simTick and presentation-only; it never advances simulation state.
+        g.setFill(Color.web("#020107", 0.88));
+        g.fillPolygon(
+                new double[]{-242, -188, -128, -78, 0, 78, 128, 188, 242, 142, 86, 0, -86, -142},
+                new double[]{58, -34, -96, -56, -170, -56, -96, -34, 58, 112, 168, 196, 168, 112},
+                14);
+
+        g.setStroke(accent.deriveColor(0, 1, 1, 0.20 + pulse * 0.22));
+        g.setLineWidth(15.0);
+        g.strokeOval(-190 - pulse * 8.0, -188 - pulse * 8.0,
+                380 + pulse * 16.0, 380 + pulse * 16.0);
+        g.setLineWidth(5.0);
+        g.strokeOval(-226 + pulse * 5.0, -224 + pulse * 5.0,
+                452 - pulse * 10.0, 452 - pulse * 10.0);
+        for (int i = 0; i < 12; i++) {
+            double angle = -Math.PI / 2.0 + i * Math.PI / 6.0;
+            double inner = 204.0;
+            double outer = 248.0 + (i % 2 == 0 ? 24.0 : 0.0) + pulse * 8.0;
+            g.setLineWidth(i % 2 == 0 ? 12.0 : 6.0);
+            g.strokeLine(Math.cos(angle) * inner, Math.sin(angle) * inner,
+                    Math.cos(angle) * outer, Math.sin(angle) * outer);
+        }
+
+        // Four conductor arms end in tuning-fork blades, framing its attacks.
+        g.setStroke(Color.web("#B0BEC5"));
+        g.setLineWidth(12.0);
+        g.setLineCap(StrokeLineCap.ROUND);
+        double armSway = Math.sin(simTick * 0.055) * 14.0;
+        double[][] arms = {
+                {-112, -34, -235, -126 - armSway}, {112, -34, 235, -126 + armSway},
+                {-118, 34, -252, 118 + armSway}, {118, 34, 252, 118 - armSway}
+        };
+        for (double[] arm : arms) {
+            g.strokeLine(arm[0], arm[1], arm[2], arm[3]);
+            double direction = arm[2] < 0 ? -1.0 : 1.0;
+            g.setStroke(accent);
+            g.setLineWidth(7.0);
+            g.strokeLine(arm[2], arm[3], arm[2] + direction * 42.0, arm[3] - 28.0);
+            g.strokeLine(arm[2], arm[3], arm[2] + direction * 42.0, arm[3] + 28.0);
+            g.setStroke(Color.web("#B0BEC5"));
+            g.setLineWidth(12.0);
+        }
+
+        // The broken crown is deliberately uneven: five blades lean inward
+        // around a missing center jewel.
+        g.setFill(Color.web("#1B1522"));
+        g.fillPolygon(new double[]{-126, -104, -72, -42, -12, 12, 42, 72, 104, 126, 94, -94},
+                new double[]{-116, -212, -156, -246, -166, -166, -232, -154, -206, -116, -82, -82}, 12);
+        g.setStroke(accent);
+        g.setLineWidth(9.0);
+        g.strokePolyline(new double[]{-126, -104, -72, -42, -12, 12, 42, 72, 104, 126},
+                new double[]{-116, -212, -156, -246, -166, -166, -232, -154, -206, -116}, 10);
+
+        // Bone face plate with deep, predatory sockets and a segmented jaw.
+        g.setFill(Color.web("#DED7C8"));
+        g.fillPolygon(new double[]{-116, -88, -48, 0, 48, 88, 116, 100, 62, 34, 0, -34, -62, -100},
+                new double[]{-92, -132, -146, -126, -146, -132, -92, 42, 94, 132, 156, 132, 94, 42}, 14);
+        g.setStroke(Color.web("#FFF8E1"));
+        g.setLineWidth(8.0);
+        g.strokePolygon(new double[]{-116, -88, -48, 0, 48, 88, 116, 100, 62, 34, 0, -34, -62, -100},
+                new double[]{-92, -132, -146, -126, -146, -132, -92, 42, 94, 132, 156, 132, 94, 42}, 14);
+
+        g.setFill(Color.web("#07040A"));
+        g.fillPolygon(new double[]{-89, -55, -16, -34, -72},
+                new double[]{-72, -92, -58, -8, -18}, 5);
+        g.fillPolygon(new double[]{89, 55, 16, 34, 72},
+                new double[]{-72, -92, -58, -8, -18}, 5);
+        g.setFill(accent.deriveColor(0, 1.0, 1.0, 0.76 + pulse * 0.24));
+        g.fillPolygon(new double[]{-66, -30, -39}, new double[]{-55, -46, -20}, 3);
+        g.fillPolygon(new double[]{66, 30, 39}, new double[]{-55, -46, -20}, 3);
+
+        g.setFill(Color.web("#0A060D"));
+        g.fillPolygon(new double[]{-69, -36, 0, 36, 69, 48, 0, -48},
+                new double[]{54, 92, 82, 92, 54, 126, 146, 126}, 8);
+        g.setFill(Color.web("#FFF8E1"));
+        for (int tooth = 0; tooth < 5; tooth++) {
+            double tx = -48.0 + tooth * 24.0;
+            g.fillPolygon(new double[]{tx - 8.0, tx + 8.0, tx},
+                    new double[]{82.0, 82.0, 110.0 + (tooth % 2) * 8.0}, 3);
+        }
+
+        // Cracks converge on the missing voice at the center of the mask.
+        g.setStroke(Color.web("#4A3B45", 0.90));
+        g.setLineWidth(5.0);
+        g.strokePolyline(new double[]{-12, -42, -28, -70}, new double[]{-124, -86, -54, -28}, 4);
+        g.strokePolyline(new double[]{12, 46, 32, 76}, new double[]{-122, -92, -54, -18}, 4);
+        g.strokePolyline(new double[]{0, -18, 8, -30}, new double[]{-18, 18, 48, 76}, 4);
+
+        g.setFill(accent.deriveColor(0, 1, 1, 0.74 + pulse * 0.26));
+        g.fillOval(-14.0 - pulse * 3.0, 18.0 - pulse * 3.0,
+                28.0 + pulse * 6.0, 28.0 + pulse * 6.0);
     }
 
     private void drawHollowMaestroTelegraph(GraphicsContext g) {
@@ -51399,7 +51550,7 @@ public class BirdGame3 {
         int enemyStocks = switch (classicEncounter.style) {
             case STORM_TYRANT_BOSS, PHOENIX_REBIRTH, BLIGHTWING_BOSS, ICEWORKS_MIRROR -> 2;
             case NULL_ROC_BOSS, LONG_WINTER_BOSS, DEVOURER_BOSS, BROODBREAKER_BOSS,
-                    STILL_KING_BOSS, LAST_SUN_BOSS, HOLLOW_MAESTRO_BOSS -> 3;
+                    STILL_KING_BOSS, LAST_SUN_BOSS -> 3;
             default -> 0;
         };
         if (enemyStocks <= 0) return;
@@ -56615,9 +56766,7 @@ public class BirdGame3 {
                             ? "UNDERSTUDY " : "CHOIR MASK ")
                             + Math.min(waveCount, classicCharlesWaveIndex + 1) + "/" + waveCount);
                 } else if (classicEncounter.style == ClassicEncounterStyle.HOLLOW_MAESTRO_BOSS) {
-                    Bird boss = firstClassicEnemyWithStocks();
-                    int movement = boss == null ? 3 : Math.clamp(4 - Math.max(1, scores[boss.playerIndex]), 1, 3);
-                    lines.add("HOLLOW SCORE  MOVEMENT " + movement + "/3  NEXT CUE "
+                    lines.add("HOLLOW SCORE  MOVEMENT " + classicStaminaBossMovement() + "/3  NEXT CUE "
                             + Math.max(0, classicCharlesBossAttackTimer));
                 }
             }
@@ -56644,14 +56793,78 @@ public class BirdGame3 {
         if (layout.timerRect() != null) {
             drawFightHudTimer(g, layout.timerRect());
         }
+        drawClassicStaminaBossHud(g);
         if (isUnitedFinaleMassBattleContext() && activePlayers > 6) {
             drawUnitedFinaleRaidHud(g);
         } else {
             for (FightHudPanelLayout panel : layout.panels()) {
+                if (isClassicStaminaBoss(panel.bird())) continue;
                 drawFightHudPanel(g, panel);
             }
         }
         drawFightStartCountdown(g);
+    }
+
+    private void drawClassicStaminaBossHud(GraphicsContext g) {
+        Bird boss = firstClassicEnemyWithStocks();
+        if (!isClassicStaminaBoss(boss) || boss.health <= 0.0) return;
+
+        double width = Math.min(980.0, WIDTH - 580.0);
+        double height = 92.0;
+        double x = (WIDTH - width) / 2.0;
+        double y = 24.0;
+        double maxHealth = Math.max(1.0, boss.getMaxHealth());
+        double ratio = classicStaminaBossHealthRatio();
+        int shownHealth = Math.max(0, (int) Math.ceil(boss.health));
+        int shownMax = Math.max(1, (int) Math.round(maxHealth));
+        double pulse = 0.5 + 0.5 * Math.sin(simTick * 0.09);
+        Color phaseColor = classicStaminaBossMovement() == 1 ? Color.web("#FFE082")
+                : classicStaminaBossMovement() == 2 ? Color.web("#FFB74D") : Color.web("#FF5252");
+
+        g.save();
+        g.setFill(Color.BLACK.deriveColor(0, 1, 1, 0.58));
+        g.fillRoundRect(x - 8, y + 8, width + 16, height + 8, 30, 30);
+        g.setFill(Color.web("#09060E", 0.96));
+        g.fillRoundRect(x, y, width, height, 28, 28);
+        g.setStroke(phaseColor.deriveColor(0, 1, 1, 0.82 + pulse * 0.18));
+        g.setLineWidth(4.0 + pulse * 1.5);
+        g.strokeRoundRect(x, y, width, height, 28, 28);
+
+        drawHollowMaestroMask(g, x + 52.0, y + 47.0, 0.24, phaseColor, true);
+        g.setTextAlign(TextAlignment.LEFT);
+        g.setFill(Color.WHITE);
+        g.setFont(Font.font("Arial Black", FontWeight.BOLD, 25));
+        g.fillText("THE HOLLOW MAESTRO", x + 105.0, y + 31.0);
+        g.setFill(phaseColor);
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, 16));
+        g.fillText("MOVEMENT " + classicStaminaBossMovement() + " / 3", x + 106.0, y + 53.0);
+
+        double barX = x + 410.0;
+        double barY = y + 28.0;
+        double barW = width - 560.0;
+        double barH = 38.0;
+        g.setFill(Color.web("#28070B"));
+        g.fillRoundRect(barX, barY, barW, barH, 18, 18);
+        g.setFill(phaseColor);
+        g.fillRoundRect(barX, barY, barW * ratio, barH, 18, 18);
+        g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.18));
+        g.fillRoundRect(barX + 5.0, barY + 5.0, Math.max(0.0, barW * ratio - 10.0), 8.0, 12, 12);
+        g.setStroke(Color.web("#FFF3E0", 0.86));
+        g.setLineWidth(2.0);
+        g.strokeRoundRect(barX, barY, barW, barH, 18, 18);
+        for (int section = 1; section <= 2; section++) {
+            double dividerX = barX + barW * section / 3.0;
+            g.setStroke(Color.web("#09060E", 0.92));
+            g.setLineWidth(5.0);
+            g.strokeLine(dividerX, barY + 2.0, dividerX, barY + barH - 2.0);
+        }
+
+        g.setTextAlign(TextAlignment.RIGHT);
+        g.setFill(Color.WHITE);
+        g.setFont(Font.font("Arial Black", FontWeight.BOLD, 21));
+        g.fillText(shownHealth + " / " + shownMax + " HP", x + width - 24.0, y + 57.0);
+        g.setTextAlign(TextAlignment.LEFT);
+        g.restore();
     }
 
     private void drawFightHudMinimap(GraphicsContext g, Rectangle2D rect) {

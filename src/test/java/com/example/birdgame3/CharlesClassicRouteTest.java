@@ -129,24 +129,90 @@ class CharlesClassicRouteTest {
     }
 
     @Test
-    void hollowMaestroIsAnOriginalThreeMovementBossWithTelegraphedAttacks() throws Exception {
+    void hollowMaestroIsAnOriginalStaminaBossWithThreeTelegraphedMovements() throws Exception {
         BirdGame3 game = prepared(7, 0xC4A221L, 0xC4A222L);
         Bird boss = firstEnemy(game);
 
         assertNotNull(boss);
+        assertTrue(game.usesSmashCombatRules(), "Charles should retain the route's normal Smash rules.");
         assertEquals(3, game.scores[0]);
-        assertEquals(3, game.scores[boss.playerIndex]);
+        assertEquals(1, game.scores[boss.playerIndex],
+                "The Maestro has one stamina life instead of three launchable stocks.");
         assertFalse(game.isAI[boss.playerIndex]);
         assertFalse(boss.hasUltimate());
-        assertEquals(1.42, boss.sizeMultiplier, 0.0001);
+        assertTrue(game.isClassicStaminaBoss(boss));
+        assertEquals(BirdGame3.HOLLOW_MAESTRO_BASE_HEALTH, boss.health, 0.0001);
+        assertEquals(boss.health, boss.getMaxHealth(), 0.0001);
+        assertEquals(1.72, boss.sizeMultiplier, 0.0001);
+        assertEquals("music-charles-maestro.mp3", invoke(game, "gameplayMusicFile", new Class<?>[0]));
 
         String source = Files.readString(Path.of("src/main/java/com/example/birdgame3/BirdGame3.java"));
         int start = source.indexOf("private void setupCharlesClassicRoute");
         int end = source.indexOf("private void setupHummingbirdNectarRoute", start);
         String routeCode = source.substring(start, end);
         assertTrue(routeCode.contains("drawHollowMaestroMask"));
+        assertTrue(source.contains("drawClassicStaminaBossHud"));
         assertTrue(routeCode.contains("drawHollowMaestroTelegraph"));
         assertTrue(routeCode.contains("performHollowMaestroAttack"));
+    }
+
+    @Test
+    void hollowMaestroTakesHealthDamageWithoutGivingUpCharlesSmashRules() throws Exception {
+        BirdGame3 game = prepared(7, 0xC4A2A1L, 0xC4A2A2L);
+        Bird charles = game.players[0];
+        Bird boss = firstEnemy(game);
+        double startingHealth = boss.health;
+
+        double dealt = charles.applyUnshieldedDamageTo(boss, 40.0);
+
+        assertTrue(dealt > 0.0);
+        assertTrue(boss.health < startingHealth);
+        assertEquals(dealt, startingHealth - boss.health, 0.0001);
+        assertTrue(dealt > 40.0,
+                "The Hollow Score stagger scale should keep the large stamina pool from becoming a damage sponge.");
+        assertEquals(0.0, (double) get(boss, "smashDamage"), 0.0001,
+                "Stamina damage must not secretly fill an ordinary launch percent meter.");
+        assertEquals(1, game.scores[boss.playerIndex]);
+        assertEquals(0, BirdGame3.hollowMaestroPhaseForHealth(startingHealth, startingHealth));
+        assertEquals(1, BirdGame3.hollowMaestroPhaseForHealth(startingHealth * 0.60, startingHealth));
+        assertEquals(2, BirdGame3.hollowMaestroPhaseForHealth(startingHealth * 0.20, startingHealth));
+
+        boss.health = 1.0;
+        charles.applyUnshieldedDamageTo(boss, 40.0);
+        assertEquals(0.0, boss.health, 0.0);
+        assertEquals(0, game.scores[boss.playerIndex],
+                "Depleting the giant health bar must end the Maestro's only stamina life.");
+    }
+
+    @Test
+    void hollowMaestroCannotBeDefeatedByWaitingOutItsStaminaClock() {
+        BirdGame3 game = prepared(7, 0xC4A2A3L, 0xC4A2A4L);
+        Bird boss = firstEnemy(game);
+        game.headlessHarnessMode = true;
+        game.matchTimer = 0;
+
+        assertFalse(game.harnessTick());
+        assertSame(boss, game.harnessWinner,
+                "An intact stamina boss must win at time instead of losing to Charles's extra stocks.");
+    }
+
+    @Test
+    void hollowMaestroCannotLoseItsStaminaLifeToABlastZoneShortcut() throws Exception {
+        BirdGame3 game = prepared(7, 0xC4A2A5L, 0xC4A2A6L);
+        Bird boss = firstEnemy(game);
+        double startingHealth = boss.health;
+
+        invoke(boss, "handleSmashBlastZoneKo",
+                new Class<?>[]{boolean.class, boolean.class, double.class, double.class,
+                        double.class, double.class, String.class, boolean.class, double.class, double.class},
+                false, true, 840.0, 5_160.0, 3_000.0, BirdGame3.GROUND_Y - 400.0,
+                "off the right side", false, 5_700.0, BirdGame3.GROUND_Y);
+
+        assertEquals(startingHealth, boss.health, 0.0);
+        assertEquals(1, game.scores[boss.playerIndex]);
+        assertEquals(game.battlefieldSpawnCenterX() - boss.bodyWidth() * 0.5, boss.x, 0.0001);
+        assertEquals(0.0, boss.vx, 0.0);
+        assertEquals(0.0, boss.vy, 0.0);
     }
 
     @Test

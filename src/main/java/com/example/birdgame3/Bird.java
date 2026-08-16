@@ -15192,6 +15192,13 @@ public class Bird {
         if (type != null) {
             scaledDamage *= type.damageTakenMult;
         }
+        if (game.isClassicStaminaBoss(this)) {
+            // Charles's copied voices resonate against the Hollow Score. The
+            // larger displayed stamina pool keeps three readable movements,
+            // while this stagger scale prevents the finale from becoming a
+            // four-minute damage sponge.
+            scaledDamage *= BirdGame3.HOLLOW_MAESTRO_STAGGER_DAMAGE_SCALE;
+        }
         if (scaledDamage <= 0) return 0;
         if (tryRazorbillCounter(attacker, scaledDamage)) {
             return 0;
@@ -15223,7 +15230,7 @@ public class Bird {
             interruptOpiumSpecialStateOnHit();
         }
         RoadrunnerSpecials.onDamageTaken(this, scaledDamage);
-        if (game.usesSmashCombatRules()) {
+        if (game.usesSmashCombatRules() && !game.isClassicStaminaBoss(this)) {
             smashDamage += scaledDamage;
             return scaledDamage;
         }
@@ -15243,6 +15250,9 @@ public class Bird {
         if (health <= 0) {
             tryPhoenixRebirth();
             if (health <= 0) {
+                if (game.isClassicStaminaBoss(this)) {
+                    game.onClassicStaminaBossDefeated(this, attacker);
+                }
                 onDefeated();
             }
         }
@@ -18393,6 +18403,24 @@ public class Bird {
     private void handleSmashBlastZoneKo(boolean trainingDummy, boolean islandBounds, double leftBound, double rightBound,
                                         double fallbackX, double fallbackY, String zoneLabel,
                                         boolean awardStageFallAchievement, double effectX, double effectY) {
+        if (game.isClassicStaminaBoss(this) && health > 0.0) {
+            game.shakeIntensity = Math.max(game.shakeIntensity, 14.0);
+            game.emitBlastZoneKoEffect(this, effectX, effectY, vx, vy, zoneLabel);
+            x = game.battlefieldSpawnCenterX() - bodyWidth() * 0.5;
+            y = game.battlefieldSpawnY(sizeMultiplier);
+            prevX = x;
+            prevY = y;
+            vx = 0.0;
+            vy = 0.0;
+            canDoubleJump = true;
+            clearPendingSizeKnockbackScaling();
+            pendingSmashLaunchScale = 1.0;
+            pendingDamageScaledHitDamage = 0.0;
+            recentSmashAttackerIndex = -1;
+            recentSmashAttackerFrames = 0;
+            game.addToKillFeed("The Hollow Score pulls the Maestro back to the stage!");
+            return;
+        }
         game.falls[playerIndex]++;
         game.shakeIntensity = Math.max(game.shakeIntensity, 18);
         game.hitstopFrames = Math.max(game.hitstopFrames, 6);

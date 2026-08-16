@@ -17,7 +17,7 @@
 | 5 | The Understudies | Combat | Resonance Hall | 60-4-0 | 93.8% | 152.1s | 277 | Possibly too easy |
 | 6 | Bonus: Perfect Pitch | Objective | Resonance Hall | — | — | — | — | Not scored |
 | 7 | Dead Air | Combat | Signal Spire | 48-16-0 | 75.0% | 175.8s | 527 | Possibly too easy |
-| 8 | The Hollow Maestro | Combat | Silent Amphitheater | 34-7-23 | 82.9% | 230.8s | 274 | Possibly too easy |
+| 8 | The Hollow Maestro | Combat | Silent Amphitheater | 34-30-0 | 53.1% | 176.0s | 196 | Target band |
 
 ## How to use this report
 
