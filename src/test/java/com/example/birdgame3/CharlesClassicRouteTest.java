@@ -216,6 +216,36 @@ class CharlesClassicRouteTest {
     }
 
     @Test
+    void hollowMaestroCountersSustainedPointBlankAttackSpam() throws Exception {
+        BirdGame3 game = prepared(7, 0xC4A2A7L, 0xC4A2A8L);
+        Bird charles = game.players[0];
+        Bird boss = firstEnemy(game);
+        charles.x = boss.bodyCenterX() - charles.bodyWidth() * 0.5;
+        charles.y = boss.bodyCenterY() - charles.bodyHeight() * 0.5;
+
+        double ordinaryHit = charles.applyUnshieldedDamageTo(boss, 8.0);
+        for (int hit = 0; hit < 3 && (int) get(game, "classicCharlesBossReversalTimer") == 0; hit++) {
+            charles.applyUnshieldedDamageTo(boss, 8.0);
+        }
+
+        assertTrue((int) get(game, "classicCharlesBossReversalTimer") > 0,
+                "Repeated close hits should arm the Maestro's telegraphed counterbeat.");
+        double armoredHit = charles.applyUnshieldedDamageTo(boss, 8.0);
+        assertTrue(armoredHit < ordinaryHit * 0.65,
+                "The mask should resist continued mashing during the visible reversal windup.");
+
+        double damageBeforeCounter = (double) get(charles, "smashDamage");
+        for (int tick = 0; tick < BirdGame3.HOLLOW_MAESTRO_REVERSAL_WINDUP_FRAMES; tick++) {
+            game.applyCharlesClassicRuntimeEffects();
+        }
+
+        assertTrue((double) get(charles, "smashDamage") > damageBeforeCounter);
+        assertTrue(Math.abs(charles.vx) >= 13.5,
+                "The reversal should force Charles out instead of letting him remain inside the boss and mash.");
+        assertTrue(charles.stunTime >= 10.0);
+    }
+
+    @Test
     void charlesRouteNeverChangesCharlesOrdinaryFighterKit() {
         BirdGame3 game = prepared(7, 0xC4A223L, 0xC4A224L);
         Bird player = game.players[0];

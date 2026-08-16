@@ -15197,7 +15197,7 @@ public class Bird {
             // larger displayed stamina pool keeps three readable movements,
             // while this stagger scale prevents the finale from becoming a
             // four-minute damage sponge.
-            scaledDamage *= BirdGame3.HOLLOW_MAESTRO_STAGGER_DAMAGE_SCALE;
+            scaledDamage *= game.classicStaminaBossIncomingDamageScale(this);
         }
         if (scaledDamage <= 0) return 0;
         if (tryRazorbillCounter(attacker, scaledDamage)) {
@@ -15247,6 +15247,10 @@ public class Bird {
         }
 
         health = Math.max(0, health - scaledDamage);
+        double dealtDamage = oldHealth - health;
+        if (game.isClassicStaminaBoss(this) && dealtDamage > 0.0) {
+            game.onClassicStaminaBossDamaged(this, attacker, dealtDamage);
+        }
         if (health <= 0) {
             tryPhoenixRebirth();
             if (health <= 0) {
@@ -15256,7 +15260,7 @@ public class Bird {
                 onDefeated();
             }
         }
-        return oldHealth - health;
+        return dealtDamage;
     }
 
     private boolean turkeySpecialArmorActive() {

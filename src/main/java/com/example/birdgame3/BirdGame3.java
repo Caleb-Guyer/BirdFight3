@@ -5028,10 +5028,20 @@ public class BirdGame3 {
     private int classicCharlesWaveIndex = 0;
     static final double HOLLOW_MAESTRO_BASE_HEALTH = 240.0;
     static final double HOLLOW_MAESTRO_STAGGER_DAMAGE_SCALE = 2.0;
+    static final double HOLLOW_MAESTRO_REVERSAL_ARMOR_SCALE = 0.55;
+    static final double HOLLOW_MAESTRO_REVERSAL_TRIGGER_DAMAGE = 48.0;
+    static final int HOLLOW_MAESTRO_REVERSAL_WINDOW_FRAMES = 70;
+    static final int HOLLOW_MAESTRO_REVERSAL_WINDUP_FRAMES = 42;
+    static final int HOLLOW_MAESTRO_REVERSAL_IMPACT_FRAME = 10;
+    static final int HOLLOW_MAESTRO_REVERSAL_COOLDOWN_FRAMES = 270;
     private int classicCharlesBossPhase = 0;
     private int classicCharlesBossAttackTimer = 0;
     private int classicCharlesBossAttackKind = 0;
     private int classicCharlesBossHitCooldown = 0;
+    private double classicCharlesBossCloseDamage = 0.0;
+    private int classicCharlesBossCloseDamageWindow = 0;
+    private int classicCharlesBossReversalTimer = 0;
+    private int classicCharlesBossReversalCooldown = 0;
     private static final double STILLWATER_MAIN_X = 900.0;
     private static final double STILLWATER_MAIN_Y = GROUND_Y - 330.0;
     private static final double STILLWATER_MAIN_W = 4_200.0;
@@ -45223,6 +45233,10 @@ public class BirdGame3 {
         classicCharlesBossAttackTimer = 120;
         classicCharlesBossAttackKind = 0;
         classicCharlesBossHitCooldown = 0;
+        classicCharlesBossCloseDamage = 0.0;
+        classicCharlesBossCloseDamageWindow = 0;
+        classicCharlesBossReversalTimer = 0;
+        classicCharlesBossReversalCooldown = 0;
         if (!classicModeActive || bossRushModeActive || ashfallTrialModeActive
                 || classicSelectedBird != BirdType.MOCKINGBIRD || encounter == null) {
             return;
@@ -45368,8 +45382,23 @@ public class BirdGame3 {
         }
         double dx = player.bodyCenterX() - boss.bodyCenterX();
         boss.facingRight = dx >= 0.0;
-        boss.vx = Math.clamp(boss.vx + Math.signum(dx) * 0.10, -3.1, 3.1);
         int phase = classicCharlesBossPhase;
+        if (classicCharlesBossCloseDamageWindow > 0) {
+            classicCharlesBossCloseDamageWindow--;
+            if (classicCharlesBossCloseDamageWindow == 0) classicCharlesBossCloseDamage = 0.0;
+        }
+        if (classicCharlesBossReversalCooldown > 0) classicCharlesBossReversalCooldown--;
+
+        if (classicCharlesBossReversalTimer > 0) {
+            boss.vx *= 0.72;
+            classicCharlesBossReversalTimer--;
+            if (classicCharlesBossReversalTimer == HOLLOW_MAESTRO_REVERSAL_IMPACT_FRAME) {
+                performHollowMaestroReversal(boss, player, phase);
+            }
+            return;
+        }
+
+        boss.vx = Math.clamp(boss.vx + Math.signum(dx) * 0.10, -3.1, 3.1);
         if (classicCharlesBossAttackTimer > 0) {
             classicCharlesBossAttackTimer--;
             if (classicCharlesBossAttackTimer == 36 && classicCharlesBossHitCooldown == 0) {
@@ -45379,6 +45408,46 @@ public class BirdGame3 {
             classicCharlesBossAttackKind = (classicCharlesBossAttackKind + 1) % 3;
             classicCharlesBossAttackTimer = Math.max(82, 136 - phase * 18);
         }
+    }
+
+    void onClassicStaminaBossDamaged(Bird boss, Bird attacker, double dealtDamage) {
+        if (!isClassicStaminaBoss(boss) || boss.health <= 0.0 || attacker == null || attacker == boss
+                || dealtDamage <= 0.0 || classicCharlesBossReversalTimer > 0
+                || classicCharlesBossReversalCooldown > 0) {
+            return;
+        }
+        double distance = Math.hypot(attacker.bodyCenterX() - boss.bodyCenterX(),
+                attacker.bodyCenterY() - boss.bodyCenterY());
+        if (distance > 390.0) return;
+        classicCharlesBossCloseDamage += dealtDamage;
+        classicCharlesBossCloseDamageWindow = HOLLOW_MAESTRO_REVERSAL_WINDOW_FRAMES;
+        if (classicCharlesBossCloseDamage >= HOLLOW_MAESTRO_REVERSAL_TRIGGER_DAMAGE) {
+            beginHollowMaestroReversal();
+        }
+    }
+
+    private void beginHollowMaestroReversal() {
+        if (classicCharlesBossReversalTimer > 0 || classicCharlesBossReversalCooldown > 0) return;
+        classicCharlesBossReversalTimer = HOLLOW_MAESTRO_REVERSAL_WINDUP_FRAMES;
+        classicCharlesBossReversalCooldown = HOLLOW_MAESTRO_REVERSAL_COOLDOWN_FRAMES;
+        classicCharlesBossCloseDamage = 0.0;
+        classicCharlesBossCloseDamageWindow = 0;
+        classicCharlesBossAttackTimer = Math.max(classicCharlesBossAttackTimer, 74);
+        addToKillFeed("DISSONANCE REVERSAL — break away before the counterbeat!");
+    }
+
+    private void performHollowMaestroReversal(Bird boss, Bird player, int phase) {
+        double dx = player.bodyCenterX() - boss.bodyCenterX();
+        double dy = player.bodyCenterY() - boss.bodyCenterY();
+        if (Math.hypot(dx, dy) > 540.0) return;
+        double direction = dx == 0.0 ? (boss.facingRight ? 1.0 : -1.0) : Math.signum(dx);
+        player.receiveExternalDamage(6.0 + phase * 1.5);
+        player.vx = direction * (13.5 + phase);
+        player.vy = Math.min(player.vy, -7.5 - phase);
+        player.stunTime = Math.max(player.stunTime, 10.0 + phase * 2.0);
+        classicCharlesBossHitCooldown = Math.max(classicCharlesBossHitCooldown, 28);
+        shakeIntensity = Math.max(shakeIntensity, 20.0 + phase * 4.0);
+        playManagedSfxVaried(hugewaveClip, 0.52, 0.58 + phase * 0.08, 0.0);
     }
 
     static int hollowMaestroPhaseForHealth(double health, double maxHealth) {
@@ -45394,6 +45463,12 @@ public class BirdGame3 {
                 && classicEncounter != null
                 && classicEncounter.style == ClassicEncounterStyle.HOLLOW_MAESTRO_BOSS
                 && getEffectiveTeam(bird.playerIndex) == 2;
+    }
+
+    double classicStaminaBossIncomingDamageScale(Bird bird) {
+        if (!isClassicStaminaBoss(bird)) return 1.0;
+        return HOLLOW_MAESTRO_STAGGER_DAMAGE_SCALE
+                * (classicCharlesBossReversalTimer > 0 ? HOLLOW_MAESTRO_REVERSAL_ARMOR_SCALE : 1.0);
     }
 
     Bird activeClassicStaminaBoss() {
@@ -45748,7 +45823,32 @@ public class BirdGame3 {
 
     private void drawHollowMaestroTelegraph(GraphicsContext g) {
         Bird boss = firstClassicEnemyWithStocks();
-        if (boss == null || classicCharlesBossAttackTimer > 72 || classicCharlesBossAttackTimer < 36) return;
+        if (boss == null) return;
+        if (classicCharlesBossReversalTimer > 0) {
+            double elapsed = HOLLOW_MAESTRO_REVERSAL_WINDUP_FRAMES - classicCharlesBossReversalTimer;
+            double progress = Math.clamp(elapsed
+                    / (HOLLOW_MAESTRO_REVERSAL_WINDUP_FRAMES - HOLLOW_MAESTRO_REVERSAL_IMPACT_FRAME), 0.0, 1.0);
+            double radius = 540.0 - progress * 285.0;
+            double cx = boss.bodyCenterX();
+            double cy = boss.bodyCenterY();
+            g.save();
+            g.setFill(Color.web("#2B0715", 0.18 + progress * 0.20));
+            g.fillOval(cx - radius, cy - radius, radius * 2.0, radius * 2.0);
+            g.setStroke(Color.web("#FF5252", 0.58 + progress * 0.40));
+            g.setLineWidth(18.0 + progress * 16.0);
+            g.strokeOval(cx - radius, cy - radius, radius * 2.0, radius * 2.0);
+            g.setStroke(Color.web("#FFE082", 0.68 + progress * 0.30));
+            g.setLineWidth(7.0);
+            g.strokeOval(cx - radius - 34.0, cy - radius - 34.0,
+                    (radius + 34.0) * 2.0, (radius + 34.0) * 2.0);
+            g.setFill(Color.web("#FFF8E1", 0.96));
+            g.setFont(Font.font("Consolas", FontWeight.BOLD, 34));
+            g.setTextAlign(TextAlignment.CENTER);
+            g.fillText("DISSONANCE REVERSAL", cx, cy - radius - 54.0);
+            g.restore();
+            return;
+        }
+        if (classicCharlesBossAttackTimer > 72 || classicCharlesBossAttackTimer < 36) return;
         double alpha = 0.22 + (72 - classicCharlesBossAttackTimer) / 36.0 * 0.42;
         g.setFill(Color.web("#FFE082", alpha));
         if (classicCharlesBossAttackKind == 0) {
@@ -56771,8 +56871,10 @@ public class BirdGame3 {
                             ? "UNDERSTUDY " : "CHOIR MASK ")
                             + Math.min(waveCount, classicCharlesWaveIndex + 1) + "/" + waveCount);
                 } else if (classicEncounter.style == ClassicEncounterStyle.HOLLOW_MAESTRO_BOSS) {
-                    lines.add("HOLLOW SCORE  MOVEMENT " + classicStaminaBossMovement() + "/3  NEXT CUE "
-                            + Math.max(0, classicCharlesBossAttackTimer));
+                    lines.add("HOLLOW SCORE  MOVEMENT " + classicStaminaBossMovement() + "/3  "
+                            + (classicCharlesBossReversalTimer > 0
+                            ? "REVERSAL " + classicCharlesBossReversalTimer
+                            : "NEXT CUE " + Math.max(0, classicCharlesBossAttackTimer)));
                 }
             }
             return lines;
