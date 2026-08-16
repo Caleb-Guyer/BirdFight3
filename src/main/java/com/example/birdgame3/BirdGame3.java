@@ -56992,27 +56992,27 @@ public class BirdGame3 {
         if (bird == null) {
             return;
         }
-        int stocks = Math.clamp(smashStartingStocks(), 0, matchScoreForPlayer(bird.playerIndex));
+        int stocks = fightHudStockIconCount(bird);
         WritableImage portrait = fightHudPortraitImage(bird);
         double gap = size <= 18.0 ? 5.0 : 6.0;
-        for (int i = 0; i < smashStartingStocks(); i++) {
+        for (int i = 0; i < stocks; i++) {
             double x = startX + i * (size + gap);
-            boolean filled = i < stocks;
-            g.setFill(Color.web("#02060A", filled ? 0.98 : 0.82));
+            g.setFill(Color.web("#02060A", 0.98));
             g.fillRoundRect(x, y, size, size, 8, 8);
-            g.setStroke(accent.deriveColor(0, 1, 1, filled ? 0.9 : 0.26));
+            g.setStroke(accent.deriveColor(0, 1, 1, 0.9));
             g.setLineWidth(1.25);
             g.strokeRoundRect(x, y, size, size, 8, 8);
             if (portrait != null) {
-                g.save();
-                g.setGlobalAlpha(filled ? 1.0 : 0.18);
                 g.drawImage(portrait, x + 1.5, y + 1.5, size - 3.0, size - 3.0);
-                g.restore();
-            } else if (filled) {
+            } else {
                 g.setFill(accent);
                 g.fillOval(x + 3.0, y + 3.0, size - 6.0, size - 6.0);
             }
         }
+    }
+
+    int fightHudStockIconCount(Bird bird) {
+        return bird == null ? 0 : Math.max(0, matchScoreForPlayer(bird.playerIndex));
     }
 
     private void drawFightStartCountdown(GraphicsContext g) {
