@@ -154,6 +154,7 @@ class CharlesClassicRouteTest {
         assertTrue(source.contains("drawClassicStaminaBossHud"));
         assertTrue(routeCode.contains("drawHollowMaestroTelegraph"));
         assertTrue(routeCode.contains("performHollowMaestroAttack"));
+        assertTrue(routeCode.contains("steerHollowMaestroFlight"));
     }
 
     @Test
@@ -243,6 +244,76 @@ class CharlesClassicRouteTest {
         assertTrue(Math.abs(charles.vx) >= 13.5,
                 "The reversal should force Charles out instead of letting him remain inside the boss and mash.");
         assertTrue(charles.stunTime >= 10.0);
+    }
+
+    @Test
+    void hollowMaestroFliesAcrossElevatedStageLanesInsteadOfWaitingOnTheGround() {
+        BirdGame3 game = prepared(7, 0xC4A2A9L, 0xC4A2AAL);
+        Bird boss = firstEnemy(game);
+        double startingX = boss.bodyCenterX();
+        double startingY = boss.bodyCenterY();
+        double minimumX = startingX;
+        double minimumY = startingY;
+
+        for (int tick = 0; tick < 180 && game.harnessTick(); tick++) {
+            minimumX = Math.min(minimumX, boss.bodyCenterX());
+            minimumY = Math.min(minimumY, boss.bodyCenterY());
+        }
+
+        assertTrue(minimumX < startingX - 300.0,
+                "The Maestro should cross the amphitheater instead of hovering over its spawn.");
+        assertTrue(minimumY < startingY - 300.0,
+                "The Maestro should visibly take flight above the main stage.");
+    }
+
+    @Test
+    void hollowMaestroAirStrikesUseThePositionShownByTheirTelegraph() throws Exception {
+        BirdGame3 game = prepared(7, 0xC4A2ABL, 0xC4A2ACL);
+        Bird charles = game.players[0];
+        set(game, "classicCharlesBossAttackKind", 0);
+        set(game, "classicCharlesBossAttackTimer", 72);
+
+        game.applyCharlesClassicRuntimeEffects();
+        double lockedY = (double) get(game, "classicCharlesBossAttackTargetY");
+        assertEquals(charles.bodyCenterY(), lockedY, 0.0001);
+
+        charles.y += 520.0;
+        double damageBeforeDodge = (double) get(charles, "smashDamage");
+        set(game, "classicCharlesBossAttackTimer", 37);
+        game.applyCharlesClassicRuntimeEffects();
+        assertEquals(damageBeforeDodge, (double) get(charles, "smashDamage"), 0.0001,
+                "Leaving the shown horizontal band should dodge the airborne attack.");
+
+        charles.y = lockedY - charles.bodyHeight() * 0.5;
+        set(game, "classicCharlesBossAttackTimer", 37);
+        game.applyCharlesClassicRuntimeEffects();
+        assertTrue((double) get(charles, "smashDamage") > damageBeforeDodge,
+                "Remaining in the telegraphed band should be punished.");
+    }
+
+    @Test
+    void hollowMaestroUnleashesVisibleHomingNotesWhileFlying() throws Exception {
+        BirdGame3 game = prepared(7, 0xC4A2ADL, 0xC4A2AEL);
+        Bird charles = game.players[0];
+        set(game, "classicCharlesBossAttackTimer", 52);
+
+        game.applyCharlesClassicRuntimeEffects();
+        @SuppressWarnings("unchecked")
+        List<BirdGame3.ClassicMaestroNote> notes =
+                (List<BirdGame3.ClassicMaestroNote>) get(game, "classicMaestroNotes");
+        assertEquals(1, notes.size());
+
+        BirdGame3.ClassicMaestroNote note = notes.getFirst();
+        note.x = charles.bodyCenterX();
+        note.y = charles.bodyCenterY();
+        note.vx = 0.0;
+        note.vy = 0.0;
+        double damageBefore = (double) get(charles, "smashDamage");
+        game.applyCharlesClassicRuntimeEffects();
+
+        assertTrue((double) get(charles, "smashDamage") > damageBefore);
+        assertTrue(notes.isEmpty(), "A note should burst instead of repeatedly damaging on contact.");
+        assertTrue(charles.stunTime >= 5.0);
     }
 
     @Test

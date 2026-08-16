@@ -15148,6 +15148,16 @@ public class Bird {
         return dealtDamage;
     }
 
+    void applyExternalDamageScaledLaunch(double launchX, double launchY, double dealtDamage) {
+        if (dealtDamage <= 0.0 || health <= 0.0) return;
+        vx += launchX;
+        vy = Math.min(vy, launchY);
+        if (game.usesDamageScaledKnockback()) {
+            registerSmashHit(null, dealtDamage);
+        }
+        applyPendingSmashLaunch();
+    }
+
     double receiveOwnedMinionDamage(double rawDamage, Bird owner) {
         if (rawDamage <= 0) return 0;
         // Keep minion contact on the external-hit path while making the owner's

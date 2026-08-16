@@ -5019,6 +5019,7 @@ public class BirdGame3 {
     private int classicMireEchoRespawnCooldown = 0;
     private int classicCharlesAuditionReadyRound = -1;
     private final List<ClassicPitchBell> classicPitchBells = new ArrayList<>();
+    private final List<ClassicMaestroNote> classicMaestroNotes = new ArrayList<>();
     private int[] classicPitchSequence = new int[0];
     private int classicPitchSequenceIndex = 0;
     private int classicPitchRevealFrames = 0;
@@ -5034,6 +5035,10 @@ public class BirdGame3 {
     static final int HOLLOW_MAESTRO_REVERSAL_WINDUP_FRAMES = 42;
     static final int HOLLOW_MAESTRO_REVERSAL_IMPACT_FRAME = 10;
     static final int HOLLOW_MAESTRO_REVERSAL_COOLDOWN_FRAMES = 270;
+    static final double[] HOLLOW_MAESTRO_FLIGHT_X = {1_300.0, 3_000.0, 4_700.0, 3_000.0};
+    static final double[] HOLLOW_MAESTRO_FLIGHT_Y = {
+            GROUND_Y - 950.0, GROUND_Y - 1_220.0, GROUND_Y - 950.0, GROUND_Y - 750.0
+    };
     private int classicCharlesBossPhase = 0;
     private int classicCharlesBossAttackTimer = 0;
     private int classicCharlesBossAttackKind = 0;
@@ -5042,6 +5047,11 @@ public class BirdGame3 {
     private int classicCharlesBossCloseDamageWindow = 0;
     private int classicCharlesBossReversalTimer = 0;
     private int classicCharlesBossReversalCooldown = 0;
+    private int classicCharlesBossFlightWaypoint = 0;
+    private double classicCharlesBossAttackTargetX = SILENT_FIELD_CENTER_X;
+    private double classicCharlesBossAttackTargetY = SILENT_FIELD_CENTER_Y;
+    private double classicCharlesBossAttackOriginX = SILENT_FIELD_CENTER_X;
+    private double classicCharlesBossAttackOriginY = SILENT_FIELD_CENTER_Y;
     private static final double STILLWATER_MAIN_X = 900.0;
     private static final double STILLWATER_MAIN_Y = GROUND_Y - 330.0;
     private static final double STILLWATER_MAIN_W = 4_200.0;
@@ -5208,6 +5218,26 @@ public class BirdGame3 {
             this.y = y;
             this.color = color;
             this.symbol = symbol;
+        }
+    }
+
+    static final class ClassicMaestroNote {
+        double x;
+        double y;
+        double vx;
+        double vy;
+        int life;
+        final int phase;
+        final int kind;
+
+        ClassicMaestroNote(double x, double y, double vx, double vy, int life, int phase, int kind) {
+            this.x = x;
+            this.y = y;
+            this.vx = vx;
+            this.vy = vy;
+            this.life = life;
+            this.phase = phase;
+            this.kind = kind;
         }
     }
 
@@ -45222,6 +45252,7 @@ public class BirdGame3 {
 
     private void setupCharlesClassicRoute(ClassicEncounter encounter) {
         classicPitchBells.clear();
+        classicMaestroNotes.clear();
         classicPitchSequence = new int[0];
         classicPitchSequenceIndex = 0;
         classicPitchRevealFrames = 0;
@@ -45230,13 +45261,18 @@ public class BirdGame3 {
         classicPitchCompleted = false;
         classicCharlesWaveIndex = 0;
         classicCharlesBossPhase = 0;
-        classicCharlesBossAttackTimer = 120;
+        classicCharlesBossAttackTimer = 96;
         classicCharlesBossAttackKind = 0;
         classicCharlesBossHitCooldown = 0;
         classicCharlesBossCloseDamage = 0.0;
         classicCharlesBossCloseDamageWindow = 0;
         classicCharlesBossReversalTimer = 0;
         classicCharlesBossReversalCooldown = 0;
+        classicCharlesBossFlightWaypoint = 0;
+        classicCharlesBossAttackTargetX = SILENT_FIELD_CENTER_X;
+        classicCharlesBossAttackTargetY = SILENT_FIELD_CENTER_Y;
+        classicCharlesBossAttackOriginX = SILENT_FIELD_CENTER_X;
+        classicCharlesBossAttackOriginY = SILENT_FIELD_CENTER_Y;
         if (!classicModeActive || bossRushModeActive || ashfallTrialModeActive
                 || classicSelectedBird != BirdType.MOCKINGBIRD || encounter == null) {
             return;
@@ -45383,6 +45419,8 @@ public class BirdGame3 {
         double dx = player.bodyCenterX() - boss.bodyCenterX();
         boss.facingRight = dx >= 0.0;
         int phase = classicCharlesBossPhase;
+        steerHollowMaestroFlight(boss, phase);
+        updateHollowMaestroNotes(player);
         if (classicCharlesBossCloseDamageWindow > 0) {
             classicCharlesBossCloseDamageWindow--;
             if (classicCharlesBossCloseDamageWindow == 0) classicCharlesBossCloseDamage = 0.0;
@@ -45390,7 +45428,6 @@ public class BirdGame3 {
         if (classicCharlesBossReversalCooldown > 0) classicCharlesBossReversalCooldown--;
 
         if (classicCharlesBossReversalTimer > 0) {
-            boss.vx *= 0.72;
             classicCharlesBossReversalTimer--;
             if (classicCharlesBossReversalTimer == HOLLOW_MAESTRO_REVERSAL_IMPACT_FRAME) {
                 performHollowMaestroReversal(boss, player, phase);
@@ -45398,15 +45435,102 @@ public class BirdGame3 {
             return;
         }
 
-        boss.vx = Math.clamp(boss.vx + Math.signum(dx) * 0.10, -3.1, 3.1);
         if (classicCharlesBossAttackTimer > 0) {
+            if (classicCharlesBossAttackTimer == 72) {
+                lockHollowMaestroAttackCue(boss, player);
+            }
+            if (classicCharlesBossAttackTimer == 52
+                    || (phase >= 1 && classicCharlesBossAttackTimer == 40)) {
+                spawnHollowMaestroNote(boss, player, phase);
+            }
             classicCharlesBossAttackTimer--;
             if (classicCharlesBossAttackTimer == 36 && classicCharlesBossHitCooldown == 0) {
                 performHollowMaestroAttack(boss, player, phase);
             }
         } else {
             classicCharlesBossAttackKind = (classicCharlesBossAttackKind + 1) % 3;
-            classicCharlesBossAttackTimer = Math.max(82, 136 - phase * 18);
+            advanceHollowMaestroFlightWaypoint();
+            classicCharlesBossAttackTimer = Math.max(76, 112 - phase * 14);
+        }
+    }
+
+    private void steerHollowMaestroFlight(Bird boss, int phase) {
+        int waypoint = Math.floorMod(classicCharlesBossFlightWaypoint, HOLLOW_MAESTRO_FLIGHT_X.length);
+        double targetX = HOLLOW_MAESTRO_FLIGHT_X[waypoint];
+        double targetY = HOLLOW_MAESTRO_FLIGHT_Y[waypoint];
+        double dx = targetX - boss.bodyCenterX();
+        double dy = targetY - boss.bodyCenterY();
+        double horizontalSpeed = 4.8 + phase * 0.55;
+        double verticalSpeed = 5.8 + phase * 0.45;
+        double targetVx = Math.clamp(dx * 0.018, -horizontalSpeed, horizontalSpeed);
+        double targetVy = Math.clamp(dy * 0.024, -verticalSpeed, verticalSpeed);
+        boss.vx += (targetVx - boss.vx) * 0.18;
+        // Counteract ordinary fighter gravity so the custom boss can actually
+        // orbit its elevated conducting points instead of landing between cues.
+        boss.vy += (targetVy - boss.vy) * 0.24 - GRAVITY * 0.78;
+        boss.vx = Math.clamp(boss.vx, -horizontalSpeed, horizontalSpeed);
+        boss.vy = Math.clamp(boss.vy, -verticalSpeed, verticalSpeed);
+    }
+
+    private void advanceHollowMaestroFlightWaypoint() {
+        classicCharlesBossFlightWaypoint = Math.floorMod(
+                classicCharlesBossFlightWaypoint + 1, HOLLOW_MAESTRO_FLIGHT_X.length);
+    }
+
+    private void lockHollowMaestroAttackCue(Bird boss, Bird player) {
+        classicCharlesBossAttackTargetX = player.bodyCenterX();
+        classicCharlesBossAttackTargetY = player.bodyCenterY();
+        classicCharlesBossAttackOriginX = boss.bodyCenterX();
+        classicCharlesBossAttackOriginY = boss.bodyCenterY();
+    }
+
+    private void spawnHollowMaestroNote(Bird boss, Bird player, int phase) {
+        double dx = player.bodyCenterX() - boss.bodyCenterX();
+        double dy = player.bodyCenterY() - boss.bodyCenterY();
+        double distance = Math.max(1.0, Math.hypot(dx, dy));
+        double speed = 12.5 + phase;
+        double volleyOffset = classicCharlesBossAttackTimer == 40 ? 0.10 : -0.06;
+        double aimX = dx / distance;
+        double aimY = dy / distance;
+        double vx = (aimX - aimY * volleyOffset) * speed;
+        double vy = (aimY + aimX * volleyOffset) * speed;
+        classicMaestroNotes.add(new ClassicMaestroNote(
+                boss.bodyCenterX(), boss.bodyCenterY(), vx, vy, 210, phase, classicCharlesBossAttackKind));
+        while (classicMaestroNotes.size() > 24) classicMaestroNotes.removeFirst();
+    }
+
+    private void updateHollowMaestroNotes(Bird player) {
+        for (int i = classicMaestroNotes.size() - 1; i >= 0; i--) {
+            ClassicMaestroNote note = classicMaestroNotes.get(i);
+            double dx = player.bodyCenterX() - note.x;
+            double dy = player.bodyCenterY() - note.y;
+            double distance = Math.max(1.0, Math.hypot(dx, dy));
+            double homing = 0.06 + note.phase * 0.015;
+            note.vx += dx / distance * homing;
+            note.vy += dy / distance * homing;
+            double speed = Math.hypot(note.vx, note.vy);
+            double maxSpeed = 15.0 + note.phase;
+            if (speed > maxSpeed) {
+                note.vx *= maxSpeed / speed;
+                note.vy *= maxSpeed / speed;
+            }
+            note.x += note.vx;
+            note.y += note.vy;
+            note.life--;
+
+            double hitRadius = player.combatRadius() + 32.0 + note.phase * 4.0;
+            if (Math.hypot(player.bodyCenterX() - note.x, player.bodyCenterY() - note.y) <= hitRadius) {
+                double dealtDamage = player.receiveExternalDamage(3.8 + note.phase * 0.9);
+                double launchDirection = note.vx == 0.0 ? 1.0 : Math.signum(note.vx);
+                player.applyExternalDamageScaledLaunch(
+                        launchDirection * (4.8 + note.phase * 0.7), -4.5 - note.phase * 0.6, dealtDamage);
+                player.stunTime = Math.max(player.stunTime, 5.0 + note.phase);
+                playManagedSfxVaried(bonkClip, 0.24, 1.08 + note.kind * 0.09, 0.0);
+                classicMaestroNotes.remove(i);
+            } else if (note.life <= 0 || note.x < -300.0 || note.x > WORLD_WIDTH + 300.0
+                    || note.y < -300.0 || note.y > WORLD_HEIGHT + 300.0) {
+                classicMaestroNotes.remove(i);
+            }
         }
     }
 
@@ -45432,6 +45556,7 @@ public class BirdGame3 {
         classicCharlesBossReversalCooldown = HOLLOW_MAESTRO_REVERSAL_COOLDOWN_FRAMES;
         classicCharlesBossCloseDamage = 0.0;
         classicCharlesBossCloseDamageWindow = 0;
+        advanceHollowMaestroFlightWaypoint();
         classicCharlesBossAttackTimer = Math.max(classicCharlesBossAttackTimer, 74);
         addToKillFeed("DISSONANCE REVERSAL — break away before the counterbeat!");
     }
@@ -45441,9 +45566,8 @@ public class BirdGame3 {
         double dy = player.bodyCenterY() - boss.bodyCenterY();
         if (Math.hypot(dx, dy) > 540.0) return;
         double direction = dx == 0.0 ? (boss.facingRight ? 1.0 : -1.0) : Math.signum(dx);
-        player.receiveExternalDamage(6.0 + phase * 1.5);
-        player.vx = direction * (13.5 + phase);
-        player.vy = Math.min(player.vy, -7.5 - phase);
+        double dealtDamage = player.receiveExternalDamage(6.0 + phase * 1.5);
+        player.applyExternalDamageScaledLaunch(direction * (13.5 + phase), -7.5 - phase, dealtDamage);
         player.stunTime = Math.max(player.stunTime, 10.0 + phase * 2.0);
         classicCharlesBossHitCooldown = Math.max(classicCharlesBossHitCooldown, 28);
         shakeIntensity = Math.max(shakeIntensity, 20.0 + phase * 4.0);
@@ -45504,22 +45628,23 @@ public class BirdGame3 {
         double dx = player.bodyCenterX() - boss.bodyCenterX();
         double dy = player.bodyCenterY() - boss.bodyCenterY();
         boolean hit = switch (classicCharlesBossAttackKind) {
-            case 0 -> Math.abs(dy) < 260.0;
-            case 1 -> Math.abs(dx) < 620.0;
-            default -> Math.hypot(dx, dy) < 940.0;
+            case 0 -> Math.abs(player.bodyCenterY() - classicCharlesBossAttackTargetY) < 185.0;
+            case 1 -> Math.abs(player.bodyCenterX() - classicCharlesBossAttackTargetX) < 330.0;
+            default -> Math.hypot(player.bodyCenterX() - classicCharlesBossAttackOriginX,
+                    player.bodyCenterY() - classicCharlesBossAttackOriginY) < 940.0;
         };
         if (!hit) return;
         double damage = 10.0 + phase * 2.5 + classicCharlesBossAttackKind * 1.5;
-        player.receiveExternalDamage(damage);
+        double dealtDamage = player.receiveExternalDamage(damage);
         if (classicCharlesBossAttackKind == 0) {
-            player.vx += Math.signum(dx == 0.0 ? 1.0 : dx) * (9.0 + phase);
-            player.vy -= 3.0;
+            player.applyExternalDamageScaledLaunch(
+                    Math.signum(dx == 0.0 ? 1.0 : dx) * (9.0 + phase), -5.0 - phase, dealtDamage);
         } else if (classicCharlesBossAttackKind == 1) {
-            player.vx += Math.signum(dx == 0.0 ? 1.0 : dx) * 4.0;
-            player.vy -= 11.0 + phase;
+            player.applyExternalDamageScaledLaunch(
+                    Math.signum(dx == 0.0 ? 1.0 : dx) * 4.0, -11.0 - phase, dealtDamage);
         } else {
-            player.vx -= Math.signum(dx == 0.0 ? 1.0 : dx) * (7.5 + phase);
-            player.vy -= 7.0;
+            player.applyExternalDamageScaledLaunch(
+                    -Math.signum(dx == 0.0 ? 1.0 : dx) * (7.5 + phase), -7.0 - phase, dealtDamage);
         }
         classicCharlesBossHitCooldown = 32;
         shakeIntensity = Math.max(shakeIntensity, 12.0 + phase * 4.0);
@@ -45610,7 +45735,30 @@ public class BirdGame3 {
             }
             drawPerfectPitchScore(g);
         } else if (classicEncounter.style == ClassicEncounterStyle.HOLLOW_MAESTRO_BOSS) {
+            drawHollowMaestroNotes(g);
             drawHollowMaestroTelegraph(g);
+        }
+    }
+
+    private void drawHollowMaestroNotes(GraphicsContext g) {
+        for (ClassicMaestroNote note : classicMaestroNotes) {
+            Color color = note.kind == 0 ? Color.web("#FFCA28")
+                    : note.kind == 1 ? Color.web("#80DEEA") : Color.web("#CE93D8");
+            double speed = Math.max(1.0, Math.hypot(note.vx, note.vy));
+            double tailX = note.x - note.vx / speed * 84.0;
+            double tailY = note.y - note.vy / speed * 84.0;
+            double pulse = 0.5 + 0.5 * Math.sin((simTick + note.life) * 0.18);
+            g.setStroke(color.deriveColor(0, 1.0, 1.0, 0.38 + pulse * 0.30));
+            g.setLineWidth(18.0 + note.phase * 4.0);
+            g.strokeLine(tailX, tailY, note.x, note.y);
+            double radius = 25.0 + note.phase * 5.0 + pulse * 4.0;
+            g.setFill(Color.web("#FFF8E1", 0.96));
+            g.fillPolygon(new double[]{note.x, note.x + radius, note.x, note.x - radius},
+                    new double[]{note.y - radius, note.y, note.y + radius, note.y}, 4);
+            g.setStroke(color);
+            g.setLineWidth(8.0);
+            g.strokePolygon(new double[]{note.x, note.x + radius, note.x, note.x - radius},
+                    new double[]{note.y - radius, note.y, note.y + radius, note.y}, 4);
         }
     }
 
@@ -45852,13 +46000,14 @@ public class BirdGame3 {
         double alpha = 0.22 + (72 - classicCharlesBossAttackTimer) / 36.0 * 0.42;
         g.setFill(Color.web("#FFE082", alpha));
         if (classicCharlesBossAttackKind == 0) {
-            g.fillRect(0, boss.bodyCenterY() - 145.0, WORLD_WIDTH, 290.0);
+            g.fillRect(0, classicCharlesBossAttackTargetY - 185.0, WORLD_WIDTH, 370.0);
         } else if (classicCharlesBossAttackKind == 1) {
-            g.fillOval(boss.bodyCenterX() - 620.0, battlefieldIslandY - 180.0, 1_240.0, 360.0);
+            g.fillRect(classicCharlesBossAttackTargetX - 330.0, 0.0, 660.0, WORLD_HEIGHT);
         } else {
             g.setStroke(Color.web("#FFE082", Math.min(0.94, alpha + 0.2)));
             g.setLineWidth(26.0);
-            g.strokeOval(boss.bodyCenterX() - 940.0, boss.bodyCenterY() - 940.0, 1_880.0, 1_880.0);
+            g.strokeOval(classicCharlesBossAttackOriginX - 940.0,
+                    classicCharlesBossAttackOriginY - 940.0, 1_880.0, 1_880.0);
         }
     }
 
