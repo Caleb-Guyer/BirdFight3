@@ -701,7 +701,8 @@ public class BirdGame3 {
         HARVEST_TRIBUNAL(MapType.FOREST, "Classic Routes", "Harvest Tribunal", "A moonlit autumn court built around a monumental stone table, braziers, and open recovery lanes."),
         DAWNWATCH_BASTION(MapType.BEACON_CROWN, "Classic Routes", "Dawnwatch Bastion", "A golden mountaintop citadel of watchtowers, structural bridges, banners, and a colossal dawn bell."),
         REDLINE_CANYON(MapType.DESERT, "Classic Routes", "Redline Canyon", "A sunset highway carved through towering mesas, stone arches, tunnels, switchbacks, and dust-devil lifts."),
-        LAST_ICE_SHELF(MapType.FROSTBITE_FJORD, "Classic Routes", "Last Ice Shelf", "An aurora-lit iceberg fortress whose terraces, arches, and recovery shelves are carved from one connected glacier.");
+        LAST_ICE_SHELF(MapType.FROSTBITE_FJORD, "Classic Routes", "Last Ice Shelf", "An aurora-lit iceberg fortress whose terraces, arches, and recovery shelves are carved from one connected glacier."),
+        STILLWATER_MARSH(MapType.FOREST, "Classic Routes", "Stillwater Marsh", "A moonlit flooded marsh whose fighting surfaces grow from one web of cypress roots and ruined shrine stone.");
 
         final MapType baseMap;
         final String category;
@@ -853,6 +854,7 @@ public class BirdGame3 {
     private boolean dawnwatchBastionUnlocked = false;
     private boolean redlineCanyonUnlocked = false;
     private boolean lastIceShelfUnlocked = false;
+    private boolean stillwaterMarshUnlocked = false;
     private final boolean[][] towerDefenseDifficultyBadges = new boolean[MapType.values().length][TowerDefenseMode.Difficulty.values().length];
     private static final int DOCK_LEVER_COOLDOWN_FRAMES = 900;
     private static final int DOCK_BOMB_FUSE_FRAMES = 88;
@@ -4973,6 +4975,14 @@ public class BirdGame3 {
     private boolean classicPenguinArchitectCompleted = false;
     private int classicLastSunLastStocks = 3;
     private int classicLastSunPhase = 0;
+    private enum ShoebillTrail { UNCHOSEN, SWIFT, HEAVY }
+    private ShoebillTrail classicShoebillTrail = ShoebillTrail.UNCHOSEN;
+    private int classicShoebillMarshWaveIndex = 0;
+    private int classicMireOracleLastStocks = 3;
+    private int classicMireEchoRespawnCooldown = 0;
+    private static final double STILLWATER_MAIN_X = 900.0;
+    private static final double STILLWATER_MAIN_Y = GROUND_Y - 330.0;
+    private static final double STILLWATER_MAIN_W = 4_200.0;
     static final double LAST_ICE_MAIN_X = 1_000.0;
     static final double LAST_ICE_MAIN_Y = GROUND_Y - 360.0;
     static final double LAST_ICE_MAIN_W = 4_000.0;
@@ -5047,7 +5057,10 @@ public class BirdGame3 {
         FINAL_STILLNESS("Final Stillness", "Redline Bolts break the Still King's speed-dampening control field."),
         ICEWORKS("Iceworks", "Build Snow Forts on glowing foundations to construct, claim, and repair the battlefield."),
         ICE_ARCHITECT("Ice Architect", "Raise three launch ramps, strike every frozen target, then enter the open refuge gate."),
-        LAST_SUN("The Last Sun", "Rebuild the Last Ice Shelf as the Crown's artificial sun melts it stock by stock.");
+        LAST_SUN("The Last Sun", "Rebuild the Last Ice Shelf as the Crown's artificial sun melts it stock by stock."),
+        MARSH_HUNT("Marsh Hunt", "Read the arena, choose the trail, and outlast each hunter without changing Shoebill's normal kit."),
+        RIPPLE_HUNT("Ripple Hunt", "Strike the targets that rise from the water; every ordinary attack works."),
+        MIRE_ORACLE("Mire Oracle", "The real oracle is always marked by a golden ripple beneath its reflection.");
 
         final String label;
         final String description;
@@ -5100,7 +5113,11 @@ public class BirdGame3 {
         ICEWORKS_MIRROR,
         ICEWORKS_SIEGE,
         ICE_ARCHITECT,
-        LAST_SUN_BOSS
+        LAST_SUN_BOSS,
+        SHOEBILL_TRAIL,
+        RIPPLE_HUNT,
+        MARSH_GAUNTLET,
+        MIRE_ORACLE_BOSS
     }
 
     static final class ClassicIceworkAnchor {
@@ -8962,6 +8979,7 @@ public class BirdGame3 {
         if (variant == MapVariant.DAWNWATCH_BASTION) return dawnwatchBastionUnlocked;
         if (variant == MapVariant.REDLINE_CANYON) return redlineCanyonUnlocked;
         if (variant == MapVariant.LAST_ICE_SHELF) return lastIceShelfUnlocked;
+        if (variant == MapVariant.STILLWATER_MARSH) return stillwaterMarshUnlocked;
         return isMapUnlocked(variant.baseMap);
     }
 
@@ -13445,6 +13463,8 @@ public class BirdGame3 {
             case FOREST -> {
                 if (activeArenaGeometryVariant == MapVariant.HARVEST_TRIBUNAL) {
                     drawHarvestTribunalArena(g, ambientFx);
+                } else if (activeArenaGeometryVariant == MapVariant.STILLWATER_MARSH) {
+                    drawStillwaterMarshArena(g, ambientFx);
                 } else {
                     drawForestArena(g, ambientFx);
                 }
@@ -13790,6 +13810,7 @@ public class BirdGame3 {
         drawClassicRoosterRouteFeatures(g);
         drawClassicRoadrunnerRouteFeatures(g);
         drawClassicPenguinRouteFeatures(g);
+        drawClassicShoebillRouteFeatures(g);
         drawUltimateReadyScreenDarken(g);
         drawCampaignObjectiveMarkers(g);
 
@@ -15404,6 +15425,78 @@ public class BirdGame3 {
                 g.strokeOval(vent.x + vent.w * 0.5 - w * 0.5,
                         vent.y - 95 - ring * 70.0, w, 44 + ring * 14.0);
             }
+        }
+    }
+
+    private void drawStillwaterMarshArena(GraphicsContext g, boolean ambientFx) {
+        double time = System.currentTimeMillis() / 1000.0;
+        for (int i = 0; i < 620; i++) {
+            double ratio = i / 620.0;
+            g.setFill(Color.web("#030A12").interpolate(Color.web("#16454A"), ratio));
+            g.fillRect(0, i * (WORLD_HEIGHT / 620.0), WORLD_WIDTH, WORLD_HEIGHT / 620.0 + 3);
+        }
+
+        g.setFill(Color.web("#E9F4CF", 0.78));
+        g.fillOval(4_650, 120, 390, 390);
+        g.setFill(Color.web("#B8E6C5", 0.10));
+        g.fillOval(4_500, -20, 700, 700);
+
+        // Distant cypress crowns and shrine silhouettes establish depth while
+        // every playable surface below remains visibly rooted to the marsh.
+        g.setFill(Color.web("#071B22", 0.88));
+        for (int i = 0; i < 12; i++) {
+            double x = -180 + i * 560.0;
+            double top = 300 + (i % 4) * 95.0;
+            g.fillRect(x + 170, top, 64, STILLWATER_MAIN_Y + 420 - top);
+            g.fillOval(x, top - 120, 420, 210);
+        }
+        g.setFill(Color.web("#13262B", 0.72));
+        g.fillPolygon(new double[]{2_480, 2_760, 3_040, 3_320, 3_600},
+                new double[]{STILLWATER_MAIN_Y + 230, 510, 350, 510, STILLWATER_MAIN_Y + 230}, 5);
+
+        double waterY = STILLWATER_MAIN_Y + 230.0;
+        g.setFill(Color.web("#031921", 0.96));
+        g.fillRect(0, waterY, WORLD_WIDTH, WORLD_HEIGHT - waterY);
+        g.setStroke(Color.web("#78D5C1", 0.22));
+        g.setLineWidth(3.0);
+        for (int row = 0; row < 22; row++) {
+            double shift = ambientFx ? Math.sin(time * 0.7 + row * 0.61) * 46.0 : 0.0;
+            double y = waterY + 28 + row * 48.0;
+            g.strokeLine(70 + shift, y, WORLD_WIDTH - 70 - shift * 0.25, y + 5);
+        }
+
+        for (Platform platform : platforms) {
+            double center = platform.x + platform.w * 0.5;
+            double supportTop = platform.y + platform.h * 0.45;
+            double supportBottom = waterY + 430.0;
+            double spread = Math.max(60.0, Math.min(310.0, platform.w * 0.38));
+            g.setFill(Color.web("#2B211C", 0.92));
+            g.fillPolygon(new double[]{platform.x + 18, platform.x + platform.w - 18,
+                            center + spread, center - spread},
+                    new double[]{supportTop, supportTop, supportBottom, supportBottom}, 4);
+            g.setStroke(Color.web("#5A4937", 0.72));
+            g.setLineWidth(12.0);
+            g.strokeLine(platform.x + 38, supportTop, center - spread * 0.55, supportBottom);
+            g.strokeLine(platform.x + platform.w - 38, supportTop,
+                    center + spread * 0.55, supportBottom);
+        }
+
+        for (Platform platform : platforms) {
+            g.setFill(Color.web("#30251F"));
+            g.fillRoundRect(platform.x, platform.y, platform.w, platform.h, 28, 28);
+            g.setStroke(Color.web("#7E6650"));
+            g.setLineWidth(7.0);
+            g.strokeRoundRect(platform.x, platform.y, platform.w, platform.h, 28, 28);
+            g.setFill(Color.web("#4E8064"));
+            g.fillRoundRect(platform.x + 12, platform.y + 5,
+                    Math.max(0.0, platform.w - 24), 22, 18, 18);
+        }
+
+        g.setStroke(Color.web("#5FB6A1", ambientFx ? 0.22 : 0.14));
+        g.setLineWidth(42.0);
+        for (int fog = 0; fog < 5; fog++) {
+            double x = -500 + fog * 1_550.0 + (ambientFx ? Math.sin(time * 0.19 + fog) * 150.0 : 0.0);
+            g.strokeLine(x, waterY - 25 - fog * 18.0, x + 1_200, waterY - 55 - fog * 18.0);
         }
     }
 
@@ -30051,6 +30144,7 @@ public class BirdGame3 {
         dawnwatchBastionUnlocked = true;
         redlineCanyonUnlocked = true;
         lastIceShelfUnlocked = true;
+        stillwaterMarshUnlocked = true;
 
         cityPigeonUnlocked = true;
         noirPigeonUnlocked = true;
@@ -39882,6 +39976,9 @@ public class BirdGame3 {
         if (useAuthoredRoutes && playerType == BirdType.PENGUIN) {
             return buildPenguinClassicRun();
         }
+        if (useAuthoredRoutes && playerType == BirdType.SHOEBILL) {
+            return buildShoebillClassicRun();
+        }
         List<ClassicEncounter> run = new ArrayList<>();
         Set<MapType> usedMaps = new HashSet<>();
         Set<BirdType> usedBirds = new HashSet<>();
@@ -41327,6 +41424,126 @@ public class BirdGame3 {
         return run;
     }
 
+    private List<ClassicEncounter> buildShoebillClassicRun() {
+        List<ClassicEncounter> run = new ArrayList<>();
+
+        ClassicEncounter reeds = new ClassicEncounter(
+                "Needles in the Reeds", "Stillwater Watch",
+                "Three tiny hunters disturb the reeds. Hold your ground and let their speed expose them.",
+                MapType.VIBRANT_JUNGLE, MapVariant.STANDARD, MatchMutator.NONE, ClassicTwist.MARSH_HUNT,
+                ClassicEncounterStyle.MINIATURE_FLOCK, 108 * 60, new ClassicFighter[0],
+                new ClassicFighter[]{
+                        classicFighter(BirdType.HUMMINGBIRD, "Reed Needle I", 58, 0.68, 1.12),
+                        classicFighter(BirdType.HUMMINGBIRD, "Reed Needle II", 58, 0.68, 1.12),
+                        classicFighter(BirdType.HUMMINGBIRD, "Reed Needle III", 58, 0.68, 1.12)}, false);
+        reeds.cpuLevel = 3;
+        run.add(reeds);
+
+        ClassicEncounter largerBeak = new ClassicEncounter(
+                "The Larger Beak", "Titan Dock",
+                "A giant Pelican claims size is patience made visible. Wait out the charge and answer cleanly.",
+                MapType.DOCK, MapVariant.TITAN_DOCK, MatchMutator.NONE, ClassicTwist.MARSH_HUNT,
+                ClassicEncounterStyle.GIANT, 118 * 60, new ClassicFighter[0],
+                new ClassicFighter[]{classicFighter(BirdType.PELICAN, "Giant: The Larger Beak", 145,
+                        0.82, 0.86, IRONCLAD_PELICAN_SKIN)}, false);
+        largerBeak.cpuLevel = 4;
+        run.add(largerBeak);
+
+        ClassicEncounter eyesInDark = new ClassicEncounter(
+                "Eyes in the Dark", "Cavern Vigil",
+                "Fight beside Bat. Raven and Heisenbird hide in the dark, but neither can hide from two patient watchers.",
+                MapType.CAVE, MapVariant.STANDARD, MatchMutator.NONE, ClassicTwist.MARSH_HUNT,
+                ClassicEncounterStyle.STANDARD, 120 * 60,
+                new ClassicFighter[]{classicFighter(BirdType.BAT, "Ally: Cavern Bat", 122, 0.98, 1.08)},
+                new ClassicFighter[]{
+                        classicFighter(BirdType.RAVEN, "Night Intruder: Raven", 120, 1.00, 1.05),
+                        classicFighter(BirdType.HEISENBIRD, "Night Intruder: Heisenbird", 124, 1.00, 1.00)}, false);
+        eyesInDark.cpuLevel = 5;
+        run.add(eyesInDark);
+
+        run.add(buildShoebillSwiftTrailEncounter());
+
+        ClassicEncounter statueCourt = new ClassicEncounter(
+                "Statue Court", "Command Bridge",
+                "An elite Shoebill has mistaken stillness for certainty. Break the mirror without becoming it.",
+                MapType.SKYCLIFFS, MapVariant.CROWN_DUEL, MatchMutator.NONE, ClassicTwist.MARSH_HUNT,
+                ClassicEncounterStyle.STANDARD, 118 * 60, new ClassicFighter[0],
+                new ClassicFighter[]{classicFighter(BirdType.SHOEBILL, "Elite: The Stone Witness", 172,
+                        1.05, 1.01, classicSkinDataKey(BirdType.SHOEBILL))}, false);
+        statueCourt.cpuLevel = 6;
+        run.add(statueCourt);
+
+        ClassicEncounter rippleHunt = new ClassicEncounter(
+                "Bonus: Ripple Hunt", "Stillwater Shallows",
+                "Marsh targets rise from three pools. Break them with any ordinary attack before they sink.",
+                MapType.FOREST, MapVariant.STILLWATER_MARSH, MatchMutator.NONE, ClassicTwist.RIPPLE_HUNT,
+                ClassicEncounterStyle.RIPPLE_HUNT, 78 * 60, new ClassicFighter[0],
+                new ClassicFighter[]{
+                        classicFighter(BirdType.TITMOUSE, "Marsh Target I", 34, 0.05, 0.05),
+                        classicFighter(BirdType.TITMOUSE, "Marsh Target II", 34, 0.05, 0.05),
+                        classicFighter(BirdType.TITMOUSE, "Marsh Target III", 34, 0.05, 0.05)}, false);
+        rippleHunt.cpuLevel = 1;
+        run.add(rippleHunt);
+
+        ClassicFighter firstWave = classicFighter(BirdType.KIWI, "Marsh Scout: Kiwi Bird", 74, 0.76, 1.00);
+        ClassicEncounter panic = new ClassicEncounter(
+                "The Marsh in Panic", "Flooded Rookery",
+                "Three waves cross the flooded roots. The marsh repairs you between waves; the attackers have no ultimates.",
+                MapType.FOREST, MapVariant.STILLWATER_MARSH, MatchMutator.NONE, ClassicTwist.MARSH_HUNT,
+                ClassicEncounterStyle.MARSH_GAUNTLET, 145 * 60, new ClassicFighter[0],
+                new ClassicFighter[]{firstWave}, false)
+                .withWaves(
+                        new ClassicFighter[]{firstWave},
+                        new ClassicFighter[]{
+                                classicFighter(BirdType.ROADRUNNER, "Marsh Runner", 72, 0.72, 1.04),
+                                classicFighter(BirdType.HUMMINGBIRD, "Marsh Needle", 62, 0.68, 1.08)},
+                        new ClassicFighter[]{
+                                classicFighter(BirdType.VULTURE, "Panic Captain: Vulture", 88, 0.76, 0.96),
+                                classicFighter(BirdType.RAVEN, "Panic Shadow: Raven", 82, 0.74, 1.00)});
+        panic.cpuLevel = 6;
+        run.add(panic);
+
+        ClassicEncounter mireOracle = new ClassicEncounter(
+                "The Mire Oracle", "Stillwater Shrine",
+                "Defeat the Oracle behind the false reflections. The real one always stands over the golden ripple.",
+                MapType.FOREST, MapVariant.STILLWATER_MARSH, MatchMutator.NONE, ClassicTwist.MIRE_ORACLE,
+                ClassicEncounterStyle.MIRE_ORACLE_BOSS, 180 * 60, new ClassicFighter[0],
+                new ClassicFighter[]{
+                        classicFighter(BirdType.OPIUMBIRD, "Boss: The Mire Oracle", 165, 0.92, 1.00,
+                                "CLASSIC_SKIN_OPIUMBIRD"),
+                        classicFighter(BirdType.OPIUMBIRD, "Mire Echo I", 24, 0.16, 1.00),
+                        classicFighter(BirdType.OPIUMBIRD, "Mire Echo II", 24, 0.16, 1.00)}, true);
+        mireOracle.cpuLevel = 7;
+        run.add(mireOracle);
+        return run;
+    }
+
+    private ClassicEncounter buildShoebillSwiftTrailEncounter() {
+        ClassicEncounter encounter = new ClassicEncounter(
+                "Swift Trail", "Redline Track",
+                "Roadrunner and Falcon take the open trail. Read the rush, hold center, and make speed commit first.",
+                MapType.DESERT, MapVariant.REDLINE_CANYON, MatchMutator.TURBO_BRAWL, ClassicTwist.MARSH_HUNT,
+                ClassicEncounterStyle.SHOEBILL_TRAIL, 112 * 60, new ClassicFighter[0],
+                new ClassicFighter[]{
+                        classicFighter(BirdType.ROADRUNNER, "Swift Hunter: Roadrunner", 72, 0.70, 1.08),
+                        classicFighter(BirdType.FALCON, "Swift Hunter: Falcon", 76, 0.72, 1.05)}, false);
+        encounter.cpuLevel = 5;
+        return encounter;
+    }
+
+    private ClassicEncounter buildShoebillHeavyTrailEncounter() {
+        ClassicEncounter encounter = new ClassicEncounter(
+                "Heavy Trail", "Last Ice Shelf",
+                "Goose and Penguin take the fortified trail. Separate the wall from the shelter and finish each opening.",
+                MapType.FROSTBITE_FJORD, MapVariant.LAST_ICE_SHELF, MatchMutator.NONE, ClassicTwist.MARSH_HUNT,
+                ClassicEncounterStyle.SHOEBILL_TRAIL, 118 * 60, new ClassicFighter[0],
+                new ClassicFighter[]{
+                        classicFighter(BirdType.GOOSE, "Heavy Hunter: Goose", 82, 0.74, 0.96),
+                        classicFighter(BirdType.PENGUIN, "Heavy Hunter: Penguin", 78, 0.72, 0.98)}, false);
+        encounter.cpuLevel = 5;
+        return encounter;
+    }
+
     private List<ClassicEncounter> buildBossRushRun() {
         List<ClassicEncounter> run = new ArrayList<>();
 
@@ -41984,6 +42201,7 @@ public class BirdGame3 {
         classicBonusCoins = 0;
         classicContinuesUsed = 0;
         classicRoosterMorale = 0;
+        classicShoebillTrail = ShoebillTrail.UNCHOSEN;
         Arrays.fill(classicHummingbirdBlossoms, false);
         Arrays.fill(classicRoadrunnerBolts, false);
         if (!bossRush && !ashfallTrial && !dailyChallengeModeActive) {
@@ -42008,6 +42226,7 @@ public class BirdGame3 {
         if (type == BirdType.ROOSTER) return "NO ONE LEFT BEHIND";
         if (type == BirdType.ROADRUNNER) return "NO FINISH LINE";
         if (type == BirdType.PENGUIN) return "THE ICE HOLDS";
+        if (type == BirdType.SHOEBILL) return "THE LONG WATCH";
         return "TEMPORARY FLIGHT PLAN";
     }
 
@@ -42147,6 +42366,7 @@ public class BirdGame3 {
         boolean dawnwatchBastion = variant == MapVariant.DAWNWATCH_BASTION;
         boolean redlineCanyon = variant == MapVariant.REDLINE_CANYON;
         boolean lastIceShelf = variant == MapVariant.LAST_ICE_SHELF;
+        boolean stillwaterMarsh = variant == MapVariant.STILLWATER_MARSH;
 
         Color skyTop = lastIceShelf ? Color.web("#050C25") : (redlineCanyon ? Color.web("#351448") : (heartbloom ? Color.web("#100725") : (frozenCaldera ? Color.web("#071328") : (tempestSummit ? Color.web("#070B20")
                 : (peregrineRun ? Color.web("#12345C") : switch (map) {
@@ -42172,6 +42392,10 @@ public class BirdGame3 {
             case FOREST, VIBRANT_JUNGLE -> Color.web("#3C8B62");
             default -> Color.web("#42577A");
         })))));
+        if (stillwaterMarsh) {
+            skyTop = Color.web("#030A12");
+            skyBottom = Color.web("#16454A");
+        }
         g.setFill(new LinearGradient(0, 0, 0, height, false, CycleMethod.NO_CYCLE,
                 new Stop(0, skyTop), new Stop(1, skyBottom)));
         g.fillRect(0, 0, width, height);
@@ -42252,6 +42476,16 @@ public class BirdGame3 {
                 g.fillRect(x, 58, 12, height - 58);
                 g.fillPolygon(new double[]{x - 9, x + 6, x + 21}, new double[]{58, 38, 58}, 3);
             }
+        } else if (stillwaterMarsh) {
+            g.setFill(Color.web("#071B22"));
+            for (int x = 12; x < width; x += 64) {
+                g.fillRect(x + 24, 54, 16, height - 54);
+                g.fillOval(x, 28, 68, 50);
+            }
+            g.setFill(Color.web("#E9F4CF", 0.72));
+            g.fillOval(width - 92, 18, 58, 58);
+            g.setFill(Color.web("#031921", 0.92));
+            g.fillRect(0, 145, width, height - 145);
         } else if (map == MapType.FOREST || map == MapType.VIBRANT_JUNGLE) {
             g.setFill(Color.web("#173F2D"));
             for (int x = 0; x < width; x += 68) {
@@ -42346,6 +42580,15 @@ public class BirdGame3 {
             drawClassicPreviewPlatform(g, 86, 106, 72, 10);
             drawClassicPreviewPlatform(g, 164, 69, 72, 10);
             drawClassicPreviewPlatform(g, 242, 106, 72, 10);
+        } else if (variant == MapVariant.STILLWATER_MARSH) {
+            g.setStroke(Color.web("#7FD4B5"));
+            g.setFill(Color.web("#33271F"));
+            drawClassicPreviewPlatform(g, 48, 143, 304, 16);
+            drawClassicPreviewPlatform(g, 18, 155, 54, 10);
+            drawClassicPreviewPlatform(g, 328, 155, 54, 10);
+            drawClassicPreviewPlatform(g, 82, 105, 74, 10);
+            drawClassicPreviewPlatform(g, 163, 70, 74, 11);
+            drawClassicPreviewPlatform(g, 244, 105, 74, 10);
         } else if (variant == MapVariant.CROWN_DUEL || variant == MapVariant.NULL_ROCK_DUEL) {
             drawClassicPreviewPlatform(g, 82, 138, 205, 14);
             drawClassicPreviewPlatform(g, 150, 92, 72, 10);
@@ -42418,6 +42661,103 @@ public class BirdGame3 {
         }
     }
 
+    boolean selectShoebillClassicTrail(boolean swiftTrail) {
+        if (classicSelectedBird != BirdType.SHOEBILL || classicRun.size() < 4) return false;
+        classicShoebillTrail = swiftTrail ? ShoebillTrail.SWIFT : ShoebillTrail.HEAVY;
+        ClassicEncounter selected = swiftTrail
+                ? buildShoebillSwiftTrailEncounter()
+                : buildShoebillHeavyTrailEncounter();
+        classicRun.set(3, selected);
+        if (classicRoundIndex == 3) classicEncounter = selected;
+        return true;
+    }
+
+    private void showShoebillTrailChoice(Stage stage) {
+        playClassicEncounterMusic();
+        final double layoutW = 1600.0;
+        final double layoutH = 900.0;
+        StackPane root = new StackPane();
+        root.getProperties().put("noAutoScale", true);
+        root.setStyle("-fx-background-color: linear-gradient(to bottom, #061018, #10252B 52%, #05090C);");
+
+        Label eyebrow = new Label("ROUND 4  •  CHOOSE THE TRAIL");
+        eyebrow.setFont(Font.font("Consolas", FontWeight.BOLD, 25));
+        eyebrow.setTextFill(Color.web("#A7FFEB"));
+        Label title = new Label("WHICH WAKE WILL YOU FOLLOW?");
+        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 48));
+        title.setTextFill(Color.WHITE);
+        Label hint = new Label("Both trails rejoin at Statue Court. Your choice changes this battle and its stage only.");
+        hint.setFont(Font.font("Consolas", FontWeight.BOLD, 19));
+        hint.setTextFill(Color.web("#B0BEC5"));
+
+        ClassicEncounter swift = buildShoebillSwiftTrailEncounter();
+        ClassicEncounter heavy = buildShoebillHeavyTrailEncounter();
+        Button swiftCard = buildShoebillTrailCard(swift, "SWIFT TRAIL",
+                "ROADRUNNER + FALCON", "Open lanes • faster pressure", "#EF6C3A",
+                () -> {
+                    selectShoebillClassicTrail(true);
+                    showClassicEncounterIntro(stage);
+                });
+        Button heavyCard = buildShoebillTrailCard(heavy, "HEAVY TRAIL",
+                "GOOSE + PENGUIN", "Connected ice • stronger defense", "#42A5C6",
+                () -> {
+                    selectShoebillClassicTrail(false);
+                    showClassicEncounterIntro(stage);
+                });
+        HBox choices = new HBox(38, swiftCard, heavyCard);
+        choices.setAlignment(Pos.CENTER);
+
+        Button back = uiFactory.action("BACK", 170, 62, 22, "#8E0D16", 16,
+                () -> showClassicBirdSelect(stage));
+        HBox footer = new HBox(back);
+        footer.setAlignment(Pos.CENTER_LEFT);
+        footer.setPadding(new Insets(0, 62, 0, 62));
+
+        VBox content = new VBox(13, eyebrow, title, hint, choices, footer);
+        content.setAlignment(Pos.CENTER);
+        content.setPadding(new Insets(36, 24, 30, 24));
+        lockRegionSize(content, layoutW, layoutH);
+        root.getChildren().add(content);
+
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, back);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        bindFixedFrameScale(scene, content, 0.0, layoutW, layoutH);
+        setScenePreservingFullscreen(stage, scene);
+        swiftCard.requestFocus();
+    }
+
+    private Button buildShoebillTrailCard(ClassicEncounter encounter, String title, String opponents,
+                                          String detail, String accent, Runnable action) {
+        Canvas preview = buildClassicStagePreview(encounter, 560, 290);
+        Label titleLabel = new Label(title);
+        titleLabel.setFont(Font.font("Arial Black", 31));
+        titleLabel.setTextFill(Color.WHITE);
+        Label stage = new Label(encounterMapDisplayName(encounter).toUpperCase(Locale.ROOT));
+        stage.setFont(Font.font("Consolas", FontWeight.BOLD, 21));
+        stage.setTextFill(Color.web("#FFE082"));
+        Label rivals = new Label(opponents);
+        rivals.setFont(Font.font("Arial Black", 22));
+        rivals.setTextFill(Color.WHITE);
+        Label trailDetail = new Label(detail);
+        trailDetail.setFont(Font.font("Consolas", FontWeight.BOLD, 17));
+        trailDetail.setTextFill(Color.web("#CFD8DC"));
+        VBox graphic = new VBox(9, preview, titleLabel, stage, rivals, trailDetail);
+        graphic.setAlignment(Pos.CENTER);
+        Button card = new Button();
+        card.setGraphic(graphic);
+        lockRegionSize(card, 660, 560);
+        card.setStyle("-fx-background-color: linear-gradient(to bottom, " + accent + ", #10161B 64%); "
+                + "-fx-background-radius: 24; -fx-border-color: #FFE082; -fx-border-width: 4; "
+                + "-fx-border-radius: 24; -fx-padding: 20;");
+        card.setOnAction(event -> {
+            playButtonClick();
+            action.run();
+        });
+        return card;
+    }
+
     private void showClassicEncounterIntro(Stage stage) {
         if (!classicModeActive || classicRun.isEmpty()) {
             if (dailyChallengeModeActive) showDailyChallengeSetup(stage);
@@ -42427,6 +42767,11 @@ public class BirdGame3 {
         }
         classicRoundIndex = Math.clamp(classicRoundIndex, 0, classicRun.size() - 1);
         classicEncounter = classicRun.get(classicRoundIndex);
+        if (classicSelectedBird == BirdType.SHOEBILL && classicRoundIndex == 3
+                && classicShoebillTrail == ShoebillTrail.UNCHOSEN) {
+            showShoebillTrailChoice(stage);
+            return;
+        }
         playClassicEncounterMusic();
 
         final double layoutW = 1600.0;
@@ -42474,7 +42819,8 @@ public class BirdGame3 {
                 || classicEncounter.style == ClassicEncounterStyle.HARVEST_DEFENSE
                 || classicEncounter.style == ClassicEncounterStyle.DAWN_MUSTER
                 || classicEncounter.style == ClassicEncounterStyle.REDLINE_RUN
-                || classicEncounter.style == ClassicEncounterStyle.ICE_ARCHITECT;
+                || classicEncounter.style == ClassicEncounterStyle.ICE_ARCHITECT
+                || classicEncounter.style == ClassicEncounterStyle.RIPPLE_HUNT;
         Label round = new Label((routeBonus ? "BONUS " : "ROUND ")
                 + (classicRoundIndex + 1));
         round.setFont(Font.font("Arial Black", FontWeight.BOLD, 72));
@@ -42510,7 +42856,8 @@ public class BirdGame3 {
         if (authoredWaveCount > 0 && enemies.length > 3) {
             enemies = Arrays.copyOf(enemies, 3);
         }
-        boolean bonusTargetEncounter = classicEncounter.style == ClassicEncounterStyle.BONUS_RELAY;
+        boolean bonusTargetEncounter = classicEncounter.style == ClassicEncounterStyle.BONUS_RELAY
+                || classicEncounter.style == ClassicEncounterStyle.RIPPLE_HUNT;
         boolean flowerGateEncounter = classicEncounter.style == ClassicEncounterStyle.NECTAR_DASH;
         boolean musterEncounter = classicEncounter.style == ClassicEncounterStyle.DAWN_MUSTER;
         boolean redlineRunEncounter = classicEncounter.style == ClassicEncounterStyle.REDLINE_RUN;
@@ -42752,7 +43099,8 @@ public class BirdGame3 {
                     || encounter.style == ClassicEncounterStyle.HARVEST_DEFENSE
                     || encounter.style == ClassicEncounterStyle.DAWN_MUSTER
                     || encounter.style == ClassicEncounterStyle.REDLINE_RUN
-                    || encounter.style == ClassicEncounterStyle.ICE_ARCHITECT;
+                    || encounter.style == ClassicEncounterStyle.ICE_ARCHITECT
+                    || encounter.style == ClassicEncounterStyle.RIPPLE_HUNT;
             int roundIndex = i;
             Button card = uiFactory.action(
                     (bonus ? "BONUS " : "ROUND ") + (i + 1) + "\n"
@@ -43135,6 +43483,7 @@ public class BirdGame3 {
                 );
                 enemyBird.setUltimateEnabled(encounter.style != ClassicEncounterStyle.MINIATURE_FLOCK
                         && encounter.style != ClassicEncounterStyle.BONUS_RELAY
+                        && encounter.style != ClassicEncounterStyle.RIPPLE_HUNT
                         && encounter.style != ClassicEncounterStyle.STORM_TYRANT_BOSS
                         && encounter.style != ClassicEncounterStyle.NULL_ROC_BOSS
                         && encounter.style != ClassicEncounterStyle.LONG_WINTER_BOSS
@@ -43146,7 +43495,8 @@ public class BirdGame3 {
                         && encounter.style != ClassicEncounterStyle.BROODBREAKER_BOSS
                         && encounter.style != ClassicEncounterStyle.LAST_SUN_BOSS
                         && classicSelectedBird != BirdType.ROADRUNNER
-                        && classicSelectedBird != BirdType.PENGUIN);
+                        && classicSelectedBird != BirdType.PENGUIN
+                        && classicSelectedBird != BirdType.SHOEBILL);
                 if (enemy.skinKey != null) {
                     applyPreviewSkinChoiceToBird(enemyBird, enemy.type, enemy.skinKey);
                 }
@@ -43190,10 +43540,25 @@ public class BirdGame3 {
             );
 
             if (encounter.style == ClassicEncounterStyle.MINIATURE_FLOCK) {
-                scaleBossRushBird(bird, 0.68, 0.96, 1.08);
+                if (classicSelectedBird == BirdType.SHOEBILL) {
+                    scaleBossRushBird(bird, 0.61, 0.93, 1.05);
+                } else {
+                    scaleBossRushBird(bird, 0.68, 0.96, 1.08);
+                }
             } else if (encounter.style == ClassicEncounterStyle.GIANT) {
-                scaleBossRushBird(bird, 1.58, 1.02, 0.94);
-            } else if (encounter.style == ClassicEncounterStyle.BONUS_RELAY) {
+                if (classicSelectedBird == BirdType.SHOEBILL) {
+                    scaleBossRushBird(bird, 1.34, 0.90, 0.92);
+                } else {
+                    scaleBossRushBird(bird, 1.58, 1.02, 0.94);
+                }
+            } else if (encounter.style == ClassicEncounterStyle.SHOEBILL_TRAIL) {
+                scaleBossRushBird(bird, 0.90, 0.72, 0.96);
+                bird.setUltimateEnabled(false);
+            } else if (encounter.style == ClassicEncounterStyle.MARSH_GAUNTLET) {
+                scaleBossRushBird(bird, 0.90, 0.76, 0.98);
+                bird.setUltimateEnabled(false);
+            } else if (encounter.style == ClassicEncounterStyle.BONUS_RELAY
+                    || encounter.style == ClassicEncounterStyle.RIPPLE_HUNT) {
                 bird.classicBonusTarget = true;
                 bird.classicBonusTargetRewardClaimed = false;
                 isAI[bird.playerIndex] = false;
@@ -43259,12 +43624,42 @@ public class BirdGame3 {
                 // the three-stock duel remains difficult without double-dipping.
                 bird.setBaseMultipliers(1.58, 1.00 * enemyPowerScale, 1.00);
                 bird.setUltimateEnabled(false);
+            } else if (encounter.style == ClassicEncounterStyle.MIRE_ORACLE_BOSS) {
+                boolean realOracle = bird.name != null && bird.name.startsWith("Boss:");
+                if (realOracle) {
+                    bird.health = Math.max(1.0, 165.0 * enemyHealthScale);
+                    bird.setBaseMultipliers(1.17, 0.86 * enemyPowerScale, 0.98);
+                } else {
+                    bird.health = Math.max(1.0, 24.0 * enemyHealthScale);
+                    bird.setBaseMultipliers(0.82, 0.08 * enemyPowerScale, 0.96);
+                }
+                bird.setUltimateEnabled(false);
             }
         }
     }
 
     private void positionClassicEncounterSpawns(ClassicEncounter encounter) {
         if (encounter == null) return;
+        if (encounter.style == ClassicEncounterStyle.RIPPLE_HUNT) {
+            positionClassicBirdOnSurface(players[0], 820.0, STILLWATER_MAIN_Y, true);
+            double[] targetX = {1_650.0, 3_000.0, 4_350.0};
+            double[] targetY = {STILLWATER_MAIN_Y - 350.0, STILLWATER_MAIN_Y - 620.0,
+                    STILLWATER_MAIN_Y - 350.0};
+            for (int slot = 1; slot < activePlayers && slot <= 3; slot++) {
+                positionClassicBirdOnSurface(players[slot], targetX[slot - 1], targetY[slot - 1], false);
+            }
+            return;
+        }
+        if (encounter.style == ClassicEncounterStyle.MIRE_ORACLE_BOSS) {
+            positionClassicBirdOnSurface(players[0], 1_450.0, STILLWATER_MAIN_Y, true);
+            double[] enemyX = {4_300.0, 3_150.0, 4_900.0};
+            double[] enemyY = {STILLWATER_MAIN_Y, STILLWATER_MAIN_Y - 620.0,
+                    STILLWATER_MAIN_Y - 350.0};
+            for (int slot = 1; slot < activePlayers && slot <= 3; slot++) {
+                positionClassicBirdOnSurface(players[slot], enemyX[slot - 1], enemyY[slot - 1], false);
+            }
+            return;
+        }
         if (encounter.style == ClassicEncounterStyle.ICE_ARCHITECT) {
             Bird player = players[0];
             if (player != null) {
@@ -43446,6 +43841,7 @@ public class BirdGame3 {
         setupRoosterClassicRoute(encounter);
         setupRoadrunnerClassicRoute(encounter);
         setupPenguinClassicRoute(encounter);
+        setupShoebillClassicRoute(encounter);
         if (bossRushModeActive) {
             applyBossRushEncounterArenaModifiers(encounter);
         }
@@ -43528,6 +43924,11 @@ public class BirdGame3 {
                 powerUps.add(new PowerUp(1800, GROUND_Y - 840, PowerUpType.NEON));
                 powerUps.add(new PowerUp(3000, GROUND_Y - 980, PowerUpType.SHRINK));
                 powerUps.add(new PowerUp(4200, GROUND_Y - 840, PowerUpType.NEON));
+            }
+            case MARSH_HUNT, RIPPLE_HUNT, MIRE_ORACLE -> {
+                // Shoebill's route identity lives in authored encounters,
+                // branching, objectives, and boss presentation. It never
+                // modifies the player's standard attacks or cooldowns.
             }
             case STORM_CROWN -> {
                 // Tempest Summit supplies the first-stock vents. The second
@@ -43938,6 +44339,157 @@ public class BirdGame3 {
                 g.strokeOval(boss.bodyCenterX() - radius, boss.bodyCenterY() - radius,
                         radius * 2.0, radius * 2.0);
             }
+        }
+    }
+
+    private void setupShoebillClassicRoute(ClassicEncounter encounter) {
+        classicShoebillMarshWaveIndex = 0;
+        classicMireEchoRespawnCooldown = 0;
+        classicMireOracleLastStocks = 1;
+        if (!classicModeActive || bossRushModeActive || ashfallTrialModeActive
+                || classicSelectedBird != BirdType.SHOEBILL || encounter == null) {
+            return;
+        }
+        if (encounter.style == ClassicEncounterStyle.MIRE_ORACLE_BOSS) {
+            Bird oracle = realMireOracle();
+            if (oracle != null) classicMireOracleLastStocks = Math.max(1, scores[oracle.playerIndex]);
+            addToKillFeed("MIRE ORACLE: follow the golden ripple, not the reflection.");
+        } else if (encounter.style == ClassicEncounterStyle.RIPPLE_HUNT) {
+            addToKillFeed("RIPPLE HUNT: every ordinary attack can break a marsh target.");
+        } else if (encounter.style == ClassicEncounterStyle.MARSH_GAUNTLET) {
+            addToKillFeed("MARSH WAVE 1/3 ENTERS. Recovery waits between waves.");
+        }
+    }
+
+    void applyShoebillClassicRuntimeEffects() {
+        if (!classicModeActive || classicEncounter == null || classicSelectedBird != BirdType.SHOEBILL
+                || bossRushModeActive || ashfallTrialModeActive || matchEnded
+                || classicEncounter.style != ClassicEncounterStyle.MIRE_ORACLE_BOSS) {
+            return;
+        }
+        Bird oracle = realMireOracle();
+        if (oracle == null) return;
+        int stocks = Math.max(0, scores[oracle.playerIndex]);
+        if (stocks < classicMireOracleLastStocks && stocks > 0) {
+            classicMireOracleLastStocks = stocks;
+            classicMireEchoRespawnCooldown = 36;
+            addToKillFeed(stocks == 2
+                    ? "THE ORACLE BREAKS THE WATER INTO NEW REFLECTIONS."
+                    : "THE FINAL REFLECTIONS RISE — THE GOLDEN RIPPLE REMAINS TRUE.");
+        }
+        if (classicMireEchoRespawnCooldown > 0 && --classicMireEchoRespawnCooldown == 0) {
+            respawnMireEcho(2, "Mire Echo I", 3_150.0, STILLWATER_MAIN_Y - 620.0);
+            respawnMireEcho(3, "Mire Echo II", 4_900.0, STILLWATER_MAIN_Y - 350.0);
+        }
+    }
+
+    private Bird realMireOracle() {
+        for (Bird bird : players) {
+            if (bird != null && bird.name != null && bird.name.startsWith("Boss: The Mire Oracle")) {
+                return bird;
+            }
+        }
+        return null;
+    }
+
+    private void respawnMireEcho(int slot, String title, double centerX, double surfaceY) {
+        if (slot <= 0 || slot >= MAX_COMBATANTS) return;
+        double difficultyDelta = classicDifficulty - CLASSIC_STARTING_DIFFICULTY;
+        Bird echo = createStoryBird(0.0, BirdType.OPIUMBIRD, slot, title,
+                24.0 * (1.0 + difficultyDelta * 0.045),
+                0.16 * (1.0 + difficultyDelta * 0.015), 1.00, true);
+        echo.setBaseMultipliers(0.82, 0.08 * (1.0 + difficultyDelta * 0.015), 0.96);
+        echo.setUltimateEnabled(false);
+        classicTeams[slot] = 2;
+        classicCpuLevels[slot] = Math.clamp((int) Math.round(classicDifficulty), 1, 9);
+        scores[slot] = 1;
+        positionClassicBirdOnSurface(echo, centerX, surfaceY, false);
+        activePlayers = Math.max(activePlayers, slot + 1);
+    }
+
+    boolean holdClassicShoebillEncounterOpen() {
+        if (!classicModeActive || classicEncounter == null || classicSelectedBird != BirdType.SHOEBILL
+                || bossRushModeActive || ashfallTrialModeActive || matchEnded
+                || classicEncounter.style != ClassicEncounterStyle.MARSH_GAUNTLET
+                || classicEncounter.waves == null || classicEncounter.waves.length == 0
+                || !playerHasStocksRemaining(0) || classicEnemyTeamHasStocks()) {
+            return false;
+        }
+        if (classicShoebillMarshWaveIndex + 1 >= classicEncounter.waves.length) return false;
+        classicShoebillMarshWaveIndex++;
+        Bird player = players[0];
+        if (player != null) player.heal(60.0);
+        spawnShoebillMarshWave(classicEncounter.waves[classicShoebillMarshWaveIndex]);
+        return true;
+    }
+
+    private void spawnShoebillMarshWave(ClassicFighter[] wave) {
+        if (wave == null || classicEncounter == null) return;
+        for (int slot = 1; slot < MAX_COMBATANTS; slot++) {
+            if (players[slot] != null && getEffectiveTeam(slot) == 2) {
+                players[slot] = null;
+                isAI[slot] = false;
+                scores[slot] = 0;
+                classicCpuLevels[slot] = 0;
+            }
+        }
+        double difficultyDelta = classicDifficulty - CLASSIC_STARTING_DIFFICULTY;
+        int spawned = 0;
+        for (ClassicFighter fighter : wave) {
+            int slot = 1;
+            while (slot < MAX_COMBATANTS && players[slot] != null) slot++;
+            if (slot >= MAX_COMBATANTS) break;
+            Bird enemy = createStoryBird(0.0, fighter.type, slot, fighter.title,
+                    fighter.health * (1.0 + difficultyDelta * 0.045),
+                    fighter.powerMult * (1.0 + difficultyDelta * 0.015), fighter.speedMult, true);
+            double wavePowerScale = classicShoebillMarshWaveIndex >= 2 ? 0.90 : 0.76;
+            scaleBossRushBird(enemy, 0.90, wavePowerScale, 0.98);
+            if (fighter.skinKey != null) applyPreviewSkinChoiceToBird(enemy, fighter.type, fighter.skinKey);
+            enemy.setUltimateEnabled(false);
+            classicTeams[slot] = 2;
+            classicCpuLevels[slot] = resolvedClassicFighterCpuLevel(fighter, classicEncounter);
+            scores[slot] = 1;
+            positionClassicBirdOnSurface(enemy, 4_250.0 + spawned * 500.0, STILLWATER_MAIN_Y, false);
+            activePlayers = Math.max(activePlayers, slot + 1);
+            spawned++;
+        }
+        addToKillFeed("MARSH WAVE " + (classicShoebillMarshWaveIndex + 1)
+                + "/" + classicEncounter.waves.length + " ENTERS. 60% DAMAGE REPAIRED.");
+    }
+
+    private void drawClassicShoebillRouteFeatures(GraphicsContext g) {
+        if (!classicModeActive || classicEncounter == null || classicSelectedBird != BirdType.SHOEBILL) return;
+        if (classicEncounter.style == ClassicEncounterStyle.RIPPLE_HUNT) {
+            double pulse = 0.5 + 0.5 * Math.sin(simTick * 0.09);
+            for (int slot = 1; slot < activePlayers; slot++) {
+                Bird target = players[slot];
+                if (target == null || target.health <= 0.0) continue;
+                g.setStroke(Color.web("#9BE7D0", 0.36 + pulse * 0.30));
+                g.setLineWidth(7.0);
+                double cx = target.bodyCenterX();
+                double cy = target.bodyCenterY() + 55.0;
+                for (int ring = 0; ring < 3; ring++) {
+                    double radius = 54.0 + ring * 42.0 + pulse * 18.0;
+                    g.strokeOval(cx - radius, cy - radius * 0.25, radius * 2.0, radius * 0.5);
+                }
+            }
+        }
+        if (classicEncounter.style == ClassicEncounterStyle.MIRE_ORACLE_BOSS) {
+            Bird oracle = realMireOracle();
+            if (oracle == null || oracle.health <= 0.0) return;
+            double pulse = 0.5 + 0.5 * Math.sin(simTick * 0.075);
+            double cx = oracle.bodyCenterX();
+            double cy = oracle.bodyCenterY() + oracle.bodyHeight() * 0.48;
+            g.setStroke(Color.web("#FFE082", 0.66 + pulse * 0.26));
+            g.setLineWidth(12.0);
+            for (int ring = 0; ring < 4; ring++) {
+                double radius = 72.0 + ring * 55.0 + pulse * 20.0;
+                g.strokeOval(cx - radius, cy - radius * 0.23, radius * 2.0, radius * 0.46);
+            }
+            g.setFill(Color.web("#FFE082", 0.92));
+            g.setFont(Font.font("Consolas", FontWeight.BOLD, 25));
+            g.setTextAlign(TextAlignment.CENTER);
+            g.fillText("TRUE WAKE", cx, cy + 96.0);
         }
     }
 
@@ -45164,7 +45716,8 @@ public class BirdGame3 {
 
     void onClassicBonusTargetDestroyed(Bird target) {
         if (!classicModeActive || classicEncounter == null
-                || classicEncounter.style != ClassicEncounterStyle.BONUS_RELAY || target == null) {
+                || (classicEncounter.style != ClassicEncounterStyle.BONUS_RELAY
+                && classicEncounter.style != ClassicEncounterStyle.RIPPLE_HUNT) || target == null) {
             return;
         }
         classicBonusCoins += 25;
@@ -45173,6 +45726,7 @@ public class BirdGame3 {
             case "Bonus: Storm Beacon Ascent" -> "STORM BEACON ASCENT";
             case "Bonus: Peregrine Run" -> "PEREGRINE RUN";
             case "Bonus: Rebirth Relay" -> "REBIRTH RELAY";
+            case "Bonus: Ripple Hunt" -> "RIPPLE HUNT";
             default -> "ROOFTOP RELAY";
         };
         addToKillFeed(bonusName + ": target broken. Bird Coins +25.");
@@ -45954,6 +46508,28 @@ public class BirdGame3 {
         battlefieldIslandY = LAST_ICE_MAIN_Y;
         windVents.add(new WindVent(650.0, LAST_ICE_MAIN_Y + 130.0, 280.0));
         windVents.add(new WindVent(5_070.0, LAST_ICE_MAIN_Y + 130.0, 280.0));
+    }
+
+    private void setupStillwaterMarshArena() {
+        resetBossRushArenaState();
+        activeArenaGeometryVariant = MapVariant.STILLWATER_MARSH;
+
+        Platform mainRoots = new Platform(STILLWATER_MAIN_X, STILLWATER_MAIN_Y, STILLWATER_MAIN_W, 104.0);
+        mainRoots.signText = "STILLWATER MARSH";
+        platforms.add(mainRoots);
+        platforms.add(new Platform(470.0, STILLWATER_MAIN_Y + 145.0, 760.0, 54.0));
+        platforms.add(new Platform(4_770.0, STILLWATER_MAIN_Y + 145.0, 760.0, 54.0));
+        platforms.add(new Platform(1_170.0, STILLWATER_MAIN_Y - 350.0, 760.0, 46.0));
+        platforms.add(new Platform(2_625.0, STILLWATER_MAIN_Y - 620.0, 750.0, 48.0));
+        platforms.add(new Platform(4_070.0, STILLWATER_MAIN_Y - 350.0, 760.0, 46.0));
+        platforms.add(new Platform(1_950.0, STILLWATER_MAIN_Y - 850.0, 520.0, 42.0));
+        platforms.add(new Platform(3_530.0, STILLWATER_MAIN_Y - 850.0, 520.0, 42.0));
+
+        battlefieldIslandX = STILLWATER_MAIN_X;
+        battlefieldIslandW = STILLWATER_MAIN_W;
+        battlefieldIslandY = STILLWATER_MAIN_Y;
+        windVents.add(new WindVent(660.0, STILLWATER_MAIN_Y + 120.0, 270.0));
+        windVents.add(new WindVent(5_070.0, STILLWATER_MAIN_Y + 120.0, 270.0));
     }
 
     private void setupRedlineCanyonArena() {
@@ -46789,7 +47365,8 @@ public class BirdGame3 {
                 || classicEncounter.style == ClassicEncounterStyle.HARVEST_DEFENSE
                 || classicEncounter.style == ClassicEncounterStyle.DAWN_MUSTER
                 || classicEncounter.style == ClassicEncounterStyle.REDLINE_RUN
-                || classicEncounter.style == ClassicEncounterStyle.ICE_ARCHITECT) {
+                || classicEncounter.style == ClassicEncounterStyle.ICE_ARCHITECT
+                || classicEncounter.style == ClassicEncounterStyle.RIPPLE_HUNT) {
             recordClassicEncounterScore(playerWon);
             classicRoundIndex++;
             classicEncounter = classicRun.get(classicRoundIndex);
@@ -46831,6 +47408,8 @@ public class BirdGame3 {
                 redlineCanyonUnlocked = true;
             } else if (classicSelectedBird == BirdType.PENGUIN) {
                 lastIceShelfUnlocked = true;
+            } else if (classicSelectedBird == BirdType.SHOEBILL) {
+                stillwaterMarshUnlocked = true;
             }
             profileProgressController.onClassicRunCompleted(classicSelectedBird, achievementEvaluator::onClassicRunCompleted);
             ClassicEndingContent.Ending authoredEnding = ClassicEndingContent.endingFor(classicSelectedBird);
@@ -46909,6 +47488,7 @@ public class BirdGame3 {
             case ROOSTER -> "Dawnwatch Bastion";
             case ROADRUNNER -> "Redline Canyon";
             case PENGUIN -> "Last Ice Shelf";
+            case SHOEBILL -> "Stillwater Marsh";
             default -> "";
         };
     }
@@ -49579,6 +50159,7 @@ public class BirdGame3 {
                 && classicEncounter.style != ClassicEncounterStyle.NECTAR_DASH
                 && classicEncounter.style != ClassicEncounterStyle.REDLINE_RUN
                 && classicEncounter.style != ClassicEncounterStyle.ICE_ARCHITECT
+                && classicEncounter.style != ClassicEncounterStyle.RIPPLE_HUNT
                 && classicEncounter.style != ClassicEncounterStyle.NULL_ROCK_BOSS;
     }
 
@@ -49627,6 +50208,31 @@ public class BirdGame3 {
                 && classicEncounter.style == ClassicEncounterStyle.MINIATURE_FLOCK) {
             scores[0] = 2;
         }
+        if (classicSelectedBird == BirdType.SHOEBILL
+                && (classicEncounter.style == ClassicEncounterStyle.MINIATURE_FLOCK
+                || classicEncounter.style == ClassicEncounterStyle.GIANT
+                || classicEncounter.style == ClassicEncounterStyle.SHOEBILL_TRAIL)) {
+            scores[0] = 2;
+        }
+        if (classicSelectedBird == BirdType.SHOEBILL
+                && classicEncounter.style == ClassicEncounterStyle.MINIATURE_FLOCK) {
+            for (Bird bird : players) {
+                if (bird != null && getEffectiveTeam(bird.playerIndex) == 2) {
+                    // One persistent lead needle makes this a four-life flock
+                    // against Shoebill's two without adding another combatant.
+                    scores[bird.playerIndex] = 2;
+                    break;
+                }
+            }
+        }
+        if (classicSelectedBird == BirdType.SHOEBILL
+                && (classicEncounter.style == ClassicEncounterStyle.MARSH_GAUNTLET
+                || classicEncounter.style == ClassicEncounterStyle.MIRE_ORACLE_BOSS)) {
+            // These encounters ask one fighter to clear consecutive waves or
+            // a multi-phase boss. The extra stock belongs to the route rules,
+            // not Shoebill's ordinary fighter data.
+            scores[0] = 3;
+        }
         int enemyStocks = switch (classicEncounter.style) {
             case STORM_TYRANT_BOSS, PHOENIX_REBIRTH, BLIGHTWING_BOSS, ICEWORKS_MIRROR -> 2;
             case NULL_ROC_BOSS, LONG_WINTER_BOSS, DEVOURER_BOSS, BROODBREAKER_BOSS,
@@ -49636,7 +50242,9 @@ public class BirdGame3 {
         if (enemyStocks <= 0) return;
         for (Bird bird : players) {
             if (bird != null && getEffectiveTeam(bird.playerIndex) == 2) {
-                scores[bird.playerIndex] = enemyStocks;
+                boolean mireEcho = classicEncounter.style == ClassicEncounterStyle.MIRE_ORACLE_BOSS
+                        && (bird.name == null || !bird.name.startsWith("Boss:"));
+                scores[bird.playerIndex] = mireEcho ? 1 : enemyStocks;
             }
         }
     }
@@ -49766,6 +50374,7 @@ public class BirdGame3 {
             applyRoosterClassicRuntimeEffects();
             applyRoadrunnerClassicRuntimeEffects();
             applyPenguinClassicRuntimeEffects();
+            applyShoebillClassicRuntimeEffects();
         }
         if (bossRushModeActive && classicModeActive) {
             applyBossRushRuntimeEffects();
@@ -52535,6 +53144,7 @@ public class BirdGame3 {
                 || activeArenaGeometryVariant == MapVariant.HEARTBLOOM_SANCTUARY
                 || activeArenaGeometryVariant == MapVariant.HARVEST_TRIBUNAL
                 || activeArenaGeometryVariant == MapVariant.REDLINE_CANYON
+                || activeArenaGeometryVariant == MapVariant.STILLWATER_MARSH
                 || isCrownDuelArena();
     }
 
@@ -52553,6 +53163,9 @@ public class BirdGame3 {
         }
         if (activeArenaGeometryVariant == MapVariant.LAST_ICE_SHELF) {
             return 850.0;
+        }
+        if (activeArenaGeometryVariant == MapVariant.STILLWATER_MARSH) {
+            return 900.0;
         }
         if (activeArenaGeometryVariant == MapVariant.VOID_CROWN) {
             return 1600.0;
@@ -53086,6 +53699,7 @@ public class BirdGame3 {
             case DAWNWATCH_BASTION -> setupDawnwatchBastionArena();
             case REDLINE_CANYON -> setupRedlineCanyonArena();
             case LAST_ICE_SHELF -> setupLastIceShelfArena();
+            case STILLWATER_MARSH -> setupStillwaterMarshArena();
             case CARRION_THRONE -> setupBossRushCarrionThrone();
             case NULL_ROC_ASCENDING -> setupBossRushNullRocArena();
             case VOID_CROWN -> setupBossRushVoidCrownArena();
@@ -54497,7 +55111,8 @@ public class BirdGame3 {
                     + "  " + classicEncounter.name.toUpperCase(Locale.ROOT));
             lines.add("RULES  " + classicEncounter.mutator.label + " | " + classicEncounter.twist.label);
             int livesLeft = Math.max(0, 3 - classicDeaths);
-            if (classicEncounter.style == ClassicEncounterStyle.BONUS_RELAY) {
+            if (classicEncounter.style == ClassicEncounterStyle.BONUS_RELAY
+                    || classicEncounter.style == ClassicEncounterStyle.RIPPLE_HUNT) {
                 long targetsRemaining = Arrays.stream(players)
                         .filter(Objects::nonNull)
                         .filter(bird -> bird.classicBonusTarget && bird.health > 0.0)
@@ -57493,6 +58108,7 @@ public class BirdGame3 {
         state.dawnwatchBastionUnlocked = dawnwatchBastionUnlocked;
         state.redlineCanyonUnlocked = redlineCanyonUnlocked;
         state.lastIceShelfUnlocked = lastIceShelfUnlocked;
+        state.stillwaterMarshUnlocked = stillwaterMarshUnlocked;
         state.towerDefenseDifficultyBadges = copyBooleanMatrix(towerDefenseDifficultyBadges);
         state.cityPigeonUnlocked = cityPigeonUnlocked;
         state.noirPigeonUnlocked = noirPigeonUnlocked;
@@ -57640,6 +58256,7 @@ public class BirdGame3 {
         dawnwatchBastionUnlocked = resolved.dawnwatchBastionUnlocked;
         redlineCanyonUnlocked = resolved.redlineCanyonUnlocked;
         lastIceShelfUnlocked = resolved.lastIceShelfUnlocked;
+        stillwaterMarshUnlocked = resolved.stillwaterMarshUnlocked;
         copyInto(resolved.towerDefenseDifficultyBadges, towerDefenseDifficultyBadges);
 
         cityPigeonUnlocked = resolved.cityPigeonUnlocked;
@@ -57803,6 +58420,9 @@ public class BirdGame3 {
         }
         if (classicCompleted[BirdType.PENGUIN.ordinal()]) {
             lastIceShelfUnlocked = true;
+        }
+        if (classicCompleted[BirdType.SHOEBILL.ordinal()]) {
+            stillwaterMarshUnlocked = true;
         }
         boolean unitedFinaleCompleted = unitedIdx >= 0
                 && unitedIdx < mainAdventureCompleted.length

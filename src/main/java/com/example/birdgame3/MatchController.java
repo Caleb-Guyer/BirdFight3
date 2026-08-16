@@ -539,6 +539,9 @@ final class MatchController {
         if (game.holdClassicPenguinEncounterOpen()) {
             return;
         }
+        if (game.holdClassicShoebillEncounterOpen()) {
+            return;
+        }
         if (game.campaignModeActive) {
             game.checkCampaignMissionCompletion();
             return;

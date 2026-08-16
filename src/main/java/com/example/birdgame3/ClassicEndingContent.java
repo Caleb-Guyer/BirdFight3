@@ -249,6 +249,25 @@ final class ClassicEndingContent {
                             beat("I broke its power into a thousand hearthstones and sent them beyond the ice.", Tableau.CROWN_TRANSFORMATION),
                             beat("Where each stone came to rest, walls rose with no locks and doors that opened from either side.", Tableau.CHANGED_WORLD),
                             beat("Let the world change. We will be ready when it does.", Tableau.FINAL_PORTRAIT)
+                    )),
+            ending(
+                    BirdGame3.BirdType.SHOEBILL,
+                    "THE LONG WATCH",
+                    "THE WORLD HOLDS ITS BREATH",
+                    "CLARITY - The Crown reveals every disguise once, then sleeps beneath the marsh.",
+                    Alignment.AMBIGUOUS,
+                    BirdGame3.BirdType.OPIUMBIRD,
+                    "The Mire Oracle",
+                    "CLASSIC_SKIN_OPIUMBIRD",
+                    BirdGame3.MapType.FOREST,
+                    "music-cave.mp3",
+                    monologue(
+                            beat("The Mire Oracle filled the water with answers. Every reflection lied in a different voice.", Tableau.BOSS_AFTERMATH),
+                            beat("When the last false face broke, the Crown rose from the shrine and offered to make every secret visible forever.", Tableau.CROWN_DISCOVERY),
+                            beat("I waited. Truth forced into the open can become another hunter.", Tableau.DECISION),
+                            beat("So I used the Crown once. Across the world, disguises failed, hidden cages shone, and false rulers saw their own shadows named.", Tableau.CROWN_TRANSFORMATION),
+                            beat("Then I carried it beneath the cypress roots. The marsh closed above it, quiet and awake.", Tableau.CHANGED_WORLD),
+                            beat("Anything worthy of ruling the sky should survive being seen clearly.", Tableau.FINAL_PORTRAIT)
                     ))
     );
 
@@ -275,6 +294,10 @@ final class ClassicEndingContent {
 
     static boolean isSubglacialMontage(Cinematic cinematic) {
         return cinematic != null && cinematic.narrator() == BirdGame3.BirdType.PENGUIN;
+    }
+
+    static boolean isStillwaterRevelation(Cinematic cinematic) {
+        return cinematic != null && cinematic.narrator() == BirdGame3.BirdType.SHOEBILL;
     }
 
     static Cinematic withRouteRecord(Ending ending, int birdCoins, int score, String mapReward) {

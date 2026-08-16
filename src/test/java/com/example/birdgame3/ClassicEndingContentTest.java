@@ -29,7 +29,7 @@ class ClassicEndingContentTest {
     }
 
     @Test
-    void allNineAuthoredRoutesHaveUniqueMovingPictureMonologues() {
+    void allTenAuthoredRoutesHaveUniqueMovingPictureMonologues() {
         List<ClassicEndingContent.Ending> endings = ClassicEndingContent.endings();
 
         assertEquals(List.of(
@@ -41,11 +41,12 @@ class ClassicEndingContentTest {
                         BirdGame3.BirdType.TURKEY,
                         BirdGame3.BirdType.ROOSTER,
                         BirdGame3.BirdType.ROADRUNNER,
-                        BirdGame3.BirdType.PENGUIN),
+                        BirdGame3.BirdType.PENGUIN,
+                        BirdGame3.BirdType.SHOEBILL),
                 endings.stream().map(ClassicEndingContent.Ending::bird).toList());
-        assertEquals(9, new HashSet<>(endings.stream().map(ClassicEndingContent.Ending::title).toList()).size());
-        assertEquals(9, new HashSet<>(endings.stream().map(ClassicEndingContent.Ending::crownChoice).toList()).size());
-        assertEquals(9, new HashSet<>(endings.stream().map(ending -> ending.cinematic().id()).toList()).size());
+        assertEquals(10, new HashSet<>(endings.stream().map(ClassicEndingContent.Ending::title).toList()).size());
+        assertEquals(10, new HashSet<>(endings.stream().map(ClassicEndingContent.Ending::crownChoice).toList()).size());
+        assertEquals(10, new HashSet<>(endings.stream().map(ending -> ending.cinematic().id()).toList()).size());
 
         for (ClassicEndingContent.Ending ending : endings) {
             ClassicEndingContent.Cinematic cinematic = ending.cinematic();
@@ -113,5 +114,9 @@ class ClassicEndingContentTest {
         assertTrue(game.isClassicEndingUnlocked(BirdGame3.BirdType.PENGUIN));
         assertTrue(ClassicEndingContent.isSubglacialMontage(
                 ClassicEndingContent.endingFor(BirdGame3.BirdType.PENGUIN).cinematic()));
+        game.setClassicCompleted(BirdGame3.BirdType.SHOEBILL);
+        assertTrue(game.isClassicEndingUnlocked(BirdGame3.BirdType.SHOEBILL));
+        assertTrue(ClassicEndingContent.isStillwaterRevelation(
+                ClassicEndingContent.endingFor(BirdGame3.BirdType.SHOEBILL).cinematic()));
     }
 }

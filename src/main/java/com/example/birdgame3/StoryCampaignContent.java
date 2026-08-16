@@ -385,7 +385,8 @@ final class StoryCampaignContent {
     private static StoryCampaign.Mission smallMarks() {
         return mission("small_marks", "Small Marks",
                 "Mark the three hidden Crown taps and defend the forest nursery while they burn out.",
-                FOREST, CROWN_OCCUPIED, StoryCampaign.PlayablePolicy.forced(TITMOUSE),
+                FOREST, BirdGame3.MapVariant.STILLWATER_MARSH, CROWN_OCCUPIED,
+                StoryCampaign.PlayablePolicy.forced(TITMOUSE),
                 List.of(),
                 fighters(enemy(GRINCHHAWK, "Present Runner"), enemy(OPIUMBIRD, "Haze Guard")),
                 phases(

@@ -181,12 +181,16 @@ final class ClassicEndingPlayer {
         g.scale(canvas.getWidth() / LOGICAL_WIDTH, canvas.getHeight() / LOGICAL_HEIGHT);
         boolean continuousPanorama = ClassicEndingContent.isContinuousPanorama(cinematic);
         boolean subglacialMontage = ClassicEndingContent.isSubglacialMontage(cinematic);
+        boolean stillwaterRevelation = ClassicEndingContent.isStillwaterRevelation(cinematic);
         if (continuousPanorama) {
             double routeProgress = Math.clamp((beatIndex + progress) / cinematic.beats().size(), 0.0, 1.0);
             drawRoadrunnerPanorama(g, now / 1_000_000_000.0, routeProgress);
         } else if (subglacialMontage) {
             double routeProgress = Math.clamp((beatIndex + progress) / cinematic.beats().size(), 0.0, 1.0);
             drawPenguinSubglacialMontage(g, now / 1_000_000_000.0, routeProgress);
+        } else if (stillwaterRevelation) {
+            double routeProgress = Math.clamp((beatIndex + progress) / cinematic.beats().size(), 0.0, 1.0);
+            drawShoebillStillwaterRevelation(g, now / 1_000_000_000.0, routeProgress);
         } else {
             drawBackground(g, now / 1_000_000_000.0, progress);
             drawTableau(g, currentBeat().tableau(), progress, now / 1_000_000_000.0);
@@ -194,8 +198,100 @@ final class ClassicEndingPlayer {
         drawCinematicFrame(g, progress);
         drawNarration(g, currentBeat().narration());
         drawProgress(g);
-        if (!continuousPanorama && !subglacialMontage) drawTransition(g, progress);
+        if (!continuousPanorama && !subglacialMontage && !stillwaterRevelation) drawTransition(g, progress);
         g.restore();
+    }
+
+    private void drawShoebillStillwaterRevelation(GraphicsContext g, double time, double progress) {
+        Color top = Color.web("#02070D").interpolate(Color.web("#0B2830"), progress * 0.65);
+        Color bottom = Color.web("#123D42").interpolate(Color.web("#07161D"), progress);
+        g.setFill(new LinearGradient(0, 0, 0, LOGICAL_HEIGHT, false, CycleMethod.NO_CYCLE,
+                new Stop(0, top), new Stop(1, bottom)));
+        g.fillRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
+        drawStars(g, time * 0.35, 55.0);
+
+        g.setFill(Color.web("#EAF5CF", 0.78));
+        g.fillOval(1_380, 58, 260, 260);
+        g.setFill(Color.web("#07171B", 0.92));
+        for (int i = 0; i < 9; i++) {
+            double x = -120 + i * 250.0;
+            double height = 350 + (i % 3) * 72.0;
+            g.fillRect(x + 82, 420 - height, 46, height + 180);
+            g.fillOval(x, 270 - height, 220, 180);
+        }
+
+        double waterY = 610.0;
+        g.setFill(Color.web("#02151D", 0.98));
+        g.fillRect(0, waterY, LOGICAL_WIDTH, LOGICAL_HEIGHT - waterY);
+        g.setStroke(Color.web("#69BFAE", 0.22));
+        g.setLineWidth(3.0);
+        for (int row = 0; row < 8; row++) {
+            double shift = Math.sin(time * 0.55 + row) * 32.0;
+            g.strokeLine(50 + shift, waterY + 32 + row * 44.0,
+                    LOGICAL_WIDTH - 50 - shift, waterY + 36 + row * 44.0);
+        }
+
+        // The first third is a hall of false Oracle reflections. They peel
+        // away one by one while a gold wake identifies the real silhouette.
+        double illusionFade = Math.clamp(1.0 - progress * 2.8, 0.0, 1.0);
+        if (illusionFade > 0.0) {
+            drawBird(g, boss, 1_040, 485, 0.82, false, illusionFade * 0.46);
+            drawBird(g, boss, 1_380, 505, 0.82, true, illusionFade * 0.46);
+        }
+        double bossFade = Math.clamp(1.0 - progress * 3.7, 0.0, 1.0);
+        if (bossFade > 0.0) {
+            drawBird(g, boss, 1_210, 500, 1.08, false, bossFade);
+            g.setStroke(Color.web("#FFE082", 0.74 * bossFade));
+            g.setLineWidth(9.0);
+            for (int ring = 0; ring < 3; ring++) {
+                double r = 88 + ring * 52 + Math.sin(time * 2.0) * 10.0;
+                g.strokeOval(1_210 - r, 590 - r * 0.22, r * 2.0, r * 0.44);
+            }
+        }
+
+        double crownRise = Math.clamp((progress - 0.16) / 0.26, 0.0, 1.0);
+        double crownSink = Math.clamp((progress - 0.70) / 0.22, 0.0, 1.0);
+        if (crownRise > 0.0 && crownSink < 1.0) {
+            double crownY = 610 - crownRise * 285 + crownSink * 420;
+            drawCrown(g, 960, crownY, 1.15 - crownSink * 0.28, time,
+                    Math.clamp(1.0 - crownSink * 0.82, 0.0, 1.0));
+        }
+
+        // One silent revelation crosses the whole world, exposing cages and
+        // false crowns without turning into a permanent surveillance field.
+        double reveal = Math.clamp((progress - 0.42) / 0.17, 0.0, 1.0)
+                * Math.clamp((0.73 - progress) / 0.14, 0.0, 1.0);
+        if (reveal > 0.0) {
+            double radius = 120 + reveal * 1_650.0;
+            g.setStroke(Color.web("#FFF3B0", 0.72 * (1.0 - reveal * 0.35)));
+            g.setLineWidth(18.0);
+            g.strokeOval(960 - radius, 350 - radius * 0.55, radius * 2.0, radius * 1.1);
+            g.setFill(Color.web("#FFE082", 0.16 * (1.0 - reveal)));
+            g.fillOval(960 - radius, 350 - radius * 0.55, radius * 2.0, radius * 1.1);
+            for (int i = 0; i < 7; i++) {
+                double x = 180 + i * 250.0;
+                g.setStroke(Color.web(i % 2 == 0 ? "#FF8A80" : "#E1F5FE", 0.65));
+                g.setLineWidth(6.0);
+                g.strokeRect(x, 395 - (i % 3) * 45.0, 78, 118);
+            }
+        }
+
+        g.setFill(Color.web("#2B211B", 0.96));
+        g.fillPolygon(new double[]{0, 510, 780, 960, 1_140, 1_410, LOGICAL_WIDTH},
+                new double[]{645, 610, 700, 600, 700, 610, 645}, 7);
+        g.setStroke(Color.web("#5F4936", 0.85));
+        g.setLineWidth(26.0);
+        g.strokeLine(320, 690, 960, 610);
+        g.strokeLine(1_600, 690, 960, 610);
+
+        double shoebillX = 520 + progress * 310.0;
+        drawBird(g, narrator, shoebillX, 500, 1.16, true, 1.0);
+        if (progress > 0.88) {
+            g.setFill(Color.web("#EAF5CF", Math.clamp((progress - 0.88) / 0.12, 0.0, 1.0)));
+            g.setFont(Font.font("Arial Black", FontWeight.BOLD, 38));
+            g.setTextAlign(TextAlignment.CENTER);
+            g.fillText("THE MARSH REMEMBERS. IT DOES NOT COMMAND.", 960, 785);
+        }
     }
 
     private void drawPenguinSubglacialMontage(GraphicsContext g, double time, double progress) {
@@ -907,7 +1003,8 @@ final class ClassicEndingPlayer {
     private void presentBeat() {
         if (cinematic == null || cinematic.beats().isEmpty()) return;
         if ((ClassicEndingContent.isContinuousPanorama(cinematic)
-                || ClassicEndingContent.isSubglacialMontage(cinematic)) && beatIndex > 0) return;
+                || ClassicEndingContent.isSubglacialMontage(cinematic)
+                || ClassicEndingContent.isStillwaterRevelation(cinematic)) && beatIndex > 0) return;
         game.playClassicEndingTableauCue(currentBeat().tableau());
     }
 
