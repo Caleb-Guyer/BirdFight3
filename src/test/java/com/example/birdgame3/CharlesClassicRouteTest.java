@@ -113,6 +113,8 @@ class CharlesClassicRouteTest {
 
     @Test
     void twoOnOneAuditionsUseRouteStocksWithoutChangingCharlesStats() {
+        assertEquals(2, prepared(0, 0xC4A25EL, 0xC4A25FL).scores[0],
+                "The opening audition should teach the route with a second stock.");
         for (int round = 1; round <= 3; round++) {
             BirdGame3 game = prepared(round, 0xC4A260L + round, 0xC4A270L + round);
             assertEquals(2, game.scores[0]);
@@ -176,9 +178,9 @@ class CharlesClassicRouteTest {
         assertEquals(13, MapType.SIGNAL_SPIRE.ordinal());
         assertEquals(14, MapType.SILENT_AMPHITHEATER.ordinal());
 
-        assertMainPlatform(prepared(0, 0xC4A225L, 0xC4A226L), 720.0, 4_560.0);
-        assertMainPlatform(prepared(1, 0xC4A227L, 0xC4A228L), 860.0, 4_280.0);
-        assertMainPlatform(prepared(7, 0xC4A229L, 0xC4A230L), 920.0, 4_160.0);
+        assertMainPlatform(prepared(0, 0xC4A225L, 0xC4A226L), 760.0, 4_480.0);
+        assertMainPlatform(prepared(1, 0xC4A227L, 0xC4A228L), 980.0, 4_040.0);
+        assertMainPlatform(prepared(7, 0xC4A229L, 0xC4A230L), 840.0, 4_320.0);
 
         BirdGame3 progress = new BirdGame3();
         assertFalse((boolean) invoke(progress, "isMapUnlocked", new Class<?>[]{MapType.class},
@@ -191,17 +193,69 @@ class CharlesClassicRouteTest {
     }
 
     @Test
-    void originalMusicAndLivingScoreEndingAreBundled() {
-        for (String file : List.of("music-charles-route.wav", "music-charles-maestro.wav",
-                "music-charles-ending.wav")) {
+    void creditedCc0MusicAndLivingScoreEndingAreBundled() {
+        for (String file : List.of("music-charles-hall.mp3", "music-charles-spire.mp3",
+                "music-charles-maestro.mp3", "music-charles-ending.mp3")) {
             Path path = Path.of("src/main/resources/sounds", file);
             assertTrue(Files.exists(path), file);
             assertTrue(path.toFile().length() > 900_000, file + " should be a full cue, not a stinger.");
         }
         ClassicEndingContent.Cinematic cinematic = ClassicEndingContent.endingFor(BirdType.MOCKINGBIRD).cinematic();
         assertTrue(ClassicEndingContent.isCharlesLivingScore(cinematic));
-        assertEquals("music-charles-ending.wav", cinematic.musicCue());
+        assertEquals("music-charles-ending.mp3", cinematic.musicCue());
         assertEquals(6, cinematic.beats().size());
+    }
+
+    @Test
+    void resonanceHallPlatesRequireACommitmentThenLaunchAndRestoreRecovery() {
+        BirdGame3 game = prepared(0, 0xC4A281L, 0xC4A282L);
+        Bird charles = game.players[0];
+        double surfaceY = BirdGame3.GROUND_Y - 220.0;
+        charles.x = BirdGame3.RESONANCE_PLATE_X[1] - charles.bodyWidth() * 0.5;
+        charles.y = surfaceY - charles.bodyHeight();
+        charles.vy = 0.0;
+        charles.canDoubleJump = false;
+
+        for (int tick = 1; tick < BirdGame3.RESONANCE_PLATE_HOLD_FRAMES; tick++) {
+            game.applyCharlesArenaRuntimeEffects();
+            assertEquals(0.0, charles.vy, 0.0001, "The plate must telegraph before it launches.");
+        }
+        game.applyCharlesArenaRuntimeEffects();
+
+        assertTrue(charles.vy <= -13.6);
+        assertTrue(charles.canDoubleJump);
+        assertEquals(BirdGame3.RESONANCE_PLATE_REUSE_FRAMES, game.resonancePlateReuseFrames[0]);
+    }
+
+    @Test
+    void signalSpireBroadcastLaneIsTelegraphedDirectionalAndAirborneOnly() {
+        BirdGame3 game = prepared(1, 0xC4A283L, 0xC4A284L);
+        Bird charles = game.players[0];
+        game.simTick = 60L;
+        charles.x = 2_600.0;
+        charles.y = BirdGame3.SIGNAL_LANE_Y[0] - charles.bodyHeight() * 0.5;
+        charles.vx = 0.0;
+
+        game.applyCharlesArenaRuntimeEffects();
+
+        assertEquals(0.22, charles.vx, 0.0001);
+    }
+
+    @Test
+    void silentAmphitheaterFieldSoftensHitstunWithoutFreezingTheFighter() {
+        BirdGame3 game = prepared(7, 0xC4A285L, 0xC4A286L);
+        Bird charles = game.players[0];
+        charles.x = BirdGame3.SILENT_FIELD_CENTER_X - charles.bodyWidth() * 0.5;
+        charles.y = BirdGame3.SILENT_FIELD_CENTER_Y - charles.bodyHeight() * 0.5;
+        charles.vx = 12.0;
+        charles.vy = -8.0;
+        charles.stunTime = 30;
+
+        game.applyCharlesArenaRuntimeEffects();
+
+        assertEquals(11.844, charles.vx, 0.0001);
+        assertEquals(-7.952, charles.vy, 0.0001);
+        assertNotEquals(0.0, charles.vx, "The field is a refuge, not another screen-freeze effect.");
     }
 
     private static void assertThreeWaveEncounter(BirdGame3 game, boolean normalAi) {

@@ -1861,6 +1861,49 @@ class BirdStateTest {
     }
 
     @Test
+    void mockingbirdMicrophoneSideSpecialChargesReleasesAndHitsOnlyOnce() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+        Bird charles = new Bird(600.0, BirdGame3.BirdType.MOCKINGBIRD, 0, game);
+        Bird target = new Bird(900.0, BirdGame3.BirdType.PIGEON, 1, game);
+        charles.y = BirdGame3.GROUND_Y - charles.bodyHeight();
+        target.y = BirdGame3.GROUND_Y - target.bodyHeight();
+        charles.facingRight = true;
+        game.players[0] = charles;
+        game.players[1] = target;
+
+        double startingHealth = target.health;
+        MockingbirdSpecials.side(charles, false);
+        for (int tick = 0; tick < 40; tick++) {
+            MockingbirdSpecials.handleState(charles, true);
+        }
+
+        assertTrue(charles.mockingbirdMicCharging);
+        assertEquals(startingHealth, target.health, 0.0, "Charging must not create an invisible hitbox.");
+        assertTrue(MockingbirdSpecials.microphoneChargeRatio(charles) > 0.5);
+        assertEquals(0, charles.specialMaxCooldown, "Charles should not show the obsolete cooldown bar.");
+
+        MockingbirdSpecials.handleState(charles, false);
+        assertFalse(charles.mockingbirdMicCharging);
+        assertEquals(Bird.MOCKINGBIRD_MIC_SWING_FRAMES, charles.mockingbirdMicSwingTimer);
+
+        double angle = MockingbirdSpecials.microphoneSwingAngle(charles);
+        double reach = (78.0 + MockingbirdSpecials.microphoneChargeRatio(charles) * 54.0)
+                * charles.sizeMultiplier;
+        double micX = charles.bodyCenterX() + Math.cos(angle) * reach;
+        double micY = charles.bodyCenterY() + Math.sin(angle) * reach * 0.72;
+        target.x = micX - target.bodyWidth() * 0.5;
+        target.y = micY - target.bodyHeight() * 0.5;
+
+        MockingbirdSpecials.handleState(charles, false);
+        assertTrue(target.health < startingHealth);
+        double healthAfterFirstHit = target.health;
+        MockingbirdSpecials.handleState(charles, false);
+        assertEquals(healthAfterFirstHit, target.health, 0.0,
+                "One microphone swing must never multi-hit the same fighter every frame.");
+    }
+
+    @Test
     void mockingbirdUltimateBypassesEveryDirectionalReuseLock() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 1;

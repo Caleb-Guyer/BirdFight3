@@ -4,6 +4,7 @@ import javafx.scene.paint.Color;
 
 final class MockingbirdSpecials {
     static final String SHADOW_COURT_MOVE = "Charles Shadow Court";
+    static final String MICROPHONE_SWING_MOVE = "Charles Microphone Swing";
 
     private MockingbirdSpecials() {
     }
@@ -145,53 +146,147 @@ final class MockingbirdSpecials {
             dir = bird.facingDirection();
         }
         bird.facingRight = dir > 0;
-        bird.mockingbirdSideFxTimer = Bird.MOCKINGBIRD_SIDE_FX_FRAMES + (ultimate ? 5 : 0);
-        bird.mockingbirdSideReuseTimer = ultimate ? 10 : Bird.MOCKINGBIRD_SIDE_REUSE_FRAMES;
-        bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, bird.mockingbirdSideFxTimer);
+        bird.mockingbirdMicCharging = true;
+        bird.mockingbirdMicChargeFrames = 0;
+        bird.mockingbirdMicSwingTimer = 0;
+        bird.mockingbirdMicDirection = dir;
+        java.util.Arrays.fill(bird.mockingbirdMicHit, false);
+        bird.mockingbirdSideFxTimer = 0;
         bird.specialCooldown = 0;
         bird.specialMaxCooldown = 0;
-        bird.vx = bird.vx * 0.45 - dir * (ultimate ? 3.2 : 2.2);
-        if (!bird.isOnGround()) {
-            bird.vy = Math.min(bird.vy, ultimate ? 0.4 : 0.9);
+        bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, 5);
+        bird.vx *= bird.isOnGround() ? 0.58 : 0.84;
+    }
+
+    static void handleState(Bird bird, boolean specialHeld) {
+        if (bird.mockingbirdMicCharging) {
+            bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, 5);
+            bird.vx *= bird.isOnGround() ? 0.72 : 0.92;
+            if (specialHeld && bird.mockingbirdMicChargeFrames < Bird.MOCKINGBIRD_MIC_MAX_CHARGE_FRAMES) {
+                bird.mockingbirdMicChargeFrames++;
+                if ((bird.mockingbirdMicChargeFrames & 7) == 0) {
+                    emitMicrophoneChargeSpark(bird);
+                }
+            }
+            if (!specialHeld || bird.mockingbirdMicChargeFrames >= Bird.MOCKINGBIRD_MIC_MAX_CHARGE_FRAMES) {
+                releaseMicrophoneSwing(bird);
+            }
+            return;
         }
 
-        double centerX = bird.bodyCenterX() + dir * 74.0 * bird.sizeMultiplier;
-        double centerY = bird.bodyCenterY() - 6.0 * bird.sizeMultiplier;
-        double reach = (ultimate ? 164.0 : 142.0) * bird.sizeMultiplier;
-        double verticalReach = (ultimate ? 62.0 : 52.0) * bird.sizeMultiplier;
+        if (bird.mockingbirdMicSwingTimer <= 0) {
+            return;
+        }
+
+        bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, bird.mockingbirdMicSwingTimer);
+        resolveMicrophoneSwingHit(bird);
+        if (bird.mockingbirdMicSwingTimer == 1) {
+            bird.mockingbirdMicSwingTimer = 0;
+            bird.mockingbirdMicChargeFrames = 0;
+            java.util.Arrays.fill(bird.mockingbirdMicHit, false);
+        }
+    }
+
+    static void reset(Bird bird, boolean clearReuse) {
+        bird.mockingbirdMicCharging = false;
+        bird.mockingbirdMicChargeFrames = 0;
+        bird.mockingbirdMicSwingTimer = 0;
+        java.util.Arrays.fill(bird.mockingbirdMicHit, false);
+        if (clearReuse) {
+            bird.mockingbirdSideReuseTimer = 0;
+        }
+    }
+
+    private static void releaseMicrophoneSwing(Bird bird) {
+        bird.mockingbirdMicCharging = false;
+        bird.mockingbirdMicChargeFrames = Math.max(Bird.MOCKINGBIRD_MIC_MIN_CHARGE_FRAMES,
+                bird.mockingbirdMicChargeFrames);
+        bird.mockingbirdMicSwingTimer = Bird.MOCKINGBIRD_MIC_SWING_FRAMES;
+        bird.mockingbirdSideFxTimer = Bird.MOCKINGBIRD_MIC_SWING_FRAMES;
+        bird.mockingbirdSideReuseTimer = Bird.MOCKINGBIRD_SIDE_REUSE_FRAMES
+                + (int) Math.round(microphoneChargeRatio(bird) * 12.0);
+        bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, Bird.MOCKINGBIRD_MIC_SWING_FRAMES);
+        bird.vx = bird.vx * 0.50 - bird.mockingbirdMicDirection * (1.4 + microphoneChargeRatio(bird) * 1.8);
+        if (!bird.isOnGround()) {
+            bird.vy = Math.min(bird.vy, 1.0 - microphoneChargeRatio(bird) * 1.3);
+        }
+        emitMicrophoneReleaseBurst(bird);
+    }
+
+    static double microphoneChargeRatio(Bird bird) {
+        return Math.clamp(bird.mockingbirdMicChargeFrames
+                / (double) Bird.MOCKINGBIRD_MIC_MAX_CHARGE_FRAMES, 0.0, 1.0);
+    }
+
+    static double microphoneSwingAngle(Bird bird) {
+        double elapsed = Bird.MOCKINGBIRD_MIC_SWING_FRAMES - bird.mockingbirdMicSwingTimer;
+        double progress = Math.clamp(elapsed / Math.max(1.0, Bird.MOCKINGBIRD_MIC_SWING_FRAMES - 1.0), 0.0, 1.0);
+        double eased = progress * progress * (3.0 - 2.0 * progress);
+        double localAngle = Math.toRadians(-132.0 + eased * 324.0);
+        return bird.mockingbirdMicDirection >= 0 ? localAngle : Math.PI - localAngle;
+    }
+
+    private static void resolveMicrophoneSwingHit(Bird bird) {
+        double charge = microphoneChargeRatio(bird);
+        double angle = microphoneSwingAngle(bird);
+        double reach = (78.0 + charge * 54.0) * bird.sizeMultiplier;
+        double micX = bird.bodyCenterX() + Math.cos(angle) * reach;
+        double micY = bird.bodyCenterY() + Math.sin(angle) * reach * 0.72;
+        double headRadius = (34.0 + charge * 13.0) * bird.sizeMultiplier;
+
         for (Bird other : bird.game.players) {
             if (!bird.canDamageTarget(other)) continue;
-            double dx = other.bodyCenterX() - centerX;
-            double forward = dx * dir;
-            if (forward < -other.combatHalfWidth() * 0.45 || forward > reach + other.combatHalfWidth()) continue;
-            double dy = Math.abs(other.bodyCenterY() - centerY);
-            if (dy > verticalReach + other.combatHalfHeight()) continue;
+            if (other.playerIndex < 0 || other.playerIndex >= bird.mockingbirdMicHit.length) continue;
+            if (bird.mockingbirdMicHit[other.playerIndex]) continue;
+            double dx = other.bodyCenterX() - micX;
+            double dy = other.bodyCenterY() - micY;
+            if (Math.hypot(dx, dy) > headRadius + other.combatRadius()) continue;
 
+            bird.mockingbirdMicHit[other.playerIndex] = true;
             double oldHealth = other.health;
-            int dealt = (int) bird.applyDamageTo(other, ultimate ? 11 : 8);
+            int dealt = (int) bird.applyDamageTo(other, 7.0 + charge * 8.0);
             if (dealt <= 0) continue;
             bird.game.damageDealt[bird.playerIndex] += dealt;
             bird.game.recordSpecialImpact(bird.playerIndex, dealt, true);
             if (other.health <= 0 && oldHealth > 0) {
                 bird.game.eliminations[bird.playerIndex]++;
             }
-            other.vx += dir * (ultimate ? 10.8 : 8.6);
-            other.vy -= ultimate ? 5.6 : 4.2;
-            other.applyStun(ultimate ? 28 : 18);
-        }
 
-        Color pulse = ultimate ? Color.GOLD : Color.web("#D7B5FF");
-        for (int ring = 0; ring < 3; ring++) {
-            for (int i = 0; i < bird.scaledParticleCount(7); i++) {
-                double spread = (bird.game.nextParticleRandom() - 0.5) * (28.0 + ring * 14.0);
-                bird.game.particles.add(new Particle(
-                        bird.bodyCenterX() + dir * (26.0 + ring * 30.0 + bird.game.nextParticleRandom() * 22.0),
-                        centerY + spread,
-                        dir * (2.6 + ring * 0.8 + bird.game.nextParticleRandom() * 2.4),
-                        spread * 0.045,
-                        pulse.deriveColor(0, 1, 1, 0.68)
-                ));
-            }
+            double outward = Math.signum(other.bodyCenterX() - bird.bodyCenterX());
+            if (outward == 0.0) outward = bird.mockingbirdMicDirection;
+            other.vx += outward * (7.4 + charge * 6.8);
+            other.vy -= 3.8 + charge * 4.9;
+            other.applyStun((int) Math.round(15.0 + charge * 15.0));
+            bird.game.hitstopFrames = Math.max(bird.game.hitstopFrames, charge > 0.82 ? 6 : 3);
+            bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, 4.0 + charge * 7.0);
+        }
+    }
+
+    private static void emitMicrophoneChargeSpark(Bird bird) {
+        double charge = microphoneChargeRatio(bird);
+        double angle = Math.toRadians(-100.0 + charge * 34.0);
+        double reach = (48.0 + charge * 28.0) * bird.sizeMultiplier;
+        bird.game.particles.add(new Particle(
+                bird.bodyCenterX() + Math.cos(angle) * reach * bird.facingDirection(),
+                bird.bodyCenterY() + Math.sin(angle) * reach,
+                (bird.game.nextParticleRandom() - 0.5) * 2.6,
+                -1.0 - bird.game.nextParticleRandom() * 2.4,
+                (charge > 0.76 ? Color.GOLD : Color.web("#D7B5FF")).deriveColor(0, 1, 1, 0.78)
+        ));
+    }
+
+    private static void emitMicrophoneReleaseBurst(Bird bird) {
+        double charge = microphoneChargeRatio(bird);
+        Color accent = charge > 0.76 ? Color.GOLD : Color.web("#D7B5FF");
+        for (int i = 0; i < bird.scaledParticleCount(12 + (int) Math.round(charge * 12.0)); i++) {
+            double angle = bird.game.nextParticleRandom() * Math.PI * 2.0;
+            double speed = 1.8 + bird.game.nextParticleRandom() * (3.8 + charge * 3.4);
+            bird.game.particles.add(new Particle(
+                    bird.bodyCenterX(), bird.bodyCenterY(),
+                    Math.cos(angle) * speed,
+                    Math.sin(angle) * speed,
+                    accent.deriveColor(0, 1, 1, 0.74)
+            ));
         }
     }
 

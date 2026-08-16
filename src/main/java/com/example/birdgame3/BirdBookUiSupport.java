@@ -436,13 +436,35 @@ final class BirdBookUiSupport {
             g.fillRoundRect(w * 0.19, h * 0.27, w * 0.13, h * 0.045, 6, 6);
             g.fillRoundRect(w * 0.68, h * 0.27, w * 0.13, h * 0.045, 6, 6);
             g.fillRoundRect(w * 0.43, h * 0.18, w * 0.14, h * 0.045, 6, 6);
-        } else if (map == BirdGame3.MapType.RESONANCE_HALL
-                || map == BirdGame3.MapType.SIGNAL_SPIRE
-                || map == BirdGame3.MapType.SILENT_AMPHITHEATER) {
+        } else if (map == BirdGame3.MapType.RESONANCE_HALL) {
             g.fillRoundRect(w * 0.10, h * 0.70, w * 0.80, h * 0.08, 10, 10);
-            g.fillRoundRect(w * 0.16, h * 0.52, w * 0.22, h * 0.055, 8, 8);
-            g.fillRoundRect(w * 0.62, h * 0.52, w * 0.22, h * 0.055, 8, 8);
-            g.fillRoundRect(w * 0.34, h * 0.34, w * 0.32, h * 0.06, 8, 8);
+            g.fillRoundRect(w * 0.15, h * 0.50, w * 0.23, h * 0.055, 8, 8);
+            g.fillRoundRect(w * 0.62, h * 0.50, w * 0.23, h * 0.055, 8, 8);
+            g.fillRoundRect(w * 0.38, h * 0.53, w * 0.24, h * 0.055, 8, 8);
+            g.fillRoundRect(w * 0.42, h * 0.25, w * 0.16, h * 0.045, 7, 7);
+            g.setFill(Color.web("#FFE082", 0.92));
+            for (double px : new double[]{0.24, 0.50, 0.76}) {
+                g.fillRoundRect(w * px - 12, h * 0.68, 24, 5, 4, 4);
+            }
+        } else if (map == BirdGame3.MapType.SIGNAL_SPIRE) {
+            g.fillRoundRect(w * 0.17, h * 0.72, w * 0.68, h * 0.065, 8, 8);
+            g.fillRoundRect(w * 0.18, h * 0.55, w * 0.24, h * 0.045, 7, 7);
+            g.fillRoundRect(w * 0.62, h * 0.47, w * 0.22, h * 0.045, 7, 7);
+            g.fillRoundRect(w * 0.36, h * 0.34, w * 0.18, h * 0.042, 7, 7);
+            g.fillRoundRect(w * 0.53, h * 0.20, w * 0.18, h * 0.042, 7, 7);
+            g.setStroke(Color.web("#67E8F9", 0.82));
+            g.setLineWidth(3.0);
+            g.strokeLine(w * 0.08, h * 0.43, w * 0.92, h * 0.43);
+        } else if (map == BirdGame3.MapType.SILENT_AMPHITHEATER) {
+            g.fillRoundRect(w * 0.10, h * 0.72, w * 0.80, h * 0.075, 9, 9);
+            g.fillRoundRect(w * 0.15, h * 0.58, w * 0.22, h * 0.05, 7, 7);
+            g.fillRoundRect(w * 0.63, h * 0.58, w * 0.22, h * 0.05, 7, 7);
+            g.fillRoundRect(w * 0.40, h * 0.52, w * 0.20, h * 0.055, 7, 7);
+            g.fillRoundRect(w * 0.23, h * 0.38, w * 0.18, h * 0.045, 7, 7);
+            g.fillRoundRect(w * 0.59, h * 0.38, w * 0.18, h * 0.045, 7, 7);
+            g.setStroke(Color.web("#FFE082", 0.72));
+            g.setLineWidth(3.0);
+            g.strokeOval(w * 0.39, h * 0.38, w * 0.22, h * 0.28);
         } else {
             g.fillRoundRect(w * 0.1, h * 0.7, w * 0.3, h * 0.08, 10, 10);
             g.fillRoundRect(w * 0.6, h * 0.6, w * 0.28, h * 0.08, 10, 10);

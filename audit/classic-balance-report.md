@@ -2,7 +2,7 @@
 
 - Difficulty: 5.0
 - Player AI level: 5
-- Matches per scored encounter: 32
+- Matches per scored encounter: 64
 - Objective/bonus rounds: listed but not simulated
 - Metric: team clear rate in the real Classic encounter setup
 
@@ -10,14 +10,14 @@
 
 | Round | Encounter | Kind | Map | W-L-D | Clear rate | Avg time | Damage dealt | Read |
 |---:|---|---|---|---:|---:|---:|---:|---|
-| 1 | Call and Answer | Combat | Resonance Hall | 18-14-0 | 56.3% | 39.9s | 64 | Target band |
-| 2 | Inherited Voice | Combat | Signal Spire | 20-12-0 | 62.5% | 72.6s | 206 | Target band |
-| 3 | Manufactured Voice | Combat | Prison | 21-11-0 | 65.6% | 99.7s | 291 | Target band |
-| 4 | Stolen Voice | Combat | Parliament Rooftops | 23-9-0 | 71.9% | 33.4s | 192 | Possibly too easy |
-| 5 | The Understudies | Combat | Resonance Hall | 14-18-0 | 43.8% | 137.0s | 347 | Target band |
+| 1 | Call and Answer | Combat | Resonance Hall | 42-22-0 | 65.6% | 63.1s | 86 | Target band |
+| 2 | Inherited Voice | Combat | Signal Spire | 36-28-0 | 56.3% | 77.4s | 210 | Target band |
+| 3 | Manufactured Voice | Combat | Prison | 37-27-0 | 57.8% | 101.0s | 293 | Target band |
+| 4 | Stolen Voice | Combat | Parliament Rooftops | 38-26-0 | 59.4% | 37.4s | 189 | Target band |
+| 5 | The Understudies | Combat | Resonance Hall | 46-18-0 | 71.9% | 152.5s | 311 | Possibly too easy |
 | 6 | Bonus: Perfect Pitch | Objective | Resonance Hall | — | — | — | — | Not scored |
-| 7 | Dead Air | Combat | Signal Spire | 24-8-0 | 75.0% | 177.1s | 480 | Possibly too easy |
-| 8 | The Hollow Maestro | Combat | Silent Amphitheater | 15-8-9 | 65.2% | 229.1s | 389 | Target band |
+| 7 | Dead Air | Combat | Signal Spire | 43-21-0 | 67.2% | 168.4s | 533 | Target band |
+| 8 | The Hollow Maestro | Combat | Silent Amphitheater | 32-26-6 | 55.2% | 215.3s | 139 | Target band |
 
 ## How to use this report
 

@@ -111,6 +111,11 @@ class LanProtocolTest {
         state.airDodgeAvailable = false;
         state.activeAerialLandingLagFrames = 12;
         state.mockingbirdLoungeReuseTimer = 47;
+        state.mockingbirdMicCharging = true;
+        state.mockingbirdMicChargeFrames = 38;
+        state.mockingbirdMicSwingTimer = 11;
+        state.mockingbirdMicDirection = -1;
+        state.mockingbirdMicHit[2] = true;
         state.phoenixLavaReuseTimer = 31;
         state.phoenixFireballFizzleTimer = 13;
         state.phoenixAirSideAimPoseTimer = 17;
@@ -394,6 +399,11 @@ class LanProtocolTest {
         assertFalse(decoded.airDodgeAvailable);
         assertEquals(12, decoded.activeAerialLandingLagFrames);
         assertEquals(47, decoded.mockingbirdLoungeReuseTimer);
+        assertTrue(decoded.mockingbirdMicCharging);
+        assertEquals(38, decoded.mockingbirdMicChargeFrames);
+        assertEquals(11, decoded.mockingbirdMicSwingTimer);
+        assertEquals(-1, decoded.mockingbirdMicDirection);
+        assertTrue(decoded.mockingbirdMicHit[2]);
         assertEquals(31, decoded.phoenixLavaReuseTimer);
         assertEquals(13, decoded.phoenixFireballFizzleTimer);
         assertEquals(17, decoded.phoenixAirSideAimPoseTimer);

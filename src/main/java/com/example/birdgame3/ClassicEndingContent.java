@@ -279,7 +279,7 @@ final class ClassicEndingContent {
                     "The Hollow Maestro",
                     "",
                     BirdGame3.MapType.RESONANCE_HALL,
-                    "music-charles-ending.wav",
+                    "music-charles-ending.mp3",
                     monologue(
                             beat("The Hollow Maestro called obedience harmony. When it fell, the silence sounded more honest than its song.", Tableau.BOSS_AFTERMATH),
                             beat("The Crown opened every voice in the world to me at once. Every promise. Every warning. Every word never answered.", Tableau.CROWN_DISCOVERY),

@@ -912,8 +912,9 @@ final class StoryCampaignContent {
             case FROSTBITE_FJORD -> "music-frostbite.mp3";
             case ASHFALL_CATHEDRAL -> "music-ashfall.mp3";
             case PRISON -> "music-prison.mp3";
-            case RESONANCE_HALL, SIGNAL_SPIRE -> "music-charles-route.wav";
-            case SILENT_AMPHITHEATER -> "music-charles-maestro.wav";
+            case RESONANCE_HALL -> "music-charles-hall.mp3";
+            case SIGNAL_SPIRE -> "music-charles-spire.mp3";
+            case SILENT_AMPHITHEATER -> "music-charles-maestro.mp3";
             default -> "music-forest.mp3";
         };
     }

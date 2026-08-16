@@ -4,9 +4,10 @@
 
 The legacy music tracks are public-domain releases originally published on
 FreePD.com (site now closed; obtained via the Internet Archive mirror
-`allfreepdmusicbykuronekony4n`). The finale tracks were published separately on
-OpenGameArt by their credited artists under CC0. No attribution is required for
-these public-domain tracks, but every source is credited here as a courtesy.
+`allfreepdmusicbykuronekony4n`). Additional story, finale, and Charles tracks
+were published separately on OpenGameArt by their credited artists under CC0.
+No attribution is required for these public-domain tracks, but every source is
+credited here as a courtesy.
 The campaign defeat cue is an original synthesized composition for BirdFight3
 and is also dedicated to the public domain under CC0.
 
@@ -32,9 +33,10 @@ and is also dedicated to the public domain under CC0.
 | music-escape.mp3 | Chase — Adiutorium (CC0, OpenGameArt) | Finale cave escape |
 | music-farewell.mp3 | Aftermath — Indieteur (CC0, OpenGameArt) | Pigeon and Eagle's final conversation |
 | music-credits.mp3 | Our Expanse — Bobjt (CC0, OpenGameArt) | Campaign epilogue and credits |
-| music-charles-route.wav | No Voice but His Own (original synthesized composition) | Charles Classic route and Resonance Hall / Signal Spire |
-| music-charles-maestro.wav | Hollow Score (original synthesized composition) | Hollow Maestro and Silent Amphitheater |
-| music-charles-ending.wav | The Last Original (original synthesized composition) | Charles's Classic ending |
+| music-charles-hall.mp3 | [Battle Theme — Wolfgang_ / Theodore Kerr](https://opengameart.org/content/battle-theme-0) (CC0) | Resonance Hall and Charles's theatrical battles |
+| music-charles-spire.mp3 | [Battle for Mars — Sperry Lion LLC](https://opengameart.org/content/battle-for-mars) (CC0) | Signal Spire and Dead Air |
+| music-charles-maestro.mp3 | [Boss Fight — Lisboa](https://opengameart.org/content/boss-fight-0) (CC0) | Hollow Maestro and Silent Amphitheater |
+| music-charles-ending.mp3 | [Snow Globe — Bobjt](https://opengameart.org/content/snow-globe) (CC0) | Charles's Classic ending |
 
 ## Sound effects (original)
 

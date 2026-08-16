@@ -1044,6 +1044,17 @@ public class BirdGame3 {
     private long lastWindBurstTime = 0;
     public static final long WIND_BURST_INTERVAL = 60L * 6; // every ~6 seconds, in 60 Hz sim ticks
     public static final double WIND_FORCE = -28.0; // strong upward boost
+    static final double[] RESONANCE_PLATE_X = {1_380.0, 3_000.0, 4_620.0};
+    static final int RESONANCE_PLATE_HOLD_FRAMES = 38;
+    static final int RESONANCE_PLATE_REUSE_FRAMES = 110;
+    static final double[] SIGNAL_LANE_Y = {GROUND_Y - 1_340.0, GROUND_Y - 890.0, GROUND_Y - 470.0};
+    static final double SILENT_FIELD_CENTER_X = 3_000.0;
+    static final double SILENT_FIELD_CENTER_Y = GROUND_Y - 650.0;
+    static final double SILENT_FIELD_RADIUS_X = 570.0;
+    static final double SILENT_FIELD_RADIUS_Y = 390.0;
+    final int[] resonancePlateHoldFrames = new int[MAX_COMBATANTS];
+    final int[] resonancePlateReuseFrames = new int[MAX_COMBATANTS];
+    final int[] resonancePlateIndex = new int[MAX_COMBATANTS];
     boolean mutatorModeEnabled = false;
     boolean competitionModeEnabled = false;
     MatchMutator activeMutator = MatchMutator.NONE;
@@ -1797,9 +1808,9 @@ public class BirdGame3 {
                     case FROSTBITE_FJORD -> "music-frostbite.mp3";
                     case ASHFALL_CATHEDRAL -> "music-ashfall.mp3";
                     case PRISON -> "music-prison.mp3";
-                    case RESONANCE_HALL -> "music-charles-route.wav";
-                    case SIGNAL_SPIRE -> "music-charles-route.wav";
-                    case SILENT_AMPHITHEATER -> "music-charles-maestro.wav";
+                    case RESONANCE_HALL -> "music-charles-hall.mp3";
+                    case SIGNAL_SPIRE -> "music-charles-spire.mp3";
+                    case SILENT_AMPHITHEATER -> "music-charles-maestro.mp3";
             default -> throw new IllegalStateException("Unexpected value: " + selectedMap);
         };
     }
@@ -5107,7 +5118,9 @@ public class BirdGame3 {
     private void playClassicEncounterMusic() {
         String track = classicSelectedBird == BirdType.MOCKINGBIRD && classicEncounter != null
                 ? (classicEncounter.style == ClassicEncounterStyle.HOLLOW_MAESTRO_BOSS
-                ? "music-charles-maestro.wav" : "music-charles-route.wav")
+                ? "music-charles-maestro.mp3"
+                : (classicEncounter.map == MapType.SIGNAL_SPIRE
+                ? "music-charles-spire.mp3" : "music-charles-hall.mp3"))
                 : CLASSIC_ENCOUNTER_MUSIC_FILE;
         startOrContinueMusicTrack(track, true);
     }
@@ -10659,7 +10672,7 @@ public class BirdGame3 {
         ROADRUNNER("Roadrunner", 7, 11, 5.2, Color.web("#B87333"), 0.0, "Beep-Beep Blitz + Canyon Ricochet + Dust Devil Lift + Painted Road + Redline Execution"),
         PENGUIN("Penguin", 8, 9, 3.6, Color.BLACK, 0.0, "Belly Slide / Iceberg / Rocket Flop / Snow Fort / Absolute Zero Fortress"),
         SHOEBILL("Shoebill", 10, 12, 3.7, Color.DARKSLATEBLUE, 0.3, "Death Stare / Heavy Bill Thrust / Marsh Lift / Statue Counter / Final Stillness"),
-        MOCKINGBIRD("Charles", 5, 18, 4.0, Color.MEDIUMPURPLE, 0.4, "Mimic neutral / Mimic Call / Forest Lift / Forest Lounge / Shadow Court"),
+        MOCKINGBIRD("Charles", 5, 18, 4.0, Color.MEDIUMPURPLE, 0.4, "Mimic neutral / Charged Mic Swing / Forest Lift / Forest Lounge / Shadow Court"),
         RAZORBILL("Razorbill", 8, 12, 3.6, Color.INDIGO, 0.25,
                 "Razor Storm / Skimming Razor / Cliff Shear / Counter Cut / Guillotine Wake"),
         GRINCHHAWK("Grinch-Hawk", 10, 10, 2.8, Color.rgb(102, 153, 0), 0.80,
@@ -13969,110 +13982,281 @@ public class BirdGame3 {
         double time = ambientFx ? System.currentTimeMillis() / 1000.0 : 0.0;
         for (int i = 0; i < 640; i++) {
             double ratio = i / 640.0;
-            g.setFill(Color.web("#090711").interpolate(Color.web("#351A2D"), ratio));
+            g.setFill(Color.web("#09050C").interpolate(Color.web("#421226"), ratio));
             g.fillRect(0, i * WORLD_HEIGHT / 640.0, WORLD_WIDTH, WORLD_HEIGHT / 640.0 + 3.0);
         }
-        g.setFill(Color.web("#160A16"));
-        g.fillRect(0, 0, 620, WORLD_HEIGHT);
-        g.fillRect(WORLD_WIDTH - 620, 0, 620, WORLD_HEIGHT);
-        g.setFill(Color.web("#24111F"));
+
+        // Deep auditorium: receding balconies and tiny warm house lights make
+        // the playable stage feel like a real performance space, not a void.
+        g.setFill(Color.web("#070509", 0.82));
+        g.fillRect(0, 360, WORLD_WIDTH, GROUND_Y - 40);
         for (int tier = 0; tier < 4; tier++) {
-            double y = 420.0 + tier * 390.0;
-            g.fillRoundRect(90, y, 500, 250, 46, 46);
-            g.fillRoundRect(WORLD_WIDTH - 590, y, 500, 250, 46, 46);
-            g.setStroke(Color.web("#C58A42", 0.72));
+            double y = 520.0 + tier * 360.0;
+            double inset = 130.0 + tier * 80.0;
+            g.setFill(Color.web(tier % 2 == 0 ? "#21101A" : "#170B13"));
+            g.fillRoundRect(inset, y, WORLD_WIDTH - inset * 2.0, 190.0, 42, 42);
+            g.setStroke(Color.web("#B17637", 0.62));
             g.setLineWidth(12.0);
-            g.strokeRoundRect(90, y, 500, 250, 46, 46);
-            g.strokeRoundRect(WORLD_WIDTH - 590, y, 500, 250, 46, 46);
+            g.strokeLine(inset + 45.0, y + 38.0, WORLD_WIDTH - inset - 45.0, y + 38.0);
+            for (double x = inset + 110.0; x < WORLD_WIDTH - inset - 80.0; x += 165.0) {
+                double flicker = 0.68 + (ambientFx ? 0.16 * Math.sin(time * 1.7 + x * 0.013) : 0.0);
+                g.setFill(Color.web("#FFD66B", flicker));
+                g.fillOval(x, y + 82.0, 14.0, 14.0);
+            }
         }
-        g.setFill(Color.web("#3B0C25", 0.92));
-        g.fillPolygon(new double[]{520, 1_500, 1_280, 520},
-                new double[]{0, 0, GROUND_Y + 260, GROUND_Y + 260}, 4);
-        g.fillPolygon(new double[]{WORLD_WIDTH - 520, WORLD_WIDTH - 1_500, WORLD_WIDTH - 1_280, WORLD_WIDTH - 520},
-                new double[]{0, 0, GROUND_Y + 260, GROUND_Y + 260}, 4);
-        double glow = 0.72 + (ambientFx ? Math.sin(time * 1.35) * 0.10 : 0.0);
-        g.setStroke(Color.web("#FFE082", glow));
-        g.setLineWidth(18.0);
-        g.strokeOval(2_570, 210, 860, 860);
-        for (int ray = 0; ray < 12; ray++) {
-            double angle = ray * Math.PI / 6.0;
-            g.strokeLine(3_000 + Math.cos(angle) * 450, 640 + Math.sin(angle) * 450,
-                    3_000 + Math.cos(angle) * 610, 640 + Math.sin(angle) * 610);
+
+        // Proscenium, curtains, and fly loft.
+        g.setFill(Color.web("#4C0A21"));
+        g.fillPolygon(new double[]{0, 0, 1_390, 1_115, 660},
+                new double[]{0, GROUND_Y + 300, GROUND_Y + 300, 920, 0}, 5);
+        g.fillPolygon(new double[]{WORLD_WIDTH, WORLD_WIDTH, 4_610, 4_885, 5_340},
+                new double[]{0, GROUND_Y + 300, GROUND_Y + 300, 920, 0}, 5);
+        g.setStroke(Color.web("#7E1736", 0.9));
+        g.setLineWidth(24.0);
+        for (double x : new double[]{170, 360, 550, 5_450, 5_640, 5_830}) {
+            g.strokeLine(x, 0, x < 1_000 ? x + 470 : x - 470, GROUND_Y + 220);
         }
-        drawCharlesArchitecturalPlatforms(g, Color.web("#2A2332"), Color.web("#E0AA55"), Color.web("#7BE3DF"));
+        g.setFill(Color.web("#211319"));
+        g.fillRect(640, 0, WORLD_WIDTH - 1_280, 180);
+        g.setStroke(Color.web("#D7A34C"));
+        g.setLineWidth(20.0);
+        g.strokeRoundRect(630, 40, WORLD_WIDTH - 1_260, GROUND_Y + 220, 100, 100);
+        g.setStroke(Color.web("#6A3D2D", 0.8));
+        g.setLineWidth(10.0);
+        for (double x = 1_100; x <= 4_900; x += 380.0) g.strokeLine(x, 170, x, 680);
+
+        double chandelierGlow = 0.76 + (ambientFx ? Math.sin(time * 1.35) * 0.12 : 0.0);
+        g.setStroke(Color.web("#FFE082", chandelierGlow));
+        g.setLineWidth(16.0);
+        g.strokeLine(3_000, 0, 3_000, 290);
+        g.strokeOval(2_680, 270, 640, 210);
+        for (int lamp = 0; lamp < 9; lamp++) {
+            double angle = Math.PI * lamp / 8.0;
+            double lx = 3_000 - 290.0 * Math.cos(angle);
+            double ly = 380.0 + 90.0 * Math.sin(angle);
+            g.setFill(Color.web("#FFE082", chandelierGlow));
+            g.fillOval(lx - 18.0, ly - 18.0, 36.0, 36.0);
+        }
+
+        g.setFill(Color.web("#160C10"));
+        g.fillRect(720, GROUND_Y - 128, 4_560, 380);
+        g.setStroke(Color.web("#4E2C24", 0.8));
+        g.setLineWidth(7.0);
+        for (double x = 760; x < 5_260; x += 120.0) g.strokeLine(x, GROUND_Y - 128, x + 30, GROUND_Y + 250);
+
+        drawResonanceHallPlatforms(g);
+
+        double stageSurfaceY = GROUND_Y - 220.0;
+        for (int plate = 0; plate < RESONANCE_PLATE_X.length; plate++) {
+            int strongestHold = 0;
+            for (int i = 0; i < activePlayers; i++) {
+                if (resonancePlateIndex[i] == plate) strongestHold = Math.max(strongestHold, resonancePlateHoldFrames[i]);
+            }
+            double charge = strongestHold / (double) RESONANCE_PLATE_HOLD_FRAMES;
+            double halo = 0.30 + charge * 0.62 + (ambientFx ? Math.sin(time * 3.0 + plate) * 0.05 : 0.0);
+            g.setFill(Color.web("#FFE082", Math.clamp(halo, 0.18, 0.95)));
+            g.fillRoundRect(RESONANCE_PLATE_X[plate] - 148.0, stageSurfaceY - 14.0,
+                    296.0, 18.0, 16, 16);
+            g.setStroke(Color.web("#7BE3DF", 0.5 + charge * 0.45));
+            g.setLineWidth(8.0 + charge * 6.0);
+            g.strokeArc(RESONANCE_PLATE_X[plate] - 88.0 - charge * 18.0,
+                    stageSurfaceY - 70.0 - charge * 18.0,
+                    176.0 + charge * 36.0, 70.0 + charge * 24.0,
+                    12, 156, ArcType.OPEN);
+        }
     }
 
     private void drawSignalSpireArena(GraphicsContext g, boolean ambientFx) {
         double time = ambientFx ? System.currentTimeMillis() / 1000.0 : 0.0;
         for (int i = 0; i < 640; i++) {
             double ratio = i / 640.0;
-            g.setFill(Color.web("#020612").interpolate(Color.web("#25395A"), ratio));
+            g.setFill(Color.web("#01040D").interpolate(Color.web("#173558"), ratio));
             g.fillRect(0, i * WORLD_HEIGHT / 640.0, WORLD_WIDTH, WORLD_HEIGHT / 640.0 + 3.0);
         }
-        g.setFill(Color.web("#07101E", 0.88));
-        for (int i = 0; i < 16; i++) {
-            double x = i * 410.0;
-            double h = 180 + (i % 5) * 95.0;
-            g.fillRect(x, GROUND_Y + 240 - h, 270, h);
+
+        // The city is far below; this stage lives above the cloud deck.
+        g.setFill(Color.web("#07111F", 0.9));
+        for (int i = 0; i < 22; i++) {
+            double x = i * 300.0 - 120.0;
+            double h = 100.0 + (i % 6) * 48.0;
+            g.fillRect(x, GROUND_Y + 210.0 - h, 210.0, h);
+            g.setFill(Color.web("#FBC02D", 0.22));
+            for (double wy = GROUND_Y + 238.0 - h; wy < GROUND_Y + 175.0; wy += 44.0) {
+                g.fillRect(x + 28.0, wy, 10.0, 17.0);
+                g.fillRect(x + 78.0, wy, 10.0, 17.0);
+            }
+            g.setFill(Color.web("#07111F", 0.9));
         }
-        g.setStroke(Color.web("#546E7A"));
-        g.setLineWidth(42.0);
-        g.strokeLine(3_000, 0, 3_000, GROUND_Y + 360);
-        g.setLineWidth(18.0);
-        for (int y = 180; y < GROUND_Y; y += 260) {
-            g.strokeLine(2_460, y, 3_540, y);
-            g.strokeLine(2_460, y, 3_000, y + 250);
-            g.strokeLine(3_540, y, 3_000, y + 250);
+        g.setFill(Color.web("#B8D8E8", 0.11));
+        for (int cloud = 0; cloud < 13; cloud++) {
+            double cx = cloud * 520.0 - 160.0 + (ambientFx ? Math.sin(time * 0.12 + cloud) * 35.0 : 0.0);
+            g.fillOval(cx, GROUND_Y - 70.0 + (cloud % 3) * 55.0, 760.0, 230.0);
         }
-        double pulse = 0.60 + (ambientFx ? 0.24 * Math.sin(time * 2.2) : 0.0);
-        g.setStroke(Color.web("#67E8F9", pulse));
-        g.setLineWidth(12.0);
-        for (int ring = 0; ring < 4; ring++) {
-            double radius = 320 + ring * 250.0;
-            g.strokeOval(3_000 - radius, 520 - radius * 0.25, radius * 2.0, radius * 0.5);
+
+        // A real lattice radio mast anchors the irregular climbing route.
+        g.setStroke(Color.web("#516474"));
+        g.setLineWidth(34.0);
+        g.strokeLine(2_740, GROUND_Y + 260, 2_930, 70);
+        g.strokeLine(3_260, GROUND_Y + 260, 3_070, 70);
+        g.setLineWidth(14.0);
+        for (double y = 180.0; y < GROUND_Y + 80.0; y += 230.0) {
+            double half = 58.0 + y * 0.085;
+            g.strokeLine(3_000 - half, y, 3_000 + half, y + 220.0);
+            g.strokeLine(3_000 + half, y, 3_000 - half, y + 220.0);
+            g.strokeLine(3_000 - half, y, 3_000 + half, y);
         }
-        drawCharlesArchitecturalPlatforms(g, Color.web("#202B3B"), Color.web("#8298AA"), Color.web("#67E8F9"));
+        g.setStroke(Color.web("#93A7B5", 0.65));
+        g.setLineWidth(7.0);
+        g.strokeLine(2_930, 90, 1_040, GROUND_Y + 150);
+        g.strokeLine(3_070, 90, 5_040, GROUND_Y + 150);
+        g.setFill(Color.web("#F44336", 0.65 + (ambientFx ? 0.32 * Math.sin(time * 4.0) : 0.0)));
+        g.fillOval(2_968, 64, 64, 64);
+
+        drawSignalSpirePlatforms(g);
+
+        int lane = (int) ((simTick / 180L) % SIGNAL_LANE_Y.length);
+        int phase = (int) (simTick % 180L);
+        boolean broadcasting = phase >= 30 && phase <= 155;
+        int direction = ((simTick / 540L) & 1L) == 0L ? 1 : -1;
+        double laneY = SIGNAL_LANE_Y[lane];
+        g.save();
+        g.setStroke(Color.web(broadcasting ? "#67E8F9" : "#FFB74D", broadcasting ? 0.56 : 0.34));
+        g.setLineWidth(broadcasting ? 34.0 : 18.0);
+        g.setLineDashes(80.0, 38.0);
+        g.strokeLine(620.0, laneY, 5_380.0, laneY);
+        g.setLineDashes();
+        g.setFill(Color.web(broadcasting ? "#B2EBF2" : "#FFE0B2", 0.78));
+        for (double x = 940.0; x < 5_150.0; x += 620.0) {
+            double tip = x + direction * 80.0;
+            g.fillPolygon(new double[]{tip, tip - direction * 72.0, tip - direction * 72.0},
+                    new double[]{laneY, laneY - 34.0, laneY + 34.0}, 3);
+        }
+        g.restore();
     }
 
     private void drawSilentAmphitheaterArena(GraphicsContext g, boolean ambientFx) {
         double time = ambientFx ? System.currentTimeMillis() / 1000.0 : 0.0;
         for (int i = 0; i < 640; i++) {
             double ratio = i / 640.0;
-            g.setFill(Color.web("#020206").interpolate(Color.web("#191528"), ratio));
+            g.setFill(Color.web("#010106").interpolate(Color.web("#211A34"), ratio));
             g.fillRect(0, i * WORLD_HEIGHT / 640.0, WORLD_WIDTH, WORLD_HEIGHT / 640.0 + 3.0);
         }
-        g.setStroke(Color.web("#403A4B", 0.74));
-        g.setLineWidth(34.0);
-        for (int tier = 0; tier < 6; tier++) {
-            double pad = 260 + tier * 210.0;
-            g.strokeArc(pad, 180 + tier * 115.0, WORLD_WIDTH - pad * 2.0,
-                    2_300 - tier * 130.0, 8, 164, ArcType.OPEN);
+
+        // Concentric stone seating gives the arena its scale and silhouettes a
+        // deliberately empty audience: the final battle has no witnesses.
+        g.setStroke(Color.web("#4B4658", 0.72));
+        for (int tier = 0; tier < 7; tier++) {
+            double pad = 80.0 + tier * 220.0;
+            g.setLineWidth(92.0 - tier * 7.0);
+            g.strokeArc(pad, 260.0 + tier * 105.0, WORLD_WIDTH - pad * 2.0,
+                    2_520.0 - tier * 140.0, 8, 164, ArcType.OPEN);
         }
-        double pulse = 0.64 + (ambientFx ? Math.sin(time * 1.6) * 0.16 : 0.0);
-        g.setStroke(Color.web("#FFE082", pulse));
-        g.setLineWidth(22.0);
-        for (double x : new double[]{1_030, 2_020, 3_000, 3_980, 4_970}) {
-            g.strokeLine(x, 300, x, GROUND_Y + 180);
-            g.strokeOval(x - 70, 220, 140, 140);
+        g.setStroke(Color.web("#13111A", 0.82));
+        g.setLineWidth(9.0);
+        for (int aisle = 0; aisle < 11; aisle++) {
+            double angle = Math.toRadians(20.0 + aisle * 14.0);
+            g.strokeLine(3_000 + Math.cos(angle) * 450.0, 1_260 + Math.sin(angle) * 280.0,
+                    3_000 + Math.cos(angle) * 2_900.0, 1_100 + Math.sin(angle) * 2_300.0);
         }
-        drawCharlesArchitecturalPlatforms(g, Color.web("#282532"), Color.web("#777080"), Color.web("#FFE082"));
+
+        double eclipsePulse = 0.60 + (ambientFx ? Math.sin(time * 0.75) * 0.08 : 0.0);
+        g.setFill(Color.web("#07070C"));
+        g.fillOval(2_650, 130, 700, 700);
+        g.setStroke(Color.web("#FFE082", eclipsePulse));
+        g.setLineWidth(28.0);
+        g.strokeOval(2_650, 130, 700, 700);
+        g.setStroke(Color.web("#887A9A", 0.56));
+        g.setLineWidth(12.0);
+        for (int spoke = 0; spoke < 12; spoke++) {
+            double angle = spoke * Math.PI / 6.0;
+            g.strokeLine(3_000 + Math.cos(angle) * 370.0, 480 + Math.sin(angle) * 370.0,
+                    3_000 + Math.cos(angle) * 510.0, 480 + Math.sin(angle) * 510.0);
+        }
+
+        // Monumental tuning-fork statues replace generic posts.
+        for (double x : new double[]{620, 1_180, 4_820, 5_380}) {
+            g.setFill(Color.web("#26232E"));
+            g.fillRect(x - 54.0, 760.0, 108.0, GROUND_Y - 520.0);
+            g.fillPolygon(new double[]{x - 118.0, x + 118.0, x + 72.0, x - 72.0},
+                    new double[]{760.0, 760.0, 590.0, 590.0}, 4);
+            g.setStroke(Color.web("#716979", 0.65));
+            g.setLineWidth(18.0);
+            g.strokeLine(x - 70.0, 600.0, x - 70.0, 390.0);
+            g.strokeLine(x + 70.0, 600.0, x + 70.0, 390.0);
+        }
+
+        g.setFill(Color.web("#FFF59D", 0.055 + (ambientFx ? 0.018 * Math.sin(time) : 0.0)));
+        g.fillOval(SILENT_FIELD_CENTER_X - SILENT_FIELD_RADIUS_X,
+                SILENT_FIELD_CENTER_Y - SILENT_FIELD_RADIUS_Y,
+                SILENT_FIELD_RADIUS_X * 2.0, SILENT_FIELD_RADIUS_Y * 2.0);
+        g.setStroke(Color.web("#FFE082", 0.24));
+        g.setLineWidth(12.0);
+        g.setLineDashes(42.0, 28.0);
+        g.strokeOval(SILENT_FIELD_CENTER_X - SILENT_FIELD_RADIUS_X,
+                SILENT_FIELD_CENTER_Y - SILENT_FIELD_RADIUS_Y,
+                SILENT_FIELD_RADIUS_X * 2.0, SILENT_FIELD_RADIUS_Y * 2.0);
+        g.setLineDashes();
+
+        drawSilentAmphitheaterPlatforms(g);
     }
 
-    private void drawCharlesArchitecturalPlatforms(GraphicsContext g, Color body, Color trim, Color glow) {
+    private void drawResonanceHallPlatforms(GraphicsContext g) {
         for (Platform p : platforms) {
-            g.setFill(body);
-            g.fillRoundRect(p.x, p.y, p.w, p.h, 24, 24);
-            g.setStroke(trim);
-            g.setLineWidth(8.0);
-            g.strokeRoundRect(p.x, p.y, p.w, p.h, 24, 24);
-            g.setFill(glow.deriveColor(0, 1, 1, 0.55));
-            g.fillRoundRect(p.x + 18.0, p.y + 8.0, Math.max(0.0, p.w - 36.0), 10.0, 10, 10);
-            if (p.y < battlefieldIslandY - 100.0) {
-                g.setStroke(trim.deriveColor(0, 1, 0.75, 0.55));
-                g.setLineWidth(10.0);
-                g.strokeLine(p.x + p.w * 0.18, p.y + p.h, p.x + p.w * 0.18, battlefieldIslandY);
-                g.strokeLine(p.x + p.w * 0.82, p.y + p.h, p.x + p.w * 0.82, battlefieldIslandY);
+            if (p.y < battlefieldIslandY - 90.0) {
+                g.setStroke(Color.web("#5A3427", 0.72));
+                g.setLineWidth(13.0);
+                g.strokeLine(p.x + 28.0, 170.0, p.x + 28.0, p.y);
+                g.strokeLine(p.x + p.w - 28.0, 170.0, p.x + p.w - 28.0, p.y);
             }
+            g.setFill(Color.web("#2B171D"));
+            g.fillRoundRect(p.x, p.y, p.w, p.h, 22, 22);
+            g.setStroke(Color.web("#D7A34C"));
+            g.setLineWidth(8.0);
+            g.strokeRoundRect(p.x, p.y, p.w, p.h, 22, 22);
+            g.setFill(Color.web("#7BE3DF", 0.48));
+            g.fillRoundRect(p.x + 18.0, p.y + 8.0, Math.max(0.0, p.w - 36.0), 10.0, 10, 10);
+        }
+    }
+
+    private void drawSignalSpirePlatforms(GraphicsContext g) {
+        for (Platform p : platforms) {
+            double anchorX = p.x + p.w * 0.5 < 3_000.0 ? 2_760.0 : 3_240.0;
+            if (p.y < battlefieldIslandY - 70.0) {
+                g.setStroke(Color.web("#4D6171", 0.62));
+                g.setLineWidth(10.0);
+                g.strokeLine(p.x + p.w * 0.15, p.y + p.h, anchorX, Math.min(GROUND_Y + 100.0, p.y + 420.0));
+                g.strokeLine(p.x + p.w * 0.85, p.y + p.h, anchorX, Math.min(GROUND_Y + 100.0, p.y + 420.0));
+            }
+            g.setFill(Color.web("#162431"));
+            g.fillRoundRect(p.x, p.y, p.w, p.h, 16, 16);
+            g.setStroke(Color.web("#8298AA"));
+            g.setLineWidth(7.0);
+            g.strokeRoundRect(p.x, p.y, p.w, p.h, 16, 16);
+            g.setFill(Color.web("#67E8F9", 0.68));
+            g.fillRect(p.x + 18.0, p.y + 8.0, Math.max(0.0, p.w - 36.0), 9.0);
+            for (double bolt = p.x + 34.0; bolt < p.x + p.w - 20.0; bolt += 160.0) {
+                g.setFill(Color.web("#DDE7ED", 0.75));
+                g.fillOval(bolt, p.y + p.h - 18.0, 10.0, 10.0);
+            }
+        }
+    }
+
+    private void drawSilentAmphitheaterPlatforms(GraphicsContext g) {
+        for (Platform p : platforms) {
+            if (p.y < battlefieldIslandY - 80.0) {
+                g.setFill(Color.web("#24212B", 0.9));
+                double pedestalW = Math.min(140.0, p.w * 0.22);
+                g.fillPolygon(new double[]{p.x + p.w * 0.5 - pedestalW, p.x + p.w * 0.5 + pedestalW,
+                                p.x + p.w * 0.5 + pedestalW * 0.55, p.x + p.w * 0.5 - pedestalW * 0.55},
+                        new double[]{p.y + p.h, p.y + p.h, battlefieldIslandY + 70.0, battlefieldIslandY + 70.0}, 4);
+            }
+            g.setFill(Color.web("#292632"));
+            g.fillRoundRect(p.x, p.y, p.w, p.h, 18, 18);
+            g.setStroke(Color.web("#7B7484"));
+            g.setLineWidth(8.0);
+            g.strokeRoundRect(p.x, p.y, p.w, p.h, 18, 18);
+            g.setFill(Color.web("#FFE082", 0.46));
+            g.fillRoundRect(p.x + 20.0, p.y + 9.0, Math.max(0.0, p.w - 40.0), 9.0, 8, 8);
         }
     }
 
@@ -34407,6 +34591,9 @@ public class BirdGame3 {
         Arrays.fill(dockLeverHeld, false);
         Arrays.fill(prisonLeverCooldowns, 0);
         Arrays.fill(prisonLeverHeld, false);
+        Arrays.fill(resonancePlateHoldFrames, 0);
+        Arrays.fill(resonancePlateReuseFrames, 0);
+        Arrays.fill(resonancePlateIndex, -1);
         prisonerRushes.clear();
         mountainPeaks = null;
         switch (Objects.requireNonNull(selectedMap)) {
@@ -35838,9 +36025,9 @@ public class BirdGame3 {
             case FROSTBITE_FJORD -> "A frozen fjord under bright auroras with slick ice, breakable snowbanks, and glacier shelves built for slides, traps, and vertical recoveries.";
             case ASHFALL_CATHEDRAL -> "A burning sky-temple over a lava sea. Timed phoenix geysers telegraph, erupt, launch, and become dangerous thermals that can save or punish recoveries.";
             case PRISON -> "A breached Crown detention complex beneath the city. Its flat transfer floor supports layered steel catwalks; pull either cell-block lever to release a charging prisoner wave, then launch rivals through the open roof or side blast exits.";
-            case RESONANCE_HALL -> "An abandoned opera house whose stage, balconies, fly loft, and orchestra decks form one connected fighting structure. Brass trim and acoustic rings make every launch readable.";
-            case SIGNAL_SPIRE -> "A colossal broadcast mast above the storm clouds. Maintenance decks, antenna arms, and recovery platforms are visibly anchored to the tower instead of floating in open air.";
-            case SILENT_AMPHITHEATER -> "A monumental stone theater ringed by tuning pylons. Its broad central stage and connected terraces support clean Smash battles beneath an unnaturally quiet sky.";
+            case RESONANCE_HALL -> "A grand abandoned opera house with a full stage, fly loft, box balconies, and orchestra pit. Hold position on one of three glowing acoustic plates to charge a musical launch that refreshes your double jump.";
+            case SIGNAL_SPIRE -> "An asymmetric climb across a colossal broadcast mast above the cloud deck. Watch the highlighted frequency lane: its timed signal pushes airborne fighters in the direction of its arrows.";
+            case SILENT_AMPHITHEATER -> "A monumental empty theater beneath an eclipsed crown. The faint central stillness field softens horizontal launch speed while a fighter is in hitstun, creating a contested refuge without stopping combat.";
             case BEACON_CROWN -> "The Beacon Crown opens into a giant sky arena with long lanes, staggered perches, and a lethal drop on every side.";
             default -> "Dense trees and long platforms for classic brawls. A steady arena that rewards smart positioning.";
         };
@@ -51117,7 +51304,10 @@ public class BirdGame3 {
         }
         if (classicSelectedBird == BirdType.MOCKINGBIRD
                 && classicEncounter.twist == ClassicTwist.AUDITION_ORDER
-                && classicRoundIndex >= 1 && classicRoundIndex <= 3) {
+                && classicRoundIndex >= 0 && classicRoundIndex <= 3) {
+            // The four auditions are learning fights. Charles gets a second
+            // stock while the opponent line-up remains at one, avoiding an
+            // opening-route wall without changing his normal fighter data.
             scores[0] = 2;
         }
         if (classicSelectedBird == BirdType.MOCKINGBIRD
@@ -51260,6 +51450,7 @@ public class BirdGame3 {
 
     private void applyMatchModeRuntimeEffects() {
         applyPeregrineRunJetstreams();
+        applyCharlesArenaRuntimeEffects();
         if (classicModeActive && !bossRushModeActive && !ashfallTrialModeActive) {
             applyStormTyrantRuntimeEffects();
             applyFalconClassicRuntimeEffects();
@@ -51282,6 +51473,99 @@ public class BirdGame3 {
             applyCampaignMissionRuntimeEffects();
         }
         matchController.applyMatchModeRuntimeEffects();
+    }
+
+    void applyCharlesArenaRuntimeEffects() {
+        if (matchEnded) return;
+        switch (selectedMap) {
+            case RESONANCE_HALL -> applyResonanceHallAcousticPlates();
+            case SIGNAL_SPIRE -> applySignalSpireBroadcastLane();
+            case SILENT_AMPHITHEATER -> applySilentAmphitheaterStillnessField();
+            default -> {
+            }
+        }
+    }
+
+    private void applyResonanceHallAcousticPlates() {
+        double stageSurfaceY = GROUND_Y - 220.0;
+        for (int i = 0; i < activePlayers; i++) {
+            if (resonancePlateReuseFrames[i] > 0) resonancePlateReuseFrames[i]--;
+            Bird bird = players[i];
+            if (bird == null || bird.health <= 0.0 || bird.classicBonusTarget) {
+                resonancePlateHoldFrames[i] = 0;
+                resonancePlateIndex[i] = -1;
+                continue;
+            }
+
+            int plate = -1;
+            double bottom = bird.y + bird.bodyHeight();
+            if (bird.isOnGround() && Math.abs(bottom - stageSurfaceY) <= 32.0) {
+                double centerX = bird.bodyCenterX();
+                for (int candidate = 0; candidate < RESONANCE_PLATE_X.length; candidate++) {
+                    if (Math.abs(centerX - RESONANCE_PLATE_X[candidate]) <= 155.0) {
+                        plate = candidate;
+                        break;
+                    }
+                }
+            }
+            if (plate < 0) {
+                resonancePlateHoldFrames[i] = 0;
+                resonancePlateIndex[i] = -1;
+                continue;
+            }
+            if (resonancePlateIndex[i] != plate) {
+                resonancePlateIndex[i] = plate;
+                resonancePlateHoldFrames[i] = 0;
+            }
+            resonancePlateHoldFrames[i] = Math.min(RESONANCE_PLATE_HOLD_FRAMES,
+                    resonancePlateHoldFrames[i] + 1);
+            if (resonancePlateHoldFrames[i] < RESONANCE_PLATE_HOLD_FRAMES
+                    || resonancePlateReuseFrames[i] > 0) {
+                continue;
+            }
+
+            resonancePlateHoldFrames[i] = 0;
+            resonancePlateReuseFrames[i] = RESONANCE_PLATE_REUSE_FRAMES;
+            bird.y -= 5.0;
+            bird.vy = Math.min(bird.vy, -13.6);
+            bird.canDoubleJump = true;
+            for (int note = -2; note <= 2; note++) {
+                Particle spark = new Particle(
+                        RESONANCE_PLATE_X[plate] + note * 34.0,
+                        stageSurfaceY - 12.0,
+                        note * 0.34,
+                        -3.8 - Math.abs(note) * 0.22,
+                        Color.web("#FFE082"));
+                spark.life = 28;
+                particles.add(spark);
+            }
+        }
+    }
+
+    private void applySignalSpireBroadcastLane() {
+        int lane = (int) ((simTick / 180L) % SIGNAL_LANE_Y.length);
+        int phase = (int) (simTick % 180L);
+        if (phase < 30 || phase > 155) return;
+        double direction = ((simTick / 540L) & 1L) == 0L ? 1.0 : -1.0;
+        double laneY = SIGNAL_LANE_Y[lane];
+        for (Bird bird : players) {
+            if (bird == null || bird.health <= 0.0 || bird.classicBonusTarget || bird.isOnGround()) continue;
+            double centerX = bird.bodyCenterX();
+            double centerY = bird.bodyCenterY();
+            if (centerX < 680.0 || centerX > 5_320.0 || Math.abs(centerY - laneY) > 105.0) continue;
+            bird.vx = Math.clamp(bird.vx + direction * 0.22, -17.0, 17.0);
+        }
+    }
+
+    private void applySilentAmphitheaterStillnessField() {
+        for (Bird bird : players) {
+            if (bird == null || bird.health <= 0.0 || bird.classicBonusTarget || bird.stunTime <= 0) continue;
+            double dx = (bird.bodyCenterX() - SILENT_FIELD_CENTER_X) / SILENT_FIELD_RADIUS_X;
+            double dy = (bird.bodyCenterY() - SILENT_FIELD_CENTER_Y) / SILENT_FIELD_RADIUS_Y;
+            if (dx * dx + dy * dy > 1.0) continue;
+            bird.vx *= 0.987;
+            if (bird.vy < 0.0) bird.vy *= 0.994;
+        }
     }
 
     private void applyPeregrineRunJetstreams() {
@@ -52731,6 +53015,13 @@ public class BirdGame3 {
             h = h * 1099511628211L + Double.doubleToLongBits(b.y);
             h = h * 1099511628211L + Double.doubleToLongBits(b.health);
             h = h * 1099511628211L + scores[i];
+            h = h * 1099511628211L + (b.mockingbirdMicCharging ? 1 : 0);
+            h = h * 1099511628211L + b.mockingbirdMicChargeFrames;
+            h = h * 1099511628211L + b.mockingbirdMicSwingTimer;
+            h = h * 1099511628211L + b.mockingbirdMicDirection;
+            for (boolean hit : b.mockingbirdMicHit) {
+                h = h * 1099511628211L + (hit ? 1 : 0);
+            }
             if (b.isNullRockForm()) {
                 h = h * 1099511628211L + b.specialCooldown;
                 h = h * 1099511628211L + b.nullRockLaserTimer;
@@ -52772,6 +53063,11 @@ public class BirdGame3 {
         }
         for (int cooldown : prisonLeverCooldowns) {
             h = h * 1099511628211L + cooldown;
+        }
+        for (int i = 0; i < resonancePlateHoldFrames.length; i++) {
+            h = h * 1099511628211L + resonancePlateHoldFrames[i];
+            h = h * 1099511628211L + resonancePlateReuseFrames[i];
+            h = h * 1099511628211L + resonancePlateIndex[i];
         }
         h = h * 1099511628211L + prisonerRushes.size();
         for (PrisonerRush rush : prisonerRushes) {
@@ -53509,6 +53805,10 @@ public class BirdGame3 {
     }
 
     private String specialTelemetryMoveName(Bird bird, Bird.DirectionalSpecialInput input, boolean ultimate) {
+        if (bird != null && bird.type == BirdType.MOCKINGBIRD
+                && input == Bird.DirectionalSpecialInput.SIDE && !ultimate) {
+            return MockingbirdSpecials.MICROPHONE_SWING_MOVE;
+        }
         String direction = switch (input == null ? Bird.DirectionalSpecialInput.NEUTRAL : input) {
             case NEUTRAL -> "Neutral";
             case SIDE -> "Side";
@@ -54624,57 +54924,57 @@ public class BirdGame3 {
     }
 
     private void setupResonanceHallArena() {
-        double stageX = 720.0;
-        double stageY = GROUND_Y - 230.0;
-        double stageW = 4_560.0;
+        double stageX = 760.0;
+        double stageY = GROUND_Y - 220.0;
+        double stageW = 4_480.0;
         platforms.add(new Platform(stageX, stageY, stageW, 92.0));
-        platforms.add(new Platform(950.0, stageY - 330.0, 760.0, 48.0));
-        platforms.add(new Platform(4_290.0, stageY - 330.0, 760.0, 48.0));
-        platforms.add(new Platform(1_780.0, stageY - 600.0, 760.0, 44.0));
-        platforms.add(new Platform(3_460.0, stageY - 600.0, 760.0, 44.0));
-        platforms.add(new Platform(2_610.0, stageY - 850.0, 780.0, 46.0));
-        platforms.add(new Platform(610.0, stageY + 145.0, 420.0, 38.0));
-        platforms.add(new Platform(4_970.0, stageY + 145.0, 420.0, 38.0));
-        windVents.add(new WindVent(1_080.0, stageY - 70.0, 280.0));
-        windVents.add(new WindVent(2_860.0, stageY - 70.0, 280.0));
-        windVents.add(new WindVent(4_640.0, stageY - 70.0, 280.0));
+        platforms.add(new Platform(560.0, stageY + 120.0, 360.0, 42.0));
+        platforms.add(new Platform(5_080.0, stageY + 120.0, 360.0, 42.0));
+        platforms.add(new Platform(980.0, stageY - 360.0, 840.0, 52.0));
+        platforms.add(new Platform(4_180.0, stageY - 360.0, 840.0, 52.0));
+        platforms.add(new Platform(2_320.0, stageY - 330.0, 1_360.0, 58.0));
+        platforms.add(new Platform(1_580.0, stageY - 660.0, 620.0, 46.0));
+        platforms.add(new Platform(3_800.0, stageY - 660.0, 620.0, 46.0));
+        platforms.add(new Platform(2_580.0, stageY - 800.0, 840.0, 48.0));
+        platforms.add(new Platform(2_420.0, stageY + 190.0, 1_160.0, 50.0));
         battlefieldIslandX = stageX;
         battlefieldIslandW = stageW;
         battlefieldIslandY = stageY;
     }
 
     private void setupSignalSpireArena() {
-        double deckX = 860.0;
-        double deckY = GROUND_Y - 300.0;
-        double deckW = 4_280.0;
+        double deckX = 980.0;
+        double deckY = GROUND_Y - 260.0;
+        double deckW = 4_040.0;
         platforms.add(new Platform(deckX, deckY, deckW, 78.0));
-        platforms.add(new Platform(1_020.0, deckY - 320.0, 700.0, 44.0));
-        platforms.add(new Platform(4_280.0, deckY - 320.0, 700.0, 44.0));
-        platforms.add(new Platform(1_800.0, deckY - 650.0, 680.0, 42.0));
-        platforms.add(new Platform(3_520.0, deckY - 650.0, 680.0, 42.0));
-        platforms.add(new Platform(2_580.0, deckY - 960.0, 840.0, 46.0));
-        platforms.add(new Platform(640.0, deckY + 150.0, 360.0, 38.0));
-        platforms.add(new Platform(5_000.0, deckY + 150.0, 360.0, 38.0));
-        windVents.add(new WindVent(1_260.0, deckY - 80.0, 320.0));
-        windVents.add(new WindVent(2_840.0, deckY - 80.0, 320.0));
-        windVents.add(new WindVent(4_420.0, deckY - 80.0, 320.0));
+        platforms.add(new Platform(700.0, deckY + 120.0, 420.0, 42.0));
+        platforms.add(new Platform(4_880.0, deckY + 120.0, 420.0, 42.0));
+        platforms.add(new Platform(1_100.0, deckY - 330.0, 900.0, 48.0));
+        platforms.add(new Platform(3_900.0, deckY - 470.0, 860.0, 48.0));
+        platforms.add(new Platform(2_050.0, deckY - 680.0, 720.0, 44.0));
+        platforms.add(new Platform(3_240.0, deckY - 900.0, 760.0, 44.0));
+        platforms.add(new Platform(1_450.0, deckY - 980.0, 480.0, 42.0));
+        platforms.add(new Platform(2_620.0, deckY - 1_120.0, 760.0, 48.0));
         battlefieldIslandX = deckX;
         battlefieldIslandW = deckW;
         battlefieldIslandY = deckY;
     }
 
     private void setupSilentAmphitheaterArena() {
-        double stageX = 920.0;
-        double stageY = GROUND_Y - 320.0;
-        double stageW = 4_160.0;
+        double stageX = 840.0;
+        double stageY = GROUND_Y - 280.0;
+        double stageW = 4_320.0;
         platforms.add(new Platform(stageX, stageY, stageW, 90.0));
-        platforms.add(new Platform(1_120.0, stageY - 350.0, 680.0, 46.0));
-        platforms.add(new Platform(4_200.0, stageY - 350.0, 680.0, 46.0));
-        platforms.add(new Platform(1_900.0, stageY - 650.0, 640.0, 42.0));
-        platforms.add(new Platform(3_460.0, stageY - 650.0, 640.0, 42.0));
-        platforms.add(new Platform(2_650.0, stageY - 920.0, 700.0, 44.0));
-        platforms.add(new Platform(620.0, stageY + 150.0, 390.0, 40.0));
-        platforms.add(new Platform(4_990.0, stageY + 150.0, 390.0, 40.0));
+        platforms.add(new Platform(600.0, stageY + 140.0, 420.0, 42.0));
+        platforms.add(new Platform(4_980.0, stageY + 140.0, 420.0, 42.0));
+        platforms.add(new Platform(1_040.0, stageY - 210.0, 960.0, 54.0));
+        platforms.add(new Platform(4_000.0, stageY - 210.0, 960.0, 54.0));
+        platforms.add(new Platform(2_520.0, stageY - 300.0, 960.0, 62.0));
+        platforms.add(new Platform(1_460.0, stageY - 500.0, 800.0, 48.0));
+        platforms.add(new Platform(3_740.0, stageY - 500.0, 800.0, 48.0));
+        platforms.add(new Platform(700.0, stageY - 760.0, 760.0, 48.0));
+        platforms.add(new Platform(4_540.0, stageY - 760.0, 760.0, 48.0));
+        platforms.add(new Platform(2_740.0, stageY - 720.0, 520.0, 52.0));
         battlefieldIslandX = stageX;
         battlefieldIslandW = stageW;
         battlefieldIslandY = stageY;
@@ -55614,7 +55914,7 @@ public class BirdGame3 {
             return "Neutral captured. Use NEUTRAL to perform the " + copied + " move.";
         }
         if (!trainingAcademyMockingbirdRouteHitSeen) {
-            return "Copied neutral used. Land SIDE Mimic Call or UP Forest Lift.";
+            return "Copied neutral used. Land SIDE Charged Mic Swing or UP Forest Lift.";
         }
         return "Mockingbird lounge route complete.";
     }

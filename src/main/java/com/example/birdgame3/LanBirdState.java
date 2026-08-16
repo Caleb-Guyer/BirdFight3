@@ -72,6 +72,11 @@ class LanBirdState {
     int mockingbirdQuestionTimer;
     int mockingbirdSideFxTimer;
     int mockingbirdSideReuseTimer;
+    boolean mockingbirdMicCharging;
+    int mockingbirdMicChargeFrames;
+    int mockingbirdMicSwingTimer;
+    int mockingbirdMicDirection;
+    boolean[] mockingbirdMicHit = new boolean[4];
     int mockingbirdUpFxTimer;
     int mockingbirdUpReuseTimer;
     boolean mockingbirdUpSpecialUsed;
@@ -681,6 +686,11 @@ class LanBirdState {
         out.writeInt(mockingbirdQuestionTimer);
         out.writeInt(mockingbirdSideFxTimer);
         out.writeInt(mockingbirdSideReuseTimer);
+        out.writeBoolean(mockingbirdMicCharging);
+        out.writeInt(mockingbirdMicChargeFrames);
+        out.writeInt(mockingbirdMicSwingTimer);
+        out.writeInt(mockingbirdMicDirection);
+        for (boolean hit : mockingbirdMicHit) out.writeBoolean(hit);
         out.writeInt(mockingbirdUpFxTimer);
         out.writeInt(mockingbirdUpReuseTimer);
         out.writeBoolean(mockingbirdUpSpecialUsed);
@@ -1364,6 +1374,13 @@ class LanBirdState {
         state.mockingbirdQuestionTimer = in.readInt();
         state.mockingbirdSideFxTimer = in.readInt();
         state.mockingbirdSideReuseTimer = in.readInt();
+        state.mockingbirdMicCharging = in.readBoolean();
+        state.mockingbirdMicChargeFrames = in.readInt();
+        state.mockingbirdMicSwingTimer = in.readInt();
+        state.mockingbirdMicDirection = in.readInt();
+        for (int i = 0; i < state.mockingbirdMicHit.length; i++) {
+            state.mockingbirdMicHit[i] = in.readBoolean();
+        }
         state.mockingbirdUpFxTimer = in.readInt();
         state.mockingbirdUpReuseTimer = in.readInt();
         state.mockingbirdUpSpecialUsed = in.readBoolean();
