@@ -44891,8 +44891,7 @@ public class BirdGame3 {
             return;
         }
         Bird player = players[0];
-        if (player == null || !playerHasStocksRemaining(0)
-                || (!usesSmashCombatRules() && player.health <= 0.0)) return;
+        if (!isRoadrunnerClassicPlayerActive(player)) return;
 
         if (classicEncounter.style == ClassicEncounterStyle.REDLINE_RUN) {
             updateRoadrunnerRedlineRun(player);
@@ -45046,7 +45045,8 @@ public class BirdGame3 {
 
     boolean holdClassicRoadrunnerEncounterOpen() {
         if (!classicModeActive || classicEncounter == null || classicSelectedBird != BirdType.ROADRUNNER
-                || bossRushModeActive || ashfallTrialModeActive || matchEnded || !playerHasStocksRemaining(0)) {
+                || bossRushModeActive || ashfallTrialModeActive || matchEnded
+                || !isRoadrunnerClassicPlayerActive(players[0])) {
             return false;
         }
         if (classicEncounter.style == ClassicEncounterStyle.REDLINE_RUN) {
@@ -45069,6 +45069,11 @@ public class BirdGame3 {
         }
         spawnRoadrunnerClassicWave(classicEncounter.waves[classicRoadrunnerPursuitWaveIndex]);
         return true;
+    }
+
+    private boolean isRoadrunnerClassicPlayerActive(Bird player) {
+        if (player == null) return false;
+        return usesSmashCombatRules() ? playerHasStocksRemaining(0) : player.health > 0.0;
     }
 
     private void spawnRoadrunnerClassicWave(ClassicFighter[] wave) {

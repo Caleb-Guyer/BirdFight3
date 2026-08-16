@@ -147,6 +147,34 @@ class RoadrunnerClassicRouteTest {
     }
 
     @Test
+    void liveRedlineRunTickFinishesWithoutSmashStocks() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        ClassicEncounter encounter = game.harnessPrepareClassicEncounter(
+                BirdType.ROADRUNNER, 6, 5.0, 5, 12_345L, 67_890L);
+        Bird player = game.players[0];
+
+        assertEquals(ClassicEncounterStyle.REDLINE_RUN, encounter.style);
+        assertFalse(game.usesSmashCombatRules());
+        assertEquals(0, game.scores[0], "The time trial deliberately has no Smash stock counter.");
+        assertTrue(game.holdClassicRoadrunnerEncounterOpen(),
+                "The stockless objective must remain active while Roadrunner is alive.");
+
+        game.matchTimer = 50 * 60;
+        game.isAI[0] = false;
+        player.x = BirdGame3.REDLINE_RUN_FINISH_X - player.bodyWidth() + 2.0;
+        player.y = BirdGame3.REDLINE_RUN_ROAD_Y - player.bodyHeight();
+        player.prevX = player.x;
+        player.prevY = player.y;
+        player.vx = 0.0;
+        player.vy = 0.0;
+
+        assertFalse(game.harnessTick(), "The real simulation tick must end the run at the finish pole.");
+        assertTrue((boolean) getField(game, "classicRoadrunnerRunCompleted"));
+        assertEquals("S", getField(game, "classicRoadrunnerRunRank"));
+        assertSame(player, game.harnessWinner);
+    }
+
+    @Test
     void touchingTheVisibleFinishPoleCountsAsFinishing() {
         double bodyWidth = 84.0;
 
