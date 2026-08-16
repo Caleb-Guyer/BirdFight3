@@ -44757,7 +44757,8 @@ public class BirdGame3 {
             return;
         }
         Bird player = players[0];
-        if (player == null || player.health <= 0.0 || !playerHasStocksRemaining(0)) return;
+        if (player == null || !playerHasStocksRemaining(0)
+                || (!usesSmashCombatRules() && player.health <= 0.0)) return;
 
         if (classicEncounter.style == ClassicEncounterStyle.REDLINE_RUN) {
             updateRoadrunnerRedlineRun(player);
@@ -44826,7 +44827,7 @@ public class BirdGame3 {
             player.vx = Math.min(18.0, player.vx + 0.28);
             player.vy = Math.min(player.vy, -5.8);
         }
-        if (centerX < REDLINE_RUN_FINISH_X || classicRoadrunnerRunCompleted) return;
+        if (!hasReachedRedlineRunFinish(player.x, player.bodyWidth()) || classicRoadrunnerRunCompleted) return;
 
         classicRoadrunnerRunCompleted = true;
         int remaining = Math.max(0, matchTimer);
@@ -44837,6 +44838,10 @@ public class BirdGame3 {
         playClassicNectarRingSfx(7, 7);
         addToKillFeed("REDLINE RUN " + classicRoadrunnerRunRank + " RANK! Final Bolt banked.");
         matchController.triggerMatchEnd(player);
+    }
+
+    static boolean hasReachedRedlineRunFinish(double bodyLeftX, double bodyWidth) {
+        return bodyLeftX + Math.max(0.0, bodyWidth) >= REDLINE_RUN_FINISH_X - 1.0;
     }
 
     private void recoverRoadrunnerAtLastCheckpoint(Bird player) {

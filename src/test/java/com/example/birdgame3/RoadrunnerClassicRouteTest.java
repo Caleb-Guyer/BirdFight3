@@ -136,13 +136,24 @@ class RoadrunnerClassicRouteTest {
         prepareEncounter(game, route(game).get(6));
         Bird player = game.players[0];
         game.matchTimer = 50 * 60;
-        player.x = 5_520.0;
+        player.health = 0.0;
+        player.x = BirdGame3.REDLINE_RUN_FINISH_X - player.bodyWidth();
 
         game.applyRoadrunnerClassicRuntimeEffects();
 
         assertTrue((boolean) getField(game, "classicRoadrunnerRunCompleted"));
         assertEquals("S", getField(game, "classicRoadrunnerRunRank"));
         assertTrue(((boolean[]) getField(game, "classicRoadrunnerBolts"))[6]);
+    }
+
+    @Test
+    void touchingTheVisibleFinishPoleCountsAsFinishing() {
+        double bodyWidth = 84.0;
+
+        assertFalse(BirdGame3.hasReachedRedlineRunFinish(
+                BirdGame3.REDLINE_RUN_FINISH_X - bodyWidth - 2.0, bodyWidth));
+        assertTrue(BirdGame3.hasReachedRedlineRunFinish(
+                BirdGame3.REDLINE_RUN_FINISH_X - bodyWidth, bodyWidth));
     }
 
     @Test
