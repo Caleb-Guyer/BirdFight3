@@ -50961,7 +50961,7 @@ public class BirdGame3 {
                 showMenu(stage);
             }
         };
-        Button backArrow = uiFactory.action("<", 92, StageSelectLayout.TOP_BAR_HEIGHT, 48,
+        Button backArrow = uiFactory.action("\u2190", 92, StageSelectLayout.TOP_BAR_HEIGHT, 48,
                 "#C3172C", 20, backAction);
 
         Label title = new Label("STAGE SELECT");
@@ -51040,8 +51040,7 @@ public class BirdGame3 {
 
         StackPane previewFrame = new StackPane(largePreview);
         previewFrame.setPadding(new Insets(6));
-        previewFrame.setStyle("-fx-background-color:#03050A; -fx-background-radius:16;"
-                + "-fx-border-color:#FFFFFF44; -fx-border-width:2; -fx-border-radius:16;");
+        styleStagePreviewFrame(previewFrame, Color.web("#FFE082"));
 
         Region previewRule = new Region();
         previewRule.setPrefHeight(4);
@@ -51063,10 +51062,13 @@ public class BirdGame3 {
 
         Consumer<StageChoice> showPreview = choice -> {
             StagePreviewRenderer.draw(largePreview, choice);
+            Color accent = StagePreviewRenderer.accentFor(choice);
+            styleStagePreviewFrame(previewFrame, accent);
+            animateStagePreview(largePreview);
             MapVariant variant = choice.variant();
             previewCategory.setText(variant == MapVariant.STANDARD
                     ? "MAIN STAGE" : variant.category.toUpperCase(Locale.ROOT));
-            previewCategory.setTextFill(StagePreviewRenderer.accentFor(choice));
+            previewCategory.setTextFill(accent);
             previewName.setText(stageDisplayName(choice.map(), variant).toUpperCase(Locale.ROOT));
             previewBase.setText(variant == MapVariant.STANDARD
                     ? "ORIGINAL ARENA"
@@ -51076,6 +51078,8 @@ public class BirdGame3 {
         };
         Runnable showRandomPreview = () -> {
             StagePreviewRenderer.drawRandom(largePreview);
+            styleStagePreviewFrame(previewFrame, Color.web("#FFE082"));
+            animateStagePreview(largePreview);
             previewCategory.setText("ALL STAGES");
             previewCategory.setTextFill(Color.web("#FFE082"));
             previewName.setText("RANDOM");
@@ -51107,14 +51111,30 @@ public class BirdGame3 {
                     gridIndex / StageSelectLayout.GRID_COLUMNS);
         }
 
+        HBox stageLegend = new HBox(8,
+                stageSelectLegendChip("M", "MAIN", "#90CAF9"),
+                stageSelectLegendChip("S", "STORY", "#FFD54F"),
+                stageSelectLegendChip("B", "BOSS", "#CE93D8"),
+                stageSelectLegendChip("C", "CLASSIC", "#4DD0E1"));
+        stageLegend.setAlignment(Pos.CENTER_RIGHT);
+        stageLegend.setMinHeight(StageSelectLayout.LEGEND_HEIGHT);
+        stageLegend.setPrefHeight(StageSelectLayout.LEGEND_HEIGHT);
+        stageLegend.setMaxHeight(StageSelectLayout.LEGEND_HEIGHT);
+
+        VBox catalogPanel = new VBox(StageSelectLayout.LEGEND_GAP, stageLegend, stageGrid);
+        catalogPanel.setAlignment(Pos.TOP_CENTER);
+        catalogPanel.setMinWidth(StageSelectLayout.gridWidth());
+        catalogPanel.setPrefWidth(StageSelectLayout.gridWidth());
+        catalogPanel.setMaxWidth(StageSelectLayout.gridWidth());
+
         showRandomPreview.run();
-        HBox content = new HBox(StageSelectLayout.CONTENT_GAP, previewPanel, stageGrid);
+        HBox content = new HBox(StageSelectLayout.CONTENT_GAP, previewPanel, catalogPanel);
         content.setAlignment(Pos.TOP_CENTER);
         content.setMinHeight(StageSelectLayout.PREVIEW_HEIGHT);
         content.setPrefHeight(StageSelectLayout.PREVIEW_HEIGHT);
         content.setMaxHeight(StageSelectLayout.PREVIEW_HEIGHT);
 
-        Label footer = new Label("HOVER OR MOVE THE CURSOR TO PREVIEW   •   ENTER / A SELECT   •   ESC / B BACK");
+        Label footer = new Label("MOVE / HOVER TO PREVIEW   •   ENTER / A SELECT   •   ESC / B BACK");
         footer.setFont(Font.font("Consolas", FontWeight.BOLD, 17));
         footer.setTextFill(Color.web("#9FB3C8"));
         footer.setAlignment(Pos.CENTER);
@@ -51146,6 +51166,50 @@ public class BirdGame3 {
         label.setTextAlignment(TextAlignment.LEFT);
         applyNoEllipsis(label);
         return label;
+    }
+
+    private HBox stageSelectLegendChip(String marker, String labelText, String accent) {
+        Label badge = new Label(marker);
+        badge.setFont(Font.font("Arial Black", FontWeight.BOLD, 11));
+        badge.setTextFill(Color.web("#071018"));
+        badge.setAlignment(Pos.CENTER);
+        badge.setMinSize(22, 22);
+        badge.setPrefSize(22, 22);
+        badge.setMaxSize(22, 22);
+        badge.setStyle("-fx-background-color:" + accent + "; -fx-background-radius:11;");
+
+        Label text = new Label(labelText);
+        text.setFont(Font.font("Consolas", FontWeight.BOLD, 13));
+        text.setTextFill(Color.web("#B8C7D5"));
+        applyNoEllipsis(text);
+
+        HBox chip = new HBox(5, badge, text);
+        chip.setAlignment(Pos.CENTER_LEFT);
+        chip.setPadding(new Insets(3, 9, 3, 4));
+        chip.setStyle("-fx-background-color:#0A0E16CC; -fx-background-radius:12;"
+                + "-fx-border-color:#FFFFFF22; -fx-border-radius:12;");
+        return chip;
+    }
+
+    private void styleStagePreviewFrame(StackPane frame, Color accent) {
+        String color = toCssHex(accent);
+        frame.setStyle("-fx-background-color:#03050A; -fx-background-radius:16;"
+                + "-fx-border-color:" + color + "; -fx-border-width:3; -fx-border-radius:16;"
+                + "-fx-effect:dropshadow(gaussian," + color + "55,18,0.24,0,0);");
+    }
+
+    private void animateStagePreview(Canvas preview) {
+        String key = "stage-select-preview-fade";
+        Object previous = preview.getProperties().remove(key);
+        if (previous instanceof FadeTransition oldTransition) {
+            oldTransition.stop();
+        }
+        FadeTransition transition = new FadeTransition(Duration.millis(125), preview);
+        transition.setFromValue(0.58);
+        transition.setToValue(1.0);
+        preview.getProperties().put(key, transition);
+        transition.setOnFinished(event -> preview.getProperties().remove(key, transition));
+        transition.play();
     }
 
     private Button buildStageSelectTile(StageChoice choice, boolean random,
@@ -51188,7 +51252,33 @@ public class BirdGame3 {
                 + "-fx-border-color:#FFFFFFAA; -fx-border-radius:12;");
         StackPane.setAlignment(badge, Pos.TOP_LEFT);
         StackPane.setMargin(badge, new Insets(5, 0, 0, 5));
-        StackPane picture = new StackPane(image, badge);
+
+        Rectangle imageClip = new Rectangle(StageSelectLayout.TILE_IMAGE_WIDTH,
+                StageSelectLayout.TILE_IMAGE_HEIGHT);
+        imageClip.setArcWidth(14);
+        imageClip.setArcHeight(14);
+        image.setClip(imageClip);
+
+        Label cursorTag = new Label("P1");
+        cursorTag.setFont(Font.font("Arial Black", FontWeight.BOLD, 11));
+        cursorTag.setTextFill(Color.WHITE);
+        cursorTag.setAlignment(Pos.CENTER);
+        cursorTag.setMinSize(30, 22);
+        cursorTag.setPrefSize(30, 22);
+        cursorTag.setMaxSize(30, 22);
+        cursorTag.setVisible(false);
+        cursorTag.setStyle("-fx-background-color:#C3172C; -fx-background-radius:7;"
+                + "-fx-border-color:#FFE082; -fx-border-width:2; -fx-border-radius:7;"
+                + "-fx-effect:dropshadow(gaussian,#000000AA,5,0.3,0,2);");
+        StackPane.setAlignment(cursorTag, Pos.TOP_RIGHT);
+        StackPane.setMargin(cursorTag, new Insets(5, 5, 0, 0));
+
+        StackPane picture = new StackPane(image, badge, cursorTag);
+        picture.setMinSize(StageSelectLayout.TILE_IMAGE_WIDTH, StageSelectLayout.TILE_IMAGE_HEIGHT);
+        picture.setPrefSize(StageSelectLayout.TILE_IMAGE_WIDTH, StageSelectLayout.TILE_IMAGE_HEIGHT);
+        picture.setMaxSize(StageSelectLayout.TILE_IMAGE_WIDTH, StageSelectLayout.TILE_IMAGE_HEIGHT);
+        picture.setStyle("-fx-background-color:#05070D; -fx-background-radius:7;"
+                + "-fx-border-color:#FFFFFF26; -fx-border-radius:7;");
 
         VBox graphic = new VBox(2, picture, nameLabel);
         graphic.setAlignment(Pos.TOP_CENTER);
@@ -51201,6 +51291,7 @@ public class BirdGame3 {
         tile.setPadding(new Insets(4));
         tile.setFocusTraversable(true);
         tile.setCursor(Cursor.HAND);
+        tile.setAccessibleText(name + " stage");
         tile.setOnAction(event -> {
             playButtonClick();
             action.run();
@@ -51218,21 +51309,31 @@ public class BirdGame3 {
         Runnable activatePreview = () -> {
             previewAction.run();
             tile.setStyle(activeStyle);
+            cursorTag.setVisible(true);
+        };
+        Runnable deactivate = () -> {
+            tile.setStyle(baseStyle);
+            cursorTag.setVisible(false);
         };
         tile.setOnMouseEntered(event -> {
-            activatePreview.run();
-            animateStageTileScale(tile, 1.045);
+            tile.requestFocus();
+            if (!tile.isFocused()) {
+                activatePreview.run();
+            }
+            animateStageTileScale(tile, tile.isFocused() ? 1.045 : 1.035);
         });
         tile.setOnMouseExited(event -> {
-            if (!tile.isFocused()) tile.setStyle(baseStyle);
-            animateStageTileScale(tile, 1.0);
+            if (!tile.isFocused()) {
+                deactivate.run();
+            }
+            animateStageTileScale(tile, tile.isFocused() ? 1.035 : 1.0);
         });
         tile.focusedProperty().addListener((obs, oldValue, focused) -> {
             if (focused) {
                 activatePreview.run();
                 animateStageTileScale(tile, 1.035);
-            } else if (!tile.isHover()) {
-                tile.setStyle(baseStyle);
+            } else {
+                deactivate.run();
                 animateStageTileScale(tile, 1.0);
             }
         });
@@ -51240,9 +51341,16 @@ public class BirdGame3 {
     }
 
     private void animateStageTileScale(Node node, double scale) {
+        String key = "stage-select-scale-transition";
+        Object previous = node.getProperties().remove(key);
+        if (previous instanceof ScaleTransition oldTransition) {
+            oldTransition.stop();
+        }
         ScaleTransition transition = new ScaleTransition(Duration.millis(90), node);
         transition.setToX(scale);
         transition.setToY(scale);
+        node.getProperties().put(key, transition);
+        transition.setOnFinished(event -> node.getProperties().remove(key, transition));
         transition.play();
     }
 

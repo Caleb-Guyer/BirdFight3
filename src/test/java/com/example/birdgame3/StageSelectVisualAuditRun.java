@@ -3,6 +3,8 @@ package com.example.birdgame3;
 import javafx.application.Platform;
 import javafx.scene.Scene;
 import javafx.scene.SnapshotParameters;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
 import javafx.scene.image.PixelReader;
 import javafx.scene.image.WritableImage;
 import javafx.stage.Stage;
@@ -15,12 +17,14 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.prefs.Preferences;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Optional full-screen render used to review the no-scroll stage selector without showing a window. */
@@ -54,9 +58,36 @@ class StageSelectVisualAuditRun {
             Scene scene = stage.getScene();
             scene.getRoot().applyCss();
             scene.getRoot().layout();
-            WritableImage image = new WritableImage(BirdGame3.WIDTH, BirdGame3.HEIGHT);
-            scene.getRoot().snapshot(new SnapshotParameters(), image);
-            ImageIO.write(toBufferedImage(image), "png", output.toFile());
+            List<String> reviewStages = List.of("RANDOM", "BIG FOREST", "PARLIAMENT TOWERS", "OBSIDIAN FOUNDRY");
+            for (int index = 0; index < reviewStages.size(); index++) {
+                String stageName = reviewStages.get(index);
+                Button tile = scene.getRoot().lookupAll(".button").stream()
+                        .filter(Button.class::isInstance)
+                        .map(Button.class::cast)
+                        .filter(button -> (stageName + " stage").equalsIgnoreCase(button.getAccessibleText()))
+                        .findFirst()
+                        .orElseThrow(() -> new AssertionError("Missing stage-select tile: " + stageName));
+                if (tile.getOnMouseEntered() != null) {
+                    tile.getOnMouseEntered().handle(null);
+                }
+                scene.getRoot().applyCss();
+                scene.getRoot().layout();
+                long activeCursorTags = scene.getRoot().lookupAll(".label").stream()
+                        .filter(Label.class::isInstance)
+                        .map(Label.class::cast)
+                        .filter(Label::isVisible)
+                        .filter(label -> "P1".equals(label.getText()))
+                        .count();
+                assertEquals(1, activeCursorTags,
+                        "Hover/focus must never leave two stage tiles looking selected.");
+                WritableImage image = new WritableImage(BirdGame3.WIDTH, BirdGame3.HEIGHT);
+                scene.getRoot().snapshot(new SnapshotParameters(), image);
+                Path frameOutput = index == 0 ? output : auditFramePath(output, stageName);
+                ImageIO.write(toBufferedImage(image), "png", frameOutput.toFile());
+                if (tile.getOnMouseExited() != null) {
+                    tile.getOnMouseExited().handle(null);
+                }
+            }
             stage.close();
             return null;
         });
@@ -66,6 +97,15 @@ class StageSelectVisualAuditRun {
         } finally {
             Platform.exit();
         }
+    }
+
+    private static Path auditFramePath(Path output, String stageName) {
+        String fileName = output.getFileName().toString();
+        int extension = fileName.lastIndexOf('.');
+        String stem = extension >= 0 ? fileName.substring(0, extension) : fileName;
+        String suffix = extension >= 0 ? fileName.substring(extension) : ".png";
+        String safeName = stageName.toLowerCase().replaceAll("[^a-z0-9]+", "-");
+        return output.resolveSibling(stem + "-" + safeName + suffix);
     }
 
     private static BufferedImage toBufferedImage(WritableImage image) {

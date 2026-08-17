@@ -20,6 +20,8 @@ final class StageSelectLayout {
     static final double TILE_IMAGE_HEIGHT = 78.0;
     static final double HORIZONTAL_GAP = 10.0;
     static final double VERTICAL_GAP = 10.0;
+    static final double LEGEND_HEIGHT = 30.0;
+    static final double LEGEND_GAP = 8.0;
     static final double FOOTER_HEIGHT = 44.0;
 
     private StageSelectLayout() {
@@ -48,6 +50,6 @@ final class StageSelectLayout {
 
     static double requiredScreenHeight(int tileCount) {
         return ROOT_TOP_PADDING + ROOT_BOTTOM_PADDING + TOP_BAR_HEIGHT + CONTENT_VERTICAL_MARGIN
-                + Math.max(PREVIEW_HEIGHT, gridHeight(tileCount)) + FOOTER_HEIGHT;
+                + Math.max(PREVIEW_HEIGHT, LEGEND_HEIGHT + LEGEND_GAP + gridHeight(tileCount)) + FOOTER_HEIGHT;
     }
 }
