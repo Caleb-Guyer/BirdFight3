@@ -11,17 +11,16 @@ final class BirdGame3ProgressionService {
                                    boolean incrementJungleWins, List<AchievementUnlock> unlocks) {
     }
 
-    record ModeMilestoneProgress(int bossRushClearProgress, int towerDefenseBadgeProgress,
+    record ModeMilestoneProgress(int bossRushClearProgress, int routePioneerProgress,
                                  int pigeonEpisodeProgress, int batEpisodeProgress,
-                                 int pelicanEpisodeProgress, int bigForestBadgeProgress,
+                                 int pelicanEpisodeProgress, int classicVirtuosoProgress,
                                  int tournamentProgress) {
     }
 
     record StoredAchievementContext(BirdGame3AchievementProfile achievementProfile, boolean[] classicCompleted,
                                     boolean[] completedAdventure, int bossRushClearCount,
-                                    int towerDefenseBadgeCount, boolean pigeonEpisodeCompleted,
+                                    boolean pigeonEpisodeCompleted,
                                     boolean batEpisodeCompleted, boolean pelicanEpisodeCompleted,
-                                    int bigForestBadgeCount, int bigForestBadgeGoal,
                                     int tournamentChampionshipsWon) {
     }
 
@@ -73,31 +72,31 @@ final class BirdGame3ProgressionService {
         return new WinnerMapProgressResult(incrementCityWins, incrementCliffWins, incrementJungleWins, unlocks);
     }
 
-    ModeMilestoneProgress syncModeMilestones(int bossRushAchievementProgress, int towerDefenseAchievementProgress,
+    ModeMilestoneProgress syncModeMilestones(int bossRushAchievementProgress, int routePioneerAchievementProgress,
                                              int pigeonEpisodeAchievementProgress, int batEpisodeAchievementProgress,
-                                             int pelicanEpisodeAchievementProgress, int bigForestBadgeAchievementProgress,
+                                             int pelicanEpisodeAchievementProgress, int classicVirtuosoAchievementProgress,
                                              int tournamentAchievementProgress, int bossRushClearCount,
-                                             int towerDefenseBadgeCount, boolean pigeonEpisodeCompleted,
+                                             int classicClearCount, boolean pigeonEpisodeCompleted,
                                              boolean batEpisodeCompleted, boolean pelicanEpisodeCompleted,
-                                             int bigForestBadgeCount, int tournamentChampionshipsWon) {
+                                             int tournamentChampionshipsWon) {
         return new ModeMilestoneProgress(
                 Math.max(bossRushAchievementProgress, bossRushClearCount),
-                Math.max(towerDefenseAchievementProgress, towerDefenseBadgeCount > 0 ? 1 : 0),
+                Math.max(routePioneerAchievementProgress, classicClearCount),
                 Math.max(pigeonEpisodeAchievementProgress, pigeonEpisodeCompleted ? 1 : 0),
                 Math.max(batEpisodeAchievementProgress, batEpisodeCompleted ? 1 : 0),
                 Math.max(pelicanEpisodeAchievementProgress, pelicanEpisodeCompleted ? 1 : 0),
-                Math.max(bigForestBadgeAchievementProgress, bigForestBadgeCount),
+                Math.max(classicVirtuosoAchievementProgress, classicClearCount),
                 Math.max(tournamentAchievementProgress, tournamentChampionshipsWon > 0 ? 1 : 0)
         );
     }
 
-    List<AchievementUnlock> evaluateModeAchievementUnlocks(ModeMilestoneProgress milestones, int bigForestBadgeGoal) {
+    List<AchievementUnlock> evaluateModeAchievementUnlocks(ModeMilestoneProgress milestones) {
         List<AchievementUnlock> unlocks = new ArrayList<>();
-        if (milestones.towerDefenseBadgeProgress() >= 1) {
-            unlocks.add(achievementUnlock(BirdGame3Achievement.GROVE_SENTINEL));
+        if (milestones.routePioneerProgress() >= BirdGame3Achievement.ROUTE_PIONEER_GOAL) {
+            unlocks.add(achievementUnlock(BirdGame3Achievement.ROUTE_PIONEER));
         }
-        if (milestones.bigForestBadgeProgress() >= bigForestBadgeGoal) {
-            unlocks.add(achievementUnlock(BirdGame3Achievement.BLIGHT_BUSTER));
+        if (milestones.classicVirtuosoProgress() >= BirdGame3Achievement.CLASSIC_VIRTUOSO_GOAL) {
+            unlocks.add(achievementUnlock(BirdGame3Achievement.CLASSIC_VIRTUOSO));
         }
         if (milestones.tournamentProgress() >= 1) {
             unlocks.add(achievementUnlock(BirdGame3Achievement.BRACKET_BOSS));
@@ -127,8 +126,11 @@ final class BirdGame3ProgressionService {
             unlocks.add(achievementUnlock(BirdGame3Achievement.BOSS_BREAKER));
         }
         if (progressAtLeast(context.achievementProfile(), BirdGame3Achievement.CROWN_UNBROKEN, 1)) unlocks.add(achievementUnlock(BirdGame3Achievement.CROWN_UNBROKEN));
-        if (progressAtLeast(context.achievementProfile(), BirdGame3Achievement.GROVE_SENTINEL, 1) || context.towerDefenseBadgeCount() > 0) {
-            unlocks.add(achievementUnlock(BirdGame3Achievement.GROVE_SENTINEL));
+        int classicClearCount = countCompleted(context.classicCompleted());
+        if (progressAtLeast(context.achievementProfile(), BirdGame3Achievement.ROUTE_PIONEER,
+                BirdGame3Achievement.ROUTE_PIONEER_GOAL)
+                || classicClearCount >= BirdGame3Achievement.ROUTE_PIONEER_GOAL) {
+            unlocks.add(achievementUnlock(BirdGame3Achievement.ROUTE_PIONEER));
         }
         if (progressAtLeast(context.achievementProfile(), BirdGame3Achievement.ROOFTOP_LEGACY, 1) || context.pigeonEpisodeCompleted()) {
             unlocks.add(achievementUnlock(BirdGame3Achievement.ROOFTOP_LEGACY));
@@ -139,9 +141,10 @@ final class BirdGame3ProgressionService {
         if (progressAtLeast(context.achievementProfile(), BirdGame3Achievement.IRON_TEMPEST, 1) || context.pelicanEpisodeCompleted()) {
             unlocks.add(achievementUnlock(BirdGame3Achievement.IRON_TEMPEST));
         }
-        if (progressAtLeast(context.achievementProfile(), BirdGame3Achievement.BLIGHT_BUSTER, context.bigForestBadgeGoal())
-                || context.bigForestBadgeCount() >= context.bigForestBadgeGoal()) {
-            unlocks.add(achievementUnlock(BirdGame3Achievement.BLIGHT_BUSTER));
+        if (progressAtLeast(context.achievementProfile(), BirdGame3Achievement.CLASSIC_VIRTUOSO,
+                BirdGame3Achievement.CLASSIC_VIRTUOSO_GOAL)
+                || classicClearCount >= BirdGame3Achievement.CLASSIC_VIRTUOSO_GOAL) {
+            unlocks.add(achievementUnlock(BirdGame3Achievement.CLASSIC_VIRTUOSO));
         }
         if (progressAtLeast(context.achievementProfile(), BirdGame3Achievement.BRACKET_BOSS, 1) || context.tournamentChampionshipsWon() > 0) {
             unlocks.add(achievementUnlock(BirdGame3Achievement.BRACKET_BOSS));
@@ -173,10 +176,19 @@ final class BirdGame3ProgressionService {
     }
 
     List<AchievementUnlock> evaluateClassicCompletionAchievements(boolean[] classicCompleted) {
-        if (countCompleted(classicCompleted) <= 0) {
+        int completed = countCompleted(classicCompleted);
+        if (completed <= 0) {
             return List.of();
         }
-        return List.of(achievementUnlock(BirdGame3Achievement.CLASSIC_CREST));
+        List<AchievementUnlock> unlocks = new ArrayList<>();
+        unlocks.add(achievementUnlock(BirdGame3Achievement.CLASSIC_CREST));
+        if (completed >= BirdGame3Achievement.ROUTE_PIONEER_GOAL) {
+            unlocks.add(achievementUnlock(BirdGame3Achievement.ROUTE_PIONEER));
+        }
+        if (completed >= BirdGame3Achievement.CLASSIC_VIRTUOSO_GOAL) {
+            unlocks.add(achievementUnlock(BirdGame3Achievement.CLASSIC_VIRTUOSO));
+        }
+        return unlocks;
     }
 
     AdventureChapterRewards evaluateAdventureChapterRewards(boolean tempestRoute, int chapterIndex,

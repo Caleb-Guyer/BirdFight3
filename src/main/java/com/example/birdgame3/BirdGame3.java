@@ -182,7 +182,7 @@ public class BirdGame3 {
             "Training is the fastest way to test ranges, confirms, and recovery angles.",
             "Adventure is the safest route for unlocking birds and learning matchups.",
             "Boss Rush rewards clean routing more than risky coin-flip scrambles.",
-            "Tower Defense badges are tracked per difficulty, so every tier matters.",
+            "Classic route milestones reward learning several different birds.",
             "Ground block turns into a fast fall in the air, so use it deliberately.",
             "Bird Coins come from matches, achievements, and steady route clears.",
             "Featherpedia lists unlock paths when you need a bird or skin target.",
@@ -218,7 +218,7 @@ public class BirdGame3 {
     private static final String PREF_BIRD_COINS_EARNED = "bird_coins_earned";
     private static final String PREF_BIRD_COINS_SPENT = "bird_coins_spent";
     private static final String PREF_BIRD_COINS_CHECKSUM = "bird_coins_checksum";
-    private static final int ACHIEVEMENT_SCHEMA_VERSION = 4;
+    private static final int ACHIEVEMENT_SCHEMA_VERSION = 5;
     private static final String SCENE_PROP_WIIMOTE_SELECTOR = "wiimote_selector_scene";
     private static final String SCENE_PROP_WIIMOTE_SELECTOR_PLAYERS = "wiimote_selector_players";
     private static final String SCENE_PROP_FIGHT_SELECTOR_CONTROLLER = "fight_selector_controller";
@@ -862,7 +862,6 @@ public class BirdGame3 {
     private boolean redlineCanyonUnlocked = false;
     private boolean lastIceShelfUnlocked = false;
     private boolean stillwaterMarshUnlocked = false;
-    private final boolean[][] towerDefenseDifficultyBadges = new boolean[MapType.values().length][TowerDefenseMode.Difficulty.values().length];
     private static final int DOCK_LEVER_COOLDOWN_FRAMES = 900;
     private static final int DOCK_BOMB_FUSE_FRAMES = 88;
     private static final int DOCK_BOMB_LOCKON_FRAMES = 72;
@@ -1371,15 +1370,6 @@ public class BirdGame3 {
                     0.96 - charge * 0.20,
                     0.018
             );
-        }
-    }
-
-    void playTowerDefenseBlightPopSfx(double intensity) {
-        double clamped = Math.clamp(intensity, 0.2, 1.0);
-        if (vaseBreakingClip != null) {
-            playManagedSfx(vaseBreakingClip, 0.18 + clamped * 0.16);
-        } else {
-            playManagedSfx(bonkClip, 0.14 + clamped * 0.10);
         }
     }
 
@@ -21789,7 +21779,7 @@ public class BirdGame3 {
         registerHubInteractiveNode(gamesNode, hubButtons, helpTitle, helpBody,
                 buildUltimateHubStyle("#1E88FF", "#0B53C1", "#D6E8FF", 0, 38, 0, 0, false),
                 buildUltimateHubStyle("#1E88FF", "#0B53C1", "#F5FBFF", 0, 38, 0, 0, true),
-                "GAMES & MORE", "Open the challenge stack with Classic, Boss Rush, Episodes, Tournament, Training, and Tower Defense.", selectorPointer, medallion);
+                "GAMES & MORE", "Open the challenge stack with Classic, Boss Rush, Episodes, Tournament, and Training.", selectorPointer, medallion);
         AnchorPane.setTopAnchor(gamesNode, hubMainTop);
         AnchorPane.setLeftAnchor(gamesNode, hubRightLeft);
 
@@ -25396,10 +25386,10 @@ public class BirdGame3 {
         Button tournamentBtn = buildGamesMoreModeButton(
                 "BRACKET PLAY",
                 "TOURNAMENT",
-                520, 186, 40,
-                new Insets(18, 110, 24, 28),
+                790, 186, 40,
+                new Insets(18, 190, 24, 28),
                 32,
-                gamesMoreIconTournament(), 3.0, 0.16,
+                gamesMoreIconTournament(), 4.2, 0.16,
                 new Insets(18, 22, 18, 18),
                 () -> showTournamentSetup(stage));
         registerHubInteractiveNode(tournamentBtn, modeButtons, helpTitle, helpBody,
@@ -25414,10 +25404,10 @@ public class BirdGame3 {
         Button trainingBtn = buildGamesMoreModeButton(
                 "LAB WORK",
                 "TRAINING",
-                520, 186, 40,
-                new Insets(18, 118, 24, 28),
+                790, 186, 40,
+                new Insets(18, 198, 24, 28),
                 32,
-                gamesMoreIconTraining(), 3.0, 0.16,
+                gamesMoreIconTraining(), 4.2, 0.16,
                 new Insets(18, 22, 18, 18),
                 () -> showTrainingSetup(stage));
         registerHubInteractiveNode(trainingBtn, modeButtons, helpTitle, helpBody,
@@ -25427,25 +25417,7 @@ public class BirdGame3 {
                 "Use the lab to test confirms, dummy behavior, slow motion, and movement checks.",
                 null, null);
         AnchorPane.setTopAnchor(trainingBtn, 556.0);
-        AnchorPane.setLeftAnchor(trainingBtn, 540.0);
-
-        Button towerDefenseBtn = buildGamesMoreModeButton(
-                "DEFENSE LANE",
-                "TOWER DEFENSE",
-                520, 186, 40,
-                new Insets(18, 118, 24, 28),
-                30,
-                gamesMoreIconTowerDefense(), 3.0, 0.16,
-                new Insets(18, 22, 18, 18),
-                () -> showTowerDefenseMapSelect(stage));
-        registerHubInteractiveNode(towerDefenseBtn, modeButtons, helpTitle, helpBody,
-                buildGamesMoreCardStyle("#2E7D32", "#184B1D", "#C8E6C9", 34, false),
-                buildGamesMoreCardStyle("#2E7D32", "#184B1D", "#F1FFF4", 34, true),
-                "TOWER DEFENSE",
-                "Swap into the defense maps to place birds, manage loadouts, and survive lane pressure.",
-                null, null);
-        AnchorPane.setTopAnchor(towerDefenseBtn, 556.0);
-        AnchorPane.setLeftAnchor(towerDefenseBtn, 1080.0);
+        AnchorPane.setLeftAnchor(trainingBtn, 810.0);
 
         StackPane helpBar = new StackPane();
         lockRegionSize(helpBar, 1600, 104);
@@ -25476,7 +25448,6 @@ public class BirdGame3 {
                 episodesBtn,
                 tournamentBtn,
                 trainingBtn,
-                towerDefenseBtn,
                 helpBar
         );
         root.getChildren().add(frame);
@@ -25816,897 +25787,6 @@ public class BirdGame3 {
         rightWeight.setFill(Color.web("#B2EBF2"));
         pane.getChildren().addAll(leftWeight, leftPlate, bar, rightPlate, rightWeight);
         return pane;
-    }
-
-    private Node gamesMoreIconTowerDefense() {
-        Pane pane = hubIconPane();
-        Polygon shield = new Polygon(28, 10, 44, 16, 40, 36, 28, 46, 16, 36, 12, 16);
-        shield.setFill(Color.web("#C8E6C9"));
-        Rectangle tower = new Rectangle(22, 18, 12, 18);
-        tower.setArcWidth(3);
-        tower.setArcHeight(3);
-        tower.setFill(Color.web("#66BB6A"));
-        Rectangle top = new Rectangle(20, 14, 16, 6);
-        top.setArcWidth(3);
-        top.setArcHeight(3);
-        top.setFill(Color.web("#A5D6A7"));
-        Line gate = new Line(28, 24, 28, 36);
-        gate.setStroke(Color.web("#F1FFF4"));
-        gate.setStrokeWidth(3);
-        pane.getChildren().addAll(shield, tower, top, gate);
-        return pane;
-    }
-
-    private void showTowerDefenseMapSelect(Stage stage) {
-        bossRushModeActive = false;
-        ashfallTrialModeActive = false;
-        dailyChallengeModeActive = false;
-        classicModeActive = false;
-        storyModeActive = false;
-        adventureModeActive = false;
-        selectedMap = MapType.FOREST;
-        startMusic();
-
-        BorderPane root = buildModernMenuPage();
-        Button back = uiFactory.action("BACK", 180, 64, 23, "#B5121B", 18, () -> showHub(stage));
-        StackPane title = buildMenuTitleBanner("TOWER DEFENSE", 500, 72, 31);
-        root.setTop(buildMenuTopStrip(back, title,
-                buildMenuChip("BIG FOREST", "#2E7D32", "#A5D6A7")));
-
-        Label subtitle = new Label("Choose a defense map. Each difficulty on each map has its own badge slot.");
-        subtitle.setFont(Font.font("Consolas", 22));
-        subtitle.setTextFill(Color.web("#D0E8D6"));
-        subtitle.setWrapText(true);
-        subtitle.setMaxWidth(1040);
-        subtitle.setTextAlignment(TextAlignment.CENTER);
-        subtitle.setAlignment(Pos.CENTER);
-        applyNoEllipsis(subtitle);
-
-        Canvas preview = new Canvas(820, 280);
-        StagePreviewRenderer.drawMainMap(preview, MapType.FOREST);
-
-        Label mapName = new Label("BIG FOREST");
-        mapName.setFont(Font.font("Arial Black", 42));
-        mapName.setTextFill(Color.web("#FFF8E1"));
-        applyNoEllipsis(mapName);
-
-        Label mapBody = new Label(towerDefenseMapDescription());
-        mapBody.setFont(Font.font("Consolas", 18));
-        mapBody.setTextFill(Color.web("#D8EFE0"));
-        mapBody.setWrapText(true);
-        mapBody.setMaxWidth(820);
-        applyNoEllipsis(mapBody);
-
-        HBox difficultyRow = new HBox(12);
-        difficultyRow.setAlignment(Pos.CENTER);
-        for (TowerDefenseMode.Difficulty difficulty : TowerDefenseMode.Difficulty.values()) {
-            boolean earned = hasTowerDefenseBadge(difficulty);
-            String color = switch (difficulty) {
-                case EASY -> "#2E7D32";
-                case MEDIUM -> "#EF6C00";
-                case HARD -> "#C62828";
-            };
-            Button difficultyBtn = uiFactory.action(
-                    "",
-                    250, 112, 16, color, 14,
-                    () -> showTowerDefenseMode(stage, difficulty)
-            );
-            Label difficultyLabel = new Label(difficulty.label.toUpperCase(Locale.ROOT));
-            difficultyLabel.setFont(Font.font("Arial Black", 24));
-            difficultyLabel.setTextFill(Color.web("#FFF8E1"));
-            difficultyLabel.setTextAlignment(TextAlignment.CENTER);
-            applyNoEllipsis(difficultyLabel);
-
-            StackPane buttonGraphic = new StackPane(difficultyLabel);
-            buttonGraphic.setPrefSize(210, 72);
-            buttonGraphic.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
-            if (earned) {
-                Canvas badgeIcon = towerDefenseBadgeIcon();
-                StackPane.setAlignment(badgeIcon, Pos.TOP_RIGHT);
-                StackPane.setMargin(badgeIcon, new Insets(0, 2, 0, 0));
-                buttonGraphic.getChildren().add(badgeIcon);
-            }
-
-            difficultyBtn.setGraphic(buttonGraphic);
-            difficultyBtn.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
-            difficultyBtn.setText(null);
-            difficultyBtn.setAlignment(Pos.CENTER);
-            difficultyRow.getChildren().add(difficultyBtn);
-        }
-
-        VBox mapCard = new VBox(16,
-                buildMenuEyebrow("SELECT A DEFENSE CONTRACT", "#A5D6A7"), subtitle,
-                preview, mapName, mapBody, difficultyRow);
-        mapCard.setAlignment(Pos.CENTER);
-        mapCard.setPadding(new Insets(26));
-        mapCard.setMaxWidth(960);
-        mapCard.setStyle(MenuTheme.panelStyle("#4CAF50", 28));
-
-        root.setCenter(mapCard);
-
-        Scene scene = new Scene(root, WIDTH, HEIGHT);
-        bindEscape(scene, back);
-        setupKeyboardNavigation(scene);
-        applyConsoleHighlight(scene);
-        bindScaleToFit(scene, root);
-        setScenePreservingFullscreen(stage, scene);
-        difficultyRow.getChildren().getFirst().requestFocus();
-    }
-
-    private void showTowerDefenseMode(Stage stage, TowerDefenseMode.Difficulty difficulty) {
-        clearActiveDailyChallengeRun();
-        clearBossRushState();
-        clearAshfallTrialState();
-        bossRushModeActive = false;
-        dailyChallengeModeActive = false;
-        resetTournamentRun();
-        trainingModeActive = false;
-        storyModeActive = false;
-        storyReplayMode = false;
-        adventureModeActive = false;
-        adventureReplayMode = false;
-        currentAdventureBattle = null;
-        adventureTeamMode = false;
-        Arrays.fill(adventureTeams, 1);
-        classicModeActive = false;
-        classicEncounter = null;
-        classicRun.clear();
-        classicRoundIndex = 0;
-        classicDeaths = 0;
-        classicTeamMode = false;
-        Arrays.fill(classicTeams, 1);
-        competitionSeriesActive = false;
-        Arrays.fill(competitionRoundWins, 0);
-        Arrays.fill(competitionTeamWins, 0);
-        competitionRoundNumber = 1;
-        stageSelectHandler = null;
-        stageSelectRandomHandler = null;
-        selectedMap = MapType.FOREST;
-        startMusic();
-
-        TowerDefenseMode mode = new TowerDefenseMode(this, difficulty);
-        StackPane root = new StackPane();
-        root.getProperties().put("noAutoScale", true);
-        root.setStyle("-fx-background-color: linear-gradient(to bottom, #050B08, #0D1B14, #12271D);");
-
-        Canvas canvas = new Canvas(WIDTH - 520, HEIGHT);
-        StackPane mapPane = new StackPane(canvas);
-        mapPane.setStyle("-fx-background-color: #040A07;");
-        mapPane.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
-        mapPane.setMinWidth(0);
-        HBox.setHgrow(mapPane, Priority.ALWAYS);
-        Rectangle mapClip = new Rectangle();
-        mapClip.widthProperty().bind(mapPane.widthProperty());
-        mapClip.heightProperty().bind(mapPane.heightProperty());
-        mapPane.setClip(mapClip);
-        canvas.widthProperty().bind(mapPane.widthProperty());
-        canvas.heightProperty().bind(mapPane.heightProperty());
-
-        Node settingsIcon = hubIconSettings();
-        settingsIcon.setScaleX(0.76);
-        settingsIcon.setScaleY(0.76);
-        Button settingsBtn = new Button();
-        settingsBtn.setGraphic(settingsIcon);
-        settingsBtn.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
-        settingsBtn.setPrefSize(48, 48);
-        settingsBtn.setMinSize(48, 48);
-        settingsBtn.setMaxSize(48, 48);
-        settingsBtn.setStyle("-fx-background-color: rgba(9,18,14,0.88); -fx-border-color: #B2DFDB; -fx-border-width: 2; "
-                + "-fx-background-radius: 24; -fx-border-radius: 24;");
-        StackPane.setAlignment(settingsBtn, Pos.TOP_RIGHT);
-        StackPane.setMargin(settingsBtn, new Insets(14, 16, 0, 0));
-        mapPane.getChildren().add(settingsBtn);
-
-        Label cashLabel = new Label();
-        Label livesLabel = new Label();
-        Label blightLabel = new Label();
-        for (Label label : List.of(cashLabel, livesLabel, blightLabel)) {
-            label.setFont(Font.font("Consolas", FontWeight.BOLD, 15));
-            label.setTextFill(Color.web("#F1F8E9"));
-            label.setPadding(new Insets(6, 10, 6, 10));
-            label.setAlignment(Pos.CENTER);
-            label.setTextAlignment(TextAlignment.CENTER);
-            label.setMaxWidth(Double.MAX_VALUE);
-            label.setMinWidth(0);
-            label.setStyle("-fx-background-color: rgba(11,25,18,0.86); -fx-background-radius: 16; -fx-border-color: #355C4C; "
-                    + "-fx-border-width: 2; -fx-border-radius: 16;");
-            applyNoEllipsis(label);
-            HBox.setHgrow(label, Priority.ALWAYS);
-        }
-        HBox resources = new HBox(6, cashLabel, livesLabel, blightLabel);
-        resources.setAlignment(Pos.CENTER_LEFT);
-        resources.setFillHeight(true);
-        resources.setMaxWidth(Double.MAX_VALUE);
-
-        Label panelHint = new Label();
-        panelHint.setFont(Font.font("Consolas", 15));
-        panelHint.setTextFill(Color.web("#B9F6CA"));
-        panelHint.setWrapText(true);
-        panelHint.setMaxWidth(320);
-        applyNoEllipsis(panelHint);
-        VBox panelTop = new VBox(10, resources, panelHint);
-        panelTop.setAlignment(Pos.TOP_LEFT);
-
-        Function<String, Button> panelButton = text -> {
-            Button button = new Button(text);
-            button.setWrapText(true);
-            button.setTextFill(Color.web("#F1F8E9"));
-            button.setFont(Font.font("Consolas", FontWeight.BOLD, 16));
-            button.setAlignment(Pos.CENTER_LEFT);
-            button.setContentDisplay(ContentDisplay.TEXT_ONLY);
-            button.setMaxWidth(Double.MAX_VALUE);
-            button.setPrefWidth(320);
-            button.setPrefHeight(88);
-            applyNoEllipsis(button);
-            return button;
-        };
-
-        Function<TowerDefenseMode.TowerBirdKind, Button> shopCard = kind -> {
-            Canvas icon = new Canvas(70, 70);
-            drawRosterSprite(icon, kind.birdType, null, false, true);
-
-            Label name = new Label(kind.label.toUpperCase(Locale.ROOT) + "  $" + mode.shopCost(kind));
-            name.setFont(Font.font("Arial Black", 18));
-            name.setTextFill(Color.web("#FFF8E1"));
-            applyNoEllipsis(name);
-
-            Label body = new Label(kind.role + "  |  " + kind.summary);
-            body.setFont(Font.font("Consolas", FontWeight.BOLD, 13));
-            body.setTextFill(Color.web("#D0E8D6"));
-            body.setWrapText(true);
-            body.setMaxWidth(210);
-            applyNoEllipsis(body);
-
-            VBox text = new VBox(4, name, body);
-            text.setAlignment(Pos.CENTER_LEFT);
-            HBox.setHgrow(text, Priority.ALWAYS);
-
-            HBox content = new HBox(12, icon, text);
-            content.setAlignment(Pos.CENTER_LEFT);
-
-            Button button = new Button();
-            button.setGraphic(content);
-            button.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
-            button.setAlignment(Pos.CENTER_LEFT);
-            button.setMaxWidth(Double.MAX_VALUE);
-            button.setPrefHeight(96);
-            button.setPadding(new Insets(10));
-            return button;
-        };
-
-        Button pigeonBtn = shopCard.apply(TowerDefenseMode.TowerBirdKind.PIGEON);
-        Button eagleBtn = shopCard.apply(TowerDefenseMode.TowerBirdKind.EAGLE);
-        Button opiumBtn = shopCard.apply(TowerDefenseMode.TowerBirdKind.OPIUMBIRD);
-        Button batBtn = shopCard.apply(TowerDefenseMode.TowerBirdKind.BAT);
-        Button cancelBuildBtn = uiFactory.action("CANCEL BUILD", 320, 58, 20, "#455A64", 16, null);
-        Label selectedHeader = new Label();
-        selectedHeader.setFont(Font.font("Arial Black", 24));
-        selectedHeader.setTextFill(Color.web("#FFF59D"));
-        selectedHeader.setWrapText(true);
-        selectedHeader.setMaxWidth(320);
-        applyNoEllipsis(selectedHeader);
-        Label selectedBody = new Label();
-        selectedBody.setFont(Font.font("Consolas", 15));
-        selectedBody.setTextFill(Color.web("#ECEFF1"));
-        selectedBody.setWrapText(true);
-        selectedBody.setMaxWidth(Double.MAX_VALUE);
-        applyNoEllipsis(selectedBody);
-        Canvas selectedPreview = new Canvas(320, 188);
-        Button targetingBtn = panelButton.apply("");
-        Button topUpgradeBtn = panelButton.apply("");
-        Button bottomUpgradeBtn = panelButton.apply("");
-        Button sellBtn = uiFactory.action("SELL BIRD", 320, 58, 20, "#8D6E63", 16, null);
-
-        Label roostTitle = new Label("BIRD ROOST");
-        roostTitle.setFont(Font.font("Arial Black", 28));
-        roostTitle.setTextFill(Color.web("#B9F6CA"));
-        Label roostBody = new Label("Choose a bird, place it on open grass, and click the bird later to swap this panel into upgrades.");
-        roostBody.setFont(Font.font("Consolas", 15));
-        roostBody.setTextFill(Color.web("#E8F5E9"));
-        roostBody.setWrapText(true);
-        roostBody.setMaxWidth(320);
-        applyNoEllipsis(roostBody);
-        VBox roostPane = new VBox(12, roostTitle, roostBody, pigeonBtn, eagleBtn, opiumBtn, batBtn, cancelBuildBtn);
-        roostPane.setAlignment(Pos.TOP_LEFT);
-        roostPane.setFillWidth(true);
-
-        VBox upgradePane = new VBox(12, selectedPreview, selectedHeader, selectedBody, targetingBtn, topUpgradeBtn, bottomUpgradeBtn, sellBtn);
-        upgradePane.setAlignment(Pos.TOP_LEFT);
-        upgradePane.setFillWidth(true);
-
-        ScrollPane contentScroll = new ScrollPane(roostPane);
-        contentScroll.setFitToWidth(true);
-        contentScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-        contentScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
-        contentScroll.setStyle("-fx-background: transparent; -fx-background-color: transparent; -fx-control-inner-background: transparent; "
-                + "-fx-border-color: transparent;");
-        installTransparentScrollViewport(contentScroll);
-
-        Canvas playIconCanvas = new Canvas(34, 34);
-        Label startRoundLabel = new Label();
-        startRoundLabel.setFont(Font.font("Consolas", FontWeight.BOLD, 16));
-        startRoundLabel.setTextFill(Color.WHITE);
-        VBox startRoundGraphic = new VBox(4, playIconCanvas, startRoundLabel);
-        startRoundGraphic.setAlignment(Pos.CENTER);
-        startRoundGraphic.setFillWidth(true);
-        StackPane startRoundGraphicWrap = new StackPane(startRoundGraphic);
-        startRoundGraphicWrap.setAlignment(Pos.CENTER);
-        startRoundGraphicWrap.setPrefSize(150, 72);
-        startRoundGraphicWrap.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
-        Button startRoundBtn = new Button();
-        startRoundBtn.setGraphic(startRoundGraphicWrap);
-        startRoundBtn.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
-        startRoundBtn.setPrefSize(104, 84);
-        startRoundBtn.setMinSize(104, 84);
-        startRoundBtn.setMaxSize(104, 84);
-        startRoundBtn.setPadding(Insets.EMPTY);
-        startRoundBtn.setAlignment(Pos.CENTER);
-
-        Canvas speedIconCanvas = new Canvas(38, 34);
-        Label speedLabel = new Label();
-        speedLabel.setFont(Font.font("Consolas", FontWeight.BOLD, 16));
-        speedLabel.setTextFill(Color.WHITE);
-        VBox speedGraphic = new VBox(4, speedIconCanvas, speedLabel);
-        speedGraphic.setAlignment(Pos.CENTER);
-        speedGraphic.setFillWidth(true);
-        StackPane speedGraphicWrap = new StackPane(speedGraphic);
-        speedGraphicWrap.setAlignment(Pos.CENTER);
-        speedGraphicWrap.setPrefSize(150, 72);
-        speedGraphicWrap.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
-        Button speedBtn = new Button();
-        speedBtn.setGraphic(speedGraphicWrap);
-        speedBtn.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
-        speedBtn.setPrefSize(104, 84);
-        speedBtn.setMinSize(104, 84);
-        speedBtn.setMaxSize(Double.MAX_VALUE, 84);
-        speedBtn.setPadding(Insets.EMPTY);
-        speedBtn.setAlignment(Pos.CENTER);
-
-        HBox controlRow = new HBox(12, speedBtn, startRoundBtn);
-        controlRow.setAlignment(Pos.CENTER);
-        controlRow.setMaxWidth(Double.MAX_VALUE);
-        HBox.setHgrow(speedBtn, Priority.ALWAYS);
-        HBox.setHgrow(startRoundBtn, Priority.ALWAYS);
-        startRoundBtn.setMaxWidth(Double.MAX_VALUE);
-        startRoundBtn.setAlignment(Pos.CENTER);
-        VBox panelBottom = new VBox(12, controlRow);
-        panelBottom.setAlignment(Pos.BOTTOM_CENTER);
-        panelBottom.setFillWidth(true);
-        panelBottom.setMaxWidth(Double.MAX_VALUE);
-
-        BorderPane sidePanel = getBorderPane(panelTop, contentScroll, panelBottom);
-        startRoundBtn.prefWidthProperty().bind(sidePanel.widthProperty().subtract(48).subtract(12).divide(2.0));
-        speedBtn.prefWidthProperty().bind(sidePanel.widthProperty().subtract(48).subtract(12).divide(2.0));
-        startRoundGraphicWrap.prefWidthProperty().bind(startRoundBtn.widthProperty());
-        startRoundGraphicWrap.prefHeightProperty().bind(startRoundBtn.heightProperty());
-        speedGraphicWrap.prefWidthProperty().bind(speedBtn.widthProperty());
-        speedGraphicWrap.prefHeightProperty().bind(speedBtn.heightProperty());
-        selectedPreview.widthProperty().bind(sidePanel.widthProperty().subtract(36));
-
-        HBox shell = new HBox(mapPane, sidePanel);
-        shell.setFillHeight(true);
-        shell.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
-        root.getChildren().add(shell);
-
-        VBox pauseMenu = new VBox(14);
-        pauseMenu.setAlignment(Pos.CENTER);
-        pauseMenu.setPadding(new Insets(24));
-        pauseMenu.setPrefWidth(500);
-        pauseMenu.setMaxWidth(500);
-        pauseMenu.setStyle("-fx-background-color: rgba(6,12,18,0.92); -fx-background-radius: 24; -fx-border-color: #B2DFDB; -fx-border-width: 3; -fx-border-radius: 24;");
-        pauseMenu.setVisible(false);
-        pauseMenu.setManaged(false);
-        Label pauseTitle = new Label("DEFENSE PAUSED");
-        pauseTitle.setFont(Font.font("Arial Black", 38));
-        pauseTitle.setTextFill(Color.web("#FFF59D"));
-        pauseTitle.setMaxWidth(Double.MAX_VALUE);
-        pauseTitle.setAlignment(Pos.CENTER);
-        pauseTitle.setTextAlignment(TextAlignment.CENTER);
-        applyNoEllipsis(pauseTitle);
-        Button resumeBtn = uiFactory.action("RESUME", 320, 70, 24, "#2E7D32", 18, null);
-        Button debugBtn = uiFactory.action("DEBUG MENU", 320, 70, 24, "#6A1B9A", 18, null);
-        Button restartBtn = uiFactory.action("RESTART DEFENSE", 320, 70, 24, "#FB8C00", 18, null);
-        Button exitBtn = uiFactory.action("BACK TO HUB", 320, 70, 24, "#D32F2F", 18, null);
-        pauseMenu.getChildren().addAll(pauseTitle, resumeBtn, debugBtn, restartBtn, exitBtn);
-
-        VBox debugMenu = new VBox(12);
-        debugMenu.setAlignment(Pos.CENTER_LEFT);
-        debugMenu.setPadding(new Insets(24));
-        debugMenu.setMaxWidth(500);
-        debugMenu.setStyle("-fx-background-color: rgba(8,14,24,0.95); -fx-background-radius: 24; -fx-border-color: #CE93D8; -fx-border-width: 3; -fx-border-radius: 24;");
-        debugMenu.setVisible(false);
-        debugMenu.setManaged(false);
-        Label debugTitle = new Label("DEFENSE DEBUG");
-        debugTitle.setFont(Font.font("Arial Black", 36));
-        debugTitle.setTextFill(Color.web("#F3E5F5"));
-        Label debugInfo = new Label("Sets values immediately. Changing round clears the current wave and sets the next round to start.");
-        debugInfo.setFont(Font.font("Consolas", 16));
-        debugInfo.setWrapText(true);
-        debugInfo.setMaxWidth(440);
-        debugInfo.setTextFill(Color.web("#E1BEE7"));
-        applyNoEllipsis(debugInfo);
-        TextField cashField = new TextField();
-        TextField livesField = new TextField();
-        TextField roundField = new TextField();
-        for (TextField field : List.of(cashField, livesField, roundField)) {
-            field.setPrefWidth(180);
-            field.setFont(Font.font("Consolas", 20));
-        }
-        GridPane debugGrid = new GridPane();
-        debugGrid.setHgap(12);
-        debugGrid.setVgap(10);
-        debugGrid.add(new Label("Cash"), 0, 0);
-        debugGrid.add(cashField, 1, 0);
-        debugGrid.add(new Label("Lives"), 0, 1);
-        debugGrid.add(livesField, 1, 1);
-        debugGrid.add(new Label("Round"), 0, 2);
-        debugGrid.add(roundField, 1, 2);
-        for (Node node : debugGrid.getChildren()) {
-            if (node instanceof Label label) {
-                label.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
-                label.setTextFill(Color.web("#F3E5F5"));
-            }
-        }
-        Label debugHint = new Label();
-        debugHint.setFont(Font.font("Consolas", 15));
-        debugHint.setWrapText(true);
-        debugHint.setMaxWidth(440);
-        debugHint.setTextFill(Color.web("#FFF59D"));
-        applyNoEllipsis(debugHint);
-        Button applyDebugBtn = uiFactory.action("APPLY", 220, 64, 22, "#7B1FA2", 18, null);
-        Button clearWaveBtn = uiFactory.action("CLEAR WAVE", 220, 64, 22, "#455A64", 18, null);
-        Button closeDebugBtn = uiFactory.action("CLOSE", 220, 64, 22, "#D32F2F", 18, null);
-        HBox debugActions = new HBox(12, applyDebugBtn, clearWaveBtn, closeDebugBtn);
-        debugActions.setAlignment(Pos.CENTER);
-        debugMenu.getChildren().addAll(debugTitle, debugInfo, debugGrid, debugHint, debugActions);
-
-        VBox endMenu = new VBox(14);
-        endMenu.setAlignment(Pos.CENTER);
-        endMenu.setPadding(new Insets(24));
-        endMenu.setMaxWidth(520);
-        endMenu.setStyle("-fx-background-color: rgba(6,12,18,0.94); -fx-background-radius: 24; -fx-border-color: #FFE082; -fx-border-width: 3; -fx-border-radius: 24;");
-        endMenu.setVisible(false);
-        endMenu.setManaged(false);
-        Label endTitle = new Label();
-        endTitle.setFont(Font.font("Arial Black", 34));
-        endTitle.setWrapText(true);
-        endTitle.setTextAlignment(TextAlignment.CENTER);
-        endTitle.setAlignment(Pos.CENTER);
-        endTitle.setMaxWidth(460);
-        applyNoEllipsis(endTitle);
-        Label endBody = new Label();
-        endBody.setFont(Font.font("Consolas", 18));
-        endBody.setTextFill(Color.web("#ECEFF1"));
-        endBody.setWrapText(true);
-        endBody.setMaxWidth(440);
-        applyNoEllipsis(endBody);
-        Button restartEndBtn = uiFactory.action("RESTART DEFENSE", 320, 70, 24, "#2E7D32", 18, null);
-        Button backEndBtn = uiFactory.action("BACK TO HUB", 320, 70, 24, "#D32F2F", 18, null);
-        endMenu.getChildren().addAll(endTitle, endBody, restartEndBtn, backEndBtn);
-
-        root.getChildren().addAll(pauseMenu, debugMenu, endMenu);
-
-        final AnimationTimer[] tdTimer = new AnimationTimer[1];
-        final boolean[] paused = new boolean[]{false};
-        final boolean[] debugOpen = new boolean[]{false};
-        final double[] mouseX = new double[]{TowerDefenseMode.MAP_WIDTH * 0.5};
-        final double[] mouseY = new double[]{TowerDefenseMode.MAP_HEIGHT * 0.5};
-        final double[] mapScaleX = new double[]{1.0};
-        final double[] mapScaleY = new double[]{1.0};
-        final double[] mapOffsetX = new double[]{0.0};
-        final double[] mapOffsetY = new double[]{0.0};
-        final boolean[] mouseInside = new boolean[]{true};
-        final Runnable[] refreshUi = new Runnable[1];
-        final Runnable[] syncOverlayState = new Runnable[1];
-        final Runnable[] togglePause = new Runnable[1];
-        final Runnable[] openDebug = new Runnable[1];
-        final Runnable[] redraw = new Runnable[1];
-        final Runnable[] stopTimer = new Runnable[1];
-        final boolean[] rewardsGranted = new boolean[]{false};
-        final int[] rewardCoins = new int[]{0};
-        final boolean[] newBadgeAwarded = new boolean[]{false};
-
-        BiConsumer<Button, TowerDefenseMode.TowerBirdKind> styleShopButton = (button, kind) -> {
-            boolean selected = mode.buildSelection() == kind;
-            boolean affordable = mode.canAfford(kind);
-            button.setStyle("-fx-background-color: " + (selected ? "#2E7D32" : (affordable ? "rgba(17,53,38,0.96)" : "rgba(55,71,79,0.88)"))
-                    + "; -fx-text-fill: white; -fx-border-color: " + (selected ? "#FFF59D" : (affordable ? "#A5D6A7" : "#90A4AE"))
-                    + "; -fx-border-width: 2; -fx-background-radius: 20; -fx-border-radius: 20;");
-            button.setDisable(!affordable && !selected);
-        };
-
-        BiConsumer<Button, TowerDefenseMode.UpgradeOffer> styleUpgradeButton = (button, offer) -> {
-            button.setText(offer.title() + (offer.cost() > 0 ? "  $" + offer.cost() : "") + "\n" + offer.description());
-            boolean enabled = mode.hasSelectedTower() && offer.allowed() && offer.affordable() && offer.cost() > 0;
-            button.setDisable(!enabled);
-            button.setStyle("-fx-background-color: " + (enabled ? "#234E52" : "#37474F")
-                    + "; -fx-text-fill: white; -fx-border-color: " + (offer.allowed() ? "#80CBC4" : "#EF9A9A")
-                    + "; -fx-border-width: 2; -fx-background-radius: 18; -fx-border-radius: 18;");
-        };
-
-        BiConsumer<Double, Double> updateMouseWorld = (localX, localY) -> {
-            double scaleX = Math.max(0.0001, mapScaleX[0]);
-            double scaleY = Math.max(0.0001, mapScaleY[0]);
-            double worldX = (localX - mapOffsetX[0]) / scaleX;
-            double worldY = (localY - mapOffsetY[0]) / scaleY;
-            mouseInside[0] = worldX >= 0.0 && worldX <= TowerDefenseMode.MAP_WIDTH
-                    && worldY >= 0.0 && worldY <= TowerDefenseMode.MAP_HEIGHT;
-            mouseX[0] = Math.clamp(worldX, 0.0, TowerDefenseMode.MAP_WIDTH);
-            mouseY[0] = Math.clamp(worldY, 0.0, TowerDefenseMode.MAP_HEIGHT);
-        };
-
-        syncOverlayState[0] = () -> {
-            boolean ended = mode.victory() || mode.gameOver();
-            pauseMenu.setVisible(paused[0] && !debugOpen[0] && !ended);
-            pauseMenu.setManaged(paused[0] && !debugOpen[0] && !ended);
-            debugMenu.setVisible(paused[0] && debugOpen[0] && !ended);
-            debugMenu.setManaged(paused[0] && debugOpen[0] && !ended);
-            endMenu.setVisible(ended);
-            endMenu.setManaged(ended);
-            settingsBtn.setDisable(ended);
-            if (ended) {
-                if (!rewardsGranted[0]) {
-                    rewardsGranted[0] = true;
-                    if (mode.victory()) {
-                        rewardCoins[0] = towerDefenseCoinReward(mode.difficulty());
-                        newBadgeAwarded[0] = awardBigForestTowerDefenseBadge(mode.difficulty());
-                        grantBirdCoins(rewardCoins[0]);
-                        refreshModeAchievementUnlocks();
-                        saveAchievements();
-                    }
-                }
-                endTitle.setText(mode.victory() ? "BIG FOREST SECURED" : "BIG FOREST OVERWHELMED");
-                endTitle.setTextFill(mode.victory() ? Color.web("#FFF59D") : Color.web("#FFAB91"));
-                endBody.setText(mode.victory()
-                        ? "The grove held through all " + mode.maxRounds() + " " + mode.difficulty().label + " rounds."
-                        + "\nBird Coins +" + rewardCoins[0]
-                        + (newBadgeAwarded[0] ? "\nNew " + mode.difficulty().label + " badge earned for " + mapDisplayName(MapType.FOREST) + "." : "\n" + mode.difficulty().label + " badge slot remains secured.")
-                        : "The Blight slipped through the trail on " + mode.difficulty().label + ". Rebuild the grove and try a new defense line.");
-            }
-        };
-
-        redraw[0] = () -> {
-            GraphicsContext g = canvas.getGraphicsContext2D();
-            double canvasW = canvas.getWidth();
-            double canvasH = canvas.getHeight();
-            g.clearRect(0, 0, canvasW, canvasH);
-            if (canvasW <= 0 || canvasH <= 0) {
-                return;
-            }
-            mapScaleX[0] = canvasW / TowerDefenseMode.MAP_WIDTH;
-            mapScaleY[0] = canvasH / TowerDefenseMode.MAP_HEIGHT;
-            mapOffsetX[0] = 0.0;
-            mapOffsetY[0] = 0.0;
-            g.save();
-            g.translate(mapOffsetX[0], mapOffsetY[0]);
-            g.scale(mapScaleX[0], mapScaleY[0]);
-            mode.render(g, mouseX[0], mouseY[0]);
-            g.restore();
-        };
-
-        refreshUi[0] = () -> {
-            cashLabel.setText("CASH $" + mode.cash());
-            livesLabel.setText("LIVES " + mode.lives());
-            blightLabel.setText("BLIGHT " + mode.enemyCount());
-
-            panelHint.setText(mode.shouldShowRoostPanel()
-                    ? (mode.buildSelection() == null
-                    ? "Build birds here. Click a bird on the map to swap this panel into upgrades."
-                    : mode.buildSelection().label + " selected. Click open grass on the map to place it.")
-                    : "");
-            boolean showPanelHint = !panelHint.getText().isBlank();
-            panelHint.setVisible(showPanelHint);
-            panelHint.setManaged(showPanelHint);
-
-            styleShopButton.accept(pigeonBtn, TowerDefenseMode.TowerBirdKind.PIGEON);
-            styleShopButton.accept(eagleBtn, TowerDefenseMode.TowerBirdKind.EAGLE);
-            styleShopButton.accept(opiumBtn, TowerDefenseMode.TowerBirdKind.OPIUMBIRD);
-            styleShopButton.accept(batBtn, TowerDefenseMode.TowerBirdKind.BAT);
-            cancelBuildBtn.setDisable(mode.buildSelection() == null);
-
-            contentScroll.setContent(mode.shouldShowRoostPanel() ? roostPane : upgradePane);
-            selectedHeader.setText(mode.selectedTowerTitle());
-            selectedBody.setText(mode.selectedTowerBody());
-            targetingBtn.setText("TARGETING  " + mode.selectedTowerTargetMode().label + "\n" + mode.selectedTowerTargetingSummary());
-            targetingBtn.setDisable(!mode.hasSelectedTower());
-            targetingBtn.setStyle("-fx-background-color: #254B5C; -fx-text-fill: #F4FFFC; -fx-border-color: #9FD6D2; "
-                    + "-fx-border-width: 2; -fx-background-radius: 18; -fx-border-radius: 18;");
-            styleUpgradeButton.accept(topUpgradeBtn, mode.selectedUpgradeOffer(0));
-            styleUpgradeButton.accept(bottomUpgradeBtn, mode.selectedUpgradeOffer(1));
-            sellBtn.setDisable(!mode.hasSelectedTower());
-            sellBtn.setText(mode.hasSelectedTower() ? "SELL BIRD  $" + mode.selectedTowerSellValue() : "SELL BIRD");
-            mode.renderSelectedTowerPreview(selectedPreview.getGraphicsContext2D(), selectedPreview.getWidth(), selectedPreview.getHeight());
-
-            startRoundBtn.setDisable(mode.roundActive() || mode.victory() || mode.gameOver());
-            startRoundBtn.setStyle("-fx-background-color: " + (mode.roundActive() ? "#546E7A" : (mode.victory() ? "#2E7D32" : (mode.gameOver() ? "#8D6E63" : "#2E7D32")))
-                    + "; -fx-border-color: " + (mode.roundActive() ? "#90A4AE" : "#A5D6A7")
-                    + "; -fx-border-width: 2; -fx-background-radius: 24; -fx-border-radius: 24;");
-            startRoundLabel.setText(mode.victory() ? "WIN" : (mode.gameOver() ? "LOSE" : (mode.roundActive() ? "LIVE" : "R" + mode.nextRoundNumber())));
-            GraphicsContext playIconG = playIconCanvas.getGraphicsContext2D();
-            playIconG.clearRect(0, 0, playIconCanvas.getWidth(), playIconCanvas.getHeight());
-            playIconG.setFill(mode.roundActive() ? Color.web("#CFD8DC") : Color.web("#F1F8E9"));
-            playIconG.fillPolygon(new double[]{10, 26, 10}, new double[]{7, 17, 27}, 3);
-
-            boolean spedUp = mode.speedMultiplier() > 1.0;
-            speedBtn.setDisable(mode.victory() || mode.gameOver());
-            speedBtn.setStyle("-fx-background-color: " + (spedUp ? "#1565C0" : "#455A64")
-                    + "; -fx-border-color: " + (spedUp ? "#FFF59D" : "#90A4AE")
-                    + "; -fx-border-width: 2; -fx-background-radius: 24; -fx-border-radius: 24;");
-            speedLabel.setText((int) mode.speedMultiplier() + "x");
-            GraphicsContext speedIconG = speedIconCanvas.getGraphicsContext2D();
-            speedIconG.clearRect(0, 0, speedIconCanvas.getWidth(), speedIconCanvas.getHeight());
-            speedIconG.setFill(spedUp ? Color.web("#FFF176") : Color.web("#263238"));
-            speedIconG.fillOval(5, 12, 8, 8);
-            speedIconG.setFill(spedUp ? Color.web("#FFF59D") : Color.web("#CFD8DC"));
-            speedIconG.fillPolygon(new double[]{10, 20, 10}, new double[]{7, 17, 27}, 3);
-            speedIconG.fillPolygon(new double[]{19, 29, 19}, new double[]{7, 17, 27}, 3);
-
-            syncOverlayState[0].run();
-        };
-
-        stopTimer[0] = () -> {
-            if (tdTimer[0] != null) {
-                tdTimer[0].stop();
-            }
-        };
-
-        openDebug[0] = () -> {
-            paused[0] = true;
-            debugOpen[0] = true;
-            cashField.setText(String.valueOf(mode.cash()));
-            livesField.setText(String.valueOf(mode.lives()));
-            roundField.setText(String.valueOf(mode.nextRoundNumber()));
-            debugHint.setText("Apply writes values immediately. Round sets the next round and clears the current one.");
-            refreshUi[0].run();
-            cashField.requestFocus();
-            cashField.selectAll();
-        };
-
-        togglePause[0] = () -> {
-            if (mode.victory() || mode.gameOver()) {
-                return;
-            }
-            if (debugOpen[0]) {
-                debugOpen[0] = false;
-            }
-            paused[0] = !paused[0];
-            refreshUi[0].run();
-            if (paused[0]) {
-                resumeBtn.requestFocus();
-            } else {
-                canvas.requestFocus();
-            }
-        };
-
-        pigeonBtn.setOnAction(e -> { playButtonClick(); mode.selectBuild(TowerDefenseMode.TowerBirdKind.PIGEON); refreshUi[0].run(); canvas.requestFocus(); });
-        eagleBtn.setOnAction(e -> { playButtonClick(); mode.selectBuild(TowerDefenseMode.TowerBirdKind.EAGLE); refreshUi[0].run(); canvas.requestFocus(); });
-        opiumBtn.setOnAction(e -> { playButtonClick(); mode.selectBuild(TowerDefenseMode.TowerBirdKind.OPIUMBIRD); refreshUi[0].run(); canvas.requestFocus(); });
-        batBtn.setOnAction(e -> { playButtonClick(); mode.selectBuild(TowerDefenseMode.TowerBirdKind.BAT); refreshUi[0].run(); canvas.requestFocus(); });
-        cancelBuildBtn.setOnAction(e -> { playButtonClick(); mode.clearBuildSelection(); refreshUi[0].run(); canvas.requestFocus(); });
-        targetingBtn.setOnAction(e -> { playButtonClick(); mode.cycleSelectedTowerTargetMode(); refreshUi[0].run(); canvas.requestFocus(); });
-        startRoundBtn.setOnAction(e -> { playButtonClick(); mode.startRound(); refreshUi[0].run(); canvas.requestFocus(); });
-        speedBtn.setOnAction(e -> { playButtonClick(); mode.cycleSpeedMultiplier(); refreshUi[0].run(); canvas.requestFocus(); });
-        settingsBtn.setOnAction(e -> { playButtonClick(); togglePause[0].run(); });
-        topUpgradeBtn.setOnAction(e -> { playButtonClick(); mode.upgradeSelectedTower(0); refreshUi[0].run(); canvas.requestFocus(); });
-        bottomUpgradeBtn.setOnAction(e -> { playButtonClick(); mode.upgradeSelectedTower(1); refreshUi[0].run(); canvas.requestFocus(); });
-        sellBtn.setOnAction(e -> { playButtonClick(); mode.sellSelectedTower(); refreshUi[0].run(); canvas.requestFocus(); });
-        resumeBtn.setOnAction(e -> { playButtonClick(); paused[0] = false; debugOpen[0] = false; refreshUi[0].run(); canvas.requestFocus(); });
-        debugBtn.setOnAction(e -> { playButtonClick(); openDebug[0].run(); });
-        restartBtn.setOnAction(e -> { playButtonClick(); stopTimer[0].run(); showTowerDefenseMode(stage, mode.difficulty()); });
-        exitBtn.setOnAction(e -> { playButtonClick(); stopTimer[0].run(); showHub(stage); });
-        applyDebugBtn.setOnAction(e -> {
-            playButtonClick();
-            try {
-                mode.setCash(Integer.parseInt(cashField.getText().trim()));
-                mode.setLives(Integer.parseInt(livesField.getText().trim()));
-                mode.jumpToRound(Integer.parseInt(roundField.getText().trim()));
-                debugHint.setText("Debug values applied.");
-                refreshUi[0].run();
-            } catch (NumberFormatException ex) {
-                debugHint.setText("Use whole numbers for cash, lives, and round.");
-            }
-        });
-        clearWaveBtn.setOnAction(e -> { playButtonClick(); mode.clearWaveForDebug(); debugHint.setText("Current wave cleared."); refreshUi[0].run(); });
-        closeDebugBtn.setOnAction(e -> { playButtonClick(); debugOpen[0] = false; refreshUi[0].run(); resumeBtn.requestFocus(); });
-        restartEndBtn.setOnAction(e -> { playButtonClick(); stopTimer[0].run(); showTowerDefenseMode(stage, mode.difficulty()); });
-        backEndBtn.setOnAction(e -> { playButtonClick(); stopTimer[0].run(); showHub(stage); });
-
-        canvas.setOnMouseMoved(e -> {
-            updateMouseWorld.accept(e.getX(), e.getY());
-            redraw[0].run();
-        });
-        canvas.setOnMouseDragged(e -> {
-            updateMouseWorld.accept(e.getX(), e.getY());
-            redraw[0].run();
-        });
-        canvas.setOnMouseClicked(e -> {
-            updateMouseWorld.accept(e.getX(), e.getY());
-            if (paused[0] || mode.victory() || mode.gameOver()) {
-                return;
-            }
-            if (e.getButton() == MouseButton.SECONDARY) {
-                mode.clearBuildSelection();
-                mode.deselectTower();
-            } else if (!mouseInside[0]) {
-                mode.clearBuildSelection();
-                mode.deselectTower();
-            } else if (mode.buildSelection() != null) {
-                playButtonClick();
-                mode.placeSelectedTower(mouseX[0], mouseY[0]);
-            } else {
-                mode.selectTowerAt(mouseX[0], mouseY[0]);
-            }
-            refreshUi[0].run();
-            redraw[0].run();
-            canvas.requestFocus();
-        });
-
-        Scene scene = new Scene(root, WIDTH, HEIGHT);
-        addSceneEventFilter(scene, KeyEvent.KEY_PRESSED, e -> {
-            KeyCode code = e.getCode();
-            if (code == KeyCode.ESCAPE) {
-                if (mode.victory() || mode.gameOver()) {
-                    stopTimer[0].run();
-                    showHub(stage);
-                } else if (debugOpen[0]) {
-                    playButtonClick();
-                    debugOpen[0] = false;
-                    refreshUi[0].run();
-                    resumeBtn.requestFocus();
-                } else {
-                    playButtonClick();
-                    togglePause[0].run();
-                }
-                e.consume();
-                return;
-            }
-
-            if (mode.victory() || mode.gameOver()) {
-                if (code == KeyCode.ENTER || code == KeyCode.SPACE) {
-                    Scene targetScene = activeSceneFor(scene);
-                    Node focus = targetScene == null ? null : targetScene.getFocusOwner();
-                    if (focus instanceof Button button) {
-                        playButtonClick();
-                        button.fire();
-                        e.consume();
-                    }
-                } else if (movePauseMenuFocus(scene, endMenu, switch (code) {
-                    case W -> KeyCode.UP;
-                    case S -> KeyCode.DOWN;
-                    default -> code;
-                })) {
-                    e.consume();
-                }
-                return;
-            }
-
-            if (paused[0]) {
-                if (!debugOpen[0]) {
-                    KeyCode navigation = switch (code) {
-                        case W -> KeyCode.UP;
-                        case S -> KeyCode.DOWN;
-                        default -> code;
-                    };
-                    if (movePauseMenuFocus(scene, pauseMenu, navigation)) {
-                        e.consume();
-                        return;
-                    }
-                    if (code == KeyCode.ENTER || code == KeyCode.SPACE) {
-                        Scene targetScene = activeSceneFor(scene);
-                        Node focus = targetScene == null ? null : targetScene.getFocusOwner();
-                        if (focus instanceof Button button) {
-                            playButtonClick();
-                            button.fire();
-                            e.consume();
-                        }
-                    }
-                }
-                return;
-            }
-
-            switch (code) {
-                case SPACE -> {
-                    playButtonClick();
-                    mode.startRound();
-                    refreshUi[0].run();
-                    e.consume();
-                }
-                case DIGIT1, NUMPAD1 -> {
-                    playButtonClick();
-                    mode.selectBuild(TowerDefenseMode.TowerBirdKind.PIGEON);
-                    refreshUi[0].run();
-                    e.consume();
-                }
-                case DIGIT2, NUMPAD2 -> {
-                    playButtonClick();
-                    mode.selectBuild(TowerDefenseMode.TowerBirdKind.EAGLE);
-                    refreshUi[0].run();
-                    e.consume();
-                }
-                case DIGIT3, NUMPAD3 -> {
-                    playButtonClick();
-                    mode.selectBuild(TowerDefenseMode.TowerBirdKind.OPIUMBIRD);
-                    refreshUi[0].run();
-                    e.consume();
-                }
-                case DIGIT4, NUMPAD4 -> {
-                    playButtonClick();
-                    mode.selectBuild(TowerDefenseMode.TowerBirdKind.BAT);
-                    refreshUi[0].run();
-                    e.consume();
-                }
-                case DELETE, BACK_SPACE -> {
-                    playButtonClick();
-                    mode.sellSelectedTower();
-                    refreshUi[0].run();
-                    e.consume();
-                }
-                case T -> {
-                    playButtonClick();
-                    mode.cycleSelectedTowerTargetMode();
-                    refreshUi[0].run();
-                    e.consume();
-                }
-                case P -> {
-                    playButtonClick();
-                    togglePause[0].run();
-                    e.consume();
-                }
-                default -> {
-                }
-            }
-        });
-
-        tdTimer[0] = new AnimationTimer() {
-            private final double step = 1.0 / 60.0;
-            private long last = 0L;
-            private double acc = 0.0;
-
-            @Override
-            public void handle(long now) {
-                if (last == 0L) {
-                    last = now;
-                }
-                acc += Math.min(0.05, (now - last) / 1_000_000_000.0);
-                last = now;
-                if (!paused[0] && !debugOpen[0] && !mode.victory() && !mode.gameOver()) {
-                    int steps = 0;
-                    while (acc >= step && steps < 3) {
-                        mode.update(step);
-                        acc -= step;
-                        steps++;
-                    }
-                    if (acc > step) {
-                        acc = step;
-                    }
-                } else {
-                    acc = 0.0;
-                }
-                redraw[0].run();
-                refreshUi[0].run();
-            }
-        };
-
-        refreshUi[0].run();
-        redraw[0].run();
-        setScenePreservingFullscreen(stage, scene);
-        applyConsoleHighlight(scene);
-        tdTimer[0].start();
-        javafx.application.Platform.runLater(canvas::requestFocus);
-    }
-
-    private static BorderPane getBorderPane(VBox panelTop, ScrollPane contentScroll, VBox panelBottom) {
-        BorderPane sidePanel = new BorderPane();
-        sidePanel.setTop(panelTop);
-        sidePanel.setCenter(contentScroll);
-        sidePanel.setBottom(panelBottom);
-        sidePanel.setPadding(new Insets(18));
-        sidePanel.setPrefWidth(360);
-        sidePanel.setMinWidth(320);
-        sidePanel.setMaxWidth(380);
-        sidePanel.setStyle("-fx-background-color: rgba(3,10,7,0.88); -fx-background-radius: 28; -fx-border-color: #3F6F58; "
-                + "-fx-border-width: 2; -fx-border-radius: 28;");
-        return sidePanel;
     }
 
     private void resetTournamentRun() {
@@ -31525,9 +30605,6 @@ public class BirdGame3 {
     private void removeLegacyDeveloperBadgeEntitlements() {
         Arrays.fill(classicCompleted, false);
         Arrays.fill(trainingAcademyDrillCompleted, false);
-        for (boolean[] row : towerDefenseDifficultyBadges) {
-            Arrays.fill(row, false);
-        }
         ashfallTrialCompleted = false;
         for (BirdGame3Achievement achievement : BirdGame3Achievement.values()) {
             achievementProfile.setUnlocked(achievement, false);
@@ -33835,7 +32912,7 @@ public class BirdGame3 {
                     kicker = "BIRD FIGHT 3";
                     title = officialTrailer ? "THE SKY IS YOURS" : "SUNSCORCH UPDATE";
                     subtitle = officialTrailer
-                            ? "Story Campaign. Classic. Boss Rush. Tower Defense. Tournaments. Training. Multiplayer."
+                            ? "Story Campaign. Classic. Boss Rush. Tournaments. Training. Multiplayer."
                             : "Roadrunner's full kit, charge attacks, shield parries, Broken Harbor LAN, and Stock Photo Eagle.";
                     titleAccent = Color.web("#FFCC80");
                     titleAlpha = Math.min(1.0, 0.30 + trailerOverlayAlpha(phase) * 0.88);
@@ -35024,7 +34101,7 @@ public class BirdGame3 {
     }
 
     private void drawOfficialTrailerModeGrid(GraphicsContext g, int activeIndex, double phase) {
-        String[] modes = {"STORY CAMPAIGN", "CLASSIC", "BOSS RUSH", "TOWER DEFENSE", "TOURNAMENTS", "TRAINING"};
+        String[] modes = {"STORY CAMPAIGN", "CLASSIC", "BOSS RUSH", "TOURNAMENTS", "TRAINING"};
         Color[] accents = {Color.web("#FFD54F"), Color.web("#4FC3F7"), Color.web("#EF5350"),
                 Color.web("#66BB6A"), Color.web("#AB47BC"), Color.web("#26C6DA")};
         g.setFill(Color.web("#02050B", 0.64));
@@ -35216,7 +34293,7 @@ public class BirdGame3 {
             case 7 -> {
                 kicker = "PLAY YOUR WAY";
                 title = "MORE THAN VERSUS";
-                subtitle = "Story. Classic. Boss Rush. Tower Defense. Tournaments. Training.";
+                subtitle = "Story. Classic. Boss Rush. Tournaments. Training.";
                 centered = true;
             }
             case 9 -> {
@@ -40515,85 +39592,15 @@ public class BirdGame3 {
         return badge;
     }
 
-    private Canvas towerDefenseBadgeIcon() {
-        Canvas icon = new Canvas(26, 26);
-        GraphicsContext g = icon.getGraphicsContext2D();
-        g.setFill(Color.web("#7A5A16"));
-        g.fillOval(4, 4, 18, 18);
-        g.setFill(Color.web("#FDD835"));
-        g.fillOval(6, 6, 14, 14);
-        g.setStroke(Color.web("#FFF8E1"));
-        g.setLineWidth(1.6);
-        g.strokeOval(6.5, 6.5, 13, 13);
-        g.setStroke(Color.web("#6D4C41"));
-        g.setLineWidth(1.8);
-        g.strokeLine(13, 9, 13, 17);
-        g.strokeLine(9, 13, 17, 13);
-        g.setFill(Color.web("#EF6C00"));
-        g.fillPolygon(new double[]{10, 13, 11}, new double[]{20, 24, 24}, 3);
-        g.fillPolygon(new double[]{15, 13, 16}, new double[]{20, 24, 24}, 3);
-        return icon;
-    }
-
-    private boolean hasTowerDefenseBadge(TowerDefenseMode.Difficulty difficulty) {
-        if (difficulty == null) {
-            return false;
-        }
-        return towerDefenseDifficultyBadges[MapType.FOREST.ordinal()][difficulty.ordinal()];
-    }
-
-    private boolean awardBigForestTowerDefenseBadge(TowerDefenseMode.Difficulty difficulty) {
-        if (difficulty == null) {
-            return false;
-        }
-        boolean[] row = towerDefenseDifficultyBadges[MapType.FOREST.ordinal()];
-        boolean alreadyHad = row[difficulty.ordinal()];
-        row[difficulty.ordinal()] = true;
-        return !alreadyHad;
-    }
-
-    private int towerDefenseCoinReward(TowerDefenseMode.Difficulty difficulty) {
-        if (difficulty == null) {
-            return 0;
-        }
-        return switch (difficulty) {
-            case EASY -> 120;
-            case MEDIUM -> 220;
-            case HARD -> 360;
-        };
-    }
-
-    private int countTowerDefenseBadges() {
-        int total = 0;
-        for (boolean[] row : towerDefenseDifficultyBadges) {
-            total += countCompleted(row);
-        }
-        return total;
-    }
-
-    private int countBigForestTowerDefenseBadges() {
-        return countCompleted(towerDefenseDifficultyBadges[MapType.FOREST.ordinal()]);
-    }
-
-    private int bigForestTowerDefenseBadgeGoal() {
-        return TowerDefenseMode.Difficulty.values().length;
-    }
-
     private void refreshModeAchievementUnlocks() {
         achievementEvaluator.refreshModeAchievementUnlocks(
                 bossRushClearCount,
-                countTowerDefenseBadges(),
+                classicCompleted,
                 pigeonEpisodeCompleted,
                 batEpisodeCompleted,
                 pelicanEpisodeCompleted,
-                countBigForestTowerDefenseBadges(),
-                bigForestTowerDefenseBadgeGoal(),
                 tournamentChampionshipsWon
         );
-    }
-
-    private String towerDefenseMapDescription() {
-        return "A top-down Big Forest defense route with a winding dirt trail, wide clearings, and long sightlines for grove birds.";
     }
 
     private String classicRewardFor(BirdType type) {
@@ -61861,7 +60868,6 @@ public class BirdGame3 {
         state.redlineCanyonUnlocked = redlineCanyonUnlocked;
         state.lastIceShelfUnlocked = lastIceShelfUnlocked;
         state.stillwaterMarshUnlocked = stillwaterMarshUnlocked;
-        state.towerDefenseDifficultyBadges = copyBooleanMatrix(towerDefenseDifficultyBadges);
         state.cityPigeonUnlocked = cityPigeonUnlocked;
         state.noirPigeonUnlocked = noirPigeonUnlocked;
         state.freemanPigeonUnlocked = freemanPigeonUnlocked;
@@ -61965,17 +60971,6 @@ public class BirdGame3 {
         return state;
     }
 
-    private boolean[][] copyBooleanMatrix(boolean[][] values) {
-        if (values == null) {
-            return new boolean[0][];
-        }
-        boolean[][] copy = new boolean[values.length][];
-        for (int i = 0; i < values.length; i++) {
-            copy[i] = values[i] == null ? new boolean[0] : Arrays.copyOf(values[i], values[i].length);
-        }
-        return copy;
-    }
-
     private void applyProfileProgressState(BirdGame3ProfileProgressState state) {
         BirdGame3ProfileProgressState resolved = state == null
                 ? BirdGame3ProfileProgressState.load(null, profileProgressSchema())
@@ -61983,6 +60978,7 @@ public class BirdGame3 {
         int loadedAchievementSchemaVersion = resolved.achievementSchemaVersion;
 
         applyAchievementProfileState(resolved.achievementProfile);
+        migrateRepurposedAchievementSlots(loadedAchievementSchemaVersion);
         matchHistory.clear();
         if (resolved.matchHistory != null) {
             matchHistory.addAll(resolved.matchHistory);
@@ -62009,7 +61005,6 @@ public class BirdGame3 {
         redlineCanyonUnlocked = resolved.redlineCanyonUnlocked;
         lastIceShelfUnlocked = resolved.lastIceShelfUnlocked;
         stillwaterMarshUnlocked = resolved.stillwaterMarshUnlocked;
-        copyInto(resolved.towerDefenseDifficultyBadges, towerDefenseDifficultyBadges);
 
         cityPigeonUnlocked = resolved.cityPigeonUnlocked;
         noirPigeonUnlocked = resolved.noirPigeonUnlocked;
@@ -62201,17 +61196,12 @@ public class BirdGame3 {
                     cityWins,
                     cliffWins,
                     jungleWins,
-                    loadedAchievementSchemaVersion,
-                    ACHIEVEMENT_SCHEMA_VERSION,
                     classicCompleted,
                     mainAdventureChapterCompletedState(),
                     bossRushClearCount,
-                    countTowerDefenseBadges(),
                     pigeonEpisodeCompleted,
                     batEpisodeCompleted,
                     pelicanEpisodeCompleted,
-                    countBigForestTowerDefenseBadges(),
-                    bigForestTowerDefenseBadgeGoal(),
                     tournamentChampionshipsWon
             );
         }
@@ -62747,11 +61737,11 @@ public class BirdGame3 {
             case STORY_KEEPER -> AchievementReward.preview(null, MAP_BATTLEFIELD_KEY, 420);
             case BOSS_BREAKER -> AchievementReward.preview(BirdType.RAVEN, CHAR_RAVEN_KEY, 340);
             case CROWN_UNBROKEN -> AchievementReward.preview(BirdType.VULTURE, TIDE_VULTURE_SKIN, 320);
-            case GROVE_SENTINEL -> AchievementReward.preview(BirdType.PENGUIN, MINT_PENGUIN_SKIN, 300);
+            case ROUTE_PIONEER -> AchievementReward.preview(BirdType.PENGUIN, MINT_PENGUIN_SKIN, 300);
             case ROOFTOP_LEGACY -> AchievementReward.preview(BirdType.PIGEON, STORM_PIGEON_SKIN, 360);
             case ECHO_SOVEREIGN -> AchievementReward.preview(BirdType.BAT, RESONANCE_BAT_SKIN, 360);
             case IRON_TEMPEST -> AchievementReward.preview(BirdType.PELICAN, IRONCLAD_PELICAN_SKIN, 400);
-            case BLIGHT_BUSTER -> AchievementReward.preview(BirdType.ROOSTER, SUNFORGE_ROOSTER_SKIN, 420);
+            case CLASSIC_VIRTUOSO -> AchievementReward.preview(BirdType.ROOSTER, SUNFORGE_ROOSTER_SKIN, 420);
             case BRACKET_BOSS -> AchievementReward.coins(450);
             case ASHFALL_INITIATE -> AchievementReward.coins(250);
             case GEYSER_RIDER -> AchievementReward.coins(300);
@@ -62848,13 +61838,15 @@ public class BirdGame3 {
             }
             case BOSS_BREAKER -> "Boss Rush clears: " + Math.max(achievementProgressValue(BirdGame3Achievement.BOSS_BREAKER), bossRushClearCount) + " / 1";
             case CROWN_UNBROKEN -> "EX route clears: " + achievementProgressValue(BirdGame3Achievement.CROWN_UNBROKEN) + " / 1";
-            case GROVE_SENTINEL -> "Tower Defense badges: "
-                    + Math.max(achievementProgressValue(BirdGame3Achievement.GROVE_SENTINEL), countTowerDefenseBadges() > 0 ? 1 : 0) + " / 1";
+            case ROUTE_PIONEER -> "Different Classic routes cleared: "
+                    + Math.max(achievementProgressValue(BirdGame3Achievement.ROUTE_PIONEER), countCompleted(classicCompleted))
+                    + " / " + BirdGame3Achievement.ROUTE_PIONEER_GOAL;
             case ROOFTOP_LEGACY -> "Pigeon Episode complete: " + (pigeonEpisodeCompleted ? "1 / 1" : "0 / 1");
             case ECHO_SOVEREIGN -> "Bat Episode complete: " + (batEpisodeCompleted ? "1 / 1" : "0 / 1");
             case IRON_TEMPEST -> "Pelican Episode complete: " + (pelicanEpisodeCompleted ? "1 / 1" : "0 / 1");
-            case BLIGHT_BUSTER -> "Big Forest badges: " + Math.max(achievementProgressValue(BirdGame3Achievement.BLIGHT_BUSTER), countBigForestTowerDefenseBadges())
-                    + " / " + bigForestTowerDefenseBadgeGoal();
+            case CLASSIC_VIRTUOSO -> "Different Classic routes cleared: "
+                    + Math.max(achievementProgressValue(BirdGame3Achievement.CLASSIC_VIRTUOSO), countCompleted(classicCompleted))
+                    + " / " + BirdGame3Achievement.CLASSIC_VIRTUOSO_GOAL;
             case BRACKET_BOSS -> "Tournament championships: "
                     + Math.max(achievementProgressValue(BirdGame3Achievement.BRACKET_BOSS), tournamentChampionshipsWon > 0 ? 1 : 0) + " / 1";
             case ASHFALL_INITIATE -> "Ashfall Cathedral wins: "
@@ -63056,6 +62048,20 @@ public class BirdGame3 {
             }
         });
         continueButton.requestFocus();
+    }
+
+    private void migrateRepurposedAchievementSlots(int loadedAchievementSchemaVersion) {
+        if (loadedAchievementSchemaVersion >= ACHIEVEMENT_SCHEMA_VERSION) {
+            return;
+        }
+        for (BirdGame3Achievement achievement : new BirdGame3Achievement[]{
+                BirdGame3Achievement.ROUTE_PIONEER,
+                BirdGame3Achievement.CLASSIC_VIRTUOSO
+        }) {
+            setAchievementUnlocked(achievement, false);
+            setAchievementProgressValue(achievement, 0);
+            setAchievementRewardClaimed(achievement);
+        }
     }
 
     private Color achievementAccentColor(int index) {

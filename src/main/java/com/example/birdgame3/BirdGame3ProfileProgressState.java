@@ -69,8 +69,6 @@ final class BirdGame3ProfileProgressState {
     boolean redlineCanyonUnlocked = false;
     boolean lastIceShelfUnlocked = false;
     boolean stillwaterMarshUnlocked = false;
-    boolean[][] towerDefenseDifficultyBadges =
-            new boolean[BirdGame3.MapType.values().length][TowerDefenseMode.Difficulty.values().length];
     boolean cityPigeonUnlocked = true;
     boolean noirPigeonUnlocked = false;
     boolean freemanPigeonUnlocked = false;
@@ -178,7 +176,6 @@ final class BirdGame3ProfileProgressState {
         state.redlineCanyonUnlocked = prefs.getBoolean(KEY_REDLINE_CANYON_UNLOCKED, false);
         state.lastIceShelfUnlocked = prefs.getBoolean(KEY_LAST_ICE_SHELF_UNLOCKED, false);
         state.stillwaterMarshUnlocked = prefs.getBoolean(KEY_STILLWATER_MARSH_UNLOCKED, false);
-        loadTowerDefenseBadges(prefs, state);
         loadSkinUnlocks(prefs, state);
         loadCharacterUnlocks(prefs, state);
         state.developerInfiniteBirdCoins = prefs.getBoolean(KEY_DEVELOPER_INFINITE_BIRD_COINS, false);
@@ -222,7 +219,6 @@ final class BirdGame3ProfileProgressState {
         prefs.putBoolean(KEY_REDLINE_CANYON_UNLOCKED, redlineCanyonUnlocked);
         prefs.putBoolean(KEY_LAST_ICE_SHELF_UNLOCKED, lastIceShelfUnlocked);
         prefs.putBoolean(KEY_STILLWATER_MARSH_UNLOCKED, stillwaterMarshUnlocked);
-        saveTowerDefenseBadges(prefs);
         saveSkinUnlocks(prefs);
         saveCharacterUnlocks(prefs);
         prefs.putBoolean(KEY_DEVELOPER_INFINITE_BIRD_COINS, developerInfiniteBirdCoins);
@@ -295,24 +291,6 @@ final class BirdGame3ProfileProgressState {
         }
         for (int i = count; i < matchHistoryLimit; i++) {
             prefs.remove(KEY_MATCH_HISTORY_PREFIX + i);
-        }
-    }
-
-    private static void loadTowerDefenseBadges(Preferences prefs, BirdGame3ProfileProgressState state) {
-        for (BirdGame3.MapType map : BirdGame3.MapType.values()) {
-            for (TowerDefenseMode.Difficulty difficulty : TowerDefenseMode.Difficulty.values()) {
-                state.towerDefenseDifficultyBadges[map.ordinal()][difficulty.ordinal()] =
-                        prefs.getBoolean("td_badge_" + map.name() + "_" + difficulty.name(), false);
-            }
-        }
-    }
-
-    private void saveTowerDefenseBadges(Preferences prefs) {
-        for (BirdGame3.MapType map : BirdGame3.MapType.values()) {
-            for (TowerDefenseMode.Difficulty difficulty : TowerDefenseMode.Difficulty.values()) {
-                prefs.putBoolean("td_badge_" + map.name() + "_" + difficulty.name(),
-                        towerDefenseDifficultyBadges[map.ordinal()][difficulty.ordinal()]);
-            }
         }
     }
 
@@ -619,7 +597,7 @@ final class BirdGame3ProfileProgressState {
         }
         try {
             for (String key : prefs.keys()) {
-                if (key.startsWith("contracts_")) {
+                if (key.startsWith("contracts_") || key.startsWith("td_badge_")) {
                     prefs.remove(key);
                 }
             }

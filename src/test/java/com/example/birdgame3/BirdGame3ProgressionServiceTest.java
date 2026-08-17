@@ -30,6 +30,9 @@ class BirdGame3ProgressionServiceTest {
         achievementProfile.setProgress(BirdGame3Achievement.CROWN_UNBROKEN, 1);
 
         boolean[] classicCompleted = new boolean[BirdGame3.BirdType.values().length];
+        for (int i = 0; i < BirdGame3Achievement.CLASSIC_VIRTUOSO_GOAL; i++) {
+            classicCompleted[i] = true;
+        }
         boolean[] completedAdventure = new boolean[]{true, true, true};
 
         List<BirdGame3ProgressionService.AchievementUnlock> unlocks =
@@ -39,12 +42,9 @@ class BirdGame3ProgressionServiceTest {
                                 classicCompleted,
                                 completedAdventure,
                                 2,
-                                1,
                                 true,
                                 true,
                                 true,
-                                3,
-                                3,
                                 1
                         )
                 );
@@ -53,13 +53,14 @@ class BirdGame3ProgressionServiceTest {
                 Set.of(
                         BirdGame3Achievement.ECHOES_BELOW,
                         BirdGame3Achievement.STORY_KEEPER,
+                        BirdGame3Achievement.CLASSIC_CREST,
                         BirdGame3Achievement.BOSS_BREAKER,
                         BirdGame3Achievement.CROWN_UNBROKEN,
-                        BirdGame3Achievement.GROVE_SENTINEL,
+                        BirdGame3Achievement.ROUTE_PIONEER,
                         BirdGame3Achievement.ROOFTOP_LEGACY,
                         BirdGame3Achievement.ECHO_SOVEREIGN,
                         BirdGame3Achievement.IRON_TEMPEST,
-                        BirdGame3Achievement.BLIGHT_BUSTER,
+                        BirdGame3Achievement.CLASSIC_VIRTUOSO,
                         BirdGame3Achievement.BRACKET_BOSS
                 ),
                 unlockAchievements(unlocks)
@@ -84,12 +85,9 @@ class BirdGame3ProgressionServiceTest {
                                 classicCompleted,
                                 completedAdventure,
                                 0,
-                                0,
                                 false,
                                 false,
                                 false,
-                                0,
-                                3,
                                 0
                         )
                 );

@@ -4,7 +4,7 @@ A chaotic JavaFX multiplayer platformer with epic bird battles, power-ups, AI op
 
 ## Overview
 
-Bird Fight 3 is a feature-rich platform fighter that supports local play, AI opponents, LAN matches, unlockables, and multiple single-player modes. Battle as various bird characters with unique abilities, collect power-ups, and compete in tournaments or tower defense challenges.
+Bird Fight 3 is a feature-rich platform fighter that supports local play, AI opponents, LAN matches, unlockables, and multiple single-player modes. Battle as various bird characters with unique abilities, collect power-ups, and compete in tournaments and authored Classic routes.
 
 ## Features
 
@@ -13,7 +13,6 @@ Bird Fight 3 is a feature-rich platform fighter that supports local play, AI opp
   - AI-powered opponents with varying difficulty
   - LAN multiplayer matches for network play
   - Direct-connect internet matches by public IP or DNS name
-  - Tower Defense mode
   - Tournament setup and play
   - Single-player campaign progression
 
@@ -82,7 +81,6 @@ src/main/java/com/example/birdgame3/
 |-- UIFactory.java                         # Dynamic UI generation
 |
 |-- Game Modes
-|   |-- TowerDefenseMode.java
 |   |-- BirdGame3TournamentSetupUi.java
 |   `-- BirdGame3TournamentUi.java
 |

@@ -250,9 +250,9 @@ class BirdGame3SettingsTest {
         setPrivateField(game, "pigeonEpisodeCompleted", true);
         setPrivateField(game, "batEpisodeCompleted", true);
         setPrivateField(game, "pelicanEpisodeCompleted", true);
-        setTowerDefenseBadge(game, TowerDefenseMode.Difficulty.EASY);
-        setTowerDefenseBadge(game, TowerDefenseMode.Difficulty.MEDIUM);
-        setTowerDefenseBadge(game, TowerDefenseMode.Difficulty.HARD);
+        for (int i = 0; i < BirdGame3Achievement.CLASSIC_VIRTUOSO_GOAL; i++) {
+            setClassicCompletion(game, BirdGame3.BirdType.values()[i], true);
+        }
         game.persistAchievements(prefs);
 
         BirdGame3 reloaded = new BirdGame3();
@@ -262,29 +262,58 @@ class BirdGame3SettingsTest {
 
         assertTrue(reloaded.isAchievementUnlocked(BirdGame3Achievement.BOSS_BREAKER));
         assertTrue(reloaded.isAchievementUnlocked(BirdGame3Achievement.CROWN_UNBROKEN));
-        assertTrue(reloaded.isAchievementUnlocked(BirdGame3Achievement.GROVE_SENTINEL));
+        assertTrue(reloaded.isAchievementUnlocked(BirdGame3Achievement.ROUTE_PIONEER));
         assertTrue(reloaded.isAchievementUnlocked(BirdGame3Achievement.ROOFTOP_LEGACY));
         assertTrue(reloaded.isAchievementUnlocked(BirdGame3Achievement.ECHO_SOVEREIGN));
         assertTrue(reloaded.isAchievementUnlocked(BirdGame3Achievement.IRON_TEMPEST));
-        assertTrue(reloaded.isAchievementUnlocked(BirdGame3Achievement.BLIGHT_BUSTER));
+        assertTrue(reloaded.isAchievementUnlocked(BirdGame3Achievement.CLASSIC_VIRTUOSO));
         assertTrue(reloaded.isAchievementUnlocked(BirdGame3Achievement.BRACKET_BOSS));
     }
 
     @Test
-    void loadProfileProgressMigratesRetiredDailyAchievementSlotToTowerDefense() throws Exception {
+    void loadProfileProgressMigratesRetiredAchievementSlotToClassicRouteMilestone() throws Exception {
         prefs.putBoolean("ach_24", true);
         prefs.putInt("prog_24", 1);
         prefs.putBoolean("ach_reward_claimed_24", true);
-        prefs.putBoolean("td_badge_FOREST_EASY", true);
+        prefs.putInt("achievement_schema_version", 4);
+        for (int i = 0; i < BirdGame3Achievement.ROUTE_PIONEER_GOAL; i++) {
+            prefs.putBoolean("classic_done_" + BirdGame3.BirdType.values()[i].name(), true);
+        }
 
         BirdGame3 reloaded = new BirdGame3();
         Method loadProfileProgress = BirdGame3.class.getDeclaredMethod("loadProfileProgress", Preferences.class);
         loadProfileProgress.setAccessible(true);
         loadProfileProgress.invoke(reloaded, prefs);
 
-        assertTrue(reloaded.isAchievementUnlocked(BirdGame3Achievement.GROVE_SENTINEL));
-        assertEquals(1, reloaded.achievementProgressValue(BirdGame3Achievement.GROVE_SENTINEL));
-        assertFalse(reloaded.isAchievementRewardClaimed(BirdGame3Achievement.GROVE_SENTINEL.legacyIndex));
+        assertTrue(reloaded.isAchievementUnlocked(BirdGame3Achievement.ROUTE_PIONEER));
+        assertEquals(BirdGame3Achievement.ROUTE_PIONEER_GOAL,
+                reloaded.achievementProgressValue(BirdGame3Achievement.ROUTE_PIONEER));
+        assertFalse(reloaded.isAchievementRewardClaimed(BirdGame3Achievement.ROUTE_PIONEER.legacyIndex));
+    }
+
+    @Test
+    void repurposedAchievementSlotsAreResetForExistingDeveloperProfilesToo() throws Exception {
+        prefs.putBoolean("developer_infinite_bird_coins", true);
+        prefs.putInt("developer_badge_policy_version", 2);
+        prefs.putInt("achievement_schema_version", 4);
+        for (BirdGame3Achievement achievement : new BirdGame3Achievement[]{
+                BirdGame3Achievement.ROUTE_PIONEER,
+                BirdGame3Achievement.CLASSIC_VIRTUOSO
+        }) {
+            prefs.putBoolean("ach_" + achievement.legacyIndex, true);
+            prefs.putInt("prog_" + achievement.legacyIndex, 3);
+            prefs.putBoolean("ach_reward_claimed_" + achievement.legacyIndex, true);
+        }
+
+        BirdGame3 reloaded = new BirdGame3();
+        Method loadProfileProgress = BirdGame3.class.getDeclaredMethod("loadProfileProgress", Preferences.class);
+        loadProfileProgress.setAccessible(true);
+        loadProfileProgress.invoke(reloaded, prefs);
+
+        assertFalse(reloaded.isAchievementUnlocked(BirdGame3Achievement.ROUTE_PIONEER));
+        assertFalse(reloaded.isAchievementUnlocked(BirdGame3Achievement.CLASSIC_VIRTUOSO));
+        assertEquals(0, reloaded.achievementProgressValue(BirdGame3Achievement.ROUTE_PIONEER));
+        assertEquals(0, reloaded.achievementProgressValue(BirdGame3Achievement.CLASSIC_VIRTUOSO));
     }
 
     @Test
@@ -443,11 +472,6 @@ class BirdGame3SettingsTest {
         for (BirdGame3.BirdType type : BirdGame3.BirdType.values()) {
             prefs.putBoolean("classic_done_" + type.name(), true);
             prefs.putBoolean("academy_drill_completed_" + type.name(), true);
-        }
-        for (BirdGame3.MapType map : BirdGame3.MapType.values()) {
-            for (TowerDefenseMode.Difficulty difficulty : TowerDefenseMode.Difficulty.values()) {
-                prefs.putBoolean("td_badge_" + map.name() + "_" + difficulty.name(), true);
-            }
         }
         for (BirdGame3Achievement achievement : BirdGame3Achievement.values()) {
             prefs.putBoolean("ach_" + achievement.legacyIndex, true);
@@ -642,13 +666,6 @@ class BirdGame3SettingsTest {
         badges[BirdGame3.BirdType.BAT.ordinal()] = true;
     }
 
-    private static void setTowerDefenseBadge(BirdGame3 game, TowerDefenseMode.Difficulty difficulty) throws Exception {
-        Field field = BirdGame3.class.getDeclaredField("towerDefenseDifficultyBadges");
-        field.setAccessible(true);
-        boolean[][] badges = (boolean[][]) field.get(game);
-        badges[BirdGame3.MapType.FOREST.ordinal()][difficulty.ordinal()] = true;
-    }
-
     private static void invokeVolumeSetter(BirdGame3 game, String methodName, double value) throws Exception {
         Method method = BirdGame3.class.getDeclaredMethod(methodName, double.class);
         method.setAccessible(true);
@@ -694,14 +711,6 @@ class BirdGame3SettingsTest {
         assertEveryBooleanFalse(game, "classicCompleted");
         assertEveryBooleanFalse(game, "trainingAcademyDrillCompleted");
 
-        Field towerField = BirdGame3.class.getDeclaredField("towerDefenseDifficultyBadges");
-        towerField.setAccessible(true);
-        boolean[][] towerBadges = (boolean[][]) towerField.get(game);
-        for (boolean[] row : towerBadges) {
-            for (boolean earned : row) {
-                assertFalse(earned);
-            }
-        }
         for (BirdGame3Achievement achievement : BirdGame3Achievement.values()) {
             assertFalse(game.isAchievementUnlocked(achievement), achievement.name());
             assertEquals(0, game.achievementProgressValue(achievement), achievement.name());

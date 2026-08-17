@@ -21,12 +21,21 @@ class LegacyUiModernizationTest {
                 "showInternetHostSetup", "showInternetJoin", "showInternetHelp",
                 "showLanJoin", "showLanLobby", "showClassicContinuePrompt",
                 "showStoryDialogue", "showUnlockCard", "showAchievementRewardPreviewCard",
-                "showTowerDefenseMapSelect", "showModernTournamentDecision"}) {
+                "showModernTournamentDecision"}) {
             String body = methodBody(source, method);
             assertTrue(body.contains("buildModernMenuPage()"), method + " lost the shared modern page shell");
             assertTrue(body.contains("buildMenuTopStrip("), method + " lost the shared top strip");
             assertFalse(body.contains("MenuLayout.buildMenuRoot"), method + " regressed to the legacy stacked layout");
         }
+    }
+
+    @Test
+    void retiredTowerDefenseModeIsAbsentFromTheGameAndExtrasMenu() throws IOException {
+        String source = Files.readString(GAME_SOURCE);
+        assertFalse(source.toLowerCase().contains("tower defense"));
+        assertFalse(source.contains("TowerDefenseMode"));
+        assertFalse(Files.exists(Path.of(
+                "src", "main", "java", "com", "example", "birdgame3", "TowerDefenseMode.java")));
     }
 
     @Test

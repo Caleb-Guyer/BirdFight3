@@ -27,11 +27,11 @@ enum BirdGame3Achievement {
     STORY_KEEPER(21, "Story Keeper", "Complete all Adventure chapters", BirdGame3AchievementCategory.STORY, "story-book"),
     BOSS_BREAKER(22, "Boss Breaker", "Clear Boss Rush once", BirdGame3AchievementCategory.MODE, "boss-breaker"),
     CROWN_UNBROKEN(23, "Crown Unbroken", "Clear the Boss Rush EX route", BirdGame3AchievementCategory.MODE, "void-crown"),
-    GROVE_SENTINEL(24, "Grove Sentinel", "Earn any Tower Defense badge", BirdGame3AchievementCategory.MODE, "grove-shield"),
+    ROUTE_PIONEER(24, "Route Pioneer", "Complete Classic mode with 5 different birds", BirdGame3AchievementCategory.MODE, "route-stars"),
     ROOFTOP_LEGACY(25, "Rooftop Legacy", "Complete the Pigeon Episode", BirdGame3AchievementCategory.STORY, "storm-rooftop"),
     ECHO_SOVEREIGN(26, "Echo Sovereign", "Complete the Bat Episode", BirdGame3AchievementCategory.STORY, "echo-rings"),
     IRON_TEMPEST(27, "Iron Tempest", "Complete the Pelican Episode", BirdGame3AchievementCategory.STORY, "iron-wing"),
-    BLIGHT_BUSTER(28, "Blight Buster", "Earn every Big Forest Tower Defense badge", BirdGame3AchievementCategory.MODE, "tower-triad"),
+    CLASSIC_VIRTUOSO(28, "Classic Virtuoso", "Complete Classic mode with 10 different birds", BirdGame3AchievementCategory.MODE, "classic-laurel"),
     BRACKET_BOSS(29, "Bracket Boss", "Win a Tournament as a human entrant", BirdGame3AchievementCategory.MODE, "bracket-crown"),
     ASHFALL_INITIATE(30, "Ashfall Initiate", "Win a match on Ashfall Cathedral", BirdGame3AchievementCategory.MAP, "ashfall-spark"),
     GEYSER_RIDER(31, "Geyser Rider", "Survive an Ashfall Cathedral geyser launch", BirdGame3AchievementCategory.MAP, "ashfall-geyser"),
@@ -41,6 +41,8 @@ enum BirdGame3Achievement {
             BirdGame3AchievementCategory.STORY, "still-sky-crown");
 
     private static final BirdGame3Achievement[] VALUES = values();
+    static final int ROUTE_PIONEER_GOAL = 5;
+    static final int CLASSIC_VIRTUOSO_GOAL = 10;
 
     final int legacyIndex;
     final String displayName;
