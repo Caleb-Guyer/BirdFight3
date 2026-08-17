@@ -185,6 +185,7 @@ final class ClassicEndingPlayer {
         boolean charlesLivingScore = ClassicEndingContent.isCharlesLivingScore(cinematic);
         boolean razorbillFinalCut = ClassicEndingContent.isRazorbillFinalCut(cinematic);
         boolean grinchOpenSack = ClassicEndingContent.isGrinchHawkOpenSack(cinematic);
+        boolean vultureFinalAccount = ClassicEndingContent.isVultureFinalAccount(cinematic);
         if (continuousPanorama) {
             double routeProgress = Math.clamp((beatIndex + progress) / cinematic.beats().size(), 0.0, 1.0);
             drawRoadrunnerPanorama(g, now / 1_000_000_000.0, routeProgress);
@@ -203,6 +204,9 @@ final class ClassicEndingPlayer {
         } else if (grinchOpenSack) {
             double routeProgress = Math.clamp((beatIndex + progress) / cinematic.beats().size(), 0.0, 1.0);
             drawGrinchOpenSack(g, now / 1_000_000_000.0, routeProgress);
+        } else if (vultureFinalAccount) {
+            double routeProgress = Math.clamp((beatIndex + progress) / cinematic.beats().size(), 0.0, 1.0);
+            drawVultureFinalAccount(g, now / 1_000_000_000.0, routeProgress);
         } else {
             drawBackground(g, now / 1_000_000_000.0, progress);
             drawTableau(g, currentBeat().tableau(), progress, now / 1_000_000_000.0);
@@ -211,7 +215,7 @@ final class ClassicEndingPlayer {
         drawNarration(g, currentBeat().narration());
         drawProgress(g);
         if (!continuousPanorama && !subglacialMontage && !stillwaterRevelation
-                && !charlesLivingScore && !razorbillFinalCut && !grinchOpenSack) {
+                && !charlesLivingScore && !razorbillFinalCut && !grinchOpenSack && !vultureFinalAccount) {
             drawTransition(g, progress);
         }
         g.restore();
@@ -371,6 +375,140 @@ final class ClassicEndingPlayer {
             g.setFill(Color.web("#FFF3D0", 0.10 * finale));
             g.fillOval(520, 120, 900, 780);
             drawFinalTitle(g, finale);
+        }
+    }
+
+    private void drawVultureFinalAccount(GraphicsContext g, double time, double progress) {
+        g.setFill(new LinearGradient(0, 0, 0, LOGICAL_HEIGHT, false, CycleMethod.NO_CYCLE,
+                new Stop(0, Color.web("#070910")), new Stop(0.58, Color.web("#251B1C")),
+                new Stop(1, Color.web("#08090D"))));
+        g.fillRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
+
+        // One uninterrupted crane shot moves from the ruined Engine, through
+        // the liberation, and finally into Vulture's private ledger room.
+        double cameraDrift = progress * 860.0;
+        g.save();
+        g.translate(-cameraDrift * 0.18, 0.0);
+        g.setFill(Color.web("#03050A", 0.96));
+        for (int tower = 0; tower < 12; tower++) {
+            double x = -120 + tower * 230.0;
+            double h = 250 + Math.floorMod(tower * 191, 480);
+            g.fillRect(x, 850 - h, 170 + (tower % 3) * 30, h + 260);
+        }
+        g.setStroke(Color.web("#735C47", 0.78));
+        g.setLineWidth(18.0);
+        g.strokeLine(20.0, 230.0, 2_350.0, 230.0);
+        for (double x = 80.0; x < 2_300.0; x += 240.0) {
+            g.strokeLine(x, 230.0, x + 110.0, 300.0);
+            g.strokeLine(x + 110.0, 230.0, x, 300.0);
+        }
+        g.restore();
+
+        // The defeated Debt Engine cools and physically breaks apart during
+        // the first beat instead of being represented by an ordinary bird.
+        double engineFade = Math.clamp(1.0 - progress * 4.2, 0.0, 1.0);
+        if (engineFade > 0.0) {
+            double cx = 1_390.0 + progress * 80.0;
+            double cy = 580.0 + progress * 150.0;
+            g.setFill(Color.web("#151820", engineFade));
+            g.fillOval(cx - 205.0, cy - 170.0, 410.0, 340.0);
+            g.setStroke(Color.web("#D6A84A", engineFade * 0.85));
+            g.setLineWidth(18.0);
+            g.strokeOval(cx - 205.0, cy - 170.0, 410.0, 340.0);
+            for (int tooth = 0; tooth < 14; tooth++) {
+                double a = tooth * Math.PI * 2.0 / 14.0 + progress * 2.0;
+                double scatter = progress * 130.0;
+                double x1 = cx + Math.cos(a) * (170.0 + scatter);
+                double y1 = cy + Math.sin(a) * (140.0 + scatter * 0.6);
+                g.strokeLine(x1, y1, x1 + Math.cos(a) * 48.0, y1 + Math.sin(a) * 48.0);
+            }
+            g.setFill(Color.web("#FF6B35", engineFade * 0.72));
+            g.fillOval(cx - 58.0, cy - 58.0, 116.0, 116.0);
+            drawBossName(g, "THE DEBT ENGINE", cx, cy + 250.0, engineFade);
+        }
+
+        double crownReveal = Math.clamp((progress - 0.12) * 5.0, 0.0, 1.0)
+                * Math.clamp((0.55 - progress) * 5.0, 0.0, 1.0);
+        if (crownReveal > 0.0) {
+            double crownX = 960.0;
+            double crownY = 430.0 - Math.sin(time * 1.7) * 8.0;
+            g.setFill(Color.web("#FFD54F", crownReveal));
+            g.fillPolygon(new double[]{crownX - 140, crownX - 82, crownX - 25, crownX + 35,
+                            crownX + 95, crownX + 145, crownX + 112, crownX - 110},
+                    new double[]{crownY + 100, crownY - 35, crownY + 75, crownY - 52,
+                            crownY + 72, crownY - 25, crownY + 150, crownY + 150}, 8);
+        }
+
+        // The Crown fractures into literal keys which immediately travel to
+        // cages and archives; the effect is readable without dialogue boxes.
+        double keyPhase = Math.clamp((progress - 0.35) * 3.6, 0.0, 1.0);
+        for (int key = 0; key < 18; key++) {
+            double release = Math.clamp(keyPhase * 1.45 - key * 0.025, 0.0, 1.0);
+            if (release <= 0.0) continue;
+            double angle = -2.8 + key * 0.33;
+            double distance = release * (210.0 + Math.floorMod(key * 91, 470));
+            double x = 960.0 + Math.cos(angle) * distance;
+            double y = 455.0 + Math.sin(angle) * distance - release * 120.0;
+            g.setStroke(Color.web("#FFD166", release));
+            g.setLineWidth(7.0);
+            g.strokeOval(x - 18.0, y - 18.0, 36.0, 36.0);
+            g.strokeLine(x + 18.0, y, x + 62.0, y);
+            g.strokeLine(x + 46.0, y, x + 46.0, y + 18.0);
+        }
+
+        double liberation = Math.clamp((progress - 0.48) * 3.6, 0.0, 1.0);
+        for (int cage = 0; cage < 5; cage++) {
+            double x = 80.0 + cage * 360.0 - cameraDrift * 0.28;
+            double y = 600.0 + (cage % 2) * 70.0;
+            double open = Math.clamp(liberation * 1.7 - cage * 0.12, 0.0, 1.0);
+            g.setStroke(Color.web("#68727D", 0.76));
+            g.setLineWidth(9.0);
+            g.strokeRoundRect(x, y, 250.0, 310.0, 18.0, 18.0);
+            for (int bar = 1; bar < 6; bar++) {
+                g.strokeLine(x + bar * 40.0, y + 10.0, x + bar * 40.0 + open * 150.0,
+                        y + 300.0 - open * 100.0);
+            }
+            if (open > 0.2) {
+                g.setFill(Color.web("#FF7043", 0.34 * open));
+                for (int page = 0; page < 7; page++) {
+                    double px = x + 30.0 + page * 28.0;
+                    double py = y + 240.0 - open * (70.0 + page * 15.0);
+                    g.fillRect(px, py, 24.0, 34.0);
+                }
+            }
+        }
+
+        // Deterministic crow silhouettes carry the keys across the same frame.
+        for (int crow = 0; crow < 22; crow++) {
+            double flight = Math.clamp((progress - 0.43 - crow * 0.008) * 2.7, 0.0, 1.0);
+            double x = 820.0 + (crow % 5) * 65.0 + flight * (660.0 + (crow % 4) * 80.0);
+            double y = 520.0 - (crow % 7) * 48.0 + Math.sin(time * 4.0 + crow) * 14.0;
+            double wing = 12.0 + 8.0 * Math.sin(time * 7.0 + crow * 0.7);
+            g.setFill(Color.web("#050609", 0.92));
+            g.fillOval(x - 13.0, y - 8.0, 26.0, 16.0);
+            g.fillPolygon(new double[]{x - 5, x - 46, x - 18}, new double[]{y, y - wing, y + 4}, 3);
+            g.fillPolygon(new double[]{x + 5, x + 46, x + 18}, new double[]{y, y - wing, y + 4}, 3);
+        }
+
+        double finalReveal = Math.clamp((progress - 0.72) * 4.0, 0.0, 1.0);
+        if (finalReveal > 0.0) {
+            g.setFill(Color.web("#05070B", finalReveal * 0.74));
+            g.fillRoundRect(1_045.0, 235.0, 760.0, 690.0, 44.0, 44.0);
+            g.setStroke(Color.web("#D6A84A", finalReveal * 0.72));
+            g.setLineWidth(8.0);
+            g.strokeRoundRect(1_045.0, 235.0, 760.0, 690.0, 44.0, 44.0);
+            drawBird(g, narrator, 1_450.0, 550.0, 1.42, true, finalReveal);
+            // The retained black ledger is a deliberate final visual beat.
+            g.setFill(Color.web("#090A0D", finalReveal));
+            g.fillRoundRect(1_520.0, 610.0, 190.0, 245.0, 18.0, 18.0);
+            g.setStroke(Color.web("#D6A84A", finalReveal));
+            g.setLineWidth(8.0);
+            g.strokeRoundRect(1_520.0, 610.0, 190.0, 245.0, 18.0, 18.0);
+            g.setFill(Color.web("#D6A84A", finalReveal));
+            g.setFont(Font.font("Consolas", FontWeight.BOLD, 26));
+            g.setTextAlign(TextAlignment.CENTER);
+            g.fillText("BLACK", 1_615.0, 690.0);
+            g.fillText("LEDGER", 1_615.0, 726.0);
         }
     }
 

@@ -29,7 +29,7 @@ class ClassicEndingContentTest {
     }
 
     @Test
-    void allThirteenAuthoredRoutesHaveUniqueMovingPictureMonologues() {
+    void allFourteenAuthoredRoutesHaveUniqueMovingPictureMonologues() {
         List<ClassicEndingContent.Ending> endings = ClassicEndingContent.endings();
 
         assertEquals(List.of(
@@ -45,11 +45,12 @@ class ClassicEndingContentTest {
                         BirdGame3.BirdType.SHOEBILL,
                         BirdGame3.BirdType.MOCKINGBIRD,
                         BirdGame3.BirdType.RAZORBILL,
-                        BirdGame3.BirdType.GRINCHHAWK),
+                        BirdGame3.BirdType.GRINCHHAWK,
+                        BirdGame3.BirdType.VULTURE),
                 endings.stream().map(ClassicEndingContent.Ending::bird).toList());
-        assertEquals(13, new HashSet<>(endings.stream().map(ClassicEndingContent.Ending::title).toList()).size());
-        assertEquals(13, new HashSet<>(endings.stream().map(ClassicEndingContent.Ending::crownChoice).toList()).size());
-        assertEquals(13, new HashSet<>(endings.stream().map(ending -> ending.cinematic().id()).toList()).size());
+        assertEquals(14, new HashSet<>(endings.stream().map(ClassicEndingContent.Ending::title).toList()).size());
+        assertEquals(14, new HashSet<>(endings.stream().map(ClassicEndingContent.Ending::crownChoice).toList()).size());
+        assertEquals(14, new HashSet<>(endings.stream().map(ending -> ending.cinematic().id()).toList()).size());
 
         for (ClassicEndingContent.Ending ending : endings) {
             ClassicEndingContent.Cinematic cinematic = ending.cinematic();
@@ -57,7 +58,8 @@ class ClassicEndingContentTest {
             assertEquals(ending.defeatedBoss(), cinematic.defeatedBoss());
             if (ending.bird() == BirdGame3.BirdType.MOCKINGBIRD
                     || ending.bird() == BirdGame3.BirdType.RAZORBILL
-                    || ending.bird() == BirdGame3.BirdType.GRINCHHAWK) {
+                    || ending.bird() == BirdGame3.BirdType.GRINCHHAWK
+                    || ending.bird() == BirdGame3.BirdType.VULTURE) {
                 assertTrue(cinematic.defeatedBossSkin().isBlank(),
                         "The Hollow Maestro is original route art, not a skin on another bird.");
             } else {
@@ -132,5 +134,9 @@ class ClassicEndingContentTest {
         assertTrue(game.isClassicEndingUnlocked(BirdGame3.BirdType.RAZORBILL));
         assertTrue(ClassicEndingContent.isRazorbillFinalCut(
                 ClassicEndingContent.endingFor(BirdGame3.BirdType.RAZORBILL).cinematic()));
+        game.setClassicCompleted(BirdGame3.BirdType.VULTURE);
+        assertTrue(game.isClassicEndingUnlocked(BirdGame3.BirdType.VULTURE));
+        assertTrue(ClassicEndingContent.isVultureFinalAccount(
+                ClassicEndingContent.endingFor(BirdGame3.BirdType.VULTURE).cinematic()));
     }
 }

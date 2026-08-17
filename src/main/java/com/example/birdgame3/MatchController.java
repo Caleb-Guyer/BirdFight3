@@ -496,6 +496,10 @@ final class MatchController {
             game.finishClassicQuietVaultFromTimeout();
             return;
         }
+        if (game.isClassicFinalInventoryActive() && game.matchTimer <= 0) {
+            game.finishClassicFinalInventoryFromTimeout();
+            return;
+        }
         if (game.isClassicSeamWardenActive() && game.matchTimer <= 0) {
             game.finishClassicSeamWardenFromTimeout();
             return;
@@ -571,6 +575,9 @@ final class MatchController {
             return;
         }
         if (game.holdClassicGrinchHawkEncounterOpen()) {
+            return;
+        }
+        if (game.holdClassicVultureEncounterOpen()) {
             return;
         }
         if (game.campaignModeActive) {

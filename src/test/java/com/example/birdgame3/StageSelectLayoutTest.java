@@ -17,7 +17,7 @@ class StageSelectLayoutTest {
         int variants = BirdGame3.MapVariant.values().length - 1;
         int totalTiles = mainStages + variants + 1;
 
-        assertEquals(41, totalTiles, "Update the fixed-grid contract whenever a stage is added.");
+        assertEquals(44, totalTiles, "Update the fixed-grid contract whenever a stage is added.");
         assertEquals(5, StageSelectLayout.rowsFor(totalTiles));
         assertTrue(totalTiles <= StageSelectLayout.capacity());
         assertTrue(StageSelectLayout.contentWidth()

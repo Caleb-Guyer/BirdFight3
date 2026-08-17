@@ -44,6 +44,9 @@ and is also dedicated to the public domain under CC0.
 | music-grinch-workshop.mp3 | [Ancient Mysteries — Sperry Lion LLC](https://opengameart.org/content/ancient-mysteries) (CC0) | Midnight Workshop and Grinch-Hawk's factory battles |
 | music-grinch-bellkeeper.mp3 | [Epic Fight Theme/Boss Battle — Tarush Singhal](https://opengameart.org/content/epic-fight-themeboss-battle) (CC0) | The Bellkeeper final boss |
 | music-grinch-ending.mp3 | [Next to You — Joth](https://opengameart.org/content/next-to-you) (CC0) | Grinch-Hawk's Open Sack ending |
+| music-vulture-exchange.mp3 | [The 9th Circle — Joth](https://opengameart.org/content/the-9th-circle) (CC0) | Carrion Exchange and Vulture's salvage battles |
+| music-vulture-debt-engine.mp3 | [Heavy Boss Battle 1 — MintoDog](https://opengameart.org/content/heavy-boss-battle-1) (CC0) | The Debt Engine final boss |
+| music-vulture-ending.mp3 | [Blackout — SkyleTheFrench](https://opengameart.org/content/blackout) (CC0) | Vulture's Final Account ending |
 
 ## Sound effects (original)
 

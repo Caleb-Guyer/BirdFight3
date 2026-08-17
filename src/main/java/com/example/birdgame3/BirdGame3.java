@@ -684,7 +684,7 @@ public class BirdGame3 {
         DOCK, FROSTBITE_FJORD, ASHFALL_CATHEDRAL, PRISON,
         // Append-only: map ordinals are persisted by replays and network setup.
         RESONANCE_HALL, SIGNAL_SPIRE, SILENT_AMPHITHEATER,
-        GLASSWIND_CAUSEWAY, WORLDSEAM, MIDNIGHT_WORKSHOP
+        GLASSWIND_CAUSEWAY, WORLDSEAM, MIDNIGHT_WORKSHOP, CARRION_EXCHANGE
     }
 
     /** Reusable arena layouts originally authored for story and boss modes. */
@@ -711,7 +711,9 @@ public class BirdGame3 {
         STILLWATER_MARSH(MapType.FOREST, "Classic Routes", "Stillwater Marsh", "A moonlit flooded marsh whose fighting surfaces grow from one web of cypress roots and ruined shrine stone."),
         OBSIDIAN_FOUNDRY(MapType.ASHFALL_CATHEDRAL, "Classic Routes", "Obsidian Foundry", "A cooled volcanic blade foundry whose basalt floor, suspended presses, and recovery shelves form one readable industrial structure."),
         GIFT_VAULT(MapType.MIDNIGHT_WORKSHOP, "Classic Routes", "The Quiet Vault", "A secure clockwork vault of warning-lit locks, broad extraction lanes, and machinery built into every fighting surface."),
-        BELLKEEPER_VAULT(MapType.MIDNIGHT_WORKSHOP, "Classic Routes", "Bellkeeper's Vault", "The workshop's immense central bell chamber, opened into three clear aerial lanes for its final guardian.");
+        BELLKEEPER_VAULT(MapType.MIDNIGHT_WORKSHOP, "Classic Routes", "Bellkeeper's Vault", "The workshop's immense central bell chamber, opened into three clear aerial lanes for its final guardian."),
+        SORTING_FLOOR(MapType.CARRION_EXCHANGE, "Classic Routes", "Sorting Floor", "A readable salvage course of crushers, magnetic lanes, seven marked locks, and a clearly signposted extraction lift."),
+        RECLAMATION_CORE(MapType.CARRION_EXCHANGE, "Classic Routes", "Reclamation Core", "The Debt Engine's circular furnace chamber, built around three connected fighting lanes and an overhead crane track.");
 
         final MapType baseMap;
         final String category;
@@ -1814,6 +1816,10 @@ public class BirdGame3 {
                 && classicEncounter.style == ClassicEncounterStyle.BELLKEEPER_BOSS) {
             return "music-grinch-bellkeeper.mp3";
         }
+        if (classicModeActive && classicEncounter != null
+                && classicEncounter.style == ClassicEncounterStyle.DEBT_ENGINE_BOSS) {
+            return "music-vulture-debt-engine.mp3";
+        }
         if (activeArenaGeometryVariant == MapVariant.OBSIDIAN_FOUNDRY) {
             return "music-razorbill-glasswind.mp3";
         }
@@ -1838,6 +1844,7 @@ public class BirdGame3 {
                     case GLASSWIND_CAUSEWAY -> "music-razorbill-glasswind.mp3";
                     case WORLDSEAM -> "music-razorbill-worldseam.mp3";
                     case MIDNIGHT_WORKSHOP -> "music-grinch-workshop.mp3";
+                    case CARRION_EXCHANGE -> "music-vulture-exchange.mp3";
             default -> throw new IllegalStateException("Unexpected value: " + selectedMap);
         };
     }
@@ -5143,6 +5150,32 @@ public class BirdGame3 {
     private double classicBellkeeperCloseDamage = 0.0;
     private double classicBellkeeperTargetX = 3_000.0;
     private double classicBellkeeperTargetY = GROUND_Y - 680.0;
+    static final double DEBT_ENGINE_BASE_HEALTH = 285.0;
+    static final double[] CARRION_MAGNET_X = {1_450.0, 3_000.0, 4_550.0};
+    static final double[] DEBT_ENGINE_FLIGHT_X = {1_320.0, 2_220.0, 3_780.0, 4_680.0, 3_000.0};
+    static final double[] DEBT_ENGINE_FLIGHT_Y = {
+            GROUND_Y - 830.0, GROUND_Y - 1_170.0, GROUND_Y - 1_170.0,
+            GROUND_Y - 830.0, GROUND_Y - 650.0
+    };
+    static final double[] FINAL_INVENTORY_LOCK_X = {860.0, 1_550.0, 2_240.0, 3_000.0, 3_760.0, 4_450.0, 5_140.0};
+    static final double FINAL_INVENTORY_EXIT_X = 5_320.0;
+    private final List<ClassicVaultSeal> classicSalvageLocks = new ArrayList<>();
+    private final List<ClassicBellkeeperProjectile> classicDebtProjectiles = new ArrayList<>();
+    private final int[] carrionMagnetHitCooldowns = new int[MAX_COMBATANTS];
+    private int classicVultureWaveIndex = 0;
+    private boolean classicInventoryAttackWasHeld = false;
+    private int classicInventoryHitCooldown = 0;
+    private boolean classicInventoryExitOpen = false;
+    private boolean classicInventoryCompleted = false;
+    private int classicDebtEnginePhase = 0;
+    private int classicDebtEngineAttackTimer = 92;
+    private int classicDebtEngineAttackKind = 0;
+    private int classicDebtEngineHitCooldown = 0;
+    private int classicDebtEngineWaypoint = 0;
+    private int classicDebtEngineReversalTimer = 0;
+    private int classicDebtEngineReversalCooldown = 0;
+    private int classicDebtEngineDamageWindow = 0;
+    private double classicDebtEngineCloseDamage = 0.0;
     private static final double STILLWATER_MAIN_X = 900.0;
     private static final double STILLWATER_MAIN_Y = GROUND_Y - 330.0;
     private static final double STILLWATER_MAIN_W = 4_200.0;
@@ -5234,7 +5267,10 @@ public class BirdGame3 {
         ZERO_DIVIDE("Zero Divide", "Break the Seamreaver's stamina while reading its horizontal, diagonal, and rift-gate attacks."),
         MIDNIGHT_HEIST("Midnight Heist", "Every encounter is a complete, self-contained theft; no route resource or power carries forward."),
         QUIET_VAULT("The Quiet Vault", "Break three security seals with ordinary attacks, then enter the extraction chimney. Timeout advances the route."),
-        LAST_GIFT("The Last Gift", "Break the Bellkeeper's stamina while reading its bells, ribbons, coal, and aerial sweeps.");
+        LAST_GIFT("The Last Gift", "Break the Bellkeeper's stamina while reading its bells, ribbons, coal, and aerial sweeps."),
+        AFTERMATH("Aftermath Battle", "Every opponent begins wounded; the advantage belongs only to this encounter and never carries forward."),
+        FINAL_INVENTORY("Final Inventory", "Break seven salvage locks with ordinary attacks, then enter the marked extraction lift."),
+        FINAL_ACCOUNT("Final Account", "Break the Debt Engine's stamina while reading its magnets, crushers, chains, and exposed furnace core.");
 
         final String label;
         final String description;
@@ -5307,7 +5343,11 @@ public class BirdGame3 {
         SEAMREAVER_BOSS,
         GRINCH_GUARD_GAUNTLET,
         QUIET_VAULT,
-        BELLKEEPER_BOSS
+        BELLKEEPER_BOSS,
+        VULTURE_FALSE_FLOCK,
+        VULTURE_AUCTION_GAUNTLET,
+        FINAL_INVENTORY,
+        DEBT_ENGINE_BOSS
     }
 
     static final class ClassicRiftAnchor {
@@ -9270,6 +9310,9 @@ public class BirdGame3 {
         if (map == MapType.MIDNIGHT_WORKSHOP) {
             return isClassicCompleted(BirdType.GRINCHHAWK);
         }
+        if (map == MapType.CARRION_EXCHANGE) {
+            return isClassicCompleted(BirdType.VULTURE);
+        }
         return true;
     }
 
@@ -9289,6 +9332,9 @@ public class BirdGame3 {
         if (variant == MapVariant.OBSIDIAN_FOUNDRY) return isClassicCompleted(BirdType.RAZORBILL);
         if (variant == MapVariant.GIFT_VAULT || variant == MapVariant.BELLKEEPER_VAULT) {
             return isClassicCompleted(BirdType.GRINCHHAWK);
+        }
+        if (variant == MapVariant.SORTING_FLOOR || variant == MapVariant.RECLAMATION_CORE) {
+            return isClassicCompleted(BirdType.VULTURE);
         }
         return isMapUnlocked(variant.baseMap);
     }
@@ -13988,6 +14034,7 @@ public class BirdGame3 {
             case GLASSWIND_CAUSEWAY -> drawGlasswindCausewayArena(g, ambientFx);
             case WORLDSEAM -> drawWorldseamArena(g, ambientFx);
             case MIDNIGHT_WORKSHOP -> drawMidnightWorkshopArena(g, ambientFx);
+            case CARRION_EXCHANGE -> drawCarrionExchangeArena(g, ambientFx);
             case BATTLEFIELD -> {
                 if (isBeaconCrownBattlefieldContext()) {
                     drawBeaconCrownBattlefield(g, ambientFx);
@@ -14135,6 +14182,7 @@ public class BirdGame3 {
         drawClassicCharlesRouteFeatures(g);
         drawClassicRazorbillRouteFeatures(g);
         drawClassicGrinchHawkRouteFeatures(g);
+        drawClassicVultureRouteFeatures(g);
         drawUltimateReadyScreenDarken(g);
         drawCampaignObjectiveMarkers(g);
 
@@ -14217,7 +14265,7 @@ public class BirdGame3 {
                 }
                 // Always draw birds at full opacity; HUD elements will fade when they overlap birds.
                 if (!drawClassicCharlesConstruct(g, b) && !drawClassicRazorbillConstruct(g, b)
-                        && !drawClassicGrinchHawkConstruct(g, b)) {
+                        && !drawClassicGrinchHawkConstruct(g, b) && !drawClassicVultureConstruct(g, b)) {
                     b.draw(g);
                 }
                 drawPlayerTag(g, b);
@@ -14849,6 +14897,171 @@ public class BirdGame3 {
                     960.0 + Math.sin(handAngle) * 520.0);
             g.setFill(Color.web("#FFD166"));
             g.fillOval(2_940.0, 900.0, 120.0, 120.0);
+        }
+    }
+
+    private void drawCarrionExchangeArena(GraphicsContext g, boolean ambientFx) {
+        boolean sorting = activeArenaGeometryVariant == MapVariant.SORTING_FLOOR;
+        boolean core = activeArenaGeometryVariant == MapVariant.RECLAMATION_CORE;
+        double time = ambientFx ? System.currentTimeMillis() / 1000.0 : 0.0;
+        double pulse = ambientFx ? 0.5 + 0.5 * Math.sin(time * 1.8) : 0.5;
+        Color brass = core ? Color.web("#FFB84D") : sorting ? Color.web("#78D6C6") : Color.web("#D6A84A");
+        Color skyTop = core ? Color.web("#09060B") : Color.web("#080B12");
+        Color skyBottom = core ? Color.web("#4B1710") : Color.web("#35221D");
+        for (int band = 0; band < 220; band++) {
+            double ratio = band / 219.0;
+            g.setFill(skyTop.interpolate(skyBottom, ratio));
+            g.fillRect(0.0, band * WORLD_HEIGHT / 220.0, WORLD_WIDTH, WORLD_HEIGHT / 220.0 + 3.0);
+        }
+
+        // The Exchange hangs over a dead city: its low, dense silhouette makes
+        // the play space visibly elevated without adding collision-like clutter.
+        g.setFill(Color.web("#05070C", 0.96));
+        for (int building = 0; building < 17; building++) {
+            double x = -140.0 + building * 390.0;
+            double w = 260.0 + (building % 4) * 42.0;
+            double h = 420.0 + Math.floorMod(building * 257, 760);
+            double y = GROUND_Y + 270.0 - h;
+            g.fillRect(x, y, w, h + 500.0);
+            g.setFill(Color.web(building % 3 == 0 ? "#C98A4D" : "#7A665A", 0.10));
+            for (double wy = y + 75.0; wy < GROUND_Y + 160.0; wy += 120.0) {
+                g.fillRect(x + 48.0, wy, 25.0, 13.0);
+                g.fillRect(x + w - 74.0, wy, 25.0, 13.0);
+            }
+            g.setFill(Color.web("#05070C", 0.96));
+        }
+        g.setFill(Color.web("#BC7A45", 0.10 + pulse * 0.04));
+        g.fillRect(0.0, GROUND_Y - 520.0, WORLD_WIDTH, 830.0);
+
+        // Two immense gantries and their continuous crane rail explain every
+        // hanging deck. No structural line stops before meeting an anchor.
+        g.setFill(Color.web("#101219"));
+        g.fillRect(430.0, 160.0, 190.0, GROUND_Y + 270.0);
+        g.fillRect(5_380.0, 160.0, 190.0, GROUND_Y + 270.0);
+        g.setStroke(Color.web("#6A5646"));
+        g.setLineWidth(18.0);
+        for (double y = 250.0; y < GROUND_Y + 180.0; y += 260.0) {
+            g.strokeLine(450.0, y, 600.0, y + 190.0);
+            g.strokeLine(600.0, y, 450.0, y + 190.0);
+            g.strokeLine(5_400.0, y, 5_550.0, y + 190.0);
+            g.strokeLine(5_550.0, y, 5_400.0, y + 190.0);
+        }
+        g.setFill(Color.web("#171820"));
+        g.fillRoundRect(350.0, 185.0, 5_300.0, 125.0, 26.0, 26.0);
+        g.setStroke(brass.deriveColor(0, 0.80, 0.82, 0.72));
+        g.setLineWidth(9.0);
+        g.strokeRoundRect(350.0, 185.0, 5_300.0, 125.0, 26.0, 26.0);
+        for (double x = 460.0; x < 5_540.0; x += 270.0) {
+            g.strokeLine(x, 207.0, x + 130.0, 286.0);
+            g.strokeLine(x + 130.0, 207.0, x, 286.0);
+        }
+
+        // Chained airship wreckage is scenery, recessed well behind the arena.
+        g.setStroke(Color.web("#756251", 0.72));
+        g.setLineWidth(12.0);
+        g.strokeLine(1_150.0, 305.0, 1_330.0, 760.0);
+        g.strokeLine(4_850.0, 305.0, 4_640.0, 760.0);
+        g.setFill(Color.web("#16161C", 0.86));
+        g.fillOval(930.0, 690.0, 980.0, 310.0);
+        g.fillOval(4_090.0, 690.0, 980.0, 310.0);
+        g.setStroke(Color.web("#926B46", 0.44));
+        g.setLineWidth(9.0);
+        g.strokeOval(930.0, 690.0, 980.0, 310.0);
+        g.strokeOval(4_090.0, 690.0, 980.0, 310.0);
+
+        if (core) {
+            g.setFill(Color.web("#050408", 0.80));
+            g.fillOval(2_030.0, 340.0, 1_940.0, 1_940.0);
+            g.setStroke(Color.web("#FF7A2E", 0.44 + pulse * 0.18));
+            g.setLineWidth(38.0);
+            g.strokeOval(2_120.0, 430.0, 1_760.0, 1_760.0);
+            g.setLineWidth(14.0);
+            for (int spoke = 0; spoke < 16; spoke++) {
+                double a = spoke * Math.PI / 8.0;
+                g.strokeLine(3_000.0 + Math.cos(a) * 780.0, 1_310.0 + Math.sin(a) * 780.0,
+                        3_000.0 + Math.cos(a) * 910.0, 1_310.0 + Math.sin(a) * 910.0);
+            }
+        } else if (sorting) {
+            // Sorting Floor reads as a processing line even outside Classic,
+            // so its literal stage photo is not just a teal copy of the Exchange.
+            g.setStroke(Color.web("#78D6C6", 0.34));
+            g.setLineWidth(10.0);
+            for (int chute = 0; chute < 4; chute++) {
+                double x = 980.0 + chute * 1_320.0;
+                g.strokeLine(x, 350.0, x + 250.0, 820.0);
+                g.strokeLine(x + 250.0, 820.0, x + 520.0, 820.0);
+                g.setFill(Color.web("#10171B", 0.96));
+                g.fillRoundRect(x + 155.0, 790.0, 470.0, 250.0, 28.0, 28.0);
+                g.setStroke(Color.web("#78D6C6", 0.66));
+                g.setLineWidth(7.0);
+                g.strokeRoundRect(x + 155.0, 790.0, 470.0, 250.0, 28.0, 28.0);
+                g.setFill(Color.web("#D7FFF7", 0.78));
+                g.setFont(Font.font("Consolas", FontWeight.BOLD, 34));
+                g.setTextAlign(TextAlignment.CENTER);
+                g.fillText(String.format(Locale.ROOT, "%02d", chute + 1), x + 390.0, 930.0);
+            }
+            g.setTextAlign(TextAlignment.LEFT);
+        } else {
+            // Furnace stacks give the ordinary Exchange its own skyline.
+            for (int stack = 0; stack < 5; stack++) {
+                double x = 1_180.0 + stack * 890.0;
+                double top = 520.0 + (stack % 2) * 190.0;
+                g.setFill(Color.web("#121218", 0.92));
+                g.fillRect(x, top, 210.0, GROUND_Y - top + 250.0);
+                g.setFill(Color.web("#E87835", 0.16 + pulse * 0.06));
+                g.fillRoundRect(x + 36.0, top + 100.0, 138.0, 34.0, 10.0, 10.0);
+            }
+        }
+
+        // Every playable surface is mounted to a visible girder or cable.
+        double supportBottom = GROUND_Y + 260.0;
+        for (Platform p : platforms) {
+            if (p.y >= GROUND_Y + 80.0) continue;
+            double center = p.x + p.w * 0.5;
+            g.setStroke(Color.web("#51483F", 0.90));
+            g.setLineWidth(12.0);
+            g.strokeLine(p.x + 26.0, p.y + p.h, center, Math.min(supportBottom, p.y + p.h + 390.0));
+            g.strokeLine(p.x + p.w - 26.0, p.y + p.h, center, Math.min(supportBottom, p.y + p.h + 390.0));
+            if (p.y < battlefieldIslandY - 250.0) {
+                g.strokeLine(center - Math.min(170.0, p.w * 0.25), 305.0, p.x + 36.0, p.y);
+                g.strokeLine(center + Math.min(170.0, p.w * 0.25), 305.0, p.x + p.w - 36.0, p.y);
+            }
+            g.setFill(Color.web(core ? "#35211D" : sorting ? "#17302F" : "#24242A"));
+            g.fillRoundRect(p.x, p.y, p.w, p.h, 18.0, 18.0);
+            g.setFill(Color.web("#0A0C10"));
+            g.fillRoundRect(p.x + 15.0, p.y + 12.0, Math.max(0.0, p.w - 30.0), Math.min(24.0, p.h * 0.34), 10.0, 10.0);
+            g.setStroke(brass.deriveColor(0, 0.86, 0.92, 0.90));
+            g.setLineWidth(7.0);
+            g.strokeRoundRect(p.x, p.y, p.w, p.h, 18.0, 18.0);
+            g.setStroke(Color.web("#B7A58B", 0.42));
+            g.setLineWidth(3.0);
+            g.strokeLine(p.x + 22.0, p.y + 12.0, p.x + p.w - 22.0, p.y + 12.0);
+        }
+
+        if (!core) {
+            int cycle = Math.floorMod((int) simTick, 360);
+            boolean warning = cycle >= 230 && cycle < 290;
+            boolean active = cycle >= 290 && cycle < 326;
+            for (double magnetX : CARRION_MAGNET_X) {
+                Color state = active ? Color.web("#6BE7FF") : warning ? Color.web("#FFD166") : Color.web("#66584A");
+                g.setStroke(Color.web("#4D4238"));
+                g.setLineWidth(11.0);
+                g.strokeLine(magnetX, 305.0, magnetX, battlefieldIslandY - 55.0);
+                g.setFill(Color.web("#11131A"));
+                g.fillRoundRect(magnetX - 112.0, battlefieldIslandY - 165.0, 224.0, 100.0, 24.0, 24.0);
+                g.setStroke(state.deriveColor(0, 0.9, 1.0, 0.94));
+                g.setLineWidth(9.0);
+                g.strokeRoundRect(magnetX - 112.0, battlefieldIslandY - 165.0, 224.0, 100.0, 24.0, 24.0);
+                if (warning || active) {
+                    g.setStroke(state.deriveColor(0, 1.0, 1.0, active ? 0.58 : 0.32));
+                    g.setLineWidth(active ? 12.0 : 6.0);
+                    for (int arc = 0; arc < 3; arc++) {
+                        double radius = 150.0 + arc * 95.0;
+                        g.strokeOval(magnetX - radius, battlefieldIslandY - 125.0 - radius * 0.38,
+                                radius * 2.0, radius * 0.76);
+                    }
+                }
+            }
         }
     }
 
@@ -29086,6 +29299,7 @@ public class BirdGame3 {
             case GLASSWIND_CAUSEWAY -> "Glasswind Causeway";
             case WORLDSEAM -> "The Worldseam";
             case MIDNIGHT_WORKSHOP -> "Midnight Workshop";
+            case CARRION_EXCHANGE -> "Carrion Exchange";
             default -> "Big Forest";
         };
     }
@@ -36309,6 +36523,7 @@ public class BirdGame3 {
                 new MapEntry(MapType.GLASSWIND_CAUSEWAY, "Glasswind Causeway", mapDescription(MapType.GLASSWIND_CAUSEWAY), mapHowToGet(MapType.GLASSWIND_CAUSEWAY)),
                 new MapEntry(MapType.WORLDSEAM, "The Worldseam", mapDescription(MapType.WORLDSEAM), mapHowToGet(MapType.WORLDSEAM)),
                 new MapEntry(MapType.MIDNIGHT_WORKSHOP, "Midnight Workshop", mapDescription(MapType.MIDNIGHT_WORKSHOP), mapHowToGet(MapType.MIDNIGHT_WORKSHOP)),
+                new MapEntry(MapType.CARRION_EXCHANGE, "Carrion Exchange", mapDescription(MapType.CARRION_EXCHANGE), mapHowToGet(MapType.CARRION_EXCHANGE)),
                 new MapEntry(MapType.BEACON_CROWN, "Beacon Crown", mapDescription(MapType.BEACON_CROWN), mapHowToGet(MapType.BEACON_CROWN))
         );
     }
@@ -36342,6 +36557,9 @@ public class BirdGame3 {
         if (map == MapType.MIDNIGHT_WORKSHOP) {
             return "Complete Grinch-Hawk's Classic route: The Longest Night";
         }
+        if (map == MapType.CARRION_EXCHANGE) {
+            return "Complete Vulture's Classic route: Nothing Goes to Waste";
+        }
         return "Unlocked by default";
     }
 
@@ -36363,6 +36581,7 @@ public class BirdGame3 {
             case GLASSWIND_CAUSEWAY -> "A black-glass storm bridge supported by immense wind pylons. Its broad connected deck and stepped service spans create clean duel lanes without decorative floating ledges.";
             case WORLDSEAM -> "A stable stone causeway built around a luminous tear in reality. Two clearly paired rift gates exchange fighters while preserving their movement.";
             case MIDNIGHT_WORKSHOP -> "A moonlit clockwork gift factory with supported conveyor decks, readable press warnings, broad recovery lanes, and enormous working gears behind the arena.";
+            case CARRION_EXCHANGE -> "A suspended salvage market above a dead city, with crane-supported catwalks, chained wreckage, furnace towers, and warning-lit electromagnets.";
             case BEACON_CROWN -> "The Beacon Crown opens into a giant sky arena with long lanes, staggered perches, and a lethal drop on every side.";
             default -> "Dense trees and long platforms for classic brawls. A steady arena that rewards smart positioning.";
         };
@@ -39917,7 +40136,7 @@ public class BirdGame3 {
             case MOCKINGBIRD -> "Velvet Bosskhead Charles";
             case RAZORBILL -> "Storm Razorbill";
             case GRINCHHAWK -> "Krampus Hawk";
-            case VULTURE -> "Ashen Vulture";
+            case VULTURE -> "Black Ledger Vulture";
             case OPIUMBIRD -> "Nightshade Opium Bird";
             case HEISENBIRD -> "Blue Sky Heisenbird";
             case TITMOUSE -> "Volt Titmouse";
@@ -40065,7 +40284,7 @@ public class BirdGame3 {
             case MOCKINGBIRD -> Color.web("#EC407A");
             case RAZORBILL -> Color.web("#26C6DA");
             case GRINCHHAWK -> Color.web("#8BC34A");
-            case VULTURE -> Color.web("#D32F2F");
+            case VULTURE -> Color.web("#151820");
             case OPIUMBIRD -> Color.web("#AB47BC");
             case HEISENBIRD -> Color.web("#42A5F5");
             case TITMOUSE -> Color.web("#FFCA28");
@@ -40091,7 +40310,7 @@ public class BirdGame3 {
             case MOCKINGBIRD -> Color.web("#F8BBD0");
             case RAZORBILL -> Color.web("#80DEEA");
             case GRINCHHAWK -> Color.web("#DCEDC8");
-            case VULTURE -> Color.web("#FFCDD2");
+            case VULTURE -> Color.web("#D6A84A");
             case OPIUMBIRD -> Color.web("#E1BEE7");
             case HEISENBIRD -> Color.web("#B3E5FC");
             case BAT -> Color.web("#D1C4E9");
@@ -40621,6 +40840,9 @@ public class BirdGame3 {
         }
         if (useAuthoredRoutes && playerType == BirdType.GRINCHHAWK) {
             return buildGrinchHawkClassicRun();
+        }
+        if (useAuthoredRoutes && playerType == BirdType.VULTURE) {
+            return buildVultureClassicRun();
         }
         List<ClassicEncounter> run = new ArrayList<>();
         Set<MapType> usedMaps = new HashSet<>();
@@ -42456,6 +42678,104 @@ public class BirdGame3 {
         return run;
     }
 
+    private List<ClassicEncounter> buildVultureClassicRun() {
+        List<ClassicEncounter> run = new ArrayList<>();
+
+        ClassicEncounter ashes = new ClassicEncounter(
+                "Ashes Still Warm", "Ashfall Cathedral",
+                "Phoenix survived the fire, but begins this self-contained aftermath at 40% damage.",
+                MapType.ASHFALL_CATHEDRAL, MapVariant.STANDARD, MatchMutator.NONE,
+                ClassicTwist.AFTERMATH, ClassicEncounterStyle.STANDARD, 105 * 60,
+                new ClassicFighter[0],
+                new ClassicFighter[]{classicFighter(BirdType.PHOENIX, "Wounded Phoenix", 112, 0.86, 1.00)}, false);
+        ashes.cpuLevel = 4;
+        run.add(ashes);
+
+        ClassicEncounter share = new ClassicEncounter(
+                "The Smallest Share", "Parliament Towers",
+                "Four tiny scavengers begin at 35% damage. Their ultimates are sealed for this battle.",
+                MapType.CITY, MapVariant.PARLIAMENT_ROOFTOPS, MatchMutator.NONE,
+                ClassicTwist.AFTERMATH, ClassicEncounterStyle.MINIATURE_FLOCK, 125 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{
+                classicFighter(BirdType.PIGEON, "Small Share: Pigeon", 70, 0.72, 1.08),
+                classicFighter(BirdType.TITMOUSE, "Small Share: Titmouse", 66, 0.70, 1.10),
+                classicFighter(BirdType.KIWI, "Small Share: Kiwi", 72, 0.72, 1.06),
+                classicFighter(BirdType.HUMMINGBIRD, "Small Share: Hummingbird", 64, 0.68, 1.12)}, false);
+        share.cpuLevel = 4;
+        run.add(share);
+
+        ClassicEncounter salvage = new ClassicEncounter(
+                "Salvage Rights", "Carrion Exchange",
+                "Vulture and Raven defend the Exchange from two claim-jumpers. Every wound resets after the bell.",
+                MapType.CARRION_EXCHANGE, MapVariant.STANDARD, MatchMutator.NONE,
+                ClassicTwist.AFTERMATH, ClassicEncounterStyle.STANDARD, 125 * 60,
+                new ClassicFighter[]{classicFighter(BirdType.RAVEN, "Ally: Ledger Raven", 118, 0.92, 1.02)},
+                new ClassicFighter[]{
+                        classicFighter(BirdType.HEISENBIRD, "Claim-Jumper Heisenbird", 108, 0.86, 0.99),
+                        classicFighter(BirdType.OPIUMBIRD, "Claim-Jumper Opium Bird", 106, 0.84, 1.01)}, false);
+        salvage.cpuLevel = 5;
+        run.add(salvage);
+
+        ClassicEncounter tide = new ClassicEncounter(
+                "What the Tide Left", "Titan Dock",
+                "A giant Pelican begins at 55% beside Goose. Take the wreckage before the tide does.",
+                MapType.DOCK, MapVariant.TITAN_DOCK, MatchMutator.NONE,
+                ClassicTwist.AFTERMATH, ClassicEncounterStyle.GIANT, 125 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{
+                        classicFighter(BirdType.PELICAN, "Giant: Wreck Pelican", 130, 0.70, 0.90),
+                        classicFighter(BirdType.GOOSE, "Tide Guard Goose", 68, 0.60, 0.98)}, false);
+        tide.cpuLevel = 5;
+        run.add(tide);
+
+        ClassicFighter caller = classicFighter(BirdType.VULTURE, "False Flock: Crow Caller", 112, 0.94, 1.00);
+        ClassicEncounter flock = new ClassicEncounter(
+                "False Flock", "Echo Cavern",
+                "Three impostors arrive in separate waves using only Vulture's real kit. Ultimates are sealed.",
+                MapType.CAVE, MapVariant.STANDARD, MatchMutator.NONE,
+                ClassicTwist.AFTERMATH, ClassicEncounterStyle.VULTURE_FALSE_FLOCK, 150 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{caller}, false)
+                .withWaves(
+                        new ClassicFighter[]{caller},
+                        new ClassicFighter[]{classicFighter(BirdType.VULTURE, "False Flock: Gravewind Glider", 116, 0.96, 1.06)},
+                        new ClassicFighter[]{classicFighter(BirdType.VULTURE, "False Flock: Bone Baiter", 120, 0.98, 0.98)});
+        flock.cpuLevel = 6;
+        run.add(flock);
+
+        ClassicFighter auctioneer = classicFighter(BirdType.MOCKINGBIRD, "Elite I: The Auctioneer", 112, 0.90, 0.98);
+        ClassicEncounter auction = new ClassicEncounter(
+                "The Last Auction", "Silent Amphitheater",
+                "Three elite bidders enter in separate waves. Nothing survives this auction except the winner.",
+                MapType.SILENT_AMPHITHEATER, MapVariant.STANDARD, MatchMutator.NONE,
+                ClassicTwist.AFTERMATH, ClassicEncounterStyle.VULTURE_AUCTION_GAUNTLET, 165 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{auctioneer}, false)
+                .withWaves(
+                        new ClassicFighter[]{auctioneer},
+                        new ClassicFighter[]{classicFighter(BirdType.GRINCHHAWK, "Elite II: The Burglar", 115, 0.92, 1.02)},
+                        new ClassicFighter[]{classicFighter(BirdType.EAGLE, "Elite III: The Creditor", 120, 0.94, 1.00)});
+        auction.cpuLevel = 6;
+        run.add(auction);
+
+        ClassicEncounter inventory = new ClassicEncounter(
+                "Bonus: Final Inventory", "Sorting Floor",
+                "Break seven clearly marked salvage locks with ordinary attacks, then enter the extraction lift. Timeout advances safely.",
+                MapType.CARRION_EXCHANGE, MapVariant.SORTING_FLOOR, MatchMutator.NONE,
+                ClassicTwist.FINAL_INVENTORY, ClassicEncounterStyle.FINAL_INVENTORY, 88 * 60,
+                new ClassicFighter[0], new ClassicFighter[0], false);
+        inventory.cpuLevel = 1;
+        run.add(inventory);
+
+        ClassicEncounter debtEngine = new ClassicEncounter(
+                "The Final Account", "Reclamation Core",
+                "Break the original Debt Engine's stamina across three readable phases before it inventories the whole sky.",
+                MapType.CARRION_EXCHANGE, MapVariant.RECLAMATION_CORE, MatchMutator.NONE,
+                ClassicTwist.FINAL_ACCOUNT, ClassicEncounterStyle.DEBT_ENGINE_BOSS, 250 * 60,
+                new ClassicFighter[0],
+                new ClassicFighter[]{classicFighter(BirdType.SHOEBILL, "Boss: The Debt Engine", DEBT_ENGINE_BASE_HEALTH, 1.04, 0.98)}, true);
+        debtEngine.cpuLevel = 8;
+        run.add(debtEngine);
+        return run;
+    }
+
     private ClassicEncounter buildShoebillSwiftTrailEncounter() {
         ClassicEncounter encounter = new ClassicEncounter(
                 "Swift Trail", "Redline Track",
@@ -43170,6 +43490,7 @@ public class BirdGame3 {
         if (type == BirdType.MOCKINGBIRD) return "NO VOICE BUT HIS OWN";
         if (type == BirdType.RAZORBILL) return "THE LINE BETWEEN WORLDS";
         if (type == BirdType.GRINCHHAWK) return "THE LONGEST NIGHT";
+        if (type == BirdType.VULTURE) return "NOTHING GOES TO WASTE";
         return "TEMPORARY FLIGHT PLAN";
     }
 
@@ -43576,6 +43897,8 @@ public class BirdGame3 {
         boolean betweenLinesEncounter = classicEncounter.style == ClassicEncounterStyle.BETWEEN_LINES;
         boolean seamWardenEncounter = classicEncounter.style == ClassicEncounterStyle.SEAM_WARDEN_GAUNTLET;
         boolean seamreaverEncounter = classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS;
+        boolean finalInventoryEncounter = classicEncounter.style == ClassicEncounterStyle.FINAL_INVENTORY;
+        boolean debtEngineEncounter = classicEncounter.style == ClassicEncounterStyle.DEBT_ENGINE_BOSS;
         int enemyCount = Math.max(1, enemies.length);
         double portraitSize = enemyCount >= 3 ? 215 : (enemyCount == 2 ? 310 : 430);
         HBox enemyLineup = new HBox(enemyCount >= 3 ? 14 : 20);
@@ -43589,6 +43912,8 @@ public class BirdGame3 {
                 drawClassicCharlesConstructPortrait(enemyPortrait, maestroEncounter, enemy.title);
             } else if (seamWardenEncounter || seamreaverEncounter) {
                 drawClassicRazorbillConstructPortrait(enemyPortrait, seamreaverEncounter, enemy.title);
+            } else if (debtEngineEncounter) {
+                drawClassicDebtEnginePortrait(enemyPortrait);
             } else if (bonusTargetEncounter) {
                 drawClassicBonusTargetPortrait(enemyPortrait);
             } else {
@@ -43601,6 +43926,10 @@ public class BirdGame3 {
                 Canvas course = new Canvas(430, 330);
                 drawClassicBetweenLinesPortrait(course);
                 enemyLineup.getChildren().add(course);
+            } else if (finalInventoryEncounter) {
+                Canvas inventory = new Canvas(430, 330);
+                drawClassicFinalInventoryPortrait(inventory);
+                enemyLineup.getChildren().add(inventory);
             } else if (perfectPitchEncounter) {
                 Canvas score = new Canvas(430, 330);
                 drawClassicPerfectPitchPortrait(score);
@@ -43632,6 +43961,8 @@ public class BirdGame3 {
                 : betweenLinesEncounter ? "THE FOUR DIMENSIONAL CUTS"
                 : seamWardenEncounter ? "THE ORIGINAL SEAM WARDENS"
                 : seamreaverEncounter ? "THE SEAMREAVER"
+                : finalInventoryEncounter ? "7 SALVAGE LOCKS  •  EXTRACTION"
+                : debtEngineEncounter ? "THE DEBT ENGINE"
                 : bonusTargetEncounter ? enemies.length + " BONUS TARGETS"
                 : authoredWaveCount > 0 ? authoredWaveCount + " WAVES"
                 : enemies.length == 0 ? "BONUS TARGETS" : Arrays.stream(enemies)
@@ -44529,6 +44860,27 @@ public class BirdGame3 {
                 bird.setBaseMultipliers(1.82, 0.92 * enemyPowerScale, 0.96);
                 bird.setUltimateEnabled(false);
                 isAI[bird.playerIndex] = false;
+            } else if (encounter.style == ClassicEncounterStyle.VULTURE_FALSE_FLOCK
+                    || encounter.style == ClassicEncounterStyle.VULTURE_AUCTION_GAUNTLET) {
+                scaleBossRushBird(bird, 0.82, 0.84, 1.02);
+                bird.setUltimateEnabled(false);
+            } else if (encounter.style == ClassicEncounterStyle.DEBT_ENGINE_BOSS) {
+                bird.health = Math.max(1.0, DEBT_ENGINE_BASE_HEALTH * enemyHealthScale);
+                bird.classicMaxHealthOverride = bird.health;
+                bird.setBaseMultipliers(1.86, 0.90 * enemyPowerScale, 0.96);
+                bird.setUltimateEnabled(false);
+                isAI[bird.playerIndex] = false;
+            }
+            if (classicSelectedBird == BirdType.VULTURE && encounter.twist == ClassicTwist.AFTERMATH
+                    && getEffectiveTeam(bird.playerIndex) == 2) {
+                double openingDamage = switch (classicRoundIndex) {
+                    case 0 -> 40.0;
+                    case 1 -> 35.0;
+                    case 3 -> bird.name != null && bird.name.startsWith("Giant:") ? 70.0 : 50.0;
+                    case 5 -> 45.0;
+                    default -> 30.0;
+                };
+                bird.setTrailerSmashDamagePercent(openingDamage);
             }
         }
     }
@@ -44544,6 +44896,19 @@ public class BirdGame3 {
             for (int slot = 1; slot < activePlayers; slot++) {
                 if (players[slot] != null) {
                     positionClassicBirdOnSurface(players[slot], 4_500.0, battlefieldIslandY - 420.0, false);
+                }
+            }
+            return;
+        }
+        if (encounter.style == ClassicEncounterStyle.FINAL_INVENTORY) {
+            positionClassicBirdOnSurface(players[0], 690.0, battlefieldIslandY, true);
+            return;
+        }
+        if (encounter.style == ClassicEncounterStyle.DEBT_ENGINE_BOSS) {
+            positionClassicBirdOnSurface(players[0], 1_340.0, battlefieldIslandY, true);
+            for (int slot = 1; slot < activePlayers; slot++) {
+                if (players[slot] != null) {
+                    positionClassicBirdOnSurface(players[slot], 4_580.0, battlefieldIslandY - 430.0, false);
                 }
             }
             return;
@@ -44782,6 +45147,7 @@ public class BirdGame3 {
         setupCharlesClassicRoute(encounter);
         setupRazorbillClassicRoute(encounter);
         setupGrinchHawkClassicRoute(encounter);
+        setupVultureClassicRoute(encounter);
         if (bossRushModeActive) {
             applyBossRushEncounterArenaModifiers(encounter);
         }
@@ -45754,6 +46120,23 @@ public class BirdGame3 {
             }
             return;
         }
+        if (classicEncounter.style == ClassicEncounterStyle.DEBT_ENGINE_BOSS) {
+            if (classicDebtEngineReversalTimer > 0 || classicDebtEngineReversalCooldown > 0) return;
+            double distance = Math.hypot(attacker.bodyCenterX() - boss.bodyCenterX(),
+                    attacker.bodyCenterY() - boss.bodyCenterY());
+            if (distance > 420.0) return;
+            classicDebtEngineCloseDamage += dealtDamage;
+            classicDebtEngineDamageWindow = 70;
+            if (classicDebtEngineCloseDamage >= 42.0) {
+                classicDebtEngineReversalTimer = 50;
+                classicDebtEngineReversalCooldown = 235;
+                classicDebtEngineCloseDamage = 0.0;
+                classicDebtEngineDamageWindow = 0;
+                classicDebtEngineWaypoint = (classicDebtEngineWaypoint + 2) % DEBT_ENGINE_FLIGHT_X.length;
+                addToKillFeed("COLLECTION BURST WINDUP — the Debt Engine is escaping the corner!");
+            }
+            return;
+        }
         if (classicCharlesBossReversalTimer > 0 || classicCharlesBossReversalCooldown > 0) return;
         double distance = Math.hypot(attacker.bodyCenterX() - boss.bodyCenterX(),
                 attacker.bodyCenterY() - boss.bodyCenterY());
@@ -45802,7 +46185,8 @@ public class BirdGame3 {
                 && classicEncounter != null
                 && (classicEncounter.style == ClassicEncounterStyle.HOLLOW_MAESTRO_BOSS
                 || classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS
-                || classicEncounter.style == ClassicEncounterStyle.BELLKEEPER_BOSS)
+                || classicEncounter.style == ClassicEncounterStyle.BELLKEEPER_BOSS
+                || classicEncounter.style == ClassicEncounterStyle.DEBT_ENGINE_BOSS)
                 && getEffectiveTeam(bird.playerIndex) == 2;
     }
 
@@ -45814,6 +46198,10 @@ public class BirdGame3 {
         }
         if (classicEncounter.style == ClassicEncounterStyle.BELLKEEPER_BOSS) {
             return 1.38 * (classicBellkeeperReversalTimer > 0 ? 0.38 : 1.0);
+        }
+        if (classicEncounter.style == ClassicEncounterStyle.DEBT_ENGINE_BOSS) {
+            double coreExposure = classicDebtEngineAttackTimer < 42 ? 1.42 : 0.78;
+            return coreExposure * (classicDebtEngineReversalTimer > 0 ? 0.32 : 1.0);
         }
         return HOLLOW_MAESTRO_STAGGER_DAMAGE_SCALE
                 * (classicCharlesBossReversalTimer > 0 ? HOLLOW_MAESTRO_REVERSAL_ARMOR_SCALE : 1.0);
@@ -45837,6 +46225,9 @@ public class BirdGame3 {
         if (classicEncounter != null && classicEncounter.style == ClassicEncounterStyle.BELLKEEPER_BOSS) {
             return Math.clamp(classicBellkeeperPhase + 1, 1, 3);
         }
+        if (classicEncounter != null && classicEncounter.style == ClassicEncounterStyle.DEBT_ENGINE_BOSS) {
+            return Math.clamp(classicDebtEnginePhase + 1, 1, 3);
+        }
         return Math.clamp(classicCharlesBossPhase + 1, 1, 3);
     }
 
@@ -45846,6 +46237,9 @@ public class BirdGame3 {
         }
         if (classicEncounter != null && classicEncounter.style == ClassicEncounterStyle.BELLKEEPER_BOSS) {
             return "TIME! The Bellkeeper seals the final vault.";
+        }
+        if (classicEncounter != null && classicEncounter.style == ClassicEncounterStyle.DEBT_ENGINE_BOSS) {
+            return "TIME! The Debt Engine inventories the whole sky.";
         }
         return "TIME! The Hollow Maestro's score remains unbroken.";
     }
@@ -45858,7 +46252,8 @@ public class BirdGame3 {
             eliminations[attacker.playerIndex]++;
             String fallback = classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS
                     ? "Final Division" : classicEncounter.style == ClassicEncounterStyle.BELLKEEPER_BOSS
-                    ? "The Last Gift" : "Hollow Score";
+                    ? "The Last Gift" : classicEncounter.style == ClassicEncounterStyle.DEBT_ENGINE_BOSS
+                    ? "The Final Account" : "Hollow Score";
             recordMoveKo(attacker, boss, lastTelemetryMoveName(attacker.playerIndex, fallback));
             checkAchievements(attacker);
         }
@@ -45866,6 +46261,8 @@ public class BirdGame3 {
                 ? "THE SEAMREAVER'S ZERO DIVIDE COLLAPSES."
                 : classicEncounter.style == ClassicEncounterStyle.BELLKEEPER_BOSS
                 ? "THE BELLKEEPER'S FINAL CHIME FALLS SILENT."
+                : classicEncounter.style == ClassicEncounterStyle.DEBT_ENGINE_BOSS
+                ? "THE DEBT ENGINE'S FINAL ACCOUNT IS CLOSED."
                 : "THE HOLLOW MAESTRO'S SCORE SHATTERS.");
         shakeIntensity = Math.max(shakeIntensity, 32.0);
         triggerFlash(0.76, true);
@@ -46600,6 +46997,55 @@ public class BirdGame3 {
                 canvas.getWidth() / 2.0, canvas.getHeight() - 22.0);
     }
 
+    private void drawClassicDebtEnginePortrait(Canvas canvas) {
+        GraphicsContext g = canvas.getGraphicsContext2D();
+        g.setFill(Color.web("#08070B"));
+        g.fillRect(0, 0, canvas.getWidth(), canvas.getHeight());
+        double scale = Math.min(canvas.getWidth(), canvas.getHeight()) / 520.0;
+        drawDebtEngine(g, canvas.getWidth() / 2.0, canvas.getHeight() * 0.46,
+                scale, 2, false);
+        g.setFill(Color.WHITE);
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, Math.max(14, canvas.getWidth() * 0.05)));
+        g.setTextAlign(TextAlignment.CENTER);
+        g.fillText("THE DEBT ENGINE", canvas.getWidth() / 2.0, canvas.getHeight() - 22.0);
+    }
+
+    private void drawClassicFinalInventoryPortrait(Canvas canvas) {
+        GraphicsContext g = canvas.getGraphicsContext2D();
+        double w = canvas.getWidth();
+        double h = canvas.getHeight();
+        g.setFill(Color.web("#080B11"));
+        g.fillRoundRect(0.0, 0.0, w, h, 30.0, 30.0);
+        g.setStroke(Color.web("#D6A84A", 0.42));
+        g.setLineWidth(8.0);
+        g.strokeLine(24.0, h * 0.72, w - 24.0, h * 0.72);
+        for (int index = 0; index < 7; index++) {
+            double x = 42.0 + index * 48.0;
+            double y = h * 0.47 + (index % 2 == 0 ? -28.0 : 22.0);
+            g.setFill(Color.web("#121720"));
+            g.fillRoundRect(x - 20.0, y - 26.0, 40.0, 52.0, 10.0, 10.0);
+            g.setStroke(Color.web("#FFD166"));
+            g.setLineWidth(4.0);
+            g.strokeRoundRect(x - 20.0, y - 26.0, 40.0, 52.0, 10.0, 10.0);
+            g.setFill(Color.web("#FFD166"));
+            g.fillPolygon(new double[]{x, x + 9.0, x, x - 9.0},
+                    new double[]{y - 12.0, y, y + 12.0, y}, 4);
+        }
+        double liftX = w - 58.0;
+        g.setFill(Color.web("#132723"));
+        g.fillRoundRect(liftX - 38.0, 44.0, 76.0, h - 82.0, 22.0, 22.0);
+        g.setStroke(Color.web("#78D6C6"));
+        g.setLineWidth(6.0);
+        g.strokeRoundRect(liftX - 38.0, 44.0, 76.0, h - 82.0, 22.0, 22.0);
+        g.setFill(Color.web("#78D6C6"));
+        g.fillPolygon(new double[]{liftX + 19.0, liftX - 14.0, liftX - 14.0},
+                new double[]{h * 0.50, h * 0.42, h * 0.58}, 3);
+        g.setTextAlign(TextAlignment.CENTER);
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, 24));
+        g.setFill(Color.WHITE);
+        g.fillText("BREAK  •  COUNT  •  EXTRACT", w * 0.5, h - 22.0);
+    }
+
     private void drawClassicBetweenLinesPortrait(Canvas canvas) {
         GraphicsContext g = canvas.getGraphicsContext2D();
         g.setFill(Color.web("#070713"));
@@ -46918,6 +47364,354 @@ public class BirdGame3 {
         classicVaultCompleted = true;
         addToKillFeed("TIME! Grinch-Hawk escapes empty-handed, but the route continues.");
         matchController.triggerMatchEnd(players[0]);
+    }
+
+    private void setupVultureClassicRoute(ClassicEncounter encounter) {
+        classicSalvageLocks.clear();
+        classicDebtProjectiles.clear();
+        classicVultureWaveIndex = 0;
+        classicInventoryAttackWasHeld = false;
+        classicInventoryHitCooldown = 0;
+        classicInventoryExitOpen = false;
+        classicInventoryCompleted = false;
+        classicDebtEnginePhase = 0;
+        classicDebtEngineAttackTimer = 92;
+        classicDebtEngineAttackKind = 0;
+        classicDebtEngineHitCooldown = 0;
+        classicDebtEngineWaypoint = 0;
+        classicDebtEngineReversalTimer = 0;
+        classicDebtEngineReversalCooldown = 0;
+        classicDebtEngineDamageWindow = 0;
+        classicDebtEngineCloseDamage = 0.0;
+        if (classicSelectedBird != BirdType.VULTURE || bossRushModeActive || ashfallTrialModeActive) return;
+        if (encounter.twist == ClassicTwist.AFTERMATH) {
+            addToKillFeed("AFTERMATH BATTLE: enemy damage is already high — nothing carries past this bell.");
+        }
+        if (encounter.style == ClassicEncounterStyle.VULTURE_FALSE_FLOCK) {
+            addToKillFeed("FALSE FLOCK 1/3: real Vulture moves, sealed ultimates, separate waves.");
+        } else if (encounter.style == ClassicEncounterStyle.VULTURE_AUCTION_GAUNTLET) {
+            addToKillFeed("LAST AUCTION 1/3: one elite bidder enters at a time.");
+        } else if (encounter.style == ClassicEncounterStyle.FINAL_INVENTORY) {
+            double lockY = battlefieldIslandY - 112.0;
+            for (double x : FINAL_INVENTORY_LOCK_X) classicSalvageLocks.add(new ClassicVaultSeal(x, lockY));
+            addToKillFeed("FINAL INVENTORY: break 7 marked locks, then enter the far-right extraction lift.");
+        } else if (encounter.style == ClassicEncounterStyle.DEBT_ENGINE_BOSS) {
+            Bird boss = firstClassicEnemyWithStocks();
+            if (boss != null) boss.classicMaxHealthOverride = Math.max(1.0, boss.health);
+            addToKillFeed("THE DEBT ENGINE: magnets pull, crushers mark the floor, and the furnace opens between attacks.");
+        }
+    }
+
+    void applyVultureClassicRuntimeEffects() {
+        if (!classicModeActive || classicEncounter == null || classicSelectedBird != BirdType.VULTURE
+                || bossRushModeActive || ashfallTrialModeActive || matchEnded) return;
+        Bird player = players[0];
+        if (player == null || !playerHasStocksRemaining(0)) return;
+        if (classicInventoryHitCooldown > 0) classicInventoryHitCooldown--;
+        if (classicDebtEngineHitCooldown > 0) classicDebtEngineHitCooldown--;
+        if (classicEncounter.style == ClassicEncounterStyle.FINAL_INVENTORY) {
+            boolean held = isAttackPressed(0);
+            boolean newStrike = held && !classicInventoryAttackWasHeld && classicInventoryHitCooldown == 0;
+            classicInventoryAttackWasHeld = held;
+            if (newStrike) {
+                for (ClassicVaultSeal lock : classicSalvageLocks) {
+                    if (lock.broken || Math.hypot(player.bodyCenterX() - lock.x,
+                            player.bodyCenterY() - lock.y) > 260.0) continue;
+                    lock.broken = true;
+                    lock.pulseFrames = 34;
+                    classicInventoryHitCooldown = 10;
+                    int broken = (int) classicSalvageLocks.stream().filter(s -> s.broken).count();
+                    playClassicNectarRingSfx(broken, FINAL_INVENTORY_LOCK_X.length);
+                    addToKillFeed("SALVAGE LOCK " + broken + "/7 CLEARED.");
+                    if (broken == FINAL_INVENTORY_LOCK_X.length) {
+                        classicInventoryExitOpen = true;
+                        addToKillFeed("EXTRACTION LIFT OPEN — follow the gold arrow right!");
+                    }
+                    break;
+                }
+            }
+            if (classicInventoryExitOpen && player.bodyCenterX() >= FINAL_INVENTORY_EXIT_X) {
+                classicInventoryCompleted = true;
+                classicBonusCoins += 85;
+                classicRunScore += 5_500;
+                addToKillFeed("FINAL INVENTORY COMPLETE! Bird Coins +85.");
+                matchController.triggerMatchEnd(player);
+            }
+            return;
+        }
+        if (classicEncounter.style == ClassicEncounterStyle.DEBT_ENGINE_BOSS) {
+            updateClassicDebtEngine(player);
+        }
+    }
+
+    private void updateClassicDebtEngine(Bird player) {
+        Bird boss = firstClassicEnemyWithStocks();
+        if (boss == null) return;
+        if (boss.health <= 0.0) {
+            onClassicStaminaBossDefeated(boss, null);
+            return;
+        }
+        int nextPhase = hollowMaestroPhaseForHealth(boss.health, boss.getMaxHealth());
+        if (nextPhase > classicDebtEnginePhase) {
+            classicDebtEnginePhase = nextPhase;
+            player.heal(10.0);
+            classicDebtEngineAttackTimer = 82;
+            addToKillFeed(nextPhase == 1
+                    ? "SECOND ACCOUNT: chain reels and furnace vents engage. 10% repaired."
+                    : "FINAL ACCOUNT: the core is exposed and the crane runs at full speed. 10% repaired.");
+        }
+        if (classicDebtEngineDamageWindow > 0 && --classicDebtEngineDamageWindow == 0) {
+            classicDebtEngineCloseDamage = 0.0;
+        }
+        if (classicDebtEngineReversalCooldown > 0) classicDebtEngineReversalCooldown--;
+        if (classicDebtEngineReversalTimer > 0) {
+            classicDebtEngineReversalTimer--;
+            steerClassicBellkeeper(boss, 3_000.0, GROUND_Y - 1_250.0, 11.0);
+            if (classicDebtEngineReversalTimer == 19) {
+                spawnDebtEngineRadial(boss, 14, 12.0, 4);
+                addToKillFeed("COLLECTION BURST — disengage from the core!");
+            }
+        } else {
+            double tx = DEBT_ENGINE_FLIGHT_X[classicDebtEngineWaypoint];
+            double ty = DEBT_ENGINE_FLIGHT_Y[classicDebtEngineWaypoint];
+            steerClassicBellkeeper(boss, tx, ty, 6.2 + classicDebtEnginePhase * 1.0);
+            if (--classicDebtEngineAttackTimer <= 0) {
+                classicDebtEngineAttackKind = (classicDebtEngineAttackKind + 1) % (classicDebtEnginePhase + 2);
+                classicDebtEngineWaypoint = (classicDebtEngineWaypoint + 1) % DEBT_ENGINE_FLIGHT_X.length;
+                spawnClassicDebtEngineAttack(boss, player, classicDebtEngineAttackKind);
+                classicDebtEngineAttackTimer = Math.max(72, 122 - classicDebtEnginePhase * 18);
+            }
+        }
+        updateDebtEngineProjectiles(player);
+    }
+
+    private void spawnClassicDebtEngineAttack(Bird boss, Bird player, int kind) {
+        double sx = boss.bodyCenterX();
+        double sy = boss.bodyCenterY();
+        if (kind == 0) {
+            spawnDebtEngineRadial(boss, 8 + classicDebtEnginePhase * 2,
+                    8.5 + classicDebtEnginePhase, 0);
+            addToKillFeed("MAGNETIC AUDIT — slip between the blue account rings!");
+        } else if (kind == 1) {
+            for (int i = -2; i <= 2; i++) {
+                classicDebtProjectiles.add(new ClassicBellkeeperProjectile(
+                        Math.clamp(player.bodyCenterX() + i * 320.0, 820.0, 5_180.0), 180.0,
+                        0.0, 5.8 + classicDebtEnginePhase, 235, 1, classicDebtEnginePhase));
+            }
+            addToKillFeed("CRUSHER CLAIMS — amber floor marks show every impact!");
+        } else {
+            double direction = Math.signum(player.bodyCenterX() - sx);
+            if (direction == 0.0) direction = 1.0;
+            for (int i = -2; i <= 2; i++) {
+                classicDebtProjectiles.add(new ClassicBellkeeperProjectile(sx, sy + i * 66.0,
+                        direction * (10.5 + classicDebtEnginePhase), i * 0.30,
+                        210, classicDebtEnginePhase >= 2 ? 3 : 2, classicDebtEnginePhase));
+            }
+            addToKillFeed(classicDebtEnginePhase >= 2
+                    ? "HOMING SCRAP — it turns once, then commits!"
+                    : "CHAIN LEDGER — cross through the missing link!");
+        }
+        playManagedSfxVaried(hugewaveClip, 0.40, 0.60 + kind * 0.12, 0.0);
+    }
+
+    private void spawnDebtEngineRadial(Bird boss, int count, double speed, int kind) {
+        for (int i = 0; i < count; i++) {
+            double angle = Math.PI * 2.0 * i / count;
+            classicDebtProjectiles.add(new ClassicBellkeeperProjectile(
+                    boss.bodyCenterX(), boss.bodyCenterY(), Math.cos(angle) * speed,
+                    Math.sin(angle) * speed, 190, kind, classicDebtEnginePhase));
+        }
+    }
+
+    private void updateDebtEngineProjectiles(Bird player) {
+        for (int i = classicDebtProjectiles.size() - 1; i >= 0; i--) {
+            ClassicBellkeeperProjectile shot = classicDebtProjectiles.get(i);
+            if (shot.kind == 3 && shot.life < 165) {
+                shot.vx += Math.clamp((player.bodyCenterX() - shot.x) * 0.0007, -0.16, 0.16);
+                shot.vy += Math.clamp((player.bodyCenterY() - shot.y) * 0.0007, -0.16, 0.16);
+                double speed = Math.max(1.0, Math.hypot(shot.vx, shot.vy));
+                if (speed > 13.0) { shot.vx *= 13.0 / speed; shot.vy *= 13.0 / speed; }
+            }
+            shot.x += shot.vx;
+            shot.y += shot.vy;
+            if (shot.kind == 1) shot.vy = Math.min(16.0, shot.vy + 0.25);
+            shot.life--;
+            double radius = shot.kind == 1 ? 72.0 : shot.kind == 4 ? 55.0 : 45.0;
+            if (classicDebtEngineHitCooldown == 0
+                    && Math.hypot(player.bodyCenterX() - shot.x, player.bodyCenterY() - shot.y)
+                    < radius + player.combatRadius()) {
+                double damage = shot.kind == 4 ? 3.0 : 6.0 + shot.phase * 1.8 + (shot.kind == 1 ? 2.0 : 0.0);
+                double dealt = player.receiveExternalDamage(damage);
+                double dx = player.bodyCenterX() - shot.x;
+                player.applyExternalDamageScaledLaunch(Math.signum(dx == 0.0 ? 1.0 : dx)
+                                * (shot.kind == 4 ? 14.0 : 7.0 + shot.phase),
+                        -6.0 - shot.phase, dealt);
+                classicDebtEngineHitCooldown = 24;
+                shot.life = 0;
+                shakeIntensity = Math.max(shakeIntensity, shot.kind == 4 ? 14.0 : 11.0);
+            }
+            if (shot.life <= 0 || shot.x < -500.0 || shot.x > WORLD_WIDTH + 500.0
+                    || shot.y < -500.0 || shot.y > WORLD_HEIGHT + 500.0) {
+                classicDebtProjectiles.remove(i);
+            }
+        }
+    }
+
+    boolean holdClassicVultureEncounterOpen() {
+        if (!classicModeActive || classicEncounter == null || classicSelectedBird != BirdType.VULTURE
+                || bossRushModeActive || ashfallTrialModeActive || matchEnded) return false;
+        if (classicEncounter.style == ClassicEncounterStyle.FINAL_INVENTORY) {
+            return playerHasStocksRemaining(0) && !classicInventoryCompleted;
+        }
+        boolean waveStyle = classicEncounter.style == ClassicEncounterStyle.VULTURE_FALSE_FLOCK
+                || classicEncounter.style == ClassicEncounterStyle.VULTURE_AUCTION_GAUNTLET;
+        if (!waveStyle || classicEncounter.waves == null || classicEncounter.waves.length == 0
+                || !playerHasStocksRemaining(0) || classicEnemyTeamHasStocks()
+                || classicVultureWaveIndex + 1 >= classicEncounter.waves.length) return false;
+        classicVultureWaveIndex++;
+        Bird player = players[0];
+        if (player != null) player.heal(classicEncounter.style == ClassicEncounterStyle.VULTURE_AUCTION_GAUNTLET
+                ? 32.0 : 10.0);
+        spawnVultureClassicWave(classicEncounter.waves[classicVultureWaveIndex]);
+        return true;
+    }
+
+    private void spawnVultureClassicWave(ClassicFighter[] wave) {
+        for (int slot = 1; slot < MAX_COMBATANTS; slot++) {
+            if (players[slot] != null && getEffectiveTeam(slot) == 2) {
+                players[slot] = null;
+                isAI[slot] = false;
+                scores[slot] = 0;
+                classicCpuLevels[slot] = 0;
+            }
+        }
+        double difficultyDelta = classicDifficulty - CLASSIC_STARTING_DIFFICULTY;
+        int spawned = 0;
+        for (ClassicFighter fighter : wave) {
+            int slot = 1;
+            while (slot < MAX_COMBATANTS && players[slot] != null) slot++;
+            if (slot >= MAX_COMBATANTS) break;
+            Bird enemy = createStoryBird(0.0, fighter.type, slot, fighter.title,
+                    fighter.health * (1.0 + difficultyDelta * 0.045),
+                    fighter.powerMult * (1.0 + difficultyDelta * 0.015), fighter.speedMult, true);
+            enemy.setUltimateEnabled(false);
+            scaleBossRushBird(enemy, 0.82, 0.84, 1.02);
+            enemy.setTrailerSmashDamagePercent(
+                    classicEncounter.style == ClassicEncounterStyle.VULTURE_AUCTION_GAUNTLET ? 45.0 : 30.0);
+            classicTeams[slot] = 2;
+            classicCpuLevels[slot] = resolvedClassicFighterCpuLevel(fighter, classicEncounter);
+            scores[slot] = 1;
+            isAI[slot] = true;
+            positionClassicBirdOnSurface(enemy, 4_150.0 + spawned * 360.0, battlefieldIslandY, false);
+            activePlayers = Math.max(activePlayers, slot + 1);
+            spawned++;
+        }
+        addToKillFeed((classicEncounter.style == ClassicEncounterStyle.VULTURE_FALSE_FLOCK
+                ? "FALSE FLOCK " : "LAST AUCTION ")
+                + (classicVultureWaveIndex + 1) + "/" + classicEncounter.waves.length + " ENTERS.");
+    }
+
+    boolean isClassicFinalInventoryActive() {
+        return classicModeActive && !bossRushModeActive && !ashfallTrialModeActive
+                && classicSelectedBird == BirdType.VULTURE && classicEncounter != null
+                && classicEncounter.style == ClassicEncounterStyle.FINAL_INVENTORY && !matchEnded;
+    }
+
+    void finishClassicFinalInventoryFromTimeout() {
+        if (!isClassicFinalInventoryActive()) return;
+        classicInventoryCompleted = true;
+        addToKillFeed("TIME! Vulture leaves the unclaimed salvage, but the route continues.");
+        matchController.triggerMatchEnd(players[0]);
+    }
+
+    private void drawClassicVultureRouteFeatures(GraphicsContext g) {
+        if (!classicModeActive || classicEncounter == null || classicSelectedBird != BirdType.VULTURE
+                || bossRushModeActive || ashfallTrialModeActive) return;
+        if (classicEncounter.style == ClassicEncounterStyle.FINAL_INVENTORY) {
+            for (ClassicVaultSeal lock : classicSalvageLocks) {
+                if (lock.pulseFrames > 0) lock.pulseFrames--;
+                Color color = lock.broken ? Color.web("#64FFDA") : Color.web("#FFD166");
+                g.setFill(Color.web("#090B10", 0.90));
+                g.fillRoundRect(lock.x - 55.0, lock.y - 70.0, 110.0, 110.0, 22.0, 22.0);
+                g.setStroke(color.deriveColor(0, 1.0, 1.0, lock.broken ? 0.38 : 0.92));
+                g.setLineWidth(lock.pulseFrames > 0 ? 14.0 : 8.0);
+                g.strokeRoundRect(lock.x - 55.0, lock.y - 70.0, 110.0, 110.0, 22.0, 22.0);
+                g.setFill(color);
+                g.setFont(Font.font("Arial Black", 48));
+                g.setTextAlign(TextAlignment.CENTER);
+                g.fillText(lock.broken ? "✓" : "◆", lock.x, lock.y + 5.0);
+            }
+            g.setFill(classicInventoryExitOpen ? Color.web("#FFD166", 0.25) : Color.web("#263238", 0.48));
+            g.fillRect(FINAL_INVENTORY_EXIT_X - 145.0, 190.0, 290.0, GROUND_Y - 430.0);
+            g.setStroke(classicInventoryExitOpen ? Color.web("#FFD166") : Color.web("#607D8B"));
+            g.setLineWidth(12.0);
+            g.strokeRoundRect(FINAL_INVENTORY_EXIT_X - 145.0, 190.0, 290.0, GROUND_Y - 430.0, 60.0, 60.0);
+            g.setFill(Color.WHITE);
+            g.setFont(Font.font("Arial Black", 42));
+            g.fillText(classicInventoryExitOpen ? "EXTRACT →" : "LOCKED", FINAL_INVENTORY_EXIT_X, 265.0);
+        }
+        for (ClassicBellkeeperProjectile shot : classicDebtProjectiles) {
+            Color color = shot.kind == 1 ? Color.web("#FF9F43")
+                    : shot.kind == 4 ? Color.web("#FF3B5C") : Color.web("#6BE7FF");
+            double radius = shot.kind == 1 ? 62.0 : 35.0;
+            g.setFill(color.deriveColor(0, 1.0, 1.0, 0.22));
+            g.fillOval(shot.x - radius * 1.8, shot.y - radius * 1.8, radius * 3.6, radius * 3.6);
+            g.setFill(Color.web("#13161D"));
+            if (shot.kind == 1) g.fillRoundRect(shot.x - radius, shot.y - radius, radius * 2.0, radius * 2.0, 16.0, 16.0);
+            else g.fillOval(shot.x - radius, shot.y - radius, radius * 2.0, radius * 2.0);
+            g.setStroke(color);
+            g.setLineWidth(8.0);
+            if (shot.kind == 1) g.strokeRoundRect(shot.x - radius, shot.y - radius, radius * 2.0, radius * 2.0, 16.0, 16.0);
+            else g.strokeOval(shot.x - radius, shot.y - radius, radius * 2.0, radius * 2.0);
+        }
+    }
+
+    private boolean drawClassicVultureConstruct(GraphicsContext g, Bird bird) {
+        if (!isClassicStaminaBoss(bird) || classicEncounter.style != ClassicEncounterStyle.DEBT_ENGINE_BOSS) return false;
+        drawDebtEngine(g, bird.bodyCenterX(), bird.bodyCenterY(), 1.0, classicDebtEnginePhase,
+                classicDebtEngineReversalTimer > 0);
+        return true;
+    }
+
+    private void drawDebtEngine(GraphicsContext g, double cx, double cy, double scale, int phase, boolean reversing) {
+        g.save();
+        g.translate(cx, cy);
+        g.scale(scale, scale);
+        Color core = phase >= 2 ? Color.web("#FF3B30") : phase == 1 ? Color.web("#FF9F43") : Color.web("#6BE7FF");
+        g.setStroke(Color.web("#756251"));
+        g.setLineWidth(18.0);
+        g.strokeLine(-185.0, -130.0, -275.0, -250.0);
+        g.strokeLine(185.0, -130.0, 275.0, -250.0);
+        g.setFill(Color.web("#151820"));
+        g.fillOval(-245.0, -205.0, 490.0, 410.0);
+        g.setStroke(Color.web("#D6A84A", 0.88));
+        g.setLineWidth(18.0);
+        g.strokeOval(-245.0, -205.0, 490.0, 410.0);
+        for (int tooth = 0; tooth < 16; tooth++) {
+            double a = tooth * Math.PI / 8.0 + simTick * 0.012;
+            g.strokeLine(Math.cos(a) * 205.0, Math.sin(a) * 172.0,
+                    Math.cos(a) * 258.0, Math.sin(a) * 216.0);
+        }
+        g.setFill(Color.web("#080A0F"));
+        g.fillOval(-132.0, -132.0, 264.0, 264.0);
+        g.setFill(core.deriveColor(0, 1.0, 1.0, reversing ? 0.42 : 0.22));
+        g.fillOval(-118.0, -118.0, 236.0, 236.0);
+        g.setFill(core);
+        g.fillOval(-66.0, -66.0, 132.0, 132.0);
+        g.setFill(Color.WHITE.deriveColor(0, 1.0, 1.0, 0.82));
+        g.fillOval(-24.0, -24.0, 48.0, 48.0);
+        g.setFill(Color.web("#262B34"));
+        g.fillRoundRect(-310.0, -88.0, 118.0, 176.0, 30.0, 30.0);
+        g.fillRoundRect(192.0, -88.0, 118.0, 176.0, 30.0, 30.0);
+        g.setStroke(core.deriveColor(0, 0.86, 1.0, 0.86));
+        g.setLineWidth(10.0);
+        g.strokeRoundRect(-310.0, -88.0, 118.0, 176.0, 30.0, 30.0);
+        g.strokeRoundRect(192.0, -88.0, 118.0, 176.0, 30.0, 30.0);
+        g.setFill(Color.web("#D6A84A"));
+        g.setFont(Font.font("Arial Black", 30));
+        g.setTextAlign(TextAlignment.CENTER);
+        g.fillText("DEBT", 0.0, -150.0);
+        g.restore();
     }
 
     void applyRazorbillArenaRuntimeEffects() {
@@ -50223,6 +51017,9 @@ public class BirdGame3 {
             } else if (classicSelectedBird == BirdType.GRINCHHAWK
                     && !isClassicCompleted(BirdType.GRINCHHAWK)) {
                 queueMapUnlockCard(MapType.MIDNIGHT_WORKSHOP);
+            } else if (classicSelectedBird == BirdType.VULTURE
+                    && !isClassicCompleted(BirdType.VULTURE)) {
+                queueMapUnlockCard(MapType.CARRION_EXCHANGE);
             }
             profileProgressController.onClassicRunCompleted(classicSelectedBird, achievementEvaluator::onClassicRunCompleted);
             ClassicEndingContent.Ending authoredEnding = ClassicEndingContent.endingFor(classicSelectedBird);
@@ -51149,6 +51946,7 @@ public class BirdGame3 {
             case GLASSWIND_CAUSEWAY -> "A colossal suspended bridge where turbine warnings announce alternating crosswinds.";
             case WORLDSEAM -> "Two broken realities face each other across a rift, linked by momentum-preserving gates.";
             case MIDNIGHT_WORKSHOP -> "A moonlit clockwork factory with supported conveyor decks, readable presses, and a sealed gift vault.";
+            case CARRION_EXCHANGE -> "A vast suspended salvage exchange whose crane-supported decks and warning-lit magnets reshape its connected fighting lanes.";
         };
     }
 
@@ -53337,6 +54135,19 @@ public class BirdGame3 {
                 default -> scores[0];
             };
         }
+        if (classicSelectedBird == BirdType.VULTURE) {
+            scores[0] = switch (classicRoundIndex) {
+                case 0 -> 2;
+                case 3 -> 3;
+                case 7 -> 3;
+                default -> scores[0];
+            };
+            if (classicRoundIndex == 0) {
+                for (Bird bird : players) {
+                    if (bird != null && getEffectiveTeam(bird.playerIndex) == 2) scores[bird.playerIndex] = 2;
+                }
+            }
+        }
         int enemyStocks = switch (classicEncounter.style) {
             case STORM_TYRANT_BOSS, PHOENIX_REBIRTH, BLIGHTWING_BOSS, ICEWORKS_MIRROR -> 2;
             case NULL_ROC_BOSS, LONG_WINTER_BOSS, DEVOURER_BOSS, BROODBREAKER_BOSS,
@@ -53472,6 +54283,7 @@ public class BirdGame3 {
         applyCharlesArenaRuntimeEffects();
         applyRazorbillArenaRuntimeEffects();
         applyGrinchHawkArenaRuntimeEffects();
+        applyVultureArenaRuntimeEffects();
         if (classicModeActive && !bossRushModeActive && !ashfallTrialModeActive) {
             applyStormTyrantRuntimeEffects();
             applyFalconClassicRuntimeEffects();
@@ -53485,6 +54297,7 @@ public class BirdGame3 {
             applyCharlesClassicRuntimeEffects();
             applyRazorbillClassicRuntimeEffects();
             applyGrinchHawkClassicRuntimeEffects();
+            applyVultureClassicRuntimeEffects();
         }
         if (bossRushModeActive && classicModeActive) {
             applyBossRushRuntimeEffects();
@@ -53528,6 +54341,40 @@ public class BirdGame3 {
                 midnightPressHitCooldowns[slot] = 42;
                 shakeIntensity = Math.max(shakeIntensity, 13.0);
                 break;
+            }
+        }
+    }
+
+    static boolean carrionMagnetActiveAtTick(long tick) {
+        int cycle = Math.floorMod((int) tick, 360);
+        return cycle >= 290 && cycle < 326;
+    }
+
+    void applyVultureArenaRuntimeEffects() {
+        if (matchEnded || selectedMap != MapType.CARRION_EXCHANGE
+                || activeArenaGeometryVariant == MapVariant.RECLAMATION_CORE) return;
+        boolean active = carrionMagnetActiveAtTick(simTick);
+        for (int slot = 0; slot < activePlayers; slot++) {
+            if (carrionMagnetHitCooldowns[slot] > 0) carrionMagnetHitCooldowns[slot]--;
+            Bird bird = players[slot];
+            if (!active || bird == null || bird.health <= 0.0 || bird.classicBonusTarget) continue;
+            double nearestX = CARRION_MAGNET_X[0];
+            double nearestDistance = Math.abs(bird.bodyCenterX() - nearestX);
+            for (int index = 1; index < CARRION_MAGNET_X.length; index++) {
+                double distance = Math.abs(bird.bodyCenterX() - CARRION_MAGNET_X[index]);
+                if (distance < nearestDistance) {
+                    nearestDistance = distance;
+                    nearestX = CARRION_MAGNET_X[index];
+                }
+            }
+            if (nearestDistance > 700.0 || bird.bodyCenterY() > battlefieldIslandY + 80.0) continue;
+            double pull = Math.clamp((nearestX - bird.bodyCenterX()) * 0.0028, -1.55, 1.55);
+            bird.vx = Math.clamp(bird.vx + pull, -18.0, 18.0);
+            bird.vy = Math.max(-16.0, bird.vy - 0.08);
+            if (carrionMagnetHitCooldowns[slot] == 0 && nearestDistance < 125.0) {
+                bird.stunTime = Math.max(bird.stunTime, 5.0);
+                carrionMagnetHitCooldowns[slot] = 24;
+                playManagedSfxVaried(bonkClip, 0.20, 1.55, 0.0);
             }
         }
     }
@@ -56452,6 +57299,7 @@ public class BirdGame3 {
                 || selectedMap == MapType.GLASSWIND_CAUSEWAY
                 || selectedMap == MapType.WORLDSEAM
                 || selectedMap == MapType.MIDNIGHT_WORKSHOP
+                || selectedMap == MapType.CARRION_EXCHANGE
                 || activeArenaGeometryVariant == MapVariant.TITAN_DOCK
                 || activeArenaGeometryVariant == MapVariant.PARLIAMENT_ROOFTOPS
                 || activeArenaGeometryVariant == MapVariant.PEREGRINE_RUN
@@ -56845,6 +57693,8 @@ public class BirdGame3 {
             setupWorldseamArena();
         } else if (selectedMap == MapType.MIDNIGHT_WORKSHOP) {
             setupMidnightWorkshopArena();
+        } else if (selectedMap == MapType.CARRION_EXCHANGE) {
+            setupCarrionExchangeArena();
         } else {
             platforms.add(new Platform(0, GROUND_Y, WORLD_WIDTH, 600));
             platforms.add(new Platform(-100, 0, 100, WORLD_HEIGHT));
@@ -56952,7 +57802,8 @@ public class BirdGame3 {
                 || selectedMap == MapType.SILENT_AMPHITHEATER
                 || selectedMap == MapType.GLASSWIND_CAUSEWAY
                 || selectedMap == MapType.WORLDSEAM
-                || selectedMap == MapType.MIDNIGHT_WORKSHOP) {
+                || selectedMap == MapType.MIDNIGHT_WORKSHOP
+                || selectedMap == MapType.CARRION_EXCHANGE) {
             mountainPeaks = null;
         } else {
             double[] buildingX = {400, 1400, 2400, 3400, 4400, 5400};
@@ -57038,6 +57889,8 @@ public class BirdGame3 {
             case OBSIDIAN_FOUNDRY -> setupObsidianFoundryArena();
             case GIFT_VAULT -> setupGiftVaultArena();
             case BELLKEEPER_VAULT -> setupBellkeeperVaultArena();
+            case SORTING_FLOOR -> setupSortingFloorArena();
+            case RECLAMATION_CORE -> setupReclamationCoreArena();
             case CARRION_THRONE -> setupBossRushCarrionThrone();
             case NULL_ROC_ASCENDING -> setupBossRushNullRocArena();
             case VOID_CROWN -> setupBossRushVoidCrownArena();
@@ -57204,6 +58057,61 @@ public class BirdGame3 {
         battlefieldIslandX = 680.0;
         battlefieldIslandW = 4_640.0;
         battlefieldIslandY = floorY;
+    }
+
+    private void setupCarrionExchangeArena() {
+        double floorX = 650.0;
+        double floorY = GROUND_Y - 300.0;
+        double floorW = 4_700.0;
+        platforms.add(new Platform(floorX, floorY, floorW, 108.0));
+        platforms.add(new Platform(380.0, floorY + 150.0, 520.0, 48.0));
+        platforms.add(new Platform(5_100.0, floorY + 150.0, 520.0, 48.0));
+        platforms.add(new Platform(840.0, floorY - 315.0, 840.0, 56.0));
+        platforms.add(new Platform(1_820.0, floorY - 560.0, 680.0, 52.0));
+        platforms.add(new Platform(2_570.0, floorY - 390.0, 860.0, 64.0));
+        platforms.add(new Platform(3_500.0, floorY - 560.0, 680.0, 52.0));
+        platforms.add(new Platform(4_320.0, floorY - 315.0, 840.0, 56.0));
+        platforms.add(new Platform(2_700.0, floorY - 820.0, 600.0, 48.0));
+        windVents.add(new WindVent(420.0, floorY + 110.0, 280.0));
+        windVents.add(new WindVent(5_300.0, floorY + 110.0, 280.0));
+        battlefieldIslandX = floorX;
+        battlefieldIslandW = floorW;
+        battlefieldIslandY = floorY;
+        Arrays.fill(carrionMagnetHitCooldowns, 0);
+    }
+
+    private void setupSortingFloorArena() {
+        resetBossRushArenaState();
+        activeArenaGeometryVariant = MapVariant.SORTING_FLOOR;
+        double floorY = GROUND_Y - 270.0;
+        platforms.add(new Platform(420.0, floorY, 5_160.0, 112.0));
+        platforms.add(new Platform(650.0, floorY - 300.0, 1_080.0, 54.0));
+        platforms.add(new Platform(2_050.0, floorY - 475.0, 760.0, 52.0));
+        platforms.add(new Platform(2_650.0, floorY - 285.0, 700.0, 60.0));
+        platforms.add(new Platform(3_190.0, floorY - 475.0, 760.0, 52.0));
+        platforms.add(new Platform(4_270.0, floorY - 300.0, 1_080.0, 54.0));
+        battlefieldIslandX = 420.0;
+        battlefieldIslandW = 5_160.0;
+        battlefieldIslandY = floorY;
+        Arrays.fill(carrionMagnetHitCooldowns, 0);
+    }
+
+    private void setupReclamationCoreArena() {
+        resetBossRushArenaState();
+        activeArenaGeometryVariant = MapVariant.RECLAMATION_CORE;
+        double floorY = GROUND_Y - 300.0;
+        platforms.add(new Platform(690.0, floorY, 4_620.0, 116.0));
+        platforms.add(new Platform(420.0, floorY + 150.0, 520.0, 48.0));
+        platforms.add(new Platform(5_060.0, floorY + 150.0, 520.0, 48.0));
+        platforms.add(new Platform(900.0, floorY - 360.0, 1_100.0, 60.0));
+        platforms.add(new Platform(4_000.0, floorY - 360.0, 1_100.0, 60.0));
+        platforms.add(new Platform(2_380.0, floorY - 530.0, 1_240.0, 68.0));
+        platforms.add(new Platform(1_620.0, floorY - 780.0, 620.0, 50.0));
+        platforms.add(new Platform(3_760.0, floorY - 780.0, 620.0, 50.0));
+        battlefieldIslandX = 690.0;
+        battlefieldIslandW = 4_620.0;
+        battlefieldIslandY = floorY;
+        Arrays.fill(carrionMagnetHitCooldowns, 0);
     }
 
     private void setupObsidianFoundryArena() {
@@ -58740,6 +59648,26 @@ public class BirdGame3 {
                     lines.add("RIFT SEALS " + seals + "/3");
                 }
             }
+            if (classicSelectedBird == BirdType.VULTURE) {
+                if (classicEncounter.style == ClassicEncounterStyle.FINAL_INVENTORY) {
+                    int broken = (int) classicSalvageLocks.stream().filter(lock -> lock.broken).count();
+                    lines.add("FINAL INVENTORY  LOCKS " + broken + "/7"
+                            + (classicInventoryExitOpen ? "  EXTRACTION OPEN" : ""));
+                } else if (classicEncounter.style == ClassicEncounterStyle.DEBT_ENGINE_BOSS) {
+                    lines.add("FINAL ACCOUNT  PHASE " + classicStaminaBossMovement() + "/3  "
+                            + (classicDebtEngineReversalTimer > 0
+                            ? "COLLECTION BURST " + classicDebtEngineReversalTimer
+                            : "NEXT AUDIT " + Math.max(0, classicDebtEngineAttackTimer)));
+                } else if (classicEncounter.style == ClassicEncounterStyle.VULTURE_FALSE_FLOCK
+                        || classicEncounter.style == ClassicEncounterStyle.VULTURE_AUCTION_GAUNTLET) {
+                    int count = classicEncounter.waves == null ? 1 : classicEncounter.waves.length;
+                    lines.add((classicEncounter.style == ClassicEncounterStyle.VULTURE_FALSE_FLOCK
+                            ? "FALSE FLOCK " : "LAST AUCTION ")
+                            + (classicVultureWaveIndex + 1) + "/" + count);
+                } else if (classicEncounter.twist == ClassicTwist.AFTERMATH) {
+                    lines.add("AFTERMATH BATTLE  DAMAGE RESETS AFTER THIS ROUND");
+                }
+            }
             return lines;
         }
 
@@ -58780,6 +59708,7 @@ public class BirdGame3 {
         if (!isClassicStaminaBoss(boss) || boss.health <= 0.0) return;
         boolean seamreaver = classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS;
         boolean bellkeeper = classicEncounter.style == ClassicEncounterStyle.BELLKEEPER_BOSS;
+        boolean debtEngine = classicEncounter.style == ClassicEncounterStyle.DEBT_ENGINE_BOSS;
 
         double width = Math.min(980.0, WIDTH - 580.0);
         double height = 92.0;
@@ -58790,7 +59719,10 @@ public class BirdGame3 {
         int shownHealth = Math.max(0, (int) Math.ceil(boss.health));
         int shownMax = Math.max(1, (int) Math.round(maxHealth));
         double pulse = 0.5 + 0.5 * Math.sin(simTick * 0.09);
-        Color phaseColor = bellkeeper
+        Color phaseColor = debtEngine
+                ? (classicStaminaBossMovement() == 1 ? Color.web("#6BE7FF")
+                : classicStaminaBossMovement() == 2 ? Color.web("#FF9F43") : Color.web("#FF3B30"))
+                : bellkeeper
                 ? (classicStaminaBossMovement() == 1 ? Color.web("#FFD166")
                 : classicStaminaBossMovement() == 2 ? Color.web("#FF8F00") : Color.web("#FF5252"))
                 : seamreaver
@@ -58808,7 +59740,10 @@ public class BirdGame3 {
         g.setLineWidth(4.0 + pulse * 1.5);
         g.strokeRoundRect(x, y, width, height, 28, 28);
 
-        if (bellkeeper) {
+        if (debtEngine) {
+            drawDebtEngine(g, x + 52.0, y + 47.0, 0.13, classicDebtEnginePhase,
+                    classicDebtEngineReversalTimer > 0);
+        } else if (bellkeeper) {
             drawClockworkOwl(g, x + 52.0, y + 47.0, 0.24, classicBellkeeperPhase, true);
         } else if (seamreaver) {
             drawSeamConstruct(g, x + 52.0, y + 47.0, 0.22, true, classicSeamreaverPhase);
@@ -58818,11 +59753,11 @@ public class BirdGame3 {
         g.setTextAlign(TextAlignment.LEFT);
         g.setFill(Color.WHITE);
         g.setFont(Font.font("Arial Black", FontWeight.BOLD, 25));
-        g.fillText(bellkeeper ? "THE BELLKEEPER"
+        g.fillText(debtEngine ? "THE DEBT ENGINE" : bellkeeper ? "THE BELLKEEPER"
                 : seamreaver ? "THE SEAMREAVER" : "THE HOLLOW MAESTRO", x + 105.0, y + 31.0);
         g.setFill(phaseColor);
         g.setFont(Font.font("Consolas", FontWeight.BOLD, 16));
-        g.fillText((bellkeeper ? "CHIME " : seamreaver ? "DIVISION " : "MOVEMENT ")
+        g.fillText((debtEngine ? "ACCOUNT " : bellkeeper ? "CHIME " : seamreaver ? "DIVISION " : "MOVEMENT ")
                 + classicStaminaBossMovement() + " / 3", x + 106.0, y + 53.0);
 
         double barX = x + 410.0;
@@ -61055,6 +61990,10 @@ public class BirdGame3 {
     }
 
     private String matchSummaryBirdLabel(Bird bird) {
+        if (classicEncounter != null && classicEncounter.style == ClassicEncounterStyle.DEBT_ENGINE_BOSS
+                && isClassicStaminaBoss(bird)) {
+            return "DEBT ENGINE";
+        }
         if (isClassicGrinchHawkConstructBird(bird)) {
             return "BELLKEEPER";
         }

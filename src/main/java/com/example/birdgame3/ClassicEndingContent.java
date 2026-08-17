@@ -325,6 +325,25 @@ final class ClassicEndingContent {
                             beat("I stitched the Crown into a bottomless sack and cut the name from every key it held.", Tableau.CROWN_TRANSFORMATION),
                             beat("Food, tools, and medicine poured from hoarded vaults. The world became louder, kinder, and much less orderly.", Tableau.CHANGED_WORLD),
                             beat("I didn't give the world anything. I just stole the word 'mine.'", Tableau.FINAL_PORTRAIT)
+                    )),
+            ending(
+                    BirdGame3.BirdType.VULTURE,
+                    "NOTHING GOES TO WASTE",
+                    "THE FINAL ACCOUNT",
+                    "RECKONING - The Crown becomes a ring of keys; one black ledger remains in Vulture's keeping.",
+                    Alignment.AMBIGUOUS,
+                    BirdGame3.BirdType.SHOEBILL,
+                    "The Debt Engine",
+                    "",
+                    BirdGame3.MapType.CARRION_EXCHANGE,
+                    "music-vulture-ending.mp3",
+                    monologue(
+                            beat("The Debt Engine measured every life as inventory: owned, owed, useful, or discarded.", Tableau.BOSS_AFTERMATH),
+                            beat("Inside its broken furnace, the Crown offered me every debt in the sky—and every name chained to one.", Tableau.CROWN_DISCOVERY),
+                            beat("Power loves a ledger. It makes cruelty look balanced when the columns line up.", Tableau.DECISION),
+                            beat("I broke the Crown into keys. My crows carried them to every cage, archive, and locked granary they could find.", Tableau.CROWN_TRANSFORMATION),
+                            beat("Doors opened. Debt records burned. The birds the Engine called waste chose their own names again.", Tableau.CHANGED_WORLD),
+                            beat("I kept one black ledger. Not to collect what they owe—but to remember who built the cages, and where they ran.", Tableau.FINAL_PORTRAIT)
                     ))
     );
 
@@ -367,6 +386,10 @@ final class ClassicEndingContent {
 
     static boolean isGrinchHawkOpenSack(Cinematic cinematic) {
         return cinematic != null && cinematic.narrator() == BirdGame3.BirdType.GRINCHHAWK;
+    }
+
+    static boolean isVultureFinalAccount(Cinematic cinematic) {
+        return cinematic != null && cinematic.narrator() == BirdGame3.BirdType.VULTURE;
     }
 
     static Cinematic withRouteRecord(Ending ending, int birdCoins, int score, String mapReward) {

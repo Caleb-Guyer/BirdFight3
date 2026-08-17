@@ -6,18 +6,18 @@
 - Objective/bonus rounds: listed but not simulated
 - Metric: team clear rate in the real Classic encounter setup
 
-## Grinch-Hawk
+## Vulture
 
 | Round | Encounter | Kind | Map | W-L-D | Clear rate | Avg time | Damage dealt | Read |
 |---:|---|---|---|---:|---:|---:|---:|---|
-| 1 | The First Package | Combat | Parliament Rooftops | 44-20-0 | 68.8% | 20.8s | 73 | Target band |
-| 2 | Cold Storage | Combat | Last Ice Shelf | 40-24-0 | 62.5% | 74.1s | 153 | Target band |
-| 3 | Express Delivery | Combat | Midnight Workshop | 34-30-0 | 53.1% | 53.6s | 152 | Target band |
-| 4 | The Good List | Combat | Harvest Tribunal | 38-26-0 | 59.4% | 87.5s | 414 | Target band |
-| 5 | Thieves' Honor | Combat | Silent Amphitheater | 43-21-0 | 67.2% | 98.5s | 354 | Target band |
-| 6 | The King's Ransom | Combat | Dawnwatch Bastion | 33-31-0 | 51.6% | 116.2s | 450 | Target band |
-| 7 | Bonus: The Quiet Vault | Objective | Gift Vault | — | — | — | — | Not scored |
-| 8 | The Last Gift | Combat | Bellkeeper Vault | 44-20-0 | 68.8% | 183.7s | 283 | Target band |
+| 1 | Ashes Still Warm | Combat | Ashfall Cathedral | 34-30-0 | 53.1% | 112.0s | 68 | Target band |
+| 2 | The Smallest Share | Combat | Parliament Rooftops | 44-20-0 | 68.8% | 29.4s | 48 | Target band |
+| 3 | Salvage Rights | Combat | Carrion Exchange | 37-27-0 | 57.8% | 53.1s | 43 | Target band |
+| 4 | What the Tide Left | Combat | Titan Dock | 24-40-0 | 37.5% | 113.7s | 117 | Too hard / weak matchup |
+| 5 | False Flock | Combat | Cave | 28-36-0 | 43.8% | 162.0s | 297 | Target band |
+| 6 | The Last Auction | Combat | Silent Amphitheater | 29-35-0 | 45.3% | 151.9s | 169 | Target band |
+| 7 | Bonus: Final Inventory | Objective | Sorting Floor | — | — | — | — | Not scored |
+| 8 | The Final Account | Combat | Reclamation Core | 33-4-27 | 89.2% | 225.2s | 283 | Possibly too easy |
 
 ## How to use this report
 

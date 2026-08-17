@@ -589,7 +589,8 @@ final class StoryCampaignContent {
     private static StoryCampaign.Mission termsInDark() {
         return mission("terms_in_dark", "Terms in the Dark",
                 "Decode Vulture's sabotage ledger while the Pact tries to erase it.",
-                CAVE, CARRION, StoryCampaign.PlayablePolicy.choice(BAT, SHOEBILL),
+                CARRION_EXCHANGE, BirdGame3.MapVariant.SORTING_FLOOR, CARRION,
+                StoryCampaign.PlayablePolicy.choice(BAT, SHOEBILL),
                 List.of(),
                 fighters(enemy(OPIUMBIRD, "Haze Keeper"), enemy(RAVEN, "Ledger Shadow")),
                 phases(
@@ -602,7 +603,8 @@ final class StoryCampaignContent {
     private static StoryCampaign.Mission carrionAudience() {
         return mission("carrion_audience", "Carrion Audience",
                 "Beat Vulture cleanly enough to force the whole bargain into the open.",
-                CAVE, CARRION, StoryCampaign.PlayablePolicy.choice(PIGEON, BAT),
+                CARRION_EXCHANGE, BirdGame3.MapVariant.RECLAMATION_CORE, CARRION,
+                StoryCampaign.PlayablePolicy.choice(PIGEON, BAT),
                 List.of(),
                 fighters(
                         boss(VULTURE, "Vulture", 430, 1.52, 1.08),
@@ -918,6 +920,7 @@ final class StoryCampaignContent {
             case SIGNAL_SPIRE -> "music-charles-spire.mp3";
             case SILENT_AMPHITHEATER -> "music-charles-maestro.mp3";
             case MIDNIGHT_WORKSHOP -> "music-grinch-workshop.mp3";
+            case CARRION_EXCHANGE -> "music-vulture-exchange.mp3";
             default -> "music-forest.mp3";
         };
     }
