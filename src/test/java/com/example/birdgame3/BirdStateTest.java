@@ -6440,6 +6440,45 @@ class BirdStateTest {
     }
 
     @Test
+    void razorbillSkimmingRazorCanOnlyBeUsedOncePerAirtimeAndRefreshesOnLanding() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird razorbill = new Bird(220.0, BirdGame3.BirdType.RAZORBILL, 0, game);
+        razorbill.y = BirdGame3.GROUND_Y - razorbill.bodyHeight();
+        game.players[0] = razorbill;
+
+        RazorbillSpecials.side(razorbill, false);
+
+        assertTrue(razorbill.razorbillSideSpecialUsed);
+        assertFalse(RazorbillSpecials.ready(razorbill, Bird.RazorbillSpecialVariant.SIDE));
+        assertTrue(RazorbillSpecials.ready(razorbill, Bird.RazorbillSpecialVariant.UP),
+                "Spending Skimming Razor must not also consume Razorbill's recovery move.");
+
+        razorbill.update(1.0);
+        assertTrue(razorbill.razorbillSideSpecialUsed,
+                "Ground contact during the dash startup must not refresh Skimming Razor.");
+
+        razorbill.y = BirdGame3.GROUND_Y - 260.0;
+        razorbill.stunTime = 4.0;
+        razorbill.update(1.0);
+        razorbill.razorbillSideReuseTimer = 0;
+        assertTrue(razorbill.razorbillSideSpecialUsed,
+                "Being hit out of Skimming Razor must not restore another airborne use.");
+        assertFalse(RazorbillSpecials.ready(razorbill, Bird.RazorbillSpecialVariant.SIDE));
+
+        razorbill.stunTime = 0.0;
+        razorbill.y = BirdGame3.GROUND_Y - razorbill.bodyHeight();
+        razorbill.vx = 0.0;
+        razorbill.vy = 0.0;
+        razorbill.update(1.0);
+
+        assertFalse(razorbill.razorbillSideSpecialUsed);
+        assertTrue(RazorbillSpecials.ready(razorbill, Bird.RazorbillSpecialVariant.SIDE),
+                "Landing should restore exactly one Skimming Razor use.");
+    }
+
+    @Test
     void razorbillGuillotineWakeDamagesAndLeavesLingeringRazorWake() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;

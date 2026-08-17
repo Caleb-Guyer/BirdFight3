@@ -298,6 +298,7 @@ class LanProtocolTest {
         state.falconTerminalVelocityEndX = 401.75;
         state.falconTerminalVelocityEndY = 700.5;
         state.falconTerminalVelocityHit[1] = true;
+        state.razorbillSideSpecialUsed = true;
         state.razorbillGuillotineTimer = 97;
         state.razorbillGuillotineSlashIndex = 4;
         state.razorbillGuillotineWakeTimer = 66;
@@ -586,6 +587,7 @@ class LanProtocolTest {
         assertEquals(401.75, decoded.falconTerminalVelocityEndX);
         assertEquals(700.5, decoded.falconTerminalVelocityEndY);
         assertTrue(decoded.falconTerminalVelocityHit[1]);
+        assertTrue(decoded.razorbillSideSpecialUsed);
         assertEquals(97, decoded.razorbillGuillotineTimer);
         assertEquals(4, decoded.razorbillGuillotineSlashIndex);
         assertEquals(66, decoded.razorbillGuillotineWakeTimer);

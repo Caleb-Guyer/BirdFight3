@@ -45,6 +45,7 @@ final class RazorbillSpecials {
             dir = bird.facingDirection();
         }
         bird.facingRight = dir > 0;
+        bird.razorbillSideSpecialUsed = true;
         bird.razorbillSideReuseTimer = ultimate ? 18 : Bird.RAZORBILL_SIDE_REUSE_FRAMES;
         bird.specialCooldown = bird.razorbillSideReuseTimer;
         bird.specialMaxCooldown = bird.razorbillSideReuseTimer;
@@ -249,7 +250,9 @@ final class RazorbillSpecials {
     static boolean ready(Bird bird, Bird.RazorbillSpecialVariant variant) {
         return switch (variant) {
             case NEUTRAL -> bird.isUltimateReady() || bird.razorbillStormReuseTimer <= 0;
-            case SIDE -> bird.razorbillSideReuseTimer <= 0 && bird.bladeStormFrames <= 0;
+            case SIDE -> !bird.razorbillSideSpecialUsed
+                    && bird.razorbillSideReuseTimer <= 0
+                    && bird.bladeStormFrames <= 0;
             case UP -> !bird.razorbillUpSpecialUsed && bird.razorbillShearTimer <= 0;
             case DOWN -> bird.razorbillCounterReuseTimer <= 0;
         };

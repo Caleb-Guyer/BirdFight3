@@ -167,6 +167,7 @@ class LanBirdState {
     boolean razorbillStormReleased;
     int[] razorbillStormHitCooldown = new int[4];
     int razorbillSideReuseTimer;
+    boolean razorbillSideSpecialUsed;
     boolean razorbillSideUltimate;
     int razorbillShearTimer;
     int razorbillShearDirection;
@@ -789,6 +790,7 @@ class LanBirdState {
             out.writeInt(cooldown);
         }
         out.writeInt(razorbillSideReuseTimer);
+        out.writeBoolean(razorbillSideSpecialUsed);
         out.writeBoolean(razorbillSideUltimate);
         out.writeInt(razorbillShearTimer);
         out.writeInt(razorbillShearDirection);
@@ -1479,6 +1481,7 @@ class LanBirdState {
             state.razorbillStormHitCooldown[i] = in.readInt();
         }
         state.razorbillSideReuseTimer = in.readInt();
+        state.razorbillSideSpecialUsed = in.readBoolean();
         state.razorbillSideUltimate = in.readBoolean();
         state.razorbillShearTimer = in.readInt();
         state.razorbillShearDirection = in.readInt();

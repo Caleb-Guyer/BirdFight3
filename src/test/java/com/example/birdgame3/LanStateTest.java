@@ -59,6 +59,7 @@ class LanStateTest {
         bird.razorbillStormReleased = true;
         bird.razorbillStormHitCooldown[2] = 6;
         bird.razorbillSideReuseTimer = 19;
+        bird.razorbillSideSpecialUsed = true;
         bird.razorbillSideUltimate = true;
         bird.razorbillShearTimer = 11;
         bird.razorbillShearDirection = 1;
@@ -365,6 +366,7 @@ class LanStateTest {
         assertTrue(decoded.birds[0].razorbillStormReleased);
         assertEquals(6, decoded.birds[0].razorbillStormHitCooldown[2]);
         assertEquals(19, decoded.birds[0].razorbillSideReuseTimer);
+        assertTrue(decoded.birds[0].razorbillSideSpecialUsed);
         assertTrue(decoded.birds[0].razorbillSideUltimate);
         assertEquals(11, decoded.birds[0].razorbillShearTimer);
         assertEquals(1, decoded.birds[0].razorbillShearDirection);

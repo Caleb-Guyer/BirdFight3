@@ -961,6 +961,7 @@ public class Bird {
     boolean razorbillStormReleased = false;
     final int[] razorbillStormHitCooldown = new int[4];
     int razorbillSideReuseTimer = 0;
+    boolean razorbillSideSpecialUsed = false;
     boolean razorbillSideUltimate = false;
     int razorbillShearTimer = 0;
     int razorbillShearDirection = 1;
@@ -10645,7 +10646,9 @@ public class Bird {
             game.setAiControlKey(playerIndex, jumpKey(), true);
             return;
         }
-        if (dist > 105.0 && dist < 380.0 && razorbillSideReuseTimer <= 0) {
+        if (dist > 105.0 && dist < 380.0
+                && razorbillSideReuseTimer <= 0
+                && !razorbillSideSpecialUsed) {
             game.setAiControlKey(playerIndex, dir < 0 ? leftKey() : rightKey(), true);
         }
     }
@@ -11536,6 +11539,11 @@ public class Bird {
         }
         if (type == BirdGame3.BirdType.RAZORBILL && isOnGround()) {
             razorbillUpSpecialUsed = false;
+            // Ground contact during startup is still the same Skimming Razor
+            // use. Refresh only after the move ends and Razorbill lands.
+            if (bladeStormFrames <= 0) {
+                razorbillSideSpecialUsed = false;
+            }
         }
         if (type == BirdGame3.BirdType.GRINCHHAWK && isOnGround() && !grinchSleighRiding) {
             grinchUpSpecialUsed = false;
@@ -16631,6 +16639,7 @@ public class Bird {
         resetRazorbillSpecialState();
         razorbillStormReuseTimer = 0;
         razorbillSideReuseTimer = 0;
+        razorbillSideSpecialUsed = false;
         razorbillUpSpecialUsed = false;
         razorbillCounterReuseTimer = 0;
         resetGrinchhawkSpecialState(true);
@@ -16938,6 +16947,7 @@ public class Bird {
         state.razorbillStormReleased = razorbillStormReleased;
         System.arraycopy(razorbillStormHitCooldown, 0, state.razorbillStormHitCooldown, 0, razorbillStormHitCooldown.length);
         state.razorbillSideReuseTimer = razorbillSideReuseTimer;
+        state.razorbillSideSpecialUsed = razorbillSideSpecialUsed;
         state.razorbillSideUltimate = razorbillSideUltimate;
         state.razorbillShearTimer = razorbillShearTimer;
         state.razorbillShearDirection = razorbillShearDirection;
@@ -17621,6 +17631,7 @@ public class Bird {
                     Math.min(this.razorbillStormHitCooldown.length, state.razorbillStormHitCooldown.length));
         }
         this.razorbillSideReuseTimer = Math.max(0, state.razorbillSideReuseTimer);
+        this.razorbillSideSpecialUsed = state.razorbillSideSpecialUsed;
         this.razorbillSideUltimate = state.razorbillSideUltimate;
         this.razorbillShearTimer = Math.max(0, state.razorbillShearTimer);
         this.razorbillShearDirection = state.razorbillShearDirection == 0 ? 1 : state.razorbillShearDirection;
