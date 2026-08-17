@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class StagePreviewRendererTest {
     @Test
-    void everyMainStageAndVariantHasDeterministicPreviewArt() {
+    void everyMainStageAndVariantHasCapturedPreviewArt() {
         Canvas tile = new Canvas(StageSelectLayout.TILE_IMAGE_WIDTH, StageSelectLayout.TILE_IMAGE_HEIGHT);
         Canvas hero = new Canvas(StageSelectLayout.PREVIEW_CANVAS_WIDTH, StageSelectLayout.PREVIEW_CANVAS_HEIGHT);
 
@@ -35,6 +35,39 @@ class StagePreviewRendererTest {
         }
         StagePreviewRenderer.drawRandom(tile);
         StagePreviewRenderer.drawRandom(hero);
+    }
+
+    @Test
+    void capturedStagePhotosAspectFillCardsWithoutDistortion() {
+        StagePreviewRenderer.SourceCrop sameRatio =
+                StagePreviewRenderer.sourceCrop(640, 360, 320, 180);
+        assertEquals(new StagePreviewRenderer.SourceCrop(0, 0, 640, 360), sameRatio);
+
+        StagePreviewRenderer.SourceCrop squareCard =
+                StagePreviewRenderer.sourceCrop(640, 360, 200, 200);
+        assertEquals(140.0, squareCard.x(), 0.0001);
+        assertEquals(0.0, squareCard.y(), 0.0001);
+        assertEquals(360.0, squareCard.width(), 0.0001);
+        assertEquals(360.0, squareCard.height(), 0.0001);
+
+        StagePreviewRenderer.SourceCrop wideCard =
+                StagePreviewRenderer.sourceCrop(640, 360, 400, 160);
+        assertEquals(0.0, wideCard.x(), 0.0001);
+        assertEquals(52.0, wideCard.y(), 0.0001);
+        assertEquals(640.0, wideCard.width(), 0.0001);
+        assertEquals(256.0, wideCard.height(), 0.0001);
+    }
+
+    @Test
+    void featherpediaAndRewardMapArtUsesTheCapturedPreviewRenderer() {
+        for (BirdGame3.MapType map : BirdGame3.MapType.values()) {
+            Canvas backdrop = new Canvas(360, 200);
+            Canvas tile = new Canvas(130, 90);
+            BirdBookUiSupport.drawMapBackdrop(backdrop, map);
+            BirdBookUiSupport.drawMapPreview(tile, map);
+            assertTrue(StagePreviewRenderer.capturedPreviewResourceExists(BirdGame3.StageChoice.main(map)),
+                    "Featherpedia map art needs a real capture for " + map);
+        }
     }
 
     @Test
