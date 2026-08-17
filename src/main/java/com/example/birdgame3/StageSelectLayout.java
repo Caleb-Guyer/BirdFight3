@@ -13,11 +13,11 @@ final class StageSelectLayout {
     static final double PREVIEW_WIDTH = 596.0;
     static final double PREVIEW_HEIGHT = 760.0;
     static final double PREVIEW_CANVAS_WIDTH = 548.0;
-    static final double PREVIEW_CANVAS_HEIGHT = 316.0;
+    static final double PREVIEW_CANVAS_HEIGHT = 308.0;
     static final double TILE_WIDTH = 142.0;
     static final double TILE_HEIGHT = 132.0;
     static final double TILE_IMAGE_WIDTH = 132.0;
-    static final double TILE_IMAGE_HEIGHT = 78.0;
+    static final double TILE_IMAGE_HEIGHT = 74.0;
     static final double HORIZONTAL_GAP = 10.0;
     static final double VERTICAL_GAP = 10.0;
     static final double LEGEND_HEIGHT = 30.0;

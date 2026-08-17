@@ -3,6 +3,7 @@ package com.example.birdgame3;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.effect.Glow;
+import javafx.scene.image.Image;
 import javafx.scene.paint.Color;
 import javafx.scene.paint.CycleMethod;
 import javafx.scene.paint.LinearGradient;
@@ -11,12 +12,24 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.TextAlignment;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+
 import static com.example.birdgame3.BirdGame3.MapType;
 import static com.example.birdgame3.BirdGame3.MapVariant;
 import static com.example.birdgame3.BirdGame3.StageChoice;
 
 /** Draws deterministic, stage-specific menu art. It never consumes simulation randomness. */
 final class StagePreviewRenderer {
+    private static final String RESOURCE_ROOT = "/stage-previews/";
+    private static final Map<String, Image> CAPTURE_CACHE = new HashMap<>();
+    private static final Set<String> MISSING_CAPTURES = new HashSet<>();
+
     private StagePreviewRenderer() {
     }
 
@@ -31,6 +44,11 @@ final class StagePreviewRenderer {
         g.rect(0, 0, w, h);
         g.clip();
 
+        if (drawCapturedPreview(g, w, h, stage)) {
+            g.restore();
+            return;
+        }
+
         drawBackground(g, w, h, stage);
         if (stage.variant() == MapVariant.STANDARD) {
             drawMainGeometry(g, w, h, stage.map());
@@ -39,6 +57,51 @@ final class StagePreviewRenderer {
         }
         drawAtmosphericFinish(g, w, h, accentFor(stage));
         g.restore();
+    }
+
+    static String resourceFileName(StageChoice choice) {
+        StageChoice stage = choice == null ? StageChoice.main(MapType.FOREST) : choice;
+        String prefix = stage.variant() == MapVariant.STANDARD ? "main-" : "variant-";
+        String key = stage.variant() == MapVariant.STANDARD
+                ? stage.map().name()
+                : stage.variant().name();
+        return prefix + key.toLowerCase(Locale.ROOT).replace('_', '-') + ".png";
+    }
+
+    static boolean capturedPreviewResourceExists(StageChoice choice) {
+        return StagePreviewRenderer.class.getResource(RESOURCE_ROOT + resourceFileName(choice)) != null;
+    }
+
+    private static boolean drawCapturedPreview(GraphicsContext g, double w, double h, StageChoice stage) {
+        String fileName = resourceFileName(stage);
+        Image capture = CAPTURE_CACHE.get(fileName);
+        if (capture == null && !MISSING_CAPTURES.contains(fileName)) {
+            try (InputStream stream = StagePreviewRenderer.class.getResourceAsStream(RESOURCE_ROOT + fileName)) {
+                if (stream == null) {
+                    MISSING_CAPTURES.add(fileName);
+                } else {
+                    capture = new Image(stream);
+                    if (capture.isError()) {
+                        MISSING_CAPTURES.add(fileName);
+                        capture = null;
+                    } else {
+                        CAPTURE_CACHE.put(fileName, capture);
+                    }
+                }
+            } catch (IOException ignored) {
+                MISSING_CAPTURES.add(fileName);
+            }
+        }
+        if (capture == null) {
+            return false;
+        }
+        g.drawImage(capture, 0, 0, w, h);
+        g.setFill(new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
+                new Stop(0, Color.web("#000000", 0.03)),
+                new Stop(0.72, Color.TRANSPARENT),
+                new Stop(1, Color.web("#000000", 0.22))));
+        g.fillRect(0, 0, w, h);
+        return true;
     }
 
     static void drawRandom(Canvas canvas) {

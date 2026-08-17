@@ -18,6 +18,8 @@ class StagePreviewRendererTest {
 
         for (BirdGame3.MapType map : BirdGame3.MapType.values()) {
             BirdGame3.StageChoice choice = BirdGame3.StageChoice.main(map);
+            assertTrue(StagePreviewRenderer.capturedPreviewResourceExists(choice),
+                    "Missing literal stage capture for " + map);
             StagePreviewRenderer.draw(tile, choice);
             StagePreviewRenderer.draw(hero, choice);
             assertNotNull(StagePreviewRenderer.accentFor(choice), map.name());
@@ -25,6 +27,8 @@ class StagePreviewRendererTest {
         for (BirdGame3.MapVariant variant : BirdGame3.MapVariant.values()) {
             if (variant == BirdGame3.MapVariant.STANDARD) continue;
             BirdGame3.StageChoice choice = new BirdGame3.StageChoice(variant.baseMap, variant);
+            assertTrue(StagePreviewRenderer.capturedPreviewResourceExists(choice),
+                    "Missing literal stage capture for " + variant);
             StagePreviewRenderer.draw(tile, choice);
             StagePreviewRenderer.draw(hero, choice);
             assertNotNull(StagePreviewRenderer.accentFor(choice), variant.name());

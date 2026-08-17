@@ -1099,6 +1099,7 @@ public class BirdGame3 {
     private boolean fullscreenEnabled = true;
     private boolean particleEffectsEnabled = true;
     private boolean ambientEffectsEnabled = true;
+    private boolean stageCaptureBackdropEnabled = false;
     private int fpsCap = 60;
     private String lastSeenUpdateSplashKey = "";
     private final FrameRateLimiter frameRateLimiter = new FrameRateLimiter();
@@ -13681,6 +13682,9 @@ public class BirdGame3 {
 
     private void drawGame(GraphicsContext g) {
         g.clearRect(0, 0, WIDTH, HEIGHT);
+        if (stageCaptureBackdropEnabled) {
+            drawStageCaptureBackdrop(g);
+        }
         g.save();
         g.scale(zoom, zoom);
         g.translate(-camX, -camY);
@@ -14243,6 +14247,48 @@ public class BirdGame3 {
                     176.0 + charge * 36.0, 70.0 + charge * 24.0,
                     12, 156, ArcType.OPEN);
         }
+    }
+
+    private void drawStageCaptureBackdrop(GraphicsContext g) {
+        Color top;
+        Color bottom;
+        switch (selectedMap) {
+            case DOCK -> {
+                top = Color.web("#0F3047");
+                bottom = Color.web("#0A171F");
+            }
+            case ASHFALL_CATHEDRAL -> {
+                top = Color.web("#09050A");
+                bottom = Color.web("#F4511E");
+            }
+            case FROSTBITE_FJORD -> {
+                top = Color.web("#08142C");
+                bottom = Color.web("#AEEBFF");
+            }
+            case DESERT -> {
+                top = Color.web("#F3A85A");
+                bottom = Color.web("#D59A52");
+            }
+            case BATTLEFIELD -> {
+                top = Color.web("#10283E");
+                bottom = Color.web("#D5D7B6");
+            }
+            case PRISON -> {
+                top = Color.web("#071018");
+                bottom = Color.web("#05090D");
+            }
+            case FOREST -> {
+                top = Color.web("#87CEEB");
+                bottom = Color.web("#E0F2F1");
+            }
+            default -> {
+                top = Color.web("#000011");
+                bottom = Color.web("#000011");
+            }
+        }
+        g.setFill(new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
+                new Stop(0, top), new Stop(1, bottom)));
+        g.fillRect(0, 0, WIDTH, HEIGHT);
     }
 
     private void drawSignalSpireArena(GraphicsContext g, boolean ambientFx) {
@@ -51166,6 +51212,45 @@ public class BirdGame3 {
         label.setTextAlignment(TextAlignment.LEFT);
         applyNoEllipsis(label);
         return label;
+    }
+
+    /**
+     * Renders the real playable arena without fighters or HUD for the bundled
+     * stage-select captures. Call this only on a dedicated off-screen instance;
+     * arena setup intentionally replaces that instance's current match state.
+     */
+    Canvas captureActualStagePreview(StageChoice choice, double outputWidth, double outputHeight) {
+        StageChoice stage = choice == null ? StageChoice.main(MapType.FOREST) : choice;
+        long seed = 0x57A6_ECA9_7E21L
+                ^ ((long) stage.map().ordinal() << 24)
+                ^ ((long) stage.variant().ordinal() << 8);
+        resetHeadlessHarness(seed);
+        selectedMap = stage.map();
+        selectedMapVariant = stage.variant();
+        Arrays.fill(players, null);
+        Arrays.fill(isAI, false);
+        activePlayers = 0;
+        ambientEffectsEnabled = false;
+        particleEffectsEnabled = false;
+        stageCaptureBackdropEnabled = true;
+        screenShakeEnabled = false;
+        shakeIntensity = 0.0;
+        setupMatchArenaGeometry();
+        applySelectedMapVariantArena();
+
+        // A real match camera at this zoom fills the full 16:9 frame while
+        // preserving nearly the entire authored 6000x3000 arena.
+        zoom = HEIGHT / WORLD_HEIGHT;
+        camX = Math.max(0.0, (WORLD_WIDTH - WIDTH / zoom) * 0.5);
+        camY = 0.0;
+
+        Canvas capture = new Canvas(outputWidth, outputHeight);
+        GraphicsContext graphics = capture.getGraphicsContext2D();
+        graphics.save();
+        graphics.scale(outputWidth / WIDTH, outputHeight / HEIGHT);
+        drawGame(graphics);
+        graphics.restore();
+        return capture;
     }
 
     private HBox stageSelectLegendChip(String marker, String labelText, String accent) {
