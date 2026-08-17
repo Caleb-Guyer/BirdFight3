@@ -932,10 +932,10 @@ public class Bird {
     public int eagleAscentFrames = 0;
     final boolean[] eagleAscentHit = new boolean[4];
     public int bladeStormFrames = 0;
-    static final int RAZORBILL_DASH_FRAMES = 26;
-    static final int RAZORBILL_DASH_STARTUP_FRAMES = 7;
-    static final int RAZORBILL_DASH_HIT_RECOVERY_FRAMES = 22;
-    static final double RAZORBILL_DASH_SPEED = 22.0;
+    static final int RAZORBILL_DASH_FRAMES = 20;
+    static final int RAZORBILL_DASH_STARTUP_FRAMES = 4;
+    static final double RAZORBILL_DASH_SPEED = 34.0;
+    static final double RAZORBILL_DASH_VERTICAL_SPEED = 8.0;
     static final int RAZORBILL_STORM_MAX_HOLD_FRAMES = 78;
     static final int RAZORBILL_STORM_RELEASE_FRAMES = 10;
     static final int RAZORBILL_NEUTRAL_REUSE_FRAMES = 36;
@@ -18575,6 +18575,10 @@ public class Bird {
                 || shoebillCounterBurstTimer > 0 || shoebillFinalStillnessTimer > 0);
     }
 
+    private boolean razorbillSpecialPoseActive() {
+        return type == BirdGame3.BirdType.RAZORBILL && bladeStormFrames > 0;
+    }
+
     private boolean grinchhawkSpecialPoseActive() {
         return type == BirdGame3.BirdType.GRINCHHAWK
                 && (grinchHeartSnatchTimer > 0 || grinchSleighRiding || grinchChimneyFlapTimer > 0
@@ -19459,6 +19463,35 @@ public class Bird {
                 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0);
     }
 
+    private AttackVisualPose currentRazorbillSpecialPose() {
+        double dashX = Math.abs(razorbillDashVX) < 0.01
+                ? facingDirection() * RAZORBILL_DASH_SPEED
+                : razorbillDashVX;
+        double dashY = Math.abs(razorbillDashVY) < 0.01
+                ? -RAZORBILL_DASH_VERTICAL_SPEED
+                : razorbillDashVY;
+        double aimAngle = Math.atan2(dashY, dashX);
+        double dir = dashX >= 0.0 ? 1.0 : -1.0;
+        int activeFrames = razorbillSideUltimate
+                ? RAZORBILL_DASH_FRAMES + 10
+                : RAZORBILL_DASH_FRAMES;
+        boolean startup = bladeStormFrames > activeFrames;
+        double drive = startup ? 0.42 : 1.0;
+        return new AttackVisualPose(
+                dir * (-4.0 + drive * 12.0),
+                2.0 - drive * 6.0,
+                0.0,
+                aimAngle,
+                7.0 + drive * 12.0,
+                -2.0 - drive * 4.0,
+                8.0 + drive * 13.0,
+                0.78,
+                -dir * (2.0 + drive * 5.0),
+                1.04 + drive * 0.10,
+                1.0 - drive * 0.10
+        );
+    }
+
     private AttackVisualPose currentMockingbirdSpecialPose() {
         double dir = facingRight ? 1.0 : -1.0;
         if (mockingbirdMicCharging) {
@@ -20246,7 +20279,7 @@ public class Bird {
     private NormalAttackVariant currentDisplayedAttackVariant() {
         if (pigeonSpecialPoseActive() || phoenixSpecialPoseActive() || raptorSpecialPoseActive()
                 || turkeySpecialPoseActive() || penguinSpecialPoseActive() || shoebillSpecialPoseActive()
-                || mockingbirdSpecialPoseActive() || opiumSpecialPoseActive()
+                || razorbillSpecialPoseActive() || mockingbirdSpecialPoseActive() || opiumSpecialPoseActive()
                 || grinchhawkSpecialPoseActive() || ravenSpecialPoseActive()
                 || gooseSpecialPoseActive() || kiwiSpecialPoseActive()) {
             return null;
@@ -20571,7 +20604,7 @@ public class Bird {
                 || isChargingAttack() || attackAnimationTimer > 0 || aerialAttackActive
                 || pigeonSpecialPoseActive() || phoenixSpecialPoseActive() || raptorSpecialPoseActive()
                 || turkeySpecialPoseActive() || penguinSpecialPoseActive() || shoebillSpecialPoseActive()
-                || mockingbirdSpecialPoseActive() || opiumSpecialPoseActive()
+                || razorbillSpecialPoseActive() || mockingbirdSpecialPoseActive() || opiumSpecialPoseActive()
                 || grinchhawkSpecialPoseActive() || ravenSpecialPoseActive() || pelicanSpecialPoseActive()
                 || gooseSpecialPoseActive()
                 || (type == BirdGame3.BirdType.KIWI && KiwiSpecials.active(this))) {
@@ -23394,6 +23427,9 @@ public class Bird {
         }
         if (shoebillSpecialPoseActive()) {
             return currentShoebillSpecialPose();
+        }
+        if (razorbillSpecialPoseActive()) {
+            return currentRazorbillSpecialPose();
         }
         if (mockingbirdSpecialPoseActive()) {
             return currentMockingbirdSpecialPose();

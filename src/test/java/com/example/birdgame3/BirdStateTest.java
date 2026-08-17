@@ -6366,30 +6366,77 @@ class BirdStateTest {
     }
 
     @Test
-    void razorbillSkimmingRazorBrakesOnHitForCliffShearFollowUp() {
+    void razorbillSkimmingRazorSlicesThroughMultipleEnemiesWithoutBraking() {
         BirdGame3 game = new BirdGame3();
-        game.activePlayers = 2;
+        game.activePlayers = 3;
 
         Bird razorbill = new Bird(220.0, BirdGame3.BirdType.RAZORBILL, 0, game);
-        Bird target = new Bird(270.0, BirdGame3.BirdType.PIGEON, 1, game);
+        Bird firstTarget = new Bird(270.0, BirdGame3.BirdType.PIGEON, 1, game);
+        Bird secondTarget = new Bird(310.0, BirdGame3.BirdType.EAGLE, 2, game);
         razorbill.y = BirdGame3.GROUND_Y - razorbill.bodyHeight();
-        target.y = BirdGame3.GROUND_Y - target.bodyHeight();
+        firstTarget.y = BirdGame3.GROUND_Y - firstTarget.bodyHeight();
+        secondTarget.y = BirdGame3.GROUND_Y - secondTarget.bodyHeight();
         game.players[0] = razorbill;
-        game.players[1] = target;
+        game.players[1] = firstTarget;
+        game.players[2] = secondTarget;
 
         RazorbillSpecials.side(razorbill, false);
-        double committedSpeed = Math.abs(razorbill.razorbillDashVX);
+        double committedVX = razorbill.razorbillDashVX;
+        double committedVY = razorbill.razorbillDashVY;
+        double firstHealth = firstTarget.health;
+        double secondHealth = secondTarget.health;
         razorbill.bladeStormFrames = Bird.RAZORBILL_DASH_FRAMES;
         RazorbillSpecials.handleBladeStorm(razorbill);
 
-        assertTrue(razorbill.razorbillDashHit[target.playerIndex]);
-        assertEquals(Bird.RAZORBILL_DASH_HIT_RECOVERY_FRAMES, razorbill.bladeStormFrames,
-                "A confirmed cut should shorten the remaining commitment.");
-        assertTrue(Math.abs(razorbill.razorbillDashVX) < committedSpeed * 0.5,
-                "A confirmed cut should brake instead of dragging Razorbill past the target.");
-        assertEquals(razorbill.razorbillDashVX, razorbill.vx, 0.0001);
-        assertTrue(razorbill.vy < 0.0,
-                "The hit-confirm brake should leave Razorbill rising into Cliff Shear's route.");
+        assertTrue(firstTarget.health < firstHealth);
+        assertTrue(secondTarget.health < secondHealth);
+        assertTrue(razorbill.razorbillDashHit[firstTarget.playerIndex]);
+        assertTrue(razorbill.razorbillDashHit[secondTarget.playerIndex]);
+        assertEquals(Bird.RAZORBILL_DASH_FRAMES, razorbill.bladeStormFrames,
+                "Enemy contact must not shorten the piercing dash.");
+        assertEquals(committedVX, razorbill.razorbillDashVX, 0.0001);
+        assertEquals(committedVY, razorbill.razorbillDashVY, 0.0001);
+        assertEquals(committedVX, razorbill.vx, 0.0001,
+                "Razorbill should retain full horizontal speed while cutting through enemies.");
+        assertEquals(committedVY, razorbill.vy, 0.0001,
+                "Razorbill should retain the authored diagonal while cutting through enemies.");
+    }
+
+    @Test
+    void razorbillSkimmingRazorIsFastShallowDiagonalAndHeadLeadsPath() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird right = new Bird(220.0, BirdGame3.BirdType.RAZORBILL, 0, game);
+        right.y = BirdGame3.GROUND_Y - right.bodyHeight();
+        right.facingRight = true;
+        game.players[0] = right;
+
+        RazorbillSpecials.side(right, false);
+
+        assertTrue(right.razorbillDashVX >= 30.0,
+                "Skimming Razor should commit at its new high horizontal speed.");
+        assertTrue(right.razorbillDashVY < 0.0);
+        assertTrue(Math.abs(right.razorbillDashVX) > Math.abs(right.razorbillDashVY) * 3.5,
+                "The diagonal should be much more horizontal than vertical.");
+        Object rightPose = invokePrivateObjectMethod(right, "currentRazorbillSpecialPose");
+        assertEquals(Math.atan2(right.razorbillDashVY, right.razorbillDashVX),
+                invokeDoubleMethod(rightPose, "aimAngleRadians"), 0.0001,
+                "Razorbill's head and bill should point along the dash vector.");
+
+        Bird left = new Bird(420.0, BirdGame3.BirdType.RAZORBILL, 0, game);
+        left.y = BirdGame3.GROUND_Y - left.bodyHeight();
+        left.facingRight = false;
+        game.players[0] = left;
+
+        RazorbillSpecials.side(left, false);
+
+        assertTrue(left.razorbillDashVX <= -30.0);
+        Object leftPose = invokePrivateObjectMethod(left, "currentRazorbillSpecialPose");
+        assertEquals(Math.atan2(left.razorbillDashVY, left.razorbillDashVX),
+                invokeDoubleMethod(leftPose, "aimAngleRadians"), 0.0001);
+        assertTrue(Math.cos(invokeDoubleMethod(leftPose, "aimAngleRadians")) < 0.0,
+                "The head pose should reverse cleanly when the dash travels left.");
     }
 
     @Test

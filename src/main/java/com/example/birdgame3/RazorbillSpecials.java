@@ -53,17 +53,22 @@ final class RazorbillSpecials {
                 + Bird.RAZORBILL_DASH_STARTUP_FRAMES;
         Arrays.fill(bird.razorbillDashHit, false);
 
-        double dashSpeed = Math.max(14.0, Bird.RAZORBILL_DASH_SPEED * (ultimate ? 1.22 : 1.0) * bird.speedMultiplier);
+        double dashSpeed = Math.max(30.0,
+                Bird.RAZORBILL_DASH_SPEED * (ultimate ? 1.22 : 1.0) * bird.speedMultiplier);
+        double verticalSpeed = Bird.RAZORBILL_DASH_VERTICAL_SPEED
+                * Math.clamp(Math.sqrt(Math.max(0.1, bird.speedMultiplier)), 0.90, 1.15);
         bird.razorbillDashVX = dir * dashSpeed;
-        bird.razorbillDashVY = Math.min(bird.vy * 0.35, bird.isOnGround() ? -1.2 : 2.0);
-        bird.vx *= 0.34;
-        bird.vy *= 0.52;
+        bird.razorbillDashVY = -verticalSpeed;
+        bird.vx *= 0.25;
+        bird.vy *= 0.35;
         bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, Bird.RAZORBILL_DASH_STARTUP_FRAMES + 3);
 
         bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, ultimate ? 12 : 7);
+        double trailReach = (ultimate ? 220.0 : 180.0) * bird.sizeMultiplier;
+        double trailRise = trailReach * bird.razorbillDashVY / Math.max(1.0, Math.abs(bird.razorbillDashVX));
         emitSlashTrail(bird, bird.bodyCenterX() - dir * 40.0 * bird.sizeMultiplier, bird.bodyCenterY(),
-                bird.bodyCenterX() + dir * (ultimate ? 190.0 : 150.0) * bird.sizeMultiplier,
-                bird.bodyCenterY() - 8.0 * bird.sizeMultiplier,
+                bird.bodyCenterX() + dir * trailReach,
+                bird.bodyCenterY() + trailRise,
                 ultimate ? 32 : 22,
                 ultimate ? Color.GOLD.brighter() : Color.web("#80DEEA"));
     }
@@ -795,22 +800,16 @@ final class RazorbillSpecials {
         double dashY = bird.razorbillDashVY;
         double dashMag = Math.hypot(dashX, dashY);
         if (dashMag < 0.1) {
-            dashX = bird.vx;
-            dashY = bird.vy;
-            dashMag = Math.hypot(dashX, dashY);
-            if (dashMag < 0.1) {
-                dashX = bird.facingRight ? 1 : -1;
-                dashY = 0;
-                dashMag = 1.0;
-            }
-            double dashSpeed = Math.max(12.0, Bird.RAZORBILL_DASH_SPEED * bird.speedMultiplier);
-            bird.razorbillDashVX = dashX / dashMag * dashSpeed;
-            bird.razorbillDashVY = dashY / dashMag * dashSpeed;
+            double dir = bird.facingRight ? 1.0 : -1.0;
+            double dashSpeed = Math.max(30.0, Bird.RAZORBILL_DASH_SPEED * bird.speedMultiplier);
+            bird.razorbillDashVX = dir * dashSpeed;
+            bird.razorbillDashVY = -Bird.RAZORBILL_DASH_VERTICAL_SPEED;
             dashX = bird.razorbillDashVX;
             dashY = bird.razorbillDashVY;
             dashMag = Math.hypot(dashX, dashY);
         }
 
+        bird.facingRight = dashX > 0.0;
         bird.vx = dashX;
         bird.vy = dashY;
 
@@ -835,18 +834,12 @@ final class RazorbillSpecials {
             if (dealt <= 0) continue;
 
             bird.razorbillDashHit[other.playerIndex] = true;
-            bird.bladeStormFrames = Math.min(bird.bladeStormFrames, Bird.RAZORBILL_DASH_HIT_RECOVERY_FRAMES);
-            bird.razorbillDashVX = dirX * Math.min(9.0, dashMag * 0.42);
-            bird.razorbillDashVY = Math.min(-5.8, dashY * 0.25);
-            bird.vx = bird.razorbillDashVX;
-            bird.vy = bird.razorbillDashVY;
-
-            bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, 14);
-            bird.game.hitstopFrames = Math.max(bird.game.hitstopFrames, 6);
+            bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, 11);
+            bird.game.hitstopFrames = Math.max(bird.game.hitstopFrames, 3);
         }
 
-        if (bird.bladeStormFrames % 3 == 0) {
-            for (int i = 0; i < 6; i++) {
+        if (bird.bladeStormFrames % 2 == 0) {
+            for (int i = 0; i < 7; i++) {
                 double angle = Math.atan2(dirY, dirX) + Math.PI + (bird.game.nextParticleRandom() - 0.5) * 0.9;
                 double speed = 4 + bird.game.nextParticleRandom() * 6;
                 bird.game.particles.add(new Particle(
