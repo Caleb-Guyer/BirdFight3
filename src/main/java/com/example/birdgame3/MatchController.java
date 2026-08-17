@@ -492,6 +492,10 @@ final class MatchController {
             game.finishClassicBetweenLinesFromTimeout();
             return;
         }
+        if (game.isClassicQuietVaultActive() && game.matchTimer <= 0) {
+            game.finishClassicQuietVaultFromTimeout();
+            return;
+        }
         if (game.isClassicSeamWardenActive() && game.matchTimer <= 0) {
             game.finishClassicSeamWardenFromTimeout();
             return;
@@ -564,6 +568,9 @@ final class MatchController {
             return;
         }
         if (game.holdClassicRazorbillEncounterOpen()) {
+            return;
+        }
+        if (game.holdClassicGrinchHawkEncounterOpen()) {
             return;
         }
         if (game.campaignModeActive) {

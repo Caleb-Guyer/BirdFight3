@@ -2,7 +2,7 @@ package com.example.birdgame3;
 
 /** Fixed 1920x1080 stage-select geometry. Every future stage must preserve the no-scroll contract. */
 final class StageSelectLayout {
-    static final int GRID_COLUMNS = 8;
+    static final int GRID_COLUMNS = 9;
     static final int MAX_GRID_ROWS = 5;
     static final double ROOT_TOP_PADDING = 18.0;
     static final double ROOT_BOTTOM_PADDING = 18.0;
@@ -14,9 +14,9 @@ final class StageSelectLayout {
     static final double PREVIEW_HEIGHT = 760.0;
     static final double PREVIEW_CANVAS_WIDTH = 548.0;
     static final double PREVIEW_CANVAS_HEIGHT = 308.0;
-    static final double TILE_WIDTH = 142.0;
+    static final double TILE_WIDTH = 126.0;
     static final double TILE_HEIGHT = 132.0;
-    static final double TILE_IMAGE_WIDTH = 132.0;
+    static final double TILE_IMAGE_WIDTH = 116.0;
     static final double TILE_IMAGE_HEIGHT = 74.0;
     static final double HORIZONTAL_GAP = 10.0;
     static final double VERTICAL_GAP = 10.0;

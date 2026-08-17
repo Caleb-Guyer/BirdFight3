@@ -234,7 +234,8 @@ final class ClassicBalanceLab {
                 || style == ClassicEncounterStyle.ICE_ARCHITECT
                 || style == ClassicEncounterStyle.RIPPLE_HUNT
                 || style == ClassicEncounterStyle.PERFECT_PITCH
-                || style == ClassicEncounterStyle.BETWEEN_LINES;
+                || style == ClassicEncounterStyle.BETWEEN_LINES
+                || style == ClassicEncounterStyle.QUIET_VAULT;
     }
 
     private static String encounterMapName(ClassicEncounter encounter) {

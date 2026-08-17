@@ -6,18 +6,18 @@
 - Objective/bonus rounds: listed but not simulated
 - Metric: team clear rate in the real Classic encounter setup
 
-## Razorbill
+## Grinch-Hawk
 
 | Round | Encounter | Kind | Map | W-L-D | Clear rate | Avg time | Damage dealt | Read |
 |---:|---|---|---|---:|---:|---:|---:|---|
-| 1 | First Incision | Combat | Glasswind Causeway | 60-4-0 | 93.8% | 82.7s | 131 | Possibly too easy |
-| 2 | Death by a Thousand Cuts | Combat | Parliament Rooftops | 44-20-0 | 68.8% | 73.0s | 138 | Target band |
-| 3 | The Blunt Edge | Combat | Obsidian Foundry | 39-25-0 | 60.9% | 86.1s | 142 | Target band |
-| 4 | The Hand That Holds | Combat | Prison | 57-7-0 | 89.1% | 76.4s | 130 | Possibly too easy |
-| 5 | A Perfect Reflection | Combat | Glasswind Causeway | 42-22-0 | 65.6% | 103.0s | 149 | Target band |
-| 6 | Bonus: Between the Lines | Objective | Worldseam | — | — | — | — | Not scored |
-| 7 | The Broken Guard | Combat | Worldseam | 26-38-0 | 40.6% | 199.1s | 259 | Target band |
-| 8 | The Last Division | Combat | Worldseam | 40-24-0 | 62.5% | 151.6s | 252 | Target band |
+| 1 | The First Package | Combat | Parliament Rooftops | 44-20-0 | 68.8% | 20.8s | 73 | Target band |
+| 2 | Cold Storage | Combat | Last Ice Shelf | 40-24-0 | 62.5% | 74.1s | 153 | Target band |
+| 3 | Express Delivery | Combat | Midnight Workshop | 34-30-0 | 53.1% | 53.6s | 152 | Target band |
+| 4 | The Good List | Combat | Harvest Tribunal | 38-26-0 | 59.4% | 87.5s | 414 | Target band |
+| 5 | Thieves' Honor | Combat | Silent Amphitheater | 43-21-0 | 67.2% | 98.5s | 354 | Target band |
+| 6 | The King's Ransom | Combat | Dawnwatch Bastion | 33-31-0 | 51.6% | 116.2s | 450 | Target band |
+| 7 | Bonus: The Quiet Vault | Objective | Gift Vault | — | — | — | — | Not scored |
+| 8 | The Last Gift | Combat | Bellkeeper Vault | 44-20-0 | 68.8% | 183.7s | 283 | Target band |
 
 ## How to use this report
 

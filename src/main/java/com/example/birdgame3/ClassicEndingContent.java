@@ -306,6 +306,25 @@ final class ClassicEndingContent {
                             beat("I cut command away from the Crown, then divided its power into seven seals no single ruler can open.", Tableau.CROWN_TRANSFORMATION),
                             beat("The Worldseam closed. Gates still join distant skies, but they open only when both sides choose the crossing.", Tableau.CHANGED_WORLD),
                             beat("A blade is not freedom. It only makes the space where freedom must decide what comes next.", Tableau.FINAL_PORTRAIT)
+                    )),
+            ending(
+                    BirdGame3.BirdType.GRINCHHAWK,
+                    "THE LONGEST NIGHT",
+                    "THE OPEN SACK",
+                    "RELEASE - The Crown becomes a sack that opens hoarded vaults but can command no owner.",
+                    Alignment.AMBIGUOUS,
+                    BirdGame3.BirdType.SHOEBILL,
+                    "The Bellkeeper",
+                    "",
+                    BirdGame3.MapType.MIDNIGHT_WORKSHOP,
+                    "music-grinch-ending.mp3",
+                    monologue(
+                            beat("The Bellkeeper called it generosity. Every gift still had his name on it.", Tableau.BOSS_AFTERMATH),
+                            beat("The Crown offered every lock, every ledger, every heart that mistook possession for love.", Tableau.CROWN_DISCOVERY),
+                            beat("I could have owned it all. That sounded exactly like him.", Tableau.DECISION),
+                            beat("I stitched the Crown into a bottomless sack and cut the name from every key it held.", Tableau.CROWN_TRANSFORMATION),
+                            beat("Food, tools, and medicine poured from hoarded vaults. The world became louder, kinder, and much less orderly.", Tableau.CHANGED_WORLD),
+                            beat("I didn't give the world anything. I just stole the word 'mine.'", Tableau.FINAL_PORTRAIT)
                     ))
     );
 
@@ -344,6 +363,10 @@ final class ClassicEndingContent {
 
     static boolean isRazorbillFinalCut(Cinematic cinematic) {
         return cinematic != null && cinematic.narrator() == BirdGame3.BirdType.RAZORBILL;
+    }
+
+    static boolean isGrinchHawkOpenSack(Cinematic cinematic) {
+        return cinematic != null && cinematic.narrator() == BirdGame3.BirdType.GRINCHHAWK;
     }
 
     static Cinematic withRouteRecord(Ending ending, int birdCoins, int score, String mapReward) {

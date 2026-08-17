@@ -647,8 +647,8 @@ final class StoryCampaignContent {
 
     private static StoryCampaign.Mission stolenWinter() {
         return mission("stolen_winter", "Stolen Winter",
-                "Chase Grinch-Hawk through the fjord and recover the thermal key before the ice splits.",
-                FROSTBITE_FJORD, ANCHOR_ASSAULT,
+                "Chase Grinch-Hawk through his midnight workshop and recover the thermal key before the presses seal it away.",
+                MIDNIGHT_WORKSHOP, BirdGame3.MapVariant.GIFT_VAULT, ANCHOR_ASSAULT,
                 StoryCampaign.PlayablePolicy.choice(GOOSE, ROOSTER),
                 List.of(),
                 fighters(boss(GRINCHHAWK, "Grinch-Hawk", 320, 1.39, 1.18)),
@@ -662,8 +662,9 @@ final class StoryCampaignContent {
 
     private static StoryCampaign.Mission masterKey() {
         return mission("master_key", "The Master Key",
-                "Catch Raven at the desert relay and decide whether the coalition can use a spy it cannot trust.",
-                DESERT, ANCHOR_ASSAULT, StoryCampaign.PlayablePolicy.forced(MOCKINGBIRD),
+                "Catch Raven inside the Bellkeeper vault and decide whether the coalition can use a spy it cannot trust.",
+                MIDNIGHT_WORKSHOP, BirdGame3.MapVariant.BELLKEEPER_VAULT, ANCHOR_ASSAULT,
+                StoryCampaign.PlayablePolicy.forced(MOCKINGBIRD),
                 List.of(),
                 fighters(boss(RAVEN, "Raven", 330, 1.41, 1.27)),
                 phases(
@@ -916,6 +917,7 @@ final class StoryCampaignContent {
             case RESONANCE_HALL -> "music-charles-hall.mp3";
             case SIGNAL_SPIRE -> "music-charles-spire.mp3";
             case SILENT_AMPHITHEATER -> "music-charles-maestro.mp3";
+            case MIDNIGHT_WORKSHOP -> "music-grinch-workshop.mp3";
             default -> "music-forest.mp3";
         };
     }
@@ -1166,13 +1168,13 @@ final class StoryCampaignContent {
                 List.of(HUMMINGBIRD, TITMOUSE), false, false));
         scenes.add(scene("s56_opium_joins", "The Twelfth Future", VIBRANT_JUNGLE,
                 List.of(), false, false));
-        scenes.add(scene("s57_stolen_winter", "Stolen Winter", FROSTBITE_FJORD,
+        scenes.add(scene("s57_stolen_winter", "Stolen Winter", MIDNIGHT_WORKSHOP,
                 List.of(GOOSE, ROOSTER), false, false));
         scenes.add(scene("s58_grinch_joins", "The Stolen Key", FROSTBITE_FJORD,
                 List.of(), false, false));
-        scenes.add(scene("s59_master_key", "The Master Key", DESERT,
+        scenes.add(scene("s59_master_key", "The Master Key", MIDNIGHT_WORKSHOP,
                 List.of(MOCKINGBIRD), false, false));
-        scenes.add(scene("s60_raven_joins", "No Clean Side", DESERT,
+        scenes.add(scene("s60_raven_joins", "No Clean Side", MIDNIGHT_WORKSHOP,
                 List.of(), false, false));
     }
 

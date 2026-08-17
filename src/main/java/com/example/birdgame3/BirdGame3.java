@@ -684,7 +684,7 @@ public class BirdGame3 {
         DOCK, FROSTBITE_FJORD, ASHFALL_CATHEDRAL, PRISON,
         // Append-only: map ordinals are persisted by replays and network setup.
         RESONANCE_HALL, SIGNAL_SPIRE, SILENT_AMPHITHEATER,
-        GLASSWIND_CAUSEWAY, WORLDSEAM
+        GLASSWIND_CAUSEWAY, WORLDSEAM, MIDNIGHT_WORKSHOP
     }
 
     /** Reusable arena layouts originally authored for story and boss modes. */
@@ -709,7 +709,9 @@ public class BirdGame3 {
         REDLINE_CANYON(MapType.DESERT, "Classic Routes", "Redline Canyon", "A sunset highway carved through towering mesas, stone arches, tunnels, switchbacks, and dust-devil lifts."),
         LAST_ICE_SHELF(MapType.FROSTBITE_FJORD, "Classic Routes", "Last Ice Shelf", "An aurora-lit iceberg fortress whose terraces, arches, and recovery shelves are carved from one connected glacier."),
         STILLWATER_MARSH(MapType.FOREST, "Classic Routes", "Stillwater Marsh", "A moonlit flooded marsh whose fighting surfaces grow from one web of cypress roots and ruined shrine stone."),
-        OBSIDIAN_FOUNDRY(MapType.ASHFALL_CATHEDRAL, "Classic Routes", "Obsidian Foundry", "A cooled volcanic blade foundry whose basalt floor, suspended presses, and recovery shelves form one readable industrial structure.");
+        OBSIDIAN_FOUNDRY(MapType.ASHFALL_CATHEDRAL, "Classic Routes", "Obsidian Foundry", "A cooled volcanic blade foundry whose basalt floor, suspended presses, and recovery shelves form one readable industrial structure."),
+        GIFT_VAULT(MapType.MIDNIGHT_WORKSHOP, "Classic Routes", "The Quiet Vault", "A secure clockwork vault of warning-lit locks, broad extraction lanes, and machinery built into every fighting surface."),
+        BELLKEEPER_VAULT(MapType.MIDNIGHT_WORKSHOP, "Classic Routes", "Bellkeeper's Vault", "The workshop's immense central bell chamber, opened into three clear aerial lanes for its final guardian.");
 
         final MapType baseMap;
         final String category;
@@ -1808,6 +1810,10 @@ public class BirdGame3 {
                 && classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS) {
             return "music-razorbill-seamreaver.mp3";
         }
+        if (classicModeActive && classicEncounter != null
+                && classicEncounter.style == ClassicEncounterStyle.BELLKEEPER_BOSS) {
+            return "music-grinch-bellkeeper.mp3";
+        }
         if (activeArenaGeometryVariant == MapVariant.OBSIDIAN_FOUNDRY) {
             return "music-razorbill-glasswind.mp3";
         }
@@ -1831,6 +1837,7 @@ public class BirdGame3 {
                     case SILENT_AMPHITHEATER -> "music-charles-maestro.mp3";
                     case GLASSWIND_CAUSEWAY -> "music-razorbill-glasswind.mp3";
                     case WORLDSEAM -> "music-razorbill-worldseam.mp3";
+                    case MIDNIGHT_WORKSHOP -> "music-grinch-workshop.mp3";
             default -> throw new IllegalStateException("Unexpected value: " + selectedMap);
         };
     }
@@ -5108,6 +5115,34 @@ public class BirdGame3 {
     private double classicSeamreaverBurstDamage = 0.0;
     private double classicSeamreaverTargetX = 3_000.0;
     private double classicSeamreaverTargetY = GROUND_Y - 700.0;
+    static final double BELLKEEPER_BASE_HEALTH = 330.0;
+    static final double[] MIDNIGHT_PRESS_X = {2_050.0, 3_950.0};
+    static final double[] BELLKEEPER_FLIGHT_X = {1_250.0, 2_150.0, 3_850.0, 4_750.0, 3_000.0};
+    static final double[] BELLKEEPER_FLIGHT_Y = {
+            GROUND_Y - 850.0, GROUND_Y - 1_180.0, GROUND_Y - 1_180.0,
+            GROUND_Y - 850.0, GROUND_Y - 690.0
+    };
+    static final double[] QUIET_VAULT_SEAL_X = {1_520.0, 3_000.0, 4_480.0};
+    static final double QUIET_VAULT_EXIT_X = 5_240.0;
+    private final List<ClassicVaultSeal> classicVaultSeals = new ArrayList<>();
+    private final List<ClassicBellkeeperProjectile> classicBellkeeperProjectiles = new ArrayList<>();
+    private final int[] midnightPressHitCooldowns = new int[MAX_COMBATANTS];
+    private int classicGrinchWaveIndex = 0;
+    private boolean classicVaultAttackWasHeld = false;
+    private int classicVaultHitCooldown = 0;
+    private boolean classicVaultExitOpen = false;
+    private boolean classicVaultCompleted = false;
+    private int classicBellkeeperPhase = 0;
+    private int classicBellkeeperAttackTimer = 96;
+    private int classicBellkeeperAttackKind = 0;
+    private int classicBellkeeperHitCooldown = 0;
+    private int classicBellkeeperWaypoint = 0;
+    private int classicBellkeeperReversalTimer = 0;
+    private int classicBellkeeperReversalCooldown = 0;
+    private int classicBellkeeperDamageWindow = 0;
+    private double classicBellkeeperCloseDamage = 0.0;
+    private double classicBellkeeperTargetX = 3_000.0;
+    private double classicBellkeeperTargetY = GROUND_Y - 680.0;
     private static final double STILLWATER_MAIN_X = 900.0;
     private static final double STILLWATER_MAIN_Y = GROUND_Y - 330.0;
     private static final double STILLWATER_MAIN_W = 4_200.0;
@@ -5196,7 +5231,10 @@ public class BirdGame3 {
         SEAM_MAP("Seam Map", "Optional Rift Anchors repair the route for score and Bird Coins without changing Razorbill's normal kit."),
         BETWEEN_LINES("Between the Lines", "Remember each safe lane, survive four dimensional cuts, then strike the exposed anchor."),
         BROKEN_GUARD("The Broken Guard", "Defeat three original Seam Wardens in sequence; each owns a different geometric cut pattern."),
-        ZERO_DIVIDE("Zero Divide", "Break the Seamreaver's stamina while reading its horizontal, diagonal, and rift-gate attacks.");
+        ZERO_DIVIDE("Zero Divide", "Break the Seamreaver's stamina while reading its horizontal, diagonal, and rift-gate attacks."),
+        MIDNIGHT_HEIST("Midnight Heist", "Every encounter is a complete, self-contained theft; no route resource or power carries forward."),
+        QUIET_VAULT("The Quiet Vault", "Break three security seals with ordinary attacks, then enter the extraction chimney. Timeout advances the route."),
+        LAST_GIFT("The Last Gift", "Break the Bellkeeper's stamina while reading its bells, ribbons, coal, and aerial sweeps.");
 
         final String label;
         final String description;
@@ -5266,7 +5304,10 @@ public class BirdGame3 {
         RAZORBILL_REFLECTION,
         BETWEEN_LINES,
         SEAM_WARDEN_GAUNTLET,
-        SEAMREAVER_BOSS
+        SEAMREAVER_BOSS,
+        GRINCH_GUARD_GAUNTLET,
+        QUIET_VAULT,
+        BELLKEEPER_BOSS
     }
 
     static final class ClassicRiftAnchor {
@@ -5298,6 +5339,39 @@ public class BirdGame3 {
             this.vx = vx;
             this.vy = vy;
             this.life = life;
+            this.phase = phase;
+        }
+    }
+
+    static final class ClassicVaultSeal {
+        final double x;
+        final double y;
+        boolean broken;
+        int pulseFrames;
+
+        ClassicVaultSeal(double x, double y) {
+            this.x = x;
+            this.y = y;
+        }
+    }
+
+    static final class ClassicBellkeeperProjectile {
+        double x;
+        double y;
+        double vx;
+        double vy;
+        int life;
+        final int kind;
+        final int phase;
+
+        ClassicBellkeeperProjectile(double x, double y, double vx, double vy,
+                                    int life, int kind, int phase) {
+            this.x = x;
+            this.y = y;
+            this.vx = vx;
+            this.vy = vy;
+            this.life = life;
+            this.kind = kind;
             this.phase = phase;
         }
     }
@@ -9193,6 +9267,9 @@ public class BirdGame3 {
         if (map == MapType.GLASSWIND_CAUSEWAY || map == MapType.WORLDSEAM) {
             return isClassicCompleted(BirdType.RAZORBILL);
         }
+        if (map == MapType.MIDNIGHT_WORKSHOP) {
+            return isClassicCompleted(BirdType.GRINCHHAWK);
+        }
         return true;
     }
 
@@ -9210,6 +9287,9 @@ public class BirdGame3 {
         if (variant == MapVariant.LAST_ICE_SHELF) return lastIceShelfUnlocked;
         if (variant == MapVariant.STILLWATER_MARSH) return stillwaterMarshUnlocked;
         if (variant == MapVariant.OBSIDIAN_FOUNDRY) return isClassicCompleted(BirdType.RAZORBILL);
+        if (variant == MapVariant.GIFT_VAULT || variant == MapVariant.BELLKEEPER_VAULT) {
+            return isClassicCompleted(BirdType.GRINCHHAWK);
+        }
         return isMapUnlocked(variant.baseMap);
     }
 
@@ -13907,6 +13987,7 @@ public class BirdGame3 {
             case SILENT_AMPHITHEATER -> drawSilentAmphitheaterArena(g, ambientFx);
             case GLASSWIND_CAUSEWAY -> drawGlasswindCausewayArena(g, ambientFx);
             case WORLDSEAM -> drawWorldseamArena(g, ambientFx);
+            case MIDNIGHT_WORKSHOP -> drawMidnightWorkshopArena(g, ambientFx);
             case BATTLEFIELD -> {
                 if (isBeaconCrownBattlefieldContext()) {
                     drawBeaconCrownBattlefield(g, ambientFx);
@@ -14053,6 +14134,7 @@ public class BirdGame3 {
         drawClassicShoebillRouteFeatures(g);
         drawClassicCharlesRouteFeatures(g);
         drawClassicRazorbillRouteFeatures(g);
+        drawClassicGrinchHawkRouteFeatures(g);
         drawUltimateReadyScreenDarken(g);
         drawCampaignObjectiveMarkers(g);
 
@@ -14134,7 +14216,8 @@ public class BirdGame3 {
                     continue;
                 }
                 // Always draw birds at full opacity; HUD elements will fade when they overlap birds.
-                if (!drawClassicCharlesConstruct(g, b) && !drawClassicRazorbillConstruct(g, b)) {
+                if (!drawClassicCharlesConstruct(g, b) && !drawClassicRazorbillConstruct(g, b)
+                        && !drawClassicGrinchHawkConstruct(g, b)) {
                     b.draw(g);
                 }
                 drawPlayerTag(g, b);
@@ -14644,6 +14727,96 @@ public class BirdGame3 {
 
     private void strokeGlasswindSegment(GraphicsContext g, StageArtGeometry.Segment segment) {
         g.strokeLine(segment.start().x(), segment.start().y(), segment.end().x(), segment.end().y());
+    }
+
+    private void drawMidnightWorkshopArena(GraphicsContext g, boolean ambientFx) {
+        double pulse = ambientFx ? 0.5 + 0.5 * Math.sin(System.currentTimeMillis() / 520.0) : 0.5;
+        boolean giftVault = activeArenaGeometryVariant == MapVariant.GIFT_VAULT;
+        boolean bellVault = activeArenaGeometryVariant == MapVariant.BELLKEEPER_VAULT;
+        Color top = bellVault ? Color.web("#090412") : Color.web("#061020");
+        Color bottom = giftVault ? Color.web("#143D3A") : Color.web("#291438");
+        for (int band = 0; band < 180; band++) {
+            double t = band / 179.0;
+            g.setFill(top.interpolate(bottom, t));
+            g.fillRect(0, band * WORLD_HEIGHT / 180.0, WORLD_WIDTH, WORLD_HEIGHT / 180.0 + 3.0);
+        }
+
+        // The moon stays far behind every play surface, with a heavy factory
+        // silhouette in front so it never reads as a collision object.
+        g.setFill(Color.web("#FFF3C4", 0.12));
+        g.fillOval(2_280.0, 90.0, 1_440.0, 1_440.0);
+        g.setStroke(Color.web("#FFE082", 0.28));
+        g.setLineWidth(18.0);
+        g.strokeOval(2_330.0, 140.0, 1_340.0, 1_340.0);
+        for (int tower = 0; tower < 7; tower++) {
+            double x = 180.0 + tower * 920.0;
+            double h = 760.0 + Math.floorMod(tower * 227, 520);
+            g.setFill(Color.web(tower % 2 == 0 ? "#080B17" : "#0D0B1B", 0.96));
+            g.fillRect(x, GROUND_Y - h, 620.0, h + 260.0);
+            g.setFill(Color.web("#FFCC80", 0.20 + pulse * 0.08));
+            for (double wy = GROUND_Y - h + 100.0; wy < GROUND_Y - 100.0; wy += 145.0) {
+                for (double wx = x + 90.0; wx < x + 540.0; wx += 155.0) {
+                    g.fillRoundRect(wx, wy, 54.0, 30.0, 6.0, 6.0);
+                }
+            }
+        }
+
+        // Enormous clockwork parts establish the factory without masking the
+        // readable foreground silhouette.
+        for (int gear = 0; gear < 5; gear++) {
+            double cx = 700.0 + gear * 1_150.0;
+            double cy = 980.0 + (gear % 2) * 330.0;
+            double r = 250.0 + (gear % 3) * 55.0;
+            g.setStroke(Color.web("#B08946", 0.20));
+            g.setLineWidth(34.0);
+            g.strokeOval(cx - r, cy - r, r * 2.0, r * 2.0);
+            for (int tooth = 0; tooth < 12; tooth++) {
+                double a = tooth * Math.PI / 6.0;
+                g.strokeLine(cx + Math.cos(a) * (r - 20.0), cy + Math.sin(a) * (r - 20.0),
+                        cx + Math.cos(a) * (r + 55.0), cy + Math.sin(a) * (r + 55.0));
+            }
+        }
+
+        double supportFloor = GROUND_Y + 280.0;
+        for (Platform p : platforms) {
+            if (p.y >= GROUND_Y + 100.0) continue;
+            double supportX = p.x + p.w * 0.5;
+            g.setFill(Color.web("#15111C", 0.94));
+            g.fillRect(supportX - Math.min(70.0, p.w * 0.16), p.y + p.h,
+                    Math.min(140.0, p.w * 0.32), Math.max(0.0, supportFloor - p.y - p.h));
+            g.setStroke(Color.web("#705331", 0.75));
+            g.setLineWidth(9.0);
+            g.strokeLine(p.x + 28.0, p.y + p.h + 5.0, supportX, Math.min(supportFloor, p.y + p.h + 280.0));
+            g.strokeLine(p.x + p.w - 28.0, p.y + p.h + 5.0, supportX, Math.min(supportFloor, p.y + p.h + 280.0));
+            g.setFill(Color.web(giftVault ? "#293F44" : bellVault ? "#322538" : "#29303D"));
+            g.fillRoundRect(p.x, p.y, p.w, p.h, 24.0, 24.0);
+            g.setStroke(Color.web(giftVault ? "#80CBC4" : bellVault ? "#FFD166" : "#CE93D8"));
+            g.setLineWidth(7.0);
+            g.strokeRoundRect(p.x, p.y, p.w, p.h, 24.0, 24.0);
+            g.setStroke(Color.web("#FCE4B2", 0.38));
+            g.setLineWidth(4.0);
+            g.strokeLine(p.x + 22.0, p.y + 17.0, p.x + p.w - 22.0, p.y + 17.0);
+        }
+
+        if (!giftVault && !bellVault) {
+            int cycle = Math.floorMod((int) simTick, 420);
+            boolean warning = cycle >= 280 && cycle < 340;
+            boolean active = cycle >= 340 && cycle < 368;
+            for (double x : MIDNIGHT_PRESS_X) {
+                g.setFill(Color.web(active ? "#E8F5E9" : warning ? "#FFB300" : "#4A3548", active ? 0.92 : 0.68));
+                g.fillRoundRect(x - 150.0, 250.0, 300.0, active ? GROUND_Y - 530.0 : 220.0, 28.0, 28.0);
+                g.setStroke(Color.web(active ? "#FF1744" : "#FFD54F", 0.88));
+                g.setLineWidth(active ? 18.0 : 8.0);
+                g.strokeLine(x, active ? 460.0 : 390.0, x, GROUND_Y - 300.0);
+            }
+        }
+
+        if (bellVault) {
+            g.setStroke(Color.web("#FFD166", 0.62 + pulse * 0.20));
+            g.setLineWidth(28.0);
+            g.strokeOval(2_230.0, 200.0, 1_540.0, 1_540.0);
+            g.strokeLine(3_000.0, 0.0, 3_000.0, 320.0);
+        }
     }
 
     private void drawWorldseamArena(GraphicsContext g, boolean ambientFx) {
@@ -28792,6 +28965,7 @@ public class BirdGame3 {
             case SILENT_AMPHITHEATER -> "Silent Amphitheater";
             case GLASSWIND_CAUSEWAY -> "Glasswind Causeway";
             case WORLDSEAM -> "The Worldseam";
+            case MIDNIGHT_WORKSHOP -> "Midnight Workshop";
             default -> "Big Forest";
         };
     }
@@ -36014,6 +36188,7 @@ public class BirdGame3 {
                 new MapEntry(MapType.SILENT_AMPHITHEATER, "Silent Amphitheater", mapDescription(MapType.SILENT_AMPHITHEATER), mapHowToGet(MapType.SILENT_AMPHITHEATER)),
                 new MapEntry(MapType.GLASSWIND_CAUSEWAY, "Glasswind Causeway", mapDescription(MapType.GLASSWIND_CAUSEWAY), mapHowToGet(MapType.GLASSWIND_CAUSEWAY)),
                 new MapEntry(MapType.WORLDSEAM, "The Worldseam", mapDescription(MapType.WORLDSEAM), mapHowToGet(MapType.WORLDSEAM)),
+                new MapEntry(MapType.MIDNIGHT_WORKSHOP, "Midnight Workshop", mapDescription(MapType.MIDNIGHT_WORKSHOP), mapHowToGet(MapType.MIDNIGHT_WORKSHOP)),
                 new MapEntry(MapType.BEACON_CROWN, "Beacon Crown", mapDescription(MapType.BEACON_CROWN), mapHowToGet(MapType.BEACON_CROWN))
         );
     }
@@ -36044,6 +36219,9 @@ public class BirdGame3 {
         if (map == MapType.GLASSWIND_CAUSEWAY || map == MapType.WORLDSEAM) {
             return "Complete Razorbill's Classic route: The Line Between Worlds";
         }
+        if (map == MapType.MIDNIGHT_WORKSHOP) {
+            return "Complete Grinch-Hawk's Classic route: The Longest Night";
+        }
         return "Unlocked by default";
     }
 
@@ -36064,6 +36242,7 @@ public class BirdGame3 {
             case SILENT_AMPHITHEATER -> "A monumental empty theater beneath an eclipsed crown. The faint central stillness field softens horizontal launch speed while a fighter is in hitstun, creating a contested refuge without stopping combat.";
             case GLASSWIND_CAUSEWAY -> "A black-glass storm bridge supported by immense wind pylons. Its broad connected deck and stepped service spans create clean duel lanes without decorative floating ledges.";
             case WORLDSEAM -> "A stable stone causeway built around a luminous tear in reality. Two clearly paired rift gates exchange fighters while preserving their movement.";
+            case MIDNIGHT_WORKSHOP -> "A moonlit clockwork gift factory with supported conveyor decks, readable press warnings, broad recovery lanes, and enormous working gears behind the arena.";
             case BEACON_CROWN -> "The Beacon Crown opens into a giant sky arena with long lanes, staggered perches, and a lethal drop on every side.";
             default -> "Dense trees and long platforms for classic brawls. A steady arena that rewards smart positioning.";
         };
@@ -40320,6 +40499,9 @@ public class BirdGame3 {
         if (useAuthoredRoutes && playerType == BirdType.RAZORBILL) {
             return buildRazorbillClassicRun();
         }
+        if (useAuthoredRoutes && playerType == BirdType.GRINCHHAWK) {
+            return buildGrinchHawkClassicRun();
+        }
         List<ClassicEncounter> run = new ArrayList<>();
         Set<MapType> usedMaps = new HashSet<>();
         Set<BirdType> usedBirds = new HashSet<>();
@@ -42058,6 +42240,102 @@ public class BirdGame3 {
         return run;
     }
 
+    private List<ClassicEncounter> buildGrinchHawkClassicRun() {
+        List<ClassicEncounter> run = new ArrayList<>();
+
+        ClassicEncounter courier = new ClassicEncounter(
+                "The First Package", "Parliament Towers",
+                "A lone night courier guards the first parcel above the sleeping city.",
+                MapType.CITY, MapVariant.PARLIAMENT_ROOFTOPS, MatchMutator.NONE,
+                ClassicTwist.MIDNIGHT_HEIST, ClassicEncounterStyle.STANDARD, 105 * 60,
+                new ClassicFighter[0],
+                new ClassicFighter[]{classicFighter(BirdType.PIGEON, "Night Courier", 132, 0.98, 1.04)}, false);
+        courier.cpuLevel = 4;
+        run.add(courier);
+
+        ClassicEncounter coldStorage = new ClassicEncounter(
+                "Cold Storage", "Last Ice Shelf",
+                "A giant Penguin has frozen the storehouse shut. This theft begins and ends here.",
+                MapType.FROSTBITE_FJORD, MapVariant.LAST_ICE_SHELF, MatchMutator.NONE,
+                ClassicTwist.MIDNIGHT_HEIST, ClassicEncounterStyle.GIANT, 115 * 60,
+                new ClassicFighter[0],
+                new ClassicFighter[]{classicFighter(BirdType.PENGUIN, "Giant: Cold Storage Warden", 190, 0.94, 0.92)}, false);
+        coldStorage.cpuLevel = 5;
+        run.add(coldStorage);
+
+        ClassicEncounter express = new ClassicEncounter(
+                "Express Delivery", "Midnight Workshop",
+                "Two express guards race the factory belts. Catch them before the presses close.",
+                MapType.MIDNIGHT_WORKSHOP, MapVariant.STANDARD, MatchMutator.TURBO_BRAWL,
+                ClassicTwist.MIDNIGHT_HEIST, ClassicEncounterStyle.STANDARD, 112 * 60,
+                new ClassicFighter[0],
+                new ClassicFighter[]{
+                        classicFighter(BirdType.ROADRUNNER, "Express Guard: Roadrunner", 94, 0.82, 1.08),
+                        classicFighter(BirdType.HUMMINGBIRD, "Express Guard: Hummingbird", 90, 0.80, 1.10)}, false);
+        express.cpuLevel = 5;
+        run.add(express);
+
+        ClassicFighter firstGuard = classicFighter(BirdType.ROOSTER, "Good List Guard: Rooster", 88, 0.82, 1.02);
+        ClassicEncounter goodList = new ClassicEncounter(
+                "The Good List", "Harvest Tribunal",
+                "Three guard details arrive in separate waves. Their ultimates are sealed for the night.",
+                MapType.FOREST, MapVariant.HARVEST_TRIBUNAL, MatchMutator.NONE,
+                ClassicTwist.MIDNIGHT_HEIST, ClassicEncounterStyle.GRINCH_GUARD_GAUNTLET, 150 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{firstGuard}, false)
+                .withWaves(
+                        new ClassicFighter[]{firstGuard},
+                        new ClassicFighter[]{classicFighter(BirdType.GOOSE, "Good List Guard: Goose", 92, 0.84, 0.98)},
+                        new ClassicFighter[]{classicFighter(BirdType.PELICAN, "Good List Guard: Pelican", 96, 0.86, 0.96)});
+        goodList.cpuLevel = 5;
+        run.add(goodList);
+
+        ClassicEncounter honor = new ClassicEncounter(
+                "Thieves' Honor", "Silent Amphitheater",
+                "Raven and Vulture demand a clean duel over who owns the dark. Nobody does.",
+                MapType.SILENT_AMPHITHEATER, MapVariant.STANDARD, MatchMutator.NONE,
+                ClassicTwist.MIDNIGHT_HEIST, ClassicEncounterStyle.STANDARD, 125 * 60,
+                new ClassicFighter[0],
+                new ClassicFighter[]{
+                        classicFighter(BirdType.RAVEN, "Master Thief: Raven", 108, 0.88, 1.03),
+                        classicFighter(BirdType.VULTURE, "Master Thief: Vulture", 114, 0.90, 0.99)}, false);
+        honor.cpuLevel = 6;
+        run.add(honor);
+
+        ClassicEncounter ransom = new ClassicEncounter(
+                "The King's Ransom", "Dawnwatch Bastion",
+                "A giant Eagle and two smaller sentries guard a ransom that will never leave this battle.",
+                MapType.BEACON_CROWN, MapVariant.DAWNWATCH_BASTION, MatchMutator.NONE,
+                ClassicTwist.MIDNIGHT_HEIST, ClassicEncounterStyle.STANDARD, 138 * 60,
+                new ClassicFighter[0],
+                new ClassicFighter[]{
+                        classicFighter(BirdType.EAGLE, "Giant: The Ransom King", 205, 1.72, 0.88),
+                        classicFighter(BirdType.PIGEON, "Royal Sentry", 70, 0.70, 1.12),
+                        classicFighter(BirdType.TITMOUSE, "Royal Sentry", 68, 0.68, 1.14)}, false);
+        ransom.cpuLevel = 6;
+        run.add(ransom);
+
+        ClassicEncounter vault = new ClassicEncounter(
+                "Bonus: The Quiet Vault", "Gift Vault",
+                "Break the three security seals with ordinary attacks, then enter the extraction chimney. Timeout safely advances the route.",
+                MapType.MIDNIGHT_WORKSHOP, MapVariant.GIFT_VAULT, MatchMutator.NONE,
+                ClassicTwist.QUIET_VAULT, ClassicEncounterStyle.QUIET_VAULT, 82 * 60,
+                new ClassicFighter[0], new ClassicFighter[0], false);
+        vault.cpuLevel = 1;
+        run.add(vault);
+
+        ClassicEncounter bellkeeper = new ClassicEncounter(
+                "The Last Gift", "Bellkeeper's Vault",
+                "Break the original Bellkeeper's stamina across three readable phases. Its vault is the final job.",
+                MapType.MIDNIGHT_WORKSHOP, MapVariant.BELLKEEPER_VAULT, MatchMutator.NONE,
+                ClassicTwist.LAST_GIFT, ClassicEncounterStyle.BELLKEEPER_BOSS, 225 * 60,
+                new ClassicFighter[0],
+                new ClassicFighter[]{classicFighter(BirdType.SHOEBILL, "Boss: The Bellkeeper",
+                        BELLKEEPER_BASE_HEALTH, 1.08, 0.98)}, true);
+        bellkeeper.cpuLevel = 8;
+        run.add(bellkeeper);
+        return run;
+    }
+
     private ClassicEncounter buildShoebillSwiftTrailEncounter() {
         ClassicEncounter encounter = new ClassicEncounter(
                 "Swift Trail", "Redline Track",
@@ -42771,6 +43049,7 @@ public class BirdGame3 {
         if (type == BirdType.SHOEBILL) return "THE LONG WATCH";
         if (type == BirdType.MOCKINGBIRD) return "NO VOICE BUT HIS OWN";
         if (type == BirdType.RAZORBILL) return "THE LINE BETWEEN WORLDS";
+        if (type == BirdType.GRINCHHAWK) return "THE LONGEST NIGHT";
         return "TEMPORARY FLIGHT PLAN";
     }
 
@@ -43973,9 +44252,28 @@ public class BirdGame3 {
             } else if (encounter.style == ClassicEncounterStyle.GIANT) {
                 if (classicSelectedBird == BirdType.SHOEBILL) {
                     scaleBossRushBird(bird, 1.34, 0.90, 0.92);
+                } else if (classicSelectedBird == BirdType.GRINCHHAWK) {
+                    // Cold Storage is an early-route giant lesson. Preserve the
+                    // silhouette without stacking giant size, armor, and full
+                    // power into a one-sided second encounter.
+                    scaleBossRushBird(bird, 1.42, 0.88, 0.94);
                 } else {
                     scaleBossRushBird(bird, 1.58, 1.02, 0.94);
                 }
+            } else if (classicSelectedBird == BirdType.GRINCHHAWK && classicRoundIndex == 4) {
+                // Thieves' Honor is a deliberate 2-on-1, so Raven and Vulture
+                // are launchable duelists instead of two full-power kits
+                // cycling ultimates over one stock.
+                scaleBossRushBird(bird, 0.86, 0.72, 0.98);
+                bird.setUltimateEnabled(false);
+            } else if (classicSelectedBird == BirdType.GRINCHHAWK && classicRoundIndex == 5) {
+                boolean ransomKing = bird.name != null && bird.name.startsWith("Giant:");
+                bird.setBaseMultipliers(
+                        ransomKing ? 1.40 : 0.58,
+                        (ransomKing ? 0.68 : 0.40) * enemyPowerScale,
+                        ransomKing ? 0.92 : 1.02
+                );
+                bird.setUltimateEnabled(false);
             } else if (classicSelectedBird == BirdType.MOCKINGBIRD
                     && encounter.twist == ClassicTwist.AUDITION_ORDER
                     && classicRoundIndex >= 1 && classicRoundIndex <= 3) {
@@ -44102,12 +44400,34 @@ public class BirdGame3 {
                 bird.setBaseMultipliers(1.88, 0.90 * enemyPowerScale, 0.96);
                 bird.setUltimateEnabled(false);
                 isAI[bird.playerIndex] = false;
+            } else if (encounter.style == ClassicEncounterStyle.GRINCH_GUARD_GAUNTLET) {
+                scaleBossRushBird(bird, 0.78, 0.84, 1.04);
+                bird.setUltimateEnabled(false);
+            } else if (encounter.style == ClassicEncounterStyle.BELLKEEPER_BOSS) {
+                bird.health = Math.max(1.0, BELLKEEPER_BASE_HEALTH * enemyHealthScale);
+                bird.classicMaxHealthOverride = bird.health;
+                bird.setBaseMultipliers(1.82, 0.92 * enemyPowerScale, 0.96);
+                bird.setUltimateEnabled(false);
+                isAI[bird.playerIndex] = false;
             }
         }
     }
 
     private void positionClassicEncounterSpawns(ClassicEncounter encounter) {
         if (encounter == null) return;
+        if (encounter.style == ClassicEncounterStyle.QUIET_VAULT) {
+            positionClassicBirdOnSurface(players[0], 720.0, battlefieldIslandY, true);
+            return;
+        }
+        if (encounter.style == ClassicEncounterStyle.BELLKEEPER_BOSS) {
+            positionClassicBirdOnSurface(players[0], 1_350.0, battlefieldIslandY, true);
+            for (int slot = 1; slot < activePlayers; slot++) {
+                if (players[slot] != null) {
+                    positionClassicBirdOnSurface(players[slot], 4_500.0, battlefieldIslandY - 420.0, false);
+                }
+            }
+            return;
+        }
         if (encounter.style == ClassicEncounterStyle.BETWEEN_LINES) {
             positionClassicBirdOnSurface(players[0], 1_250.0, battlefieldIslandY, true);
             return;
@@ -44341,6 +44661,7 @@ public class BirdGame3 {
         setupShoebillClassicRoute(encounter);
         setupCharlesClassicRoute(encounter);
         setupRazorbillClassicRoute(encounter);
+        setupGrinchHawkClassicRoute(encounter);
         if (bossRushModeActive) {
             applyBossRushEncounterArenaModifiers(encounter);
         }
@@ -45296,6 +45617,23 @@ public class BirdGame3 {
             }
             return;
         }
+        if (classicEncounter.style == ClassicEncounterStyle.BELLKEEPER_BOSS) {
+            if (classicBellkeeperReversalTimer > 0 || classicBellkeeperReversalCooldown > 0) return;
+            double distance = Math.hypot(attacker.bodyCenterX() - boss.bodyCenterX(),
+                    attacker.bodyCenterY() - boss.bodyCenterY());
+            if (distance > 410.0) return;
+            classicBellkeeperCloseDamage += dealtDamage;
+            classicBellkeeperDamageWindow = 72;
+            if (classicBellkeeperCloseDamage >= 44.0) {
+                classicBellkeeperReversalTimer = 48;
+                classicBellkeeperReversalCooldown = 250;
+                classicBellkeeperCloseDamage = 0.0;
+                classicBellkeeperDamageWindow = 0;
+                classicBellkeeperWaypoint = (classicBellkeeperWaypoint + 2) % BELLKEEPER_FLIGHT_X.length;
+                addToKillFeed("COUNTER-CHIME WINDUP — the Bellkeeper is escaping the corner!");
+            }
+            return;
+        }
         if (classicCharlesBossReversalTimer > 0 || classicCharlesBossReversalCooldown > 0) return;
         double distance = Math.hypot(attacker.bodyCenterX() - boss.bodyCenterX(),
                 attacker.bodyCenterY() - boss.bodyCenterY());
@@ -45343,7 +45681,8 @@ public class BirdGame3 {
                 && classicModeActive
                 && classicEncounter != null
                 && (classicEncounter.style == ClassicEncounterStyle.HOLLOW_MAESTRO_BOSS
-                || classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS)
+                || classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS
+                || classicEncounter.style == ClassicEncounterStyle.BELLKEEPER_BOSS)
                 && getEffectiveTeam(bird.playerIndex) == 2;
     }
 
@@ -45352,6 +45691,9 @@ public class BirdGame3 {
         if (classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS) {
             return classicSeamreaverGuardTimer > 0
                     ? SEAMREAVER_GUARD_DAMAGE_SCALE : SEAMREAVER_OPEN_DAMAGE_SCALE;
+        }
+        if (classicEncounter.style == ClassicEncounterStyle.BELLKEEPER_BOSS) {
+            return 1.38 * (classicBellkeeperReversalTimer > 0 ? 0.38 : 1.0);
         }
         return HOLLOW_MAESTRO_STAGGER_DAMAGE_SCALE
                 * (classicCharlesBossReversalTimer > 0 ? HOLLOW_MAESTRO_REVERSAL_ARMOR_SCALE : 1.0);
@@ -45369,15 +45711,23 @@ public class BirdGame3 {
     }
 
     int classicStaminaBossMovement() {
-        return classicEncounter != null && classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS
-                ? Math.clamp(classicSeamreaverPhase + 1, 1, 3)
-                : Math.clamp(classicCharlesBossPhase + 1, 1, 3);
+        if (classicEncounter != null && classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS) {
+            return Math.clamp(classicSeamreaverPhase + 1, 1, 3);
+        }
+        if (classicEncounter != null && classicEncounter.style == ClassicEncounterStyle.BELLKEEPER_BOSS) {
+            return Math.clamp(classicBellkeeperPhase + 1, 1, 3);
+        }
+        return Math.clamp(classicCharlesBossPhase + 1, 1, 3);
     }
 
     String classicStaminaBossTimeoutMessage() {
-        return classicEncounter != null && classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS
-                ? "TIME! The Seamreaver completes Zero Divide."
-                : "TIME! The Hollow Maestro's score remains unbroken.";
+        if (classicEncounter != null && classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS) {
+            return "TIME! The Seamreaver completes Zero Divide.";
+        }
+        if (classicEncounter != null && classicEncounter.style == ClassicEncounterStyle.BELLKEEPER_BOSS) {
+            return "TIME! The Bellkeeper seals the final vault.";
+        }
+        return "TIME! The Hollow Maestro's score remains unbroken.";
     }
 
     void onClassicStaminaBossDefeated(Bird boss, Bird attacker) {
@@ -45387,12 +45737,15 @@ public class BirdGame3 {
         if (attacker != null && attacker != boss && attacker.playerIndex >= 0) {
             eliminations[attacker.playerIndex]++;
             String fallback = classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS
-                    ? "Final Division" : "Hollow Score";
+                    ? "Final Division" : classicEncounter.style == ClassicEncounterStyle.BELLKEEPER_BOSS
+                    ? "The Last Gift" : "Hollow Score";
             recordMoveKo(attacker, boss, lastTelemetryMoveName(attacker.playerIndex, fallback));
             checkAchievements(attacker);
         }
         addToKillFeed(classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS
                 ? "THE SEAMREAVER'S ZERO DIVIDE COLLAPSES."
+                : classicEncounter.style == ClassicEncounterStyle.BELLKEEPER_BOSS
+                ? "THE BELLKEEPER'S FINAL CHIME FALLS SILENT."
                 : "THE HOLLOW MAESTRO'S SCORE SHATTERS.");
         shakeIntensity = Math.max(shakeIntensity, 32.0);
         triggerFlash(0.76, true);
@@ -45638,6 +45991,70 @@ public class BirdGame3 {
         return true;
     }
 
+    private boolean drawClassicGrinchHawkConstruct(GraphicsContext g, Bird bird) {
+        if (!isClassicGrinchHawkConstructBird(bird)) return false;
+        drawClockworkOwl(g, bird.bodyCenterX(), bird.bodyCenterY(), 1.56,
+                classicBellkeeperPhase, true);
+        return true;
+    }
+
+    private void drawClockworkOwl(GraphicsContext g, double cx, double cy, double scale,
+                                  int phase, boolean boss) {
+        Color metal = phase >= 2 ? Color.web("#4A3842") : Color.web("#263849");
+        Color gold = phase >= 2 ? Color.web("#FF7043") : Color.web("#FFD166");
+        double pulse = 0.5 + 0.5 * Math.sin(simTick * 0.09);
+        g.save();
+        g.translate(cx, cy);
+        g.scale(scale, scale);
+        if (boss) {
+            g.setStroke(gold.deriveColor(0, 1, 1, 0.22 + pulse * 0.22));
+            g.setLineWidth(10.0);
+            g.strokeOval(-150.0 - pulse * 10.0, -150.0 - pulse * 10.0,
+                    300.0 + pulse * 20.0, 300.0 + pulse * 20.0);
+        }
+        g.setFill(Color.web("#11141A"));
+        g.fillPolygon(new double[]{-170, -72, -28, -10, -88},
+                new double[]{20, -82, -55, 72, 104}, 5);
+        g.fillPolygon(new double[]{170, 72, 28, 10, 88},
+                new double[]{20, -82, -55, 72, 104}, 5);
+        g.setStroke(gold);
+        g.setLineWidth(8.0);
+        g.strokePolyline(new double[]{-170, -72, -28, -10, -88},
+                new double[]{20, -82, -55, 72, 104}, 5);
+        g.strokePolyline(new double[]{170, 72, 28, 10, 88},
+                new double[]{20, -82, -55, 72, 104}, 5);
+        g.setFill(metal);
+        g.fillOval(-108, -118, 216, 250);
+        g.setStroke(Color.web("#0A0C11"));
+        g.setLineWidth(14.0);
+        g.strokeOval(-108, -118, 216, 250);
+        g.setFill(Color.web("#D7DEE5"));
+        g.fillPolygon(new double[]{-94, 0, 94, 70, 0, -70},
+                new double[]{-82, -132, -82, 18, 116, 18}, 6);
+        g.setFill(Color.web("#101217"));
+        g.fillOval(-76, -72, 68, 86);
+        g.fillOval(8, -72, 68, 86);
+        g.setFill(gold);
+        g.fillOval(-48, -44, 24, 38);
+        g.fillOval(24, -44, 24, 38);
+        g.fillPolygon(new double[]{-24, 24, 0}, new double[]{18, 18, 64}, 3);
+        g.setStroke(gold.deriveColor(0, 1, 0.84, 0.9));
+        g.setLineWidth(6.0);
+        g.strokeOval(-44, 46, 88, 88);
+        for (int tooth = 0; tooth < 8; tooth++) {
+            double a = tooth * Math.PI / 4.0;
+            g.strokeLine(Math.cos(a) * 36.0, 90 + Math.sin(a) * 36.0,
+                    Math.cos(a) * 52.0, 90 + Math.sin(a) * 52.0);
+        }
+        if (phase >= 2) {
+            g.setStroke(Color.web("#FF5252"));
+            g.setLineWidth(5.0);
+            g.strokeLine(-84, -106, -35, -56);
+            g.strokeLine(82, -112, 34, -58);
+        }
+        g.restore();
+    }
+
     private void drawSeamConstruct(GraphicsContext g, double cx, double cy, double scale,
                                    boolean boss, int phase) {
         Color accent = phase >= 2 ? Color.web("#FF1744")
@@ -45672,6 +46089,54 @@ public class BirdGame3 {
         g.fillOval(-23, -16, 10, 27);
         g.fillOval(13, -16, 10, 27);
         g.restore();
+    }
+
+    private void drawClassicGrinchHawkRouteFeatures(GraphicsContext g) {
+        if (!classicModeActive || classicEncounter == null || classicSelectedBird != BirdType.GRINCHHAWK) return;
+        double pulse = 0.5 + 0.5 * Math.sin(simTick * 0.10);
+        if (classicEncounter.style == ClassicEncounterStyle.QUIET_VAULT) {
+            for (ClassicVaultSeal seal : classicVaultSeals) {
+                Color color = seal.broken ? Color.web("#455A64") : Color.web("#FFD54F");
+                g.setFill(color.deriveColor(0, 1, 1, seal.broken ? 0.28 : 0.18 + pulse * 0.12));
+                g.fillOval(seal.x - 94.0, seal.y - 94.0, 188.0, 188.0);
+                g.setStroke(color);
+                g.setLineWidth(seal.broken ? 7.0 : 12.0);
+                g.strokeRoundRect(seal.x - 52.0, seal.y - 58.0, 104.0, 116.0, 22.0, 22.0);
+                g.strokeOval(seal.x - 31.0, seal.y - 80.0, 62.0, 70.0);
+                g.setFill(Color.web(seal.broken ? "#263238" : "#FFF8E1"));
+                g.fillOval(seal.x - 13.0, seal.y - 10.0, 26.0, 26.0);
+            }
+            g.setFill(Color.web(classicVaultExitOpen ? "#E0FFFF" : "#263238", classicVaultExitOpen ? 0.24 + pulse * 0.14 : 0.28));
+            g.fillRect(QUIET_VAULT_EXIT_X - 170.0, 180.0, 340.0, GROUND_Y - 430.0);
+            g.setStroke(Color.web(classicVaultExitOpen ? "#80DEEA" : "#546E7A"));
+            g.setLineWidth(14.0);
+            g.strokeRoundRect(QUIET_VAULT_EXIT_X - 170.0, 180.0, 340.0, GROUND_Y - 430.0, 70.0, 70.0);
+            g.setFill(Color.WHITE);
+            g.setFont(Font.font("Arial Black", FontWeight.BOLD, 30));
+            g.setTextAlign(TextAlignment.CENTER);
+            g.fillText(classicVaultExitOpen ? "EXTRACT" : "SEALED", QUIET_VAULT_EXIT_X, 245.0);
+            g.setTextAlign(TextAlignment.LEFT);
+        }
+        if (classicEncounter.style == ClassicEncounterStyle.BELLKEEPER_BOSS) {
+            for (ClassicBellkeeperProjectile shot : classicBellkeeperProjectiles) {
+                Color color = shot.kind == 1 ? Color.web("#FF8F00")
+                        : shot.kind == 2 ? Color.web("#EC407A")
+                        : shot.kind == 3 ? Color.web("#B39DDB") : Color.web("#FFD54F");
+                g.setFill(color.deriveColor(0, 1, 1, 0.28));
+                double r = shot.kind == 1 ? 78.0 : 52.0;
+                g.fillOval(shot.x - r, shot.y - r, r * 2.0, r * 2.0);
+                g.setStroke(color);
+                g.setLineWidth(shot.kind == 0 ? 10.0 : 7.0);
+                if (shot.kind == 1) {
+                    g.strokePolygon(new double[]{shot.x, shot.x + 48, shot.x, shot.x - 48},
+                            new double[]{shot.y - 62, shot.y, shot.y + 62, shot.y}, 4);
+                } else if (shot.kind == 3) {
+                    drawClockworkOwl(g, shot.x, shot.y, 0.28, shot.phase, false);
+                } else {
+                    g.strokeOval(shot.x - r * 0.55, shot.y - r * 0.55, r * 1.1, r * 1.1);
+                }
+            }
+        }
     }
 
     private void drawClassicCharlesRouteFeatures(GraphicsContext g) {
@@ -46079,6 +46544,260 @@ public class BirdGame3 {
             if (boss != null) boss.classicMaxHealthOverride = Math.max(1.0, boss.health);
             addToKillFeed("ZERO DIVIDE: read the cut, use the paired gates, and punish the open core.");
         }
+    }
+
+    private void setupGrinchHawkClassicRoute(ClassicEncounter encounter) {
+        classicVaultSeals.clear();
+        classicBellkeeperProjectiles.clear();
+        classicGrinchWaveIndex = 0;
+        classicVaultAttackWasHeld = false;
+        classicVaultHitCooldown = 0;
+        classicVaultExitOpen = false;
+        classicVaultCompleted = false;
+        classicBellkeeperPhase = 0;
+        classicBellkeeperAttackTimer = 96;
+        classicBellkeeperAttackKind = 0;
+        classicBellkeeperHitCooldown = 0;
+        classicBellkeeperWaypoint = 0;
+        classicBellkeeperReversalTimer = 0;
+        classicBellkeeperReversalCooldown = 0;
+        classicBellkeeperDamageWindow = 0;
+        classicBellkeeperCloseDamage = 0.0;
+        if (!classicModeActive || bossRushModeActive || ashfallTrialModeActive
+                || classicSelectedBird != BirdType.GRINCHHAWK || encounter == null) return;
+        if (encounter.style == ClassicEncounterStyle.QUIET_VAULT) {
+            double sealY = battlefieldIslandY - 115.0;
+            for (double x : QUIET_VAULT_SEAL_X) classicVaultSeals.add(new ClassicVaultSeal(x, sealY));
+            addToKillFeed("QUIET VAULT: ordinary attacks break seals. The chimney opens at 3/3.");
+        } else if (encounter.style == ClassicEncounterStyle.GRINCH_GUARD_GAUNTLET) {
+            addToKillFeed("GOOD LIST 1/3: every guard wave is self-contained. Ultimates are sealed.");
+        } else if (encounter.style == ClassicEncounterStyle.BELLKEEPER_BOSS) {
+            Bird boss = firstClassicEnemyWithStocks();
+            if (boss != null) boss.classicMaxHealthOverride = Math.max(1.0, boss.health);
+            addToKillFeed("THE LAST GIFT: bells warn, ribbons cut, and coal falls before impact.");
+        }
+    }
+
+    void applyGrinchHawkClassicRuntimeEffects() {
+        if (!classicModeActive || classicEncounter == null || classicSelectedBird != BirdType.GRINCHHAWK
+                || bossRushModeActive || ashfallTrialModeActive || matchEnded) return;
+        Bird player = players[0];
+        if (player == null || !playerHasStocksRemaining(0)) return;
+        if (classicVaultHitCooldown > 0) classicVaultHitCooldown--;
+        if (classicBellkeeperHitCooldown > 0) classicBellkeeperHitCooldown--;
+
+        if (classicEncounter.style == ClassicEncounterStyle.QUIET_VAULT) {
+            boolean held = isAttackPressed(0);
+            boolean newStrike = held && !classicVaultAttackWasHeld && classicVaultHitCooldown == 0;
+            classicVaultAttackWasHeld = held;
+            if (newStrike) {
+                for (ClassicVaultSeal seal : classicVaultSeals) {
+                    if (seal.broken || Math.hypot(player.bodyCenterX() - seal.x,
+                            player.bodyCenterY() - seal.y) > 280.0) continue;
+                    seal.broken = true;
+                    seal.pulseFrames = 34;
+                    classicVaultHitCooldown = 12;
+                    int broken = (int) classicVaultSeals.stream().filter(s -> s.broken).count();
+                    playClassicNectarRingSfx(broken, 3);
+                    addToKillFeed("VAULT SEAL " + broken + "/3 BROKEN.");
+                    if (broken == 3) {
+                        classicVaultExitOpen = true;
+                        addToKillFeed("EXTRACTION CHIMNEY OPEN — move to the far-right light!");
+                    }
+                    break;
+                }
+            }
+            if (classicVaultExitOpen && player.bodyCenterX() >= QUIET_VAULT_EXIT_X) {
+                classicVaultCompleted = true;
+                classicBonusCoins += 75;
+                classicRunScore += 5_000;
+                addToKillFeed("QUIET VAULT COMPLETE! Bird Coins +75.");
+                matchController.triggerMatchEnd(player);
+            }
+            return;
+        }
+        if (classicEncounter.style == ClassicEncounterStyle.BELLKEEPER_BOSS) {
+            updateClassicBellkeeper(player);
+        }
+    }
+
+    private void updateClassicBellkeeper(Bird player) {
+        Bird boss = firstClassicEnemyWithStocks();
+        if (boss == null) return;
+        if (boss.health <= 0.0) {
+            onClassicStaminaBossDefeated(boss, null);
+            return;
+        }
+        int nextPhase = hollowMaestroPhaseForHealth(boss.health, boss.getMaxHealth());
+        if (nextPhase > classicBellkeeperPhase) {
+            classicBellkeeperPhase = nextPhase;
+            player.heal(10.0);
+            classicBellkeeperAttackTimer = 88;
+            addToKillFeed(nextPhase == 1
+                    ? "SECOND CHIME: ribbon walls and coal chutes awaken. 10% repaired."
+                    : "FINAL CHIME: the armor breaks and every clockwork wing takes flight. 10% repaired.");
+        }
+        if (classicBellkeeperDamageWindow > 0 && --classicBellkeeperDamageWindow == 0) {
+            classicBellkeeperCloseDamage = 0.0;
+        }
+        if (classicBellkeeperReversalCooldown > 0) classicBellkeeperReversalCooldown--;
+        if (classicBellkeeperReversalTimer > 0) {
+            classicBellkeeperReversalTimer--;
+            steerClassicBellkeeper(boss, 3_000.0, GROUND_Y - 1_250.0, 10.0);
+            if (classicBellkeeperReversalTimer == 18) {
+                spawnBellkeeperRadial(boss, 12, 11.5);
+                addToKillFeed("COUNTER-CHIME — leave the Bellkeeper's inner ring!");
+            }
+        } else {
+            double tx = BELLKEEPER_FLIGHT_X[classicBellkeeperWaypoint];
+            double ty = BELLKEEPER_FLIGHT_Y[classicBellkeeperWaypoint];
+            steerClassicBellkeeper(boss, tx, ty, 5.8 + classicBellkeeperPhase * 0.9);
+            if (--classicBellkeeperAttackTimer <= 0) {
+                classicBellkeeperTargetX = player.bodyCenterX();
+                classicBellkeeperTargetY = player.bodyCenterY();
+                classicBellkeeperAttackKind = (classicBellkeeperAttackKind + 1) % (classicBellkeeperPhase + 2);
+                classicBellkeeperWaypoint = (classicBellkeeperWaypoint + 1) % BELLKEEPER_FLIGHT_X.length;
+                spawnClassicBellkeeperAttack(boss, player, classicBellkeeperAttackKind);
+                classicBellkeeperAttackTimer = Math.max(78, 126 - classicBellkeeperPhase * 18);
+            }
+        }
+        updateBellkeeperProjectiles(player);
+    }
+
+    private void steerClassicBellkeeper(Bird boss, double targetX, double targetY, double maxSpeed) {
+        boss.vx += (Math.clamp((targetX - boss.bodyCenterX()) * 0.018, -maxSpeed, maxSpeed) - boss.vx) * 0.18;
+        boss.vy += (Math.clamp((targetY - boss.bodyCenterY()) * 0.024, -maxSpeed, maxSpeed) - boss.vy) * 0.22 - GRAVITY * 0.78;
+        boss.vx = Math.clamp(boss.vx, -maxSpeed, maxSpeed);
+        boss.vy = Math.clamp(boss.vy, -maxSpeed, maxSpeed);
+    }
+
+    private void spawnClassicBellkeeperAttack(Bird boss, Bird player, int kind) {
+        double sx = boss.bodyCenterX();
+        double sy = boss.bodyCenterY();
+        if (kind == 0) {
+            spawnBellkeeperRadial(boss, 8 + classicBellkeeperPhase * 2, 8.0 + classicBellkeeperPhase);
+            addToKillFeed("BELL SHOCKWAVE — slip between the gold rings!");
+        } else if (kind == 1) {
+            for (int i = -2; i <= 2; i++) {
+                classicBellkeeperProjectiles.add(new ClassicBellkeeperProjectile(
+                        Math.clamp(player.bodyCenterX() + i * 310.0, 820.0, 5_180.0), 180.0,
+                        0.0, 5.5 + classicBellkeeperPhase, 230, 1, classicBellkeeperPhase));
+            }
+            addToKillFeed("COAL CHUTES OPEN — watch the amber floor marks!");
+        } else {
+            double direction = Math.signum(player.bodyCenterX() - sx);
+            for (int i = -2; i <= 2; i++) {
+                classicBellkeeperProjectiles.add(new ClassicBellkeeperProjectile(sx, sy + i * 58.0,
+                        direction * (10.0 + classicBellkeeperPhase * 1.2), i * 0.38,
+                        210, classicBellkeeperPhase >= 2 ? 3 : 2, classicBellkeeperPhase));
+            }
+            addToKillFeed(classicBellkeeperPhase >= 2
+                    ? "WIND-UP FLOCK — the small gears track before they dive!"
+                    : "RIBBON WALL — cross through its open seam!");
+        }
+        playManagedSfxVaried(hugewaveClip, 0.38, 0.68 + kind * 0.13, 0.0);
+    }
+
+    private void spawnBellkeeperRadial(Bird boss, int count, double speed) {
+        for (int i = 0; i < count; i++) {
+            double angle = Math.PI * 2.0 * i / count;
+            classicBellkeeperProjectiles.add(new ClassicBellkeeperProjectile(
+                    boss.bodyCenterX(), boss.bodyCenterY(), Math.cos(angle) * speed,
+                    Math.sin(angle) * speed, 190, 0, classicBellkeeperPhase));
+        }
+    }
+
+    private void updateBellkeeperProjectiles(Bird player) {
+        for (int i = classicBellkeeperProjectiles.size() - 1; i >= 0; i--) {
+            ClassicBellkeeperProjectile shot = classicBellkeeperProjectiles.get(i);
+            if (shot.kind == 3 && shot.life < 165) {
+                shot.vx += Math.clamp((player.bodyCenterX() - shot.x) * 0.0008, -0.18, 0.18);
+                shot.vy += Math.clamp((player.bodyCenterY() - shot.y) * 0.0008, -0.18, 0.18);
+                double speed = Math.max(1.0, Math.hypot(shot.vx, shot.vy));
+                if (speed > 13.0) { shot.vx *= 13.0 / speed; shot.vy *= 13.0 / speed; }
+            }
+            shot.x += shot.vx;
+            shot.y += shot.vy;
+            if (shot.kind == 1) shot.vy = Math.min(16.0, shot.vy + 0.24);
+            shot.life--;
+            double radius = shot.kind == 1 ? 70.0 : shot.kind == 0 ? 42.0 : 54.0;
+            if (classicBellkeeperHitCooldown == 0
+                    && Math.hypot(player.bodyCenterX() - shot.x, player.bodyCenterY() - shot.y) < radius + 42.0) {
+                double damage = 6.0 + shot.phase * 2.0 + (shot.kind == 1 ? 2.0 : 0.0);
+                double dealt = player.receiveExternalDamage(damage);
+                double dx = player.bodyCenterX() - shot.x;
+                player.applyExternalDamageScaledLaunch(Math.signum(dx == 0.0 ? 1.0 : dx) * (7.0 + shot.phase),
+                        -6.0 - shot.phase, dealt);
+                classicBellkeeperHitCooldown = 24;
+                shot.life = 0;
+                shakeIntensity = Math.max(shakeIntensity, 11.0);
+            }
+            if (shot.life <= 0 || shot.x < -500.0 || shot.x > WORLD_WIDTH + 500.0
+                    || shot.y < -500.0 || shot.y > WORLD_HEIGHT + 500.0) {
+                classicBellkeeperProjectiles.remove(i);
+            }
+        }
+    }
+
+    boolean holdClassicGrinchHawkEncounterOpen() {
+        if (!classicModeActive || classicEncounter == null || classicSelectedBird != BirdType.GRINCHHAWK
+                || bossRushModeActive || ashfallTrialModeActive || matchEnded) return false;
+        if (classicEncounter.style == ClassicEncounterStyle.QUIET_VAULT) {
+            return playerHasStocksRemaining(0) && !classicVaultCompleted;
+        }
+        if (classicEncounter.style != ClassicEncounterStyle.GRINCH_GUARD_GAUNTLET
+                || classicEncounter.waves == null || classicEncounter.waves.length == 0
+                || !playerHasStocksRemaining(0) || classicEnemyTeamHasStocks()
+                || classicGrinchWaveIndex + 1 >= classicEncounter.waves.length) return false;
+        classicGrinchWaveIndex++;
+        Bird player = players[0];
+        if (player != null) player.heal(18.0);
+        spawnGrinchHawkClassicWave(classicEncounter.waves[classicGrinchWaveIndex]);
+        return true;
+    }
+
+    private void spawnGrinchHawkClassicWave(ClassicFighter[] wave) {
+        for (int slot = 1; slot < MAX_COMBATANTS; slot++) {
+            if (players[slot] != null && getEffectiveTeam(slot) == 2) {
+                players[slot] = null;
+                isAI[slot] = false;
+                scores[slot] = 0;
+                classicCpuLevels[slot] = 0;
+            }
+        }
+        double difficultyDelta = classicDifficulty - CLASSIC_STARTING_DIFFICULTY;
+        int spawned = 0;
+        for (ClassicFighter fighter : wave) {
+            int slot = 1;
+            while (slot < MAX_COMBATANTS && players[slot] != null) slot++;
+            if (slot >= MAX_COMBATANTS) break;
+            Bird enemy = createStoryBird(0.0, fighter.type, slot, fighter.title,
+                    fighter.health * (1.0 + difficultyDelta * 0.045),
+                    fighter.powerMult * (1.0 + difficultyDelta * 0.015), fighter.speedMult, true);
+            enemy.setUltimateEnabled(false);
+            scaleBossRushBird(enemy, 0.78, 0.84, 1.04);
+            classicTeams[slot] = 2;
+            classicCpuLevels[slot] = resolvedClassicFighterCpuLevel(fighter, classicEncounter);
+            scores[slot] = 1;
+            isAI[slot] = true;
+            positionClassicBirdOnSurface(enemy, 4_200.0 + spawned * 360.0, battlefieldIslandY, false);
+            activePlayers = Math.max(activePlayers, slot + 1);
+            spawned++;
+        }
+        addToKillFeed("GOOD LIST " + (classicGrinchWaveIndex + 1) + "/" + classicEncounter.waves.length + " ENTERS.");
+    }
+
+    boolean isClassicQuietVaultActive() {
+        return classicModeActive && !bossRushModeActive && !ashfallTrialModeActive
+                && classicSelectedBird == BirdType.GRINCHHAWK && classicEncounter != null
+                && classicEncounter.style == ClassicEncounterStyle.QUIET_VAULT && !matchEnded;
+    }
+
+    void finishClassicQuietVaultFromTimeout() {
+        if (!isClassicQuietVaultActive()) return;
+        classicVaultCompleted = true;
+        addToKillFeed("TIME! Grinch-Hawk escapes empty-handed, but the route continues.");
+        matchController.triggerMatchEnd(players[0]);
     }
 
     void applyRazorbillArenaRuntimeEffects() {
@@ -49327,7 +50046,8 @@ public class BirdGame3 {
                 || classicEncounter.style == ClassicEncounterStyle.ICE_ARCHITECT
                 || classicEncounter.style == ClassicEncounterStyle.RIPPLE_HUNT
                 || classicEncounter.style == ClassicEncounterStyle.PERFECT_PITCH
-                || classicEncounter.style == ClassicEncounterStyle.BETWEEN_LINES) {
+                || classicEncounter.style == ClassicEncounterStyle.BETWEEN_LINES
+                || classicEncounter.style == ClassicEncounterStyle.QUIET_VAULT) {
             recordClassicEncounterScore(playerWon);
             classicRoundIndex++;
             classicEncounter = classicRun.get(classicRoundIndex);
@@ -49380,6 +50100,9 @@ public class BirdGame3 {
                     && !isClassicCompleted(BirdType.RAZORBILL)) {
                 queueMapUnlockCard(MapType.GLASSWIND_CAUSEWAY);
                 queueMapUnlockCard(MapType.WORLDSEAM);
+            } else if (classicSelectedBird == BirdType.GRINCHHAWK
+                    && !isClassicCompleted(BirdType.GRINCHHAWK)) {
+                queueMapUnlockCard(MapType.MIDNIGHT_WORKSHOP);
             }
             profileProgressController.onClassicRunCompleted(classicSelectedBird, achievementEvaluator::onClassicRunCompleted);
             ClassicEndingContent.Ending authoredEnding = ClassicEndingContent.endingFor(classicSelectedBird);
@@ -49461,6 +50184,7 @@ public class BirdGame3 {
             case SHOEBILL -> "Stillwater Marsh";
             case MOCKINGBIRD -> "Resonance Hall + Signal Spire + Silent Amphitheater";
             case RAZORBILL -> "Glasswind Causeway + The Worldseam";
+            case GRINCHHAWK -> "Midnight Workshop";
             default -> "";
         };
     }
@@ -50304,6 +51028,7 @@ public class BirdGame3 {
             case SILENT_AMPHITHEATER -> "A solemn circular arena built from monumental tiers and open duel lanes.";
             case GLASSWIND_CAUSEWAY -> "A colossal suspended bridge where turbine warnings announce alternating crosswinds.";
             case WORLDSEAM -> "Two broken realities face each other across a rift, linked by momentum-preserving gates.";
+            case MIDNIGHT_WORKSHOP -> "A moonlit clockwork factory with supported conveyor decks, readable presses, and a sealed gift vault.";
         };
     }
 
@@ -52485,6 +53210,13 @@ public class BirdGame3 {
             scores[0] = classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS
                     || classicEncounter.style == ClassicEncounterStyle.SEAM_WARDEN_GAUNTLET ? 3 : 2;
         }
+        if (classicSelectedBird == BirdType.GRINCHHAWK) {
+            scores[0] = switch (classicRoundIndex) {
+                case 1, 2, 4 -> 2;
+                case 5, 7 -> 3;
+                default -> scores[0];
+            };
+        }
         int enemyStocks = switch (classicEncounter.style) {
             case STORM_TYRANT_BOSS, PHOENIX_REBIRTH, BLIGHTWING_BOSS, ICEWORKS_MIRROR -> 2;
             case NULL_ROC_BOSS, LONG_WINTER_BOSS, DEVOURER_BOSS, BROODBREAKER_BOSS,
@@ -52619,6 +53351,7 @@ public class BirdGame3 {
         applyPeregrineRunJetstreams();
         applyCharlesArenaRuntimeEffects();
         applyRazorbillArenaRuntimeEffects();
+        applyGrinchHawkArenaRuntimeEffects();
         if (classicModeActive && !bossRushModeActive && !ashfallTrialModeActive) {
             applyStormTyrantRuntimeEffects();
             applyFalconClassicRuntimeEffects();
@@ -52631,6 +53364,7 @@ public class BirdGame3 {
             applyShoebillClassicRuntimeEffects();
             applyCharlesClassicRuntimeEffects();
             applyRazorbillClassicRuntimeEffects();
+            applyGrinchHawkClassicRuntimeEffects();
         }
         if (bossRushModeActive && classicModeActive) {
             applyBossRushRuntimeEffects();
@@ -52651,6 +53385,29 @@ public class BirdGame3 {
             case SIGNAL_SPIRE -> applySignalSpirePowerLines();
             case SILENT_AMPHITHEATER -> applySilentAmphitheaterStillnessField();
             default -> {
+            }
+        }
+    }
+
+    void applyGrinchHawkArenaRuntimeEffects() {
+        if (matchEnded || selectedMap != MapType.MIDNIGHT_WORKSHOP
+                || activeArenaGeometryVariant != MapVariant.STANDARD) return;
+        int cycle = Math.floorMod((int) simTick, 420);
+        boolean active = cycle >= 340 && cycle < 368;
+        for (int slot = 0; slot < activePlayers; slot++) {
+            if (midnightPressHitCooldowns[slot] > 0) midnightPressHitCooldowns[slot]--;
+            Bird bird = players[slot];
+            if (!active || bird == null || bird.health <= 0.0 || bird.classicBonusTarget
+                    || midnightPressHitCooldowns[slot] > 0) continue;
+            double cx = bird.bodyCenterX();
+            double cy = bird.bodyCenterY();
+            for (double pressX : MIDNIGHT_PRESS_X) {
+                if (Math.abs(cx - pressX) > 145.0 || cy < 430.0 || cy > GROUND_Y - 230.0) continue;
+                double dealt = bird.receiveExternalDamage(9.0);
+                bird.applyExternalDamageScaledLaunch(Math.signum(cx - pressX) * 8.0, -8.0, dealt);
+                midnightPressHitCooldowns[slot] = 42;
+                shakeIntensity = Math.max(shakeIntensity, 13.0);
+                break;
             }
         }
     }
@@ -55923,6 +56680,7 @@ public class BirdGame3 {
         Arrays.fill(prisonLeverCooldowns, 0);
         Arrays.fill(prisonLeverHeld, false);
         Arrays.fill(signalPowerLineHitCooldowns, 0);
+        Arrays.fill(midnightPressHitCooldowns, 0);
         prisonerRushes.clear();
 
         if (selectedMap != MapType.CITY || lanModeActive) cityStars.clear();
@@ -55964,6 +56722,8 @@ public class BirdGame3 {
             setupGlasswindCausewayArena();
         } else if (selectedMap == MapType.WORLDSEAM) {
             setupWorldseamArena();
+        } else if (selectedMap == MapType.MIDNIGHT_WORKSHOP) {
+            setupMidnightWorkshopArena();
         } else {
             platforms.add(new Platform(0, GROUND_Y, WORLD_WIDTH, 600));
             platforms.add(new Platform(-100, 0, 100, WORLD_HEIGHT));
@@ -56070,7 +56830,8 @@ public class BirdGame3 {
                 || selectedMap == MapType.SIGNAL_SPIRE
                 || selectedMap == MapType.SILENT_AMPHITHEATER
                 || selectedMap == MapType.GLASSWIND_CAUSEWAY
-                || selectedMap == MapType.WORLDSEAM) {
+                || selectedMap == MapType.WORLDSEAM
+                || selectedMap == MapType.MIDNIGHT_WORKSHOP) {
             mountainPeaks = null;
         } else {
             double[] buildingX = {400, 1400, 2400, 3400, 4400, 5400};
@@ -56154,6 +56915,8 @@ public class BirdGame3 {
             case LAST_ICE_SHELF -> setupLastIceShelfArena();
             case STILLWATER_MARSH -> setupStillwaterMarshArena();
             case OBSIDIAN_FOUNDRY -> setupObsidianFoundryArena();
+            case GIFT_VAULT -> setupGiftVaultArena();
+            case BELLKEEPER_VAULT -> setupBellkeeperVaultArena();
             case CARRION_THRONE -> setupBossRushCarrionThrone();
             case NULL_ROC_ASCENDING -> setupBossRushNullRocArena();
             case VOID_CROWN -> setupBossRushVoidCrownArena();
@@ -56268,6 +57031,58 @@ public class BirdGame3 {
         battlefieldIslandW = causewayW;
         battlefieldIslandY = causewayY;
         Arrays.fill(worldseamGateCooldowns, 0);
+    }
+
+    private void setupMidnightWorkshopArena() {
+        double floorX = 620.0;
+        double floorY = GROUND_Y - 280.0;
+        double floorW = 4_760.0;
+        platforms.add(new Platform(floorX, floorY, floorW, 104.0));
+        platforms.add(new Platform(360.0, floorY + 145.0, 500.0, 48.0));
+        platforms.add(new Platform(5_140.0, floorY + 145.0, 500.0, 48.0));
+        platforms.add(new Platform(800.0, floorY - 310.0, 860.0, 54.0));
+        platforms.add(new Platform(1_780.0, floorY - 545.0, 720.0, 50.0));
+        platforms.add(new Platform(2_575.0, floorY - 390.0, 850.0, 62.0));
+        platforms.add(new Platform(3_500.0, floorY - 545.0, 720.0, 50.0));
+        platforms.add(new Platform(4_340.0, floorY - 310.0, 860.0, 54.0));
+        platforms.add(new Platform(2_670.0, floorY - 805.0, 660.0, 48.0));
+        windVents.add(new WindVent(420.0, floorY + 110.0, 280.0));
+        windVents.add(new WindVent(5_300.0, floorY + 110.0, 280.0));
+        battlefieldIslandX = floorX;
+        battlefieldIslandW = floorW;
+        battlefieldIslandY = floorY;
+    }
+
+    private void setupGiftVaultArena() {
+        resetBossRushArenaState();
+        activeArenaGeometryVariant = MapVariant.GIFT_VAULT;
+        double floorY = GROUND_Y - 250.0;
+        platforms.add(new Platform(420.0, floorY, 5_160.0, 112.0));
+        platforms.add(new Platform(720.0, floorY - 310.0, 920.0, 54.0));
+        platforms.add(new Platform(1_900.0, floorY - 500.0, 780.0, 50.0));
+        platforms.add(new Platform(2_600.0, floorY - 300.0, 800.0, 58.0));
+        platforms.add(new Platform(3_320.0, floorY - 500.0, 780.0, 50.0));
+        platforms.add(new Platform(4_360.0, floorY - 310.0, 920.0, 54.0));
+        battlefieldIslandX = 420.0;
+        battlefieldIslandW = 5_160.0;
+        battlefieldIslandY = floorY;
+    }
+
+    private void setupBellkeeperVaultArena() {
+        resetBossRushArenaState();
+        activeArenaGeometryVariant = MapVariant.BELLKEEPER_VAULT;
+        double floorY = GROUND_Y - 280.0;
+        platforms.add(new Platform(680.0, floorY, 4_640.0, 112.0));
+        platforms.add(new Platform(400.0, floorY + 150.0, 520.0, 48.0));
+        platforms.add(new Platform(5_080.0, floorY + 150.0, 520.0, 48.0));
+        platforms.add(new Platform(920.0, floorY - 350.0, 1_040.0, 58.0));
+        platforms.add(new Platform(4_040.0, floorY - 350.0, 1_040.0, 58.0));
+        platforms.add(new Platform(2_410.0, floorY - 520.0, 1_180.0, 64.0));
+        platforms.add(new Platform(1_580.0, floorY - 760.0, 660.0, 50.0));
+        platforms.add(new Platform(3_760.0, floorY - 760.0, 660.0, 50.0));
+        battlefieldIslandX = 680.0;
+        battlefieldIslandW = 4_640.0;
+        battlefieldIslandY = floorY;
     }
 
     private void setupObsidianFoundryArena() {
@@ -57843,6 +58658,7 @@ public class BirdGame3 {
         Bird boss = firstClassicEnemyWithStocks();
         if (!isClassicStaminaBoss(boss) || boss.health <= 0.0) return;
         boolean seamreaver = classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS;
+        boolean bellkeeper = classicEncounter.style == ClassicEncounterStyle.BELLKEEPER_BOSS;
 
         double width = Math.min(980.0, WIDTH - 580.0);
         double height = 92.0;
@@ -57853,7 +58669,10 @@ public class BirdGame3 {
         int shownHealth = Math.max(0, (int) Math.ceil(boss.health));
         int shownMax = Math.max(1, (int) Math.round(maxHealth));
         double pulse = 0.5 + 0.5 * Math.sin(simTick * 0.09);
-        Color phaseColor = seamreaver
+        Color phaseColor = bellkeeper
+                ? (classicStaminaBossMovement() == 1 ? Color.web("#FFD166")
+                : classicStaminaBossMovement() == 2 ? Color.web("#FF8F00") : Color.web("#FF5252"))
+                : seamreaver
                 ? (classicStaminaBossMovement() == 1 ? Color.web("#00E5FF")
                 : classicStaminaBossMovement() == 2 ? Color.web("#EA80FC") : Color.web("#FF1744"))
                 : (classicStaminaBossMovement() == 1 ? Color.web("#FFE082")
@@ -57868,7 +58687,9 @@ public class BirdGame3 {
         g.setLineWidth(4.0 + pulse * 1.5);
         g.strokeRoundRect(x, y, width, height, 28, 28);
 
-        if (seamreaver) {
+        if (bellkeeper) {
+            drawClockworkOwl(g, x + 52.0, y + 47.0, 0.24, classicBellkeeperPhase, true);
+        } else if (seamreaver) {
             drawSeamConstruct(g, x + 52.0, y + 47.0, 0.22, true, classicSeamreaverPhase);
         } else {
             drawHollowMaestroMask(g, x + 52.0, y + 47.0, 0.24, phaseColor, true);
@@ -57876,10 +58697,11 @@ public class BirdGame3 {
         g.setTextAlign(TextAlignment.LEFT);
         g.setFill(Color.WHITE);
         g.setFont(Font.font("Arial Black", FontWeight.BOLD, 25));
-        g.fillText(seamreaver ? "THE SEAMREAVER" : "THE HOLLOW MAESTRO", x + 105.0, y + 31.0);
+        g.fillText(bellkeeper ? "THE BELLKEEPER"
+                : seamreaver ? "THE SEAMREAVER" : "THE HOLLOW MAESTRO", x + 105.0, y + 31.0);
         g.setFill(phaseColor);
         g.setFont(Font.font("Consolas", FontWeight.BOLD, 16));
-        g.fillText((seamreaver ? "DIVISION " : "MOVEMENT ")
+        g.fillText((bellkeeper ? "CHIME " : seamreaver ? "DIVISION " : "MOVEMENT ")
                 + classicStaminaBossMovement() + " / 3", x + 106.0, y + 53.0);
 
         double barX = x + 410.0;
@@ -58351,11 +59173,14 @@ public class BirdGame3 {
         String skinKey = skinKeyForBird(bird);
         boolean charlesConstruct = isClassicCharlesConstructBird(bird);
         boolean razorbillConstruct = isClassicRazorbillConstructBird(bird);
+        boolean grinchConstruct = isClassicGrinchHawkConstructBird(bird);
         boolean charlesBoss = charlesConstruct
                 && classicEncounter.style == ClassicEncounterStyle.HOLLOW_MAESTRO_BOSS;
         boolean razorbillBoss = razorbillConstruct
                 && classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS;
-        String cacheKey = razorbillConstruct
+        String cacheKey = grinchConstruct
+                ? "CLASSIC_BELLKEEPER"
+                : razorbillConstruct
                 ? (razorbillBoss ? "CLASSIC_SEAMREAVER" : "CLASSIC_SEAM_WARDEN|" + shortName(bird.name))
                 : charlesConstruct
                 ? (charlesBoss ? "CLASSIC_HOLLOW_MAESTRO" : "CLASSIC_CHOIR_MASK|" + shortName(bird.name))
@@ -58374,7 +59199,10 @@ public class BirdGame3 {
         }
 
         Canvas portrait = new Canvas(128, 128);
-        if (razorbillConstruct) {
+        if (grinchConstruct) {
+            drawClockworkOwl(portrait.getGraphicsContext2D(), 64.0, 63.0,
+                    0.36, classicBellkeeperPhase, true);
+        } else if (razorbillConstruct) {
             drawSeamConstruct(portrait.getGraphicsContext2D(), 64.0, 63.0,
                     razorbillBoss ? 0.31 : 0.34, razorbillBoss,
                     razorbillBoss ? classicSeamreaverPhase : classicRazorbillWaveIndex);
@@ -58408,6 +59236,13 @@ public class BirdGame3 {
                 && getEffectiveTeam(bird.playerIndex) == 2
                 && (classicEncounter.style == ClassicEncounterStyle.SEAM_WARDEN_GAUNTLET
                 || classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS);
+    }
+
+    private boolean isClassicGrinchHawkConstructBird(Bird bird) {
+        return bird != null && classicModeActive && classicEncounter != null
+                && classicSelectedBird == BirdType.GRINCHHAWK
+                && getEffectiveTeam(bird.playerIndex) == 2
+                && classicEncounter.style == ClassicEncounterStyle.BELLKEEPER_BOSS;
     }
 
     record FightHudNameFit(Font font, double maxWidth, double naturalWidth) {
@@ -60099,6 +60934,9 @@ public class BirdGame3 {
     }
 
     private String matchSummaryBirdLabel(Bird bird) {
+        if (isClassicGrinchHawkConstructBird(bird)) {
+            return "BELLKEEPER";
+        }
         if (isClassicRazorbillConstructBird(bird)) {
             return classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS
                     ? "SEAMREAVER" : "SEAM WARDEN";

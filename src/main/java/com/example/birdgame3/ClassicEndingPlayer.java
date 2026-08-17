@@ -184,6 +184,7 @@ final class ClassicEndingPlayer {
         boolean stillwaterRevelation = ClassicEndingContent.isStillwaterRevelation(cinematic);
         boolean charlesLivingScore = ClassicEndingContent.isCharlesLivingScore(cinematic);
         boolean razorbillFinalCut = ClassicEndingContent.isRazorbillFinalCut(cinematic);
+        boolean grinchOpenSack = ClassicEndingContent.isGrinchHawkOpenSack(cinematic);
         if (continuousPanorama) {
             double routeProgress = Math.clamp((beatIndex + progress) / cinematic.beats().size(), 0.0, 1.0);
             drawRoadrunnerPanorama(g, now / 1_000_000_000.0, routeProgress);
@@ -199,6 +200,9 @@ final class ClassicEndingPlayer {
         } else if (razorbillFinalCut) {
             double routeProgress = Math.clamp((beatIndex + progress) / cinematic.beats().size(), 0.0, 1.0);
             drawRazorbillFinalCut(g, now / 1_000_000_000.0, routeProgress);
+        } else if (grinchOpenSack) {
+            double routeProgress = Math.clamp((beatIndex + progress) / cinematic.beats().size(), 0.0, 1.0);
+            drawGrinchOpenSack(g, now / 1_000_000_000.0, routeProgress);
         } else {
             drawBackground(g, now / 1_000_000_000.0, progress);
             drawTableau(g, currentBeat().tableau(), progress, now / 1_000_000_000.0);
@@ -207,10 +211,85 @@ final class ClassicEndingPlayer {
         drawNarration(g, currentBeat().narration());
         drawProgress(g);
         if (!continuousPanorama && !subglacialMontage && !stillwaterRevelation
-                && !charlesLivingScore && !razorbillFinalCut) {
+                && !charlesLivingScore && !razorbillFinalCut && !grinchOpenSack) {
             drawTransition(g, progress);
         }
         g.restore();
+    }
+
+    private void drawGrinchOpenSack(GraphicsContext g, double time, double progress) {
+        g.setFill(new LinearGradient(0, 0, 0, LOGICAL_HEIGHT, false, CycleMethod.NO_CYCLE,
+                new Stop(0, Color.web("#050713")), new Stop(1, Color.web("#321238"))));
+        g.fillRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
+        double moonGlow = 0.18 + progress * 0.22;
+        g.setFill(Color.web("#FFF3C4", moonGlow));
+        g.fillOval(690, 70, 540, 540);
+
+        // A continuous dolly through the Bellkeeper's warehouse. The vaults
+        // unlock outward as the Crown is remade, instead of cutting between
+        // static dialogue poses.
+        double drift = progress * 680.0;
+        for (int vault = 0; vault < 6; vault++) {
+            double x = 70 + vault * 370.0 - drift * 0.28;
+            double y = 280 + (vault % 2) * 120.0;
+            double open = Math.clamp((progress - 0.38 - vault * 0.035) * 5.0, 0.0, 1.0);
+            g.setFill(Color.web("#171C28"));
+            g.fillRoundRect(x, y, 280, 430, 28, 28);
+            g.setStroke(Color.web("#A57B3F", 0.78));
+            g.setLineWidth(12);
+            g.strokeRoundRect(x, y, 280, 430, 28, 28);
+            g.setFill(Color.web("#090A10"));
+            g.fillRect(x + 140 - open * 145, y + 12, 140, 406);
+            g.fillRect(x + 140, y + 12, 140 + open * 145, 406);
+            if (open > 0.0) {
+                g.setFill(Color.web("#FFE082", 0.18 + open * 0.36));
+                g.fillRect(x + 22, y + 28, 236, 372);
+            }
+        }
+
+        double defeated = Math.clamp(1.0 - progress * 4.0, 0.0, 1.0);
+        if (defeated > 0.0) {
+            drawBird(g, boss, 1_390 + progress * 120, 650 + progress * 90, 1.22, false, defeated * 0.55);
+            drawBossName(g, "THE BELLKEEPER", 1_390, 810, defeated);
+        }
+
+        double crownAlpha = Math.clamp((progress - 0.14) * 4.5, 0.0, 1.0)
+                * Math.clamp((0.68 - progress) * 5.0, 0.0, 1.0);
+        if (crownAlpha > 0.0) {
+            g.setFill(Color.web("#FFD54F", crownAlpha));
+            g.fillPolygon(new double[]{840, 900, 960, 1_020, 1_080, 1_045, 875},
+                    new double[]{470, 360, 455, 345, 470, 560, 560}, 7);
+        }
+
+        double sackReveal = Math.clamp((progress - 0.42) * 4.0, 0.0, 1.0);
+        if (sackReveal > 0.0) {
+            double bob = Math.sin(time * 1.8) * 8.0;
+            g.setFill(Color.web("#5D173F", sackReveal));
+            g.fillOval(770, 475 + bob, 380, 310);
+            g.setStroke(Color.web("#FFD166", sackReveal));
+            g.setLineWidth(16);
+            g.strokeArc(780, 410 + bob, 360, 160, 200, 140, javafx.scene.shape.ArcType.OPEN);
+            g.strokeLine(820, 515 + bob, 1_100, 515 + bob);
+            for (int item = 0; item < 18; item++) {
+                double release = Math.clamp((progress - 0.54 - item * 0.008) * 5.0, 0.0, 1.0);
+                double angle = -2.7 + item * 0.31;
+                double distance = release * (270 + Math.floorMod(item * 67, 420));
+                double x = 960 + Math.cos(angle) * distance;
+                double y = 525 + bob + Math.sin(angle) * distance - release * 120;
+                Color itemColor = switch (item % 4) {
+                    case 0 -> Color.web("#81C784");
+                    case 1 -> Color.web("#90CAF9");
+                    case 2 -> Color.web("#FFCC80");
+                    default -> Color.web("#EF9A9A");
+                };
+                g.setFill(itemColor.deriveColor(0, 1, 1, sackReveal));
+                g.fillRoundRect(x - 20, y - 15, 40, 30, 7, 7);
+            }
+        }
+
+        drawBird(g, narrator, 520 + progress * 330, 680 - Math.sin(time * 1.5) * 10,
+                1.18 + progress * 0.14, true, 1.0);
+        if (progress > 0.82) drawFinalTitle(g, Math.clamp((progress - 0.82) * 5.5, 0.0, 1.0));
     }
 
     private void drawCharlesLivingScore(GraphicsContext g, double time, double progress) {

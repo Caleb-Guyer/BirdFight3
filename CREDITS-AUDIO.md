@@ -41,6 +41,9 @@ and is also dedicated to the public domain under CC0.
 | music-razorbill-worldseam.mp3 | [JRPG Epic Rock Battle Theme #1 — HydroGene](https://opengameart.org/content/jrpg-epic-rock-battle-theme-1) (CC0) | The Worldseam and Between the Lines |
 | music-razorbill-seamreaver.mp3 | [Intense Boss Battle — haruta](https://opengameart.org/content/intense-boss-battle) (CC0) | The Seamreaver final boss |
 | music-razorbill-ending.mp3 | [Transmission — SRG774, Dark Sci-Fi Audio Pack](https://opengameart.org/content/dark-sci-fi-audio-pack) (CC0) | Razorbill's Final Cut ending |
+| music-grinch-workshop.mp3 | [Ancient Mysteries — Sperry Lion LLC](https://opengameart.org/content/ancient-mysteries) (CC0) | Midnight Workshop and Grinch-Hawk's factory battles |
+| music-grinch-bellkeeper.mp3 | [Epic Fight Theme/Boss Battle — Tarush Singhal](https://opengameart.org/content/epic-fight-themeboss-battle) (CC0) | The Bellkeeper final boss |
+| music-grinch-ending.mp3 | [Next to You — Joth](https://opengameart.org/content/next-to-you) (CC0) | Grinch-Hawk's Open Sack ending |
 
 ## Sound effects (original)
 
