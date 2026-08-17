@@ -1,73 +1,53 @@
 package com.example.birdgame3;
 
+/** Fixed 1920x1080 stage-select geometry. Every future stage must preserve the no-scroll contract. */
 final class StageSelectLayout {
-    static final int MAIN_COLUMNS = 6;
-    static final int VARIANT_COLUMNS = 11;
-    static final double ROOT_TOP_PADDING = 22.0;
-    static final double ROOT_BOTTOM_PADDING = 24.0;
-    static final double ROOT_HORIZONTAL_PADDING = 32.0;
-    static final double TOP_BAR_HEIGHT = 74.0;
-    static final double CARD_WIDTH = 285.0;
-    static final double CARD_INNER_WIDTH = 261.0;
-    static final double VARIANT_CARD_WIDTH = 150.0;
-    static final double VARIANT_CARD_INNER_WIDTH = 132.0;
-    static final double CARD_HEIGHT = 154.0;
-    static final double HORIZONTAL_GAP = 16.0;
-    static final double VERTICAL_GAP = 14.0;
-    static final double SECTION_LABEL_HEIGHT = 31.0;
-    static final double SECTION_LABEL_GAP = 8.0;
-    static final double SECTION_GAP = 14.0;
-    static final double CENTER_VERTICAL_MARGIN = 26.0;
-    static final double RANDOM_AREA_HEIGHT = 102.0;
+    static final int GRID_COLUMNS = 8;
+    static final int MAX_GRID_ROWS = 5;
+    static final double ROOT_TOP_PADDING = 18.0;
+    static final double ROOT_BOTTOM_PADDING = 18.0;
+    static final double ROOT_HORIZONTAL_PADDING = 26.0;
+    static final double TOP_BAR_HEIGHT = 84.0;
+    static final double CONTENT_GAP = 22.0;
+    static final double CONTENT_VERTICAL_MARGIN = 14.0;
+    static final double PREVIEW_WIDTH = 596.0;
+    static final double PREVIEW_HEIGHT = 760.0;
+    static final double PREVIEW_CANVAS_WIDTH = 548.0;
+    static final double PREVIEW_CANVAS_HEIGHT = 316.0;
+    static final double TILE_WIDTH = 142.0;
+    static final double TILE_HEIGHT = 132.0;
+    static final double TILE_IMAGE_WIDTH = 132.0;
+    static final double TILE_IMAGE_HEIGHT = 78.0;
+    static final double HORIZONTAL_GAP = 10.0;
+    static final double VERTICAL_GAP = 10.0;
+    static final double FOOTER_HEIGHT = 44.0;
 
     private StageSelectLayout() {
     }
 
     static int rowsFor(int cardCount) {
-        return rowsFor(cardCount, MAIN_COLUMNS);
+        return cardCount <= 0 ? 0 : (cardCount + GRID_COLUMNS - 1) / GRID_COLUMNS;
     }
 
-    static int variantRowsFor(int cardCount) {
-        return rowsFor(cardCount, VARIANT_COLUMNS);
-    }
-
-    private static int rowsFor(int cardCount, int columns) {
-        return cardCount <= 0 ? 0 : (cardCount + columns - 1) / columns;
+    static int capacity() {
+        return GRID_COLUMNS * MAX_GRID_ROWS;
     }
 
     static double gridWidth() {
-        return MAIN_COLUMNS * CARD_WIDTH + (MAIN_COLUMNS - 1) * HORIZONTAL_GAP;
+        return GRID_COLUMNS * TILE_WIDTH + (GRID_COLUMNS - 1) * HORIZONTAL_GAP;
     }
 
-    static double variantGridWidth() {
-        return VARIANT_COLUMNS * VARIANT_CARD_WIDTH + (VARIANT_COLUMNS - 1) * HORIZONTAL_GAP;
+    static double gridHeight(int tileCount) {
+        int rows = rowsFor(tileCount);
+        return rows == 0 ? 0.0 : rows * TILE_HEIGHT + (rows - 1) * VERTICAL_GAP;
     }
 
-    static double gridHeight(int cardCount) {
-        int rows = rowsFor(cardCount);
-        return rows == 0 ? 0.0 : rows * CARD_HEIGHT + (rows - 1) * VERTICAL_GAP;
+    static double contentWidth() {
+        return PREVIEW_WIDTH + CONTENT_GAP + gridWidth();
     }
 
-    static double variantGridHeight(int cardCount) {
-        int rows = variantRowsFor(cardCount);
-        return rows == 0 ? 0.0 : rows * CARD_HEIGHT + (rows - 1) * VERTICAL_GAP;
-    }
-
-    static double groupedCatalogHeight(int... sectionCardCounts) {
-        double height = 0.0;
-        int visibleSections = 0;
-        for (int count : sectionCardCounts) {
-            if (count <= 0) continue;
-            if (visibleSections++ > 0) {
-                height += SECTION_GAP;
-            }
-            height += SECTION_LABEL_HEIGHT + SECTION_LABEL_GAP + variantGridHeight(count);
-        }
-        return height;
-    }
-
-    static double requiredScreenHeight(double catalogHeight) {
-        return ROOT_TOP_PADDING + ROOT_BOTTOM_PADDING + TOP_BAR_HEIGHT
-                + CENTER_VERTICAL_MARGIN + catalogHeight + RANDOM_AREA_HEIGHT;
+    static double requiredScreenHeight(int tileCount) {
+        return ROOT_TOP_PADDING + ROOT_BOTTOM_PADDING + TOP_BAR_HEIGHT + CONTENT_VERTICAL_MARGIN
+                + Math.max(PREVIEW_HEIGHT, gridHeight(tileCount)) + FOOTER_HEIGHT;
     }
 }

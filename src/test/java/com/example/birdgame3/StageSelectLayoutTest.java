@@ -2,41 +2,55 @@ package com.example.birdgame3;
 
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Method;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class StageSelectLayoutTest {
     @Test
-    void completeMainCatalogFitsWithoutScrolling() {
-        assertEquals(3, StageSelectLayout.rowsFor(BirdGame3.MapType.values().length));
-        assertTrue(StageSelectLayout.gridWidth()
+    void completeUnifiedCatalogAndRandomFitWithoutScrolling() {
+        int mainStages = BirdGame3.MapType.values().length;
+        int variants = BirdGame3.MapVariant.values().length - 1;
+        int totalTiles = mainStages + variants + 1;
+
+        assertEquals(38, totalTiles, "Update the fixed-grid contract whenever a stage is added.");
+        assertEquals(5, StageSelectLayout.rowsFor(totalTiles));
+        assertTrue(totalTiles <= StageSelectLayout.capacity());
+        assertTrue(StageSelectLayout.contentWidth()
                         <= BirdGame3.WIDTH - StageSelectLayout.ROOT_HORIZONTAL_PADDING * 2.0,
-                "Five stage cards should fit inside the logical screen width.");
-        assertTrue(StageSelectLayout.requiredScreenHeight(
-                        StageSelectLayout.gridHeight(BirdGame3.MapType.values().length)) <= BirdGame3.HEIGHT,
-                "Every main stage and both random choices should fit without a scroll pane.");
+                "The enlarged preview and complete stage grid must fit inside the logical screen width.");
+        assertTrue(StageSelectLayout.requiredScreenHeight(totalTiles) <= BirdGame3.HEIGHT,
+                "Every stage, Random, the preview, and footer must fit without a scroll pane.");
     }
 
     @Test
-    void completeCategorizedVariantCatalogFitsWithoutScrolling() {
-        int storyArenas = 0;
-        int bossArenas = 0;
-        int classicRoutes = 0;
-        for (BirdGame3.MapVariant variant : BirdGame3.MapVariant.values()) {
-            if (variant == BirdGame3.MapVariant.STANDARD) continue;
-            if ("Story Arenas".equals(variant.category)) storyArenas++;
-            if ("Boss Rush Arenas".equals(variant.category)) bossArenas++;
-            if ("Classic Routes".equals(variant.category)) classicRoutes++;
-        }
+    void developerCatalogContainsEveryMainStageAndVariantExactlyOnce() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        Method developerUnlock = BirdGame3.class.getDeclaredMethod("unlockEverythingForDeveloperProfile");
+        developerUnlock.setAccessible(true);
+        developerUnlock.invoke(game);
 
-        assertEquals(1, StageSelectLayout.variantRowsFor(storyArenas));
-        assertEquals(1, StageSelectLayout.variantRowsFor(bossArenas));
-        assertEquals(1, StageSelectLayout.variantRowsFor(classicRoutes));
-        assertTrue(StageSelectLayout.variantGridWidth()
-                        <= BirdGame3.WIDTH - StageSelectLayout.ROOT_HORIZONTAL_PADDING * 2.0,
-                "A complete compact variant row should fit inside the logical screen width.");
-        assertTrue(StageSelectLayout.requiredScreenHeight(
-                        StageSelectLayout.groupedCatalogHeight(storyArenas, bossArenas, classicRoutes)) <= BirdGame3.HEIGHT,
-                "All labeled variant sections and random choices should fit without scrolling.");
+        List<BirdGame3.StageChoice> catalog = game.unifiedStageSelectCatalog();
+        assertEquals(BirdGame3.MapType.values().length + BirdGame3.MapVariant.values().length - 1,
+                catalog.size());
+        assertEquals(catalog.size(), new HashSet<>(catalog).size(), "The unified grid cannot contain duplicate tiles.");
+
+        Set<BirdGame3.MapType> mainStages = new HashSet<>();
+        Set<BirdGame3.MapVariant> variants = new HashSet<>();
+        for (BirdGame3.StageChoice choice : catalog) {
+            if (choice.variant() == BirdGame3.MapVariant.STANDARD) {
+                mainStages.add(choice.map());
+            } else {
+                variants.add(choice.variant());
+            }
+        }
+        assertEquals(Set.of(BirdGame3.MapType.values()), mainStages);
+        Set<BirdGame3.MapVariant> expectedVariants = new HashSet<>(List.of(BirdGame3.MapVariant.values()));
+        expectedVariants.remove(BirdGame3.MapVariant.STANDARD);
+        assertEquals(expectedVariants, variants);
     }
 }

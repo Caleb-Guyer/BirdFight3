@@ -29545,6 +29545,11 @@ public class BirdGame3 {
         return choices;
     }
 
+    /** The single catalog shown by stage select: every unlocked main arena followed by every unlocked variant. */
+    List<StageChoice> unifiedStageSelectCatalog() {
+        return List.copyOf(availableStageChoices(StageRandomPool.ALL));
+    }
+
     private StageChoice randomStageChoice(StageRandomPool pool, Random picker) {
         List<StageChoice> choices = availableStageChoices(pool);
         return choices.get(picker.nextInt(choices.size()));
@@ -50935,10 +50940,6 @@ public class BirdGame3 {
     }
 
     private void showStageSelect(Stage stage) {
-        showStageSelect(stage, false);
-    }
-
-    private void showStageSelect(Stage stage, boolean variantsTabActive) {
         playMenuMusic();
         BorderPane root = new BorderPane();
         root.setPadding(new Insets(
@@ -50946,7 +50947,8 @@ public class BirdGame3 {
                 StageSelectLayout.ROOT_HORIZONTAL_PADDING,
                 StageSelectLayout.ROOT_BOTTOM_PADDING,
                 StageSelectLayout.ROOT_HORIZONTAL_PADDING));
-        root.setStyle("-fx-background-color: linear-gradient(to bottom, #08101E, #1B2C44);");
+        root.setStyle("-fx-background-color: "
+                + "linear-gradient(from 0% 0% to 100% 100%, #05070D 0%, #101827 58%, #250B18 100%);");
 
         Runnable backAction = () -> {
             Runnable target = stageSelectReturn;
@@ -50959,48 +50961,37 @@ public class BirdGame3 {
                 showMenu(stage);
             }
         };
-        Button backArrow = uiFactory.action("<", 92, StageSelectLayout.TOP_BAR_HEIGHT, 48, "#FF1744", 22, backAction);
+        Button backArrow = uiFactory.action("<", 92, StageSelectLayout.TOP_BAR_HEIGHT, 48,
+                "#C3172C", 20, backAction);
 
-        Label title = new Label("SELECT STAGE");
-        title.setFont(Font.font("Impact", FontWeight.BOLD, 72));
-        title.setTextFill(Color.web("#FFE082"));
-        title.setEffect(new Glow(0.8));
+        Label title = new Label("STAGE SELECT");
+        title.setFont(Font.font("Impact", FontWeight.BOLD, 66));
+        title.setTextFill(Color.WHITE);
+        title.setEffect(new DropShadow(14, Color.web("#FF1744", 0.48)));
+        applyNoEllipsis(title);
 
-        Button mainTab = uiFactory.action("MAIN", 220, 60, 25, "#1565C0", 16,
-                () -> showStageSelect(stage, false));
-        Button variantsTab = uiFactory.action("VARIANTS", 220, 60, 25, "#6A1B9A", 16,
-                () -> showStageSelect(stage, true));
-        mainTab.setDisable(!variantsTabActive);
-        variantsTab.setDisable(variantsTabActive);
-        HBox tabs = new HBox(12, mainTab, variantsTab);
-        tabs.setAlignment(Pos.CENTER_RIGHT);
+        Label subtitle = new Label("ALL ARENAS  •  MAIN + VARIANTS");
+        subtitle.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
+        subtitle.setTextFill(Color.web("#90A4AE"));
+        applyNoEllipsis(subtitle);
+        VBox heading = new VBox(-5, title, subtitle);
+        heading.setAlignment(Pos.CENTER_LEFT);
+
+        List<StageChoice> stages = unifiedStageSelectCatalog();
+        int tileCount = stages.size() + 1;
+        if (tileCount > StageSelectLayout.capacity()) {
+            throw new IllegalStateException("Stage catalog exceeds no-scroll capacity: " + tileCount
+                    + " > " + StageSelectLayout.capacity());
+        }
+        StackPane countChip = buildMenuChip(stages.size() + " STAGES", "#29131A", "#FF8A80");
 
         Region headerSpacer = new Region();
         HBox.setHgrow(headerSpacer, Priority.ALWAYS);
-        HBox topBar = new HBox(22, backArrow, title, headerSpacer, tabs);
+        HBox topBar = new HBox(20, backArrow, heading, headerSpacer, countChip);
         topBar.setAlignment(Pos.CENTER_LEFT);
         topBar.setMinHeight(StageSelectLayout.TOP_BAR_HEIGHT);
         topBar.setPrefHeight(StageSelectLayout.TOP_BAR_HEIGHT);
         topBar.setMaxHeight(StageSelectLayout.TOP_BAR_HEIGHT);
-
-        record MapCard(String name, String desc, String color, MapType map) {
-        }
-
-        List<MapCard> mainCards = new ArrayList<>(List.of(
-                new MapCard("BIG FOREST", "Dense trees, layered platforms, high vertical play.", "#2E7D32", MapType.FOREST),
-                new MapCard("PIGEON'S ROOFTOPS", "Neon rooftops with city wind vents.", "#5E35B1", MapType.CITY),
-                new MapCard("SKY CLIFFS", "Stepping cliffs and strong updrafts.", "#8D6E63", MapType.SKYCLIFFS),
-                new MapCard("VIBRANT JUNGLE", "Vines, nectar nodes, wild vertical mix.", "#388E3C", MapType.VIBRANT_JUNGLE),
-                new MapCard("SUNSCORCH FLATS", "Mostly flat desert floor, left oasis pond, and a steep right-side mesa.", "#D18841", MapType.DESERT),
-                new MapCard("ECHO CAVERN", "Tight cave corridors and hang ledges.", "#455A64", MapType.CAVE),
-                new MapCard("BATTLEFIELD", "A tight floating island with clean side perches and open edges.", "#1E88E5", MapType.BATTLEFIELD),
-                new MapCard("BROKEN HARBOR", "Storm piers, mast perches, rescue skiffs, and a bombardment lever on the high dock.", "#26A69A", MapType.DOCK),
-                new MapCard("FROSTBITE FJORD", "Aurora-lit ice shelves with slick movement, snowbanks, and glacier routes.", "#4FC3F7", MapType.FROSTBITE_FJORD),
-                new MapCard("ASHFALL CATHEDRAL", "Phoenix geysers, lava recovery routes, ember thermals, and a burning sky-temple.", "#E64A19", MapType.ASHFALL_CATHEDRAL),
-                new MapCard("CROWNLOCK PRISON", "A flat prison floor beneath layered steel catwalks, sweeping searchlights, and levers that unleash prisoner rushes.", "#546E7A", MapType.PRISON),
-                new MapCard("BEACON CROWN", "A huge crown-top arena with long lanes, layered perches, and a lethal void.", "#6A1B9A", MapType.BEACON_CROWN)
-        ));
-        mainCards.removeIf(card -> !isMapUnlocked(card.map));
 
         Consumer<StageChoice> handler = stageSelectHandler;
         Consumer<StageChoice> selectStage = choice -> {
@@ -51012,58 +51003,6 @@ public class BirdGame3 {
                 beginFreshMatchOnStage(stage, choice);
             }
         };
-
-        VBox cardSections = new VBox(24);
-        cardSections.setAlignment(Pos.CENTER);
-        if (!variantsTabActive) {
-            GridPane grid = new GridPane();
-            grid.setHgap(StageSelectLayout.HORIZONTAL_GAP);
-            grid.setVgap(StageSelectLayout.VERTICAL_GAP);
-            grid.setAlignment(Pos.CENTER);
-            for (int i = 0; i < mainCards.size(); i++) {
-                MapCard card = mainCards.get(i);
-                grid.add(buildStageSelectCard(
-                        card.name, card.desc, card.color,
-                        () -> selectStage.accept(StageChoice.main(card.map))),
-                        i % StageSelectLayout.MAIN_COLUMNS, i / StageSelectLayout.MAIN_COLUMNS);
-            }
-            cardSections.getChildren().add(grid);
-        } else {
-            for (String category : List.of("Story Arenas", "Boss Rush Arenas", "Classic Routes")) {
-                List<MapVariant> variants = Arrays.stream(MapVariant.values())
-                        .filter(variant -> variant != MapVariant.STANDARD)
-                        .filter(variant -> category.equals(variant.category))
-                        .filter(this::isMapVariantUnlocked)
-                        .toList();
-                if (variants.isEmpty()) continue;
-
-                Label categoryLabel = new Label(category.toUpperCase());
-                categoryLabel.setFont(Font.font("Arial Black", 26));
-                categoryLabel.setTextFill(Color.web(category.equals("Story Arenas") ? "#FFE082"
-                        : (category.equals("Classic Routes") ? "#80DEEA" : "#CE93D8")));
-                applyNoEllipsis(categoryLabel);
-
-                GridPane grid = new GridPane();
-                grid.setHgap(StageSelectLayout.HORIZONTAL_GAP);
-                grid.setVgap(StageSelectLayout.VERTICAL_GAP);
-                grid.setAlignment(Pos.CENTER);
-                for (int i = 0; i < variants.size(); i++) {
-                    MapVariant variant = variants.get(i);
-                    String desc = variant.description + "\nBase arena: " + mapDisplayName(variant.baseMap);
-                    String color = category.equals("Story Arenas") ? "#AD6C00"
-                            : (category.equals("Classic Routes") ? "#007C91" : "#6A1B9A");
-                    grid.add(buildStageSelectCard(
-                            variant.displayName.toUpperCase(), desc, color,
-                            StageSelectLayout.VARIANT_CARD_WIDTH, StageSelectLayout.VARIANT_CARD_INNER_WIDTH,
-                            () -> selectStage.accept(new StageChoice(variant.baseMap, variant))),
-                            i % StageSelectLayout.VARIANT_COLUMNS, i / StageSelectLayout.VARIANT_COLUMNS);
-                }
-                VBox section = new VBox(StageSelectLayout.SECTION_LABEL_GAP, categoryLabel, grid);
-                section.setAlignment(Pos.CENTER);
-                cardSections.getChildren().add(section);
-            }
-        }
-        cardSections.setSpacing(StageSelectLayout.SECTION_GAP);
 
         Consumer<StageRandomPool> selectRandom = randomPool -> {
             Consumer<StageRandomPool> randomHandler = stageSelectRandomHandler;
@@ -51081,33 +51020,114 @@ public class BirdGame3 {
             beginFreshMatchOnRandomMap(stage, randomPool);
         };
 
-        StageRandomPool tabPool = variantsTabActive ? StageRandomPool.VARIANTS : StageRandomPool.MAIN;
-        Button tabRandomBtn = uiFactory.action(tabPool.label, 460, 72, 27,
-                variantsTabActive ? "#7B1FA2" : "#1565C0", 18, () -> selectRandom.accept(tabPool));
-        Button totalRandomBtn = uiFactory.action("TOTAL RANDOM", 460, 72, 27, "#8E24AA", 18,
-                () -> selectRandom.accept(StageRandomPool.ALL));
-        Label randomHint = new Label(variantsTabActive
-                ? "Random Variant stays in this tab. Total Random can choose any main stage or variant."
-                : "Random Main stays in this tab. Total Random can choose any main stage or variant.");
-        randomHint.setFont(Font.font("Consolas", 16));
-        randomHint.setTextFill(Color.web("#B39DDB"));
-        randomHint.setWrapText(true);
-        randomHint.setTextAlignment(TextAlignment.CENTER);
-        randomHint.setAlignment(Pos.CENTER);
-        randomHint.setPrefWidth(1120);
+        Canvas largePreview = new Canvas(StageSelectLayout.PREVIEW_CANVAS_WIDTH,
+                StageSelectLayout.PREVIEW_CANVAS_HEIGHT);
+        Label previewCategory = stageSelectPreviewLabel("MAIN STAGE", 17, "#90CAF9");
+        Label previewName = stageSelectPreviewLabel("", 42, "#FFFFFF");
+        previewName.setFont(Font.font("Impact", FontWeight.BOLD, 42));
+        previewName.setWrapText(true);
+        previewName.setPrefWidth(StageSelectLayout.PREVIEW_CANVAS_WIDTH);
+        previewName.setMaxWidth(StageSelectLayout.PREVIEW_CANVAS_WIDTH);
+        Label previewBase = stageSelectPreviewLabel("", 17, "#90A4AE");
+        Label previewDescription = stageSelectPreviewLabel("", 19, "#CFD8DC");
+        previewDescription.setWrapText(true);
+        previewDescription.setPrefWidth(StageSelectLayout.PREVIEW_CANVAS_WIDTH);
+        previewDescription.setMaxWidth(StageSelectLayout.PREVIEW_CANVAS_WIDTH);
+        previewDescription.setMinHeight(92);
+        previewDescription.setAlignment(Pos.TOP_LEFT);
+        previewDescription.setTextAlignment(TextAlignment.LEFT);
+        Label chooseHint = stageSelectPreviewLabel("PRESS ENTER / A TO FIGHT HERE", 18, "#FFE082");
 
-        HBox randomButtons = new HBox(18, tabRandomBtn, totalRandomBtn);
-        randomButtons.setAlignment(Pos.CENTER);
-        VBox randomBox = new VBox(5, randomButtons, randomHint);
-        randomBox.setAlignment(Pos.CENTER);
-        randomBox.setMinHeight(StageSelectLayout.RANDOM_AREA_HEIGHT);
-        randomBox.setPrefHeight(StageSelectLayout.RANDOM_AREA_HEIGHT);
-        randomBox.setMaxHeight(StageSelectLayout.RANDOM_AREA_HEIGHT);
+        StackPane previewFrame = new StackPane(largePreview);
+        previewFrame.setPadding(new Insets(6));
+        previewFrame.setStyle("-fx-background-color:#03050A; -fx-background-radius:16;"
+                + "-fx-border-color:#FFFFFF44; -fx-border-width:2; -fx-border-radius:16;");
+
+        Region previewRule = new Region();
+        previewRule.setPrefHeight(4);
+        previewRule.setMaxWidth(StageSelectLayout.PREVIEW_CANVAS_WIDTH);
+        previewRule.setStyle("-fx-background-color:linear-gradient(to right,#FF1744,#FFE082,#4DD0E1);"
+                + "-fx-background-radius:3;");
+
+        VBox previewPanel = new VBox(11,
+                buildMenuEyebrow("NOW SELECTING", "#FF8A80"), previewFrame, previewCategory,
+                previewName, previewRule, previewBase, previewDescription, chooseHint);
+        previewPanel.setPadding(new Insets(18, 18, 18, 18));
+        previewPanel.setAlignment(Pos.TOP_LEFT);
+        previewPanel.setMinSize(StageSelectLayout.PREVIEW_WIDTH, StageSelectLayout.PREVIEW_HEIGHT);
+        previewPanel.setPrefSize(StageSelectLayout.PREVIEW_WIDTH, StageSelectLayout.PREVIEW_HEIGHT);
+        previewPanel.setMaxSize(StageSelectLayout.PREVIEW_WIDTH, StageSelectLayout.PREVIEW_HEIGHT);
+        previewPanel.setStyle("-fx-background-color:linear-gradient(to bottom right,#121824EE,#080A10F4);"
+                + "-fx-background-radius:18; -fx-border-color:#607D8B; -fx-border-width:2;"
+                + "-fx-border-radius:18;");
+
+        Consumer<StageChoice> showPreview = choice -> {
+            StagePreviewRenderer.draw(largePreview, choice);
+            MapVariant variant = choice.variant();
+            previewCategory.setText(variant == MapVariant.STANDARD
+                    ? "MAIN STAGE" : variant.category.toUpperCase(Locale.ROOT));
+            previewCategory.setTextFill(StagePreviewRenderer.accentFor(choice));
+            previewName.setText(stageDisplayName(choice.map(), variant).toUpperCase(Locale.ROOT));
+            previewBase.setText(variant == MapVariant.STANDARD
+                    ? "ORIGINAL ARENA"
+                    : "VARIANT OF  " + mapDisplayName(choice.map()).toUpperCase(Locale.ROOT));
+            previewDescription.setText(stageSelectDescription(choice));
+            chooseHint.setText("PRESS ENTER / A TO FIGHT HERE");
+        };
+        Runnable showRandomPreview = () -> {
+            StagePreviewRenderer.drawRandom(largePreview);
+            previewCategory.setText("ALL STAGES");
+            previewCategory.setTextFill(Color.web("#FFE082"));
+            previewName.setText("RANDOM");
+            previewBase.setText("MAIN STAGES + VARIANTS");
+            previewDescription.setText("Let the game choose from every stage currently unlocked on this profile.");
+            chooseHint.setText("PRESS ENTER / A TO ROLL A STAGE");
+        };
+
+        GridPane stageGrid = new GridPane();
+        stageGrid.setHgap(StageSelectLayout.HORIZONTAL_GAP);
+        stageGrid.setVgap(StageSelectLayout.VERTICAL_GAP);
+        stageGrid.setAlignment(Pos.TOP_CENTER);
+        stageGrid.setMinWidth(StageSelectLayout.gridWidth());
+        stageGrid.setPrefWidth(StageSelectLayout.gridWidth());
+        stageGrid.setMaxWidth(StageSelectLayout.gridWidth());
+
+        List<Button> stageTiles = new ArrayList<>();
+        Button randomTile = buildStageSelectTile(null, true,
+                () -> selectRandom.accept(StageRandomPool.ALL), showRandomPreview);
+        stageTiles.add(randomTile);
+        stageGrid.add(randomTile, 0, 0);
+        for (int i = 0; i < stages.size(); i++) {
+            StageChoice choice = stages.get(i);
+            Button tile = buildStageSelectTile(choice, false,
+                    () -> selectStage.accept(choice), () -> showPreview.accept(choice));
+            stageTiles.add(tile);
+            int gridIndex = i + 1;
+            stageGrid.add(tile, gridIndex % StageSelectLayout.GRID_COLUMNS,
+                    gridIndex / StageSelectLayout.GRID_COLUMNS);
+        }
+
+        showRandomPreview.run();
+        HBox content = new HBox(StageSelectLayout.CONTENT_GAP, previewPanel, stageGrid);
+        content.setAlignment(Pos.TOP_CENTER);
+        content.setMinHeight(StageSelectLayout.PREVIEW_HEIGHT);
+        content.setPrefHeight(StageSelectLayout.PREVIEW_HEIGHT);
+        content.setMaxHeight(StageSelectLayout.PREVIEW_HEIGHT);
+
+        Label footer = new Label("HOVER OR MOVE THE CURSOR TO PREVIEW   •   ENTER / A SELECT   •   ESC / B BACK");
+        footer.setFont(Font.font("Consolas", FontWeight.BOLD, 17));
+        footer.setTextFill(Color.web("#9FB3C8"));
+        footer.setAlignment(Pos.CENTER);
+        footer.setMaxWidth(Double.MAX_VALUE);
+        footer.setMinHeight(StageSelectLayout.FOOTER_HEIGHT);
+        footer.setPrefHeight(StageSelectLayout.FOOTER_HEIGHT);
+        footer.setMaxHeight(StageSelectLayout.FOOTER_HEIGHT);
+        applyNoEllipsis(footer);
 
         root.setTop(topBar);
-        root.setCenter(cardSections);
-        root.setBottom(randomBox);
-        BorderPane.setMargin(cardSections, new Insets(14, 0, 12, 0));
+        root.setCenter(content);
+        root.setBottom(footer);
+        BorderPane.setMargin(content, new Insets(StageSelectLayout.CONTENT_VERTICAL_MARGIN, 0, 0, 0));
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         bindEscape(scene, backArrow);
@@ -51115,40 +51135,147 @@ public class BirdGame3 {
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
         setScenePreservingFullscreen(stage, scene);
-        backArrow.requestFocus();
+        javafx.application.Platform.runLater(randomTile::requestFocus);
     }
 
-    private VBox buildStageSelectCard(String name, String description, String color, Runnable action) {
-        return buildStageSelectCard(name, description, color,
-                StageSelectLayout.CARD_WIDTH, StageSelectLayout.CARD_INNER_WIDTH, action);
+    private Label stageSelectPreviewLabel(String text, double size, String color) {
+        Label label = new Label(text);
+        label.setFont(Font.font("Consolas", FontWeight.BOLD, size));
+        label.setTextFill(Color.web(color));
+        label.setAlignment(Pos.CENTER_LEFT);
+        label.setTextAlignment(TextAlignment.LEFT);
+        applyNoEllipsis(label);
+        return label;
     }
 
-    private VBox buildStageSelectCard(String name, String description, String color,
-                                      double cardWidth, double cardInnerWidth, Runnable action) {
-        VBox cardBox = new VBox(6);
-        cardBox.setPadding(new Insets(10, 12, 10, 12));
-        cardBox.setAlignment(Pos.TOP_CENTER);
-        cardBox.setMinSize(cardWidth, StageSelectLayout.CARD_HEIGHT);
-        cardBox.setPrefSize(cardWidth, StageSelectLayout.CARD_HEIGHT);
-        cardBox.setMaxSize(cardWidth, StageSelectLayout.CARD_HEIGHT);
-        cardBox.setStyle("-fx-background-color: rgba(0,0,0,0.45); -fx-border-color: #90A4AE; -fx-border-width: 2; -fx-background-radius: 14; -fx-border-radius: 14;");
+    private Button buildStageSelectTile(StageChoice choice, boolean random,
+                                        Runnable action, Runnable previewAction) {
+        Canvas image = new Canvas(StageSelectLayout.TILE_IMAGE_WIDTH, StageSelectLayout.TILE_IMAGE_HEIGHT);
+        if (random) {
+            StagePreviewRenderer.drawRandom(image);
+        } else {
+            StagePreviewRenderer.draw(image, choice);
+        }
+        String name = random ? "RANDOM" : stageDisplayName(choice.map(), choice.variant()).toUpperCase(Locale.ROOT);
+        Label nameLabel = new Label(name);
+        nameLabel.setFont(Font.font("Arial Black", FontWeight.BOLD, name.length() > 18 ? 11 : 13));
+        nameLabel.setTextFill(Color.WHITE);
+        nameLabel.setWrapText(true);
+        nameLabel.setTextAlignment(TextAlignment.CENTER);
+        nameLabel.setAlignment(Pos.CENTER);
+        nameLabel.setMinSize(StageSelectLayout.TILE_IMAGE_WIDTH, 39);
+        nameLabel.setPrefSize(StageSelectLayout.TILE_IMAGE_WIDTH, 39);
+        nameLabel.setMaxSize(StageSelectLayout.TILE_IMAGE_WIDTH, 39);
+        applyNoEllipsis(nameLabel);
+        fitWrappedLabelText(nameLabel, name, StageSelectLayout.TILE_IMAGE_WIDTH - 4.0, 39.0, 8.0);
 
-        Button button = uiFactory.action(name, cardInnerWidth, 64, 23, color, 14, action);
-        Label desc = getLabel(description);
-        desc.setFont(Font.font("Consolas", 15));
-        desc.setTextFill(Color.web("#CFD8DC"));
-        desc.setWrapText(true);
-        desc.setTextAlignment(TextAlignment.CENTER);
-        desc.setAlignment(Pos.TOP_CENTER);
-        desc.setMinWidth(cardInnerWidth);
-        desc.setPrefWidth(cardInnerWidth);
-        desc.setMaxWidth(cardInnerWidth);
-        desc.setMinHeight(58);
-        desc.setPrefHeight(58);
-        desc.setMaxHeight(58);
-        applyNoEllipsis(desc);
-        cardBox.getChildren().addAll(button, desc);
-        return cardBox;
+        String badgeText = random ? "?" : choice.variant() == MapVariant.STANDARD ? "M"
+                : switch (choice.variant().category) {
+                    case "Story Arenas" -> "S";
+                    case "Boss Rush Arenas" -> "B";
+                    case "Classic Routes" -> "C";
+                    default -> "V";
+                };
+        Label badge = new Label(badgeText);
+        badge.setFont(Font.font("Arial Black", FontWeight.BOLD, 12));
+        badge.setTextFill(Color.web("#071018"));
+        badge.setAlignment(Pos.CENTER);
+        badge.setMinSize(24, 24);
+        badge.setPrefSize(24, 24);
+        badge.setMaxSize(24, 24);
+        Color accent = random ? Color.web("#FFE082") : StagePreviewRenderer.accentFor(choice);
+        badge.setStyle("-fx-background-color:" + toCssHex(accent) + "; -fx-background-radius:12;"
+                + "-fx-border-color:#FFFFFFAA; -fx-border-radius:12;");
+        StackPane.setAlignment(badge, Pos.TOP_LEFT);
+        StackPane.setMargin(badge, new Insets(5, 0, 0, 5));
+        StackPane picture = new StackPane(image, badge);
+
+        VBox graphic = new VBox(2, picture, nameLabel);
+        graphic.setAlignment(Pos.TOP_CENTER);
+        Button tile = new Button();
+        tile.setGraphic(graphic);
+        tile.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+        tile.setMinSize(StageSelectLayout.TILE_WIDTH, StageSelectLayout.TILE_HEIGHT);
+        tile.setPrefSize(StageSelectLayout.TILE_WIDTH, StageSelectLayout.TILE_HEIGHT);
+        tile.setMaxSize(StageSelectLayout.TILE_WIDTH, StageSelectLayout.TILE_HEIGHT);
+        tile.setPadding(new Insets(4));
+        tile.setFocusTraversable(true);
+        tile.setCursor(Cursor.HAND);
+        tile.setOnAction(event -> {
+            playButtonClick();
+            action.run();
+        });
+
+        String baseStyle = "-fx-background-color:linear-gradient(to bottom,#1B2431,#0C1119);"
+                + "-fx-background-radius:9; -fx-border-radius:9; -fx-border-width:2;"
+                + "-fx-border-color:#546575; -fx-effect:dropshadow(gaussian,#00000099,8,0.25,0,3);";
+        String activeStyle = "-fx-background-color:linear-gradient(to bottom,#2A3544,#111722);"
+                + "-fx-background-radius:9; -fx-border-radius:9; -fx-border-width:4;"
+                + "-fx-border-color:" + toCssHex(accent) + ";"
+                + "-fx-effect:dropshadow(gaussian," + toCssHex(accent) + "99,14,0.35,0,0);";
+        tile.setStyle(baseStyle);
+
+        Runnable activatePreview = () -> {
+            previewAction.run();
+            tile.setStyle(activeStyle);
+        };
+        tile.setOnMouseEntered(event -> {
+            activatePreview.run();
+            animateStageTileScale(tile, 1.045);
+        });
+        tile.setOnMouseExited(event -> {
+            if (!tile.isFocused()) tile.setStyle(baseStyle);
+            animateStageTileScale(tile, 1.0);
+        });
+        tile.focusedProperty().addListener((obs, oldValue, focused) -> {
+            if (focused) {
+                activatePreview.run();
+                animateStageTileScale(tile, 1.035);
+            } else if (!tile.isHover()) {
+                tile.setStyle(baseStyle);
+                animateStageTileScale(tile, 1.0);
+            }
+        });
+        return tile;
+    }
+
+    private void animateStageTileScale(Node node, double scale) {
+        ScaleTransition transition = new ScaleTransition(Duration.millis(90), node);
+        transition.setToX(scale);
+        transition.setToY(scale);
+        transition.play();
+    }
+
+    private String toCssHex(Color color) {
+        int red = (int) Math.round(color.getRed() * 255.0);
+        int green = (int) Math.round(color.getGreen() * 255.0);
+        int blue = (int) Math.round(color.getBlue() * 255.0);
+        return String.format("#%02X%02X%02X", red, green, blue);
+    }
+
+    private String stageSelectDescription(StageChoice choice) {
+        if (choice.variant() != MapVariant.STANDARD) {
+            return choice.variant().description;
+        }
+        return switch (choice.map()) {
+            case FOREST -> "A broad woodland arena with layered tree platforms and dependable recovery routes.";
+            case CITY -> "Fight across integrated neon skyscraper rooftops above a deep midnight city.";
+            case SKYCLIFFS -> "Separated mountain shelves reward aerial control, committed jumps, and vent recovery.";
+            case VIBRANT_JUNGLE -> "Living tree platforms, vines, nectar, and vertical lanes create a fast canopy brawl.";
+            case DESERT -> "A wide desert floor framed by an oasis and elevated mesa routes.";
+            case CAVE -> "Enclosed stone lanes and staggered ledges make every approach feel close and dangerous.";
+            case BATTLEFIELD -> "A compact floating island with symmetrical perches and honest open blast zones.";
+            case BEACON_CROWN -> "Long crown lanes and isolated upper perches surround a lethal central monument.";
+            case DOCK -> "Storm piers, ship rigging, crane perches, rescue skiffs, and a working bombardment lever.";
+            case FROSTBITE_FJORD -> "Aurora-lit glacier terraces combine slippery movement with carved recovery shelves.";
+            case ASHFALL_CATHEDRAL -> "A burning sky-temple of lava routes, ember thermals, and volcanic platforms.";
+            case PRISON -> "Steel catwalks, searchlights, and prisoner-release levers tower over a flat cell-block floor.";
+            case RESONANCE_HALL -> "A grand performance hall of mirrored balconies and a commanding central stage.";
+            case SIGNAL_SPIRE -> "Climb an exposed broadcast tower through asymmetric platforms and open air.";
+            case SILENT_AMPHITHEATER -> "A solemn circular arena built from monumental tiers and open duel lanes.";
+            case GLASSWIND_CAUSEWAY -> "A colossal suspended bridge where turbine warnings announce alternating crosswinds.";
+            case WORLDSEAM -> "Two broken realities face each other across a rift, linked by momentum-preserving gates.";
+        };
     }
 
     private void beginFreshMatchOnMap(Stage stage, MapType map) {
