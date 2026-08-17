@@ -14517,31 +14517,12 @@ public class BirdGame3 {
                     1_020.0, 270.0);
         }
 
-        // Monumental suspension pylons and cables make every fighting shelf part of one bridge.
-        for (double towerX : new double[]{1_140.0, 4_860.0}) {
-            g.setFill(Color.web("#102534"));
-            g.fillPolygon(new double[]{towerX - 210.0, towerX + 210.0, towerX + 130.0, towerX - 130.0},
-                    new double[]{GROUND_Y + 230.0, GROUND_Y + 230.0, 410.0, 410.0}, 4);
-            g.setStroke(Color.web("#8BC4D6", 0.62));
-            g.setLineWidth(22.0);
-            g.strokeLine(towerX - 118.0, 410.0, towerX - 118.0, GROUND_Y + 180.0);
-            g.strokeLine(towerX + 118.0, 410.0, towerX + 118.0, GROUND_Y + 180.0);
-            for (double y = 610.0; y < GROUND_Y; y += 260.0) {
-                g.setLineWidth(8.0);
-                g.strokeLine(towerX - 112.0, y, towerX + 112.0, y + 170.0);
-                g.strokeLine(towerX + 112.0, y, towerX - 112.0, y + 170.0);
-            }
-        }
-        g.setStroke(Color.web("#B5E5F0", 0.60));
-        g.setLineWidth(13.0);
-        strokeBezier(g, 240.0, 390.0, 1_500.0, 1_360.0, 2_100.0, 1_360.0, 3_000.0, 560.0);
-        strokeBezier(g, 3_000.0, 560.0, 3_900.0, 1_360.0, 4_500.0, 1_360.0, 5_760.0, 390.0);
-        g.setLineWidth(5.0);
-        for (double x = 500.0; x <= 5_500.0; x += 260.0) {
-            double cableY = 500.0 + Math.abs(x - 3_000.0) * 0.28;
-            g.strokeLine(x, cableY, x, battlefieldIslandY - 35.0);
-        }
-
+        // Every cable, hanger, rail, and truss joint comes from one audited layout.
+        GlasswindCausewayGeometry.Layout bridgeArt = GlasswindCausewayGeometry.create(battlefieldIslandY);
+        drawGlasswindPylons(g);
+        drawGlasswindSuspension(g, bridgeArt);
+        drawGlasswindTurbineMount(g, 500.0, battlefieldIslandY - 560.0, false);
+        drawGlasswindTurbineMount(g, 5_500.0, battlefieldIslandY - 560.0, true);
         drawGlasswindTurbine(g, 500.0, battlefieldIslandY - 560.0, 230.0, time);
         drawGlasswindTurbine(g, 5_500.0, battlefieldIslandY - 560.0, 230.0, -time * 0.92);
 
@@ -14570,9 +14551,109 @@ public class BirdGame3 {
                     : "TURBINES CHARGING", 3_000.0, 320.0);
             g.setTextAlign(TextAlignment.LEFT);
         }
-        drawGlasswindCausewayStructure(g);
+        drawGlasswindCausewayStructure(g, bridgeArt);
         drawGlasswindPlatforms(g);
         drawGlasswindDeckDetails(g, gustWarning, gustActive, direction);
+    }
+
+    private void drawGlasswindPylons(GraphicsContext g) {
+        for (double towerX : new double[]{GlasswindCausewayGeometry.LEFT_TOWER_X,
+                GlasswindCausewayGeometry.RIGHT_TOWER_X}) {
+            double outside = towerX < GlasswindCausewayGeometry.MIRROR_AXIS_X ? -1.0 : 1.0;
+            g.setFill(Color.web("#0A1B28", 0.98));
+            g.fillPolygon(new double[]{towerX - 208.0, towerX + 208.0, towerX + 145.0, towerX - 145.0},
+                    new double[]{GROUND_Y + 165.0, GROUND_Y + 165.0,
+                            GlasswindCausewayGeometry.TOWER_CABLE_Y,
+                            GlasswindCausewayGeometry.TOWER_CABLE_Y}, 4);
+
+            // Twin tapered legs leave a readable open portal instead of one dark slab.
+            g.setFill(Color.web("#173748"));
+            g.fillPolygon(new double[]{towerX - 164.0, towerX - 82.0, towerX - 45.0, towerX - 116.0},
+                    new double[]{GROUND_Y + 150.0, GROUND_Y + 150.0,
+                            GlasswindCausewayGeometry.TOWER_CABLE_Y + 28.0,
+                            GlasswindCausewayGeometry.TOWER_CABLE_Y + 28.0}, 4);
+            g.fillPolygon(new double[]{towerX + 82.0, towerX + 164.0, towerX + 116.0, towerX + 45.0},
+                    new double[]{GROUND_Y + 150.0, GROUND_Y + 150.0,
+                            GlasswindCausewayGeometry.TOWER_CABLE_Y + 28.0,
+                            GlasswindCausewayGeometry.TOWER_CABLE_Y + 28.0}, 4);
+
+            g.setStroke(Color.web("#87C9D9", 0.78));
+            g.setLineWidth(13.0);
+            g.strokeLine(towerX - 116.0, GlasswindCausewayGeometry.TOWER_CABLE_Y + 28.0,
+                    towerX - 164.0, GROUND_Y + 150.0);
+            g.strokeLine(towerX + 116.0, GlasswindCausewayGeometry.TOWER_CABLE_Y + 28.0,
+                    towerX + 164.0, GROUND_Y + 150.0);
+            for (double y = 620.0; y <= battlefieldIslandY - 120.0; y += 245.0) {
+                double halfWidth = 120.0 + (y - 620.0) * 0.015;
+                g.setLineWidth(8.0);
+                g.strokeLine(towerX - halfWidth, y, towerX + halfWidth, y);
+                g.strokeLine(towerX - halfWidth, y, towerX + halfWidth, y + 150.0);
+                g.strokeLine(towerX + halfWidth, y, towerX - halfWidth, y + 150.0);
+            }
+
+            g.setFill(Color.web("#B7E8F0"));
+            g.fillRoundRect(towerX - 190.0, GlasswindCausewayGeometry.TOWER_CABLE_Y - 38.0,
+                    380.0, 76.0, 22.0, 22.0);
+            g.setFill(Color.web("#173747"));
+            g.fillRoundRect(towerX - 145.0, GlasswindCausewayGeometry.TOWER_CABLE_Y - 18.0,
+                    290.0, 36.0, 14.0, 14.0);
+            g.setStroke(Color.web("#DDF8FF", 0.82));
+            g.setLineWidth(7.0);
+            g.strokeOval(towerX + outside * 148.0 - 18.0,
+                    GlasswindCausewayGeometry.TOWER_CABLE_Y - 18.0, 36.0, 36.0);
+        }
+    }
+
+    private void drawGlasswindSuspension(GraphicsContext g, GlasswindCausewayGeometry.Layout layout) {
+        g.setStroke(Color.web("#85BBC9", 0.46));
+        g.setLineWidth(5.0);
+        for (StageArtGeometry.Segment hanger : layout.hangers()) strokeGlasswindSegment(g, hanger);
+
+        // A dark under-stroke and narrow highlight keep the main cable crisp at any camera scale.
+        g.setStroke(Color.web("#07141E", 0.86));
+        g.setLineWidth(24.0);
+        for (List<StageArtGeometry.Point> span : layout.cableSpans()) strokeGlasswindPolyline(g, span);
+        g.setStroke(Color.web("#B5E5F0", 0.84));
+        g.setLineWidth(11.0);
+        for (List<StageArtGeometry.Point> span : layout.cableSpans()) strokeGlasswindPolyline(g, span);
+
+        for (StageArtGeometry.Point anchor : layout.allowedOpenEndpoints().subList(0, 2)) {
+            g.setFill(Color.web("#102B3A"));
+            g.fillRoundRect(anchor.x() - 50.0, anchor.y() - 38.0, 100.0, 76.0, 18.0, 18.0);
+            g.setStroke(Color.web("#B5E5F0", 0.72));
+            g.setLineWidth(7.0);
+            g.strokeRoundRect(anchor.x() - 50.0, anchor.y() - 38.0, 100.0, 76.0, 18.0, 18.0);
+        }
+    }
+
+    private void drawGlasswindTurbineMount(GraphicsContext g, double cx, double cy, boolean rightSide) {
+        double deckJointX = rightSide ? GlasswindCausewayGeometry.RIGHT_DECK_X
+                : GlasswindCausewayGeometry.LEFT_DECK_X;
+        g.setStroke(Color.web("#4B7485", 0.84));
+        g.setLineWidth(18.0);
+        g.strokeLine(cx, cy + 74.0, deckJointX, battlefieldIslandY);
+        g.setLineWidth(9.0);
+        g.strokeLine(cx - 70.0, cy + 58.0, deckJointX, battlefieldIslandY);
+        g.strokeLine(cx + 70.0, cy + 58.0, deckJointX, battlefieldIslandY);
+        g.setFill(Color.web("#102A38"));
+        g.fillRoundRect(deckJointX - 72.0, battlefieldIslandY - 22.0, 144.0, 44.0, 16.0, 16.0);
+        g.setStroke(Color.web("#9ADBE8", 0.70));
+        g.setLineWidth(5.0);
+        g.strokeRoundRect(deckJointX - 72.0, battlefieldIslandY - 22.0, 144.0, 44.0, 16.0, 16.0);
+    }
+
+    private void strokeGlasswindPolyline(GraphicsContext g, List<StageArtGeometry.Point> points) {
+        double[] x = new double[points.size()];
+        double[] y = new double[points.size()];
+        for (int index = 0; index < points.size(); index++) {
+            x[index] = points.get(index).x();
+            y[index] = points.get(index).y();
+        }
+        g.strokePolyline(x, y, points.size());
+    }
+
+    private void strokeGlasswindSegment(GraphicsContext g, StageArtGeometry.Segment segment) {
+        g.strokeLine(segment.start().x(), segment.start().y(), segment.end().x(), segment.end().y());
     }
 
     private void drawWorldseamArena(GraphicsContext g, boolean ambientFx) {
@@ -14793,20 +14874,24 @@ public class BirdGame3 {
         }
     }
 
-    private void drawGlasswindCausewayStructure(GraphicsContext g) {
+    private void drawGlasswindCausewayStructure(GraphicsContext g, GlasswindCausewayGeometry.Layout layout) {
         double deckBottom = battlefieldIslandY + 52.0;
-        g.setFill(Color.web("#091C29", 0.96));
-        g.fillPolygon(new double[]{560.0, 5_440.0, 5_230.0, 770.0},
-                new double[]{deckBottom, deckBottom, deckBottom + 245.0, deckBottom + 245.0}, 4);
-        g.setStroke(Color.web("#426B7D", 0.80));
-        g.setLineWidth(12.0);
-        g.strokeLine(690.0, deckBottom + 218.0, 5_310.0, deckBottom + 218.0);
-        for (double x = 760.0; x < 5_250.0; x += 310.0) {
-            g.strokeLine(x, deckBottom + 18.0, x + 255.0, deckBottom + 218.0);
-            g.strokeLine(x + 255.0, deckBottom + 18.0, x, deckBottom + 218.0);
-        }
-        g.setFill(Color.web("#87C8D8", 0.52));
-        g.fillRect(560.0, deckBottom + 55.0, 4_880.0, 14.0);
+        g.setFill(Color.web("#071824", 0.97));
+        g.fillPolygon(new double[]{560.0, 5_440.0, 5_310.0, 690.0},
+                new double[]{deckBottom, deckBottom, battlefieldIslandY + 292.0,
+                        battlefieldIslandY + 292.0}, 4);
+
+        g.setStroke(Color.web("#0A151D", 0.92));
+        g.setLineWidth(18.0);
+        for (StageArtGeometry.Segment member : layout.lowerTruss()) strokeGlasswindSegment(g, member);
+        g.setStroke(Color.web("#4F7B8D", 0.88));
+        g.setLineWidth(7.0);
+        for (StageArtGeometry.Segment member : layout.lowerTruss()) strokeGlasswindSegment(g, member);
+
+        g.setFill(Color.web("#183847"));
+        g.fillRect(560.0, deckBottom + 18.0, 4_880.0, 34.0);
+        g.setFill(Color.web("#9ADBE8", 0.62));
+        g.fillRect(560.0, deckBottom + 18.0, 4_880.0, 9.0);
     }
 
     private void drawGlasswindDeckDetails(GraphicsContext g, boolean warning, boolean active, int direction) {
@@ -14838,17 +14923,22 @@ public class BirdGame3 {
                                       double radius, double time) {
         g.save();
         g.translate(cx, cy);
-        g.setFill(Color.web("#0E2634"));
-        g.fillOval(-82.0, -82.0, 164.0, 164.0);
+        g.setFill(Color.web("#071923"));
+        g.fillOval(-104.0, -104.0, 208.0, 208.0);
+        g.setStroke(Color.web("#7FB6C6", 0.78));
+        g.setLineWidth(12.0);
+        g.strokeOval(-104.0, -104.0, 208.0, 208.0);
         g.rotate(time * 48.0);
-        g.setFill(Color.web("#9ADBE8", 0.68));
+        g.setFill(Color.web("#9ADBE8", 0.76));
         for (int blade = 0; blade < 6; blade++) {
             g.rotate(60.0);
-            g.fillPolygon(new double[]{18.0, radius, radius * 0.72, 42.0},
-                    new double[]{-18.0, -42.0, 40.0, 24.0}, 4);
+            g.fillPolygon(new double[]{24.0, radius, radius * 0.72, 48.0},
+                    new double[]{-16.0, -34.0, 38.0, 26.0}, 4);
         }
         g.setFill(Color.web("#E4FBFF"));
-        g.fillOval(-32.0, -32.0, 64.0, 64.0);
+        g.fillOval(-36.0, -36.0, 72.0, 72.0);
+        g.setFill(Color.web("#31586A"));
+        g.fillOval(-14.0, -14.0, 28.0, 28.0);
         g.restore();
     }
 
@@ -14865,18 +14955,30 @@ public class BirdGame3 {
     private void drawGlasswindPlatforms(GraphicsContext g) {
         for (Platform p : platforms) {
             if (p.y < battlefieldIslandY - 70.0) {
-                g.setStroke(Color.web("#5A7F91", 0.76));
-                g.setLineWidth(11.0);
-                double supportY = Math.min(GROUND_Y + 100.0, p.y + 500.0);
-                g.strokeLine(p.x + 34.0, p.y + p.h, p.x + p.w * 0.40, supportY);
-                g.strokeLine(p.x + p.w - 34.0, p.y + p.h, p.x + p.w * 0.60, supportY);
+                // Closed triangular gantries cannot terminate in open air when a platform moves.
+                double braceTopY = p.y + p.h;
+                double braceBottomY = Math.min(battlefieldIslandY - 42.0,
+                        braceTopY + Math.clamp((battlefieldIslandY - braceTopY) * 0.34, 105.0, 250.0));
+                double left = p.x + 34.0;
+                double right = p.x + p.w - 34.0;
+                double center = p.x + p.w * 0.5;
+                g.setStroke(Color.web("#07141D", 0.92));
+                g.setLineWidth(19.0);
+                g.strokeLine(left, braceTopY, center, braceBottomY);
+                g.strokeLine(right, braceTopY, center, braceBottomY);
+                g.strokeLine(left, braceTopY, right, braceTopY);
+                g.setStroke(Color.web("#5A8798", 0.86));
+                g.setLineWidth(7.0);
+                g.strokeLine(left, braceTopY, center, braceBottomY);
+                g.strokeLine(right, braceTopY, center, braceBottomY);
+                g.strokeLine(left, braceTopY, right, braceTopY);
             }
-            g.setFill(Color.web("#102634"));
+            g.setFill(Color.web("#0B202C"));
             g.fillRoundRect(p.x, p.y, p.w, p.h, 16.0, 16.0);
-            g.setStroke(Color.web("#9ADBE8"));
-            g.setLineWidth(7.0);
+            g.setStroke(Color.web("#A4E3ED"));
+            g.setLineWidth(8.0);
             g.strokeRoundRect(p.x, p.y, p.w, p.h, 16.0, 16.0);
-            g.setFill(Color.web("#B2EBF2", 0.28));
+            g.setFill(Color.web("#B2EBF2", 0.34));
             for (double panel = p.x + 22.0; panel < p.x + p.w - 30.0; panel += 150.0) {
                 g.fillRect(panel, p.y + 8.0, Math.min(118.0, p.x + p.w - panel - 12.0), 12.0);
             }

@@ -58,7 +58,8 @@ class StageSelectVisualAuditRun {
             Scene scene = stage.getScene();
             scene.getRoot().applyCss();
             scene.getRoot().layout();
-            List<String> reviewStages = List.of("RANDOM", "BIG FOREST", "PARLIAMENT TOWERS", "OBSIDIAN FOUNDRY");
+            List<String> reviewStages = List.of("RANDOM", "BIG FOREST", "PARLIAMENT TOWERS",
+                    "GLASSWIND CAUSEWAY", "OBSIDIAN FOUNDRY");
             for (int index = 0; index < reviewStages.size(); index++) {
                 String stageName = reviewStages.get(index);
                 Button tile = scene.getRoot().lookupAll(".button").stream()
