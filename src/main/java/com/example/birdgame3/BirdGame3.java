@@ -14730,72 +14730,94 @@ public class BirdGame3 {
     }
 
     private void drawMidnightWorkshopArena(GraphicsContext g, boolean ambientFx) {
-        double pulse = ambientFx ? 0.5 + 0.5 * Math.sin(System.currentTimeMillis() / 520.0) : 0.5;
+        double time = ambientFx ? System.currentTimeMillis() / 1000.0 : 0.0;
+        double pulse = ambientFx ? 0.5 + 0.5 * Math.sin(time * 1.55) : 0.5;
         boolean giftVault = activeArenaGeometryVariant == MapVariant.GIFT_VAULT;
         boolean bellVault = activeArenaGeometryVariant == MapVariant.BELLKEEPER_VAULT;
-        Color top = bellVault ? Color.web("#090412") : Color.web("#061020");
-        Color bottom = giftVault ? Color.web("#143D3A") : Color.web("#291438");
-        for (int band = 0; band < 180; band++) {
-            double t = band / 179.0;
+        Color accent = giftVault ? Color.web("#80CBC4")
+                : bellVault ? Color.web("#FFD166") : Color.web("#CE93D8");
+        Color top = bellVault ? Color.web("#07030D") : Color.web("#040B17");
+        Color bottom = giftVault ? Color.web("#123733")
+                : bellVault ? Color.web("#28121E") : Color.web("#24112F");
+        for (int band = 0; band < 220; band++) {
+            double t = band / 219.0;
             g.setFill(top.interpolate(bottom, t));
-            g.fillRect(0, band * WORLD_HEIGHT / 180.0, WORLD_WIDTH, WORLD_HEIGHT / 180.0 + 3.0);
+            g.fillRect(0, band * WORLD_HEIGHT / 220.0, WORLD_WIDTH, WORLD_HEIGHT / 220.0 + 3.0);
         }
 
-        // The moon stays far behind every play surface, with a heavy factory
-        // silhouette in front so it never reads as a collision object.
-        g.setFill(Color.web("#FFF3C4", 0.12));
-        g.fillOval(2_280.0, 90.0, 1_440.0, 1_440.0);
-        g.setStroke(Color.web("#FFE082", 0.28));
-        g.setLineWidth(18.0);
-        g.strokeOval(2_330.0, 140.0, 1_340.0, 1_340.0);
-        for (int tower = 0; tower < 7; tower++) {
-            double x = 180.0 + tower * 920.0;
-            double h = 760.0 + Math.floorMod(tower * 227, 520);
-            g.setFill(Color.web(tower % 2 == 0 ? "#080B17" : "#0D0B1B", 0.96));
-            g.fillRect(x, GROUND_Y - h, 620.0, h + 260.0);
-            g.setFill(Color.web("#FFCC80", 0.20 + pulse * 0.08));
-            for (double wy = GROUND_Y - h + 100.0; wy < GROUND_Y - 100.0; wy += 145.0) {
-                for (double wx = x + 90.0; wx < x + 540.0; wx += 155.0) {
-                    g.fillRoundRect(wx, wy, 54.0, 30.0, 6.0, 6.0);
+        // A crescent and scattered stars establish the exterior night without
+        // ever reading as a nearby collision object.
+        g.setFill(Color.web("#FFF3C4", 0.16));
+        g.fillOval(4_610.0, 170.0, 860.0, 860.0);
+        g.setFill(top.deriveColor(0, 1, 1.08, 0.98));
+        g.fillOval(4_790.0, 90.0, 800.0, 800.0);
+        g.setFill(Color.web("#FFF8D8", 0.52));
+        for (int star = 0; star < 34; star++) {
+            double sx = 130.0 + Math.floorMod(star * 733, 5_720);
+            double sy = 95.0 + Math.floorMod(star * 257, 1_080);
+            double sr = star % 7 == 0 ? 11.0 : 5.0;
+            g.fillOval(sx - sr, sy - sr, sr * 2.0, sr * 2.0);
+        }
+
+        // Distant smokestacks and stepped factory blocks give the stage a
+        // recognizable silhouette before the detailed machinery is drawn.
+        for (int tower = 0; tower < 10; tower++) {
+            double x = -170.0 + tower * 650.0;
+            double width = 420.0 + (tower % 3) * 70.0;
+            double h = 640.0 + Math.floorMod(tower * 239, 690);
+            double roofY = GROUND_Y - h;
+            g.setFill(Color.web(tower % 2 == 0 ? "#080B14" : "#0D0B18", 0.95));
+            g.fillRect(x, roofY, width, h + 300.0);
+            if (tower % 3 == 1) {
+                g.fillRect(x + width * 0.58, roofY - 330.0, 105.0, 340.0);
+                g.setFill(Color.web("#2B2032", 0.95));
+                g.fillRoundRect(x + width * 0.58 - 24.0, roofY - 360.0, 153.0, 48.0, 18.0, 18.0);
+                g.setFill(Color.web("#B0BEC5", 0.08));
+                g.fillOval(x + width * 0.48, roofY - 520.0, 280.0, 120.0);
+                g.fillOval(x + width * 0.68, roofY - 650.0, 360.0, 145.0);
+            }
+            g.setFill(Color.web("#FFCC80", 0.16 + pulse * 0.07));
+            for (double wy = roofY + 90.0; wy < GROUND_Y - 80.0; wy += 130.0) {
+                for (double wx = x + 65.0; wx < x + width - 55.0; wx += 125.0) {
+                    g.fillRoundRect(wx, wy, 42.0, 23.0, 5.0, 5.0);
                 }
             }
         }
 
-        // Enormous clockwork parts establish the factory without masking the
-        // readable foreground silhouette.
-        for (int gear = 0; gear < 5; gear++) {
-            double cx = 700.0 + gear * 1_150.0;
-            double cy = 980.0 + (gear % 2) * 330.0;
-            double r = 250.0 + (gear % 3) * 55.0;
-            g.setStroke(Color.web("#B08946", 0.20));
-            g.setLineWidth(34.0);
-            g.strokeOval(cx - r, cy - r, r * 2.0, r * 2.0);
-            for (int tooth = 0; tooth < 12; tooth++) {
-                double a = tooth * Math.PI / 6.0;
-                g.strokeLine(cx + Math.cos(a) * (r - 20.0), cy + Math.sin(a) * (r - 20.0),
-                        cx + Math.cos(a) * (r + 55.0), cy + Math.sin(a) * (r + 55.0));
-            }
+        // A continuous steel wall and connected truss grid make the platforms
+        // feel like one working factory instead of unrelated floating ledges.
+        double wallTop = GROUND_Y - 1_300.0;
+        g.setFill(Color.web(giftVault ? "#142C2B" : bellVault ? "#1F1421" : "#171522", 0.84));
+        g.fillRect(0.0, wallTop, WORLD_WIDTH, 1_720.0);
+        g.setStroke(Color.web("#4E4055", 0.55));
+        g.setLineWidth(13.0);
+        for (double x = 120.0; x < WORLD_WIDTH; x += 620.0) {
+            g.strokeLine(x, wallTop, x, GROUND_Y + 280.0);
+            g.strokeLine(x, wallTop + 140.0, x + 620.0, wallTop + 520.0);
+            g.strokeLine(x + 620.0, wallTop + 140.0, x, wallTop + 520.0);
         }
+        g.setStroke(accent.deriveColor(0, 0.75, 0.68, 0.20));
+        g.setLineWidth(6.0);
+        for (double y = wallTop + 110.0; y < GROUND_Y + 200.0; y += 310.0) {
+            g.strokeLine(0.0, y, WORLD_WIDTH, y);
+        }
+
+        drawMidnightWorkshopGears(g, accent, time, ambientFx);
 
         double supportFloor = GROUND_Y + 280.0;
         for (Platform p : platforms) {
             if (p.y >= GROUND_Y + 100.0) continue;
             double supportX = p.x + p.w * 0.5;
-            g.setFill(Color.web("#15111C", 0.94));
-            g.fillRect(supportX - Math.min(70.0, p.w * 0.16), p.y + p.h,
-                    Math.min(140.0, p.w * 0.32), Math.max(0.0, supportFloor - p.y - p.h));
-            g.setStroke(Color.web("#705331", 0.75));
-            g.setLineWidth(9.0);
-            g.strokeLine(p.x + 28.0, p.y + p.h + 5.0, supportX, Math.min(supportFloor, p.y + p.h + 280.0));
-            g.strokeLine(p.x + p.w - 28.0, p.y + p.h + 5.0, supportX, Math.min(supportFloor, p.y + p.h + 280.0));
-            g.setFill(Color.web(giftVault ? "#293F44" : bellVault ? "#322538" : "#29303D"));
-            g.fillRoundRect(p.x, p.y, p.w, p.h, 24.0, 24.0);
-            g.setStroke(Color.web(giftVault ? "#80CBC4" : bellVault ? "#FFD166" : "#CE93D8"));
-            g.setLineWidth(7.0);
-            g.strokeRoundRect(p.x, p.y, p.w, p.h, 24.0, 24.0);
-            g.setStroke(Color.web("#FCE4B2", 0.38));
-            g.setLineWidth(4.0);
-            g.strokeLine(p.x + 22.0, p.y + 17.0, p.x + p.w - 22.0, p.y + 17.0);
+            double supportW = Math.min(150.0, p.w * 0.27);
+            double supportBottom = Math.min(supportFloor, p.y + p.h + 390.0);
+            g.setFill(Color.web("#0B0C13", 0.96));
+            g.fillRect(supportX - supportW * 0.5, p.y + p.h, supportW,
+                    Math.max(0.0, supportFloor - p.y - p.h));
+            g.setStroke(Color.web("#8D6E43", 0.72));
+            g.setLineWidth(10.0);
+            g.strokeLine(p.x + 32.0, p.y + p.h + 7.0, supportX, supportBottom);
+            g.strokeLine(p.x + p.w - 32.0, p.y + p.h + 7.0, supportX, supportBottom);
+            drawMidnightWorkshopConveyor(g, p, accent, giftVault, bellVault);
         }
 
         if (!giftVault && !bellVault) {
@@ -14803,19 +14825,117 @@ public class BirdGame3 {
             boolean warning = cycle >= 280 && cycle < 340;
             boolean active = cycle >= 340 && cycle < 368;
             for (double x : MIDNIGHT_PRESS_X) {
-                g.setFill(Color.web(active ? "#E8F5E9" : warning ? "#FFB300" : "#4A3548", active ? 0.92 : 0.68));
-                g.fillRoundRect(x - 150.0, 250.0, 300.0, active ? GROUND_Y - 530.0 : 220.0, 28.0, 28.0);
-                g.setStroke(Color.web(active ? "#FF1744" : "#FFD54F", 0.88));
-                g.setLineWidth(active ? 18.0 : 8.0);
-                g.strokeLine(x, active ? 460.0 : 390.0, x, GROUND_Y - 300.0);
+                drawMidnightWorkshopPress(g, x, warning, active, pulse);
             }
         }
 
         if (bellVault) {
+            g.setFill(Color.web("#050208", 0.72));
+            g.fillOval(2_170.0, 130.0, 1_660.0, 1_660.0);
             g.setStroke(Color.web("#FFD166", 0.62 + pulse * 0.20));
+            g.setLineWidth(30.0);
+            g.strokeOval(2_230.0, 190.0, 1_540.0, 1_540.0);
+            g.strokeLine(3_000.0, 0.0, 3_000.0, 300.0);
+            g.setLineWidth(14.0);
+            for (int mark = 0; mark < 12; mark++) {
+                double angle = mark * Math.PI / 6.0 - Math.PI / 2.0;
+                g.strokeLine(3_000.0 + Math.cos(angle) * 690.0,
+                        960.0 + Math.sin(angle) * 690.0,
+                        3_000.0 + Math.cos(angle) * 760.0,
+                        960.0 + Math.sin(angle) * 760.0);
+            }
+            double handAngle = -Math.PI / 2.0 + pulse * 0.18;
+            g.strokeLine(3_000.0, 960.0, 3_000.0 + Math.cos(handAngle) * 520.0,
+                    960.0 + Math.sin(handAngle) * 520.0);
+            g.setFill(Color.web("#FFD166"));
+            g.fillOval(2_940.0, 900.0, 120.0, 120.0);
+        }
+    }
+
+    private void drawMidnightWorkshopGears(GraphicsContext g, Color accent, double time, boolean ambientFx) {
+        for (int gear = 0; gear < 7; gear++) {
+            double cx = 470.0 + gear * 850.0;
+            double cy = GROUND_Y - 950.0 + (gear % 2) * 270.0;
+            double r = 205.0 + (gear % 3) * 45.0;
+            double rotation = ambientFx ? time * (gear % 2 == 0 ? 0.10 : -0.08) : 0.0;
+            g.setFill(Color.web("#0A0B11", 0.74));
+            g.fillOval(cx - r, cy - r, r * 2.0, r * 2.0);
+            g.setStroke(Color.web("#9A7544", 0.36));
             g.setLineWidth(28.0);
-            g.strokeOval(2_230.0, 200.0, 1_540.0, 1_540.0);
-            g.strokeLine(3_000.0, 0.0, 3_000.0, 320.0);
+            g.strokeOval(cx - r, cy - r, r * 2.0, r * 2.0);
+            for (int tooth = 0; tooth < 16; tooth++) {
+                double a = rotation + tooth * Math.PI / 8.0;
+                double inner = r - 12.0;
+                double outer = r + 48.0;
+                g.strokeLine(cx + Math.cos(a) * inner, cy + Math.sin(a) * inner,
+                        cx + Math.cos(a) * outer, cy + Math.sin(a) * outer);
+            }
+            g.setStroke(accent.deriveColor(0, 0.75, 0.72, 0.25));
+            g.setLineWidth(14.0);
+            for (int spoke = 0; spoke < 6; spoke++) {
+                double a = rotation + spoke * Math.PI / 3.0;
+                g.strokeLine(cx, cy, cx + Math.cos(a) * (r - 44.0), cy + Math.sin(a) * (r - 44.0));
+            }
+            g.setFill(Color.web("#271E28"));
+            g.fillOval(cx - 42.0, cy - 42.0, 84.0, 84.0);
+            g.setFill(accent.deriveColor(0, 0.72, 0.82, 0.52));
+            g.fillOval(cx - 16.0, cy - 16.0, 32.0, 32.0);
+        }
+    }
+
+    private void drawMidnightWorkshopConveyor(GraphicsContext g, Platform p, Color accent,
+                                               boolean giftVault, boolean bellVault) {
+        Color casing = Color.web(giftVault ? "#263D3D" : bellVault ? "#342438" : "#29303D");
+        g.setFill(Color.web("#07080D", 0.90));
+        g.fillRoundRect(p.x - 13.0, p.y + 10.0, p.w + 26.0, p.h + 22.0, 26.0, 26.0);
+        g.setFill(casing);
+        g.fillRoundRect(p.x, p.y, p.w, p.h, 22.0, 22.0);
+        g.setFill(Color.web("#10141C"));
+        g.fillRoundRect(p.x + 15.0, p.y + 12.0, p.w - 30.0, Math.min(27.0, p.h * 0.34), 12.0, 12.0);
+        g.setStroke(accent.deriveColor(0, 0.90, 1.02, 0.92));
+        g.setLineWidth(8.0);
+        g.strokeRoundRect(p.x, p.y, p.w, p.h, 22.0, 22.0);
+        g.setFill(Color.web("#B0BEC5", 0.48));
+        double rollerY = p.y + p.h * 0.68;
+        for (double rollerX = p.x + 35.0; rollerX < p.x + p.w - 20.0; rollerX += 84.0) {
+            g.fillOval(rollerX - 13.0, rollerY - 13.0, 26.0, 26.0);
+            g.setFill(Color.web("#0A0D13"));
+            g.fillOval(rollerX - 5.0, rollerY - 5.0, 10.0, 10.0);
+            g.setFill(Color.web("#B0BEC5", 0.48));
+        }
+        g.setStroke(Color.web("#FFF3CF", 0.48));
+        g.setLineWidth(4.0);
+        g.strokeLine(p.x + 22.0, p.y + 14.0, p.x + p.w - 22.0, p.y + 14.0);
+    }
+
+    private void drawMidnightWorkshopPress(GraphicsContext g, double x, boolean warning,
+                                            boolean active, double pulse) {
+        double headY = active ? GROUND_Y - 510.0 : warning ? 680.0 : 470.0;
+        Color stateColor = active ? Color.web("#FF1744")
+                : warning ? Color.web("#FFD54F") : Color.web("#806784");
+        g.setFill(Color.web("#0A0B11", 0.96));
+        g.fillRoundRect(x - 185.0, 190.0, 370.0, 240.0, 32.0, 32.0);
+        g.setStroke(stateColor.deriveColor(0, 0.92, 1.0, 0.88));
+        g.setLineWidth(12.0);
+        g.strokeRoundRect(x - 185.0, 190.0, 370.0, 240.0, 32.0, 32.0);
+        g.setFill(Color.web("#37303D"));
+        g.fillRoundRect(x - 58.0, 390.0, 116.0, Math.max(60.0, headY - 390.0), 18.0, 18.0);
+        g.setFill(stateColor.deriveColor(0, 0.88, 0.90 + pulse * 0.12, 0.96));
+        g.fillRoundRect(x - 150.0, headY, 300.0, 112.0, 24.0, 24.0);
+        g.setFill(Color.web("#11131A"));
+        for (int stripe = -2; stripe <= 2; stripe++) {
+            double stripeX = x + stripe * 55.0;
+            g.fillPolygon(new double[]{stripeX - 32.0, stripeX - 6.0, stripeX + 32.0, stripeX + 6.0},
+                    new double[]{headY + 101.0, headY + 101.0, headY + 11.0, headY + 11.0}, 4);
+        }
+        if (warning || active) {
+            g.setFill(stateColor.deriveColor(0, 1.0, 1.0, active ? 0.18 : 0.08 + pulse * 0.07));
+            g.fillRect(x - 145.0, headY + 112.0, 290.0,
+                    Math.max(0.0, GROUND_Y - 230.0 - headY - 112.0));
+            g.setStroke(stateColor.deriveColor(0, 1.0, 1.0, 0.74));
+            g.setLineWidth(active ? 15.0 : 7.0);
+            g.strokeLine(x - 145.0, headY + 112.0, x - 145.0, GROUND_Y - 230.0);
+            g.strokeLine(x + 145.0, headY + 112.0, x + 145.0, GROUND_Y - 230.0);
         }
     }
 
@@ -56331,6 +56451,7 @@ public class BirdGame3 {
                 || selectedMap == MapType.SILENT_AMPHITHEATER
                 || selectedMap == MapType.GLASSWIND_CAUSEWAY
                 || selectedMap == MapType.WORLDSEAM
+                || selectedMap == MapType.MIDNIGHT_WORKSHOP
                 || activeArenaGeometryVariant == MapVariant.TITAN_DOCK
                 || activeArenaGeometryVariant == MapVariant.PARLIAMENT_ROOFTOPS
                 || activeArenaGeometryVariant == MapVariant.PEREGRINE_RUN

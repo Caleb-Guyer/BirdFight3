@@ -170,6 +170,30 @@ class GrinchHawkClassicRouteTest {
     }
 
     @Test
+    void midnightWorkshopAlwaysSpawnsFightersOnItsRaisedFactoryFloor() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.harnessPrepareMatch(BirdType.GRINCHHAWK, BirdType.ROADRUNNER,
+                0x6A1148L, MapType.MIDNIGHT_WORKSHOP);
+        double islandX = (double) get(game, "battlefieldIslandX");
+        double islandW = (double) get(game, "battlefieldIslandW");
+        double islandY = (double) get(game, "battlefieldIslandY");
+
+        assertTrue(game.usesIslandBoundsForCurrentArena(),
+                "The workshop must use its elevated island geometry for placement and blast zones.");
+        for (int slot = 0; slot < game.activePlayers; slot++) {
+            Bird bird = game.players[slot];
+            assertNotNull(bird);
+            assertTrue(bird.bodyCenterX() >= islandX
+                            && bird.bodyCenterX() <= islandX + islandW,
+                    "Fighter " + slot + " must begin horizontally over the factory floor.");
+            assertTrue(bird.bodyBottomY() <= islandY + 1.0,
+                    "Fighter " + slot + " spawned below the factory floor.");
+            assertTrue(bird.bodyBottomY() >= islandY - 6.0,
+                    "Fighter " + slot + " should stand on the factory floor rather than float above it.");
+        }
+    }
+
+    @Test
     void literalStagePhotosCreditedMusicAndOpenSackEndingShipTogether() {
         for (BirdGame3.StageChoice choice : List.of(
                 BirdGame3.StageChoice.main(MapType.MIDNIGHT_WORKSHOP),
