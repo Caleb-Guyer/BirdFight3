@@ -112,14 +112,17 @@ class RazorbillClassicRouteTest {
     void worldseamGatesPairWithoutChangingMomentum() {
         BirdGame3 game = prepared(5, 0x5E_AA09L, 0x5E_AA0AL);
         Bird player = game.players[0];
-        player.x = 1_450.0 - player.bodyWidth() * 0.5;
-        player.y = BirdGame3.GROUND_Y - 440.0 - player.bodyHeight() * 0.5;
+        double entryY = BirdGame3.WORLDSEAM_GATE_Y + 90.0;
+        player.x = BirdGame3.WORLDSEAM_LEFT_GATE_X - player.bodyWidth() * 0.5;
+        player.y = entryY - player.bodyHeight() * 0.5;
         player.vx = 7.25;
         player.vy = -3.5;
 
         game.applyRazorbillArenaRuntimeEffects();
 
-        assertTrue(player.bodyCenterX() > 4_550.0);
+        assertTrue(player.bodyCenterX() > BirdGame3.WORLDSEAM_RIGHT_GATE_X);
+        assertEquals(entryY, player.bodyCenterY(), 0.0001,
+                "Linked gates should preserve the fighter's readable vertical approach.");
         assertEquals(7.25, player.vx, 0.0);
         assertEquals(-3.5, player.vy, 0.0);
     }
@@ -184,6 +187,30 @@ class RazorbillClassicRouteTest {
         assertFalse(worldseam.platforms.stream().anyMatch(platform ->
                 platform.y == seamFloorY && platform.x < 3_000.0 && platform.x + platform.w > 3_000.0),
                 "The Worldseam should visibly divide its two main landmasses.");
+        assertTrue(worldseam.platforms.stream().anyMatch(platform ->
+                        platform.y > seamFloorY + 100.0 && platform.x > 2_500.0
+                                && platform.x + platform.w < 3_000.0),
+                "The left half should offer a marked inner recovery ledge without bridging the seam.");
+        assertTrue(worldseam.platforms.stream().anyMatch(platform ->
+                        platform.y > seamFloorY + 100.0 && platform.x > 3_000.0
+                                && platform.x + platform.w < 3_500.0),
+                "The right half should mirror the inner recovery route.");
+
+        double foundryFloorY = (double) get(foundry, "battlefieldIslandY");
+        for (double pressX : BirdGame3.OBSIDIAN_PRESS_X) {
+            assertTrue(foundry.platforms.stream().anyMatch(platform ->
+                            platform.x <= pressX && platform.x + platform.w >= pressX
+                                    && platform.y <= foundryFloorY - 300.0),
+                    "Each working press needs an obvious overhead service catwalk as counterplay.");
+        }
+
+        double glasswindFloorY = (double) get(glasswind, "battlefieldIslandY");
+        assertTrue(glasswind.platforms.stream().anyMatch(platform ->
+                        platform.y > glasswindFloorY && platform.x < 700.0),
+                "Glasswind needs a lower recovery shelf at its left turbine.");
+        assertTrue(glasswind.platforms.stream().anyMatch(platform ->
+                        platform.y > glasswindFloorY && platform.x > 5_000.0),
+                "Glasswind needs a lower recovery shelf at its right turbine.");
 
         assertEquals("music-razorbill-glasswind.mp3",
                 invoke(glasswind, "gameplayMusicFile", new Class<?>[0]));
@@ -206,6 +233,14 @@ class RazorbillClassicRouteTest {
         glasswind.simTick = BirdGame3.GLASSWIND_GUST_ACTIVE_FRAME;
         glasswind.applyRazorbillArenaRuntimeEffects();
         assertTrue(flyer.vx > 0.0);
+        double aerialPush = flyer.vx;
+        flyer.x = 3_000.0 - flyer.bodyWidth() * 0.5;
+        flyer.y = (double) get(glasswind, "battlefieldIslandY") - flyer.bodyHeight();
+        flyer.vx = 0.0;
+        glasswind.applyRazorbillArenaRuntimeEffects();
+        double groundedPush = flyer.vx;
+        assertTrue(aerialPush > groundedPush * 2.0,
+                "The high-altitude crosswind should reward staying on the causeway deck.");
         flyer.vx = 0.0;
         glasswind.simTick = BirdGame3.GLASSWIND_GUST_CYCLE_FRAMES
                 + BirdGame3.GLASSWIND_GUST_ACTIVE_FRAME;

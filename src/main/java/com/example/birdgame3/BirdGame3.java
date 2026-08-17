@@ -5074,11 +5074,18 @@ public class BirdGame3 {
     static final int GLASSWIND_GUST_WARNING_FRAME = 300;
     static final int GLASSWIND_GUST_ACTIVE_FRAME = 360;
     static final int GLASSWIND_GUST_END_FRAME = 440;
+    static final double GLASSWIND_GROUNDED_GUST_MULTIPLIER = 0.36;
     static final int OBSIDIAN_PRESS_CYCLE_FRAMES = 360;
     static final int OBSIDIAN_PRESS_WARNING_FRAME = 228;
     static final int OBSIDIAN_PRESS_ACTIVE_FRAME = 300;
     static final int OBSIDIAN_PRESS_END_FRAME = 326;
     static final double[] OBSIDIAN_PRESS_X = {1_500.0, 3_000.0, 4_500.0};
+    static final double WORLDSEAM_LEFT_GATE_X = 1_450.0;
+    static final double WORLDSEAM_RIGHT_GATE_X = 4_550.0;
+    static final double WORLDSEAM_GATE_Y = GROUND_Y - 440.0;
+    static final double WORLDSEAM_GATE_RADIUS_X = 125.0;
+    static final double WORLDSEAM_GATE_RADIUS_Y = 210.0;
+    static final int WORLDSEAM_GATE_COOLDOWN_FRAMES = 42;
     static final double[] SEAMREAVER_FLIGHT_X = {1_260.0, 2_320.0, 4_740.0, 3_680.0, 3_000.0};
     static final double[] SEAMREAVER_FLIGHT_Y = {
             GROUND_Y - 900.0, GROUND_Y - 1_180.0, GROUND_Y - 900.0,
@@ -14447,6 +14454,7 @@ public class BirdGame3 {
             g.setFill(sky);
             g.fillRect(0, band * WORLD_HEIGHT / 240.0, WORLD_WIDTH, WORLD_HEIGHT / 240.0 + 3.0);
         }
+        drawGlasswindSkyRelief(g, time, ambientFx);
 
         // The causeway hangs above a visible mountain sea instead of an empty gradient.
         g.setFill(Color.web("#0B1A2A", 0.82));
@@ -14491,6 +14499,11 @@ public class BirdGame3 {
         drawGlasswindTurbine(g, 500.0, battlefieldIslandY - 560.0, 230.0, time);
         drawGlasswindTurbine(g, 5_500.0, battlefieldIslandY - 560.0, 230.0, -time * 0.92);
 
+        boolean prismReflection = classicModeActive && classicEncounter != null
+                && classicSelectedBird == BirdType.RAZORBILL
+                && classicEncounter.style == ClassicEncounterStyle.RAZORBILL_REFLECTION;
+        if (prismReflection) drawGlasswindPrismWeather(g, time, ambientFx);
+
         boolean gustWarning = isGlasswindGustWarning();
         boolean gustActive = isGlasswindGustActive();
         int direction = glasswindGustDirection();
@@ -14511,16 +14524,27 @@ public class BirdGame3 {
                     : "TURBINES CHARGING", 3_000.0, 320.0);
             g.setTextAlign(TextAlignment.LEFT);
         }
+        drawGlasswindCausewayStructure(g);
         drawGlasswindPlatforms(g);
+        drawGlasswindDeckDetails(g, gustWarning, gustActive, direction);
     }
 
     private void drawWorldseamArena(GraphicsContext g, boolean ambientFx) {
         double time = ambientFx ? System.currentTimeMillis() / 1000.0 : 0.0;
+        boolean wardenGauntlet = classicModeActive && classicEncounter != null
+                && classicEncounter.style == ClassicEncounterStyle.SEAM_WARDEN_GAUNTLET;
+        boolean seamreaverBoss = classicModeActive && classicEncounter != null
+                && classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS;
+        Color leftRift = seamreaverBoss ? Color.web("#FF7043") : Color.web("#00E5FF");
+        Color rightRift = seamreaverBoss ? Color.web("#EF5350")
+                : wardenGauntlet ? Color.web("#B388FF") : Color.web("#EA80FC");
         for (int band = 0; band < 220; band++) {
             double t = band / 219.0;
-            g.setFill(Color.web("#020713").interpolate(Color.web("#0E5260"), t));
+            g.setFill(Color.web("#020713").interpolate(seamreaverBoss
+                    ? Color.web("#43201F") : Color.web("#0E5260"), t));
             g.fillRect(0, band * WORLD_HEIGHT / 220.0, 3_000.0, WORLD_HEIGHT / 220.0 + 3.0);
-            g.setFill(Color.web("#09020F").interpolate(Color.web("#4D174F"), t));
+            g.setFill(Color.web("#09020F").interpolate(seamreaverBoss
+                    ? Color.web("#5A1518") : Color.web("#4D174F"), t));
             g.fillRect(3_000.0, band * WORLD_HEIGHT / 220.0, 3_000.0, WORLD_HEIGHT / 220.0 + 3.0);
         }
         // One half remembers the city; the other has already fractured into impossible spires.
@@ -14546,7 +14570,8 @@ public class BirdGame3 {
         g.setFill(Color.web("#69F0E7", 0.10 + pulse * 0.07));
         g.fillPolygon(new double[]{2_720, 3_280, 3_500, 3_130, 3_420, 2_670, 2_930, 2_500},
                 new double[]{0, 0, 650, 1_020, 1_790, 2_140, 1_050, 600}, 8);
-        g.setStroke(Color.web("#7C4DFF", 0.55 + pulse * 0.28));
+        g.setStroke((seamreaverBoss ? Color.web("#FF1744") : Color.web("#7C4DFF"))
+                .deriveColor(0, 1, 1, 0.55 + pulse * 0.28));
         g.setLineWidth(28.0 + pulse * 12.0);
         g.strokePolyline(new double[]{2_960, 3_170, 2_900, 3_120, 2_820},
                 new double[]{0, 520, 1_020, 1_520, GROUND_Y + 200.0}, 5);
@@ -14561,24 +14586,37 @@ public class BirdGame3 {
                     new double[]{y + 20.0, y + 8.0, y - 44.0}, 3);
         }
 
+        drawWorldseamChasm(g, pulse, seamreaverBoss, wardenGauntlet);
+
         g.setStroke(Color.web("#FFFFFF", 0.16 + pulse * 0.12));
         g.setLineWidth(10.0);
         strokeBezier(g, 1_450.0, GROUND_Y - 440.0, 2_050.0, 360.0,
                 3_950.0, 360.0, 4_550.0, GROUND_Y - 440.0);
         for (int side : new int[]{-1, 1}) {
-            double gateX = side < 0 ? 1_450.0 : 4_550.0;
-            g.setFill(Color.web(side < 0 ? "#00E5FF" : "#EA80FC", 0.10 + pulse * 0.10));
-            g.fillOval(gateX - 125.0, GROUND_Y - 650.0, 250.0, 420.0);
-            g.setStroke(Color.web(side < 0 ? "#00E5FF" : "#EA80FC", 0.72 + pulse * 0.22));
+            double gateX = side < 0 ? WORLDSEAM_LEFT_GATE_X : WORLDSEAM_RIGHT_GATE_X;
+            Color gateColor = side < 0 ? leftRift : rightRift;
+            g.setFill(gateColor.deriveColor(0, 1, 1, 0.10 + pulse * 0.10));
+            g.fillOval(gateX - WORLDSEAM_GATE_RADIUS_X, WORLDSEAM_GATE_Y - WORLDSEAM_GATE_RADIUS_Y,
+                    WORLDSEAM_GATE_RADIUS_X * 2.0, WORLDSEAM_GATE_RADIUS_Y * 2.0);
+            g.setStroke(gateColor.deriveColor(0, 1, 1, 0.72 + pulse * 0.22));
             g.setLineWidth(15.0);
-            g.strokeOval(gateX - 125.0, GROUND_Y - 650.0, 250.0, 420.0);
+            g.strokeOval(gateX - WORLDSEAM_GATE_RADIUS_X, WORLDSEAM_GATE_Y - WORLDSEAM_GATE_RADIUS_Y,
+                    WORLDSEAM_GATE_RADIUS_X * 2.0, WORLDSEAM_GATE_RADIUS_Y * 2.0);
+            g.setFill(gateColor.deriveColor(0, 1, 1, 0.72));
+            for (double y = WORLDSEAM_GATE_Y - 105.0; y <= WORLDSEAM_GATE_Y + 105.0; y += 70.0) {
+                double arrow = side < 0 ? 1.0 : -1.0;
+                g.fillPolygon(new double[]{gateX + arrow * 48.0, gateX - arrow * 25.0,
+                                gateX - arrow * 25.0},
+                        new double[]{y, y - 24.0, y + 24.0}, 3);
+            }
             g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.78));
             g.setFont(Font.font("Consolas", FontWeight.BOLD, 28));
             g.setTextAlign(TextAlignment.CENTER);
-            g.fillText(side < 0 ? "I" : "II", gateX, GROUND_Y - 675.0);
+            g.fillText(side < 0 ? "I" : "II", gateX,
+                    WORLDSEAM_GATE_Y - WORLDSEAM_GATE_RADIUS_Y - 25.0);
             g.setFont(Font.font("Consolas", FontWeight.BOLD, 22));
             g.fillText(side < 0 ? "LINKED TO II  >>>" : "<<<  LINKED TO I",
-                    gateX, GROUND_Y - 205.0);
+                    gateX, WORLDSEAM_GATE_Y + WORLDSEAM_GATE_RADIUS_Y + 25.0);
         }
         g.setTextAlign(TextAlignment.LEFT);
         drawWorldseamPlatforms(g);
@@ -14608,6 +14646,7 @@ public class BirdGame3 {
                     new double[]{GROUND_Y + 150.0, GROUND_Y + 150.0,
                             GROUND_Y + 390.0, GROUND_Y + 390.0}, 4);
         }
+        drawObsidianFoundryMachinery(g, time, ambientFx);
 
         // Ceiling crane, chains, and functional presses replace decorative flashing lines.
         g.setFill(Color.web("#19171D"));
@@ -14619,9 +14658,134 @@ public class BirdGame3 {
             g.strokeOval(x - 30.0, 440.0 + (x % 3) * 70.0, 60.0, 92.0);
         }
         for (int press = 0; press < OBSIDIAN_PRESS_X.length; press++) {
+            drawObsidianPressLane(g, press);
             drawObsidianPress(g, press);
         }
         drawObsidianFoundryPlatforms(g);
+    }
+
+    private void drawGlasswindSkyRelief(GraphicsContext g, double time, boolean ambientFx) {
+        double moonPulse = ambientFx ? 0.025 * Math.sin(time * 0.55) : 0.0;
+        g.setFill(Color.web("#DDF8FF", 0.09 + moonPulse));
+        g.fillOval(2_560.0, -390.0, 880.0, 880.0);
+        g.setFill(Color.web("#E8FAFF", 0.76));
+        g.fillOval(2_780.0, -150.0, 390.0, 390.0);
+        g.setFill(Color.web("#071322", 0.97));
+        g.fillOval(2_850.0, -190.0, 390.0, 390.0);
+
+        for (int star = 0; star < 74; star++) {
+            double x = Math.floorMod(star * 487, (int) WORLD_WIDTH);
+            double y = 55.0 + Math.floorMod(star * 283, 690);
+            double twinkle = ambientFx ? 0.12 * Math.sin(time * 1.4 + star * 0.73) : 0.0;
+            double radius = 2.0 + Math.floorMod(star * 17, 5);
+            g.setFill(Color.web("#D9F7FF", Math.clamp(0.28 + twinkle, 0.12, 0.48)));
+            g.fillOval(x, y, radius, radius);
+        }
+
+        // A much farther bridge sells the scale without competing with the playable deck.
+        g.setStroke(Color.web("#527B8C", 0.22));
+        g.setLineWidth(12.0);
+        g.strokeLine(0.0, 1_265.0, WORLD_WIDTH, 1_265.0);
+        for (double towerX = 420.0; towerX < WORLD_WIDTH; towerX += 1_020.0) {
+            g.setLineWidth(18.0);
+            g.strokeLine(towerX, 810.0, towerX, 1_270.0);
+            g.setLineWidth(4.0);
+            strokeBezier(g, towerX - 510.0, 960.0, towerX - 280.0, 1_210.0,
+                    towerX - 180.0, 1_210.0, towerX, 850.0);
+            strokeBezier(g, towerX, 850.0, towerX + 180.0, 1_210.0,
+                    towerX + 280.0, 1_210.0, towerX + 510.0, 960.0);
+        }
+    }
+
+    private void drawWorldseamChasm(GraphicsContext g, double pulse,
+                                    boolean seamreaverBoss, boolean wardenGauntlet) {
+        Color core = seamreaverBoss ? Color.web("#FF1744")
+                : wardenGauntlet ? Color.web("#B388FF") : Color.web("#FFF59D");
+        g.setFill(Color.web("#000007", 0.90));
+        g.fillPolygon(new double[]{2_790.0, 3_210.0, 3_390.0, 3_150.0, 2_850.0, 2_610.0},
+                new double[]{0.0, 0.0, 920.0, GROUND_Y + 450.0, GROUND_Y + 450.0, 920.0}, 6);
+        for (int ring = 0; ring < 5; ring++) {
+            double size = 250.0 + ring * 155.0;
+            g.setStroke(core.deriveColor(0, 1, 1, 0.38 - ring * 0.05 + pulse * 0.08));
+            g.setLineWidth(Math.max(5.0, 18.0 - ring * 2.0));
+            g.setLineDashes(45.0 + ring * 12.0, 26.0 + ring * 9.0);
+            g.strokeOval(3_000.0 - size * 0.5, 1_145.0 - size * 0.40, size, size * 0.80);
+        }
+        g.setLineDashes();
+        g.setFill(core.deriveColor(0, 1, 1, 0.72));
+        g.fillPolygon(new double[]{2_972.0, 3_030.0, 3_055.0, 2_944.0},
+                new double[]{500.0, 500.0, GROUND_Y + 360.0, GROUND_Y + 360.0}, 4);
+
+        if (wardenGauntlet) {
+            for (double x : new double[]{2_420.0, 3_000.0, 3_580.0}) {
+                g.setFill(Color.web("#B388FF", 0.18 + pulse * 0.10));
+                g.fillPolygon(new double[]{x - 90.0, x + 90.0, x + 34.0, x - 34.0},
+                        new double[]{GROUND_Y + 90.0, GROUND_Y + 90.0, 620.0, 620.0}, 4);
+                g.setStroke(Color.web("#D1C4E9", 0.45));
+                g.setLineWidth(7.0);
+                g.strokeLine(x, 650.0, x, GROUND_Y + 60.0);
+            }
+        }
+    }
+
+    private void drawGlasswindPrismWeather(GraphicsContext g, double time, boolean ambientFx) {
+        for (int shard = 0; shard < 11; shard++) {
+            double drift = ambientFx ? Math.sin(time * 0.45 + shard * 0.91) * 45.0 : 0.0;
+            double x = 420.0 + shard * 525.0 + drift;
+            double y = 430.0 + Math.floorMod(shard * 367, 1_160);
+            Color color = switch (shard % 3) {
+                case 0 -> Color.web("#80DEEA", 0.20);
+                case 1 -> Color.web("#CE93D8", 0.18);
+                default -> Color.web("#FFF59D", 0.16);
+            };
+            g.setFill(color);
+            g.fillPolygon(new double[]{x - 34.0, x + 42.0, x + 12.0, x - 18.0},
+                    new double[]{y + 62.0, y + 24.0, y - 82.0, y - 34.0}, 4);
+            g.setStroke(color.deriveColor(0, 1, 1, 0.70));
+            g.setLineWidth(5.0);
+            g.strokeLine(x - 18.0, y + 42.0, x + 15.0, y - 51.0);
+        }
+    }
+
+    private void drawGlasswindCausewayStructure(GraphicsContext g) {
+        double deckBottom = battlefieldIslandY + 52.0;
+        g.setFill(Color.web("#091C29", 0.96));
+        g.fillPolygon(new double[]{560.0, 5_440.0, 5_230.0, 770.0},
+                new double[]{deckBottom, deckBottom, deckBottom + 245.0, deckBottom + 245.0}, 4);
+        g.setStroke(Color.web("#426B7D", 0.80));
+        g.setLineWidth(12.0);
+        g.strokeLine(690.0, deckBottom + 218.0, 5_310.0, deckBottom + 218.0);
+        for (double x = 760.0; x < 5_250.0; x += 310.0) {
+            g.strokeLine(x, deckBottom + 18.0, x + 255.0, deckBottom + 218.0);
+            g.strokeLine(x + 255.0, deckBottom + 18.0, x, deckBottom + 218.0);
+        }
+        g.setFill(Color.web("#87C8D8", 0.52));
+        g.fillRect(560.0, deckBottom + 55.0, 4_880.0, 14.0);
+    }
+
+    private void drawGlasswindDeckDetails(GraphicsContext g, boolean warning, boolean active, int direction) {
+        g.setStroke(Color.web(active ? "#E4FBFF" : warning ? "#FFE082" : "#79AFC0", 0.68));
+        g.setLineWidth(8.0);
+        g.setLineDashes(72.0, 52.0);
+        g.strokeLine(720.0, battlefieldIslandY + 12.0, 5_280.0, battlefieldIslandY + 12.0);
+        g.setLineDashes();
+
+        for (double x : new double[]{820.0, 1_900.0, 4_100.0, 5_180.0}) {
+            g.setFill(Color.web(active ? "#E4FBFF" : warning ? "#FFD54F" : "#4DD0E1", 0.88));
+            g.fillOval(x - 14.0, battlefieldIslandY - 24.0, 28.0, 28.0);
+            g.setStroke(Color.web("#DDF8FF", 0.62));
+            g.setLineWidth(5.0);
+            g.strokeLine(x, battlefieldIslandY - 22.0, x, battlefieldIslandY - 88.0);
+        }
+        if (warning || active) {
+            g.setFill(Color.web(active ? "#E4FBFF" : "#FFE082", 0.82));
+            for (double x = 1_250.0; x <= 4_750.0; x += 700.0) {
+                double tip = x + direction * 78.0;
+                g.fillPolygon(new double[]{tip, x - direction * 25.0, x - direction * 25.0},
+                        new double[]{battlefieldIslandY - 72.0, battlefieldIslandY - 112.0,
+                                battlefieldIslandY - 32.0}, 3);
+            }
+        }
     }
 
     private void drawGlasswindTurbine(GraphicsContext g, double cx, double cy,
@@ -14678,8 +14842,30 @@ public class BirdGame3 {
             double center = p.x + p.w * 0.5;
             boolean left = center < 2_700.0;
             boolean right = center > 3_300.0;
+            boolean mainLandmass = Math.abs(p.y - battlefieldIslandY) < 2.0 && p.w > 1_500.0;
+            boolean innerRecovery = p.y > battlefieldIslandY + 80.0
+                    && center > 2_500.0 && center < 3_500.0;
             Color edge = left ? Color.web("#00E5FF") : right ? Color.web("#EA80FC") : Color.web("#FFF59D");
             Color fill = left ? Color.web("#0A2632") : right ? Color.web("#29122D") : Color.web("#282437");
+            if (mainLandmass) {
+                double innerX = left ? p.x + p.w : p.x;
+                g.setFill(fill.deriveColor(0, 0.84, 0.62, 0.98));
+                if (left) {
+                    g.fillPolygon(new double[]{p.x, p.x + p.w, innerX - 85.0, innerX - 270.0, p.x + 170.0},
+                            new double[]{p.y, p.y, GROUND_Y + 270.0, WORLD_HEIGHT,
+                                    WORLD_HEIGHT}, 5);
+                } else {
+                    g.fillPolygon(new double[]{p.x, p.x + p.w, p.x + p.w - 170.0,
+                                    innerX + 270.0, innerX + 85.0},
+                            new double[]{p.y, p.y, WORLD_HEIGHT, WORLD_HEIGHT,
+                                    GROUND_Y + 270.0}, 5);
+                }
+                g.setStroke(edge.deriveColor(0, 1, 1, 0.28));
+                g.setLineWidth(10.0);
+                for (double crack = p.x + 260.0; crack < p.x + p.w - 100.0; crack += 420.0) {
+                    g.strokeLine(crack, p.y + 65.0, crack + (left ? 80.0 : -80.0), p.y + 280.0);
+                }
+            }
             if (p.y < battlefieldIslandY - 70.0) {
                 g.setFill(fill.deriveColor(0, 0.8, 0.65, 0.74));
                 g.fillPolygon(new double[]{p.x + p.w * 0.18, p.x + p.w * 0.82,
@@ -14695,7 +14881,74 @@ public class BirdGame3 {
             g.strokeRoundRect(p.x, p.y, p.w, p.h, 18.0, 18.0);
             g.setFill(edge.deriveColor(0, 1, 1, 0.30));
             g.fillRoundRect(p.x + 16.0, p.y + 8.0, Math.max(0.0, p.w - 32.0), 11.0, 8.0, 8.0);
+            if (innerRecovery) {
+                g.setFill(Color.web("#FFF59D", 0.75));
+                g.fillPolygon(new double[]{center - 28.0, center + 28.0, center},
+                        new double[]{p.y + p.h + 14.0, p.y + p.h + 14.0, p.y + p.h + 56.0}, 3);
+            }
         }
+    }
+
+    private void drawObsidianFoundryMachinery(GraphicsContext g, double time, boolean ambientFx) {
+        for (int furnace = 0; furnace < 6; furnace++) {
+            double x = 230.0 + furnace * 1_110.0;
+            double breathe = ambientFx ? 0.06 * Math.sin(time * 1.25 + furnace) : 0.0;
+            g.setFill(Color.web("#09080B", 0.96));
+            g.fillRoundRect(x, 760.0, 620.0, 670.0, 85.0, 85.0);
+            g.setStroke(Color.web("#5B3430", 0.94));
+            g.setLineWidth(24.0);
+            g.strokeRoundRect(x, 760.0, 620.0, 670.0, 85.0, 85.0);
+            g.setFill(Color.web("#FF6D00", Math.clamp(0.25 + breathe, 0.16, 0.34)));
+            g.fillRoundRect(x + 92.0, 940.0, 436.0, 365.0, 180.0, 180.0);
+            g.setFill(Color.web("#FFCA28", 0.24));
+            for (int flame = 0; flame < 4; flame++) {
+                double flameX = x + 145.0 + flame * 95.0;
+                g.fillPolygon(new double[]{flameX - 48.0, flameX, flameX + 48.0},
+                        new double[]{1_285.0, 1_030.0 - (flame % 2) * 70.0, 1_285.0}, 3);
+            }
+        }
+
+        // Layered pipes and flywheels make the press bays feel like one working plant.
+        g.setStroke(Color.web("#604B4B", 0.84));
+        g.setLineWidth(34.0);
+        g.strokeLine(0.0, 580.0, WORLD_WIDTH, 580.0);
+        g.setLineWidth(18.0);
+        for (double x = 450.0; x < WORLD_WIDTH; x += 760.0) {
+            g.strokeLine(x, 570.0, x, 1_010.0);
+            g.setStroke(Color.web("#A65D45", 0.78));
+            g.strokeOval(x - 95.0, 900.0, 190.0, 190.0);
+            g.setLineWidth(12.0);
+            for (int spoke = 0; spoke < 6; spoke++) {
+                double angle = Math.toRadians(spoke * 60.0);
+                g.strokeLine(x, 995.0, x + Math.cos(angle) * 82.0, 995.0 + Math.sin(angle) * 82.0);
+            }
+            g.setStroke(Color.web("#604B4B", 0.84));
+            g.setLineWidth(18.0);
+        }
+    }
+
+    private void drawObsidianPressLane(GraphicsContext g, int pressIndex) {
+        double x = OBSIDIAN_PRESS_X[pressIndex];
+        int phase = obsidianPressPhase(pressIndex);
+        boolean warning = phase >= OBSIDIAN_PRESS_WARNING_FRAME && phase < OBSIDIAN_PRESS_ACTIVE_FRAME;
+        boolean active = phase >= OBSIDIAN_PRESS_ACTIVE_FRAME && phase < OBSIDIAN_PRESS_END_FRAME;
+        Color state = active ? Color.web("#FF3D00") : warning ? Color.web("#FFEA00") : Color.web("#546E7A");
+        g.setFill(state.deriveColor(0, 1, 1, active ? 0.22 : warning ? 0.14 : 0.07));
+        g.fillRect(x - 205.0, 500.0, 410.0, battlefieldIslandY - 500.0);
+
+        g.setFill(Color.web("#171318", 0.96));
+        g.fillRect(x - 215.0, battlefieldIslandY - 18.0, 430.0, 70.0);
+        for (double stripe = x - 205.0; stripe < x + 205.0; stripe += 82.0) {
+            g.setFill(state.deriveColor(0, 1, 1, active ? 0.92 : warning ? 0.78 : 0.42));
+            g.fillPolygon(new double[]{stripe, stripe + 34.0, stripe + 76.0, stripe + 42.0},
+                    new double[]{battlefieldIslandY + 48.0, battlefieldIslandY + 48.0,
+                            battlefieldIslandY - 14.0, battlefieldIslandY - 14.0}, 4);
+        }
+        g.setFill(state);
+        g.fillOval(x - 22.0, 260.0, 44.0, 44.0);
+        g.setStroke(state.deriveColor(0, 1, 1, 0.45));
+        g.setLineWidth(8.0);
+        g.strokeOval(x - 37.0, 245.0, 74.0, 74.0);
     }
 
     private void drawObsidianPress(GraphicsContext g, int pressIndex) {
@@ -14730,12 +14983,35 @@ public class BirdGame3 {
 
     private void drawObsidianFoundryPlatforms(GraphicsContext g) {
         for (Platform p : platforms) {
+            boolean mainFloor = Math.abs(p.y - battlefieldIslandY) < 2.0 && p.w > 3_000.0;
+            boolean pressCatwalk = p.y < battlefieldIslandY - 300.0
+                    && p.w >= 500.0 && p.w <= 900.0;
+            if (mainFloor) {
+                g.setFill(Color.web("#151216", 0.98));
+                g.fillRect(p.x, p.y + p.h, p.w, 255.0);
+                g.setStroke(Color.web("#5F3B35", 0.82));
+                g.setLineWidth(14.0);
+                for (double brace = p.x + 120.0; brace < p.x + p.w - 120.0; brace += 310.0) {
+                    g.strokeLine(brace, p.y + p.h + 25.0, brace + 210.0, p.y + p.h + 230.0);
+                    g.strokeLine(brace + 210.0, p.y + p.h + 25.0, brace, p.y + p.h + 230.0);
+                }
+            }
             if (p.y < battlefieldIslandY - 70.0) {
                 g.setFill(Color.web("#211B20", 0.92));
                 double support = Math.min(GROUND_Y + 110.0, p.y + 520.0);
                 g.fillPolygon(new double[]{p.x + 35.0, p.x + p.w - 35.0,
                                 p.x + p.w * 0.66, p.x + p.w * 0.34},
                         new double[]{p.y + p.h, p.y + p.h, support, support}, 4);
+            }
+            if (pressCatwalk) {
+                g.setStroke(Color.web("#8D6E63", 0.72));
+                g.setLineWidth(8.0);
+                double ladderX = p.x + p.w * 0.5;
+                g.strokeLine(ladderX - 30.0, p.y + p.h, ladderX - 30.0, battlefieldIslandY);
+                g.strokeLine(ladderX + 30.0, p.y + p.h, ladderX + 30.0, battlefieldIslandY);
+                for (double rung = p.y + p.h + 34.0; rung < battlefieldIslandY; rung += 66.0) {
+                    g.strokeLine(ladderX - 30.0, rung, ladderX + 30.0, rung);
+                }
             }
             g.setFill(Color.web("#211B20"));
             g.fillRoundRect(p.x, p.y, p.w, p.h, 14.0, 14.0);
@@ -46929,7 +47205,6 @@ public class BirdGame3 {
             return;
         }
         if (selectedMap != MapType.WORLDSEAM) return;
-        final double gateY = GROUND_Y - 440.0;
         for (int slot = 0; slot < activePlayers; slot++) {
             if (worldseamGateCooldowns[slot] > 0) worldseamGateCooldowns[slot]--;
             Bird bird = players[slot];
@@ -46937,17 +47212,19 @@ public class BirdGame3 {
                     || worldseamGateCooldowns[slot] > 0) continue;
             double cx = bird.bodyCenterX();
             double cy = bird.bodyCenterY();
-            boolean left = Math.pow((cx - 1_450.0) / 125.0, 2.0)
-                    + Math.pow((cy - gateY) / 210.0, 2.0) <= 1.0;
-            boolean right = Math.pow((cx - 4_550.0) / 125.0, 2.0)
-                    + Math.pow((cy - gateY) / 210.0, 2.0) <= 1.0;
+            boolean left = Math.pow((cx - WORLDSEAM_LEFT_GATE_X) / WORLDSEAM_GATE_RADIUS_X, 2.0)
+                    + Math.pow((cy - WORLDSEAM_GATE_Y) / WORLDSEAM_GATE_RADIUS_Y, 2.0) <= 1.0;
+            boolean right = Math.pow((cx - WORLDSEAM_RIGHT_GATE_X) / WORLDSEAM_GATE_RADIUS_X, 2.0)
+                    + Math.pow((cy - WORLDSEAM_GATE_Y) / WORLDSEAM_GATE_RADIUS_Y, 2.0) <= 1.0;
             if (!left && !right) continue;
-            double destination = left ? 4_550.0 : 1_450.0;
+            double destination = left ? WORLDSEAM_RIGHT_GATE_X : WORLDSEAM_LEFT_GATE_X;
+            double exitOffsetY = Math.clamp(cy - WORLDSEAM_GATE_Y,
+                    -WORLDSEAM_GATE_RADIUS_Y * 0.70, WORLDSEAM_GATE_RADIUS_Y * 0.70);
             bird.x = destination - bird.bodyWidth() * 0.5 + (left ? 165.0 : -165.0);
-            bird.y = gateY - bird.bodyHeight() * 0.5;
+            bird.y = WORLDSEAM_GATE_Y + exitOffsetY - bird.bodyHeight() * 0.5;
             bird.prevX = bird.x;
             bird.prevY = bird.y;
-            worldseamGateCooldowns[slot] = 42;
+            worldseamGateCooldowns[slot] = WORLDSEAM_GATE_COOLDOWN_FRAMES;
             playManagedSfxVaried(steamAchievementClip, 0.24, left ? 1.28 : 1.06, 0.0);
         }
     }
@@ -46978,7 +47255,11 @@ public class BirdGame3 {
             Bird bird = players[slot];
             if (bird == null || bird.health <= 0.0 || bird.classicBonusTarget
                     || bird.bodyCenterY() > battlefieldIslandY + 70.0) continue;
-            bird.vx = Math.clamp(bird.vx + direction * 0.14, -15.5, 15.5);
+            double altitude = Math.clamp((battlefieldIslandY - bird.bodyCenterY()) / 900.0, 0.0, 1.0);
+            double exposure = bird.isOnGround()
+                    ? GLASSWIND_GROUNDED_GUST_MULTIPLIER
+                    : 0.84 + altitude * 0.30;
+            bird.vx = Math.clamp(bird.vx + direction * 0.14 * exposure, -15.5, 15.5);
         }
     }
 
@@ -56823,6 +57104,10 @@ public class BirdGame3 {
         platforms.add(new Platform(1_900.0, causewayY - 555.0, 720.0, 50.0));
         platforms.add(new Platform(3_380.0, causewayY - 555.0, 720.0, 50.0));
         platforms.add(new Platform(2_650.0, causewayY - 735.0, 700.0, 58.0));
+        // These inset shelves keep the central division dangerous without
+        // turning one missed jump into an unrecoverable wall scrape.
+        platforms.add(new Platform(2_660.0, causewayY + 165.0, 155.0, 42.0));
+        platforms.add(new Platform(3_185.0, causewayY + 165.0, 155.0, 42.0));
         battlefieldIslandX = causewayX;
         battlefieldIslandW = causewayW;
         battlefieldIslandY = causewayY;
