@@ -9489,6 +9489,10 @@ public class Bird {
     }
 
     private Platform findAIMainStagePlatform() {
+        Platform authoredMainStage = game.authoredAiMainStagePlatform();
+        if (authoredMainStage != null && !isBoundaryPlatform(authoredMainStage)) {
+            return authoredMainStage;
+        }
         Platform best = null;
         double bestWidth = -1.0;
         for (Platform p : game.platforms) {

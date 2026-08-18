@@ -57375,6 +57375,40 @@ public class BirdGame3 {
                 || isCrownDuelArena();
     }
 
+    /**
+     * Returns the platform that owns the arena's authored island bounds.
+     *
+     * <p>Several large arenas deliberately contain side decks that are a few
+     * pixels wider than the central fighting platform. Width alone therefore
+     * is not a reliable way for CPU recovery and navigation to identify home.
+     * Keep the geometry metadata as the source of truth and let callers fall
+     * back to their legacy heuristic when an arena has no authored island.</p>
+     */
+    Platform authoredAiMainStagePlatform() {
+        if (battlefieldIslandW <= 0.0) {
+            return null;
+        }
+        Platform closest = null;
+        double closestError = Double.POSITIVE_INFINITY;
+        for (Platform platform : platforms) {
+            double xError = Math.abs(platform.x - battlefieldIslandX);
+            double widthError = Math.abs(platform.w - battlefieldIslandW);
+            double yError = Math.abs(platform.y - battlefieldIslandY);
+            double error = xError + widthError + yError * 2.0;
+            if (error < closestError) {
+                closestError = error;
+                closest = platform;
+            }
+            if (xError <= 0.5 && widthError <= 0.5 && yError <= 0.5) {
+                return platform;
+            }
+        }
+        // Custom stage construction can round coordinates by a fraction. Only
+        // accept a near match here; otherwise the CPU's old widest-platform
+        // fallback is safer than binding recovery to unrelated geometry.
+        return closestError <= 12.0 ? closest : null;
+    }
+
     private double battlefieldBoundsMargin() {
         if (selectedMap == MapType.PRISON) {
             return 0.0;

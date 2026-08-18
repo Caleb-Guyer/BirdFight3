@@ -6,18 +6,18 @@
 - Objective/bonus rounds: listed but not simulated
 - Metric: attempt-based team clear rate in the real Classic encounter setup; harness cutoffs count as draws and failed clears
 
-## Vulture
+## Falcon
 
 | Round | Encounter | Kind | Map | W-L-D | Clear rate | Avg time | Damage dealt | Read |
 |---:|---|---|---|---:|---:|---:|---:|---|
-| 1 | Ashes Still Warm | Combat | Ashfall Cathedral | 34-30-0 | 53.1% | 112.0s | 68 | Target band |
-| 2 | The Smallest Share | Combat | Parliament Rooftops | 44-20-0 | 68.8% | 29.4s | 48 | Target band |
-| 3 | Salvage Rights | Combat | Carrion Exchange | 37-27-0 | 57.8% | 53.1s | 43 | Target band |
-| 4 | What the Tide Left | Combat | Titan Dock | 24-40-0 | 37.5% | 113.7s | 117 | Too hard / weak matchup |
-| 5 | False Flock | Combat | Cave | 28-36-0 | 43.8% | 162.0s | 297 | Target band |
-| 6 | The Last Auction | Combat | Silent Amphitheater | 29-35-0 | 45.3% | 151.9s | 169 | Target band |
-| 7 | Bonus: Final Inventory | Objective | Sorting Floor | — | — | — | — | Not scored |
-| 8 | The Final Account | Combat | Reclamation Core | 37-27-0 | 57.8% | 233.6s | 288 | Target band |
+| 1 | Scatter the Flock | Combat | Forest | 42-22-0 | 65.6% | 58.3s | 206 | Target band |
+| 2 | Faster Than Royalty | Combat | Skycliffs | 49-15-0 | 76.6% | 16.2s | 53 | Possibly too easy |
+| 3 | Rush Hour Crossfire | Combat | City | 31-33-0 | 48.4% | 40.8s | 50 | Target band |
+| 4 | The Immovable Target | Combat | Cave | 8-56-0 | 12.5% | 75.6s | 142 | Too hard / weak matchup |
+| 5 | Hunt After Dark | Combat | Parliament Rooftops | 47-17-0 | 73.4% | 37.2s | 145 | Possibly too easy |
+| 6 | Outrun Rebirth | Combat | Ashfall Rebirth | 13-51-0 | 20.3% | 94.9s | 100 | Too hard / weak matchup |
+| 7 | Bonus: Peregrine Run | Objective | Peregrine Run | — | — | — | — | Not scored |
+| 8 | The Ultimate Prey | Combat | Null Roc Ascending | 0-64-0 | 0.0% | 29.0s | 138 | Too hard / weak matchup |
 
 ## How to use this report
 
