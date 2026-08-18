@@ -1,8 +1,11 @@
 package com.example.birdgame3;
 
 import javafx.scene.canvas.Canvas;
+import javafx.scene.image.Image;
+import javafx.scene.image.PixelReader;
 import org.junit.jupiter.api.Test;
 
+import java.io.InputStream;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -92,5 +95,35 @@ class StagePreviewRendererTest {
                     new BirdGame3.StageChoice(representative.baseMap, representative)).toString());
         }
         assertEquals(3, variantAccents.size(), "Story, Boss Rush, and Classic tiles need separate visual identities.");
+    }
+
+    @Test
+    void rooftopRelayCaptureDoesNotRestoreTheLegacyGoldGapWalls() {
+        try (InputStream stream = StagePreviewRendererTest.class.getResourceAsStream(
+                "/stage-previews/variant-rooftop-relay.png")) {
+            assertNotNull(stream, "Rooftop Relay's shared stage capture must be bundled");
+            Image image = new Image(stream);
+            PixelReader pixels = image.getPixelReader();
+            assertNotNull(pixels, "Rooftop Relay's capture must be readable");
+
+            int longestWarmRun = 0;
+            for (int x = 0; x < (int) image.getWidth(); x++) {
+                int warmRun = 0;
+                for (int y = (int) image.getHeight() / 2; y < (int) image.getHeight(); y++) {
+                    var color = pixels.getColor(x, y);
+                    boolean legacyGold = color.getRed() > 0.74
+                            && color.getGreen() > 0.47
+                            && color.getBlue() < 0.51
+                            && color.getRed() - color.getBlue() > 0.23;
+                    warmRun = legacyGold ? warmRun + 1 : 0;
+                    longestWarmRun = Math.max(longestWarmRun, warmRun);
+                }
+            }
+
+            assertTrue(longestWarmRun < 12,
+                    "Open skyline gaps must fade into cool cloud depth, not tall gold edge strips");
+        } catch (java.io.IOException exception) {
+            throw new AssertionError("Could not inspect Rooftop Relay's shared stage capture", exception);
+        }
     }
 }

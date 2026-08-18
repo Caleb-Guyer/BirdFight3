@@ -16757,13 +16757,28 @@ public class BirdGame3 {
         boolean parliamentTowers = activeArenaGeometryVariant == MapVariant.PARLIAMENT_ROOFTOPS;
         boolean rooftopRelay = activeArenaGeometryVariant == MapVariant.ROOFTOP_RELAY;
         double time = ambientFx ? System.currentTimeMillis() / 1000.0 : 0.0;
-        Color skyTop = Color.web(rooftopRelay ? "#203A66" : (parliamentTowers ? "#020516" : "#07102A"));
-        Color skyBottom = Color.web(rooftopRelay ? "#F4A261" : (parliamentTowers ? "#24335B" : "#351B50"));
-
-        for (int i = 0; i < 640; i++) {
-            double ratio = i / 640.0;
-            g.setFill(skyTop.interpolate(skyBottom, ratio));
-            g.fillRect(0, i * (WORLD_HEIGHT / 640.0), WORLD_WIDTH, WORLD_HEIGHT / 640.0 + 3);
+        if (rooftopRelay) {
+            // Keep the sunrise concentrated at the distant horizon. The old
+            // two-colour gradient stayed orange all the way below the arena,
+            // so every open gap between skyscrapers looked like a vertical
+            // yellow wall. Cool cloud-depth colours make those gaps read as
+            // open air while retaining the dawn silhouette above the roofs.
+            g.setFill(new LinearGradient(0, 0, 0, WORLD_HEIGHT, false,
+                    CycleMethod.NO_CYCLE,
+                    new Stop(0.00, Color.web("#203A66")),
+                    new Stop(0.34, Color.web("#59647E")),
+                    new Stop(0.56, Color.web("#B47D78")),
+                    new Stop(0.72, Color.web("#747785")),
+                    new Stop(1.00, Color.web("#48576B"))));
+            g.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+        } else {
+            Color skyTop = Color.web(parliamentTowers ? "#020516" : "#07102A");
+            Color skyBottom = Color.web(parliamentTowers ? "#24335B" : "#351B50");
+            for (int i = 0; i < 640; i++) {
+                double ratio = i / 640.0;
+                g.setFill(skyTop.interpolate(skyBottom, ratio));
+                g.fillRect(0, i * (WORLD_HEIGHT / 640.0), WORLD_WIDTH, WORLD_HEIGHT / 640.0 + 3);
+            }
         }
 
         if (!rooftopRelay) {
@@ -16831,20 +16846,25 @@ public class BirdGame3 {
         g.fillOval(sunX - 105, sunY - 105, 210, 210);
 
         drawGroundedCityLayer(g, 340, 1050, 0.08,
-                Color.web("#42506A", 0.42), Color.web("#FFD7A8", 0.14));
+                Color.web("#30384A", 0.72), Color.web("#A7C5D8", 0.13));
         drawGroundedCityLayer(g, 610, 1260, 0.20,
-                Color.web("#252D43", 0.72), Color.web("#F3A8A2", 0.18));
+                Color.web("#171C2C", 0.92), Color.web("#B98AAE", 0.16));
 
         double beaconX = parallaxAdjustedWorldX(5570.0, 0.11);
-        g.setFill(Color.web("#E9F8FF", 0.28));
-        g.fillPolygon(
-                new double[]{beaconX - 115, beaconX, beaconX + 115},
-                new double[]{GROUND_Y + 40, 500, GROUND_Y + 40},
-                3);
-        g.setStroke(Color.web("#80DEEA", 0.72));
-        g.setLineWidth(16);
-        g.strokeLine(beaconX, 510, beaconX, GROUND_Y + 80);
-        g.setFill(Color.web("#FFF59D", ambientFx ? 0.62 + 0.16 * Math.sin(time * 1.4) : 0.68));
+        double beaconPulse = ambientFx ? 0.5 + 0.5 * Math.sin(time * 1.4) : 0.56;
+        // The old cone crossed nearly the entire scene and looked like a gold
+        // boundary wall at the right edge. Keep the landmark high in the sky
+        // with compact radio rings and short rays instead.
+        g.setFill(Color.web("#E9F8FF", 0.035 + beaconPulse * 0.025));
+        g.fillOval(beaconX - 250, 250, 500, 500);
+        g.setStroke(Color.web("#80DEEA", 0.24 + beaconPulse * 0.18));
+        g.setLineWidth(8);
+        g.strokeOval(beaconX - 130, 370, 260, 260);
+        g.strokeOval(beaconX - 205, 295, 410, 410);
+        g.setLineWidth(6);
+        g.strokeLine(beaconX, 500, beaconX - 105, 280);
+        g.strokeLine(beaconX, 500, beaconX + 105, 280);
+        g.setFill(Color.web("#DFFBFF", 0.74 + beaconPulse * 0.16));
         g.fillOval(beaconX - 34, 468, 68, 68);
     }
 
