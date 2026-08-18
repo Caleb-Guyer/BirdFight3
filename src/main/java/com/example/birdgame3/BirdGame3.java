@@ -59998,6 +59998,8 @@ public class BirdGame3 {
                 b.y = spawnY;
                 b.vx = 0;
                 b.vy = 0;
+                b.prevX = b.x;
+                b.prevY = b.y;
             }
             return;
         }
@@ -60024,34 +60026,103 @@ public class BirdGame3 {
             return;
         }
 
+        if (positionWideCourseSpawns(active)) {
+            return;
+        }
+
         if (!usesAuthoredIslandSpawnForCurrentArena()) {
             double[] spawnCenters = buildSpawnCenters(active.size(), 420.0, WORLD_WIDTH - 420.0);
             for (int i = 0; i < active.size(); i++) {
                 Bird b = active.get(i);
                 double center = spawnCenters[Math.min(i, spawnCenters.length - 1)];
-                double halfWidth = 40 * b.sizeMultiplier;
-                b.x = center - halfWidth;
-                b.y = GROUND_Y - 80 * b.sizeMultiplier;
+                b.x = center - b.bodyWidth() * 0.5;
+                b.y = GROUND_Y - b.bodyHeight();
                 b.vx = 0;
                 b.vy = 0;
+                b.prevX = b.x;
+                b.prevY = b.y;
             }
             return;
         }
 
         double margin = Math.clamp(battlefieldIslandW * 0.15, 120.0, 220.0);
-        double[] spawnCenters = buildSpawnCenters(active.size(),
+        double[] spawnCenters = buildIslandSpawnCenters(active.size(),
                 battlefieldIslandX + margin,
                 battlefieldIslandX + battlefieldIslandW - margin);
 
         for (int i = 0; i < active.size(); i++) {
             Bird b = active.get(i);
             double center = spawnCenters[Math.min(i, spawnCenters.length - 1)];
-            double halfWidth = 40 * b.sizeMultiplier;
-            b.x = center - halfWidth;
-            b.y = battlefieldIslandY - 80 * b.sizeMultiplier;
+            b.x = center - b.bodyWidth() * 0.5;
+            b.y = battlefieldIslandY - b.bodyHeight();
             b.vx = 0;
             b.vy = 0;
+            b.prevX = b.x;
+            b.prevY = b.y;
         }
+    }
+
+    /**
+     * Long traversal arenas should begin as a readable formation, not a pile
+     * of bodies on the platform marked as the AI's home surface.  Rooftop
+     * Relay authors six large, named roofs in traversal order, so opposing
+     * teams can occupy separate buildings (and free-for-all fighters can each
+     * take a roof) without guessing at collision geometry or spawning near a
+     * blast boundary.
+     */
+    private boolean positionWideCourseSpawns(List<Bird> active) {
+        if (activeArenaGeometryVariant != MapVariant.ROOFTOP_RELAY || active.size() < 2) {
+            return false;
+        }
+        List<Platform> roofs = platforms.stream()
+                .filter(platform -> platform.signText != null
+                        && !platform.signText.isBlank()
+                        && platform.w >= 560.0)
+                .sorted(Comparator.comparingDouble(platform -> platform.x))
+                .toList();
+        if (roofs.size() < active.size()) {
+            return false;
+        }
+        Map<Integer, List<Bird>> teamGroups = new LinkedHashMap<>();
+        for (Bird bird : active) {
+            teamGroups.computeIfAbsent(getEffectiveTeam(bird.playerIndex), ignored -> new ArrayList<>())
+                    .add(bird);
+        }
+        if (teamGroups.size() >= 2 && teamGroups.size() < active.size()
+                && roofs.size() >= teamGroups.size()) {
+            int groupIndex = 0;
+            for (List<Bird> team : teamGroups.values()) {
+                Platform roof = roofs.get(groupIndex);
+                double edgeMargin = Math.min(110.0, roof.w * 0.16);
+                double[] centers = evenlySpacedCenters(team.size(),
+                        roof.x + edgeMargin, roof.x + roof.w - edgeMargin);
+                for (int member = 0; member < team.size(); member++) {
+                    Bird bird = team.get(member);
+                    positionBirdOnAuthoredSurface(bird, centers[member], roof.y,
+                            groupIndex < teamGroups.size() * 0.5);
+                }
+                groupIndex++;
+            }
+            return true;
+        }
+        for (int i = 0; i < active.size(); i++) {
+            Bird bird = active.get(i);
+            Platform roof = roofs.get(i);
+            positionBirdOnAuthoredSurface(bird, roof.x + roof.w * 0.5, roof.y,
+                    i < (active.size() - 1) * 0.5);
+        }
+        return true;
+    }
+
+    private void positionBirdOnAuthoredSurface(Bird bird, double centerX,
+                                                 double surfaceY, boolean facingRight) {
+        bird.x = centerX - bird.bodyWidth() * 0.5;
+        bird.y = surfaceY - bird.bodyHeight();
+        bird.vx = 0.0;
+        bird.vy = 0.0;
+        bird.prevX = bird.x;
+        bird.prevY = bird.y;
+        bird.facingRight = facingRight;
     }
 
     private boolean usesAuthoredIslandSpawnForCurrentArena() {
@@ -60083,6 +60154,15 @@ public class BirdGame3 {
             centers[i] = innerLeft + spacing * i;
         }
         return centers;
+    }
+
+    private double[] buildIslandSpawnCenters(int count, double left, double right) {
+        if (count <= 2) {
+            return buildSpawnCenters(count, left, right);
+        }
+        double span = Math.max(0.0, right - left);
+        double inset = Math.min(180.0, span * 0.04);
+        return evenlySpacedCenters(count, left + inset, right - inset);
     }
 
     private double[] evenlySpacedCenters(int count, double left, double right) {
