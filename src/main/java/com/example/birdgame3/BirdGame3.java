@@ -62024,8 +62024,6 @@ public class BirdGame3 {
                     lines.add((classicEncounter.style == ClassicEncounterStyle.VULTURE_FALSE_FLOCK
                             ? "FALSE FLOCK " : "LAST AUCTION ")
                             + (classicVultureWaveIndex + 1) + "/" + count);
-                } else if (classicEncounter.twist == ClassicTwist.AFTERMATH) {
-                    lines.add("AFTERMATH BATTLE  DAMAGE RESETS AFTER THIS ROUND");
                 }
             }
             if (classicSelectedBird == BirdType.OPIUMBIRD) {
@@ -62041,8 +62039,6 @@ public class BirdGame3 {
                     int seals = (int) classicOpiumCertaintySeals.stream().filter(s -> s.broken).count();
                     lines.add("FIXED FUTURE  CERTAINTY SEALS " + seals + "/3  PROPHECY "
                             + classicStaminaBossMovement() + "/3");
-                } else {
-                    lines.add("FORECASTS RESET AFTER THIS ROUND");
                 }
             }
             if (classicSelectedBird == BirdType.HEISENBIRD) {
@@ -62056,8 +62052,6 @@ public class BirdGame3 {
                     lines.add("PRODUCT LAUNCH  PHASE " + classicStaminaBossMovement() + "/3  "
                             + (classicBlueSkyOverheatTimer > 0 ? "CORE OPEN " + classicBlueSkyOverheatTimer
                             : "SHELL SEALED"));
-                } else {
-                    lines.add("PRODUCTION TRIAL  RESULTS RESET AFTER THIS ROUND");
                 }
             }
             return lines;

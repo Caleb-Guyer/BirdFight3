@@ -59,6 +59,17 @@ class HeisenbirdClassicRouteTest {
     }
 
     @Test
+    void ordinaryRoundsDoNotShowMeaninglessResetFooter() throws Exception {
+        BirdGame3 game = prepared(0, 0x484001L, 0x484002L);
+        @SuppressWarnings("unchecked")
+        List<String> lines = (List<String>) invoke(game, "fightHudInfoLines", new Class<?>[0]);
+
+        assertEquals(3, lines.size());
+        assertTrue(lines.stream().noneMatch(line -> line.contains("RESET AFTER THIS ROUND")));
+        assertTrue(lines.stream().noneMatch(line -> line.startsWith("PRODUCTION TRIAL")));
+    }
+
+    @Test
     void finalCalibrationIsOrderedReachableGuidedAndTimeoutSafe() throws Exception {
         BirdGame3 game = prepared(6, 0x485001L, 0x485002L);
         game.headlessHarnessMode = true;
