@@ -215,6 +215,25 @@ class GrinchHawkClassicRouteTest {
         assertEquals(6, ending.beats().size());
     }
 
+    @Test
+    void bellkeeperNeverFallsBackToItsPlaceholderBirdInIntrosOrResults() throws Exception {
+        BirdGame3 game = prepared(7, 0x6A1150L, 0x6A1151L);
+        Bird boss = firstEnemy(game);
+        assertNotNull(boss);
+        assertTrue(game.usesClassicConstructVictoryPortrait(boss));
+        assertEquals("BELLKEEPER", invoke(game, "matchSummaryBirdLabel",
+                new Class<?>[]{Bird.class}, boss));
+
+        String source = Files.readString(Path.of(
+                "src", "main", "java", "com", "example", "birdgame3", "BirdGame3.java"));
+        int introStart = source.indexOf("private void showClassicEncounterIntro(Stage stage)");
+        int introEnd = source.indexOf("private void startClassicEncounter", introStart);
+        assertTrue(introStart >= 0 && introEnd > introStart);
+        String intro = source.substring(introStart, introEnd);
+        assertTrue(intro.contains("drawClassicBellkeeperPortrait(enemyPortrait)"),
+                "The Bellkeeper's VS card must use its original clockwork-owl art.");
+    }
+
     private static BirdGame3 prepared(int round, long routeSeed, long matchSeed) {
         BirdGame3 game = new BirdGame3();
         game.harnessPrepareClassicEncounter(BirdType.GRINCHHAWK, round, 5.0, 6, routeSeed, matchSeed);

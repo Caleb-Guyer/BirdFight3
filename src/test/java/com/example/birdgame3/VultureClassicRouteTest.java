@@ -128,6 +128,71 @@ class VultureClassicRouteTest {
     }
 
     @Test
+    void debtEngineUsesRealStaminaRulesAndCannotBeCheesedByTimeOrBlastZones() throws Exception {
+        BirdGame3 damageGame = prepared(7, 0x7A1132L, 0x7A1133L);
+        Bird player = damageGame.players[0];
+        Bird boss = firstEnemy(damageGame);
+        double startingHealth = boss.health;
+
+        double dealt = player.applyUnshieldedDamageTo(boss, 40.0);
+        assertTrue(dealt > 0.0);
+        assertEquals(startingHealth - dealt, boss.health, 0.0001);
+        assertEquals(0.0, (double) get(boss, "smashDamage"), 0.0001,
+                "The giant health bar must not secretly fill an ordinary launch meter.");
+        assertEquals(1, damageGame.scores[boss.playerIndex]);
+
+        BirdGame3 timeoutGame = prepared(7, 0x7A1134L, 0x7A1135L);
+        Bird timeoutBoss = firstEnemy(timeoutGame);
+        timeoutGame.headlessHarnessMode = true;
+        timeoutGame.matchTimer = 0;
+        assertFalse(timeoutGame.harnessTick());
+        assertSame(timeoutBoss, timeoutGame.harnessWinner,
+                "Waiting out an intact Debt Engine must lose the encounter.");
+
+        BirdGame3 blastGame = prepared(7, 0x7A1136L, 0x7A1137L);
+        Bird blastBoss = firstEnemy(blastGame);
+        double blastHealth = blastBoss.health;
+        invoke(blastBoss, "handleSmashBlastZoneKo",
+                new Class<?>[]{boolean.class, boolean.class, double.class, double.class,
+                        double.class, double.class, String.class, boolean.class, double.class, double.class},
+                false, true, 690.0, 5_310.0, 3_000.0, BirdGame3.GROUND_Y - 300.0,
+                "off the right side", false, 5_700.0, BirdGame3.GROUND_Y);
+        assertEquals(blastHealth, blastBoss.health, 0.0);
+        assertEquals(1, blastGame.scores[blastBoss.playerIndex]);
+        assertEquals(blastGame.battlefieldSpawnCenterX() - blastBoss.bodyWidth() * 0.5,
+                blastBoss.x, 0.0001);
+        assertEquals(0.0, blastBoss.vx, 0.0);
+        assertEquals(0.0, blastBoss.vy, 0.0);
+    }
+
+    @Test
+    void debtEngineCrusherWarnsBeforeImpactAndStopsAtTheStageFloor() throws Exception {
+        BirdGame3 game = prepared(7, 0x7A1138L, 0x7A1139L);
+        Bird player = game.players[0];
+        Bird boss = firstEnemy(game);
+        double floorY = (double) get(game, "battlefieldIslandY");
+
+        assertEquals(0.22, BirdGame3.debtEngineCrusherWarningAlpha(180.0, floorY), 0.0001);
+        assertEquals(0.92, BirdGame3.debtEngineCrusherWarningAlpha(floorY, floorY), 0.0001);
+        invoke(game, "spawnClassicDebtEngineAttack",
+                new Class<?>[]{Bird.class, Bird.class, int.class}, boss, player, 1);
+
+        @SuppressWarnings("unchecked")
+        List<Object> shots = (List<Object>) get(game, "classicDebtProjectiles");
+        assertEquals(5, shots.size());
+        for (Object shot : shots) {
+            double x = (double) get(shot, "x");
+            assertTrue(x >= 820.0 && x <= 5_180.0, "Crusher warning escaped the playable floor.");
+            set(shot, "y", floorY - 50.0);
+            set(shot, "vy", 16.0);
+        }
+        player.x = 690.0;
+        player.y = floorY - 900.0;
+        game.applyVultureClassicRuntimeEffects();
+        assertTrue(shots.isEmpty(), "Impacted crushers must not fall visibly through the map.");
+    }
+
+    @Test
     void exchangeHazardHasAFullWarningWindowAndUsesDeterministicSimulationTicks() throws Exception {
         BirdGame3 game = prepared(2, 0x7A1140L, 0x7A1141L);
         Bird player = game.players[0];
@@ -168,6 +233,66 @@ class VultureClassicRouteTest {
         StoryCampaign campaign = StoryCampaignContent.create();
         assertTrue(campaign.acts.stream().flatMap(act -> act.missions().stream())
                 .anyMatch(mission -> mission.map() == MapType.CARRION_EXCHANGE));
+    }
+
+    @Test
+    void newVultureArenasKeepFightersAndEveryInventoryObjectiveOnReachableSurfaces() throws Exception {
+        for (int round : List.of(2, 6, 7)) {
+            BirdGame3 game = prepared(round, 0x7A1160L + round, 0x7A1170L + round);
+            double floorX = (double) get(game, "battlefieldIslandX");
+            double floorW = (double) get(game, "battlefieldIslandW");
+            double floorY = (double) get(game, "battlefieldIslandY");
+            for (int slot = 0; slot < game.activePlayers; slot++) {
+                Bird bird = game.players[slot];
+                if (bird == null) continue;
+                assertTrue(bird.bodyCenterX() >= floorX - 450.0
+                                && bird.bodyCenterX() <= floorX + floorW + 450.0,
+                        "Fighter " + slot + " spawned beyond the authored arena in round " + (round + 1));
+                assertTrue(bird.bodyBottomY() <= floorY + 1.0,
+                        "Fighter " + slot + " spawned below the stage in round " + (round + 1));
+            }
+        }
+
+        BirdGame3 objective = prepared(6, 0x7A1180L, 0x7A1181L);
+        double floorX = (double) get(objective, "battlefieldIslandX");
+        double floorW = (double) get(objective, "battlefieldIslandW");
+        double floorY = (double) get(objective, "battlefieldIslandY");
+        @SuppressWarnings("unchecked")
+        List<Object> locks = (List<Object>) get(objective, "classicSalvageLocks");
+        double previousX = Double.NEGATIVE_INFINITY;
+        for (Object lock : locks) {
+            double x = (double) get(lock, "x");
+            assertTrue(x > previousX, "The next-lock guide depends on a clear left-to-right order.");
+            assertTrue(x >= floorX + 100.0 && x <= floorX + floorW - 100.0);
+            assertEquals(floorY - 112.0, (double) get(lock, "y"), 0.0001);
+            previousX = x;
+        }
+        assertTrue(BirdGame3.FINAL_INVENTORY_EXIT_X >= floorX
+                && BirdGame3.FINAL_INVENTORY_EXIT_X <= floorX + floorW);
+    }
+
+    @Test
+    void vultureRouteStateIsClearedBetweenEncountersAndConstructArtSurvivesResults() throws Exception {
+        BirdGame3 game = prepared(6, 0x7A1190L, 0x7A1191L);
+        @SuppressWarnings("unchecked")
+        List<Object> locks = (List<Object>) get(game, "classicSalvageLocks");
+        set(locks.getFirst(), "broken", true);
+        set(game, "classicInventoryExitOpen", true);
+        @SuppressWarnings("unchecked")
+        List<Object> projectiles = (List<Object>) get(game, "classicDebtProjectiles");
+        projectiles.add(null);
+
+        game.harnessPrepareClassicEncounter(BirdType.VULTURE, 7, 5.0, 6,
+                0x7A1192L, 0x7A1193L);
+        assertTrue(((List<?>) get(game, "classicSalvageLocks")).isEmpty());
+        assertTrue(((List<?>) get(game, "classicDebtProjectiles")).isEmpty());
+        assertFalse((boolean) get(game, "classicInventoryExitOpen"));
+
+        Bird boss = firstEnemy(game);
+        assertTrue(game.usesClassicConstructVictoryPortrait(boss));
+        assertFalse(game.usesClassicConstructVictoryPortrait(game.players[0]));
+        assertEquals("DEBT ENGINE", invoke(game, "matchSummaryBirdLabel",
+                new Class<?>[]{Bird.class}, boss));
     }
 
     @Test
@@ -237,5 +362,11 @@ class VultureClassicRouteTest {
         Field field = target.getClass().getDeclaredField(name);
         field.setAccessible(true);
         return field.get(target);
+    }
+
+    private static void set(Object target, String name, Object value) throws Exception {
+        Field field = target.getClass().getDeclaredField(name);
+        field.setAccessible(true);
+        field.set(target, value);
     }
 }

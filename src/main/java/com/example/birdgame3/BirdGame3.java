@@ -712,7 +712,7 @@ public class BirdGame3 {
         OBSIDIAN_FOUNDRY(MapType.ASHFALL_CATHEDRAL, "Classic Routes", "Obsidian Foundry", "A cooled volcanic blade foundry whose basalt floor, suspended presses, and recovery shelves form one readable industrial structure."),
         GIFT_VAULT(MapType.MIDNIGHT_WORKSHOP, "Classic Routes", "The Quiet Vault", "A secure clockwork vault of warning-lit locks, broad extraction lanes, and machinery built into every fighting surface."),
         BELLKEEPER_VAULT(MapType.MIDNIGHT_WORKSHOP, "Classic Routes", "Bellkeeper's Vault", "The workshop's immense central bell chamber, opened into three clear aerial lanes for its final guardian."),
-        SORTING_FLOOR(MapType.CARRION_EXCHANGE, "Classic Routes", "Sorting Floor", "A readable salvage course of crushers, magnetic lanes, seven marked locks, and a clearly signposted extraction lift."),
+        SORTING_FLOOR(MapType.CARRION_EXCHANGE, "Classic Routes", "Sorting Floor", "A readable salvage course of sorting chutes, magnetic lanes, seven marked locks, and a clearly signposted extraction lift."),
         RECLAMATION_CORE(MapType.CARRION_EXCHANGE, "Classic Routes", "Reclamation Core", "The Debt Engine's circular furnace chamber, built around three connected fighting lanes and an overhead crane track.");
 
         final MapType baseMap;
@@ -43897,6 +43897,7 @@ public class BirdGame3 {
         boolean betweenLinesEncounter = classicEncounter.style == ClassicEncounterStyle.BETWEEN_LINES;
         boolean seamWardenEncounter = classicEncounter.style == ClassicEncounterStyle.SEAM_WARDEN_GAUNTLET;
         boolean seamreaverEncounter = classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS;
+        boolean bellkeeperEncounter = classicEncounter.style == ClassicEncounterStyle.BELLKEEPER_BOSS;
         boolean finalInventoryEncounter = classicEncounter.style == ClassicEncounterStyle.FINAL_INVENTORY;
         boolean debtEngineEncounter = classicEncounter.style == ClassicEncounterStyle.DEBT_ENGINE_BOSS;
         int enemyCount = Math.max(1, enemies.length);
@@ -43912,6 +43913,8 @@ public class BirdGame3 {
                 drawClassicCharlesConstructPortrait(enemyPortrait, maestroEncounter, enemy.title);
             } else if (seamWardenEncounter || seamreaverEncounter) {
                 drawClassicRazorbillConstructPortrait(enemyPortrait, seamreaverEncounter, enemy.title);
+            } else if (bellkeeperEncounter) {
+                drawClassicBellkeeperPortrait(enemyPortrait);
             } else if (debtEngineEncounter) {
                 drawClassicDebtEnginePortrait(enemyPortrait);
             } else if (bonusTargetEncounter) {
@@ -43961,6 +43964,7 @@ public class BirdGame3 {
                 : betweenLinesEncounter ? "THE FOUR DIMENSIONAL CUTS"
                 : seamWardenEncounter ? "THE ORIGINAL SEAM WARDENS"
                 : seamreaverEncounter ? "THE SEAMREAVER"
+                : bellkeeperEncounter ? "THE BELLKEEPER"
                 : finalInventoryEncounter ? "7 SALVAGE LOCKS  •  EXTRACTION"
                 : debtEngineEncounter ? "THE DEBT ENGINE"
                 : bonusTargetEncounter ? enemies.length + " BONUS TARGETS"
@@ -47001,13 +47005,28 @@ public class BirdGame3 {
         GraphicsContext g = canvas.getGraphicsContext2D();
         g.setFill(Color.web("#08070B"));
         g.fillRect(0, 0, canvas.getWidth(), canvas.getHeight());
-        double scale = Math.min(canvas.getWidth(), canvas.getHeight()) / 520.0;
+        // The outer collection drums span roughly 620 logical pixels. Leave a
+        // clean margin so neither side is clipped in intros or results cards.
+        double scale = Math.min(canvas.getWidth(), canvas.getHeight()) / 680.0;
         drawDebtEngine(g, canvas.getWidth() / 2.0, canvas.getHeight() * 0.46,
                 scale, 2, false);
         g.setFill(Color.WHITE);
         g.setFont(Font.font("Consolas", FontWeight.BOLD, Math.max(14, canvas.getWidth() * 0.05)));
         g.setTextAlign(TextAlignment.CENTER);
         g.fillText("THE DEBT ENGINE", canvas.getWidth() / 2.0, canvas.getHeight() - 22.0);
+    }
+
+    private void drawClassicBellkeeperPortrait(Canvas canvas) {
+        GraphicsContext g = canvas.getGraphicsContext2D();
+        g.setFill(Color.web("#090B10"));
+        g.fillRect(0, 0, canvas.getWidth(), canvas.getHeight());
+        double scale = Math.min(canvas.getWidth(), canvas.getHeight()) / 390.0;
+        drawClockworkOwl(g, canvas.getWidth() / 2.0, canvas.getHeight() * 0.46,
+                scale, classicBellkeeperPhase, true);
+        g.setFill(Color.WHITE);
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, Math.max(14, canvas.getWidth() * 0.05)));
+        g.setTextAlign(TextAlignment.CENTER);
+        g.fillText("THE BELLKEEPER", canvas.getWidth() / 2.0, canvas.getHeight() - 22.0);
     }
 
     private void drawClassicFinalInventoryPortrait(Canvas canvas) {
@@ -47405,6 +47424,13 @@ public class BirdGame3 {
     void applyVultureClassicRuntimeEffects() {
         if (!classicModeActive || classicEncounter == null || classicSelectedBird != BirdType.VULTURE
                 || bossRushModeActive || ashfallTrialModeActive || matchEnded) return;
+        if (classicEncounter.style == ClassicEncounterStyle.FINAL_INVENTORY) {
+            // Presentation timers advance with the fixed simulation, not with
+            // however often a monitor happens to repaint the Canvas.
+            for (ClassicVaultSeal lock : classicSalvageLocks) {
+                if (lock.pulseFrames > 0) lock.pulseFrames--;
+            }
+        }
         Bird player = players[0];
         if (player == null || !playerHasStocksRemaining(0)) return;
         if (classicInventoryHitCooldown > 0) classicInventoryHitCooldown--;
@@ -47550,6 +47576,11 @@ public class BirdGame3 {
                 shot.life = 0;
                 shakeIntensity = Math.max(shakeIntensity, shot.kind == 4 ? 14.0 : 11.0);
             }
+            if (shot.kind == 1 && shot.y + radius >= battlefieldIslandY) {
+                // Crushers stop at the authored fighting surface instead of
+                // visibly falling through the stage after their impact.
+                shot.life = 0;
+            }
             if (shot.life <= 0 || shot.x < -500.0 || shot.x > WORLD_WIDTH + 500.0
                     || shot.y < -500.0 || shot.y > WORLD_HEIGHT + 500.0) {
                 classicDebtProjectiles.remove(i);
@@ -47628,8 +47659,9 @@ public class BirdGame3 {
         if (!classicModeActive || classicEncounter == null || classicSelectedBird != BirdType.VULTURE
                 || bossRushModeActive || ashfallTrialModeActive) return;
         if (classicEncounter.style == ClassicEncounterStyle.FINAL_INVENTORY) {
+            ClassicVaultSeal nextLock = null;
             for (ClassicVaultSeal lock : classicSalvageLocks) {
-                if (lock.pulseFrames > 0) lock.pulseFrames--;
+                if (!lock.broken && nextLock == null) nextLock = lock;
                 Color color = lock.broken ? Color.web("#64FFDA") : Color.web("#FFD166");
                 g.setFill(Color.web("#090B10", 0.90));
                 g.fillRoundRect(lock.x - 55.0, lock.y - 70.0, 110.0, 110.0, 22.0, 22.0);
@@ -47640,6 +47672,21 @@ public class BirdGame3 {
                 g.setFont(Font.font("Arial Black", 48));
                 g.setTextAlign(TextAlignment.CENTER);
                 g.fillText(lock.broken ? "✓" : "◆", lock.x, lock.y + 5.0);
+            }
+            if (nextLock != null) {
+                double bob = Math.sin(simTick * 0.10) * 12.0;
+                double markerY = nextLock.y - 175.0 + bob;
+                g.setFill(Color.web("#090B10", 0.92));
+                g.fillRoundRect(nextLock.x - 96.0, markerY - 38.0, 192.0, 54.0, 18.0, 18.0);
+                g.setStroke(Color.web("#FFD166"));
+                g.setLineWidth(6.0);
+                g.strokeRoundRect(nextLock.x - 96.0, markerY - 38.0, 192.0, 54.0, 18.0, 18.0);
+                g.setFill(Color.WHITE);
+                g.setFont(Font.font("Consolas", FontWeight.BOLD, 25));
+                g.fillText("NEXT LOCK", nextLock.x, markerY - 1.0);
+                g.setFill(Color.web("#FFD166"));
+                g.fillPolygon(new double[]{nextLock.x - 24.0, nextLock.x + 24.0, nextLock.x},
+                        new double[]{markerY + 25.0, markerY + 25.0, markerY + 61.0}, 3);
             }
             g.setFill(classicInventoryExitOpen ? Color.web("#FFD166", 0.25) : Color.web("#263238", 0.48));
             g.fillRect(FINAL_INVENTORY_EXIT_X - 145.0, 190.0, 290.0, GROUND_Y - 430.0);
@@ -47654,6 +47701,16 @@ public class BirdGame3 {
             Color color = shot.kind == 1 ? Color.web("#FF9F43")
                     : shot.kind == 4 ? Color.web("#FF3B5C") : Color.web("#6BE7FF");
             double radius = shot.kind == 1 ? 62.0 : 35.0;
+            if (shot.kind == 1) {
+                double warningAlpha = debtEngineCrusherWarningAlpha(shot.y, battlefieldIslandY);
+                double landingY = battlefieldIslandY - 5.0;
+                g.setFill(Color.web("#FF9F43", warningAlpha * 0.30));
+                g.fillOval(shot.x - 128.0, landingY - 34.0, 256.0, 68.0);
+                g.setStroke(Color.web("#FFD166", warningAlpha));
+                g.setLineWidth(10.0);
+                g.strokeOval(shot.x - 128.0, landingY - 34.0, 256.0, 68.0);
+                g.strokeLine(shot.x - 72.0, landingY, shot.x + 72.0, landingY);
+            }
             g.setFill(color.deriveColor(0, 1.0, 1.0, 0.22));
             g.fillOval(shot.x - radius * 1.8, shot.y - radius * 1.8, radius * 3.6, radius * 3.6);
             g.setFill(Color.web("#13161D"));
@@ -47664,6 +47721,13 @@ public class BirdGame3 {
             if (shot.kind == 1) g.strokeRoundRect(shot.x - radius, shot.y - radius, radius * 2.0, radius * 2.0, 16.0, 16.0);
             else g.strokeOval(shot.x - radius, shot.y - radius, radius * 2.0, radius * 2.0);
         }
+        g.setTextAlign(TextAlignment.LEFT);
+    }
+
+    static double debtEngineCrusherWarningAlpha(double projectileY, double floorY) {
+        double travel = Math.max(1.0, floorY - 180.0);
+        double progress = Math.clamp((projectileY - 180.0) / travel, 0.0, 1.0);
+        return 0.22 + progress * 0.70;
     }
 
     private boolean drawClassicVultureConstruct(GraphicsContext g, Bird bird) {
@@ -60230,11 +60294,14 @@ public class BirdGame3 {
         boolean charlesConstruct = isClassicCharlesConstructBird(bird);
         boolean razorbillConstruct = isClassicRazorbillConstructBird(bird);
         boolean grinchConstruct = isClassicGrinchHawkConstructBird(bird);
+        boolean debtEngineConstruct = isClassicDebtEngineConstructBird(bird);
         boolean charlesBoss = charlesConstruct
                 && classicEncounter.style == ClassicEncounterStyle.HOLLOW_MAESTRO_BOSS;
         boolean razorbillBoss = razorbillConstruct
                 && classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS;
-        String cacheKey = grinchConstruct
+        String cacheKey = debtEngineConstruct
+                ? "CLASSIC_DEBT_ENGINE"
+                : grinchConstruct
                 ? "CLASSIC_BELLKEEPER"
                 : razorbillConstruct
                 ? (razorbillBoss ? "CLASSIC_SEAMREAVER" : "CLASSIC_SEAM_WARDEN|" + shortName(bird.name))
@@ -60255,7 +60322,10 @@ public class BirdGame3 {
         }
 
         Canvas portrait = new Canvas(128, 128);
-        if (grinchConstruct) {
+        if (debtEngineConstruct) {
+            drawDebtEngine(portrait.getGraphicsContext2D(), 64.0, 63.0,
+                    0.19, classicDebtEnginePhase, classicDebtEngineReversalTimer > 0);
+        } else if (grinchConstruct) {
             drawClockworkOwl(portrait.getGraphicsContext2D(), 64.0, 63.0,
                     0.36, classicBellkeeperPhase, true);
         } else if (razorbillConstruct) {
@@ -60299,6 +60369,13 @@ public class BirdGame3 {
                 && classicSelectedBird == BirdType.GRINCHHAWK
                 && getEffectiveTeam(bird.playerIndex) == 2
                 && classicEncounter.style == ClassicEncounterStyle.BELLKEEPER_BOSS;
+    }
+
+    private boolean isClassicDebtEngineConstructBird(Bird bird) {
+        return bird != null && classicModeActive && classicEncounter != null
+                && classicSelectedBird == BirdType.VULTURE
+                && getEffectiveTeam(bird.playerIndex) == 2
+                && classicEncounter.style == ClassicEncounterStyle.DEBT_ENGINE_BOSS;
     }
 
     record FightHudNameFit(Font font, double maxWidth, double naturalWidth) {
@@ -61554,11 +61631,14 @@ public class BirdGame3 {
     private StackPane buildVictoryPortraitNode(Bird bird, double size, boolean winnerPose) {
         double portraitSize = Math.max(140, size);
         Canvas sprite = new Canvas(portraitSize, portraitSize);
-        String skinKey = bird == null ? null : skinKeyForBird(bird);
-        drawVictoryRosterSprite(sprite, bird == null ? null : bird.type, skinKey, winnerPose);
+        boolean constructPortrait = drawClassicConstructVictoryPortrait(sprite, bird);
+        if (!constructPortrait) {
+            String skinKey = bird == null ? null : skinKeyForBird(bird);
+            drawVictoryRosterSprite(sprite, bird == null ? null : bird.type, skinKey, winnerPose);
+        }
 
         Canvas overlay = new Canvas(portraitSize, portraitSize);
-        if (winnerPose && bird != null) {
+        if (winnerPose && bird != null && !constructPortrait) {
             drawVictoryPoseOverlay(overlay, bird);
         }
 
@@ -61572,6 +61652,29 @@ public class BirdGame3 {
         frame.setMaxSize(portraitSize, portraitSize);
         installRegionClip(frame, 34, 34);
         return frame;
+    }
+
+    boolean usesClassicConstructVictoryPortrait(Bird bird) {
+        return isClassicDebtEngineConstructBird(bird)
+                || isClassicGrinchHawkConstructBird(bird)
+                || isClassicRazorbillConstructBird(bird)
+                || isClassicCharlesConstructBird(bird);
+    }
+
+    private boolean drawClassicConstructVictoryPortrait(Canvas canvas, Bird bird) {
+        if (!usesClassicConstructVictoryPortrait(bird)) return false;
+        if (isClassicDebtEngineConstructBird(bird)) {
+            drawClassicDebtEnginePortrait(canvas);
+        } else if (isClassicGrinchHawkConstructBird(bird)) {
+            drawClassicBellkeeperPortrait(canvas);
+        } else if (isClassicRazorbillConstructBird(bird)) {
+            boolean boss = classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS;
+            drawClassicRazorbillConstructPortrait(canvas, boss, matchSummaryBirdLabel(bird));
+        } else {
+            boolean boss = classicEncounter.style == ClassicEncounterStyle.HOLLOW_MAESTRO_BOSS;
+            drawClassicCharlesConstructPortrait(canvas, boss, matchSummaryBirdLabel(bird));
+        }
+        return true;
     }
 
     record VictoryPortraitLayout(double extentFactor, double minScale, double maxScale, double xBias, double yBias) {
@@ -62047,6 +62150,10 @@ public class BirdGame3 {
     }
 
     private Color matchSummaryAccent(Bird bird) {
+        if (isClassicDebtEngineConstructBird(bird)) return Color.web("#D6A84A");
+        if (isClassicGrinchHawkConstructBird(bird)) return Color.web("#FFD166");
+        if (isClassicRazorbillConstructBird(bird)) return Color.web("#00E5FF");
+        if (isClassicCharlesConstructBird(bird)) return Color.web("#FFE082");
         if (bird == null || bird.type == null || bird.type.color == null) {
             return Color.web("#90A4AE");
         }
