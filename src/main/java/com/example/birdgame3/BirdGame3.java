@@ -684,7 +684,8 @@ public class BirdGame3 {
         DOCK, FROSTBITE_FJORD, ASHFALL_CATHEDRAL, PRISON,
         // Append-only: map ordinals are persisted by replays and network setup.
         RESONANCE_HALL, SIGNAL_SPIRE, SILENT_AMPHITHEATER,
-        GLASSWIND_CAUSEWAY, WORLDSEAM, MIDNIGHT_WORKSHOP, CARRION_EXCHANGE
+        GLASSWIND_CAUSEWAY, WORLDSEAM, MIDNIGHT_WORKSHOP, CARRION_EXCHANGE,
+        ONEIRIC_OBSERVATORY
     }
 
     /** Reusable arena layouts originally authored for story and boss modes. */
@@ -713,7 +714,8 @@ public class BirdGame3 {
         GIFT_VAULT(MapType.MIDNIGHT_WORKSHOP, "Classic Routes", "The Quiet Vault", "A secure clockwork vault of warning-lit locks, broad extraction lanes, and machinery built into every fighting surface."),
         BELLKEEPER_VAULT(MapType.MIDNIGHT_WORKSHOP, "Classic Routes", "Bellkeeper's Vault", "The workshop's immense central bell chamber, opened into three clear aerial lanes for its final guardian."),
         SORTING_FLOOR(MapType.CARRION_EXCHANGE, "Classic Routes", "Sorting Floor", "A readable salvage course of sorting chutes, magnetic lanes, seven marked locks, and a clearly signposted extraction lift."),
-        RECLAMATION_CORE(MapType.CARRION_EXCHANGE, "Classic Routes", "Reclamation Core", "The Debt Engine's circular furnace chamber, built around three connected fighting lanes and an overhead crane track.");
+        RECLAMATION_CORE(MapType.CARRION_EXCHANGE, "Classic Routes", "Reclamation Core", "The Debt Engine's circular furnace chamber, built around three connected fighting lanes and an overhead crane track."),
+        WAKING_CHAMBER(MapType.ONEIRIC_OBSERVATORY, "Classic Routes", "Waking Chamber", "A lucid course through twelve reachable forecast lenses, ending at an awakening bell built into the observatory floor.");
 
         final MapType baseMap;
         final String category;
@@ -1845,6 +1847,7 @@ public class BirdGame3 {
                     case WORLDSEAM -> "music-razorbill-worldseam.mp3";
                     case MIDNIGHT_WORKSHOP -> "music-grinch-workshop.mp3";
                     case CARRION_EXCHANGE -> "music-vulture-exchange.mp3";
+                    case ONEIRIC_OBSERVATORY -> "music-razorbill-glasswind.mp3";
             default -> throw new IllegalStateException("Unexpected value: " + selectedMap);
         };
     }
@@ -5176,6 +5179,36 @@ public class BirdGame3 {
     private int classicDebtEngineReversalCooldown = 0;
     private int classicDebtEngineDamageWindow = 0;
     private double classicDebtEngineCloseDamage = 0.0;
+    static final double OPIUM_STILL_KING_BASE_HEALTH = 320.0;
+    static final double[] OPIUM_FORECAST_FLIGHT_X = {1_260.0, 2_180.0, 3_820.0, 4_740.0, 3_000.0};
+    static final double[] OPIUM_FORECAST_FLIGHT_Y = {
+            GROUND_Y - 780.0, GROUND_Y - 1_130.0, GROUND_Y - 1_130.0,
+            GROUND_Y - 780.0, GROUND_Y - 650.0
+    };
+    static final double[] OPIUM_CERTAINTY_SEAL_X = {1_420.0, 3_000.0, 4_580.0};
+    static final double OPIUM_WAKING_BELL_X = 5_260.0;
+    static final double[] OPIUM_LUCID_FRAGMENT_X = {
+            720.0, 1_140.0, 1_560.0, 2_020.0, 2_500.0, 3_000.0,
+            3_500.0, 3_980.0, 4_440.0, 4_860.0, 5_250.0, 3_000.0
+    };
+    static final double[] OPIUM_LUCID_FRAGMENT_Y = {
+            GROUND_Y - 650.0, GROUND_Y - 900.0, GROUND_Y - 900.0,
+            GROUND_Y - 900.0, GROUND_Y - 1_150.0, GROUND_Y - 1_400.0,
+            GROUND_Y - 1_150.0, GROUND_Y - 900.0, GROUND_Y - 1_150.0,
+            GROUND_Y - 900.0, GROUND_Y - 650.0, GROUND_Y - 750.0
+    };
+    private final List<ClassicVaultSeal> classicOpiumLucidFragments = new ArrayList<>();
+    private final List<ClassicVaultSeal> classicOpiumCertaintySeals = new ArrayList<>();
+    private final List<ClassicBellkeeperProjectile> classicOpiumForecastProjectiles = new ArrayList<>();
+    private int classicOpiumWaveIndex = 0;
+    private boolean classicOpiumLucidCompleted = false;
+    private int classicOpiumStillKingPhase = 0;
+    private int classicOpiumStillKingAttackTimer = 96;
+    private int classicOpiumStillKingAttackKind = 0;
+    private int classicOpiumStillKingWaypoint = 0;
+    private int classicOpiumStillKingHitCooldown = 0;
+    private boolean classicOpiumAttackWasHeld = false;
+    private int classicOpiumSealHitCooldown = 0;
     private static final double STILLWATER_MAIN_X = 900.0;
     private static final double STILLWATER_MAIN_Y = GROUND_Y - 330.0;
     private static final double STILLWATER_MAIN_W = 4_200.0;
@@ -5270,7 +5303,10 @@ public class BirdGame3 {
         LAST_GIFT("The Last Gift", "Break the Bellkeeper's stamina while reading its bells, ribbons, coal, and aerial sweeps."),
         AFTERMATH("Aftermath Battle", "Every opponent begins wounded; the advantage belongs only to this encounter and never carries forward."),
         FINAL_INVENTORY("Final Inventory", "Break seven salvage locks with ordinary attacks, then enter the marked extraction lift."),
-        FINAL_ACCOUNT("Final Account", "Break the Debt Engine's stamina while reading its magnets, crushers, chains, and exposed furnace core.");
+        FINAL_ACCOUNT("Final Account", "Break the Debt Engine's stamina while reading its magnets, crushers, chains, and exposed furnace core."),
+        FORECAST_SHADOWS("Forecast Shadows", "Translucent arena signs reveal scripted arrivals and danger lanes before they occur; Opium Bird's real move set is unchanged."),
+        LUCID_FRAGMENTS("Wake Before the Bell", "Collect twelve guided lucid fragments, then reach the awakening bell. Nothing carries into another round."),
+        FIXED_FUTURE("The Still Future", "Break three certainty seals inside this battle to expose the Still King's stamina. No route resource is carried forward.");
 
         final String label;
         final String description;
@@ -5347,7 +5383,10 @@ public class BirdGame3 {
         VULTURE_FALSE_FLOCK,
         VULTURE_AUCTION_GAUNTLET,
         FINAL_INVENTORY,
-        DEBT_ENGINE_BOSS
+        DEBT_ENGINE_BOSS,
+        OPIUM_FORECAST_GAUNTLET,
+        OPIUM_LUCID_DASH,
+        OPIUM_STILL_KING_BOSS
     }
 
     static final class ClassicRiftAnchor {
@@ -9313,6 +9352,9 @@ public class BirdGame3 {
         if (map == MapType.CARRION_EXCHANGE) {
             return isClassicCompleted(BirdType.VULTURE);
         }
+        if (map == MapType.ONEIRIC_OBSERVATORY) {
+            return isClassicCompleted(BirdType.OPIUMBIRD);
+        }
         return true;
     }
 
@@ -9335,6 +9377,9 @@ public class BirdGame3 {
         }
         if (variant == MapVariant.SORTING_FLOOR || variant == MapVariant.RECLAMATION_CORE) {
             return isClassicCompleted(BirdType.VULTURE);
+        }
+        if (variant == MapVariant.WAKING_CHAMBER) {
+            return isClassicCompleted(BirdType.OPIUMBIRD);
         }
         return isMapUnlocked(variant.baseMap);
     }
@@ -14035,6 +14080,7 @@ public class BirdGame3 {
             case WORLDSEAM -> drawWorldseamArena(g, ambientFx);
             case MIDNIGHT_WORKSHOP -> drawMidnightWorkshopArena(g, ambientFx);
             case CARRION_EXCHANGE -> drawCarrionExchangeArena(g, ambientFx);
+            case ONEIRIC_OBSERVATORY -> drawOneiricObservatoryArena(g, ambientFx);
             case BATTLEFIELD -> {
                 if (isBeaconCrownBattlefieldContext()) {
                     drawBeaconCrownBattlefield(g, ambientFx);
@@ -14183,6 +14229,7 @@ public class BirdGame3 {
         drawClassicRazorbillRouteFeatures(g);
         drawClassicGrinchHawkRouteFeatures(g);
         drawClassicVultureRouteFeatures(g);
+        drawClassicOpiumBirdRouteFeatures(g);
         drawUltimateReadyScreenDarken(g);
         drawCampaignObjectiveMarkers(g);
 
@@ -14938,6 +14985,119 @@ public class BirdGame3 {
         g.fillRect(0.0, GROUND_Y + 100.0, WORLD_WIDTH, WORLD_HEIGHT - GROUND_Y - 100.0);
         g.setTextAlign(TextAlignment.LEFT);
         g.setLineDashes();
+    }
+
+    private void drawOneiricObservatoryArena(GraphicsContext g, boolean ambientFx) {
+        boolean waking = activeArenaGeometryVariant == MapVariant.WAKING_CHAMBER;
+        double time = ambientFx ? System.currentTimeMillis() / 1000.0 : 0.0;
+        double pulse = ambientFx ? 0.5 + 0.5 * Math.sin(time * 1.35) : 0.5;
+        Color glass = waking ? Color.web("#86FFF0") : Color.web("#72D7FF");
+        Color gold = Color.web("#FFD166");
+
+        g.setFill(new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
+                new Stop(0, Color.web("#050515")), new Stop(0.52, Color.web("#17133C")),
+                new Stop(1, Color.web(waking ? "#563765" : "#2D234F"))));
+        g.fillRect(0.0, 0.0, WORLD_WIDTH, WORLD_HEIGHT);
+
+        // Fixed arithmetic keeps the preview and every client identical while
+        // giving the sky much more depth than a repeated star texture.
+        for (int star = 0; star < 150; star++) {
+            double x = Math.floorMod(star * 877 + 193, 6_000);
+            double y = 80.0 + Math.floorMod(star * 379 + 71, 1_430);
+            double size = 4.0 + Math.floorMod(star * 17, 9);
+            Color starColor = star % 12 == 0 ? gold : star % 7 == 0 ? glass : Color.WHITE;
+            g.setFill(starColor.deriveColor(0, 0.75, 1.0, 0.25 + (star % 5) * 0.10));
+            g.fillOval(x, y, size, size);
+        }
+
+        // A distant cloud sea makes it clear that the observatory is far above
+        // the normal world rather than sitting on an ordinary night stage.
+        for (int cloud = 0; cloud < 13; cloud++) {
+            double x = -500.0 + cloud * 530.0;
+            double y = GROUND_Y - 350.0 + (cloud % 3) * 105.0;
+            g.setFill(Color.web(cloud % 2 == 0 ? "#B39DDB" : "#80DEEA", 0.09));
+            g.fillOval(x, y, 980.0, 260.0);
+        }
+
+        // Distant observatory peaks and domes establish a whole celestial city.
+        g.setFill(Color.web("#09091C", 0.96));
+        for (int tower = 0; tower < 9; tower++) {
+            double x = -150.0 + tower * 760.0;
+            double height = 540.0 + Math.floorMod(tower * 337, 520);
+            double top = GROUND_Y + 110.0 - height;
+            g.fillRect(x, top + 130.0, 430.0, height + 250.0);
+            g.fillOval(x - 55.0, top, 540.0, 260.0);
+            g.setStroke(Color.web("#8B7AC5", 0.30));
+            g.setLineWidth(9.0);
+            g.strokeOval(x - 55.0, top, 540.0, 260.0);
+            g.strokeLine(x + 215.0, top - 120.0, x + 215.0, top + 20.0);
+            g.setFill(Color.web("#09091C", 0.96));
+        }
+
+        // The twelve-lens orrery is the arena's focal structure. Its supports
+        // visibly connect to the architecture instead of ending in empty air.
+        double cx = 3_000.0;
+        double cy = 900.0;
+        g.setStroke(Color.web("#66538C", 0.42));
+        g.setLineWidth(26.0);
+        g.strokeLine(cx, 0.0, cx, battlefieldIslandY + 180.0);
+        for (int ring = 0; ring < 3; ring++) {
+            double radiusX = 560.0 + ring * 350.0;
+            double radiusY = 360.0 + ring * 190.0;
+            g.setStroke((ring == 1 ? gold : glass).deriveColor(0, 0.72, 0.90,
+                    0.20 + pulse * 0.08));
+            g.setLineWidth(18.0 - ring * 3.0);
+            g.strokeOval(cx - radiusX, cy - radiusY, radiusX * 2.0, radiusY * 2.0);
+        }
+        for (int lens = 0; lens < 12; lens++) {
+            double angle = lens * Math.PI / 6.0 - Math.PI / 2.0;
+            double lx = cx + Math.cos(angle) * 1_235.0;
+            double ly = cy + Math.sin(angle) * 690.0;
+            double r = lens == 11 ? 44.0 : 31.0;
+            g.setFill((lens == 11 ? Color.web("#120E22") : glass)
+                    .deriveColor(0, 0.75, 1.0, 0.45 + pulse * 0.16));
+            g.fillOval(lx - r, ly - r, r * 2.0, r * 2.0);
+            g.setStroke(lens == 11 ? gold : Color.WHITE.deriveColor(0, 1, 1, 0.54));
+            g.setLineWidth(7.0);
+            g.strokeOval(lx - r, ly - r, r * 2.0, r * 2.0);
+        }
+
+        // Platforms are translucent observatory terraces with every suspended
+        // surface braced back to the main floor for clean visual construction.
+        for (Platform p : platforms) {
+            if (p.y >= GROUND_Y + 80.0) continue;
+            boolean main = Math.abs(p.y - battlefieldIslandY) < 2.0 && p.w > 3_000.0;
+            if (!main && p.y < battlefieldIslandY - 60.0) {
+                double center = p.x + p.w * 0.5;
+                double supportY = battlefieldIslandY - 8.0;
+                g.setStroke(Color.web("#352A57", 0.88));
+                g.setLineWidth(24.0);
+                g.strokeLine(p.x + 35.0, p.y + p.h, center, supportY);
+                g.strokeLine(p.x + p.w - 35.0, p.y + p.h, center, supportY);
+                g.setStroke(gold.deriveColor(0, 0.55, 0.82, 0.56));
+                g.setLineWidth(7.0);
+                g.strokeLine(p.x + 35.0, p.y + p.h, center, supportY);
+                g.strokeLine(p.x + p.w - 35.0, p.y + p.h, center, supportY);
+            }
+            g.setFill(Color.web("#080B20", 0.95));
+            g.fillRoundRect(p.x - 13.0, p.y + 10.0, p.w + 26.0, p.h + 24.0, 24.0, 24.0);
+            g.setFill(glass.deriveColor(0, 0.42, 0.54, 0.44));
+            g.fillRoundRect(p.x, p.y, p.w, p.h, 20.0, 20.0);
+            g.setStroke(glass.deriveColor(0, 0.88, 1.10, 0.95));
+            g.setLineWidth(main ? 14.0 : 10.0);
+            g.strokeRoundRect(p.x, p.y, p.w, p.h, 20.0, 20.0);
+            g.setStroke(gold.deriveColor(0, 0.70, 1.0, main ? 0.76 : 0.52));
+            g.setLineWidth(5.0);
+            g.strokeLine(p.x + 25.0, p.y + p.h - 10.0, p.x + p.w - 25.0, p.y + p.h - 10.0);
+        }
+
+        g.setFill(Color.web("#E9E2FF", 0.86));
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, 34.0));
+        g.setTextAlign(TextAlignment.CENTER);
+        g.fillText(waking ? "WAKING CHAMBER  •  TWELVE POSSIBILITIES"
+                        : "ONEIRIC OBSERVATORY  •  NO FUTURE IS FINAL",
+                3_000.0, battlefieldIslandY + 82.0);
+        g.setTextAlign(TextAlignment.LEFT);
     }
 
     private void drawCarrionExchangeSky(GraphicsContext g, boolean core, boolean sorting, double pulse) {
@@ -29586,6 +29746,7 @@ public class BirdGame3 {
             case WORLDSEAM -> "The Worldseam";
             case MIDNIGHT_WORKSHOP -> "Midnight Workshop";
             case CARRION_EXCHANGE -> "Carrion Exchange";
+            case ONEIRIC_OBSERVATORY -> "Oneiric Observatory";
             default -> "Big Forest";
         };
     }
@@ -36810,6 +36971,7 @@ public class BirdGame3 {
                 new MapEntry(MapType.WORLDSEAM, "The Worldseam", mapDescription(MapType.WORLDSEAM), mapHowToGet(MapType.WORLDSEAM)),
                 new MapEntry(MapType.MIDNIGHT_WORKSHOP, "Midnight Workshop", mapDescription(MapType.MIDNIGHT_WORKSHOP), mapHowToGet(MapType.MIDNIGHT_WORKSHOP)),
                 new MapEntry(MapType.CARRION_EXCHANGE, "Carrion Exchange", mapDescription(MapType.CARRION_EXCHANGE), mapHowToGet(MapType.CARRION_EXCHANGE)),
+                new MapEntry(MapType.ONEIRIC_OBSERVATORY, "Oneiric Observatory", mapDescription(MapType.ONEIRIC_OBSERVATORY), mapHowToGet(MapType.ONEIRIC_OBSERVATORY)),
                 new MapEntry(MapType.BEACON_CROWN, "Beacon Crown", mapDescription(MapType.BEACON_CROWN), mapHowToGet(MapType.BEACON_CROWN))
         );
     }
@@ -36846,6 +37008,9 @@ public class BirdGame3 {
         if (map == MapType.CARRION_EXCHANGE) {
             return "Complete Vulture's Classic route: Nothing Goes to Waste";
         }
+        if (map == MapType.ONEIRIC_OBSERVATORY) {
+            return "Complete Opium Bird's Classic route: The Twelfth Future";
+        }
         return "Unlocked by default";
     }
 
@@ -36868,6 +37033,7 @@ public class BirdGame3 {
             case WORLDSEAM -> "A stable stone causeway built around a luminous tear in reality. Two clearly paired rift gates exchange fighters while preserving their movement.";
             case MIDNIGHT_WORKSHOP -> "A moonlit clockwork gift factory with supported conveyor decks, readable press warnings, broad recovery lanes, and enormous working gears behind the arena.";
             case CARRION_EXCHANGE -> "A suspended salvage market above a dead city, with crane-supported catwalks, chained wreckage, furnace towers, and warning-lit electromagnets.";
+            case ONEIRIC_OBSERVATORY -> "A lucid midnight observatory built from brass orbits and translucent forecast glass. Broad connected terraces frame a readable vertical fight beneath twelve impossible stars.";
             case BEACON_CROWN -> "The Beacon Crown opens into a giant sky arena with long lanes, staggered perches, and a lethal drop on every side.";
             default -> "Dense trees and long platforms for classic brawls. A steady arena that rewards smart positioning.";
         };
@@ -41130,6 +41296,9 @@ public class BirdGame3 {
         if (useAuthoredRoutes && playerType == BirdType.VULTURE) {
             return buildVultureClassicRun();
         }
+        if (useAuthoredRoutes && playerType == BirdType.OPIUMBIRD) {
+            return buildOpiumBirdClassicRun();
+        }
         List<ClassicEncounter> run = new ArrayList<>();
         Set<MapType> usedMaps = new HashSet<>();
         Set<BirdType> usedBirds = new HashSet<>();
@@ -43062,6 +43231,104 @@ public class BirdGame3 {
         return run;
     }
 
+    private List<ClassicEncounter> buildOpiumBirdClassicRun() {
+        List<ClassicEncounter> run = new ArrayList<>();
+
+        ClassicEncounter ahead = new ClassicEncounter(
+                "One Step Ahead", "Glasswind Causeway",
+                "Falcon and Hummingbird test whether speed can outrun a visible forecast. Gold shadows warn only their opening lanes.",
+                MapType.GLASSWIND_CAUSEWAY, MapVariant.STANDARD, MatchMutator.NONE,
+                ClassicTwist.FORECAST_SHADOWS, ClassicEncounterStyle.STANDARD, 112 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{
+                classicFighter(BirdType.FALCON, "Forecast: Falcon", 54, 0.52, 1.04),
+                classicFighter(BirdType.HUMMINGBIRD, "Forecast: Hummingbird", 50, 0.50, 1.06)}, false);
+        ahead.cpuLevel = 3;
+        run.add(ahead);
+
+        ClassicEncounter manufactured = new ClassicEncounter(
+                "Manufactured Future", "Midnight Workshop",
+                "Heisenbird and a hollow oracle defend a future assembled from crystal and smoke. Their ultimates are sealed.",
+                MapType.MIDNIGHT_WORKSHOP, MapVariant.STANDARD, MatchMutator.NONE,
+                ClassicTwist.FORECAST_SHADOWS, ClassicEncounterStyle.STANDARD, 118 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{
+                classicFighter(BirdType.HEISENBIRD, "Manufactured Seer: Heisenbird", 68, 0.60, 0.98),
+                classicFighter(BirdType.OPIUMBIRD, "Hollow Oracle", 64, 0.58, 1.00)}, false);
+        manufactured.cpuLevel = 3;
+        run.add(manufactured);
+
+        ClassicFighter firstNightmare = classicFighter(BirdType.BAT, "Nightmare I: The Closed Eye", 92, 0.80, 1.02);
+        ClassicEncounter sleep = new ClassicEncounter(
+                "Sleep Comes in Waves", "Oneiric Observatory",
+                "Three nightmares enter beneath forecast silhouettes. Each wave is self-contained and has no ultimate.",
+                MapType.ONEIRIC_OBSERVATORY, MapVariant.STANDARD, MatchMutator.NONE,
+                ClassicTwist.FORECAST_SHADOWS, ClassicEncounterStyle.OPIUM_FORECAST_GAUNTLET, 150 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{firstNightmare}, false)
+                .withWaves(
+                        new ClassicFighter[]{firstNightmare},
+                        new ClassicFighter[]{classicFighter(BirdType.RAVEN, "Nightmare II: The Black Answer", 98, 0.82, 1.00)},
+                        new ClassicFighter[]{classicFighter(BirdType.VULTURE, "Nightmare III: The Last Witness", 104, 0.84, 0.98)});
+        sleep.cpuLevel = 5;
+        run.add(sleep);
+
+        ClassicEncounter burns = new ClassicEncounter(
+                "The Future Burns", "Frozen Caldera",
+                "A giant Phoenix and its small herald embody the catastrophe Opium Bird once called unavoidable.",
+                MapType.ASHFALL_CATHEDRAL, MapVariant.FROZEN_CALDERA, MatchMutator.NONE,
+                ClassicTwist.FORECAST_SHADOWS, ClassicEncounterStyle.STANDARD, 128 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{
+                classicFighter(BirdType.PHOENIX, "Giant: The Foretold Fire", 132, 0.72, 0.92),
+                classicFighter(BirdType.ROOSTER, "Small Herald: Rooster", 48, 0.45, 1.02)}, false);
+        burns.cpuLevel = 4;
+        run.add(burns);
+
+        ClassicEncounter obeys = new ClassicEncounter(
+                "The Future Obeys", "Parliament Towers",
+                "Opium Bird and Heisenbird confront the orderly future promised by Eagle and Rooster.",
+                MapType.CITY, MapVariant.PARLIAMENT_ROOFTOPS, MatchMutator.NONE,
+                ClassicTwist.FORECAST_SHADOWS, ClassicEncounterStyle.STANDARD, 132 * 60,
+                new ClassicFighter[]{classicFighter(BirdType.HEISENBIRD, "Ally: The Unwritten Variable", 98, 0.76, 1.00)},
+                new ClassicFighter[]{
+                        classicFighter(BirdType.EAGLE, "The Certain King", 112, 0.86, 0.99),
+                        classicFighter(BirdType.ROOSTER, "The Ordered Bell", 108, 0.84, 1.00)}, false);
+        obeys.cpuLevel = 6;
+        run.add(obeys);
+
+        ClassicFighter firstDeadEnd = classicFighter(BirdType.ROADRUNNER, "Dead End I: Endless Escape", 96, 0.82, 1.08);
+        ClassicEncounter deadEnds = new ClassicEncounter(
+                "Eleven Dead Ends", "The Worldseam",
+                "Escape, severance, and isolation arrive one at a time as futures that could not survive their own answers.",
+                MapType.WORLDSEAM, MapVariant.STANDARD, MatchMutator.NONE,
+                ClassicTwist.FORECAST_SHADOWS, ClassicEncounterStyle.OPIUM_FORECAST_GAUNTLET, 165 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{firstDeadEnd}, false)
+                .withWaves(
+                        new ClassicFighter[]{firstDeadEnd},
+                        new ClassicFighter[]{classicFighter(BirdType.RAZORBILL, "Dead End II: Total Severance", 102, 0.84, 1.02)},
+                        new ClassicFighter[]{classicFighter(BirdType.GRINCHHAWK, "Dead End III: Fearful Isolation", 108, 0.86, 0.98)});
+        deadEnds.cpuLevel = 6;
+        run.add(deadEnds);
+
+        ClassicEncounter waking = new ClassicEncounter(
+                "Bonus: Wake Before the Bell", "Waking Chamber",
+                "Collect twelve guided lucid fragments, then touch the awakening bell. Falling and timeout never consume a route life.",
+                MapType.ONEIRIC_OBSERVATORY, MapVariant.WAKING_CHAMBER, MatchMutator.NONE,
+                ClassicTwist.LUCID_FRAGMENTS, ClassicEncounterStyle.OPIUM_LUCID_DASH, 95 * 60,
+                new ClassicFighter[0], new ClassicFighter[0], false);
+        waking.cpuLevel = 1;
+        run.add(waking);
+
+        ClassicEncounter stillFuture = new ClassicEncounter(
+                "The Still Future", "Redline Canyon: Fixed Horizon",
+                "Break all three certainty seals inside the arena, then drain the Still King's stamina before the twelfth future closes.",
+                MapType.DESERT, MapVariant.REDLINE_CANYON, MatchMutator.NONE,
+                ClassicTwist.FIXED_FUTURE, ClassicEncounterStyle.OPIUM_STILL_KING_BOSS, 230 * 60,
+                new ClassicFighter[0],
+                new ClassicFighter[]{classicFighter(BirdType.SHOEBILL, "Boss: The Still King",
+                        OPIUM_STILL_KING_BASE_HEALTH, 1.00, 0.94, classicSkinDataKey(BirdType.SHOEBILL))}, true);
+        stillFuture.cpuLevel = 8;
+        run.add(stillFuture);
+        return run;
+    }
+
     private ClassicEncounter buildShoebillSwiftTrailEncounter() {
         ClassicEncounter encounter = new ClassicEncounter(
                 "Swift Trail", "Redline Track",
@@ -43777,6 +44044,7 @@ public class BirdGame3 {
         if (type == BirdType.RAZORBILL) return "THE LINE BETWEEN WORLDS";
         if (type == BirdType.GRINCHHAWK) return "THE LONGEST NIGHT";
         if (type == BirdType.VULTURE) return "NOTHING GOES TO WASTE";
+        if (type == BirdType.OPIUMBIRD) return "THE TWELFTH FUTURE";
         return "TEMPORARY FLIGHT PLAN";
     }
 
@@ -44135,7 +44403,8 @@ public class BirdGame3 {
                 || classicEncounter.style == ClassicEncounterStyle.ICE_ARCHITECT
                 || classicEncounter.style == ClassicEncounterStyle.RIPPLE_HUNT
                 || classicEncounter.style == ClassicEncounterStyle.PERFECT_PITCH
-                || classicEncounter.style == ClassicEncounterStyle.BETWEEN_LINES;
+                || classicEncounter.style == ClassicEncounterStyle.BETWEEN_LINES
+                || classicEncounter.style == ClassicEncounterStyle.OPIUM_LUCID_DASH;
         Label round = new Label((routeBonus ? "BONUS " : "ROUND ")
                 + (classicRoundIndex + 1));
         round.setFont(Font.font("Arial Black", FontWeight.BOLD, 72));
@@ -44186,6 +44455,8 @@ public class BirdGame3 {
         boolean bellkeeperEncounter = classicEncounter.style == ClassicEncounterStyle.BELLKEEPER_BOSS;
         boolean finalInventoryEncounter = classicEncounter.style == ClassicEncounterStyle.FINAL_INVENTORY;
         boolean debtEngineEncounter = classicEncounter.style == ClassicEncounterStyle.DEBT_ENGINE_BOSS;
+        boolean lucidDashEncounter = classicEncounter.style == ClassicEncounterStyle.OPIUM_LUCID_DASH;
+        boolean stillKingEncounter = classicEncounter.style == ClassicEncounterStyle.OPIUM_STILL_KING_BOSS;
         int enemyCount = Math.max(1, enemies.length);
         double portraitSize = enemyCount >= 3 ? 215 : (enemyCount == 2 ? 310 : 430);
         HBox enemyLineup = new HBox(enemyCount >= 3 ? 14 : 20);
@@ -44227,6 +44498,13 @@ public class BirdGame3 {
                 Canvas flowerCourse = new Canvas(430, 330);
                 drawClassicFlowerGatePortrait(flowerCourse);
                 enemyLineup.getChildren().add(flowerCourse);
+            } else if (lucidDashEncounter) {
+                Label lucidCourse = new Label("◇  ◇  ◇\n12 LUCID FRAGMENTS\n          BELL");
+                lucidCourse.setFont(Font.font("Arial Black", 42));
+                lucidCourse.setTextFill(Color.web("#E1BEE7"));
+                lucidCourse.setTextAlignment(TextAlignment.CENTER);
+                lucidCourse.setAlignment(Pos.CENTER);
+                enemyLineup.getChildren().add(lucidCourse);
             } else {
                 Label bonusTarget = new Label(musterEncounter ? "CALL  •  TOSS\nLIFT  •  RECALL"
                         : (redlineRunEncounter ? "REDLINE\nRUN"
@@ -44253,6 +44531,8 @@ public class BirdGame3 {
                 : bellkeeperEncounter ? "THE BELLKEEPER"
                 : finalInventoryEncounter ? "7 SALVAGE LOCKS  •  EXTRACTION"
                 : debtEngineEncounter ? "THE DEBT ENGINE"
+                : lucidDashEncounter ? "TWELVE DREAMS  •  WAKING BELL"
+                : stillKingEncounter ? "THE STILL KING"
                 : bonusTargetEncounter ? enemies.length + " BONUS TARGETS"
                 : authoredWaveCount > 0 ? authoredWaveCount + " WAVES"
                 : enemies.length == 0 ? "BONUS TARGETS" : Arrays.stream(enemies)
@@ -44539,7 +44819,8 @@ public class BirdGame3 {
                     || encounter.style == ClassicEncounterStyle.ICE_ARCHITECT
                     || encounter.style == ClassicEncounterStyle.RIPPLE_HUNT
                     || encounter.style == ClassicEncounterStyle.PERFECT_PITCH
-                    || encounter.style == ClassicEncounterStyle.BETWEEN_LINES;
+                    || encounter.style == ClassicEncounterStyle.BETWEEN_LINES
+                    || encounter.style == ClassicEncounterStyle.OPIUM_LUCID_DASH;
             int roundIndex = i;
             Button card = uiFactory.action(
                     (bonus ? "BONUS " : "ROUND ") + (i + 1) + "\n"
@@ -45160,6 +45441,25 @@ public class BirdGame3 {
                 bird.setBaseMultipliers(1.86, 0.90 * enemyPowerScale, 0.96);
                 bird.setUltimateEnabled(false);
                 isAI[bird.playerIndex] = false;
+            } else if (encounter.style == ClassicEncounterStyle.OPIUM_FORECAST_GAUNTLET) {
+                scaleBossRushBird(bird, 0.86, 0.80, 1.02);
+                bird.setUltimateEnabled(false);
+            } else if (encounter.style == ClassicEncounterStyle.OPIUM_STILL_KING_BOSS) {
+                bird.health = Math.max(1.0, OPIUM_STILL_KING_BASE_HEALTH * enemyHealthScale);
+                bird.classicMaxHealthOverride = bird.health;
+                bird.setBaseMultipliers(1.66, 0.90 * enemyPowerScale, 0.96);
+                bird.setUltimateEnabled(false);
+                isAI[bird.playerIndex] = false;
+            }
+            if (classicSelectedBird == BirdType.OPIUMBIRD && getEffectiveTeam(bird.playerIndex) == 2) {
+                // Forecasts are encounter rules, never bonus fighter powers.
+                // Enemies cannot produce ultimates that invalidate a forecast.
+                bird.setUltimateEnabled(false);
+                if ("The Future Burns".equals(encounter.name)) {
+                    boolean giantPhoenix = bird.type == BirdType.PHOENIX;
+                    scaleBossRushBird(bird, giantPhoenix ? 1.48 : 0.66,
+                            giantPhoenix ? 0.88 : 0.62, giantPhoenix ? 0.94 : 1.06);
+                }
             }
             if (classicSelectedBird == BirdType.VULTURE && encounter.twist == ClassicTwist.AFTERMATH
                     && getEffectiveTeam(bird.playerIndex) == 2) {
@@ -45199,6 +45499,19 @@ public class BirdGame3 {
             for (int slot = 1; slot < activePlayers; slot++) {
                 if (players[slot] != null) {
                     positionClassicBirdOnSurface(players[slot], 4_580.0, battlefieldIslandY - 430.0, false);
+                }
+            }
+            return;
+        }
+        if (encounter.style == ClassicEncounterStyle.OPIUM_LUCID_DASH) {
+            positionClassicBirdOnSurface(players[0], 610.0, battlefieldIslandY, true);
+            return;
+        }
+        if (encounter.style == ClassicEncounterStyle.OPIUM_STILL_KING_BOSS) {
+            positionClassicBirdOnSurface(players[0], 1_350.0, battlefieldIslandY, true);
+            for (int slot = 1; slot < activePlayers; slot++) {
+                if (players[slot] != null) {
+                    positionClassicBirdOnSurface(players[slot], 4_500.0, battlefieldIslandY - 420.0, false);
                 }
             }
             return;
@@ -45438,6 +45751,7 @@ public class BirdGame3 {
         setupRazorbillClassicRoute(encounter);
         setupGrinchHawkClassicRoute(encounter);
         setupVultureClassicRoute(encounter);
+        setupOpiumBirdClassicRoute(encounter);
         if (bossRushModeActive) {
             applyBossRushEncounterArenaModifiers(encounter);
         }
@@ -45543,6 +45857,10 @@ public class BirdGame3 {
                     SEAM_MAP, BETWEEN_LINES, BROKEN_GUARD, ZERO_DIVIDE -> {
                 // These authored route mechanics own their deterministic arena
                 // setup and runtime; do not add generic item drops here.
+            }
+            case FORECAST_SHADOWS, LUCID_FRAGMENTS, FIXED_FUTURE -> {
+                // Opium Bird's forecast rules are authored per encounter and
+                // reset between every round. They never alter the fighter kit.
             }
         }
     }
@@ -46476,7 +46794,8 @@ public class BirdGame3 {
                 && (classicEncounter.style == ClassicEncounterStyle.HOLLOW_MAESTRO_BOSS
                 || classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS
                 || classicEncounter.style == ClassicEncounterStyle.BELLKEEPER_BOSS
-                || classicEncounter.style == ClassicEncounterStyle.DEBT_ENGINE_BOSS)
+                || classicEncounter.style == ClassicEncounterStyle.DEBT_ENGINE_BOSS
+                || classicEncounter.style == ClassicEncounterStyle.OPIUM_STILL_KING_BOSS)
                 && getEffectiveTeam(bird.playerIndex) == 2;
     }
 
@@ -46492,6 +46811,11 @@ public class BirdGame3 {
         if (classicEncounter.style == ClassicEncounterStyle.DEBT_ENGINE_BOSS) {
             double coreExposure = classicDebtEngineAttackTimer < 42 ? 1.42 : 0.78;
             return coreExposure * (classicDebtEngineReversalTimer > 0 ? 0.32 : 1.0);
+        }
+        if (classicEncounter.style == ClassicEncounterStyle.OPIUM_STILL_KING_BOSS) {
+            boolean exposed = !classicOpiumCertaintySeals.isEmpty()
+                    && classicOpiumCertaintySeals.stream().allMatch(seal -> seal.broken);
+            return exposed ? 1.18 : 0.10;
         }
         return HOLLOW_MAESTRO_STAGGER_DAMAGE_SCALE
                 * (classicCharlesBossReversalTimer > 0 ? HOLLOW_MAESTRO_REVERSAL_ARMOR_SCALE : 1.0);
@@ -46518,6 +46842,9 @@ public class BirdGame3 {
         if (classicEncounter != null && classicEncounter.style == ClassicEncounterStyle.DEBT_ENGINE_BOSS) {
             return Math.clamp(classicDebtEnginePhase + 1, 1, 3);
         }
+        if (classicEncounter != null && classicEncounter.style == ClassicEncounterStyle.OPIUM_STILL_KING_BOSS) {
+            return Math.clamp(classicOpiumStillKingPhase + 1, 1, 3);
+        }
         return Math.clamp(classicCharlesBossPhase + 1, 1, 3);
     }
 
@@ -46531,6 +46858,9 @@ public class BirdGame3 {
         if (classicEncounter != null && classicEncounter.style == ClassicEncounterStyle.DEBT_ENGINE_BOSS) {
             return "TIME! The Debt Engine inventories the whole sky.";
         }
+        if (classicEncounter != null && classicEncounter.style == ClassicEncounterStyle.OPIUM_STILL_KING_BOSS) {
+            return "TIME! The Still King fixes the twelfth future forever.";
+        }
         return "TIME! The Hollow Maestro's score remains unbroken.";
     }
 
@@ -46543,7 +46873,8 @@ public class BirdGame3 {
             String fallback = classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS
                     ? "Final Division" : classicEncounter.style == ClassicEncounterStyle.BELLKEEPER_BOSS
                     ? "The Last Gift" : classicEncounter.style == ClassicEncounterStyle.DEBT_ENGINE_BOSS
-                    ? "The Final Account" : "Hollow Score";
+                    ? "The Final Account" : classicEncounter.style == ClassicEncounterStyle.OPIUM_STILL_KING_BOSS
+                    ? "The Unwritten Future" : "Hollow Score";
             recordMoveKo(attacker, boss, lastTelemetryMoveName(attacker.playerIndex, fallback));
             checkAchievements(attacker);
         }
@@ -46553,6 +46884,8 @@ public class BirdGame3 {
                 ? "THE BELLKEEPER'S FINAL CHIME FALLS SILENT."
                 : classicEncounter.style == ClassicEncounterStyle.DEBT_ENGINE_BOSS
                 ? "THE DEBT ENGINE'S FINAL ACCOUNT IS CLOSED."
+                : classicEncounter.style == ClassicEncounterStyle.OPIUM_STILL_KING_BOSS
+                ? "THE STILL KING'S LAST CERTAINTY SHATTERS."
                 : "THE HOLLOW MAESTRO'S SCORE SHATTERS.");
         shakeIntensity = Math.max(shakeIntensity, 32.0);
         triggerFlash(0.76, true);
@@ -48008,6 +48341,367 @@ public class BirdGame3 {
             else g.strokeOval(shot.x - radius, shot.y - radius, radius * 2.0, radius * 2.0);
         }
         g.setTextAlign(TextAlignment.LEFT);
+    }
+
+    private void setupOpiumBirdClassicRoute(ClassicEncounter encounter) {
+        classicOpiumLucidFragments.clear();
+        classicOpiumCertaintySeals.clear();
+        classicOpiumForecastProjectiles.clear();
+        classicOpiumWaveIndex = 0;
+        classicOpiumLucidCompleted = false;
+        classicOpiumStillKingPhase = 0;
+        classicOpiumStillKingAttackTimer = 96;
+        classicOpiumStillKingAttackKind = 0;
+        classicOpiumStillKingWaypoint = 0;
+        classicOpiumStillKingHitCooldown = 0;
+        classicOpiumAttackWasHeld = false;
+        classicOpiumSealHitCooldown = 0;
+        if (!classicModeActive || bossRushModeActive || ashfallTrialModeActive
+                || classicSelectedBird != BirdType.OPIUMBIRD || encounter == null) return;
+
+        if (encounter.style == ClassicEncounterStyle.OPIUM_LUCID_DASH) {
+            for (int i = 0; i < OPIUM_LUCID_FRAGMENT_X.length; i++) {
+                classicOpiumLucidFragments.add(new ClassicVaultSeal(
+                        OPIUM_LUCID_FRAGMENT_X[i], OPIUM_LUCID_FRAGMENT_Y[i]));
+            }
+            addToKillFeed("WAKE BEFORE THE BELL: cross twelve forecast lenses, then reach the waking bell.");
+        } else if (encounter.style == ClassicEncounterStyle.OPIUM_STILL_KING_BOSS) {
+            double sealY = battlefieldIslandY - 105.0;
+            for (double x : OPIUM_CERTAINTY_SEAL_X) {
+                classicOpiumCertaintySeals.add(new ClassicVaultSeal(x, sealY));
+            }
+            addToKillFeed("FIXED FUTURE: break all three certainty seals to expose the Still King.");
+        } else if (encounter.style == ClassicEncounterStyle.OPIUM_FORECAST_GAUNTLET) {
+            addToKillFeed("FORECAST WAVE 1/" + encounter.waves.length
+                    + ": every silhouette shows where danger will arrive.");
+        }
+    }
+
+    void applyOpiumBirdClassicRuntimeEffects() {
+        if (!classicModeActive || classicEncounter == null || classicSelectedBird != BirdType.OPIUMBIRD
+                || bossRushModeActive || ashfallTrialModeActive || matchEnded) return;
+        for (ClassicVaultSeal fragment : classicOpiumLucidFragments) {
+            if (fragment.pulseFrames > 0) fragment.pulseFrames--;
+        }
+        for (ClassicVaultSeal seal : classicOpiumCertaintySeals) {
+            if (seal.pulseFrames > 0) seal.pulseFrames--;
+        }
+        if (classicOpiumStillKingHitCooldown > 0) classicOpiumStillKingHitCooldown--;
+        if (classicOpiumSealHitCooldown > 0) classicOpiumSealHitCooldown--;
+        Bird player = players[0];
+        if (player == null) return;
+
+        if (classicEncounter.style == ClassicEncounterStyle.OPIUM_LUCID_DASH) {
+            // Objective rounds do not use Smash stocks, so scores[0] is not a
+            // reliable life-state signal here. Keep the course interactive
+            // until its own completion/timeout path ends the encounter.
+            if (player.health <= 0.0) return;
+            for (ClassicVaultSeal fragment : classicOpiumLucidFragments) {
+                if (fragment.broken || Math.hypot(player.bodyCenterX() - fragment.x,
+                        player.bodyCenterY() - fragment.y) > 135.0) continue;
+                fragment.broken = true;
+                fragment.pulseFrames = 32;
+                int collected = (int) classicOpiumLucidFragments.stream().filter(f -> f.broken).count();
+                playClassicNectarRingSfx(collected, classicOpiumLucidFragments.size());
+                classicBonusCoins += 4;
+                classicRunScore += 260;
+                addToKillFeed("LUCID FRAGMENT " + collected + "/12");
+            }
+            boolean allFragments = classicOpiumLucidFragments.stream().allMatch(f -> f.broken);
+            if (allFragments && player.bodyCenterX() >= OPIUM_WAKING_BELL_X) {
+                classicOpiumLucidCompleted = true;
+                classicBonusCoins += 52;
+                classicRunScore += 4_200;
+                playManagedSfxVaried(hugewaveClip, 0.42, 1.32, 0.0);
+                addToKillFeed("AWAKE! Twelve futures crossed. Bird Coins +100.");
+                matchController.triggerMatchEnd(player);
+            }
+            return;
+        }
+
+        if (!playerHasStocksRemaining(0)) return;
+
+        if (classicEncounter.style == ClassicEncounterStyle.OPIUM_STILL_KING_BOSS) {
+            updateClassicOpiumStillKing(player);
+        }
+    }
+
+    private void updateClassicOpiumStillKing(Bird player) {
+        Bird boss = firstClassicEnemyWithStocks();
+        if (boss == null) return;
+        if (boss.health <= 0.0) {
+            onClassicStaminaBossDefeated(boss, null);
+            return;
+        }
+
+        boolean held = isAttackPressed(0);
+        boolean newStrike = held && !classicOpiumAttackWasHeld && classicOpiumSealHitCooldown == 0;
+        classicOpiumAttackWasHeld = held;
+        if (newStrike) {
+            for (ClassicVaultSeal seal : classicOpiumCertaintySeals) {
+                if (seal.broken || Math.hypot(player.bodyCenterX() - seal.x,
+                        player.bodyCenterY() - seal.y) > 245.0) continue;
+                seal.broken = true;
+                seal.pulseFrames = 38;
+                classicOpiumSealHitCooldown = 10;
+                int broken = (int) classicOpiumCertaintySeals.stream().filter(s -> s.broken).count();
+                playClassicNectarRingSfx(broken, classicOpiumCertaintySeals.size());
+                addToKillFeed("CERTAINTY SEAL " + broken + "/3 SHATTERED.");
+                if (broken == classicOpiumCertaintySeals.size()) {
+                    player.heal(12.0);
+                    addToKillFeed("THE FIXED FUTURE BREAKS — THE STILL KING IS EXPOSED.");
+                }
+                break;
+            }
+        }
+
+        int nextPhase = hollowMaestroPhaseForHealth(boss.health, boss.getMaxHealth());
+        if (nextPhase > classicOpiumStillKingPhase) {
+            classicOpiumStillKingPhase = nextPhase;
+            player.heal(8.0);
+            classicOpiumStillKingAttackTimer = 78;
+            addToKillFeed(nextPhase == 1
+                    ? "SECOND PROPHECY: falling futures divide the arena. 8% repaired."
+                    : "FINAL PROPHECY: every forecast moves at once. 8% repaired.");
+        }
+        double tx = OPIUM_FORECAST_FLIGHT_X[classicOpiumStillKingWaypoint];
+        double ty = OPIUM_FORECAST_FLIGHT_Y[classicOpiumStillKingWaypoint];
+        steerClassicBellkeeper(boss, tx, ty, 5.8 + classicOpiumStillKingPhase * 1.1);
+        if (--classicOpiumStillKingAttackTimer <= 0) {
+            classicOpiumStillKingAttackKind = (classicOpiumStillKingAttackKind + 1)
+                    % (classicOpiumStillKingPhase >= 2 ? 3 : 2);
+            classicOpiumStillKingWaypoint = (classicOpiumStillKingWaypoint + 1)
+                    % OPIUM_FORECAST_FLIGHT_X.length;
+            spawnClassicOpiumStillKingAttack(boss, player, classicOpiumStillKingAttackKind);
+            classicOpiumStillKingAttackTimer = Math.max(68, 116 - classicOpiumStillKingPhase * 18);
+        }
+        updateClassicOpiumProjectiles(player);
+    }
+
+    private void spawnClassicOpiumStillKingAttack(Bird boss, Bird player, int kind) {
+        double sx = boss.bodyCenterX();
+        double sy = boss.bodyCenterY();
+        if (kind == 0) {
+            int count = 8 + classicOpiumStillKingPhase * 2;
+            for (int i = 0; i < count; i++) {
+                double angle = Math.PI * 2.0 * i / count + (classicOpiumStillKingPhase * Math.PI / count);
+                classicOpiumForecastProjectiles.add(new ClassicBellkeeperProjectile(
+                        sx, sy, Math.cos(angle) * (8.2 + classicOpiumStillKingPhase),
+                        Math.sin(angle) * (8.2 + classicOpiumStillKingPhase),
+                        210, 0, classicOpiumStillKingPhase));
+            }
+            addToKillFeed("CLOCK OF TWELVE — the gold shadows move before the rings.");
+        } else if (kind == 1) {
+            for (int i = -2; i <= 2; i++) {
+                double x = Math.clamp(player.bodyCenterX() + i * 430.0, 760.0, 5_240.0);
+                classicOpiumForecastProjectiles.add(new ClassicBellkeeperProjectile(
+                        x, 145.0, 0.0, 5.2 + classicOpiumStillKingPhase,
+                        250, 1, classicOpiumStillKingPhase));
+            }
+            addToKillFeed("FALLING FUTURES — violet marks show every landing.");
+        } else {
+            double direction = Math.signum(player.bodyCenterX() - sx);
+            if (direction == 0.0) direction = 1.0;
+            for (int lane = -2; lane <= 2; lane++) {
+                classicOpiumForecastProjectiles.add(new ClassicBellkeeperProjectile(
+                        sx, sy + lane * 76.0, direction * 12.0, lane * 0.22,
+                        205, 2, classicOpiumStillKingPhase));
+            }
+            addToKillFeed("INEVITABLE HORIZON — follow the one empty lane.");
+        }
+        playManagedSfxVaried(hugewaveClip, 0.42, 0.64 + kind * 0.13, 0.0);
+    }
+
+    private void updateClassicOpiumProjectiles(Bird player) {
+        for (int i = classicOpiumForecastProjectiles.size() - 1; i >= 0; i--) {
+            ClassicBellkeeperProjectile shot = classicOpiumForecastProjectiles.get(i);
+            shot.x += shot.vx;
+            shot.y += shot.vy;
+            if (shot.kind == 1) shot.vy = Math.min(16.0, shot.vy + 0.24);
+            shot.life--;
+            double radius = shot.kind == 1 ? 68.0 : 42.0;
+            if (classicOpiumStillKingHitCooldown == 0
+                    && Math.hypot(player.bodyCenterX() - shot.x, player.bodyCenterY() - shot.y)
+                    < radius + player.combatRadius()) {
+                double dealt = player.receiveExternalDamage(5.5 + shot.phase * 1.6
+                        + (shot.kind == 1 ? 2.0 : 0.0));
+                double direction = Math.signum(player.bodyCenterX() - shot.x);
+                if (direction == 0.0) direction = 1.0;
+                player.applyExternalDamageScaledLaunch(direction * (7.5 + shot.phase),
+                        -6.5 - shot.phase, dealt);
+                classicOpiumStillKingHitCooldown = 24;
+                shot.life = 0;
+                shakeIntensity = Math.max(shakeIntensity, 12.0);
+            }
+            if (shot.kind == 1 && shot.y + radius >= battlefieldIslandY) shot.life = 0;
+            if (shot.life <= 0 || shot.x < -500.0 || shot.x > WORLD_WIDTH + 500.0
+                    || shot.y < -500.0 || shot.y > WORLD_HEIGHT + 500.0) {
+                classicOpiumForecastProjectiles.remove(i);
+            }
+        }
+    }
+
+    boolean holdClassicOpiumBirdEncounterOpen() {
+        if (!classicModeActive || classicEncounter == null || classicSelectedBird != BirdType.OPIUMBIRD
+                || bossRushModeActive || ashfallTrialModeActive || matchEnded) return false;
+        if (classicEncounter.style == ClassicEncounterStyle.OPIUM_LUCID_DASH) {
+            Bird player = players[0];
+            return player != null && player.health > 0.0 && !classicOpiumLucidCompleted;
+        }
+        if (classicEncounter.style != ClassicEncounterStyle.OPIUM_FORECAST_GAUNTLET
+                || classicEncounter.waves == null || classicEncounter.waves.length == 0
+                || !playerHasStocksRemaining(0) || classicEnemyTeamHasStocks()
+                || classicOpiumWaveIndex + 1 >= classicEncounter.waves.length) return false;
+        classicOpiumWaveIndex++;
+        Bird player = players[0];
+        if (player != null) player.heal(classicRoundIndex == 5 ? 1_000.0 : 14.0);
+        spawnOpiumClassicWave(classicEncounter.waves[classicOpiumWaveIndex]);
+        return true;
+    }
+
+    private void spawnOpiumClassicWave(ClassicFighter[] wave) {
+        for (int slot = 1; slot < MAX_COMBATANTS; slot++) {
+            if (players[slot] != null && getEffectiveTeam(slot) == 2) {
+                players[slot] = null;
+                isAI[slot] = false;
+                scores[slot] = 0;
+                classicCpuLevels[slot] = 0;
+            }
+        }
+        double difficultyDelta = classicDifficulty - CLASSIC_STARTING_DIFFICULTY;
+        int spawned = 0;
+        for (ClassicFighter fighter : wave) {
+            int slot = 1;
+            while (slot < MAX_COMBATANTS && players[slot] != null) slot++;
+            if (slot >= MAX_COMBATANTS) break;
+            Bird enemy = createStoryBird(0.0, fighter.type, slot, fighter.title,
+                    fighter.health * (1.0 + difficultyDelta * 0.045),
+                    fighter.powerMult * (1.0 + difficultyDelta * 0.015), fighter.speedMult, true);
+            enemy.setUltimateEnabled(false);
+            scaleBossRushBird(enemy, 0.86, 0.80, 1.02);
+            classicTeams[slot] = 2;
+            classicCpuLevels[slot] = resolvedClassicFighterCpuLevel(fighter, classicEncounter);
+            scores[slot] = 1;
+            isAI[slot] = true;
+            positionClassicBirdOnSurface(enemy, 3_950.0 + spawned * 430.0,
+                    battlefieldIslandY, false);
+            activePlayers = Math.max(activePlayers, slot + 1);
+            spawned++;
+        }
+        addToKillFeed("FORECAST WAVE " + (classicOpiumWaveIndex + 1) + "/"
+                + classicEncounter.waves.length + " ARRIVES EXACTLY ON CUE.");
+    }
+
+    boolean isClassicOpiumLucidDashActive() {
+        return classicModeActive && !bossRushModeActive && !ashfallTrialModeActive
+                && classicSelectedBird == BirdType.OPIUMBIRD && classicEncounter != null
+                && classicEncounter.style == ClassicEncounterStyle.OPIUM_LUCID_DASH && !matchEnded;
+    }
+
+    void finishClassicOpiumLucidDashFromTimeout() {
+        if (!isClassicOpiumLucidDashActive()) return;
+        classicOpiumLucidCompleted = true;
+        addToKillFeed("TIME! The bell wakes Opium Bird before the final fragment, but the route continues.");
+        matchController.triggerMatchEnd(players[0]);
+    }
+
+    private void drawClassicOpiumBirdRouteFeatures(GraphicsContext g) {
+        if (!classicModeActive || classicEncounter == null || classicSelectedBird != BirdType.OPIUMBIRD
+                || bossRushModeActive || ashfallTrialModeActive) return;
+        double forecastPulse = 0.45 + 0.35 * Math.sin(simTick * 0.085);
+
+        // Every combat forecast is presentation-only: a delayed silhouette of
+        // existing opponents, never a hidden hitbox or an extra player move.
+        if (classicEncounter.style != ClassicEncounterStyle.OPIUM_LUCID_DASH) {
+            g.setStroke(Color.web("#CE93D8", 0.22 + forecastPulse * 0.18));
+            g.setLineWidth(7.0);
+            g.setLineDashes(22.0, 18.0);
+            for (int slot = 1; slot < activePlayers; slot++) {
+                Bird enemy = players[slot];
+                if (enemy == null || getEffectiveTeam(slot) != 2 || !playerHasStocksRemaining(slot)) continue;
+                double futureX = Math.clamp(enemy.bodyCenterX() + enemy.vx * 18.0, 80.0, WORLD_WIDTH - 80.0);
+                double futureY = Math.clamp(enemy.bodyCenterY() + enemy.vy * 12.0, 80.0, GROUND_Y + 120.0);
+                double radius = Math.max(55.0, enemy.combatRadius() * 1.08);
+                g.strokeOval(futureX - radius, futureY - radius, radius * 2.0, radius * 2.0);
+                g.strokeLine(enemy.bodyCenterX(), enemy.bodyCenterY(), futureX, futureY);
+            }
+            g.setLineDashes();
+        }
+
+        if (classicEncounter.style == ClassicEncounterStyle.OPIUM_LUCID_DASH) {
+            ClassicVaultSeal next = null;
+            for (ClassicVaultSeal fragment : classicOpiumLucidFragments) {
+                if (!fragment.broken && next == null) next = fragment;
+                Color color = fragment.broken ? Color.web("#80CBC4") : Color.web("#E1BEE7");
+                double radius = fragment.pulseFrames > 0 ? 48.0 : 38.0;
+                g.setFill(color.deriveColor(0, 0.85, 1.0, fragment.broken ? 0.16 : 0.30));
+                g.fillOval(fragment.x - radius * 1.7, fragment.y - radius * 1.7,
+                        radius * 3.4, radius * 3.4);
+                g.setStroke(color);
+                g.setLineWidth(fragment.pulseFrames > 0 ? 12.0 : 7.0);
+                g.strokeOval(fragment.x - radius, fragment.y - radius, radius * 2.0, radius * 2.0);
+                g.strokeLine(fragment.x - radius * 0.65, fragment.y,
+                        fragment.x + radius * 0.65, fragment.y);
+            }
+            if (next != null) drawClassicOpiumRouteArrow(g, next.x, next.y - 120.0, "NEXT DREAM");
+            boolean open = classicOpiumLucidFragments.stream().allMatch(f -> f.broken);
+            g.setFill(Color.web(open ? "#FFD166" : "#3D3159", open ? 0.34 : 0.48));
+            g.fillOval(OPIUM_WAKING_BELL_X - 120.0, battlefieldIslandY - 170.0, 240.0, 160.0);
+            g.setStroke(open ? Color.web("#FFD166") : Color.web("#74658F"));
+            g.setLineWidth(12.0);
+            g.strokeOval(OPIUM_WAKING_BELL_X - 120.0, battlefieldIslandY - 170.0, 240.0, 160.0);
+            if (open) drawClassicOpiumRouteArrow(g, OPIUM_WAKING_BELL_X,
+                    battlefieldIslandY - 245.0, "WAKE");
+        }
+
+        if (classicEncounter.style == ClassicEncounterStyle.OPIUM_STILL_KING_BOSS) {
+            for (ClassicVaultSeal seal : classicOpiumCertaintySeals) {
+                Color color = seal.broken ? Color.web("#80CBC4") : Color.web("#FFD166");
+                g.setFill(Color.web("#110D20", 0.91));
+                g.fillOval(seal.x - 72.0, seal.y - 72.0, 144.0, 144.0);
+                g.setStroke(color);
+                g.setLineWidth(seal.pulseFrames > 0 ? 16.0 : 10.0);
+                g.strokeOval(seal.x - 72.0, seal.y - 72.0, 144.0, 144.0);
+                g.strokeLine(seal.x, seal.y - 52.0, seal.x, seal.y + 52.0);
+                g.strokeLine(seal.x - 38.0, seal.y + 24.0, seal.x + 38.0, seal.y - 24.0);
+            }
+        }
+        for (ClassicBellkeeperProjectile shot : classicOpiumForecastProjectiles) {
+            Color color = shot.kind == 1 ? Color.web("#CE93D8") : Color.web("#FFD166");
+            double radius = shot.kind == 1 ? 62.0 : 36.0;
+            if (shot.kind == 1) {
+                double warningY = battlefieldIslandY - 4.0;
+                double alpha = debtEngineCrusherWarningAlpha(shot.y, battlefieldIslandY);
+                g.setFill(Color.web("#CE93D8", alpha * 0.28));
+                g.fillOval(shot.x - 120.0, warningY - 30.0, 240.0, 60.0);
+                g.setStroke(Color.web("#FFD166", alpha));
+                g.setLineWidth(8.0);
+                g.strokeOval(shot.x - 120.0, warningY - 30.0, 240.0, 60.0);
+            }
+            g.setFill(color.deriveColor(0, 1.0, 1.0, 0.24));
+            g.fillOval(shot.x - radius * 1.8, shot.y - radius * 1.8, radius * 3.6, radius * 3.6);
+            g.setStroke(color);
+            g.setLineWidth(8.0);
+            g.strokeOval(shot.x - radius, shot.y - radius, radius * 2.0, radius * 2.0);
+        }
+        g.setLineDashes();
+        g.setTextAlign(TextAlignment.LEFT);
+    }
+
+    private void drawClassicOpiumRouteArrow(GraphicsContext g, double x, double y, String label) {
+        double bob = Math.sin(simTick * 0.10) * 10.0;
+        g.setFill(Color.web("#080815", 0.92));
+        g.fillRoundRect(x - 104.0, y - 42.0 + bob, 208.0, 54.0, 18.0, 18.0);
+        g.setStroke(Color.web("#FFD166"));
+        g.setLineWidth(6.0);
+        g.strokeRoundRect(x - 104.0, y - 42.0 + bob, 208.0, 54.0, 18.0, 18.0);
+        g.setFill(Color.WHITE);
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, 23.0));
+        g.setTextAlign(TextAlignment.CENTER);
+        g.fillText(label, x, y - 5.0 + bob);
+        g.setFill(Color.web("#FFD166"));
+        g.fillPolygon(new double[]{x - 22.0, x + 22.0, x},
+                new double[]{y + 23.0 + bob, y + 23.0 + bob, y + 55.0 + bob}, 3);
     }
 
     static double debtEngineCrusherWarningAlpha(double projectileY, double floorY) {
@@ -51311,7 +52005,8 @@ public class BirdGame3 {
                 || classicEncounter.style == ClassicEncounterStyle.RIPPLE_HUNT
                 || classicEncounter.style == ClassicEncounterStyle.PERFECT_PITCH
                 || classicEncounter.style == ClassicEncounterStyle.BETWEEN_LINES
-                || classicEncounter.style == ClassicEncounterStyle.QUIET_VAULT) {
+                || classicEncounter.style == ClassicEncounterStyle.QUIET_VAULT
+                || classicEncounter.style == ClassicEncounterStyle.OPIUM_LUCID_DASH) {
             recordClassicEncounterScore(playerWon);
             classicRoundIndex++;
             classicEncounter = classicRun.get(classicRoundIndex);
@@ -51370,6 +52065,9 @@ public class BirdGame3 {
             } else if (classicSelectedBird == BirdType.VULTURE
                     && !isClassicCompleted(BirdType.VULTURE)) {
                 queueMapUnlockCard(MapType.CARRION_EXCHANGE);
+            } else if (classicSelectedBird == BirdType.OPIUMBIRD
+                    && !isClassicCompleted(BirdType.OPIUMBIRD)) {
+                queueMapUnlockCard(MapType.ONEIRIC_OBSERVATORY);
             }
             profileProgressController.onClassicRunCompleted(classicSelectedBird, achievementEvaluator::onClassicRunCompleted);
             ClassicEndingContent.Ending authoredEnding = ClassicEndingContent.endingFor(classicSelectedBird);
@@ -51452,6 +52150,8 @@ public class BirdGame3 {
             case MOCKINGBIRD -> "Resonance Hall + Signal Spire + Silent Amphitheater";
             case RAZORBILL -> "Glasswind Causeway + The Worldseam";
             case GRINCHHAWK -> "Midnight Workshop";
+            case VULTURE -> "Carrion Exchange";
+            case OPIUMBIRD -> "Oneiric Observatory";
             default -> "";
         };
     }
@@ -52297,6 +52997,7 @@ public class BirdGame3 {
             case WORLDSEAM -> "Two broken realities face each other across a rift, linked by momentum-preserving gates.";
             case MIDNIGHT_WORKSHOP -> "A moonlit clockwork factory with supported conveyor decks, readable presses, and a sealed gift vault.";
             case CARRION_EXCHANGE -> "A vast suspended salvage exchange whose crane-supported decks and warning-lit magnets reshape its connected fighting lanes.";
+            case ONEIRIC_OBSERVATORY -> "A high celestial observatory of connected forecast-glass terraces, brass orbits, and open recovery lanes.";
         };
     }
 
@@ -54396,6 +55097,7 @@ public class BirdGame3 {
                 && classicEncounter.style != ClassicEncounterStyle.RIPPLE_HUNT
                 && classicEncounter.style != ClassicEncounterStyle.PERFECT_PITCH
                 && classicEncounter.style != ClassicEncounterStyle.BETWEEN_LINES
+                && classicEncounter.style != ClassicEncounterStyle.OPIUM_LUCID_DASH
                 && classicEncounter.style != ClassicEncounterStyle.NULL_ROCK_BOSS;
     }
 
@@ -54497,6 +55199,20 @@ public class BirdGame3 {
                     if (bird != null && getEffectiveTeam(bird.playerIndex) == 2) scores[bird.playerIndex] = 2;
                 }
             }
+        }
+        if (classicSelectedBird == BirdType.OPIUMBIRD) {
+            scores[0] = switch (classicRoundIndex) {
+                // Opium Bird's opening forecasts are deliberately 2-on-1 or
+                // multi-phase learning fights. A second stock keeps those
+                // matchups readable without changing ordinary fighter data.
+                case 0 -> 3;
+                case 1, 2, 3 -> 2;
+                // Eleven Dead Ends is three full-strength isolated duels. It
+                // resets damage between visions but never forgives a KO.
+                case 5 -> 1;
+                case 7 -> 3;
+                default -> scores[0];
+            };
         }
         int enemyStocks = switch (classicEncounter.style) {
             case STORM_TYRANT_BOSS, PHOENIX_REBIRTH, BLIGHTWING_BOSS, ICEWORKS_MIRROR -> 2;
@@ -54648,6 +55364,7 @@ public class BirdGame3 {
             applyRazorbillClassicRuntimeEffects();
             applyGrinchHawkClassicRuntimeEffects();
             applyVultureClassicRuntimeEffects();
+            applyOpiumBirdClassicRuntimeEffects();
         }
         if (bossRushModeActive && classicModeActive) {
             applyBossRushRuntimeEffects();
@@ -57661,6 +58378,7 @@ public class BirdGame3 {
                 || selectedMap == MapType.WORLDSEAM
                 || selectedMap == MapType.MIDNIGHT_WORKSHOP
                 || selectedMap == MapType.CARRION_EXCHANGE
+                || selectedMap == MapType.ONEIRIC_OBSERVATORY
                 || activeArenaGeometryVariant == MapVariant.TITAN_DOCK
                 || activeArenaGeometryVariant == MapVariant.PARLIAMENT_ROOFTOPS
                 || activeArenaGeometryVariant == MapVariant.PEREGRINE_RUN
@@ -58090,6 +58808,8 @@ public class BirdGame3 {
             setupMidnightWorkshopArena();
         } else if (selectedMap == MapType.CARRION_EXCHANGE) {
             setupCarrionExchangeArena();
+        } else if (selectedMap == MapType.ONEIRIC_OBSERVATORY) {
+            setupOneiricObservatoryArena();
         } else {
             platforms.add(new Platform(0, GROUND_Y, WORLD_WIDTH, 600));
             platforms.add(new Platform(-100, 0, 100, WORLD_HEIGHT));
@@ -58198,7 +58918,8 @@ public class BirdGame3 {
                 || selectedMap == MapType.GLASSWIND_CAUSEWAY
                 || selectedMap == MapType.WORLDSEAM
                 || selectedMap == MapType.MIDNIGHT_WORKSHOP
-                || selectedMap == MapType.CARRION_EXCHANGE) {
+                || selectedMap == MapType.CARRION_EXCHANGE
+                || selectedMap == MapType.ONEIRIC_OBSERVATORY) {
             mountainPeaks = null;
         } else {
             double[] buildingX = {400, 1400, 2400, 3400, 4400, 5400};
@@ -58286,6 +59007,7 @@ public class BirdGame3 {
             case BELLKEEPER_VAULT -> setupBellkeeperVaultArena();
             case SORTING_FLOOR -> setupSortingFloorArena();
             case RECLAMATION_CORE -> setupReclamationCoreArena();
+            case WAKING_CHAMBER -> setupWakingChamberArena();
             case CARRION_THRONE -> setupBossRushCarrionThrone();
             case NULL_ROC_ASCENDING -> setupBossRushNullRocArena();
             case VOID_CROWN -> setupBossRushVoidCrownArena();
@@ -58473,6 +59195,50 @@ public class BirdGame3 {
         battlefieldIslandW = floorW;
         battlefieldIslandY = floorY;
         Arrays.fill(carrionMagnetHitCooldowns, 0);
+    }
+
+    private void setupOneiricObservatoryArena() {
+        double floorX = 600.0;
+        double floorY = GROUND_Y - 300.0;
+        double floorW = 4_800.0;
+        platforms.add(new Platform(floorX, floorY, floorW, 108.0));
+        platforms.add(new Platform(350.0, floorY + 150.0, 500.0, 48.0));
+        platforms.add(new Platform(5_150.0, floorY + 150.0, 500.0, 48.0));
+        platforms.add(new Platform(780.0, floorY - 300.0, 900.0, 56.0));
+        platforms.add(new Platform(1_760.0, floorY - 550.0, 740.0, 52.0));
+        platforms.add(new Platform(2_520.0, floorY - 390.0, 960.0, 64.0));
+        platforms.add(new Platform(3_500.0, floorY - 550.0, 740.0, 52.0));
+        platforms.add(new Platform(4_320.0, floorY - 300.0, 900.0, 56.0));
+        platforms.add(new Platform(2_600.0, floorY - 850.0, 800.0, 50.0));
+        windVents.add(new WindVent(380.0, floorY + 110.0, 300.0));
+        windVents.add(new WindVent(5_320.0, floorY + 110.0, 300.0));
+        battlefieldIslandX = floorX;
+        battlefieldIslandW = floorW;
+        battlefieldIslandY = floorY;
+    }
+
+    private void setupWakingChamberArena() {
+        resetBossRushArenaState();
+        activeArenaGeometryVariant = MapVariant.WAKING_CHAMBER;
+        double floorY = GROUND_Y - 300.0;
+        platforms.add(new Platform(420.0, floorY, 5_160.0, 112.0));
+        platforms.add(new Platform(550.0, floorY - 250.0, 580.0, 50.0));
+        platforms.add(new Platform(980.0, floorY - 500.0, 580.0, 50.0));
+        platforms.add(new Platform(1_390.0, floorY - 750.0, 560.0, 48.0));
+        platforms.add(new Platform(1_800.0, floorY - 500.0, 620.0, 50.0));
+        platforms.add(new Platform(2_220.0, floorY - 750.0, 600.0, 48.0));
+        platforms.add(new Platform(2_650.0, floorY - 1_000.0, 700.0, 48.0));
+        platforms.add(new Platform(3_180.0, floorY - 750.0, 600.0, 48.0));
+        platforms.add(new Platform(3_580.0, floorY - 500.0, 620.0, 50.0));
+        platforms.add(new Platform(4_050.0, floorY - 750.0, 560.0, 48.0));
+        platforms.add(new Platform(4_440.0, floorY - 500.0, 580.0, 50.0));
+        platforms.add(new Platform(4_870.0, floorY - 250.0, 580.0, 50.0));
+        platforms.add(new Platform(2_620.0, floorY - 350.0, 760.0, 58.0));
+        windVents.add(new WindVent(330.0, floorY + 100.0, 300.0));
+        windVents.add(new WindVent(5_370.0, floorY + 100.0, 300.0));
+        battlefieldIslandX = 420.0;
+        battlefieldIslandW = 5_160.0;
+        battlefieldIslandY = floorY;
     }
 
     private void setupSortingFloorArena() {
@@ -60063,6 +60829,23 @@ public class BirdGame3 {
                     lines.add("AFTERMATH BATTLE  DAMAGE RESETS AFTER THIS ROUND");
                 }
             }
+            if (classicSelectedBird == BirdType.OPIUMBIRD) {
+                if (classicEncounter.style == ClassicEncounterStyle.OPIUM_LUCID_DASH) {
+                    int fragments = (int) classicOpiumLucidFragments.stream().filter(f -> f.broken).count();
+                    lines.add("LUCID FRAGMENTS " + fragments + "/12"
+                            + (fragments == 12 ? "  WAKING BELL READY" : "  FOLLOW THE GOLD MARKER"));
+                } else if (classicEncounter.style == ClassicEncounterStyle.OPIUM_FORECAST_GAUNTLET) {
+                    int count = classicEncounter.waves == null ? 1 : classicEncounter.waves.length;
+                    lines.add("FORECAST WAVE " + (classicOpiumWaveIndex + 1) + "/" + count
+                            + "  SHADOWS SHOW ARRIVAL POINTS");
+                } else if (classicEncounter.style == ClassicEncounterStyle.OPIUM_STILL_KING_BOSS) {
+                    int seals = (int) classicOpiumCertaintySeals.stream().filter(s -> s.broken).count();
+                    lines.add("FIXED FUTURE  CERTAINTY SEALS " + seals + "/3  PROPHECY "
+                            + classicStaminaBossMovement() + "/3");
+                } else {
+                    lines.add("FORECASTS RESET AFTER THIS ROUND");
+                }
+            }
             return lines;
         }
 
@@ -60104,6 +60887,7 @@ public class BirdGame3 {
         boolean seamreaver = classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS;
         boolean bellkeeper = classicEncounter.style == ClassicEncounterStyle.BELLKEEPER_BOSS;
         boolean debtEngine = classicEncounter.style == ClassicEncounterStyle.DEBT_ENGINE_BOSS;
+        boolean stillKing = classicEncounter.style == ClassicEncounterStyle.OPIUM_STILL_KING_BOSS;
 
         double width = Math.min(980.0, WIDTH - 580.0);
         double height = 92.0;
@@ -60114,7 +60898,10 @@ public class BirdGame3 {
         int shownHealth = Math.max(0, (int) Math.ceil(boss.health));
         int shownMax = Math.max(1, (int) Math.round(maxHealth));
         double pulse = 0.5 + 0.5 * Math.sin(simTick * 0.09);
-        Color phaseColor = debtEngine
+        Color phaseColor = stillKing
+                ? (classicStaminaBossMovement() == 1 ? Color.web("#CE93D8")
+                : classicStaminaBossMovement() == 2 ? Color.web("#FFD166") : Color.web("#FF5252"))
+                : debtEngine
                 ? (classicStaminaBossMovement() == 1 ? Color.web("#6BE7FF")
                 : classicStaminaBossMovement() == 2 ? Color.web("#FF9F43") : Color.web("#FF3B30"))
                 : bellkeeper
@@ -60135,7 +60922,19 @@ public class BirdGame3 {
         g.setLineWidth(4.0 + pulse * 1.5);
         g.strokeRoundRect(x, y, width, height, 28, 28);
 
-        if (debtEngine) {
+        if (stillKing) {
+            g.setFill(Color.web("#110D20"));
+            g.fillOval(x + 22.0, y + 18.0, 60.0, 60.0);
+            g.setStroke(phaseColor);
+            g.setLineWidth(5.0);
+            g.strokeOval(x + 22.0, y + 18.0, 60.0, 60.0);
+            for (int ray = 0; ray < 8; ray++) {
+                double angle = ray * Math.PI / 4.0;
+                g.strokeLine(x + 52.0 + Math.cos(angle) * 33.0, y + 48.0 + Math.sin(angle) * 33.0,
+                        x + 52.0 + Math.cos(angle) * 43.0, y + 48.0 + Math.sin(angle) * 43.0);
+            }
+            g.strokeLine(x + 52.0, y + 48.0, x + 71.0, y + 30.0);
+        } else if (debtEngine) {
             drawDebtEngine(g, x + 52.0, y + 47.0, 0.13, classicDebtEnginePhase,
                     classicDebtEngineReversalTimer > 0);
         } else if (bellkeeper) {
@@ -60148,11 +60947,11 @@ public class BirdGame3 {
         g.setTextAlign(TextAlignment.LEFT);
         g.setFill(Color.WHITE);
         g.setFont(Font.font("Arial Black", FontWeight.BOLD, 25));
-        g.fillText(debtEngine ? "THE DEBT ENGINE" : bellkeeper ? "THE BELLKEEPER"
+        g.fillText(stillKing ? "THE STILL KING" : debtEngine ? "THE DEBT ENGINE" : bellkeeper ? "THE BELLKEEPER"
                 : seamreaver ? "THE SEAMREAVER" : "THE HOLLOW MAESTRO", x + 105.0, y + 31.0);
         g.setFill(phaseColor);
         g.setFont(Font.font("Consolas", FontWeight.BOLD, 16));
-        g.fillText((debtEngine ? "ACCOUNT " : bellkeeper ? "CHIME " : seamreaver ? "DIVISION " : "MOVEMENT ")
+        g.fillText((stillKing ? "PROPHECY " : debtEngine ? "ACCOUNT " : bellkeeper ? "CHIME " : seamreaver ? "DIVISION " : "MOVEMENT ")
                 + classicStaminaBossMovement() + " / 3", x + 106.0, y + 53.0);
 
         double barX = x + 410.0;
@@ -62424,6 +63223,10 @@ public class BirdGame3 {
     }
 
     private String matchSummaryBirdLabel(Bird bird) {
+        if (classicEncounter != null && classicEncounter.style == ClassicEncounterStyle.OPIUM_STILL_KING_BOSS
+                && isClassicStaminaBoss(bird)) {
+            return "STILL KING";
+        }
         if (classicEncounter != null && classicEncounter.style == ClassicEncounterStyle.DEBT_ENGINE_BOSS
                 && isClassicStaminaBoss(bird)) {
             return "DEBT ENGINE";

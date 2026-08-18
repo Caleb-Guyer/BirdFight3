@@ -355,13 +355,13 @@ final class StoryCampaignContent {
 
     private static StoryCampaign.Mission openSky() {
         return mission("open_sky", "Open Sky",
-                "Hold the cliff village through the carrion assault until Eagle's relief wing arrives.",
+                "Hold the village's open evacuation platform through the carrion assault until Eagle's relief wing arrives.",
                 SKYCLIFFS, BirdGame3.MapVariant.TEMPEST_SUMMIT, EVACUATION,
                 StoryCampaign.PlayablePolicy.choice(ROADRUNNER, RAZORBILL),
                 fighters(ally(FALCON, "Falcon")),
                 fighters(enemy(VULTURE, "Carrion Captain"), enemy(RAVEN, "Blackwing Scout")),
                 phases(
-                        phase(PROTECT, "Protect the cliff village", 45, 1, true),
+                        phase(PROTECT, "Protect the evacuation platform", 45, 1, true),
                         phase(GAUNTLET, "Clear the carrion force", 0, 1, true)
                 ),
                 "s17_open_sky_before", "s18_eagle_saves", ROADRUNNER, false);
@@ -446,7 +446,7 @@ final class StoryCampaignContent {
     private static StoryCampaign.Mission stoneJudgment() {
         return mission("stone_judgment", "Stone Judgment",
                 "Stop Bat at the neutral marsh gate and decide whether the warning is evidence or panic.",
-                CAVE, STANDARD, StoryCampaign.PlayablePolicy.forced(SHOEBILL),
+                BATTLEFIELD, STANDARD, StoryCampaign.PlayablePolicy.forced(SHOEBILL),
                 List.of(),
                 fighters(boss(BAT, "Bat", 180, 1.10, 1.18)),
                 phases(eliminate("Complete Shoebill's judgment duel")),
@@ -635,8 +635,8 @@ final class StoryCampaignContent {
 
     private static StoryCampaign.Mission futureThatMoves() {
         return mission("future_that_moves", "A Future That Moves",
-                "Break Opium Bird's forecast lattice across Glasswind by choosing routes it marked impossible.",
-                GLASSWIND_CAUSEWAY, ANCHOR_ASSAULT,
+                "Break Opium Bird's forecast lattice inside the Oneiric Observatory by choosing routes it marked impossible.",
+                ONEIRIC_OBSERVATORY, BirdGame3.MapVariant.WAKING_CHAMBER, ANCHOR_ASSAULT,
                 StoryCampaign.PlayablePolicy.choice(HUMMINGBIRD, TITMOUSE),
                 List.of(),
                 fighters(boss(OPIUMBIRD, "Opium Bird", 340, 1.38, 1.22)),
@@ -787,8 +787,8 @@ final class StoryCampaignContent {
 
     private static StoryCampaign.Mission lastApproach() {
         return mission("last_approach", "The Last Approach",
-                "Hold the four Crown approaches while every regional squad reaches the final platform.",
-                BATTLEFIELD, ANCHOR_ASSAULT,
+                "Hold the four Glasswind approaches while every regional squad reaches the final platform.",
+                GLASSWIND_CAUSEWAY, ANCHOR_ASSAULT,
                 StoryCampaign.PlayablePolicy.choice(PIGEON, EAGLE, VULTURE),
                 fighters(ally(FALCON, "Falcon"), ally(RAVEN, "Raven")),
                 fighters(enemy(VULTURE, "Null Herald"), enemy(RAVEN, "Crown Remnant")),
@@ -921,6 +921,7 @@ final class StoryCampaignContent {
             case SILENT_AMPHITHEATER -> "music-charles-maestro.mp3";
             case MIDNIGHT_WORKSHOP -> "music-grinch-workshop.mp3";
             case CARRION_EXCHANGE -> "music-vulture-exchange.mp3";
+            case ONEIRIC_OBSERVATORY -> "music-razorbill-glasswind.mp3";
             default -> "music-forest.mp3";
         };
     }

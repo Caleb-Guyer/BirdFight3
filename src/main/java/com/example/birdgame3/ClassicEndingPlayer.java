@@ -186,6 +186,7 @@ final class ClassicEndingPlayer {
         boolean razorbillFinalCut = ClassicEndingContent.isRazorbillFinalCut(cinematic);
         boolean grinchOpenSack = ClassicEndingContent.isGrinchHawkOpenSack(cinematic);
         boolean vultureFinalAccount = ClassicEndingContent.isVultureFinalAccount(cinematic);
+        boolean opiumTwelfthFuture = ClassicEndingContent.isOpiumTwelfthFuture(cinematic);
         if (continuousPanorama) {
             double routeProgress = Math.clamp((beatIndex + progress) / cinematic.beats().size(), 0.0, 1.0);
             drawRoadrunnerPanorama(g, now / 1_000_000_000.0, routeProgress);
@@ -207,6 +208,9 @@ final class ClassicEndingPlayer {
         } else if (vultureFinalAccount) {
             double routeProgress = Math.clamp((beatIndex + progress) / cinematic.beats().size(), 0.0, 1.0);
             drawVultureFinalAccount(g, now / 1_000_000_000.0, routeProgress);
+        } else if (opiumTwelfthFuture) {
+            double routeProgress = Math.clamp((beatIndex + progress) / cinematic.beats().size(), 0.0, 1.0);
+            drawOpiumTwelfthFuture(g, now / 1_000_000_000.0, routeProgress);
         } else {
             drawBackground(g, now / 1_000_000_000.0, progress);
             drawTableau(g, currentBeat().tableau(), progress, now / 1_000_000_000.0);
@@ -215,10 +219,124 @@ final class ClassicEndingPlayer {
         drawNarration(g, currentBeat().narration());
         drawProgress(g);
         if (!continuousPanorama && !subglacialMontage && !stillwaterRevelation
-                && !charlesLivingScore && !razorbillFinalCut && !grinchOpenSack && !vultureFinalAccount) {
+                && !charlesLivingScore && !razorbillFinalCut && !grinchOpenSack
+                && !vultureFinalAccount && !opiumTwelfthFuture) {
             drawTransition(g, progress);
         }
         g.restore();
+    }
+
+    private void drawOpiumTwelfthFuture(GraphicsContext g, double time, double progress) {
+        Color top = Color.web("#050515").interpolate(Color.web("#22113A"), progress);
+        Color bottom = Color.web("#251C4A").interpolate(Color.web("#725182"), progress * 0.82);
+        g.setFill(new LinearGradient(0, 0, 0, LOGICAL_HEIGHT, false, CycleMethod.NO_CYCLE,
+                new Stop(0, top), new Stop(1, bottom)));
+        g.fillRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
+
+        // The ending is a continuous orbit through the rebuilt observatory.
+        // Twelve lenses remain visible throughout, so the blank final lens is
+        // a visual decision rather than another paragraph of exposition.
+        for (int star = 0; star < 110; star++) {
+            double x = Math.floorMod(star * 337 + 91, 1_920);
+            double y = 90 + Math.floorMod(star * 181 + 43, 690);
+            double twinkle = 0.30 + 0.25 * Math.sin(time * 1.4 + star);
+            g.setFill(Color.WHITE.deriveColor(0, 1, 1, twinkle));
+            g.fillOval(x, y, 2 + star % 4, 2 + star % 4);
+        }
+
+        double drift = progress * 260.0;
+        g.setFill(Color.web("#09091C", 0.96));
+        for (int dome = 0; dome < 7; dome++) {
+            double x = -160 + dome * 345.0 - drift * (0.12 + dome * 0.006);
+            double y = 690 - (dome % 3) * 62.0;
+            g.fillRect(x, y, 280, 390);
+            g.fillOval(x - 40, y - 90, 360, 180);
+            g.setStroke(Color.web("#9A84C7", 0.34));
+            g.setLineWidth(7.0);
+            g.strokeOval(x - 40, y - 90, 360, 180);
+        }
+
+        double bossFade = Math.clamp(1.0 - progress * 4.8, 0.0, 1.0);
+        if (bossFade > 0.0) {
+            // A locked sundial closes around the defeated Still King.
+            g.setStroke(Color.web("#FFD166", bossFade * 0.86));
+            g.setLineWidth(16.0);
+            g.strokeOval(1_210, 235, 430, 430);
+            for (int ray = 0; ray < 12; ray++) {
+                double angle = ray * Math.PI / 6.0;
+                g.strokeLine(1_425 + Math.cos(angle) * 220, 450 + Math.sin(angle) * 220,
+                        1_425 + Math.cos(angle) * 265, 450 + Math.sin(angle) * 265);
+            }
+            g.strokeLine(1_425, 450, 1_545, 318);
+            drawBird(g, boss, 1_425, 590 + progress * 75.0, 1.05, false, bossFade);
+            drawBossName(g, "THE STILL KING", 1_425, 760, bossFade);
+        }
+
+        double crownRise = ease(Math.clamp((progress - 0.10) / 0.20, 0.0, 1.0));
+        double crownBreak = ease(Math.clamp((progress - 0.42) / 0.20, 0.0, 1.0));
+        if (crownRise > 0.0 && crownBreak < 1.0) {
+            drawCrown(g, 1_060, 620 - crownRise * 270.0, 1.12, time,
+                    crownRise * (1.0 - crownBreak));
+        }
+
+        double lensReveal = ease(Math.clamp((progress - 0.27) / 0.48, 0.0, 1.0));
+        double orbitRotation = time * 0.035 + progress * 0.75;
+        for (int lens = 0; lens < 12; lens++) {
+            double reveal = Math.clamp((lensReveal * 12.0 - lens) / 2.0, 0.0, 1.0);
+            if (reveal <= 0.0) continue;
+            double angle = lens * Math.PI / 6.0 - Math.PI / 2.0 + orbitRotation;
+            double radiusX = 450.0 + (lens % 2) * 95.0;
+            double radiusY = 250.0 + (lens % 3) * 32.0;
+            double x = 1_030 + Math.cos(angle) * radiusX;
+            double y = 455 + Math.sin(angle) * radiusY;
+            boolean blank = lens == 11;
+            Color color = blank ? Color.web("#100B20") : Color.hsb(lens * 29.0 + 178.0, 0.44, 1.0);
+            g.setFill(color.deriveColor(0, 1, 1, blank ? 0.92 * reveal : 0.24 * reveal));
+            g.fillOval(x - 48, y - 48, 96, 96);
+            g.setStroke(blank ? Color.web("#FFD166", reveal) : color.deriveColor(0, 0.9, 1, reveal));
+            g.setLineWidth(blank ? 9.0 : 6.0);
+            g.strokeOval(x - 48, y - 48, 96, 96);
+            if (!blank && progress > 0.48) {
+                g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.45 * reveal));
+                g.setLineWidth(3.0);
+                g.strokeLine(x - 24, y + 15, x, y - 24);
+                g.strokeLine(x, y - 24, x + 24, y + 15);
+            } else if (blank) {
+                g.setFill(Color.web("#FFD166", reveal));
+                g.fillOval(x - 6, y - 6, 12, 12);
+            }
+        }
+
+        // Eleven public telescope towers receive a lens. The twelfth pedestal
+        // is intentionally open, preserving a future no prophecy can occupy.
+        double publicReveal = ease(Math.clamp((progress - 0.56) / 0.28, 0.0, 1.0));
+        for (int tower = 0; tower < 12; tower++) {
+            double x = 95 + tower * 157.0;
+            double y = 790 - (tower % 2) * 38.0;
+            boolean blank = tower == 11;
+            g.setStroke(Color.web(blank ? "#FFD166" : "#80DEEA", publicReveal * (blank ? 0.88 : 0.52)));
+            g.setLineWidth(blank ? 7.0 : 4.0);
+            g.strokeLine(x, y, x, 902);
+            g.strokeLine(x - 34, 902, x + 34, 902);
+            if (!blank) {
+                g.strokeOval(x - 23, y - 23, 46, 46);
+            } else {
+                g.setLineDashes(10.0, 9.0);
+                g.strokeOval(x - 28, y - 28, 56, 56);
+                g.setLineDashes();
+            }
+        }
+
+        double narratorX = 390 + ease(progress) * 560.0;
+        double narratorY = 650 - Math.sin(progress * Math.PI) * 145.0
+                - Math.sin(time * 1.3) * 7.0;
+        drawBird(g, narrator, narratorX, narratorY, 1.12 + progress * 0.18, true, 1.0);
+        if (progress > 0.84) {
+            double finale = ease((progress - 0.84) / 0.16);
+            g.setFill(Color.web("#E1BEE7", 0.09 * finale));
+            g.fillOval(520, 80, 1_020, 840);
+            drawFinalTitle(g, finale);
+        }
     }
 
     private void drawGrinchOpenSack(GraphicsContext g, double time, double progress) {
@@ -1446,7 +1564,8 @@ final class ClassicEndingPlayer {
         if (cinematic == null || cinematic.beats().isEmpty()) return;
         if ((ClassicEndingContent.isContinuousPanorama(cinematic)
                 || ClassicEndingContent.isSubglacialMontage(cinematic)
-                || ClassicEndingContent.isStillwaterRevelation(cinematic)) && beatIndex > 0) return;
+                || ClassicEndingContent.isStillwaterRevelation(cinematic)
+                || ClassicEndingContent.isOpiumTwelfthFuture(cinematic)) && beatIndex > 0) return;
         game.playClassicEndingTableauCue(currentBeat().tableau());
     }
 

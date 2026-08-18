@@ -500,6 +500,10 @@ final class MatchController {
             game.finishClassicFinalInventoryFromTimeout();
             return;
         }
+        if (game.isClassicOpiumLucidDashActive() && game.matchTimer <= 0) {
+            game.finishClassicOpiumLucidDashFromTimeout();
+            return;
+        }
         if (game.isClassicSeamWardenActive() && game.matchTimer <= 0) {
             game.finishClassicSeamWardenFromTimeout();
             return;
@@ -578,6 +582,9 @@ final class MatchController {
             return;
         }
         if (game.holdClassicVultureEncounterOpen()) {
+            return;
+        }
+        if (game.holdClassicOpiumBirdEncounterOpen()) {
             return;
         }
         if (game.campaignModeActive) {

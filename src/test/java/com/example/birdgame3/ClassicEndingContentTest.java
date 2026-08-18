@@ -29,7 +29,7 @@ class ClassicEndingContentTest {
     }
 
     @Test
-    void allFourteenAuthoredRoutesHaveUniqueMovingPictureMonologues() {
+    void allFifteenAuthoredRoutesHaveUniqueMovingPictureMonologues() {
         List<ClassicEndingContent.Ending> endings = ClassicEndingContent.endings();
 
         assertEquals(List.of(
@@ -46,11 +46,12 @@ class ClassicEndingContentTest {
                         BirdGame3.BirdType.MOCKINGBIRD,
                         BirdGame3.BirdType.RAZORBILL,
                         BirdGame3.BirdType.GRINCHHAWK,
-                        BirdGame3.BirdType.VULTURE),
+                        BirdGame3.BirdType.VULTURE,
+                        BirdGame3.BirdType.OPIUMBIRD),
                 endings.stream().map(ClassicEndingContent.Ending::bird).toList());
-        assertEquals(14, new HashSet<>(endings.stream().map(ClassicEndingContent.Ending::title).toList()).size());
-        assertEquals(14, new HashSet<>(endings.stream().map(ClassicEndingContent.Ending::crownChoice).toList()).size());
-        assertEquals(14, new HashSet<>(endings.stream().map(ending -> ending.cinematic().id()).toList()).size());
+        assertEquals(15, new HashSet<>(endings.stream().map(ClassicEndingContent.Ending::title).toList()).size());
+        assertEquals(15, new HashSet<>(endings.stream().map(ClassicEndingContent.Ending::crownChoice).toList()).size());
+        assertEquals(15, new HashSet<>(endings.stream().map(ending -> ending.cinematic().id()).toList()).size());
 
         for (ClassicEndingContent.Ending ending : endings) {
             ClassicEndingContent.Cinematic cinematic = ending.cinematic();

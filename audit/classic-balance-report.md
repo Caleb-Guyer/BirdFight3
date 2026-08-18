@@ -6,18 +6,18 @@
 - Objective/bonus rounds: listed but not simulated
 - Metric: attempt-based team clear rate in the real Classic encounter setup; harness cutoffs count as draws and failed clears
 
-## Falcon
+## Opium Bird
 
 | Round | Encounter | Kind | Map | W-L-D | Clear rate | Avg time | Damage dealt | Read |
 |---:|---|---|---|---:|---:|---:|---:|---|
-| 1 | Scatter the Flock | Combat | Forest | 42-22-0 | 65.6% | 58.3s | 206 | Target band |
-| 2 | Faster Than Royalty | Combat | Skycliffs | 49-15-0 | 76.6% | 16.2s | 53 | Possibly too easy |
-| 3 | Rush Hour Crossfire | Combat | City | 31-33-0 | 48.4% | 40.8s | 50 | Target band |
-| 4 | The Immovable Target | Combat | Cave | 8-56-0 | 12.5% | 75.6s | 142 | Too hard / weak matchup |
-| 5 | Hunt After Dark | Combat | Parliament Rooftops | 47-17-0 | 73.4% | 37.2s | 145 | Possibly too easy |
-| 6 | Outrun Rebirth | Combat | Ashfall Rebirth | 13-51-0 | 20.3% | 94.9s | 100 | Too hard / weak matchup |
-| 7 | Bonus: Peregrine Run | Objective | Peregrine Run | — | — | — | — | Not scored |
-| 8 | The Ultimate Prey | Combat | Null Roc Ascending | 0-64-0 | 0.0% | 29.0s | 138 | Too hard / weak matchup |
+| 1 | One Step Ahead | Combat | Glasswind Causeway | 38-26-0 | 59.4% | 101.9s | 174 | Target band |
+| 2 | Manufactured Future | Combat | Midnight Workshop | 45-19-0 | 70.3% | 74.3s | 289 | Possibly too easy |
+| 3 | Sleep Comes in Waves | Combat | Oneiric Observatory | 45-19-0 | 70.3% | 141.7s | 452 | Possibly too easy |
+| 4 | The Future Burns | Combat | Frozen Caldera | 45-19-0 | 70.3% | 99.1s | 229 | Possibly too easy |
+| 5 | The Future Obeys | Combat | Parliament Rooftops | 45-19-0 | 70.3% | 38.9s | 93 | Possibly too easy |
+| 6 | Eleven Dead Ends | Combat | Worldseam | 20-44-0 | 31.3% | 183.1s | 245 | Too hard / weak matchup |
+| 7 | Bonus: Wake Before the Bell | Combat | Waking Chamber | 64-0-0 | 100.0% | 95.0s | 0 | Possibly too easy |
+| 8 | The Still Future | Combat | Redline Canyon | 35-29-0 | 54.7% | 210.5s | 0 | Target band |
 
 ## How to use this report
 

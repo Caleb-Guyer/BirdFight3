@@ -344,6 +344,25 @@ final class ClassicEndingContent {
                             beat("I broke the Crown into keys. My crows carried them to every cage, archive, and locked granary they could find.", Tableau.CROWN_TRANSFORMATION),
                             beat("Doors opened. Debt records burned. The birds the Engine called waste chose their own names again.", Tableau.CHANGED_WORLD),
                             beat("I kept one black ledger. Not to collect what they owe—but to remember who built the cages, and where they ran.", Tableau.FINAL_PORTRAIT)
+                    )),
+            ending(
+                    BirdGame3.BirdType.OPIUMBIRD,
+                    "THE TWELFTH FUTURE",
+                    "THE DOOR LEFT OPEN",
+                    "POSSIBILITY - Eleven Crown lenses reveal choices; the twelfth remains deliberately blank.",
+                    Alignment.AMBIGUOUS,
+                    BirdGame3.BirdType.SHOEBILL,
+                    "The Still King",
+                    "CLASSIC_SKIN_SHOEBILL",
+                    BirdGame3.MapType.ONEIRIC_OBSERVATORY,
+                    "music-razorbill-glasswind.mp3",
+                    monologue(
+                            beat("The Still King saw one perfect future and mistook the absence of surprise for peace.", Tableau.BOSS_AFTERMATH),
+                            beat("When his final certainty broke, the Crown unfolded twelve futures around me like glass petals.", Tableau.CROWN_DISCOVERY),
+                            beat("Eleven showed worlds I could protect, correct, or quietly control. The twelfth showed nothing at all.", Tableau.DECISION),
+                            beat("I split the Crown into twelve lotus lenses. Eleven went to public observatories. I left the last lens blank.", Tableau.CROWN_TRANSFORMATION),
+                            beat("Now any bird may look through the glass and choose a road. No lens is allowed to call its vision fate.", Tableau.CHANGED_WORLD),
+                            beat("A future worth reaching must be allowed to surprise us.", Tableau.FINAL_PORTRAIT)
                     ))
     );
 
@@ -390,6 +409,10 @@ final class ClassicEndingContent {
 
     static boolean isVultureFinalAccount(Cinematic cinematic) {
         return cinematic != null && cinematic.narrator() == BirdGame3.BirdType.VULTURE;
+    }
+
+    static boolean isOpiumTwelfthFuture(Cinematic cinematic) {
+        return cinematic != null && cinematic.narrator() == BirdGame3.BirdType.OPIUMBIRD;
     }
 
     static Cinematic withRouteRecord(Ending ending, int birdCoins, int score, String mapReward) {
