@@ -50,7 +50,8 @@ class FightHudNameLayoutTest {
 
         for (double panelHeight : new double[]{146.0, 126.0}) {
             BirdGame3.FightHudMeterLayout layout = game.fightHudMeterLayout(panelHeight);
-            double ultimateBarY = panelHeight - 24.0;
+            double ultimateBarY = layout.ultimateBarYOffset(panelHeight);
+            double portraitBottom = panelHeight >= 140.0 ? 113.0 : 95.0;
 
             assertTrue(layout.percentRightInset() >= 20.0,
                     "The percent sign needs visible breathing room from the card edge.");
@@ -58,10 +59,10 @@ class FightHudNameLayoutTest {
                     "The meter must not paint over the bottom of the damage text.");
             assertTrue(layout.healthBarBottomOffset() <= ultimateBarY - 10.0,
                     "The health and ultimate meters need a clear gap.");
-            double portraitRight = 106.0;
-            double ultimateRowX = layout.ultimateRowX(portraitRight);
-            assertTrue(ultimateRowX >= 122.0,
-                    "The entire ULT row must begin beyond the portrait border.");
+            assertTrue(layout.ultimateLabelBaselineOffset(panelHeight) - portraitBottom >= 12.0,
+                    "The compact ULT label must sit below the portrait instead of clipping into it.");
+            assertTrue(ultimateBarY + layout.ultimateBarHeight() <= panelHeight - 6.0,
+                    "The thinner ULT meter must remain inside the bottom card border.");
         }
     }
 }
