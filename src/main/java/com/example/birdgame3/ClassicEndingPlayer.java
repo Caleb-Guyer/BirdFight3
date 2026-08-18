@@ -187,6 +187,7 @@ final class ClassicEndingPlayer {
         boolean grinchOpenSack = ClassicEndingContent.isGrinchHawkOpenSack(cinematic);
         boolean vultureFinalAccount = ClassicEndingContent.isVultureFinalAccount(cinematic);
         boolean opiumTwelfthFuture = ClassicEndingContent.isOpiumTwelfthFuture(cinematic);
+        boolean heisenBlueVault = ClassicEndingContent.isHeisenBlueVault(cinematic);
         if (continuousPanorama) {
             double routeProgress = Math.clamp((beatIndex + progress) / cinematic.beats().size(), 0.0, 1.0);
             drawRoadrunnerPanorama(g, now / 1_000_000_000.0, routeProgress);
@@ -211,6 +212,9 @@ final class ClassicEndingPlayer {
         } else if (opiumTwelfthFuture) {
             double routeProgress = Math.clamp((beatIndex + progress) / cinematic.beats().size(), 0.0, 1.0);
             drawOpiumTwelfthFuture(g, now / 1_000_000_000.0, routeProgress);
+        } else if (heisenBlueVault) {
+            double routeProgress = Math.clamp((beatIndex + progress) / cinematic.beats().size(), 0.0, 1.0);
+            drawHeisenBlueVault(g, now / 1_000_000_000.0, routeProgress);
         } else {
             drawBackground(g, now / 1_000_000_000.0, progress);
             drawTableau(g, currentBeat().tableau(), progress, now / 1_000_000_000.0);
@@ -220,10 +224,124 @@ final class ClassicEndingPlayer {
         drawProgress(g);
         if (!continuousPanorama && !subglacialMontage && !stillwaterRevelation
                 && !charlesLivingScore && !razorbillFinalCut && !grinchOpenSack
-                && !vultureFinalAccount && !opiumTwelfthFuture) {
+                && !vultureFinalAccount && !opiumTwelfthFuture && !heisenBlueVault) {
             drawTransition(g, progress);
         }
         g.restore();
+    }
+
+    private void drawHeisenBlueVault(GraphicsContext g, double time, double progress) {
+        Color top = Color.web("#020815").interpolate(Color.web("#08253A"), progress * 0.72);
+        Color bottom = Color.web("#101A2A").interpolate(Color.web("#153E50"), progress * 0.62);
+        g.setFill(new LinearGradient(0, 0, 0, LOGICAL_HEIGHT, false, CycleMethod.NO_CYCLE,
+                new Stop(0, top), new Stop(1, bottom)));
+        g.fillRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
+
+        // A moving storm factory remains one continuous shot: the defeated
+        // Engine is recalled, the intact Crown is vaulted, then weather is
+        // visibly divided between customers and everyone else.
+        double cloudDrift = time * 18.0;
+        for (int cloud = 0; cloud < 12; cloud++) {
+            double x = Math.floorMod((long) (cloud * 263.0 + cloudDrift), 2_240L) - 160.0;
+            double y = 85.0 + (cloud % 4) * 74.0;
+            g.setFill(Color.web("#A5D9E8", 0.07 + (cloud % 3) * 0.025));
+            g.fillOval(x, y, 300 + cloud % 3 * 70, 82 + cloud % 2 * 24);
+        }
+        g.setFill(Color.web("#06131C"));
+        g.fillRect(0, 760, LOGICAL_WIDTH, 320);
+        for (int tower = 0; tower < 13; tower++) {
+            double x = tower * 158.0 - 55.0;
+            double height = 230 + (tower * 71 % 270);
+            g.setFill(Color.web(tower < 7 ? "#0B2D3B" : "#151A24"));
+            g.fillRect(x, 760 - height, 112, height);
+            for (int row = 0; row < 6; row++) {
+                boolean paid = tower < 7 && progress > 0.58;
+                g.setFill(Color.web(paid ? "#69E6FF" : "#29343D", paid ? 0.72 : 0.40));
+                g.fillRect(x + 22, 785 - height + row * 42, 17, 22);
+                g.fillRect(x + 70, 785 - height + row * 42, 17, 22);
+            }
+        }
+
+        double bossFade = Math.clamp(1.0 - progress * 5.0, 0.0, 1.0);
+        if (bossFade > 0.0) {
+            g.setStroke(Color.web("#69E6FF", bossFade * 0.76));
+            g.setLineWidth(18.0);
+            for (int ring = 0; ring < 4; ring++) {
+                double radius = 100 + ring * 58 + time * 14 % 48;
+                g.strokeOval(1_420 - radius, 405 - radius * 0.72, radius * 2, radius * 1.44);
+            }
+            drawBird(g, boss, 1_420, 560 + progress * 85.0, 1.02, false, bossFade);
+            drawBossName(g, "THE BLUE SKY ENGINE", 1_420, 730, bossFade);
+        }
+
+        double crownRise = ease(Math.clamp((progress - 0.10) / 0.20, 0.0, 1.0));
+        double vaultClose = ease(Math.clamp((progress - 0.34) / 0.20, 0.0, 1.0));
+        if (crownRise > 0.0) {
+            drawCrown(g, 960, 610 - crownRise * 255.0, 1.18, time, crownRise);
+        }
+
+        double vaultX = 960.0;
+        double vaultY = 355.0;
+        double vaultW = 520.0 * vaultClose;
+        double vaultH = 420.0 * vaultClose;
+        if (vaultClose > 0.0) {
+            g.setFill(Color.web("#06141D", 0.72));
+            g.fillRoundRect(vaultX - vaultW / 2.0, vaultY - vaultH / 2.0,
+                    vaultW, vaultH, 70, 70);
+            g.setStroke(Color.web("#69E6FF", 0.76 + Math.sin(time * 2.0) * 0.12));
+            g.setLineWidth(18.0);
+            g.strokeRoundRect(vaultX - vaultW / 2.0, vaultY - vaultH / 2.0,
+                    vaultW, vaultH, 70, 70);
+            g.setStroke(Color.web("#F7E46B", 0.82));
+            g.setLineWidth(8.0);
+            g.strokeOval(vaultX - 48, vaultY + 82, 96, 96);
+            g.strokeLine(vaultX, vaultY + 178, vaultX, vaultY + 215);
+        }
+
+        double ownerReveal = ease(Math.clamp((progress - 0.30) / 0.27, 0.0, 1.0));
+        if (ownerReveal > 0.0) {
+            double ownerX = 470.0 - (1.0 - ownerReveal) * 290.0;
+            drawBird(g, narrator, ownerX, 625, 1.35, true, ownerReveal);
+            g.setFill(Color.web("#69E6FF", ownerReveal * 0.80));
+            g.setFont(Font.font("Consolas", FontWeight.BOLD, 28));
+            g.setTextAlign(TextAlignment.CENTER);
+            g.fillText("SOLE PROPRIETOR", ownerX, 765);
+        }
+
+        double contractReveal = ease(Math.clamp((progress - 0.57) / 0.19, 0.0, 1.0));
+        if (contractReveal > 0.0) {
+            g.setFill(Color.web("#071018", 0.90 * contractReveal));
+            g.fillRoundRect(1_260, 160, 520, 185, 26, 26);
+            g.setStroke(Color.web("#F7E46B", contractReveal));
+            g.setLineWidth(6.0);
+            g.strokeRoundRect(1_260, 160, 520, 185, 26, 26);
+            g.setFill(Color.WHITE.deriveColor(0, 1, 1, contractReveal));
+            g.setFont(Font.font("Arial Black", 27));
+            g.setTextAlign(TextAlignment.CENTER);
+            g.fillText("BLUE SKY WEATHER LICENSE", 1_520, 218);
+            g.setFill(Color.web("#69E6FF", contractReveal));
+            g.setFont(Font.font("Consolas", FontWeight.BOLD, 21));
+            g.fillText("RAIN  •  WIND  •  SUNLIGHT", 1_520, 270);
+            g.fillText("PAYMENT REQUIRED", 1_520, 312);
+        }
+
+        if (progress > 0.70) {
+            double storm = Math.clamp((progress - 0.70) / 0.20, 0.0, 1.0);
+            g.setStroke(Color.web("#D7F6FF", 0.55 * storm));
+            g.setLineWidth(4.0);
+            for (int rain = 0; rain < 55; rain++) {
+                double x = 1_050 + Math.floorMod(rain * 97, 850);
+                double y = 370 + Math.floorMod((long) (rain * 61 + time * 260), 560L);
+                g.strokeLine(x, y, x - 18, y + 42);
+            }
+            g.setFill(Color.web("#F7E46B", 0.86 * storm));
+            g.setFont(Font.font("Arial Black", 36));
+            g.setTextAlign(TextAlignment.CENTER);
+            g.fillText("PAID", 500, 890);
+            g.setFill(Color.web("#FF315E", 0.86 * storm));
+            g.fillText("PAST DUE", 1_475, 890);
+        }
+        g.setTextAlign(TextAlignment.LEFT);
     }
 
     private void drawOpiumTwelfthFuture(GraphicsContext g, double time, double progress) {
@@ -1565,7 +1683,8 @@ final class ClassicEndingPlayer {
         if ((ClassicEndingContent.isContinuousPanorama(cinematic)
                 || ClassicEndingContent.isSubglacialMontage(cinematic)
                 || ClassicEndingContent.isStillwaterRevelation(cinematic)
-                || ClassicEndingContent.isOpiumTwelfthFuture(cinematic)) && beatIndex > 0) return;
+                || ClassicEndingContent.isOpiumTwelfthFuture(cinematic)
+                || ClassicEndingContent.isHeisenBlueVault(cinematic)) && beatIndex > 0) return;
         game.playClassicEndingTableauCue(currentBeat().tableau());
     }
 

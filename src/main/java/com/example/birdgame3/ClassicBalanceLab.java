@@ -246,7 +246,9 @@ final class ClassicBalanceLab {
                 || style == ClassicEncounterStyle.PERFECT_PITCH
                 || style == ClassicEncounterStyle.BETWEEN_LINES
                 || style == ClassicEncounterStyle.QUIET_VAULT
-                || style == ClassicEncounterStyle.FINAL_INVENTORY;
+                || style == ClassicEncounterStyle.FINAL_INVENTORY
+                || style == ClassicEncounterStyle.OPIUM_LUCID_DASH
+                || style == ClassicEncounterStyle.HEISEN_CALIBRATION;
     }
 
     private static String encounterMapName(ClassicEncounter encounter) {

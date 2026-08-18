@@ -53,7 +53,7 @@ class StagePreviewCaptureRun {
         });
         Platform.runLater(captureTask);
         try {
-            assertEquals(45, captureTask.get(75, TimeUnit.SECONDS));
+            assertEquals(47, captureTask.get(75, TimeUnit.SECONDS));
         } finally {
             Platform.exit();
         }

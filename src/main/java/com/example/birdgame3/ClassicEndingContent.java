@@ -363,6 +363,25 @@ final class ClassicEndingContent {
                             beat("I split the Crown into twelve lotus lenses. Eleven went to public observatories. I left the last lens blank.", Tableau.CROWN_TRANSFORMATION),
                             beat("Now any bird may look through the glass and choose a road. No lens is allowed to call its vision fate.", Tableau.CHANGED_WORLD),
                             beat("A future worth reaching must be allowed to surprise us.", Tableau.FINAL_PORTRAIT)
+                    )),
+            ending(
+                    BirdGame3.BirdType.HEISENBIRD,
+                    "THE PERFECT PRODUCT",
+                    "THE SKY HAS A PRICE",
+                    "MONOPOLY - The intact Crown is sealed inside Heisenbird's Blue Vault.",
+                    Alignment.DOMINATING,
+                    BirdGame3.BirdType.SHOEBILL,
+                    "The Blue Sky Engine",
+                    "",
+                    BirdGame3.MapType.STORMGLASS_REFINERY,
+                    "music-vulture-ending.mp3",
+                    monologue(
+                            beat("The Blue Sky Engine rejected its maker. I corrected the defect.", Tableau.BOSS_AFTERMATH),
+                            beat("Behind its shattered stormglass, the Crown waited whole—every cloud, current, and season reduced to one perfect inventory.", Tableau.CROWN_DISCOVERY),
+                            beat("They expected me to destroy it. Generosity is what competitors call property they failed to acquire.", Tableau.DECISION),
+                            beat("I sealed the intact Crown inside a single Blue Vault and wrote my name across the only key.", Tableau.CROWN_TRANSFORMATION),
+                            beat("Paid cities wake beneath measured rain. Unpaid skies learn how expensive a drought can become.", Tableau.CHANGED_WORLD),
+                            beat("A miracle anyone can use is only weather. Mine has an owner.", Tableau.FINAL_PORTRAIT)
                     ))
     );
 
@@ -413,6 +432,10 @@ final class ClassicEndingContent {
 
     static boolean isOpiumTwelfthFuture(Cinematic cinematic) {
         return cinematic != null && cinematic.narrator() == BirdGame3.BirdType.OPIUMBIRD;
+    }
+
+    static boolean isHeisenBlueVault(Cinematic cinematic) {
+        return cinematic != null && cinematic.narrator() == BirdGame3.BirdType.HEISENBIRD;
     }
 
     static Cinematic withRouteRecord(Ending ending, int birdCoins, int score, String mapReward) {

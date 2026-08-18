@@ -504,6 +504,10 @@ final class MatchController {
             game.finishClassicOpiumLucidDashFromTimeout();
             return;
         }
+        if (game.isClassicHeisenCalibrationActive() && game.matchTimer <= 0) {
+            game.finishClassicHeisenCalibrationFromTimeout();
+            return;
+        }
         if (game.isClassicSeamWardenActive() && game.matchTimer <= 0) {
             game.finishClassicSeamWardenFromTimeout();
             return;
@@ -585,6 +589,9 @@ final class MatchController {
             return;
         }
         if (game.holdClassicOpiumBirdEncounterOpen()) {
+            return;
+        }
+        if (game.holdClassicHeisenbirdEncounterOpen()) {
             return;
         }
         if (game.campaignModeActive) {

@@ -180,6 +180,7 @@ final class StagePreviewRenderer {
         MapType map = stage == null ? MapType.FOREST : stage.map();
         return switch (map) {
             case CITY, WORLDSEAM, MIDNIGHT_WORKSHOP, ONEIRIC_OBSERVATORY -> Color.web("#CE93D8");
+            case STORMGLASS_REFINERY -> Color.web("#69E6FF");
             case CARRION_EXCHANGE -> Color.web("#D6A84A");
             case SKYCLIFFS, DESERT, GLASSWIND_CAUSEWAY -> Color.web("#FFE082");
             case VIBRANT_JUNGLE, FOREST -> Color.web("#8BE28B");

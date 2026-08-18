@@ -2,22 +2,22 @@
 
 - Difficulty: 5.0
 - Player AI level: 5
-- Matches per scored encounter: 64
+- Matches per scored encounter: 32
 - Objective/bonus rounds: listed but not simulated
 - Metric: attempt-based team clear rate in the real Classic encounter setup; harness cutoffs count as draws and failed clears
 
-## Opium Bird
+## Heisenbird
 
 | Round | Encounter | Kind | Map | W-L-D | Clear rate | Avg time | Damage dealt | Read |
 |---:|---|---|---|---:|---:|---:|---:|---|
-| 1 | One Step Ahead | Combat | Glasswind Causeway | 38-26-0 | 59.4% | 101.9s | 174 | Target band |
-| 2 | Manufactured Future | Combat | Midnight Workshop | 45-19-0 | 70.3% | 74.3s | 289 | Possibly too easy |
-| 3 | Sleep Comes in Waves | Combat | Oneiric Observatory | 51-13-0 | 79.7% | 142.4s | 458 | Possibly too easy |
-| 4 | The Future Burns | Combat | Frozen Caldera | 45-19-0 | 70.3% | 99.1s | 229 | Possibly too easy |
-| 5 | The Future Obeys | Combat | Parliament Rooftops | 45-19-0 | 70.3% | 38.9s | 93 | Possibly too easy |
-| 6 | Eleven Dead Ends | Combat | Worldseam | 20-44-0 | 31.3% | 183.1s | 245 | Too hard / weak matchup |
-| 7 | Bonus: Wake Before the Bell | Combat | Waking Chamber | 64-0-0 | 100.0% | 95.0s | 0 | Possibly too easy |
-| 8 | The Still Future | Combat | Redline Canyon | 35-29-0 | 54.7% | 210.5s | 0 | Target band |
+| 1 | Raw Materials | Combat | Carrion Exchange | 20-12-0 | 62.5% | 92.8s | 407 | Target band |
+| 2 | The Original Formula | Combat | Oneiric Observatory | 15-17-0 | 46.9% | 53.6s | 136 | Target band |
+| 3 | Stress Test | Combat | Frozen Caldera | 28-4-0 | 87.5% | 125.2s | 380 | Possibly too easy |
+| 4 | Market Pressure | Combat | Parliament Rooftops | 22-10-0 | 68.8% | 49.8s | 114 | Target band |
+| 5 | Counterfeit Product | Combat | Silent Amphitheater | 29-3-0 | 90.6% | 132.4s | 451 | Possibly too easy |
+| 6 | Hostile Takeover | Combat | Beacon Crown | 22-10-0 | 68.8% | 98.4s | 270 | Target band |
+| 7 | Bonus: Final Calibration | Objective | Stormglass Refinery | — | — | — | — | Not scored |
+| 8 | Product Launch | Combat | Eye Of The Supercell | 13-19-0 | 40.6% | 102.9s | 260 | Target band |
 
 ## How to use this report
 

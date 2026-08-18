@@ -623,7 +623,8 @@ final class StoryCampaignContent {
     private static StoryCampaign.Mission blueWater() {
         return mission("blue_water", "Blue Water",
                 "Stop Heisenbird from flooding Broken Harbor with an overloaded stormglass line.",
-                DOCK, ANCHOR_ASSAULT, StoryCampaign.PlayablePolicy.choice(PELICAN, ROADRUNNER),
+                STORMGLASS_REFINERY, BirdGame3.MapVariant.EYE_OF_THE_SUPERCELL, ANCHOR_ASSAULT,
+                StoryCampaign.PlayablePolicy.choice(PELICAN, ROADRUNNER),
                 fighters(ally(RAZORBILL, "Razorbill")),
                 fighters(boss(HEISENBIRD, "Heisenbird", 360, 1.43, 1.20)),
                 phases(
@@ -922,6 +923,7 @@ final class StoryCampaignContent {
             case MIDNIGHT_WORKSHOP -> "music-grinch-workshop.mp3";
             case CARRION_EXCHANGE -> "music-vulture-exchange.mp3";
             case ONEIRIC_OBSERVATORY -> "music-razorbill-glasswind.mp3";
+            case STORMGLASS_REFINERY -> "music-charles-spire.mp3";
             default -> "music-forest.mp3";
         };
     }
@@ -1164,9 +1166,9 @@ final class StoryCampaignContent {
     }
 
     private static void addActNineScenes(List<StoryCampaign.Cutscene> scenes) {
-        scenes.add(scene("s53_blue_water", "Blue Water", DOCK,
+        scenes.add(scene("s53_blue_water", "Blue Water", STORMGLASS_REFINERY,
                 List.of(PELICAN, ROADRUNNER), false, false));
-        scenes.add(scene("s54_heisen_joins", "An Engineer Without a Customer", DOCK,
+        scenes.add(scene("s54_heisen_joins", "An Engineer Without a Customer", STORMGLASS_REFINERY,
                 List.of(), false, false));
         scenes.add(scene("s55_future_moves", "A Future That Moves", VIBRANT_JUNGLE,
                 List.of(HUMMINGBIRD, TITMOUSE), false, false));
