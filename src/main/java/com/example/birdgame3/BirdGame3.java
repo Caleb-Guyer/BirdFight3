@@ -16830,9 +16830,10 @@ public class BirdGame3 {
         g.setFill(Color.web("#FFF3C4", 0.86));
         g.fillOval(sunX - 105, sunY - 105, 210, 210);
 
-        drawGroundedCityLayer(g, 340, 1050, 0.08,
+        double foundationY = GROUND_Y + CityBuildingGeometry.ROOFTOP_RELAY_FOUNDATION_DEPTH;
+        drawGroundedCityLayer(g, 340, 1050, foundationY, 0.08,
                 Color.web("#42506A", 0.42), Color.web("#FFD7A8", 0.14));
-        drawGroundedCityLayer(g, 610, 1260, 0.20,
+        drawGroundedCityLayer(g, 610, 1260, foundationY, 0.20,
                 Color.web("#252D43", 0.72), Color.web("#F3A8A2", 0.18));
 
         double beaconX = parallaxAdjustedWorldX(5570.0, 0.11);
@@ -17037,9 +17038,9 @@ public class BirdGame3 {
         g.setFill(Color.web("#09112A", 0.97));
         g.fillOval(moonX - 34, moonY - 94, 158, 158);
 
-        drawGroundedCityLayer(g, 430, 1280, 0.12,
+        drawGroundedCityLayer(g, 430, 1280, GROUND_Y, 0.12,
                 Color.web("#15142A", 0.68), Color.web("#5C6BC0", 0.18));
-        drawGroundedCityLayer(g, 780, 900, 0.30,
+        drawGroundedCityLayer(g, 780, 900, GROUND_Y, 0.30,
                 Color.web("#0D1020", 0.92), Color.web("#FF67CC", ambientFx ? 0.34 : 0.22));
 
         if (ambientFx) {
@@ -17121,18 +17122,16 @@ public class BirdGame3 {
     }
 
     private void drawGroundedCityLayer(GraphicsContext g, double spacing, double topBase,
-                                        double movementFactor, Color buildingColor, Color windowColor) {
-        int count = (int) Math.ceil((WORLD_WIDTH + 1400.0) / spacing);
-        for (int i = -2; i < count; i++) {
-            double x = parallaxAdjustedWorldX(i * spacing, movementFactor);
-            double width = spacing * (0.62 + Math.floorMod(i, 3) * 0.08);
-            double topY = topBase + Math.floorMod(i * 197, 560);
-            if (Math.floorMod(i, 5) == 0) {
-                topY -= 270;
-            }
+                                        double foundationY, double movementFactor,
+                                        Color buildingColor, Color windowColor) {
+        for (CityBuildingGeometry.SkylineTower tower
+                : CityBuildingGeometry.skylineLayer(spacing, topBase, foundationY)) {
+            double x = parallaxAdjustedWorldX(tower.worldX(), movementFactor);
+            double width = tower.width();
+            double topY = tower.topY();
             g.setFill(buildingColor);
-            g.fillRect(x, topY, width, GROUND_Y - topY);
-            if (Math.floorMod(i, 3) == 0) {
+            g.fillRect(x, topY, width, tower.height());
+            if (tower.peaked()) {
                 g.fillPolygon(new double[]{x, x + width * 0.5, x + width},
                         new double[]{topY, topY - 120, topY}, 3);
             } else {

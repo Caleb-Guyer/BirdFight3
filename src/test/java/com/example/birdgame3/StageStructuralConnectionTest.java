@@ -49,6 +49,42 @@ class StageStructuralConnectionTest {
         }
     }
 
+    @Test
+    void everyForegroundCityFacadeRestsOnGroundOrAParentRoof() throws Exception {
+        for (BirdGame3.MapVariant variant : List.of(
+                BirdGame3.MapVariant.STANDARD,
+                BirdGame3.MapVariant.ROOFTOP_RELAY)) {
+            BirdGame3 game = prepare(BirdGame3.MapType.CITY, variant);
+            CityBuildingGeometry.Layout layout = CityBuildingGeometry.create(
+                    game.platforms, BirdGame3.GROUND_Y);
+            assertFalse(layout.facades().isEmpty(), variant + " must contain visible building facades");
+            for (CityBuildingGeometry.Facade facade : layout.facades()) {
+                assertTrue(CityBuildingGeometry.facadeHasFoundation(
+                                facade, game.platforms, BirdGame3.GROUND_Y, TOLERANCE),
+                        () -> variant + " has a floating facade beneath platform at ("
+                                + facade.roof().x + ", " + facade.roof().y + ")");
+            }
+        }
+    }
+
+    @Test
+    void rooftopRelaySkylineTowersContinueBehindTheCloudFoundation() {
+        double foundationY = BirdGame3.GROUND_Y
+                + CityBuildingGeometry.ROOFTOP_RELAY_FOUNDATION_DEPTH;
+        for (CityBuildingGeometry.SkylineTower tower : CityBuildingGeometry.skylineLayer(
+                340.0, 1_050.0, foundationY)) {
+            assertTrue(tower.foundationY() >= BirdGame3.GROUND_Y + 500.0,
+                    "distant tower must continue behind the cloud deck instead of floating on it");
+            assertTrue(tower.height() > 0.0, "distant tower must have a valid body");
+        }
+        for (CityBuildingGeometry.SkylineTower tower : CityBuildingGeometry.skylineLayer(
+                610.0, 1_260.0, foundationY)) {
+            assertTrue(tower.foundationY() >= BirdGame3.GROUND_Y + 500.0,
+                    "near tower must continue behind the cloud deck instead of floating on it");
+            assertTrue(tower.height() > 0.0, "near tower must have a valid body");
+        }
+    }
+
     private static void auditStage(BirdGame3.MapType map,
                                    BirdGame3.MapVariant variant,
                                    List<String> auditedLayouts) throws Exception {

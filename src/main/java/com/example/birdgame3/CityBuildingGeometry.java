@@ -16,6 +16,7 @@ final class CityBuildingGeometry {
     private static final double MIN_PLAYABLE_ROOF_WIDTH = 150.0;
     private static final double MAIN_ROOF_MIN_WIDTH = 650.0;
     private static final double MIN_PARENT_OVERLAP = 70.0;
+    static final double ROOFTOP_RELAY_FOUNDATION_DEPTH = 520.0;
 
     private CityBuildingGeometry() {
     }
@@ -51,6 +52,16 @@ final class CityBuildingGeometry {
         Layout {
             facades = List.copyOf(facades);
             balconyBraces = List.copyOf(balconyBraces);
+        }
+    }
+
+    record SkylineTower(double worldX,
+                        double topY,
+                        double width,
+                        double foundationY,
+                        boolean peaked) {
+        double height() {
+            return foundationY - topY;
         }
     }
 
@@ -94,6 +105,33 @@ final class CityBuildingGeometry {
 
     static double facadeInset(double roofWidth) {
         return Math.clamp(roofWidth * 0.045, 8.0, 28.0);
+    }
+
+    static List<SkylineTower> skylineLayer(double spacing,
+                                           double topBase,
+                                           double foundationY) {
+        int count = (int) Math.ceil((BirdGame3.WORLD_WIDTH + 1_400.0) / spacing);
+        List<SkylineTower> towers = new ArrayList<>();
+        for (int index = -2; index < count; index++) {
+            double width = spacing * (0.62 + Math.floorMod(index, 3) * 0.08);
+            double topY = topBase + Math.floorMod(index * 197, 560);
+            if (Math.floorMod(index, 5) == 0) topY -= 270.0;
+            boolean peaked = Math.floorMod(index, 3) == 0;
+            towers.add(new SkylineTower(index * spacing, topY, width, foundationY, peaked));
+        }
+        return List.copyOf(towers);
+    }
+
+    static boolean facadeHasFoundation(Facade facade,
+                                       List<Platform> platforms,
+                                       double groundY,
+                                       double tolerance) {
+        Bounds bounds = facade.bounds();
+        if (Math.abs(bounds.bottom() - groundY) <= tolerance) return true;
+        return platforms.stream().anyMatch(platform ->
+                Math.abs(platform.y - bounds.bottom()) <= tolerance
+                        && Math.min(bounds.right(), platform.x + platform.w)
+                        - Math.max(bounds.x(), platform.x) > tolerance);
     }
 
     static boolean startsOnBalcony(StageArtGeometry.Segment segment,
