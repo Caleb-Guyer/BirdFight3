@@ -57,6 +57,7 @@ import javafx.scene.media.MediaPlayer;
 import javafx.scene.paint.Color;
 import javafx.scene.paint.CycleMethod;
 import javafx.scene.paint.LinearGradient;
+import javafx.scene.paint.RadialGradient;
 import javafx.scene.paint.Stop;
 import javafx.scene.image.WritableImage;
 import javafx.scene.image.PixelFormat;
@@ -14990,114 +14991,407 @@ public class BirdGame3 {
     private void drawOneiricObservatoryArena(GraphicsContext g, boolean ambientFx) {
         boolean waking = activeArenaGeometryVariant == MapVariant.WAKING_CHAMBER;
         double time = ambientFx ? System.currentTimeMillis() / 1000.0 : 0.0;
-        double pulse = ambientFx ? 0.5 + 0.5 * Math.sin(time * 1.35) : 0.5;
-        Color glass = waking ? Color.web("#86FFF0") : Color.web("#72D7FF");
-        Color gold = Color.web("#FFD166");
+        double pulse = ambientFx ? 0.5 + 0.5 * Math.sin(time * 1.15) : 0.55;
+        Color glass = Color.web(waking ? "#8EFFE7" : "#67D7FF");
+        Color gold = Color.web(waking ? "#FFE9A6" : "#F5C96A");
+        Color violet = Color.web(waking ? "#D78CEB" : "#9276D8");
 
+        drawOneiricDeepSky(g, waking, glass, gold, violet, pulse);
+        drawOneiricCloudHorizon(g, waking, glass, violet);
+        drawOneiricObservatoryCampus(g, waking, glass, gold, violet, pulse);
+        drawOneiricGrandOrrery(g, waking, glass, gold, violet, pulse);
+        if (waking) drawOneiricLucidConduits(g, glass, gold, pulse);
+        drawOneiricTerraceSupports(g, glass, gold);
+        drawOneiricTerraces(g, waking, glass, gold);
+        if (waking) drawOneiricWakingGate(g, glass, gold, pulse);
+        drawOneiricObservatoryPlaque(g, waking, glass, gold);
+        g.setTextAlign(TextAlignment.LEFT);
+        g.setLineDashes();
+    }
+
+    private void drawOneiricDeepSky(GraphicsContext g, boolean waking, Color glass,
+                                    Color gold, Color violet, double pulse) {
         g.setFill(new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
-                new Stop(0, Color.web("#050515")), new Stop(0.52, Color.web("#17133C")),
-                new Stop(1, Color.web(waking ? "#563765" : "#2D234F"))));
+                new Stop(0, Color.web(waking ? "#090720" : "#030513")),
+                new Stop(0.42, Color.web(waking ? "#271448" : "#10122F")),
+                new Stop(0.76, Color.web(waking ? "#743F78" : "#29204B")),
+                new Stop(1, Color.web(waking ? "#C77C91" : "#41305E"))));
         g.fillRect(0.0, 0.0, WORLD_WIDTH, WORLD_HEIGHT);
 
-        // Fixed arithmetic keeps the preview and every client identical while
-        // giving the sky much more depth than a repeated star texture.
-        for (int star = 0; star < 150; star++) {
+        // Wide nebula bands are large enough to read during play and at card size.
+        g.setFill(violet.deriveColor(0, 0.74, 1.0, waking ? 0.12 : 0.08));
+        g.fillOval(-980.0, 230.0, 4_500.0, 1_080.0);
+        g.fillOval(3_240.0, 130.0, 3_700.0, 1_260.0);
+        g.setFill(glass.deriveColor(0, 0.70, 1.0, 0.055));
+        g.fillOval(980.0, 30.0, 4_180.0, 820.0);
+
+        // The sleeping moon is unmistakably behind the arena, not attached to it.
+        double moonX = waking ? 660.0 : 560.0;
+        double moonY = waking ? 245.0 : 175.0;
+        double moonSize = waking ? 770.0 : 920.0;
+        g.setFill(glass.deriveColor(0, 0.62, 1.0, 0.075 + pulse * 0.025));
+        g.fillOval(moonX - 105.0, moonY - 105.0, moonSize + 210.0, moonSize + 210.0);
+        g.setFill(new RadialGradient(0, 0, moonX + moonSize * 0.38, moonY + moonSize * 0.34,
+                moonSize * 0.56, false, CycleMethod.NO_CYCLE,
+                new Stop(0, Color.web(waking ? "#FFF4D2" : "#D9F4FF", 0.90)),
+                new Stop(0.64, Color.web(waking ? "#DCA8CE" : "#7E91C7", 0.72)),
+                new Stop(1, Color.web("#35264F", 0.16))));
+        g.fillOval(moonX, moonY, moonSize, moonSize);
+        g.setFill(Color.web(waking ? "#271448" : "#080A20", 0.96));
+        g.fillOval(moonX + moonSize * 0.23, moonY - moonSize * 0.06, moonSize, moonSize);
+        g.setStroke(gold.deriveColor(0, 0.75, 1.0, 0.34));
+        g.setLineWidth(11.0);
+        g.strokeArc(moonX - 30.0, moonY - 30.0, moonSize + 60.0, moonSize + 60.0,
+                96.0, 176.0, ArcType.OPEN);
+
+        // Fixed arithmetic keeps star placement deterministic and separates
+        // tiny depth stars from the twelve bright forecast stars.
+        for (int star = 0; star < 190; star++) {
             double x = Math.floorMod(star * 877 + 193, 6_000);
-            double y = 80.0 + Math.floorMod(star * 379 + 71, 1_430);
-            double size = 4.0 + Math.floorMod(star * 17, 9);
-            Color starColor = star % 12 == 0 ? gold : star % 7 == 0 ? glass : Color.WHITE;
-            g.setFill(starColor.deriveColor(0, 0.75, 1.0, 0.25 + (star % 5) * 0.10));
+            double y = 45.0 + Math.floorMod(star * 379 + 71, 1_620);
+            double size = 3.0 + Math.floorMod(star * 17, 8);
+            Color starColor = star % 13 == 0 ? gold : star % 7 == 0 ? glass : Color.WHITE;
+            g.setFill(starColor.deriveColor(0, 0.72, 1.0, 0.28 + (star % 5) * 0.10));
             g.fillOval(x, y, size, size);
         }
-
-        // A distant cloud sea makes it clear that the observatory is far above
-        // the normal world rather than sitting on an ordinary night stage.
-        for (int cloud = 0; cloud < 13; cloud++) {
-            double x = -500.0 + cloud * 530.0;
-            double y = GROUND_Y - 350.0 + (cloud % 3) * 105.0;
-            g.setFill(Color.web(cloud % 2 == 0 ? "#B39DDB" : "#80DEEA", 0.09));
-            g.fillOval(x, y, 980.0, 260.0);
+        for (int star = 0; star < 12; star++) {
+            double angle = star * Math.PI / 6.0 - Math.PI / 2.0;
+            double x = 3_000.0 + Math.cos(angle) * 1_760.0;
+            double y = 760.0 + Math.sin(angle) * 640.0;
+            double flare = star == 11 ? 34.0 : 20.0 + (star % 3) * 4.0;
+            g.setStroke(star == 11 ? gold : glass.deriveColor(0, 0.80, 1.0, 0.66));
+            g.setLineWidth(star == 11 ? 8.0 : 5.0);
+            g.strokeLine(x - flare, y, x + flare, y);
+            g.strokeLine(x, y - flare, x, y + flare);
+            g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.86));
+            g.fillOval(x - 7.0, y - 7.0, 14.0, 14.0);
         }
+    }
 
-        // Distant observatory peaks and domes establish a whole celestial city.
-        g.setFill(Color.web("#09091C", 0.96));
-        for (int tower = 0; tower < 9; tower++) {
-            double x = -150.0 + tower * 760.0;
-            double height = 540.0 + Math.floorMod(tower * 337, 520);
-            double top = GROUND_Y + 110.0 - height;
-            g.fillRect(x, top + 130.0, 430.0, height + 250.0);
-            g.fillOval(x - 55.0, top, 540.0, 260.0);
-            g.setStroke(Color.web("#8B7AC5", 0.30));
-            g.setLineWidth(9.0);
-            g.strokeOval(x - 55.0, top, 540.0, 260.0);
-            g.strokeLine(x + 215.0, top - 120.0, x + 215.0, top + 20.0);
-            g.setFill(Color.web("#09091C", 0.96));
-        }
-
-        // The twelve-lens orrery is the arena's focal structure. Its supports
-        // visibly connect to the architecture instead of ending in empty air.
-        double cx = 3_000.0;
-        double cy = 900.0;
-        g.setStroke(Color.web("#66538C", 0.42));
-        g.setLineWidth(26.0);
-        g.strokeLine(cx, 0.0, cx, battlefieldIslandY + 180.0);
-        for (int ring = 0; ring < 3; ring++) {
-            double radiusX = 560.0 + ring * 350.0;
-            double radiusY = 360.0 + ring * 190.0;
-            g.setStroke((ring == 1 ? gold : glass).deriveColor(0, 0.72, 0.90,
-                    0.20 + pulse * 0.08));
-            g.setLineWidth(18.0 - ring * 3.0);
-            g.strokeOval(cx - radiusX, cy - radiusY, radiusX * 2.0, radiusY * 2.0);
-        }
-        for (int lens = 0; lens < 12; lens++) {
-            double angle = lens * Math.PI / 6.0 - Math.PI / 2.0;
-            double lx = cx + Math.cos(angle) * 1_235.0;
-            double ly = cy + Math.sin(angle) * 690.0;
-            double r = lens == 11 ? 44.0 : 31.0;
-            g.setFill((lens == 11 ? Color.web("#120E22") : glass)
-                    .deriveColor(0, 0.75, 1.0, 0.45 + pulse * 0.16));
-            g.fillOval(lx - r, ly - r, r * 2.0, r * 2.0);
-            g.setStroke(lens == 11 ? gold : Color.WHITE.deriveColor(0, 1, 1, 0.54));
-            g.setLineWidth(7.0);
-            g.strokeOval(lx - r, ly - r, r * 2.0, r * 2.0);
-        }
-
-        // Platforms are translucent observatory terraces with every suspended
-        // surface braced back to the main floor for clean visual construction.
-        for (Platform p : platforms) {
-            if (p.y >= GROUND_Y + 80.0) continue;
-            boolean main = Math.abs(p.y - battlefieldIslandY) < 2.0 && p.w > 3_000.0;
-            if (!main && p.y < battlefieldIslandY - 60.0) {
-                double center = p.x + p.w * 0.5;
-                double supportY = battlefieldIslandY - 8.0;
-                g.setStroke(Color.web("#352A57", 0.88));
-                g.setLineWidth(24.0);
-                g.strokeLine(p.x + 35.0, p.y + p.h, center, supportY);
-                g.strokeLine(p.x + p.w - 35.0, p.y + p.h, center, supportY);
-                g.setStroke(gold.deriveColor(0, 0.55, 0.82, 0.56));
-                g.setLineWidth(7.0);
-                g.strokeLine(p.x + 35.0, p.y + p.h, center, supportY);
-                g.strokeLine(p.x + p.w - 35.0, p.y + p.h, center, supportY);
+    private void drawOneiricCloudHorizon(GraphicsContext g, boolean waking,
+                                          Color glass, Color violet) {
+        double horizonY = battlefieldIslandY + 80.0;
+        // Multiple cloud banks sell the observatory's extreme height.
+        for (int layer = 0; layer < 3; layer++) {
+            double y = horizonY - 350.0 + layer * 175.0;
+            Color cloud = (layer == 1 ? glass : violet).deriveColor(0, 0.52, 1.0,
+                    (waking ? 0.13 : 0.085) + layer * 0.025);
+            g.setFill(cloud);
+            for (int cloudIndex = 0; cloudIndex < 9; cloudIndex++) {
+                double x = -620.0 + cloudIndex * 760.0 + (layer % 2) * 240.0;
+                double width = 1_030.0 + (cloudIndex % 3) * 190.0;
+                g.fillOval(x, y + (cloudIndex % 2) * 56.0, width, 280.0 + layer * 55.0);
             }
-            g.setFill(Color.web("#080B20", 0.95));
-            g.fillRoundRect(p.x - 13.0, p.y + 10.0, p.w + 26.0, p.h + 24.0, 24.0, 24.0);
-            g.setFill(glass.deriveColor(0, 0.42, 0.54, 0.44));
-            g.fillRoundRect(p.x, p.y, p.w, p.h, 20.0, 20.0);
-            g.setStroke(glass.deriveColor(0, 0.88, 1.10, 0.95));
-            g.setLineWidth(main ? 14.0 : 10.0);
-            g.strokeRoundRect(p.x, p.y, p.w, p.h, 20.0, 20.0);
-            g.setStroke(gold.deriveColor(0, 0.70, 1.0, main ? 0.76 : 0.52));
-            g.setLineWidth(5.0);
-            g.strokeLine(p.x + 25.0, p.y + p.h - 10.0, p.x + p.w - 25.0, p.y + p.h - 10.0);
         }
 
-        g.setFill(Color.web("#E9E2FF", 0.86));
-        g.setFont(Font.font("Consolas", FontWeight.BOLD, 34.0));
+        // Far observatory silhouettes create a coherent celestial city.
+        for (int tower = 0; tower < 11; tower++) {
+            double x = -180.0 + tower * 610.0;
+            double width = 300.0 + (tower % 3) * 64.0;
+            double height = 500.0 + Math.floorMod(tower * 281, 460);
+            double top = battlefieldIslandY + 110.0 - height;
+            g.setFill(Color.web(waking ? "#241936" : "#080B1C", 0.92));
+            g.fillRect(x, top + 95.0, width, height + 390.0);
+            g.fillOval(x - 42.0, top, width + 84.0, 190.0);
+            g.setStroke(violet.deriveColor(0, 0.62, 0.78, 0.28));
+            g.setLineWidth(11.0);
+            g.strokeArc(x - 42.0, top, width + 84.0, 190.0, 0, 180, ArcType.OPEN);
+            g.strokeLine(x + width * 0.5, top - 105.0, x + width * 0.5, top + 10.0);
+            g.setFill(glass.deriveColor(0, 0.72, 0.80, 0.19));
+            for (double windowY = top + 230.0; windowY < battlefieldIslandY; windowY += 145.0) {
+                g.fillRoundRect(x + width * 0.24, windowY, width * 0.52, 20.0, 10.0, 10.0);
+            }
+        }
+    }
+
+    private void drawOneiricObservatoryCampus(GraphicsContext g, boolean waking, Color glass,
+                                               Color gold, Color violet, double pulse) {
+        double floorY = battlefieldIslandY;
+        // A continuous roof and inhabited facade replace the old floating bar.
+        g.setFill(Color.web(waking ? "#181127" : "#060A18", 0.98));
+        g.fillRoundRect(500.0, floorY - 72.0, 5_000.0, WORLD_HEIGHT - floorY + 180.0,
+                54.0, 54.0);
+        g.setStroke(violet.deriveColor(0, 0.68, 0.82, 0.72));
+        g.setLineWidth(20.0);
+        g.strokeLine(540.0, floorY - 54.0, 5_460.0, floorY - 54.0);
+
+        for (int bay = 0; bay < 8; bay++) {
+            double x = 620.0 + bay * 600.0;
+            double width = 520.0;
+            g.setFill(Color.web(waking ? "#241A34" : "#0B1023"));
+            g.fillRoundRect(x, floorY + 45.0, width, 620.0, 26.0, 26.0);
+            g.setStroke(Color.web(waking ? "#885E83" : "#3C476A", 0.74));
+            g.setLineWidth(10.0);
+            g.strokeRoundRect(x, floorY + 45.0, width, 620.0, 26.0, 26.0);
+            g.setFill(glass.deriveColor(0, 0.68, 0.92, 0.16 + pulse * 0.035));
+            g.fillRoundRect(x + 82.0, floorY + 150.0, width - 164.0, 150.0,
+                    72.0, 72.0);
+            g.setStroke(gold.deriveColor(0, 0.66, 0.90, 0.42));
+            g.setLineWidth(7.0);
+            g.strokeRoundRect(x + 82.0, floorY + 150.0, width - 164.0, 150.0,
+                    72.0, 72.0);
+            for (int rib = 1; rib <= 3; rib++) {
+                double ribX = x + rib * width / 4.0;
+                g.strokeLine(ribX, floorY + 70.0, ribX, WORLD_HEIGHT);
+            }
+        }
+
+        // Central dome and side telescope houses give the stage a clear silhouette.
+        g.setFill(Color.web(waking ? "#21152F" : "#090D20", 0.98));
+        g.fillOval(2_030.0, floorY - 850.0, 1_940.0, 1_350.0);
+        g.fillRect(2_030.0, floorY - 160.0, 1_940.0, 760.0);
+        g.setStroke(violet.deriveColor(0, 0.72, 1.0, 0.72));
+        g.setLineWidth(24.0);
+        g.strokeArc(2_030.0, floorY - 850.0, 1_940.0, 1_350.0, 0, 180, ArcType.OPEN);
+        g.setStroke(gold.deriveColor(0, 0.76, 1.0, 0.56));
+        g.setLineWidth(10.0);
+        for (int rib = 1; rib < 6; rib++) {
+            double x = 2_030.0 + rib * 1_940.0 / 6.0;
+            g.strokeLine(3_000.0, floorY - 838.0, x, floorY - 160.0);
+        }
+        drawOneiricTelescopeHouse(g, 760.0, floorY - 270.0, false, glass, gold);
+        drawOneiricTelescopeHouse(g, 4_520.0, floorY - 270.0, true, glass, gold);
+    }
+
+    private void drawOneiricTelescopeHouse(GraphicsContext g, double x, double y,
+                                            boolean facesRight, Color glass, Color gold) {
+        g.setFill(Color.web("#070B19", 0.98));
+        g.fillRect(x, y + 105.0, 720.0, 360.0);
+        g.fillOval(x, y, 720.0, 260.0);
+        g.setStroke(glass.deriveColor(0, 0.72, 0.92, 0.54));
+        g.setLineWidth(16.0);
+        g.strokeArc(x, y, 720.0, 260.0, 0, 180, ArcType.OPEN);
+        double pivotX = x + 360.0;
+        double pivotY = y + 92.0;
+        double direction = facesRight ? 1.0 : -1.0;
+        g.setStroke(Color.web("#1F2842"));
+        g.setLineWidth(78.0);
+        g.strokeLine(pivotX, pivotY, pivotX + direction * 430.0, pivotY - 270.0);
+        g.setStroke(gold.deriveColor(0, 0.82, 1.0, 0.88));
+        g.setLineWidth(18.0);
+        g.strokeLine(pivotX, pivotY, pivotX + direction * 430.0, pivotY - 270.0);
+        double lensX = pivotX + direction * 430.0;
+        double lensY = pivotY - 270.0;
+        g.setFill(glass.deriveColor(0, 0.76, 1.0, 0.72));
+        g.fillOval(lensX - 58.0, lensY - 58.0, 116.0, 116.0);
+        g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.62));
+        g.setLineWidth(9.0);
+        g.strokeOval(lensX - 58.0, lensY - 58.0, 116.0, 116.0);
+    }
+
+    private void drawOneiricGrandOrrery(GraphicsContext g, boolean waking, Color glass,
+                                        Color gold, Color violet, double pulse) {
+        double cx = 3_000.0;
+        double cy = 720.0;
+        g.setFill(glass.deriveColor(0, 0.64, 1.0, 0.055 + pulse * 0.018));
+        g.fillOval(cx - 510.0, cy - 510.0, 1_020.0, 1_020.0);
+        g.setStroke(Color.web("#16152C", 0.94));
+        g.setLineWidth(42.0);
+        g.strokeLine(cx, 0.0, cx, battlefieldIslandY - 80.0);
+        g.setStroke(gold.deriveColor(0, 0.64, 0.92, 0.68));
+        g.setLineWidth(10.0);
+        g.strokeLine(cx, 0.0, cx, battlefieldIslandY - 80.0);
+
+        for (int ring = 0; ring < 4; ring++) {
+            double radiusX = 500.0 + ring * 300.0;
+            double radiusY = 280.0 + ring * 135.0;
+            Color ringColor = ring % 2 == 0 ? glass : gold;
+            g.setStroke(Color.web("#080A18", 0.80));
+            g.setLineWidth(34.0 - ring * 3.0);
+            g.strokeOval(cx - radiusX, cy - radiusY, radiusX * 2.0, radiusY * 2.0);
+            g.setStroke(ringColor.deriveColor(0, 0.78, 1.0,
+                    0.56 + pulse * 0.10 - ring * 0.06));
+            g.setLineWidth(15.0 - ring * 1.5);
+            if (waking && ring == 3) {
+                g.strokeArc(cx - radiusX, cy - radiusY, radiusX * 2.0, radiusY * 2.0,
+                        12.0, 146.0, ArcType.OPEN);
+                g.strokeArc(cx - radiusX, cy - radiusY, radiusX * 2.0, radiusY * 2.0,
+                        202.0, 146.0, ArcType.OPEN);
+            } else {
+                g.strokeOval(cx - radiusX, cy - radiusY, radiusX * 2.0, radiusY * 2.0);
+            }
+        }
+
+        // A real lens assembly replaces the old empty oval center.
+        g.setFill(new RadialGradient(0, 0, cx - 120.0, cy - 110.0, 470.0,
+                false, CycleMethod.NO_CYCLE,
+                new Stop(0, Color.WHITE.deriveColor(0, 1, 1, 0.32)),
+                new Stop(0.38, glass.deriveColor(0, 0.78, 1.0, 0.26)),
+                new Stop(0.72, violet.deriveColor(0, 0.74, 0.78, 0.20)),
+                new Stop(1, Color.web("#050713", 0.92))));
+        g.fillOval(cx - 420.0, cy - 420.0, 840.0, 840.0);
+        g.setStroke(gold.deriveColor(0, 0.80, 1.0, 0.78));
+        g.setLineWidth(18.0);
+        g.strokeOval(cx - 420.0, cy - 420.0, 840.0, 840.0);
+        g.setStroke(glass.deriveColor(0, 0.82, 1.0, 0.58));
+        g.setLineWidth(10.0);
+        g.strokeOval(cx - 330.0, cy - 330.0, 660.0, 660.0);
+        for (int spoke = 0; spoke < 12; spoke++) {
+            double angle = spoke * Math.PI / 6.0 - Math.PI / 2.0;
+            double innerX = cx + Math.cos(angle) * 430.0;
+            double innerY = cy + Math.sin(angle) * 430.0;
+            double outerX = cx + Math.cos(angle) * 1_400.0;
+            double outerY = cy + Math.sin(angle) * 650.0;
+            g.setStroke((spoke == 11 ? gold : violet).deriveColor(0, 0.68, 1.0, 0.30));
+            g.setLineWidth(spoke == 11 ? 10.0 : 6.0);
+            g.strokeLine(innerX, innerY, outerX, outerY);
+            double radius = spoke == 11 ? 48.0 : 34.0;
+            g.setFill(spoke == 11 ? Color.web("#090717") : glass.deriveColor(0, 0.78, 1.0, 0.64));
+            g.fillOval(outerX - radius, outerY - radius, radius * 2.0, radius * 2.0);
+            g.setStroke(spoke == 11 ? gold : Color.WHITE.deriveColor(0, 1, 1, 0.68));
+            g.setLineWidth(8.0);
+            g.strokeOval(outerX - radius, outerY - radius, radius * 2.0, radius * 2.0);
+        }
+    }
+
+    private void drawOneiricLucidConduits(GraphicsContext g, Color glass, Color gold,
+                                          double pulse) {
+        // These dormant sockets line up with the twelve objective fragments.
+        // They make Waking Chamber look purpose-built even outside Classic.
+        for (int index = 0; index < OPIUM_LUCID_FRAGMENT_X.length; index++) {
+            double x = OPIUM_LUCID_FRAGMENT_X[index];
+            double y = OPIUM_LUCID_FRAGMENT_Y[index];
+            g.setStroke(glass.deriveColor(0, 0.68, 1.0, 0.15 + pulse * 0.06));
+            g.setLineWidth(14.0);
+            g.strokeLine(x, y + 48.0, x, battlefieldIslandY - 24.0);
+            g.setFill(Color.web("#080A19", 0.92));
+            g.fillOval(x - 47.0, y - 47.0, 94.0, 94.0);
+            g.setStroke(index == 11 ? gold : glass.deriveColor(0, 0.76, 1.0, 0.55));
+            g.setLineWidth(9.0);
+            g.strokeOval(x - 47.0, y - 47.0, 94.0, 94.0);
+        }
+    }
+
+    private void drawOneiricTerraceSupports(GraphicsContext g, Color glass, Color gold) {
+        for (Platform platform : platforms) {
+            if (platform.y >= battlefieldIslandY - 40.0 || platform.y >= GROUND_Y + 80.0) continue;
+            Platform target = oneiricTerraceSupportTarget(platform);
+            double platformCenter = platform.x + platform.w * 0.5;
+            double targetCenter = target == null
+                    ? Math.clamp(platformCenter, battlefieldIslandX + 120.0,
+                    battlefieldIslandX + battlefieldIslandW - 120.0)
+                    : Math.clamp(platformCenter, target.x + 90.0, target.x + target.w - 90.0);
+            double targetY = target == null ? battlefieldIslandY : target.y;
+            double left = platform.x + Math.min(100.0, platform.w * 0.18);
+            double right = platform.x + platform.w - Math.min(100.0, platform.w * 0.18);
+            g.setStroke(Color.web("#070A18", 0.94));
+            g.setLineWidth(40.0);
+            g.strokeLine(platformCenter, platform.y + platform.h, targetCenter, targetY);
+            g.strokeLine(left, platform.y + platform.h, targetCenter, targetY);
+            g.strokeLine(right, platform.y + platform.h, targetCenter, targetY);
+            g.setStroke(gold.deriveColor(0, 0.66, 0.88, 0.54));
+            g.setLineWidth(9.0);
+            g.strokeLine(platformCenter, platform.y + platform.h, targetCenter, targetY);
+            g.setStroke(glass.deriveColor(0, 0.66, 0.88, 0.46));
+            g.setLineWidth(7.0);
+            g.strokeLine(left, platform.y + platform.h, targetCenter, targetY);
+            g.strokeLine(right, platform.y + platform.h, targetCenter, targetY);
+            g.setFill(gold.deriveColor(0, 0.70, 1.0, 0.82));
+            g.fillOval(targetCenter - 16.0, targetY - 16.0, 32.0, 32.0);
+        }
+    }
+
+    private Platform oneiricTerraceSupportTarget(Platform platform) {
+        Platform best = null;
+        double bestScore = Double.POSITIVE_INFINITY;
+        double center = platform.x + platform.w * 0.5;
+        for (Platform candidate : platforms) {
+            if (candidate == platform || candidate.y <= platform.y + platform.h + 35.0
+                    || candidate.y > battlefieldIslandY + 5.0) continue;
+            double candidateCenter = candidate.x + candidate.w * 0.5;
+            double horizontalDistance = Math.abs(center - candidateCenter);
+            double verticalDistance = candidate.y - platform.y;
+            double overlap = Math.max(0.0, Math.min(platform.x + platform.w, candidate.x + candidate.w)
+                    - Math.max(platform.x, candidate.x));
+            double score = verticalDistance * 0.42 + horizontalDistance * 0.72 - overlap * 0.55;
+            if (score < bestScore) {
+                bestScore = score;
+                best = candidate;
+            }
+        }
+        return best;
+    }
+
+    private void drawOneiricTerraces(GraphicsContext g, boolean waking, Color glass, Color gold) {
+        for (Platform platform : platforms) {
+            if (platform.y >= GROUND_Y + 80.0) continue;
+            boolean main = Math.abs(platform.y - battlefieldIslandY) < 2.0 && platform.w > 3_000.0;
+            g.setFill(Color.web("#030611", 0.98));
+            g.fillRoundRect(platform.x - 18.0, platform.y + 8.0,
+                    platform.w + 36.0, platform.h + (main ? 52.0 : 34.0), 28.0, 28.0);
+            g.setFill(new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
+                    new Stop(0, glass.deriveColor(0, 0.70, 0.74, main ? 0.64 : 0.48)),
+                    new Stop(0.28, Color.web(waking ? "#243B4C" : "#182B43", 0.96)),
+                    new Stop(1, Color.web(waking ? "#181326" : "#080B18", 0.98))));
+            g.fillRoundRect(platform.x, platform.y, platform.w, platform.h, 20.0, 20.0);
+            g.setStroke(glass.deriveColor(0, 0.88, 1.08, 0.98));
+            g.setLineWidth(main ? 18.0 : 13.0);
+            g.strokeRoundRect(platform.x, platform.y, platform.w, platform.h, 20.0, 20.0);
+            g.setStroke(gold.deriveColor(0, 0.78, 1.0, main ? 0.92 : 0.70));
+            g.setLineWidth(main ? 9.0 : 6.0);
+            g.strokeLine(platform.x + 34.0, platform.y + platform.h - 12.0,
+                    platform.x + platform.w - 34.0, platform.y + platform.h - 12.0);
+            double cap = Math.min(42.0, platform.w * 0.10);
+            g.setFill(gold.deriveColor(0, 0.72, 0.94, 0.88));
+            g.fillRoundRect(platform.x + 8.0, platform.y + 9.0, cap, platform.h - 18.0, 12.0, 12.0);
+            g.fillRoundRect(platform.x + platform.w - cap - 8.0, platform.y + 9.0,
+                    cap, platform.h - 18.0, 12.0, 12.0);
+            if (!main) {
+                g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.66));
+                for (double boltX = platform.x + 92.0; boltX < platform.x + platform.w - 70.0;
+                     boltX += 150.0) {
+                    g.fillOval(boltX, platform.y + platform.h * 0.5 - 6.0, 12.0, 12.0);
+                }
+            }
+        }
+    }
+
+    private void drawOneiricWakingGate(GraphicsContext g, Color glass, Color gold, double pulse) {
+        double x = OPIUM_WAKING_BELL_X;
+        double floorY = battlefieldIslandY;
+        g.setStroke(Color.web("#070A18", 0.96));
+        g.setLineWidth(58.0);
+        g.strokeLine(x - 210.0, floorY, x - 210.0, floorY - 520.0);
+        g.strokeLine(x + 210.0, floorY, x + 210.0, floorY - 520.0);
+        g.strokeArc(x - 210.0, floorY - 710.0, 420.0, 380.0, 0, 180, ArcType.OPEN);
+        g.setStroke(gold.deriveColor(0, 0.78, 1.0, 0.88));
+        g.setLineWidth(15.0);
+        g.strokeLine(x - 210.0, floorY, x - 210.0, floorY - 520.0);
+        g.strokeLine(x + 210.0, floorY, x + 210.0, floorY - 520.0);
+        g.strokeArc(x - 210.0, floorY - 710.0, 420.0, 380.0, 0, 180, ArcType.OPEN);
+        g.setStroke(glass.deriveColor(0, 0.84, 1.0, 0.62));
+        g.setLineWidth(10.0);
+        g.strokeLine(x, floorY - 700.0, x, floorY - 460.0);
+        g.setFill(gold.deriveColor(0, 0.82, 1.0, 0.50 + pulse * 0.16));
+        g.fillOval(x - 105.0, floorY - 500.0, 210.0, 170.0);
+        g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.72));
+        g.setLineWidth(9.0);
+        g.strokeOval(x - 105.0, floorY - 500.0, 210.0, 170.0);
+        g.setFill(glass.deriveColor(0, 0.80, 1.0, 0.72));
+        g.fillOval(x - 31.0, floorY - 348.0, 62.0, 62.0);
+    }
+
+    private void drawOneiricObservatoryPlaque(GraphicsContext g, boolean waking,
+                                               Color glass, Color gold) {
+        double plaqueWidth = waking ? 2_040.0 : 2_220.0;
+        double plaqueX = 3_000.0 - plaqueWidth * 0.5;
+        double plaqueY = battlefieldIslandY + 18.0;
+        g.setFill(Color.web("#03050D", 0.96));
+        g.fillRoundRect(plaqueX, plaqueY, plaqueWidth, 78.0, 22.0, 22.0);
+        g.setStroke(gold.deriveColor(0, 0.76, 1.0, 0.88));
+        g.setLineWidth(7.0);
+        g.strokeRoundRect(plaqueX, plaqueY, plaqueWidth, 78.0, 22.0, 22.0);
+        g.setFill(Color.web("#F7F4FF"));
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, 35.0));
         g.setTextAlign(TextAlignment.CENTER);
-        g.fillText(waking ? "WAKING CHAMBER  •  TWELVE POSSIBILITIES"
+        g.fillText(waking ? "WAKING CHAMBER  •  THE TWELFTH LENS"
                         : "ONEIRIC OBSERVATORY  •  NO FUTURE IS FINAL",
-                3_000.0, battlefieldIslandY + 82.0);
-        g.setTextAlign(TextAlignment.LEFT);
+                3_000.0, plaqueY + 52.0);
+        g.setStroke(glass.deriveColor(0, 0.86, 1.0, 0.72));
+        g.setLineWidth(5.0);
+        g.strokeLine(plaqueX + 70.0, plaqueY + 12.0, plaqueX + 300.0, plaqueY + 12.0);
+        g.strokeLine(plaqueX + plaqueWidth - 300.0, plaqueY + 12.0,
+                plaqueX + plaqueWidth - 70.0, plaqueY + 12.0);
     }
 
     private void drawCarrionExchangeSky(GraphicsContext g, boolean core, boolean sorting, double pulse) {
@@ -43256,7 +43550,7 @@ public class BirdGame3 {
         manufactured.cpuLevel = 3;
         run.add(manufactured);
 
-        ClassicFighter firstNightmare = classicFighter(BirdType.BAT, "Nightmare I: The Closed Eye", 92, 0.80, 1.02);
+        ClassicFighter firstNightmare = classicFighter(BirdType.BAT, "Nightmare I: The Closed Eye", 108, 0.90, 1.02);
         ClassicEncounter sleep = new ClassicEncounter(
                 "Sleep Comes in Waves", "Oneiric Observatory",
                 "Three nightmares enter beneath forecast silhouettes. Each wave is self-contained and has no ultimate.",
@@ -43265,8 +43559,8 @@ public class BirdGame3 {
                 new ClassicFighter[0], new ClassicFighter[]{firstNightmare}, false)
                 .withWaves(
                         new ClassicFighter[]{firstNightmare},
-                        new ClassicFighter[]{classicFighter(BirdType.RAVEN, "Nightmare II: The Black Answer", 98, 0.82, 1.00)},
-                        new ClassicFighter[]{classicFighter(BirdType.VULTURE, "Nightmare III: The Last Witness", 104, 0.84, 0.98)});
+                        new ClassicFighter[]{classicFighter(BirdType.RAVEN, "Nightmare II: The Black Answer", 114, 0.92, 1.00)},
+                        new ClassicFighter[]{classicFighter(BirdType.VULTURE, "Nightmare III: The Last Witness", 120, 0.94, 0.98)});
         sleep.cpuLevel = 5;
         run.add(sleep);
 
@@ -59198,20 +59492,20 @@ public class BirdGame3 {
     }
 
     private void setupOneiricObservatoryArena() {
-        double floorX = 600.0;
+        double floorX = 520.0;
         double floorY = GROUND_Y - 300.0;
-        double floorW = 4_800.0;
+        double floorW = 4_960.0;
         platforms.add(new Platform(floorX, floorY, floorW, 108.0));
-        platforms.add(new Platform(350.0, floorY + 150.0, 500.0, 48.0));
-        platforms.add(new Platform(5_150.0, floorY + 150.0, 500.0, 48.0));
-        platforms.add(new Platform(780.0, floorY - 300.0, 900.0, 56.0));
-        platforms.add(new Platform(1_760.0, floorY - 550.0, 740.0, 52.0));
-        platforms.add(new Platform(2_520.0, floorY - 390.0, 960.0, 64.0));
-        platforms.add(new Platform(3_500.0, floorY - 550.0, 740.0, 52.0));
-        platforms.add(new Platform(4_320.0, floorY - 300.0, 900.0, 56.0));
-        platforms.add(new Platform(2_600.0, floorY - 850.0, 800.0, 50.0));
-        windVents.add(new WindVent(380.0, floorY + 110.0, 300.0));
-        windVents.add(new WindVent(5_320.0, floorY + 110.0, 300.0));
+        platforms.add(new Platform(260.0, floorY + 140.0, 560.0, 48.0));
+        platforms.add(new Platform(5_180.0, floorY + 140.0, 560.0, 48.0));
+        platforms.add(new Platform(720.0, floorY - 260.0, 960.0, 58.0));
+        platforms.add(new Platform(1_720.0, floorY - 500.0, 780.0, 54.0));
+        platforms.add(new Platform(2_470.0, floorY - 300.0, 1_060.0, 66.0));
+        platforms.add(new Platform(3_500.0, floorY - 500.0, 780.0, 54.0));
+        platforms.add(new Platform(4_320.0, floorY - 260.0, 960.0, 58.0));
+        platforms.add(new Platform(2_600.0, floorY - 760.0, 800.0, 52.0));
+        windVents.add(new WindVent(300.0, floorY + 100.0, 320.0));
+        windVents.add(new WindVent(5_380.0, floorY + 100.0, 320.0));
         battlefieldIslandX = floorX;
         battlefieldIslandW = floorW;
         battlefieldIslandY = floorY;

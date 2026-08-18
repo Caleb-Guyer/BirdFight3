@@ -12,7 +12,7 @@
 |---:|---|---|---|---:|---:|---:|---:|---|
 | 1 | One Step Ahead | Combat | Glasswind Causeway | 38-26-0 | 59.4% | 101.9s | 174 | Target band |
 | 2 | Manufactured Future | Combat | Midnight Workshop | 45-19-0 | 70.3% | 74.3s | 289 | Possibly too easy |
-| 3 | Sleep Comes in Waves | Combat | Oneiric Observatory | 45-19-0 | 70.3% | 141.7s | 452 | Possibly too easy |
+| 3 | Sleep Comes in Waves | Combat | Oneiric Observatory | 51-13-0 | 79.7% | 142.4s | 458 | Possibly too easy |
 | 4 | The Future Burns | Combat | Frozen Caldera | 45-19-0 | 70.3% | 99.1s | 229 | Possibly too easy |
 | 5 | The Future Obeys | Combat | Parliament Rooftops | 45-19-0 | 70.3% | 38.9s | 93 | Possibly too easy |
 | 6 | Eleven Dead Ends | Combat | Worldseam | 20-44-0 | 31.3% | 183.1s | 245 | Too hard / weak matchup |
