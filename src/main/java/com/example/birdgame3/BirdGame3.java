@@ -16830,10 +16830,9 @@ public class BirdGame3 {
         g.setFill(Color.web("#FFF3C4", 0.86));
         g.fillOval(sunX - 105, sunY - 105, 210, 210);
 
-        double foundationY = GROUND_Y + CityBuildingGeometry.ROOFTOP_RELAY_FOUNDATION_DEPTH;
-        drawGroundedCityLayer(g, 340, 1050, foundationY, 0.08,
+        drawGroundedCityLayer(g, 340, 1050, 0.08,
                 Color.web("#42506A", 0.42), Color.web("#FFD7A8", 0.14));
-        drawGroundedCityLayer(g, 610, 1260, foundationY, 0.20,
+        drawGroundedCityLayer(g, 610, 1260, 0.20,
                 Color.web("#252D43", 0.72), Color.web("#F3A8A2", 0.18));
 
         double beaconX = parallaxAdjustedWorldX(5570.0, 0.11);
@@ -16851,13 +16850,20 @@ public class BirdGame3 {
 
     private void drawRooftopRelayCloudDeck(GraphicsContext g, boolean ambientFx, double time) {
         double drift = ambientFx ? (time * 9.0) % 900.0 : 160.0;
-        g.setFill(Color.web("#EAF4FA", 0.17));
-        g.fillRect(0, GROUND_Y - 30, WORLD_WIDTH, WORLD_HEIGHT - GROUND_Y + 30);
+        // Keep the cloud bank visibly beneath the arena. A full-width rectangle
+        // at GROUND_Y looked like a solid floor and hid an old implicit collision
+        // plane, even though this route is meant to have open gaps between roofs.
+        g.setFill(new LinearGradient(0, GROUND_Y + 80, 0, WORLD_HEIGHT, false,
+                CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.TRANSPARENT),
+                new Stop(0.42, Color.web("#EAF4FA", 0.07)),
+                new Stop(1.0, Color.web("#F6E8E2", 0.16))));
+        g.fillRect(0, GROUND_Y + 80, WORLD_WIDTH, WORLD_HEIGHT - GROUND_Y - 80);
         for (int i = -2; i < 10; i++) {
             double x = i * 760.0 + drift;
-            g.setFill(Color.web(i % 2 == 0 ? "#FFF4E5" : "#E6F3FA", 0.22));
-            g.fillOval(x, GROUND_Y - 70 + (i % 3) * 34.0, 720, 190);
-            g.fillOval(x + 170, GROUND_Y - 145 + (i % 2) * 28.0, 390, 180);
+            g.setFill(Color.web(i % 2 == 0 ? "#FFF4E5" : "#E6F3FA", 0.14));
+            g.fillOval(x, GROUND_Y + 105 + Math.floorMod(i, 3) * 38.0, 720, 190);
+            g.fillOval(x + 170, GROUND_Y + 28 + Math.floorMod(i, 2) * 34.0, 390, 180);
         }
     }
 
@@ -17038,9 +17044,9 @@ public class BirdGame3 {
         g.setFill(Color.web("#09112A", 0.97));
         g.fillOval(moonX - 34, moonY - 94, 158, 158);
 
-        drawGroundedCityLayer(g, 430, 1280, GROUND_Y, 0.12,
+        drawGroundedCityLayer(g, 430, 1280, 0.12,
                 Color.web("#15142A", 0.68), Color.web("#5C6BC0", 0.18));
-        drawGroundedCityLayer(g, 780, 900, GROUND_Y, 0.30,
+        drawGroundedCityLayer(g, 780, 900, 0.30,
                 Color.web("#0D1020", 0.92), Color.web("#FF67CC", ambientFx ? 0.34 : 0.22));
 
         if (ambientFx) {
@@ -17054,7 +17060,9 @@ public class BirdGame3 {
     }
 
     private void drawCityPlayableBuildingBodies(GraphicsContext g, boolean ambientFx, double time) {
-        CityBuildingGeometry.Layout layout = CityBuildingGeometry.create(platforms, GROUND_Y);
+        CityBuildingGeometry.Layout layout = activeArenaGeometryVariant == MapVariant.ROOFTOP_RELAY
+                ? CityBuildingGeometry.createRooftopRelay(platforms, GROUND_Y)
+                : CityBuildingGeometry.create(platforms, GROUND_Y);
         for (CityBuildingGeometry.Facade facade : layout.facades()) {
             drawCityRectangularFacade(g, facade, ambientFx, time);
         }
@@ -17122,16 +17130,19 @@ public class BirdGame3 {
     }
 
     private void drawGroundedCityLayer(GraphicsContext g, double spacing, double topBase,
-                                        double foundationY, double movementFactor,
+                                        double movementFactor,
                                         Color buildingColor, Color windowColor) {
-        for (CityBuildingGeometry.SkylineTower tower
-                : CityBuildingGeometry.skylineLayer(spacing, topBase, foundationY)) {
-            double x = parallaxAdjustedWorldX(tower.worldX(), movementFactor);
-            double width = tower.width();
-            double topY = tower.topY();
+        int count = (int) Math.ceil((WORLD_WIDTH + 1400.0) / spacing);
+        for (int i = -2; i < count; i++) {
+            double x = parallaxAdjustedWorldX(i * spacing, movementFactor);
+            double width = spacing * (0.62 + Math.floorMod(i, 3) * 0.08);
+            double topY = topBase + Math.floorMod(i * 197, 560);
+            if (Math.floorMod(i, 5) == 0) {
+                topY -= 270;
+            }
             g.setFill(buildingColor);
-            g.fillRect(x, topY, width, tower.height());
-            if (tower.peaked()) {
+            g.fillRect(x, topY, width, GROUND_Y - topY);
+            if (Math.floorMod(i, 3) == 0) {
                 g.fillPolygon(new double[]{x, x + width * 0.5, x + width},
                         new double[]{topY, topY - 120, topY}, 3);
             } else {
@@ -60234,6 +60245,16 @@ public class BirdGame3 {
                 || activeArenaGeometryVariant == MapVariant.REDLINE_CANYON
                 || activeArenaGeometryVariant == MapVariant.STILLWATER_MARSH
                 || isCrownDuelArena();
+    }
+
+    /**
+     * Most non-island maps use GROUND_Y as an implicit collision floor. The
+     * long Rooftop Relay course is the exception: its authored roofs are the
+     * only solid ground, and every gap between them is open sky.
+     */
+    boolean hasImplicitGroundFloorForCurrentArena() {
+        return activeArenaGeometryVariant != MapVariant.ROOFTOP_RELAY
+                && !usesIslandBoundsForCurrentArena();
     }
 
     /**

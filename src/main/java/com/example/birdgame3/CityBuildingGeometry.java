@@ -16,7 +16,6 @@ final class CityBuildingGeometry {
     private static final double MIN_PLAYABLE_ROOF_WIDTH = 150.0;
     private static final double MAIN_ROOF_MIN_WIDTH = 650.0;
     private static final double MIN_PARENT_OVERLAP = 70.0;
-    static final double ROOFTOP_RELAY_FOUNDATION_DEPTH = 520.0;
 
     private CityBuildingGeometry() {
     }
@@ -55,17 +54,23 @@ final class CityBuildingGeometry {
         }
     }
 
-    record SkylineTower(double worldX,
-                        double topY,
-                        double width,
-                        double foundationY,
-                        boolean peaked) {
-        double height() {
-            return foundationY - topY;
-        }
+    static Layout create(List<Platform> platforms, double groundY) {
+        return create(platforms, groundY, groundY, false);
     }
 
-    static Layout create(List<Platform> platforms, double groundY) {
+    /**
+     * Rooftop Relay is fought above open air rather than a street. Every roof
+     * therefore belongs to an independent skyscraper that continues below the
+     * camera instead of becoming a short block perched on another building.
+     */
+    static Layout createRooftopRelay(List<Platform> platforms, double groundY) {
+        return create(platforms, groundY, BirdGame3.WORLD_HEIGHT, true);
+    }
+
+    private static Layout create(List<Platform> platforms,
+                                 double groundY,
+                                 double facadeBaseY,
+                                 boolean independentUpperTowers) {
         List<Platform> cityPlatforms = platforms.stream()
                 .filter(platform -> platform.x >= 0.0 && platform.x < BirdGame3.WORLD_WIDTH
                         && platform.y < groundY - 2.0
@@ -79,7 +84,7 @@ final class CityBuildingGeometry {
         List<Facade> facades = new ArrayList<>();
         List<BalconyBraces> braces = new ArrayList<>();
         for (Platform roof : mainRoofs) {
-            facadeFor(roof, groundY).ifPresent(facades::add);
+            facadeFor(roof, facadeBaseY).ifPresent(facades::add);
         }
 
         for (Platform feature : cityPlatforms) {
@@ -91,11 +96,12 @@ final class CityBuildingGeometry {
             if (parentRoof == null) continue;
 
             if (feature.y < parentRoof.y) {
-                facadeFor(feature, parentRoof.y).ifPresent(facades::add);
+                double baseY = independentUpperTowers ? facadeBaseY : parentRoof.y;
+                facadeFor(feature, baseY).ifPresent(facades::add);
                 continue;
             }
 
-            Facade parentFacade = facadeFor(parentRoof, groundY).orElse(null);
+            Facade parentFacade = facadeFor(parentRoof, facadeBaseY).orElse(null);
             if (parentFacade != null) {
                 braces.add(createBraces(feature, parentFacade));
             }
@@ -105,21 +111,6 @@ final class CityBuildingGeometry {
 
     static double facadeInset(double roofWidth) {
         return Math.clamp(roofWidth * 0.045, 8.0, 28.0);
-    }
-
-    static List<SkylineTower> skylineLayer(double spacing,
-                                           double topBase,
-                                           double foundationY) {
-        int count = (int) Math.ceil((BirdGame3.WORLD_WIDTH + 1_400.0) / spacing);
-        List<SkylineTower> towers = new ArrayList<>();
-        for (int index = -2; index < count; index++) {
-            double width = spacing * (0.62 + Math.floorMod(index, 3) * 0.08);
-            double topY = topBase + Math.floorMod(index * 197, 560);
-            if (Math.floorMod(index, 5) == 0) topY -= 270.0;
-            boolean peaked = Math.floorMod(index, 3) == 0;
-            towers.add(new SkylineTower(index * spacing, topY, width, foundationY, peaked));
-        }
-        return List.copyOf(towers);
     }
 
     static boolean facadeHasFoundation(Facade facade,

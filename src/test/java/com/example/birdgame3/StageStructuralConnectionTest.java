@@ -6,6 +6,7 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -32,7 +33,8 @@ class StageStructuralConnectionTest {
     @Test
     void rooftopRelayOverhangsTerminateOnPaintedFacadeInsteadOfHiddenRoofEdge() throws Exception {
         BirdGame3 game = prepare(BirdGame3.MapType.CITY, BirdGame3.MapVariant.ROOFTOP_RELAY);
-        CityBuildingGeometry.Layout layout = CityBuildingGeometry.create(game.platforms, BirdGame3.GROUND_Y);
+        CityBuildingGeometry.Layout layout = CityBuildingGeometry.createRooftopRelay(
+                game.platforms, BirdGame3.GROUND_Y);
         List<CityBuildingGeometry.BalconyBraces> overhangs = layout.balconyBraces().stream()
                 .filter(braces -> !braces.integratedIntoFacade())
                 .toList();
@@ -50,39 +52,53 @@ class StageStructuralConnectionTest {
     }
 
     @Test
-    void everyForegroundCityFacadeRestsOnGroundOrAParentRoof() throws Exception {
-        for (BirdGame3.MapVariant variant : List.of(
-                BirdGame3.MapVariant.STANDARD,
-                BirdGame3.MapVariant.ROOFTOP_RELAY)) {
-            BirdGame3 game = prepare(BirdGame3.MapType.CITY, variant);
-            CityBuildingGeometry.Layout layout = CityBuildingGeometry.create(
-                    game.platforms, BirdGame3.GROUND_Y);
-            assertFalse(layout.facades().isEmpty(), variant + " must contain visible building facades");
-            for (CityBuildingGeometry.Facade facade : layout.facades()) {
-                assertTrue(CityBuildingGeometry.facadeHasFoundation(
-                                facade, game.platforms, BirdGame3.GROUND_Y, TOLERANCE),
-                        () -> variant + " has a floating facade beneath platform at ("
-                                + facade.roof().x + ", " + facade.roof().y + ")");
-            }
+    void standardCityFacadesRestOnStreetOrAParentRoof() throws Exception {
+        BirdGame3 game = prepare(BirdGame3.MapType.CITY, BirdGame3.MapVariant.STANDARD);
+        CityBuildingGeometry.Layout layout = CityBuildingGeometry.create(
+                game.platforms, BirdGame3.GROUND_Y);
+        assertFalse(layout.facades().isEmpty(), "standard City must contain visible building facades");
+        for (CityBuildingGeometry.Facade facade : layout.facades()) {
+            assertTrue(CityBuildingGeometry.facadeHasFoundation(
+                            facade, game.platforms, BirdGame3.GROUND_Y, TOLERANCE),
+                    () -> "standard City has a floating facade beneath platform at ("
+                            + facade.roof().x + ", " + facade.roof().y + ")");
         }
     }
 
     @Test
-    void rooftopRelaySkylineTowersContinueBehindTheCloudFoundation() {
-        double foundationY = BirdGame3.GROUND_Y
-                + CityBuildingGeometry.ROOFTOP_RELAY_FOUNDATION_DEPTH;
-        for (CityBuildingGeometry.SkylineTower tower : CityBuildingGeometry.skylineLayer(
-                340.0, 1_050.0, foundationY)) {
-            assertTrue(tower.foundationY() >= BirdGame3.GROUND_Y + 500.0,
-                    "distant tower must continue behind the cloud deck instead of floating on it");
-            assertTrue(tower.height() > 0.0, "distant tower must have a valid body");
+    void everyRooftopRelayTowerContinuesToTheBottomOfTheScene() throws Exception {
+        BirdGame3 game = prepare(BirdGame3.MapType.CITY, BirdGame3.MapVariant.ROOFTOP_RELAY);
+        CityBuildingGeometry.Layout layout = CityBuildingGeometry.createRooftopRelay(
+                game.platforms, BirdGame3.GROUND_Y);
+        List<CityBuildingGeometry.Facade> narrowTowers = layout.facades().stream()
+                .filter(facade -> facade.roof().w < 650.0)
+                .toList();
+
+        assertFalse(narrowTowers.isEmpty(),
+                "the audit must cover Rooftop Relay's narrow upper towers");
+        for (CityBuildingGeometry.Facade facade : layout.facades()) {
+            assertEquals(BirdGame3.WORLD_HEIGHT, facade.bounds().bottom(), TOLERANCE,
+                    () -> "Rooftop Relay tower at (" + facade.roof().x + ", "
+                            + facade.roof().y + ") stops on another building");
         }
-        for (CityBuildingGeometry.SkylineTower tower : CityBuildingGeometry.skylineLayer(
-                610.0, 1_260.0, foundationY)) {
-            assertTrue(tower.foundationY() >= BirdGame3.GROUND_Y + 500.0,
-                    "near tower must continue behind the cloud deck instead of floating on it");
-            assertTrue(tower.height() > 0.0, "near tower must have a valid body");
-        }
+    }
+
+    @Test
+    void rooftopRelayCloudAltitudeDoesNotCreateAnInvisibleWalkableFloor() throws Exception {
+        BirdGame3 game = prepare(BirdGame3.MapType.CITY, BirdGame3.MapVariant.ROOFTOP_RELAY);
+        Bird bird = new Bird(995.0, BirdGame3.BirdType.PIGEON, 0, game);
+        bird.y = BirdGame3.GROUND_Y - bird.bodyHeight();
+
+        assertFalse(game.hasImplicitGroundFloorForCurrentArena(),
+                "only Rooftop Relay's authored building roofs should be solid");
+        assertFalse(bird.hasSolidGroundFloorUnderBody(),
+                "the cloud bank must not act as collision geometry");
+        assertFalse(bird.isOnGround(),
+                "the open gap between HOME and MARKET must lead into the void");
+
+        BirdGame3 standardCity = prepare(BirdGame3.MapType.CITY, BirdGame3.MapVariant.STANDARD);
+        assertTrue(standardCity.hasImplicitGroundFloorForCurrentArena(),
+                "removing Rooftop Relay's fake floor must not remove the normal City street");
     }
 
     private static void auditStage(BirdGame3.MapType map,
@@ -107,7 +123,9 @@ class StageStructuralConnectionTest {
         }
 
         BirdGame3 game = prepare(map, variant);
-        CityBuildingGeometry.Layout layout = CityBuildingGeometry.create(game.platforms, BirdGame3.GROUND_Y);
+        CityBuildingGeometry.Layout layout = variant == BirdGame3.MapVariant.ROOFTOP_RELAY
+                ? CityBuildingGeometry.createRooftopRelay(game.platforms, BirdGame3.GROUND_Y)
+                : CityBuildingGeometry.create(game.platforms, BirdGame3.GROUND_Y);
         for (CityBuildingGeometry.BalconyBraces braces : layout.balconyBraces()) {
             for (StageArtGeometry.Segment segment : braces.segments()) {
                 String label = map + " / " + variant + " support " + segment;

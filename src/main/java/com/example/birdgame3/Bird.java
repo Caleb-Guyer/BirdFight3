@@ -2806,7 +2806,7 @@ public class Bird {
             return !usesIslandBounds()
                     && !game.isDockWaterAt(bodyCenterX(), BirdGame3.GROUND_Y + 8);
         }
-        return !usesIslandBounds();
+        return game.hasImplicitGroundFloorForCurrentArena();
     }
 
     private double voidStandFloorY() {
