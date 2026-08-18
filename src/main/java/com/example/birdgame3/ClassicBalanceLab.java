@@ -69,7 +69,7 @@ final class ClassicBalanceLab {
             sb.append("- Objective/bonus rounds: ")
                     .append(config.includeObjectiveRounds() ? "included (interpret separately)" : "listed but not simulated")
                     .append('\n');
-            sb.append("- Metric: team clear rate in the real Classic encounter setup\n\n");
+            sb.append("- Metric: attempt-based team clear rate in the real Classic encounter setup; harness cutoffs count as draws and failed clears\n\n");
 
             BirdType current = null;
             for (EncounterSummary summary : summaries) {
@@ -184,7 +184,15 @@ final class ClassicBalanceLab {
         ClassicEncounter encounter = game.harnessPrepareClassicEncounter(
                 bird, roundIndex, difficulty, playerCpuLevel, routeSeed, matchSeed);
         long ticks = 0;
-        while (game.harnessTick() && ticks < maxTicks) {
+        // The general audit cap used to end 250-second boss encounters at the
+        // four-minute mark, creating artificial draws before their real timer
+        // could choose a winner. Never cut an authored encounter short.
+        // Hitstop consumes harness ticks without advancing the authored match
+        // clock. Allow presentation pauses to finish while retaining a hard
+        // ninety-second guard against a genuinely wedged encounter.
+        long authoredTickLimit = Math.max(60L, (long) game.matchTimer + 90L * 60L);
+        long tickLimit = Math.max(maxTicks, authoredTickLimit);
+        while (ticks < tickLimit && game.harnessTick()) {
             ticks++;
         }
 
@@ -215,14 +223,16 @@ final class ClassicBalanceLab {
             totalTicks += outcome.ticks();
             totalDamage += outcome.damageDealt();
         }
-        int decided = wins + losses;
-        double clearRate = decided == 0 ? 0.0 : wins / (double) decided;
         int matches = outcomes.size();
         return new EncounterSummary(bird, roundIndex, encounter.name, encounter.style,
                 encounterMapName(encounter), objectiveRound, matches, wins, losses, draws,
-                clearRate,
+                attemptClearRate(wins, matches),
                 matches == 0 ? 0.0 : totalTicks / (double) matches,
                 matches == 0 ? 0.0 : totalDamage / (double) matches);
+    }
+
+    static double attemptClearRate(int wins, int matches) {
+        return matches <= 0 ? 0.0 : Math.clamp(wins, 0, matches) / (double) matches;
     }
 
     static boolean isObjectiveRound(ClassicEncounterStyle style) {

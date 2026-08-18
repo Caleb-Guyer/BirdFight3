@@ -4,7 +4,7 @@
 - Player AI level: 5
 - Matches per scored encounter: 64
 - Objective/bonus rounds: listed but not simulated
-- Metric: team clear rate in the real Classic encounter setup
+- Metric: attempt-based team clear rate in the real Classic encounter setup; harness cutoffs count as draws and failed clears
 
 ## Vulture
 
@@ -17,7 +17,7 @@
 | 5 | False Flock | Combat | Cave | 28-36-0 | 43.8% | 162.0s | 297 | Target band |
 | 6 | The Last Auction | Combat | Silent Amphitheater | 29-35-0 | 45.3% | 151.9s | 169 | Target band |
 | 7 | Bonus: Final Inventory | Objective | Sorting Floor | — | — | — | — | Not scored |
-| 8 | The Final Account | Combat | Reclamation Core | 33-3-28 | 91.7% | 225.7s | 282 | Possibly too easy |
+| 8 | The Final Account | Combat | Reclamation Core | 37-27-0 | 57.8% | 233.6s | 288 | Target band |
 
 ## How to use this report
 

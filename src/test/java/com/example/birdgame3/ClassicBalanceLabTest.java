@@ -76,4 +76,21 @@ class ClassicBalanceLabTest {
 
         assertEquals(7, game.harnessClassicRoadrunnerBoltCount());
     }
+
+    @Test
+    void clearRateCountsEveryAttemptInsteadOfDiscardingCutoffDraws() {
+        assertEquals(0.30, ClassicBalanceLab.attemptClearRate(3, 10), 0.0001);
+        assertEquals(0.0, ClassicBalanceLab.attemptClearRate(0, 0), 0.0);
+    }
+
+    @Test
+    void authoredBossTimerOutlivesAShortGeneralAuditCapAndStillDecidesTheMatch() {
+        ClassicBalanceLab.EncounterOutcome outcome = ClassicBalanceLab.playEncounter(
+                freshGame(), BirdGame3.BirdType.VULTURE, 7,
+                5.0, 5, 0x7A11A0L, 0x7A11A1L, 60L);
+
+        assertTrue(outcome.ticks() > 60L);
+        assertTrue(outcome.decided(),
+                "The audit must reach the Debt Engine's real timeout instead of reporting an artificial draw.");
+    }
 }
