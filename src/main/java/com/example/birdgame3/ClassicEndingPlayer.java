@@ -188,6 +188,7 @@ final class ClassicEndingPlayer {
         boolean vultureFinalAccount = ClassicEndingContent.isVultureFinalAccount(cinematic);
         boolean opiumTwelfthFuture = ClassicEndingContent.isOpiumTwelfthFuture(cinematic);
         boolean heisenBlueVault = ClassicEndingContent.isHeisenBlueVault(cinematic);
+        boolean titmouseWarningBeacon = ClassicEndingContent.isTitmouseWarningBeacon(cinematic);
         if (continuousPanorama) {
             double routeProgress = Math.clamp((beatIndex + progress) / cinematic.beats().size(), 0.0, 1.0);
             drawRoadrunnerPanorama(g, now / 1_000_000_000.0, routeProgress);
@@ -215,6 +216,9 @@ final class ClassicEndingPlayer {
         } else if (heisenBlueVault) {
             double routeProgress = Math.clamp((beatIndex + progress) / cinematic.beats().size(), 0.0, 1.0);
             drawHeisenBlueVault(g, now / 1_000_000_000.0, routeProgress);
+        } else if (titmouseWarningBeacon) {
+            double routeProgress = Math.clamp((beatIndex + progress) / cinematic.beats().size(), 0.0, 1.0);
+            drawTitmouseWarningBeacon(g, now / 1_000_000_000.0, routeProgress);
         } else {
             drawBackground(g, now / 1_000_000_000.0, progress);
             drawTableau(g, currentBeat().tableau(), progress, now / 1_000_000_000.0);
@@ -224,9 +228,116 @@ final class ClassicEndingPlayer {
         drawProgress(g);
         if (!continuousPanorama && !subglacialMontage && !stillwaterRevelation
                 && !charlesLivingScore && !razorbillFinalCut && !grinchOpenSack
-                && !vultureFinalAccount && !opiumTwelfthFuture && !heisenBlueVault) {
+                && !vultureFinalAccount && !opiumTwelfthFuture && !heisenBlueVault
+                && !titmouseWarningBeacon) {
             drawTransition(g, progress);
         }
+        g.restore();
+    }
+
+    private void drawTitmouseWarningBeacon(GraphicsContext g, double time, double progress) {
+        Color dawnTop = Color.web("#071624").interpolate(Color.web("#38566A"), progress);
+        Color dawnBottom = Color.web("#10231D").interpolate(Color.web("#E49C55"), progress * 0.82);
+        g.setFill(new LinearGradient(0, 0, 0, LOGICAL_HEIGHT, false, CycleMethod.NO_CYCLE,
+                new Stop(0, dawnTop), new Stop(1, dawnBottom)));
+        g.fillRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
+
+        double drift = progress * 260.0;
+        for (int layer = 0; layer < 3; layer++) {
+            double baseY = 720.0 + layer * 70.0;
+            Color canopy = layer == 0 ? Color.web("#102F29")
+                    : layer == 1 ? Color.web("#0B251F") : Color.web("#061A14");
+            g.setFill(canopy);
+            for (int i = -2; i < 15; i++) {
+                double x = i * 165.0 - drift * (0.12 + layer * 0.08);
+                double y = baseY - (i % 3) * 38.0;
+                g.fillOval(x, y - 170.0, 250.0, 210.0);
+            }
+        }
+
+        double treeRise = Math.clamp((progress - 0.18) / 0.28, 0.0, 1.0);
+        double trunkTop = 760.0 - treeRise * 520.0;
+        g.setStroke(Color.web("#352419"));
+        g.setLineWidth(128.0);
+        g.strokeLine(960.0, 930.0, 960.0, trunkTop);
+        g.setStroke(Color.web("#5B3A23"));
+        g.setLineWidth(28.0);
+        for (int branch = 0; branch < 5; branch++) {
+            double by = 765.0 - branch * 92.0 * treeRise;
+            double reach = (220.0 + branch * 28.0) * treeRise;
+            g.strokeLine(960.0, by, 960.0 - reach, by - 75.0);
+            g.strokeLine(960.0, by - 15.0, 960.0 + reach, by - 100.0);
+        }
+        g.setFill(Color.web("#143B2B"));
+        g.fillOval(600.0, trunkTop - 170.0, 720.0, 300.0);
+        g.setFill(Color.web("#236144"));
+        g.fillOval(710.0, trunkTop - 220.0, 500.0, 230.0);
+
+        double owlFade = 1.0 - Math.clamp(progress / 0.20, 0.0, 1.0);
+        if (owlFade > 0.0) {
+            drawEndingOldOwl(g, 1_380.0 + progress * 130.0, 720.0 + progress * 90.0,
+                    1.12, owlFade);
+        }
+
+        double climb = Math.clamp((progress - 0.12) / 0.48, 0.0, 1.0);
+        double birdX = 420.0 + climb * 505.0;
+        double birdY = 760.0 - climb * 520.0 - Math.sin(climb * Math.PI * 6.0) * 22.0;
+        drawBird(g, narrator, birdX, birdY, 0.92 + climb * 0.18, true, 1.0);
+
+        double beaconProgress = Math.clamp((progress - 0.52) / 0.20, 0.0, 1.0);
+        double crownY = trunkTop - 155.0 - Math.sin(time * 1.4) * 9.0;
+        drawCrown(g, 960.0, crownY, 0.82 + beaconProgress * 0.22, time, beaconProgress);
+        if (beaconProgress > 0.0) {
+            g.setStroke(Color.web("#FFE082", 0.78 * beaconProgress));
+            for (int ring = 0; ring < 8; ring++) {
+                double radius = 70.0 + Math.floorMod((int) (time * 85.0 + ring * 120.0), 960);
+                g.setLineWidth(Math.max(2.0, 11.0 - radius * 0.008));
+                g.strokeOval(960.0 - radius, crownY - radius * 0.48,
+                        radius * 2.0, radius * 0.96);
+            }
+            g.setFill(Color.web("#FFF8C5", 0.10 * beaconProgress));
+            g.fillPolygon(new double[]{900.0, 1020.0, 1_650.0, 270.0},
+                    new double[]{crownY, crownY, 0.0, 0.0}, 4);
+        }
+
+        double flockProgress = Math.clamp((progress - 0.68) / 0.24, 0.0, 1.0);
+        if (flockProgress > 0.0) {
+            for (int i = 0; i < flock.size(); i++) {
+                double side = i % 2 == 0 ? -1.0 : 1.0;
+                double x = 960.0 + side * (260.0 + i * 120.0) + Math.sin(time + i) * 18.0;
+                double y = 560.0 - (i % 3) * 110.0 - Math.sin(time * 1.3 + i) * 14.0;
+                drawBird(g, flock.get(i), x, y, 0.52, side < 0.0, flockProgress);
+            }
+        }
+    }
+
+    private void drawEndingOldOwl(GraphicsContext g, double x, double y, double scale, double alpha) {
+        g.save();
+        g.setGlobalAlpha(Math.clamp(alpha, 0.0, 1.0));
+        g.translate(x, y);
+        g.scale(scale, scale);
+        g.setFill(Color.web("#29241F"));
+        g.fillPolygon(new double[]{-55, -175, -135, -48}, new double[]{-15, -85, 95, 110}, 4);
+        g.fillPolygon(new double[]{55, 175, 135, 48}, new double[]{-15, -85, 95, 110}, 4);
+        g.setFill(Color.web("#40382F"));
+        g.fillOval(-125, -145, 250, 290);
+        g.setStroke(Color.web("#9B8A72"));
+        g.setLineWidth(12);
+        g.strokeOval(-125, -145, 250, 290);
+        g.setFill(Color.web("#51483C"));
+        g.fillPolygon(new double[]{-108, -62, -12}, new double[]{-95, -205, -98}, 3);
+        g.fillPolygon(new double[]{108, 62, 12}, new double[]{-95, -205, -98}, 3);
+        g.setFill(Color.web("#C8BBA5"));
+        g.fillOval(-101, -108, 92, 92);
+        g.fillOval(9, -108, 92, 92);
+        g.setFill(Color.web("#FFB74D"));
+        g.fillOval(-70, -80, 29, 29);
+        g.fillOval(41, -80, 29, 29);
+        g.setFill(Color.web("#080706"));
+        g.fillOval(-60, -71, 12, 18);
+        g.fillOval(49, -71, 12, 18);
+        g.setFill(Color.web("#D3A33D"));
+        g.fillPolygon(new double[]{-20, 20, 0}, new double[]{-35, -35, 18}, 3);
         g.restore();
     }
 
@@ -1684,7 +1795,8 @@ final class ClassicEndingPlayer {
                 || ClassicEndingContent.isSubglacialMontage(cinematic)
                 || ClassicEndingContent.isStillwaterRevelation(cinematic)
                 || ClassicEndingContent.isOpiumTwelfthFuture(cinematic)
-                || ClassicEndingContent.isHeisenBlueVault(cinematic)) && beatIndex > 0) return;
+                || ClassicEndingContent.isHeisenBlueVault(cinematic)
+                || ClassicEndingContent.isTitmouseWarningBeacon(cinematic)) && beatIndex > 0) return;
         game.playClassicEndingTableauCue(currentBeat().tableau());
     }
 

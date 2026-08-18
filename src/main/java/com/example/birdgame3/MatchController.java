@@ -508,6 +508,10 @@ final class MatchController {
             game.finishClassicHeisenCalibrationFromTimeout();
             return;
         }
+        if (game.isClassicTitmouseMemoryActive() && game.matchTimer <= 0) {
+            game.finishClassicTitmouseMemoryFromTimeout();
+            return;
+        }
         if (game.isClassicSeamWardenActive() && game.matchTimer <= 0) {
             game.finishClassicSeamWardenFromTimeout();
             return;
@@ -592,6 +596,9 @@ final class MatchController {
             return;
         }
         if (game.holdClassicHeisenbirdEncounterOpen()) {
+            return;
+        }
+        if (game.holdClassicTitmouseEncounterOpen()) {
             return;
         }
         if (game.campaignModeActive) {

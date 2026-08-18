@@ -1842,6 +1842,10 @@ public class BirdGame3 {
                 && classicEncounter.style == ClassicEncounterStyle.HEISEN_BLUE_SKY_ENGINE_BOSS) {
             return "music-vulture-debt-engine.mp3";
         }
+        if (classicModeActive && classicEncounter != null
+                && classicEncounter.style == ClassicEncounterStyle.TITMOUSE_OLD_OWL_BOSS) {
+            return "music-charles-maestro.mp3";
+        }
         if (activeArenaGeometryVariant == MapVariant.OBSIDIAN_FOUNDRY) {
             return "music-razorbill-glasswind.mp3";
         }
@@ -5261,6 +5265,38 @@ public class BirdGame3 {
     private int classicBlueSkyReversalCooldown = 0;
     private int classicBlueSkyDamageWindow = 0;
     private double classicBlueSkyCloseDamage = 0.0;
+    static final double OLD_OWL_BASE_HEALTH = 500.0;
+    static final double OLD_OWL_GUARDED_DAMAGE_SCALE = 0.48;
+    static final double OLD_OWL_OPEN_DAMAGE_SCALE = 1.28;
+    static final double[] OLD_OWL_PERCH_X = {1_250.0, 2_180.0, 3_820.0, 4_750.0, 3_000.0};
+    static final double[] OLD_OWL_PERCH_Y = {
+            GROUND_Y - 820.0, GROUND_Y - 1_150.0, GROUND_Y - 1_150.0,
+            GROUND_Y - 820.0, GROUND_Y - 670.0
+    };
+    static final double[] TITMOUSE_MEMORY_CACHE_X = {
+            840.0, 1_420.0, 2_120.0, 3_000.0, 3_880.0, 4_580.0, 5_160.0
+    };
+    static final double[] TITMOUSE_MEMORY_CACHE_Y = {
+            GROUND_Y - 530.0, GROUND_Y - 790.0, GROUND_Y - 1_060.0,
+            GROUND_Y - 1_280.0, GROUND_Y - 1_060.0,
+            GROUND_Y - 790.0, GROUND_Y - 530.0
+    };
+    private final List<ClassicVaultSeal> classicTitmouseMemoryCaches = new ArrayList<>();
+    private final List<ClassicBellkeeperProjectile> classicOldOwlProjectiles = new ArrayList<>();
+    private int classicTitmouseWaveIndex = 0;
+    private int classicTitmouseMemoryRevealFrames = 0;
+    private int classicTitmouseMemoryHintIndex = 0;
+    private boolean classicTitmouseMemoryCompleted = false;
+    private int classicOldOwlPhase = 0;
+    private int classicOldOwlAttackTimer = 88;
+    private int classicOldOwlAttackKind = -1;
+    private int classicOldOwlPerch = 0;
+    private int classicOldOwlHitCooldown = 0;
+    private int classicOldOwlOpenTimer = 0;
+    private int classicOldOwlReversalTimer = 0;
+    private int classicOldOwlReversalCooldown = 0;
+    private int classicOldOwlDamageWindow = 0;
+    private double classicOldOwlCloseDamage = 0.0;
     private static final double STILLWATER_MAIN_X = 900.0;
     private static final double STILLWATER_MAIN_Y = GROUND_Y - 330.0;
     private static final double STILLWATER_MAIN_W = 4_200.0;
@@ -5361,7 +5397,10 @@ public class BirdGame3 {
         FIXED_FUTURE("The Still Future", "Break three certainty seals inside this battle to expose the Still King's stamina. No route resource is carried forward."),
         PRODUCTION_TRIAL("Production Trial", "Each battle is an independent product test. No resource, advantage, or penalty carries into another round."),
         FINAL_CALIBRATION("Final Calibration", "Touch seven stormglass regulators in order while reading the refinery's installed electrical warnings. Timeout advances safely."),
-        PRODUCT_LAUNCH("Product Launch", "Break the Blue Sky Engine's stamina during its overheating windows while reading its crystal, column, and supercell attacks.");
+        PRODUCT_LAUNCH("Product Launch", "Break the Blue Sky Engine's stamina during its overheating windows while reading its crystal, column, and supercell attacks."),
+        FOREST_ALARM("Forest Alarm", "Each alarm is local to this battle. Titmouse's ordinary fighter kit is never replaced."),
+        HIDDEN_CACHES("Hidden Caches", "Memorize seven cache locations, then recover them with escalating visual hints. Falling and timeout are safe."),
+        LAST_HUSH("The Last Hush", "Punish the Old Owl's landings, read its feather lanes, and retreat from its defensive wing burst.");
 
         final String label;
         final String description;
@@ -5444,7 +5483,11 @@ public class BirdGame3 {
         OPIUM_STILL_KING_BOSS,
         HEISEN_BATCH_GAUNTLET,
         HEISEN_CALIBRATION,
-        HEISEN_BLUE_SKY_ENGINE_BOSS
+        HEISEN_BLUE_SKY_ENGINE_BOSS,
+        TITMOUSE_VOICE_GAUNTLET,
+        TITMOUSE_SHADOW_HUNT,
+        TITMOUSE_MEMORY_CACHE,
+        TITMOUSE_OLD_OWL_BOSS
     }
 
     static final class ClassicRiftAnchor {
@@ -14296,6 +14339,7 @@ public class BirdGame3 {
         drawClassicVultureRouteFeatures(g);
         drawClassicOpiumBirdRouteFeatures(g);
         drawClassicHeisenbirdRouteFeatures(g);
+        drawClassicTitmouseRouteFeatures(g);
         drawUltimateReadyScreenDarken(g);
         drawCampaignObjectiveMarkers(g);
 
@@ -14377,7 +14421,8 @@ public class BirdGame3 {
                     continue;
                 }
                 // Always draw birds at full opacity; HUD elements will fade when they overlap birds.
-                if (!drawClassicCharlesConstruct(g, b) && !drawClassicRazorbillConstruct(g, b)
+                if (!drawClassicOldOwl(g, b)
+                        && !drawClassicCharlesConstruct(g, b) && !drawClassicRazorbillConstruct(g, b)
                         && !drawClassicGrinchHawkConstruct(g, b) && !drawClassicVultureConstruct(g, b)
                         && !drawClassicHeisenConstruct(g, b)) {
                     b.draw(g);
@@ -41839,6 +41884,9 @@ public class BirdGame3 {
         if (useAuthoredRoutes && playerType == BirdType.HEISENBIRD) {
             return buildHeisenbirdClassicRun();
         }
+        if (useAuthoredRoutes && playerType == BirdType.TITMOUSE) {
+            return buildTitmouseClassicRun();
+        }
         List<ClassicEncounter> run = new ArrayList<>();
         Set<MapType> usedMaps = new HashSet<>();
         Set<BirdType> usedBirds = new HashSet<>();
@@ -43973,6 +44021,108 @@ public class BirdGame3 {
         return run;
     }
 
+    private List<ClassicEncounter> buildTitmouseClassicRun() {
+        List<ClassicEncounter> run = new ArrayList<>();
+
+        ClassicEncounter firstChirp = new ClassicEncounter(
+                "First Chirp", "Forest Floor",
+                "Three tiny Kiwi Birds answer the first warning. Their ultimates are sealed.",
+                MapType.FOREST, MapVariant.STANDARD, MatchMutator.NONE,
+                ClassicTwist.FOREST_ALARM, ClassicEncounterStyle.MINIATURE_FLOCK, 105 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{
+                classicFighter(BirdType.KIWI, "Rookie Scout I", 58, 0.52, 1.06),
+                classicFighter(BirdType.KIWI, "Rookie Scout II", 58, 0.52, 1.06),
+                classicFighter(BirdType.KIWI, "Rookie Scout III", 58, 0.52, 1.06)}, false);
+        firstChirp.cpuLevel = 3;
+        run.add(firstChirp);
+
+        ClassicEncounter thieves = new ClassicEncounter(
+                "Cache Thieves", "Rooftop Relay",
+                "Roadrunner and Goose raid the rooftop stores. Stop both using Titmouse's ordinary kit.",
+                MapType.CITY, MapVariant.ROOFTOP_RELAY, MatchMutator.NONE,
+                ClassicTwist.FOREST_ALARM, ClassicEncounterStyle.STANDARD, 115 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{
+                classicFighter(BirdType.ROADRUNNER, "Cache Thief: Roadrunner", 72, 0.63, 1.05),
+                classicFighter(BirdType.GOOSE, "Cache Thief: Goose", 76, 0.62, 0.98)}, false);
+        thieves.cpuLevel = 4;
+        run.add(thieves);
+
+        ClassicEncounter alarm = new ClassicEncounter(
+                "Raise the Alarm", "Heartbloom Sanctuary",
+                "Hummingbird joins Titmouse against a giant Vulture and Raven.",
+                MapType.VIBRANT_JUNGLE, MapVariant.HEARTBLOOM_SANCTUARY, MatchMutator.NONE,
+                ClassicTwist.FOREST_ALARM, ClassicEncounterStyle.STANDARD, 125 * 60,
+                new ClassicFighter[]{classicFighter(BirdType.HUMMINGBIRD, "Ally: Flower Courier", 94, 0.72, 1.04)},
+                new ClassicFighter[]{
+                        classicFighter(BirdType.VULTURE, "Giant: Carrion Intruder", 112, 0.76, 0.92),
+                        classicFighter(BirdType.RAVEN, "Carrion Shadow", 76, 0.62, 1.00)}, false);
+        alarm.cpuLevel = 5;
+        run.add(alarm);
+
+        ClassicFighter firstVoice = classicFighter(BirdType.TITMOUSE, "Voice I: The Scold", 82, 0.72, 1.00);
+        ClassicEncounter voices = new ClassicEncounter(
+                "Every Voice Different", "Stillwater Marsh",
+                "Three Titmice arrive in separate waves and emphasize different parts of the real move set.",
+                MapType.FOREST, MapVariant.STILLWATER_MARSH, MatchMutator.NONE,
+                ClassicTwist.FOREST_ALARM, ClassicEncounterStyle.TITMOUSE_VOICE_GAUNTLET, 150 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{firstVoice}, false)
+                .withWaves(
+                        new ClassicFighter[]{firstVoice},
+                        new ClassicFighter[]{classicFighter(BirdType.TITMOUSE, "Voice II: The Cache", 88, 0.74, 0.98)},
+                        new ClassicFighter[]{classicFighter(BirdType.TITMOUSE, "Voice III: The Vault", 94, 0.76, 1.02)});
+        voices.cpuLevel = 5;
+        run.add(voices);
+
+        ClassicEncounter hide = new ClassicEncounter(
+                "No Place to Hide", "Echo Cavern",
+                "Bat and Opium Bird stalk the dark while moving pools of light keep every threat readable.",
+                MapType.CAVE, MapVariant.STANDARD, MatchMutator.NONE,
+                ClassicTwist.FOREST_ALARM, ClassicEncounterStyle.TITMOUSE_SHADOW_HUNT, 120 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{
+                classicFighter(BirdType.BAT, "Night Hunter: Bat", 78, 0.66, 1.02),
+                classicFighter(BirdType.OPIUMBIRD, "Night Hunter: Opium Bird", 76, 0.64, 1.00)}, false);
+        hide.cpuLevel = 5;
+        run.add(hide);
+
+        ClassicEncounter answer = new ClassicEncounter(
+                "All Wings Answer", "Dawnwatch Bastion",
+                "Pigeon and Rooster answer the alarm against a giant Eagle and Falcon.",
+                MapType.BEACON_CROWN, MapVariant.DAWNWATCH_BASTION, MatchMutator.NONE,
+                ClassicTwist.FOREST_ALARM, ClassicEncounterStyle.TITMOUSE_VOICE_GAUNTLET, 145 * 60,
+                new ClassicFighter[]{
+                        classicFighter(BirdType.PIGEON, "Ally: Rooftop Watch", 92, 0.70, 1.00),
+                        classicFighter(BirdType.ROOSTER, "Ally: Dawn Caller", 96, 0.72, 0.98)},
+                new ClassicFighter[]{classicFighter(BirdType.EAGLE,
+                        "Giant: The Silent Talon", 122, 0.78, 0.92)}, false)
+                .withWaves(
+                        new ClassicFighter[]{classicFighter(BirdType.EAGLE,
+                                "Giant: The Silent Talon", 122, 0.78, 0.92)},
+                        new ClassicFighter[]{classicFighter(BirdType.FALCON,
+                                "Silent Pursuer", 92, 0.70, 1.03)});
+        answer.cpuLevel = 6;
+        run.add(answer);
+
+        ClassicEncounter memory = new ClassicEncounter(
+                "Bonus: Where I Left Everything", "Last Ice Shelf",
+                "Memorize seven caches before they fade, then recover them. Hints strengthen over time; falling and timeout are safe.",
+                MapType.FROSTBITE_FJORD, MapVariant.LAST_ICE_SHELF, MatchMutator.NONE,
+                ClassicTwist.HIDDEN_CACHES, ClassicEncounterStyle.TITMOUSE_MEMORY_CACHE, 92 * 60,
+                new ClassicFighter[0], new ClassicFighter[0], false);
+        memory.cpuLevel = 1;
+        run.add(memory);
+
+        ClassicEncounter owl = new ClassicEncounter(
+                "The Last Hush", "Silent Amphitheater",
+                "Drain the Old Owl's stamina. Read its silent dives and feather lanes, punish each landing, then retreat from its wing burst.",
+                MapType.SILENT_AMPHITHEATER, MapVariant.STANDARD, MatchMutator.NONE,
+                ClassicTwist.LAST_HUSH, ClassicEncounterStyle.TITMOUSE_OLD_OWL_BOSS, 235 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{
+                classicFighter(BirdType.VULTURE, "Boss: The Old Owl", OLD_OWL_BASE_HEALTH, 1.00, 0.98)}, true);
+        owl.cpuLevel = 8;
+        run.add(owl);
+        return run;
+    }
+
     private ClassicEncounter buildShoebillSwiftTrailEncounter() {
         ClassicEncounter encounter = new ClassicEncounter(
                 "Swift Trail", "Redline Track",
@@ -44690,6 +44840,7 @@ public class BirdGame3 {
         if (type == BirdType.VULTURE) return "NOTHING GOES TO WASTE";
         if (type == BirdType.OPIUMBIRD) return "THE TWELFTH FUTURE";
         if (type == BirdType.HEISENBIRD) return "THE PERFECT PRODUCT";
+        if (type == BirdType.TITMOUSE) return "THE ALARM IN THE TREES";
         return "TEMPORARY FLIGHT PLAN";
     }
 
@@ -45050,7 +45201,8 @@ public class BirdGame3 {
                 || classicEncounter.style == ClassicEncounterStyle.PERFECT_PITCH
                 || classicEncounter.style == ClassicEncounterStyle.BETWEEN_LINES
                 || classicEncounter.style == ClassicEncounterStyle.OPIUM_LUCID_DASH
-                || classicEncounter.style == ClassicEncounterStyle.HEISEN_CALIBRATION;
+                || classicEncounter.style == ClassicEncounterStyle.HEISEN_CALIBRATION
+                || classicEncounter.style == ClassicEncounterStyle.TITMOUSE_MEMORY_CACHE;
         Label round = new Label((routeBonus ? "BONUS " : "ROUND ")
                 + (classicRoundIndex + 1));
         round.setFont(Font.font("Arial Black", FontWeight.BOLD, 72));
@@ -45105,6 +45257,8 @@ public class BirdGame3 {
         boolean stillKingEncounter = classicEncounter.style == ClassicEncounterStyle.OPIUM_STILL_KING_BOSS;
         boolean calibrationEncounter = classicEncounter.style == ClassicEncounterStyle.HEISEN_CALIBRATION;
         boolean blueSkyEngineEncounter = classicEncounter.style == ClassicEncounterStyle.HEISEN_BLUE_SKY_ENGINE_BOSS;
+        boolean titmouseMemoryEncounter = classicEncounter.style == ClassicEncounterStyle.TITMOUSE_MEMORY_CACHE;
+        boolean oldOwlEncounter = classicEncounter.style == ClassicEncounterStyle.TITMOUSE_OLD_OWL_BOSS;
         int enemyCount = Math.max(1, enemies.length);
         double portraitSize = enemyCount >= 3 ? 215 : (enemyCount == 2 ? 310 : 430);
         HBox enemyLineup = new HBox(enemyCount >= 3 ? 14 : 20);
@@ -45124,6 +45278,8 @@ public class BirdGame3 {
                 drawClassicDebtEnginePortrait(enemyPortrait);
             } else if (blueSkyEngineEncounter) {
                 drawClassicBlueSkyEnginePortrait(enemyPortrait);
+            } else if (oldOwlEncounter) {
+                drawClassicOldOwlPortrait(enemyPortrait);
             } else if (bonusTargetEncounter) {
                 drawClassicBonusTargetPortrait(enemyPortrait);
             } else {
@@ -45162,6 +45318,13 @@ public class BirdGame3 {
                 calibrationCourse.setTextAlignment(TextAlignment.CENTER);
                 calibrationCourse.setAlignment(Pos.CENTER);
                 enemyLineup.getChildren().add(calibrationCourse);
+            } else if (titmouseMemoryEncounter) {
+                Label memoryCourse = new Label("●  ●  ●  ●\nMEMORIZE  •  RECOVER\n●  ●  ●");
+                memoryCourse.setFont(Font.font("Arial Black", 34));
+                memoryCourse.setTextFill(Color.web("#FFD166"));
+                memoryCourse.setTextAlignment(TextAlignment.CENTER);
+                memoryCourse.setAlignment(Pos.CENTER);
+                enemyLineup.getChildren().add(memoryCourse);
             } else {
                 Label bonusTarget = new Label(musterEncounter ? "CALL  •  TOSS\nLIFT  •  RECALL"
                         : (redlineRunEncounter ? "REDLINE\nRUN"
@@ -45192,6 +45355,8 @@ public class BirdGame3 {
                 : stillKingEncounter ? "THE STILL KING"
                 : calibrationEncounter ? "7 STORM REGULATORS  •  IN ORDER"
                 : blueSkyEngineEncounter ? "THE BLUE SKY ENGINE"
+                : titmouseMemoryEncounter ? "SEVEN HIDDEN CACHES"
+                : oldOwlEncounter ? "THE OLD OWL"
                 : bonusTargetEncounter ? enemies.length + " BONUS TARGETS"
                 : authoredWaveCount > 0 ? authoredWaveCount + " WAVES"
                 : enemies.length == 0 ? "BONUS TARGETS" : Arrays.stream(enemies)
@@ -45480,7 +45645,8 @@ public class BirdGame3 {
                     || encounter.style == ClassicEncounterStyle.PERFECT_PITCH
                     || encounter.style == ClassicEncounterStyle.BETWEEN_LINES
                     || encounter.style == ClassicEncounterStyle.OPIUM_LUCID_DASH
-                    || encounter.style == ClassicEncounterStyle.HEISEN_CALIBRATION;
+                    || encounter.style == ClassicEncounterStyle.HEISEN_CALIBRATION
+                    || encounter.style == ClassicEncounterStyle.TITMOUSE_MEMORY_CACHE;
             int roundIndex = i;
             Button card = uiFactory.action(
                     (bonus ? "BONUS " : "ROUND ") + (i + 1) + "\n"
@@ -45882,7 +46048,8 @@ public class BirdGame3 {
                         && encounter.style != ClassicEncounterStyle.SEAMREAVER_BOSS
                         && classicSelectedBird != BirdType.ROADRUNNER
                         && classicSelectedBird != BirdType.PENGUIN
-                        && classicSelectedBird != BirdType.SHOEBILL);
+                        && classicSelectedBird != BirdType.SHOEBILL
+                        && classicSelectedBird != BirdType.TITMOUSE);
                 if (enemy.skinKey != null) {
                     applyPreviewSkinChoiceToBird(enemyBird, enemy.type, enemy.skinKey);
                 }
@@ -46122,6 +46289,17 @@ public class BirdGame3 {
                 bird.setBaseMultipliers(1.78, 0.94 * enemyPowerScale, 0.96);
                 bird.setUltimateEnabled(false);
                 isAI[bird.playerIndex] = false;
+            } else if (encounter.style == ClassicEncounterStyle.TITMOUSE_VOICE_GAUNTLET) {
+                boolean giant = bird.name != null && bird.name.startsWith("Giant:");
+                scaleBossRushBird(bird, giant ? 1.48 : 0.94,
+                        giant ? 0.88 : 0.90, giant ? 0.92 : 1.02);
+                bird.setUltimateEnabled(false);
+            } else if (encounter.style == ClassicEncounterStyle.TITMOUSE_OLD_OWL_BOSS) {
+                bird.health = Math.max(1.0, OLD_OWL_BASE_HEALTH * enemyHealthScale);
+                bird.classicMaxHealthOverride = bird.health;
+                bird.setBaseMultipliers(1.86, 0.92 * enemyPowerScale, 0.96);
+                bird.setUltimateEnabled(false);
+                isAI[bird.playerIndex] = false;
             }
             if (classicSelectedBird == BirdType.OPIUMBIRD && getEffectiveTeam(bird.playerIndex) == 2) {
                 // Forecasts are encounter rules, never bonus fighter powers.
@@ -46146,6 +46324,13 @@ public class BirdGame3 {
             }
             if (classicSelectedBird == BirdType.HEISENBIRD && getEffectiveTeam(bird.playerIndex) == 2) {
                 bird.setUltimateEnabled(false);
+            }
+            if (classicSelectedBird == BirdType.TITMOUSE && getEffectiveTeam(bird.playerIndex) == 2) {
+                bird.setUltimateEnabled(false);
+                if (bird.name != null && bird.name.startsWith("Giant:")
+                        && encounter.style != ClassicEncounterStyle.TITMOUSE_VOICE_GAUNTLET) {
+                    scaleBossRushBird(bird, 1.48, 0.88, 0.92);
+                }
             }
         }
     }
@@ -46201,6 +46386,20 @@ public class BirdGame3 {
                 if (players[slot] != null) {
                     positionClassicBirdOnSurface(players[slot], 4_350.0,
                             battlefieldIslandY - 610.0, false);
+                }
+            }
+            return;
+        }
+        if (encounter.style == ClassicEncounterStyle.TITMOUSE_MEMORY_CACHE) {
+            positionClassicBirdOnSurface(players[0], 620.0, LAST_ICE_MAIN_Y, true);
+            return;
+        }
+        if (encounter.style == ClassicEncounterStyle.TITMOUSE_OLD_OWL_BOSS) {
+            positionClassicBirdOnSurface(players[0], 1_260.0, battlefieldIslandY, true);
+            for (int slot = 1; slot < activePlayers; slot++) {
+                if (players[slot] != null) {
+                    positionClassicBirdOnSurface(players[slot], 4_450.0,
+                            battlefieldIslandY - 520.0, false);
                 }
             }
             return;
@@ -46442,6 +46641,7 @@ public class BirdGame3 {
         setupVultureClassicRoute(encounter);
         setupOpiumBirdClassicRoute(encounter);
         setupHeisenbirdClassicRoute(encounter);
+        setupTitmouseClassicRoute(encounter);
         if (bossRushModeActive) {
             applyBossRushEncounterArenaModifiers(encounter);
         }
@@ -46551,6 +46751,11 @@ public class BirdGame3 {
             case FORECAST_SHADOWS, LUCID_FRAGMENTS, FIXED_FUTURE -> {
                 // Opium Bird's forecast rules are authored per encounter and
                 // reset between every round. They never alter the fighter kit.
+            }
+            case PRODUCTION_TRIAL, FINAL_CALIBRATION, PRODUCT_LAUNCH,
+                    FOREST_ALARM, HIDDEN_CACHES, LAST_HUSH -> {
+                // These routes own deterministic setup and runtime. Their
+                // mechanics reset at every encounter boundary.
             }
         }
     }
@@ -47452,6 +47657,23 @@ public class BirdGame3 {
             }
             return;
         }
+        if (classicEncounter.style == ClassicEncounterStyle.TITMOUSE_OLD_OWL_BOSS) {
+            if (classicOldOwlReversalTimer > 0 || classicOldOwlReversalCooldown > 0) return;
+            double distance = Math.hypot(attacker.bodyCenterX() - boss.bodyCenterX(),
+                    attacker.bodyCenterY() - boss.bodyCenterY());
+            if (distance > 420.0) return;
+            classicOldOwlCloseDamage += dealtDamage;
+            classicOldOwlDamageWindow = 72;
+            if (classicOldOwlCloseDamage >= 38.0) {
+                classicOldOwlReversalTimer = 46;
+                classicOldOwlReversalCooldown = 230;
+                classicOldOwlCloseDamage = 0.0;
+                classicOldOwlDamageWindow = 0;
+                classicOldOwlPerch = (classicOldOwlPerch + 2) % OLD_OWL_PERCH_X.length;
+                addToKillFeed("DEFENSIVE WING BURST — the Old Owl escapes the corner!");
+            }
+            return;
+        }
         if (classicCharlesBossReversalTimer > 0 || classicCharlesBossReversalCooldown > 0) return;
         double distance = Math.hypot(attacker.bodyCenterX() - boss.bodyCenterX(),
                 attacker.bodyCenterY() - boss.bodyCenterY());
@@ -47503,7 +47725,8 @@ public class BirdGame3 {
                 || classicEncounter.style == ClassicEncounterStyle.BELLKEEPER_BOSS
                 || classicEncounter.style == ClassicEncounterStyle.DEBT_ENGINE_BOSS
                 || classicEncounter.style == ClassicEncounterStyle.OPIUM_STILL_KING_BOSS
-                || classicEncounter.style == ClassicEncounterStyle.HEISEN_BLUE_SKY_ENGINE_BOSS)
+                || classicEncounter.style == ClassicEncounterStyle.HEISEN_BLUE_SKY_ENGINE_BOSS
+                || classicEncounter.style == ClassicEncounterStyle.TITMOUSE_OLD_OWL_BOSS)
                 && getEffectiveTeam(bird.playerIndex) == 2;
     }
 
@@ -47529,6 +47752,11 @@ public class BirdGame3 {
             double shell = classicBlueSkyOverheatTimer > 0
                     ? BLUE_SKY_ENGINE_OPEN_DAMAGE_SCALE : BLUE_SKY_ENGINE_CLOSED_DAMAGE_SCALE;
             return shell * (classicBlueSkyReversalTimer > 0 ? 0.30 : 1.0);
+        }
+        if (classicEncounter.style == ClassicEncounterStyle.TITMOUSE_OLD_OWL_BOSS) {
+            double state = classicOldOwlOpenTimer > 0
+                    ? OLD_OWL_OPEN_DAMAGE_SCALE : OLD_OWL_GUARDED_DAMAGE_SCALE;
+            return state * (classicOldOwlReversalTimer > 0 ? 0.28 : 1.0);
         }
         return HOLLOW_MAESTRO_STAGGER_DAMAGE_SCALE
                 * (classicCharlesBossReversalTimer > 0 ? HOLLOW_MAESTRO_REVERSAL_ARMOR_SCALE : 1.0);
@@ -47561,6 +47789,9 @@ public class BirdGame3 {
         if (classicEncounter != null && classicEncounter.style == ClassicEncounterStyle.HEISEN_BLUE_SKY_ENGINE_BOSS) {
             return Math.clamp(classicBlueSkyPhase + 1, 1, 3);
         }
+        if (classicEncounter != null && classicEncounter.style == ClassicEncounterStyle.TITMOUSE_OLD_OWL_BOSS) {
+            return Math.clamp(classicOldOwlPhase + 1, 1, 3);
+        }
         return Math.clamp(classicCharlesBossPhase + 1, 1, 3);
     }
 
@@ -47580,6 +47811,9 @@ public class BirdGame3 {
         if (classicEncounter != null && classicEncounter.style == ClassicEncounterStyle.HEISEN_BLUE_SKY_ENGINE_BOSS) {
             return "TIME! The Blue Sky Engine patents the final cloud.";
         }
+        if (classicEncounter != null && classicEncounter.style == ClassicEncounterStyle.TITMOUSE_OLD_OWL_BOSS) {
+            return "TIME! The Old Owl silences the final warning.";
+        }
         return "TIME! The Hollow Maestro's score remains unbroken.";
     }
 
@@ -47594,7 +47828,8 @@ public class BirdGame3 {
                     ? "The Last Gift" : classicEncounter.style == ClassicEncounterStyle.DEBT_ENGINE_BOSS
                     ? "The Final Account" : classicEncounter.style == ClassicEncounterStyle.OPIUM_STILL_KING_BOSS
                     ? "The Unwritten Future" : classicEncounter.style == ClassicEncounterStyle.HEISEN_BLUE_SKY_ENGINE_BOSS
-                    ? "Product Recall" : "Hollow Score";
+                    ? "Product Recall" : classicEncounter.style == ClassicEncounterStyle.TITMOUSE_OLD_OWL_BOSS
+                    ? "The Warning Call" : "Hollow Score";
             recordMoveKo(attacker, boss, lastTelemetryMoveName(attacker.playerIndex, fallback));
             checkAchievements(attacker);
         }
@@ -47608,6 +47843,8 @@ public class BirdGame3 {
                 ? "THE STILL KING'S LAST CERTAINTY SHATTERS."
                 : classicEncounter.style == ClassicEncounterStyle.HEISEN_BLUE_SKY_ENGINE_BOSS
                 ? "THE BLUE SKY ENGINE ENTERS PERMANENT RECALL."
+                : classicEncounter.style == ClassicEncounterStyle.TITMOUSE_OLD_OWL_BOSS
+                ? "THE OLD OWL'S LAST HUSH BREAKS."
                 : "THE HOLLOW MAESTRO'S SCORE SHATTERS.");
         shakeIntensity = Math.max(shakeIntensity, 32.0);
         triggerFlash(0.76, true);
@@ -49781,6 +50018,402 @@ public class BirdGame3 {
         g.setFont(Font.font("Consolas", FontWeight.BOLD, Math.max(14, canvas.getWidth() * 0.045)));
         g.setTextAlign(TextAlignment.CENTER);
         g.fillText("THE BLUE SKY ENGINE", canvas.getWidth() / 2.0, canvas.getHeight() - 22.0);
+    }
+
+    private void setupTitmouseClassicRoute(ClassicEncounter encounter) {
+        classicTitmouseMemoryCaches.clear();
+        classicOldOwlProjectiles.clear();
+        classicTitmouseWaveIndex = 0;
+        classicTitmouseMemoryRevealFrames = 0;
+        classicTitmouseMemoryHintIndex = 0;
+        classicTitmouseMemoryCompleted = false;
+        classicOldOwlPhase = 0;
+        classicOldOwlAttackTimer = 88;
+        classicOldOwlAttackKind = -1;
+        classicOldOwlPerch = 0;
+        classicOldOwlHitCooldown = 0;
+        classicOldOwlOpenTimer = 0;
+        classicOldOwlReversalTimer = 0;
+        classicOldOwlReversalCooldown = 0;
+        classicOldOwlDamageWindow = 0;
+        classicOldOwlCloseDamage = 0.0;
+        if (!classicModeActive || bossRushModeActive || ashfallTrialModeActive
+                || classicSelectedBird != BirdType.TITMOUSE || encounter == null) return;
+        if (encounter.style == ClassicEncounterStyle.TITMOUSE_MEMORY_CACHE) {
+            for (int i = 0; i < TITMOUSE_MEMORY_CACHE_X.length; i++) {
+                classicTitmouseMemoryCaches.add(new ClassicVaultSeal(
+                        TITMOUSE_MEMORY_CACHE_X[i], TITMOUSE_MEMORY_CACHE_Y[i]));
+            }
+            classicTitmouseMemoryRevealFrames = 240;
+            addToKillFeed("MEMORIZE: seven caches remain visible for four seconds.");
+        } else if (encounter.style == ClassicEncounterStyle.TITMOUSE_VOICE_GAUNTLET) {
+            addToKillFeed("ALARM WAVE 1/" + encounter.waves.length + ": every fighter uses its ordinary kit.");
+        } else if (encounter.style == ClassicEncounterStyle.TITMOUSE_OLD_OWL_BOSS) {
+            Bird boss = firstClassicEnemyWithStocks();
+            if (boss != null) boss.classicMaxHealthOverride = Math.max(1.0, boss.health);
+            addToKillFeed("THE OLD OWL: evade the hunt, then punish the gold landing window.");
+        }
+    }
+
+    void applyTitmouseClassicRuntimeEffects() {
+        if (!classicModeActive || classicEncounter == null || classicSelectedBird != BirdType.TITMOUSE
+                || bossRushModeActive || ashfallTrialModeActive || matchEnded) return;
+        Bird player = players[0];
+        if (player == null || player.health <= 0.0) return;
+        if (classicTitmouseMemoryRevealFrames > 0) classicTitmouseMemoryRevealFrames--;
+        if (classicOldOwlHitCooldown > 0) classicOldOwlHitCooldown--;
+        if (classicOldOwlOpenTimer > 0) classicOldOwlOpenTimer--;
+        if (classicOldOwlReversalCooldown > 0) classicOldOwlReversalCooldown--;
+        if (classicOldOwlDamageWindow > 0 && --classicOldOwlDamageWindow == 0) {
+            classicOldOwlCloseDamage = 0.0;
+        }
+        if (classicEncounter.style == ClassicEncounterStyle.TITMOUSE_MEMORY_CACHE) {
+            updateClassicTitmouseMemoryCourse(player);
+        } else if (classicEncounter.style == ClassicEncounterStyle.TITMOUSE_OLD_OWL_BOSS) {
+            updateClassicOldOwl(player);
+        }
+    }
+
+    private void updateClassicTitmouseMemoryCourse(Bird player) {
+        if (player.bodyCenterY() > GROUND_Y + 180.0) {
+            positionClassicBirdOnSurface(player, 620.0, LAST_ICE_MAIN_Y, true);
+            player.heal(12.0);
+        }
+        int collected = 0;
+        for (ClassicVaultSeal cache : classicTitmouseMemoryCaches) {
+            if (cache.pulseFrames > 0) cache.pulseFrames--;
+            if (cache.broken) {
+                collected++;
+                continue;
+            }
+            if (Math.hypot(player.bodyCenterX() - cache.x, player.bodyCenterY() - cache.y) <= 145.0) {
+                cache.broken = true;
+                cache.pulseFrames = 34;
+                collected++;
+                classicBonusCoins += 9;
+                classicRunScore += 520;
+                playClassicNectarRingSfx(collected, classicTitmouseMemoryCaches.size());
+                addToKillFeed("CACHE " + collected + "/7 RECOVERED.");
+            }
+        }
+        if (classicTitmouseMemoryRevealFrames == 0 && simTick % 300L == 0L) {
+            ClassicVaultSeal next = nextTitmouseMemoryCache();
+            if (next != null) classicTitmouseMemoryHintIndex++;
+        }
+        if (collected == classicTitmouseMemoryCaches.size() && !classicTitmouseMemoryCompleted) {
+            classicTitmouseMemoryCompleted = true;
+            classicBonusCoins += 37;
+            classicRunScore += 4_200;
+            playManagedSfxVaried(hugewaveClip, 0.42, 1.30, 0.0);
+            addToKillFeed("ALL CACHES FOUND! Bird Coins +100.");
+            matchController.triggerMatchEnd(player);
+        }
+    }
+
+    private ClassicVaultSeal nextTitmouseMemoryCache() {
+        for (ClassicVaultSeal cache : classicTitmouseMemoryCaches) if (!cache.broken) return cache;
+        return null;
+    }
+
+    boolean isClassicTitmouseMemoryActive() {
+        return classicModeActive && classicEncounter != null && classicSelectedBird == BirdType.TITMOUSE
+                && classicEncounter.style == ClassicEncounterStyle.TITMOUSE_MEMORY_CACHE && !matchEnded;
+    }
+
+    void finishClassicTitmouseMemoryFromTimeout() {
+        if (!isClassicTitmouseMemoryActive()) return;
+        classicTitmouseMemoryCompleted = true;
+        addToKillFeed("TIME! The final caches glint beneath the ice; the route continues safely.");
+        matchController.triggerMatchEnd(players[0]);
+    }
+
+    boolean holdClassicTitmouseEncounterOpen() {
+        if (!classicModeActive || classicEncounter == null || classicSelectedBird != BirdType.TITMOUSE
+                || bossRushModeActive || ashfallTrialModeActive || matchEnded) return false;
+        if (classicEncounter.style == ClassicEncounterStyle.TITMOUSE_MEMORY_CACHE) {
+            return players[0] != null && players[0].health > 0.0 && !classicTitmouseMemoryCompleted;
+        }
+        if (classicEncounter.style != ClassicEncounterStyle.TITMOUSE_VOICE_GAUNTLET
+                || classicEncounter.waves == null || classicEncounter.waves.length == 0
+                || !playerHasStocksRemaining(0) || classicEnemyTeamHasStocks()
+                || classicTitmouseWaveIndex + 1 >= classicEncounter.waves.length) return false;
+        classicTitmouseWaveIndex++;
+        Bird player = players[0];
+        if (player != null && "All Wings Answer".equals(classicEncounter.name)) player.heal(16.0);
+        spawnTitmouseClassicWave(classicEncounter.waves[classicTitmouseWaveIndex]);
+        return true;
+    }
+
+    private void spawnTitmouseClassicWave(ClassicFighter[] wave) {
+        for (int slot = 1; slot < MAX_COMBATANTS; slot++) {
+            if (players[slot] != null && getEffectiveTeam(slot) == 2) {
+                players[slot] = null;
+                isAI[slot] = false;
+                scores[slot] = 0;
+                classicCpuLevels[slot] = 0;
+            }
+        }
+        double difficultyDelta = classicDifficulty - CLASSIC_STARTING_DIFFICULTY;
+        int spawned = 0;
+        for (ClassicFighter fighter : wave) {
+            int slot = 1;
+            while (slot < MAX_COMBATANTS && players[slot] != null) slot++;
+            if (slot >= MAX_COMBATANTS) break;
+            Bird enemy = createStoryBird(0.0, fighter.type, slot, fighter.title,
+                    fighter.health * (1.0 + difficultyDelta * 0.045),
+                    fighter.powerMult * (1.0 + difficultyDelta * 0.015), fighter.speedMult, true);
+            enemy.setUltimateEnabled(false);
+            boolean giant = fighter.title.startsWith("Giant:");
+            scaleBossRushBird(enemy, giant ? 1.48 : 0.94,
+                    giant ? 0.88 : 0.90, giant ? 0.92 : 1.02);
+            classicTeams[slot] = 2;
+            classicCpuLevels[slot] = resolvedClassicFighterCpuLevel(fighter, classicEncounter);
+            scores[slot] = 1;
+            isAI[slot] = true;
+            positionClassicBirdOnSurface(enemy, 4_100.0 + spawned * 360.0,
+                    battlefieldIslandY, false);
+            activePlayers = Math.max(activePlayers, slot + 1);
+            spawned++;
+        }
+        addToKillFeed("ALARM WAVE " + (classicTitmouseWaveIndex + 1) + "/"
+                + classicEncounter.waves.length + " ANSWERS.");
+    }
+
+    private void updateClassicOldOwl(Bird player) {
+        Bird boss = firstClassicEnemyWithStocks();
+        if (boss == null) return;
+        if (boss.health <= 0.0) {
+            onClassicStaminaBossDefeated(boss, null);
+            return;
+        }
+        int nextPhase = hollowMaestroPhaseForHealth(boss.health, boss.getMaxHealth());
+        if (nextPhase > classicOldOwlPhase) {
+            classicOldOwlPhase = nextPhase;
+            player.heal(8.0);
+            classicOldOwlAttackTimer = 68;
+            addToKillFeed(nextPhase == 1
+                    ? "THE SECOND HUSH: feather lanes tighten. 8% repaired."
+                    : "THE LAST HUSH: every perch answers. 8% repaired.");
+        }
+        if (classicOldOwlReversalTimer > 0) {
+            classicOldOwlReversalTimer--;
+            steerClassicBellkeeper(boss, 3_000.0, GROUND_Y - 1_180.0, 11.0);
+            if (classicOldOwlReversalTimer == 16) {
+                spawnOldOwlRadial(boss, 12 + classicOldOwlPhase * 2, 10.0 + classicOldOwlPhase);
+                addToKillFeed("WING BURST — leave the Owl's shadow!");
+            }
+        } else {
+            steerClassicBellkeeper(boss, OLD_OWL_PERCH_X[classicOldOwlPerch],
+                    OLD_OWL_PERCH_Y[classicOldOwlPerch], 6.2 + classicOldOwlPhase * 0.9);
+            if (--classicOldOwlAttackTimer <= 0) {
+                classicOldOwlAttackKind = (classicOldOwlAttackKind + 1) % 4;
+                classicOldOwlPerch = (classicOldOwlPerch + 1) % OLD_OWL_PERCH_X.length;
+                spawnClassicOldOwlAttack(boss, player, classicOldOwlAttackKind);
+                classicOldOwlOpenTimer = 48 + classicOldOwlPhase * 4;
+                classicOldOwlAttackTimer = Math.max(62, 102 - classicOldOwlPhase * 13);
+            }
+        }
+        updateClassicOldOwlProjectiles(player);
+    }
+
+    private void spawnClassicOldOwlAttack(Bird boss, Bird player, int kind) {
+        double sx = boss.bodyCenterX();
+        double sy = boss.bodyCenterY();
+        if (kind == 0) {
+            double dx = player.bodyCenterX() - sx;
+            double dy = player.bodyCenterY() - sy;
+            double distance = Math.max(1.0, Math.hypot(dx, dy));
+            for (int lane = -2; lane <= 2; lane++) {
+                double angle = Math.atan2(dy, dx) + lane * 0.13;
+                double speed = 11.0 + classicOldOwlPhase;
+                classicOldOwlProjectiles.add(new ClassicBellkeeperProjectile(
+                        sx, sy, Math.cos(angle) * speed, Math.sin(angle) * speed,
+                        190, 0, classicOldOwlPhase));
+            }
+            addToKillFeed("SHARPENED FEATHERS — slip between the volley.");
+        } else if (kind == 1) {
+            double direction = Math.signum(player.bodyCenterX() - sx);
+            if (direction == 0.0) direction = 1.0;
+            for (int lane = -2; lane <= 2; lane++) {
+                if (lane == classicOldOwlPerch % 5 - 2) continue;
+                classicOldOwlProjectiles.add(new ClassicBellkeeperProjectile(
+                        sx, GROUND_Y - 420.0 + lane * 105.0, direction * (12.0 + classicOldOwlPhase),
+                        0.0, 190, 1, classicOldOwlPhase));
+            }
+            addToKillFeed("SILENT LANES — one altitude remains open.");
+        } else if (kind == 2) {
+            double x = Math.clamp(player.bodyCenterX(), 900.0, 5_100.0);
+            classicOldOwlProjectiles.add(new ClassicBellkeeperProjectile(
+                    x, 130.0, 0.0, 7.4 + classicOldOwlPhase,
+                    230, 2, classicOldOwlPhase));
+            addToKillFeed("SILENT DIVE — the gold floor shadow marks impact.");
+        } else {
+            spawnOldOwlRadial(boss, 10 + classicOldOwlPhase * 2, 9.0 + classicOldOwlPhase);
+            addToKillFeed("TALON SWEEP — cross the expanding ring.");
+        }
+        playManagedSfxVaried(swingClip, 0.34, 0.58 + kind * 0.09, 0.0);
+    }
+
+    private void spawnOldOwlRadial(Bird boss, int count, double speed) {
+        double offset = (simTick % 120L) * Math.PI / 240.0;
+        for (int i = 0; i < count; i++) {
+            double angle = Math.PI * 2.0 * i / count + offset;
+            classicOldOwlProjectiles.add(new ClassicBellkeeperProjectile(
+                    boss.bodyCenterX(), boss.bodyCenterY(), Math.cos(angle) * speed,
+                    Math.sin(angle) * speed, 195, 3, classicOldOwlPhase));
+        }
+    }
+
+    private void updateClassicOldOwlProjectiles(Bird player) {
+        for (int i = classicOldOwlProjectiles.size() - 1; i >= 0; i--) {
+            ClassicBellkeeperProjectile shot = classicOldOwlProjectiles.get(i);
+            shot.x += shot.vx;
+            shot.y += shot.vy;
+            if (shot.kind == 2) shot.vy = Math.min(18.0, shot.vy + 0.28);
+            shot.life--;
+            double radius = shot.kind == 2 ? 76.0 : 35.0;
+            if (classicOldOwlHitCooldown == 0
+                    && Math.hypot(player.bodyCenterX() - shot.x, player.bodyCenterY() - shot.y)
+                    < radius + player.combatRadius()) {
+                double dealt = player.receiveExternalDamage(8.0 + shot.phase * 1.6
+                        + (shot.kind == 2 ? 3.0 : 0.0));
+                double direction = Math.signum(player.bodyCenterX() - shot.x);
+                if (direction == 0.0) direction = 1.0;
+                player.applyExternalDamageScaledLaunch(direction * (9.0 + shot.phase * 1.4),
+                        -7.4 - shot.phase, dealt);
+                player.applyStun(10 + shot.phase * 2);
+                classicOldOwlHitCooldown = 25;
+                shot.life = 0;
+                shakeIntensity = Math.max(shakeIntensity, 11.0);
+            }
+            if (shot.kind == 2 && shot.y + radius >= battlefieldIslandY) shot.life = 0;
+            if (shot.life <= 0 || shot.x < -500.0 || shot.x > WORLD_WIDTH + 500.0
+                    || shot.y < -500.0 || shot.y > WORLD_HEIGHT + 500.0) {
+                classicOldOwlProjectiles.remove(i);
+            }
+        }
+    }
+
+    private void drawClassicTitmouseRouteFeatures(GraphicsContext g) {
+        if (!classicModeActive || classicEncounter == null || classicSelectedBird != BirdType.TITMOUSE
+                || bossRushModeActive || ashfallTrialModeActive) return;
+        if (classicEncounter.style == ClassicEncounterStyle.TITMOUSE_SHADOW_HUNT) {
+            g.setFill(Color.web("#02030A", 0.48));
+            g.fillRect(0.0, 0.0, WORLD_WIDTH, WORLD_HEIGHT);
+            for (int i = 0; i < 3; i++) {
+                double x = 1_050.0 + i * 1_900.0 + Math.sin(simTick * 0.012 + i * 2.1) * 520.0;
+                g.setFill(Color.web("#FFE082", 0.13));
+                g.fillOval(x - 430.0, GROUND_Y - 1_250.0, 860.0, 1_280.0);
+                g.setStroke(Color.web("#FFE082", 0.30));
+                g.setLineWidth(8.0);
+                g.strokeOval(x - 430.0, GROUND_Y - 1_250.0, 860.0, 1_280.0);
+            }
+        }
+        if (classicEncounter.style == ClassicEncounterStyle.TITMOUSE_MEMORY_CACHE) {
+            ClassicVaultSeal next = nextTitmouseMemoryCache();
+            int hintStrength = classicTitmouseMemoryHintIndex;
+            for (ClassicVaultSeal cache : classicTitmouseMemoryCaches) {
+                if (cache.broken) continue;
+                boolean visible = classicTitmouseMemoryRevealFrames > 0 || (cache == next && hintStrength > 0);
+                if (!visible) continue;
+                double pulse = 30.0 + Math.sin(simTick * 0.11 + cache.x * 0.01) * 6.0;
+                double alpha = classicTitmouseMemoryRevealFrames > 0 ? 0.88 : Math.min(0.82, 0.25 + hintStrength * 0.12);
+                g.setFill(Color.web("#FFD166", alpha * 0.20));
+                g.fillOval(cache.x - pulse * 2.1, cache.y - pulse * 2.1, pulse * 4.2, pulse * 4.2);
+                g.setStroke(Color.web("#FFD166", alpha));
+                g.setLineWidth(8.0);
+                g.strokeOval(cache.x - pulse, cache.y - pulse, pulse * 2.0, pulse * 2.0);
+            }
+            if (next != null && hintStrength >= 2) {
+                drawClassicOpiumRouteArrow(g, next.x, next.y - 105.0,
+                        hintStrength >= 4 ? "CACHE HERE" : "A FAINT CALL");
+            }
+        }
+        for (ClassicBellkeeperProjectile shot : classicOldOwlProjectiles) {
+            Color color = shot.kind == 2 ? Color.web("#FFD166") : Color.web("#D7D0C4");
+            double radius = shot.kind == 2 ? 76.0 : 35.0;
+            if (shot.kind == 2) {
+                double alpha = debtEngineCrusherWarningAlpha(shot.y, battlefieldIslandY);
+                g.setFill(Color.web("#FFD166", alpha * 0.24));
+                g.fillOval(shot.x - 125.0, battlefieldIslandY - 32.0, 250.0, 64.0);
+            }
+            g.setFill(color.deriveColor(0, 1.0, 1.0, 0.26));
+            g.fillOval(shot.x - radius * 1.7, shot.y - radius * 1.7, radius * 3.4, radius * 3.4);
+            g.setStroke(color);
+            g.setLineWidth(7.0);
+            g.strokeOval(shot.x - radius, shot.y - radius, radius * 2.0, radius * 2.0);
+        }
+        g.setTextAlign(TextAlignment.LEFT);
+    }
+
+    private boolean isClassicOldOwlBird(Bird bird) {
+        return bird != null && classicModeActive && classicEncounter != null
+                && classicSelectedBird == BirdType.TITMOUSE
+                && classicEncounter.style == ClassicEncounterStyle.TITMOUSE_OLD_OWL_BOSS
+                && getEffectiveTeam(bird.playerIndex) == 2;
+    }
+
+    private boolean drawClassicOldOwl(GraphicsContext g, Bird bird) {
+        if (!isClassicOldOwlBird(bird)) return false;
+        drawOldOwl(g, bird.bodyCenterX(), bird.bodyCenterY(), 1.0,
+                classicOldOwlPhase, classicOldOwlOpenTimer > 0,
+                classicOldOwlReversalTimer > 0);
+        return true;
+    }
+
+    private void drawOldOwl(GraphicsContext g, double cx, double cy, double scale,
+                            int phase, boolean open, boolean bursting) {
+        g.save();
+        g.translate(cx, cy);
+        g.scale(scale, scale);
+        Color eye = phase >= 2 ? Color.web("#FF5252") : phase == 1
+                ? Color.web("#FFB74D") : Color.web("#FFE082");
+        double wing = bursting ? 245.0 : 165.0;
+        g.setFill(Color.web("#29241F"));
+        g.fillPolygon(new double[]{-80.0, -wing, -205.0, -78.0},
+                new double[]{-50.0, -145.0, 95.0, 125.0}, 4);
+        g.fillPolygon(new double[]{80.0, wing, 205.0, 78.0},
+                new double[]{-50.0, -145.0, 95.0, 125.0}, 4);
+        g.setStroke(Color.web("#756A5D"));
+        g.setLineWidth(12.0);
+        g.strokePolyline(new double[]{-wing, -205.0, -78.0}, new double[]{-145.0, 95.0, 125.0}, 3);
+        g.strokePolyline(new double[]{wing, 205.0, 78.0}, new double[]{-145.0, 95.0, 125.0}, 3);
+        g.setFill(Color.web("#40382F"));
+        g.fillOval(-150.0, -175.0, 300.0, 350.0);
+        g.setStroke(Color.web("#9B8A72"));
+        g.setLineWidth(15.0);
+        g.strokeOval(-150.0, -175.0, 300.0, 350.0);
+        g.setFill(Color.web("#51483C"));
+        g.fillPolygon(new double[]{-130.0, -75.0, -18.0}, new double[]{-120.0, -240.0, -122.0}, 3);
+        g.fillPolygon(new double[]{130.0, 75.0, 18.0}, new double[]{-120.0, -240.0, -122.0}, 3);
+        g.setFill(Color.web("#C8BBA5"));
+        g.fillOval(-122.0, -130.0, 112.0, 112.0);
+        g.fillOval(10.0, -130.0, 112.0, 112.0);
+        g.setFill(eye.deriveColor(0, 1.0, 1.0, open ? 1.0 : 0.72));
+        g.fillOval(-84.0, -96.0, 38.0, 38.0);
+        g.fillOval(46.0, -96.0, 38.0, 38.0);
+        g.setFill(Color.web("#0A0908"));
+        g.fillOval(-72.0, -86.0, 17.0, 25.0);
+        g.fillOval(55.0, -86.0, 17.0, 25.0);
+        g.setFill(Color.web("#D3A33D"));
+        g.fillPolygon(new double[]{-25.0, 25.0, 0.0}, new double[]{-45.0, -45.0, 22.0}, 3);
+        g.setStroke(eye.deriveColor(0, 1.0, 1.0, open ? 0.92 : 0.28));
+        g.setLineWidth(open ? 12.0 : 6.0);
+        g.strokeOval(-162.0, -187.0, 324.0, 374.0);
+        g.restore();
+    }
+
+    private void drawClassicOldOwlPortrait(Canvas canvas) {
+        GraphicsContext g = canvas.getGraphicsContext2D();
+        g.setFill(Color.web("#08070A"));
+        g.fillRect(0.0, 0.0, canvas.getWidth(), canvas.getHeight());
+        double scale = Math.min(canvas.getWidth(), canvas.getHeight()) / 600.0;
+        drawOldOwl(g, canvas.getWidth() / 2.0, canvas.getHeight() * 0.48,
+                scale, 2, true, false);
+        g.setFill(Color.WHITE);
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, Math.max(14.0, canvas.getWidth() * 0.045)));
+        g.setTextAlign(TextAlignment.CENTER);
+        g.fillText("THE OLD OWL", canvas.getWidth() / 2.0, canvas.getHeight() - 20.0);
     }
 
     static double debtEngineCrusherWarningAlpha(double projectileY, double floorY) {
@@ -53086,7 +53719,8 @@ public class BirdGame3 {
                 || classicEncounter.style == ClassicEncounterStyle.BETWEEN_LINES
                 || classicEncounter.style == ClassicEncounterStyle.QUIET_VAULT
                 || classicEncounter.style == ClassicEncounterStyle.OPIUM_LUCID_DASH
-                || classicEncounter.style == ClassicEncounterStyle.HEISEN_CALIBRATION) {
+                || classicEncounter.style == ClassicEncounterStyle.HEISEN_CALIBRATION
+                || classicEncounter.style == ClassicEncounterStyle.TITMOUSE_MEMORY_CACHE) {
             recordClassicEncounterScore(playerWon);
             classicRoundIndex++;
             classicEncounter = classicRun.get(classicRoundIndex);
@@ -56184,6 +56818,7 @@ public class BirdGame3 {
                 && classicEncounter.style != ClassicEncounterStyle.BETWEEN_LINES
                 && classicEncounter.style != ClassicEncounterStyle.OPIUM_LUCID_DASH
                 && classicEncounter.style != ClassicEncounterStyle.HEISEN_CALIBRATION
+                && classicEncounter.style != ClassicEncounterStyle.TITMOUSE_MEMORY_CACHE
                 && classicEncounter.style != ClassicEncounterStyle.NULL_ROCK_BOSS;
     }
 
@@ -56304,6 +56939,14 @@ public class BirdGame3 {
             scores[0] = switch (classicRoundIndex) {
                 case 0, 2, 4 -> 2;
                 case 5, 7 -> 3;
+                default -> scores[0];
+            };
+        }
+        if (classicSelectedBird == BirdType.TITMOUSE) {
+            scores[0] = switch (classicRoundIndex) {
+                case 1, 4 -> 3;
+                case 2, 3, 7 -> 2;
+                case 0, 5 -> 1;
                 default -> scores[0];
             };
         }
@@ -56460,6 +57103,7 @@ public class BirdGame3 {
             applyVultureClassicRuntimeEffects();
             applyOpiumBirdClassicRuntimeEffects();
             applyHeisenbirdClassicRuntimeEffects();
+            applyTitmouseClassicRuntimeEffects();
         }
         if (bossRushModeActive && classicModeActive) {
             applyBossRushRuntimeEffects();
@@ -62072,6 +62716,23 @@ public class BirdGame3 {
                             : "SHELL SEALED"));
                 }
             }
+            if (classicSelectedBird == BirdType.TITMOUSE) {
+                if (classicEncounter.style == ClassicEncounterStyle.TITMOUSE_MEMORY_CACHE) {
+                    int found = (int) classicTitmouseMemoryCaches.stream().filter(cache -> cache.broken).count();
+                    String state = classicTitmouseMemoryRevealFrames > 0
+                            ? "MEMORIZE " + (classicTitmouseMemoryRevealFrames + 59) / 60 + "s"
+                            : (classicTitmouseMemoryHintIndex >= 2 ? "FOLLOW THE GOLD CALL" : "REMEMBER THE CACHE PATH");
+                    lines.add("HIDDEN CACHES " + found + "/7  " + state);
+                } else if (classicEncounter.style == ClassicEncounterStyle.TITMOUSE_VOICE_GAUNTLET) {
+                    int count = classicEncounter.waves == null ? 1 : classicEncounter.waves.length;
+                    lines.add("ALARM WAVE " + (classicTitmouseWaveIndex + 1) + "/" + count);
+                } else if (classicEncounter.style == ClassicEncounterStyle.TITMOUSE_OLD_OWL_BOSS) {
+                    lines.add("THE LAST HUSH  PHASE " + classicStaminaBossMovement() + "/3  "
+                            + (classicOldOwlReversalTimer > 0 ? "WING BURST " + classicOldOwlReversalTimer
+                            : classicOldOwlOpenTimer > 0 ? "LANDING OPEN " + classicOldOwlOpenTimer
+                            : "OWL GUARDED"));
+                }
+            }
             return lines;
         }
 
@@ -62115,6 +62776,7 @@ public class BirdGame3 {
         boolean debtEngine = classicEncounter.style == ClassicEncounterStyle.DEBT_ENGINE_BOSS;
         boolean stillKing = classicEncounter.style == ClassicEncounterStyle.OPIUM_STILL_KING_BOSS;
         boolean blueSkyEngine = classicEncounter.style == ClassicEncounterStyle.HEISEN_BLUE_SKY_ENGINE_BOSS;
+        boolean oldOwl = classicEncounter.style == ClassicEncounterStyle.TITMOUSE_OLD_OWL_BOSS;
 
         double width = Math.min(980.0, WIDTH - 580.0);
         double height = 92.0;
@@ -62125,7 +62787,10 @@ public class BirdGame3 {
         int shownHealth = Math.max(0, (int) Math.ceil(boss.health));
         int shownMax = Math.max(1, (int) Math.round(maxHealth));
         double pulse = 0.5 + 0.5 * Math.sin(simTick * 0.09);
-        Color phaseColor = blueSkyEngine
+        Color phaseColor = oldOwl
+                ? (classicStaminaBossMovement() == 1 ? Color.web("#FFE082")
+                : classicStaminaBossMovement() == 2 ? Color.web("#FFB74D") : Color.web("#FF5252"))
+                : blueSkyEngine
                 ? (classicStaminaBossMovement() == 1 ? Color.web("#69E6FF")
                 : classicStaminaBossMovement() == 2 ? Color.web("#F7E46B") : Color.web("#FF315E"))
                 : stillKing
@@ -62152,7 +62817,10 @@ public class BirdGame3 {
         g.setLineWidth(4.0 + pulse * 1.5);
         g.strokeRoundRect(x, y, width, height, 28, 28);
 
-        if (blueSkyEngine) {
+        if (oldOwl) {
+            drawOldOwl(g, x + 52.0, y + 47.0, 0.14, classicOldOwlPhase,
+                    classicOldOwlOpenTimer > 0, classicOldOwlReversalTimer > 0);
+        } else if (blueSkyEngine) {
             drawBlueSkyEngine(g, x + 52.0, y + 47.0, 0.13, classicBlueSkyPhase,
                     classicBlueSkyOverheatTimer > 0, classicBlueSkyReversalTimer > 0);
         } else if (stillKing) {
@@ -62180,7 +62848,7 @@ public class BirdGame3 {
         g.setTextAlign(TextAlignment.LEFT);
         g.setFill(Color.WHITE);
         g.setFont(Font.font("Arial Black", FontWeight.BOLD, 25));
-        g.fillText(blueSkyEngine ? "THE BLUE SKY ENGINE" : stillKing ? "THE STILL KING" : debtEngine ? "THE DEBT ENGINE" : bellkeeper ? "THE BELLKEEPER"
+        g.fillText(oldOwl ? "THE OLD OWL" : blueSkyEngine ? "THE BLUE SKY ENGINE" : stillKing ? "THE STILL KING" : debtEngine ? "THE DEBT ENGINE" : bellkeeper ? "THE BELLKEEPER"
                 : seamreaver ? "THE SEAMREAVER" : "THE HOLLOW MAESTRO", x + 105.0, y + 31.0);
         g.setFill(phaseColor);
         g.setFont(Font.font("Consolas", FontWeight.BOLD, 16));
@@ -62701,11 +63369,14 @@ public class BirdGame3 {
         boolean grinchConstruct = isClassicGrinchHawkConstructBird(bird);
         boolean debtEngineConstruct = isClassicDebtEngineConstructBird(bird);
         boolean blueSkyEngineConstruct = isClassicBlueSkyEngineConstructBird(bird);
+        boolean oldOwlConstruct = isClassicOldOwlBird(bird);
         boolean charlesBoss = charlesConstruct
                 && classicEncounter.style == ClassicEncounterStyle.HOLLOW_MAESTRO_BOSS;
         boolean razorbillBoss = razorbillConstruct
                 && classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS;
-        String cacheKey = blueSkyEngineConstruct
+        String cacheKey = oldOwlConstruct
+                ? "CLASSIC_OLD_OWL"
+                : blueSkyEngineConstruct
                 ? "CLASSIC_BLUE_SKY_ENGINE"
                 : debtEngineConstruct
                 ? "CLASSIC_DEBT_ENGINE"
@@ -62730,7 +63401,11 @@ public class BirdGame3 {
         }
 
         Canvas portrait = new Canvas(128, 128);
-        if (blueSkyEngineConstruct) {
+        if (oldOwlConstruct) {
+            drawOldOwl(portrait.getGraphicsContext2D(), 64.0, 63.0,
+                    0.21, classicOldOwlPhase, classicOldOwlOpenTimer > 0,
+                    classicOldOwlReversalTimer > 0);
+        } else if (blueSkyEngineConstruct) {
             drawBlueSkyEngine(portrait.getGraphicsContext2D(), 64.0, 63.0,
                     0.19, classicBlueSkyPhase, classicBlueSkyOverheatTimer > 0,
                     classicBlueSkyReversalTimer > 0);
@@ -64082,7 +64757,8 @@ public class BirdGame3 {
     }
 
     boolean usesClassicConstructVictoryPortrait(Bird bird) {
-        return isClassicBlueSkyEngineConstructBird(bird)
+        return isClassicOldOwlBird(bird)
+                || isClassicBlueSkyEngineConstructBird(bird)
                 || isClassicDebtEngineConstructBird(bird)
                 || isClassicGrinchHawkConstructBird(bird)
                 || isClassicRazorbillConstructBird(bird)
@@ -64091,7 +64767,9 @@ public class BirdGame3 {
 
     private boolean drawClassicConstructVictoryPortrait(Canvas canvas, Bird bird) {
         if (!usesClassicConstructVictoryPortrait(bird)) return false;
-        if (isClassicBlueSkyEngineConstructBird(bird)) {
+        if (isClassicOldOwlBird(bird)) {
+            drawClassicOldOwlPortrait(canvas);
+        } else if (isClassicBlueSkyEngineConstructBird(bird)) {
             drawClassicBlueSkyEnginePortrait(canvas);
         } else if (isClassicDebtEngineConstructBird(bird)) {
             drawClassicDebtEnginePortrait(canvas);
@@ -64523,6 +65201,9 @@ public class BirdGame3 {
     }
 
     private String matchSummaryBirdLabel(Bird bird) {
+        if (isClassicOldOwlBird(bird)) {
+            return "THE OLD OWL";
+        }
         if (isClassicBlueSkyEngineConstructBird(bird)) {
             return "BLUE SKY ENGINE";
         }
