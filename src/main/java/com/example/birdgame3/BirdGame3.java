@@ -61690,7 +61690,7 @@ public class BirdGame3 {
         }
 
         double ultimateLabelBaselineOffset(double panelHeight) {
-            return ultimateBarYOffset(panelHeight) - 3.0;
+            return ultimateBarYOffset(panelHeight) + ultimateBarHeight - 2.5;
         }
     }
 
@@ -62395,6 +62395,10 @@ public class BirdGame3 {
         g.setStroke(accent.deriveColor(0, 1, 1, 0.92));
         g.setLineWidth(2.2);
         g.strokeRoundRect(rect.getMinX(), rect.getMinY(), rect.getWidth(), rect.getHeight(), 30, 30);
+        g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.075));
+        g.setLineWidth(0.9);
+        g.strokeRoundRect(rect.getMinX() + 5, rect.getMinY() + 5,
+                rect.getWidth() - 10, rect.getHeight() - 10, 24, 24);
 
         g.setFill(Color.web("#02060A", 0.96));
         g.fillRoundRect(portraitRect.getMinX(), portraitRect.getMinY(), portraitRect.getWidth(), portraitRect.getHeight(), 22, 22);
@@ -62486,7 +62490,7 @@ public class BirdGame3 {
                 - meterLayout.healthBarRightInset();
         double healthBarH = meterLayout.healthBarHeight();
         if (bird.hasOpiumResourceMeter()) {
-            drawOpiumResourceHudBar(g, bird, healthBarX, healthBarY - 12, healthBarW, 7, true);
+            drawOpiumResourceHudBar(g, bird, healthBarX, healthBarY - 13, healthBarW, 8, true);
         }
         g.setFill(Color.web("#111A21", 0.95));
         g.fillRoundRect(healthBarX, healthBarY, healthBarW, healthBarH, 12, 12);
@@ -62517,14 +62521,29 @@ public class BirdGame3 {
             g.fillRoundRect(ultBarX, ultBarY, ultBarW, ultBarH, 12, 12);
             g.setFill(ultColor);
             g.fillRoundRect(ultBarX, ultBarY, ultBarW * ultRatio, ultBarH, 12, 12);
+            double labelChipW = 38.0;
+            double statusChipW = 50.0;
+            g.setFill(Color.web("#02070B", 0.54));
+            g.fillRoundRect(ultBarX, ultBarY, labelChipW, ultBarH, 12, 12);
+            g.fillRoundRect(ultBarX + ultBarW - statusChipW, ultBarY,
+                    statusChipW, ultBarH, 12, 12);
+            g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.18));
+            g.setLineWidth(0.75);
+            g.strokeLine(ultBarX + labelChipW, ultBarY + 2,
+                    ultBarX + labelChipW, ultBarY + ultBarH - 2);
+            g.strokeLine(ultBarX + ultBarW - statusChipW, ultBarY + 2,
+                    ultBarX + ultBarW - statusChipW, ultBarY + ultBarH - 2);
+            g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.15));
+            g.strokeLine(ultBarX + 5, ultBarY + 2,
+                    ultBarX + ultBarW - 5, ultBarY + 2);
             g.setStroke(Color.web("#F5F7FA", 0.7));
-            g.setLineWidth(1.0);
+            g.setLineWidth(1.1);
             g.strokeRoundRect(ultBarX, ultBarY, ultBarW, ultBarH, 12, 12);
 
-            g.setFill(Color.web("#B0BEC5"));
-            g.setFont(Font.font("Consolas", FontWeight.BOLD, 10));
+            g.setFill(Color.web("#E4EDF2"));
+            g.setFont(Font.font("Consolas", FontWeight.BOLD, 9));
             double ultLabelY = rect.getMinY() + meterLayout.ultimateLabelBaselineOffset(rect.getHeight());
-            g.fillText("ULT", ultBarX + 6.0, ultLabelY);
+            g.fillText("ULT", ultBarX + 8.0, ultLabelY);
             g.setTextAlign(TextAlignment.RIGHT);
             g.setFill(bird.isUltimateReady() ? Color.web("#FFF59D") : Color.web("#B3E5FC"));
             g.fillText(
@@ -62549,8 +62568,8 @@ public class BirdGame3 {
                 compact ? 11.0 : 14.0,
                 34.0,
                 18.0,
-                7.0,
-                6.0
+                12.0,
+                13.0
         );
     }
 
@@ -62950,7 +62969,15 @@ public class BirdGame3 {
         g.setLineWidth(compact ? 0.9 : 1.2);
         g.strokeRoundRect(x, y, width, height, arc, arc);
 
-        if (!compact) {
+        if (compact) {
+            String label = bird.getOpiumResourceLabel();
+            double chipWidth = heisen ? 45.0 : 35.0;
+            g.setFill(Color.web("#02070B", 0.48));
+            g.fillRoundRect(x, y, chipWidth, height, arc, arc);
+            g.setFill(rim.deriveColor(0, 1, 1, 0.90));
+            g.setFont(Font.font("Consolas", FontWeight.BOLD, 7));
+            g.fillText(label, x + 4, y + height - 1.2);
+        } else {
             g.setFill(rim.deriveColor(0, 1, 1, 0.82));
             g.setFont(Font.font("Consolas", FontWeight.BOLD, 10));
             g.fillText(bird.getOpiumResourceLabel(), x + 7, y - 3);

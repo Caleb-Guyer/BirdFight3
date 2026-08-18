@@ -59,10 +59,15 @@ class FightHudNameLayoutTest {
                     "The meter must not paint over the bottom of the damage text.");
             assertTrue(layout.healthBarBottomOffset() <= ultimateBarY - 10.0,
                     "The health and ultimate meters need a clear gap.");
-            assertTrue(layout.ultimateLabelBaselineOffset(panelHeight) - portraitBottom >= 12.0,
-                    "The compact ULT label must sit below the portrait instead of clipping into it.");
-            assertTrue(ultimateBarY + layout.ultimateBarHeight() <= panelHeight - 6.0,
-                    "The thinner ULT meter must remain inside the bottom card border.");
+            assertTrue(ultimateBarY - portraitBottom >= 4.0,
+                    "The integrated ULT rail must clear the portrait.");
+            assertTrue(layout.ultimateLabelBaselineOffset(panelHeight) > ultimateBarY
+                            && layout.ultimateLabelBaselineOffset(panelHeight)
+                            < ultimateBarY + layout.ultimateBarHeight(),
+                    "The ULT label must be integrated inside its rail.");
+            double bottomInset = panelHeight - (ultimateBarY + layout.ultimateBarHeight());
+            assertTrue(bottomInset >= 12.0 && bottomInset <= 18.0,
+                    "The ULT rail should feel centered in the lower band, not glued to the edge.");
         }
     }
 }
