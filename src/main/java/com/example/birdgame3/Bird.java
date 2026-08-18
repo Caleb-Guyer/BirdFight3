@@ -13507,7 +13507,8 @@ public class Bird {
             if (verticalGap < 110 || verticalGap > 620) {
                 continue;
             }
-            double anchorX = Math.clamp(centerX, p.x + 36, p.x + p.w - 36);
+            double anchorInset = Math.min(36.0, Math.max(0.0, p.w * 0.5));
+            double anchorX = Math.clamp(centerX, p.x + anchorInset, p.x + p.w - anchorInset);
             double horizontalGap = Math.abs(anchorX - centerX);
             if (horizontalGap > 250) {
                 continue;
