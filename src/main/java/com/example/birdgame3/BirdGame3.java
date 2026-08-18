@@ -17053,44 +17053,24 @@ public class BirdGame3 {
     }
 
     private void drawCityPlayableBuildingBodies(GraphicsContext g, boolean ambientFx, double time) {
-        List<Platform> cityPlatforms = platforms.stream()
-                .filter(p -> p.x >= 0.0 && p.x < WORLD_WIDTH
-                        && p.y < GROUND_Y - 2.0 && p.w >= 150.0)
-                .sorted(Comparator.comparingDouble((Platform p) -> p.y).reversed())
-                .toList();
-        List<Platform> mainRoofs = cityPlatforms.stream()
-                .filter(p -> p.w >= 650.0)
-                .toList();
-
-        for (Platform roof : mainRoofs) {
-            drawCityRectangularFacade(g, roof, GROUND_Y, ambientFx, time);
+        CityBuildingGeometry.Layout layout = CityBuildingGeometry.create(platforms, GROUND_Y);
+        for (CityBuildingGeometry.Facade facade : layout.facades()) {
+            drawCityRectangularFacade(g, facade, ambientFx, time);
         }
-
-        for (Platform feature : cityPlatforms) {
-            if (feature.w >= 650.0) continue;
-            Platform parent = mainRoofs.stream()
-                    .filter(roof -> Math.min(feature.x + feature.w, roof.x + roof.w)
-                            - Math.max(feature.x, roof.x) >= 70.0)
-                    .min(Comparator.comparingDouble(roof -> Math.abs(roof.y - feature.y)))
-                    .orElse(null);
-            if (parent == null) continue;
-
-            if (feature.y < parent.y) {
-                drawCityRectangularFacade(g, feature, parent.y, ambientFx, time);
-            } else {
-                drawCityBalconyBraces(g, feature, parent);
-            }
+        for (CityBuildingGeometry.BalconyBraces braces : layout.balconyBraces()) {
+            drawCityBalconyBraces(g, braces);
         }
     }
 
-    private void drawCityRectangularFacade(GraphicsContext g, Platform roof, double baseY,
+    private void drawCityRectangularFacade(GraphicsContext g, CityBuildingGeometry.Facade facade,
                                              boolean ambientFx, double time) {
-        double roofBottom = roof.y + roof.h;
-        if (baseY <= roofBottom + 8.0) return;
-        double inset = Math.clamp(roof.w * 0.045, 8.0, 28.0);
-        double bodyX = roof.x + inset;
-        double bodyW = Math.max(44.0, roof.w - inset * 2.0);
-        double bodyH = baseY - roofBottom;
+        Platform roof = facade.roof();
+        CityBuildingGeometry.Bounds bounds = facade.bounds();
+        double roofBottom = bounds.y();
+        double baseY = bounds.bottom();
+        double bodyX = bounds.x();
+        double bodyW = bounds.width();
+        double bodyH = bounds.height();
         Color bodyTop = roof.w >= 500.0 ? Color.web("#111426") : Color.web("#17172A");
         Color bodyBottom = roof.w >= 500.0 ? Color.web("#1B1C32") : Color.web("#232039");
         g.setFill(new LinearGradient(0, roofBottom, 0, baseY, false, CycleMethod.NO_CYCLE,
@@ -17116,36 +17096,28 @@ public class BirdGame3 {
         }
     }
 
-    private void drawCityBalconyBraces(GraphicsContext g, Platform balcony, Platform building) {
-        boolean integratedIntoFacade = balcony.x >= building.x - 1.0
-                && balcony.x + balcony.w <= building.x + building.w + 1.0;
+    private void drawCityBalconyBraces(GraphicsContext g, CityBuildingGeometry.BalconyBraces braces) {
+        Platform balcony = braces.balcony();
         double undersideY = balcony.y + balcony.h;
-        if (integratedIntoFacade) {
-            double leftMount = balcony.x + 48.0;
-            double rightMount = balcony.x + balcony.w - 48.0;
-            double braceDepth = 108.0;
+        if (braces.integratedIntoFacade()) {
             g.setFill(Color.web("#171B2D", 0.92));
             g.fillRect(balcony.x + 18.0, undersideY, Math.max(40.0, balcony.w - 36.0), 18.0);
-            g.setStroke(Color.web("#46516E", 0.92));
-            g.setLineWidth(8.0);
-            g.strokeLine(leftMount, undersideY, leftMount + 34.0, undersideY + braceDepth);
-            g.strokeLine(rightMount, undersideY, rightMount - 34.0, undersideY + braceDepth);
-            g.setStroke(Color.web("#2DE2E6", 0.16));
-            g.setLineWidth(2.0);
-            g.strokeLine(leftMount, undersideY + 2.0, leftMount + 34.0, undersideY + braceDepth - 2.0);
-            g.strokeLine(rightMount, undersideY + 2.0, rightMount - 34.0, undersideY + braceDepth - 2.0);
-            return;
         }
-
-        boolean leftSide = balcony.x < building.x;
-        double wallX = leftSide ? building.x : building.x + building.w;
-        double outerX = leftSide ? balcony.x + 34.0 : balcony.x + balcony.w - 34.0;
         g.setStroke(Color.web("#39435F", 0.88));
         g.setLineWidth(8.0);
-        g.strokeLine(outerX, undersideY, wallX, undersideY + 112.0);
+        for (StageArtGeometry.Segment segment : braces.segments()) {
+            g.strokeLine(segment.start().x(), segment.start().y(), segment.end().x(), segment.end().y());
+        }
         g.setStroke(Color.web("#2DE2E6", 0.16));
         g.setLineWidth(2.0);
-        g.strokeLine(outerX, undersideY + 2.0, wallX, undersideY + 110.0);
+        for (StageArtGeometry.Segment segment : braces.segments()) {
+            g.strokeLine(segment.start().x(), segment.start().y() + 2.0,
+                    segment.end().x(), segment.end().y() - 2.0);
+        }
+        g.setFill(Color.web("#60708E", 0.94));
+        for (StageArtGeometry.Segment segment : braces.segments()) {
+            g.fillOval(segment.end().x() - 8.0, segment.end().y() - 8.0, 16.0, 16.0);
+        }
     }
 
     private void drawGroundedCityLayer(GraphicsContext g, double spacing, double topBase,
