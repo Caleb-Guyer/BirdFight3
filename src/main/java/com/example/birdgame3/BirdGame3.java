@@ -61676,6 +61676,15 @@ public class BirdGame3 {
 
     private record FightHudPanelLayout(Bird bird, Rectangle2D panelRect, Rectangle2D portraitRect) {}
 
+    record FightHudMeterLayout(Font damageFont, Font percentFont, double damageRightInset,
+                               double percentRightInset, double damageBaselineOffset,
+                               double healthBarYOffset, double healthBarHeight,
+                               double healthBarRightInset) {
+        double healthBarBottomOffset() {
+            return healthBarYOffset + healthBarHeight;
+        }
+    }
+
     private record FightHudLayout(List<FightHudPanelLayout> panels, Rectangle2D minimapRect, Rectangle2D infoRect,
                                   List<String> infoLines, Rectangle2D timerRect, List<Rectangle2D> occlusionRects) {}
 
@@ -62405,6 +62414,7 @@ public class BirdGame3 {
         double shownDamage = displayedDamageForBird(bird);
         int shownHealth = (int) Math.round(shownDamage);
         String damageText = Integer.toString(shownHealth);
+        FightHudMeterLayout meterLayout = fightHudMeterLayout(rect.getHeight());
 
         String name = shortName(bird.name);
         if (name.isBlank()) {
@@ -62450,18 +62460,22 @@ public class BirdGame3 {
 
         g.setTextAlign(TextAlignment.RIGHT);
         g.setFill(Color.BLACK.deriveColor(0, 1, 1, 0.42));
-        g.setFont(FIGHT_HUD_DAMAGE_FONT);
-        g.fillText(damageText, rect.getMaxX() - 31, rect.getMinY() + 81);
+        g.setFont(meterLayout.damageFont());
+        g.fillText(damageText, rect.getMaxX() - meterLayout.damageRightInset() + 5,
+                rect.getMinY() + meterLayout.damageBaselineOffset() + 5);
         g.setFill(healthColor);
-        g.fillText(damageText, rect.getMaxX() - 36, rect.getMinY() + 76);
-        g.setFont(Font.font("Arial Black", FontWeight.BOLD, 22));
+        g.fillText(damageText, rect.getMaxX() - meterLayout.damageRightInset(),
+                rect.getMinY() + meterLayout.damageBaselineOffset());
+        g.setFont(meterLayout.percentFont());
         g.setFill(Color.web("#ECEFF1"));
-        g.fillText("%", rect.getMaxX() - 12, rect.getMinY() + 76);
+        g.fillText("%", rect.getMaxX() - meterLayout.percentRightInset(),
+                rect.getMinY() + meterLayout.damageBaselineOffset());
         g.setTextAlign(TextAlignment.LEFT);
 
-        double healthBarY = rect.getMinY() + 82;
-        double healthBarW = rect.getWidth() - (healthBarX - rect.getMinX()) - 26;
-        double healthBarH = 14;
+        double healthBarY = rect.getMinY() + meterLayout.healthBarYOffset();
+        double healthBarW = rect.getWidth() - (healthBarX - rect.getMinX())
+                - meterLayout.healthBarRightInset();
+        double healthBarH = meterLayout.healthBarHeight();
         if (bird.hasOpiumResourceMeter()) {
             drawOpiumResourceHudBar(g, bird, healthBarX, healthBarY - 12, healthBarW, 7, true);
         }
@@ -62511,6 +62525,20 @@ public class BirdGame3 {
             g.setTextAlign(TextAlignment.LEFT);
         }
         g.restore();
+    }
+
+    FightHudMeterLayout fightHudMeterLayout(double panelHeight) {
+        boolean compact = panelHeight < 140.0;
+        return new FightHudMeterLayout(
+                compact ? Font.font("Impact", 46) : FIGHT_HUD_DAMAGE_FONT,
+                Font.font("Arial Black", FontWeight.BOLD, compact ? 18 : 22),
+                compact ? 43.0 : 48.0,
+                20.0,
+                compact ? 68.0 : 76.0,
+                compact ? 80.0 : 92.0,
+                compact ? 11.0 : 14.0,
+                34.0
+        );
     }
 
     boolean shouldGrayOutFightHudPanel(Bird bird) {
@@ -62749,9 +62777,9 @@ public class BirdGame3 {
         String safeDamageText = damageText == null || damageText.isBlank() ? "0" : damageText;
         double contentStart = portraitWidth + 34.0;
         double damageWidth = measureTextWidth(safeDamageText, FIGHT_HUD_DAMAGE_FONT);
-        // The number is right-aligned 36 px from the card edge. Keep a 12 px
+        // The number is right-aligned 48 px from the card edge. Keep a 12 px
         // breathing gap between its measured left edge and the fighter title.
-        double maxWidth = Math.max(24.0, panelWidth - contentStart - damageWidth - 48.0);
+        double maxWidth = Math.max(24.0, panelWidth - contentStart - damageWidth - 60.0);
 
         Font smallest = null;
         double smallestWidth = Double.POSITIVE_INFINITY;

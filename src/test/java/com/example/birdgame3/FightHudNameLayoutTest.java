@@ -43,4 +43,21 @@ class FightHudNameLayoutTest {
         assertEquals(22.0, fit.font().getSize(), 0.0001);
         assertEquals(fit.naturalWidth(), fit.renderedWidth(), 0.0001);
     }
+
+    @Test
+    void damageAndMetersStayInsideTallAndCompactCards() {
+        BirdGame3 game = new BirdGame3();
+
+        for (double panelHeight : new double[]{146.0, 126.0}) {
+            BirdGame3.FightHudMeterLayout layout = game.fightHudMeterLayout(panelHeight);
+            double ultimateBarY = panelHeight - 24.0;
+
+            assertTrue(layout.percentRightInset() >= 20.0,
+                    "The percent sign needs visible breathing room from the card edge.");
+            assertTrue(layout.healthBarYOffset() - layout.damageBaselineOffset() >= 12.0,
+                    "The meter must not paint over the bottom of the damage text.");
+            assertTrue(layout.healthBarBottomOffset() <= ultimateBarY - 10.0,
+                    "The health and ultimate meters need a clear gap.");
+        }
+    }
 }
