@@ -14905,164 +14905,450 @@ public class BirdGame3 {
         boolean core = activeArenaGeometryVariant == MapVariant.RECLAMATION_CORE;
         double time = ambientFx ? System.currentTimeMillis() / 1000.0 : 0.0;
         double pulse = ambientFx ? 0.5 + 0.5 * Math.sin(time * 1.8) : 0.5;
-        Color brass = core ? Color.web("#FFB84D") : sorting ? Color.web("#78D6C6") : Color.web("#D6A84A");
-        Color skyTop = core ? Color.web("#09060B") : Color.web("#080B12");
-        Color skyBottom = core ? Color.web("#4B1710") : Color.web("#35221D");
-        for (int band = 0; band < 220; band++) {
-            double ratio = band / 219.0;
-            g.setFill(skyTop.interpolate(skyBottom, ratio));
-            g.fillRect(0.0, band * WORLD_HEIGHT / 220.0, WORLD_WIDTH, WORLD_HEIGHT / 220.0 + 3.0);
+        Color accent = core ? Color.web("#FF8A3D")
+                : sorting ? Color.web("#69E6D0") : Color.web("#E7B85B");
+
+        drawCarrionExchangeSky(g, core, sorting, pulse);
+        drawCarrionDeadCity(g, core, sorting, pulse);
+        if (core) drawCarrionReclamationCore(g, time, ambientFx, pulse);
+        drawCarrionOverheadWorks(g, accent, core, sorting);
+
+        if (sorting) {
+            drawCarrionSortingLine(g, accent, pulse);
+        } else if (!core) {
+            drawCarrionMarketBackground(g, accent, pulse);
         }
 
-        // The Exchange hangs over a dead city: its low, dense silhouette makes
-        // the play space visibly elevated without adding collision-like clutter.
-        g.setFill(Color.web("#05070C", 0.96));
-        for (int building = 0; building < 17; building++) {
-            double x = -140.0 + building * 390.0;
-            double w = 260.0 + (building % 4) * 42.0;
-            double h = 420.0 + Math.floorMod(building * 257, 760);
-            double y = GROUND_Y + 270.0 - h;
-            g.fillRect(x, y, w, h + 500.0);
-            g.setFill(Color.web(building % 3 == 0 ? "#C98A4D" : "#7A665A", 0.10));
-            for (double wy = y + 75.0; wy < GROUND_Y + 160.0; wy += 120.0) {
-                g.fillRect(x + 48.0, wy, 25.0, 13.0);
-                g.fillRect(x + w - 74.0, wy, 25.0, 13.0);
-            }
-            g.setFill(Color.web("#05070C", 0.96));
-        }
-        g.setFill(Color.web("#BC7A45", 0.10 + pulse * 0.04));
-        g.fillRect(0.0, GROUND_Y - 520.0, WORLD_WIDTH, 830.0);
-
-        // Two immense gantries and their continuous crane rail explain every
-        // hanging deck. No structural line stops before meeting an anchor.
-        g.setFill(Color.web("#101219"));
-        g.fillRect(430.0, 160.0, 190.0, GROUND_Y + 270.0);
-        g.fillRect(5_380.0, 160.0, 190.0, GROUND_Y + 270.0);
-        g.setStroke(Color.web("#6A5646"));
-        g.setLineWidth(18.0);
-        for (double y = 250.0; y < GROUND_Y + 180.0; y += 260.0) {
-            g.strokeLine(450.0, y, 600.0, y + 190.0);
-            g.strokeLine(600.0, y, 450.0, y + 190.0);
-            g.strokeLine(5_400.0, y, 5_550.0, y + 190.0);
-            g.strokeLine(5_550.0, y, 5_400.0, y + 190.0);
-        }
-        g.setFill(Color.web("#171820"));
-        g.fillRoundRect(350.0, 185.0, 5_300.0, 125.0, 26.0, 26.0);
-        g.setStroke(brass.deriveColor(0, 0.80, 0.82, 0.72));
-        g.setLineWidth(9.0);
-        g.strokeRoundRect(350.0, 185.0, 5_300.0, 125.0, 26.0, 26.0);
-        for (double x = 460.0; x < 5_540.0; x += 270.0) {
-            g.strokeLine(x, 207.0, x + 130.0, 286.0);
-            g.strokeLine(x + 130.0, 207.0, x, 286.0);
-        }
-
-        // Chained airship wreckage is scenery, recessed well behind the arena.
-        g.setStroke(Color.web("#756251", 0.72));
-        g.setLineWidth(12.0);
-        g.strokeLine(1_150.0, 305.0, 1_330.0, 760.0);
-        g.strokeLine(4_850.0, 305.0, 4_640.0, 760.0);
-        g.setFill(Color.web("#16161C", 0.86));
-        g.fillOval(930.0, 690.0, 980.0, 310.0);
-        g.fillOval(4_090.0, 690.0, 980.0, 310.0);
-        g.setStroke(Color.web("#926B46", 0.44));
-        g.setLineWidth(9.0);
-        g.strokeOval(930.0, 690.0, 980.0, 310.0);
-        g.strokeOval(4_090.0, 690.0, 980.0, 310.0);
-
-        if (core) {
-            g.setFill(Color.web("#050408", 0.80));
-            g.fillOval(2_030.0, 340.0, 1_940.0, 1_940.0);
-            g.setStroke(Color.web("#FF7A2E", 0.44 + pulse * 0.18));
-            g.setLineWidth(38.0);
-            g.strokeOval(2_120.0, 430.0, 1_760.0, 1_760.0);
-            g.setLineWidth(14.0);
-            for (int spoke = 0; spoke < 16; spoke++) {
-                double a = spoke * Math.PI / 8.0;
-                g.strokeLine(3_000.0 + Math.cos(a) * 780.0, 1_310.0 + Math.sin(a) * 780.0,
-                        3_000.0 + Math.cos(a) * 910.0, 1_310.0 + Math.sin(a) * 910.0);
-            }
-        } else if (sorting) {
-            // Sorting Floor reads as a processing line even outside Classic,
-            // so its literal stage photo is not just a teal copy of the Exchange.
-            g.setStroke(Color.web("#78D6C6", 0.34));
-            g.setLineWidth(10.0);
-            for (int chute = 0; chute < 4; chute++) {
-                double x = 980.0 + chute * 1_320.0;
-                g.strokeLine(x, 350.0, x + 250.0, 820.0);
-                g.strokeLine(x + 250.0, 820.0, x + 520.0, 820.0);
-                g.setFill(Color.web("#10171B", 0.96));
-                g.fillRoundRect(x + 155.0, 790.0, 470.0, 250.0, 28.0, 28.0);
-                g.setStroke(Color.web("#78D6C6", 0.66));
-                g.setLineWidth(7.0);
-                g.strokeRoundRect(x + 155.0, 790.0, 470.0, 250.0, 28.0, 28.0);
-                g.setFill(Color.web("#D7FFF7", 0.78));
-                g.setFont(Font.font("Consolas", FontWeight.BOLD, 34));
-                g.setTextAlign(TextAlignment.CENTER);
-                g.fillText(String.format(Locale.ROOT, "%02d", chute + 1), x + 390.0, 930.0);
-            }
-            g.setTextAlign(TextAlignment.LEFT);
-        } else {
-            // Furnace stacks give the ordinary Exchange its own skyline.
-            for (int stack = 0; stack < 5; stack++) {
-                double x = 1_180.0 + stack * 890.0;
-                double top = 520.0 + (stack % 2) * 190.0;
-                g.setFill(Color.web("#121218", 0.92));
-                g.fillRect(x, top, 210.0, GROUND_Y - top + 250.0);
-                g.setFill(Color.web("#E87835", 0.16 + pulse * 0.06));
-                g.fillRoundRect(x + 36.0, top + 100.0, 138.0, 34.0, 10.0, 10.0);
-            }
-        }
-
-        // Every playable surface is mounted to a visible girder or cable.
-        double supportBottom = GROUND_Y + 260.0;
-        for (Platform p : platforms) {
-            if (p.y >= GROUND_Y + 80.0) continue;
-            double center = p.x + p.w * 0.5;
-            g.setStroke(Color.web("#51483F", 0.90));
-            g.setLineWidth(12.0);
-            g.strokeLine(p.x + 26.0, p.y + p.h, center, Math.min(supportBottom, p.y + p.h + 390.0));
-            g.strokeLine(p.x + p.w - 26.0, p.y + p.h, center, Math.min(supportBottom, p.y + p.h + 390.0));
-            if (p.y < battlefieldIslandY - 250.0) {
-                g.strokeLine(center - Math.min(170.0, p.w * 0.25), 305.0, p.x + 36.0, p.y);
-                g.strokeLine(center + Math.min(170.0, p.w * 0.25), 305.0, p.x + p.w - 36.0, p.y);
-            }
-            g.setFill(Color.web(core ? "#35211D" : sorting ? "#17302F" : "#24242A"));
-            g.fillRoundRect(p.x, p.y, p.w, p.h, 18.0, 18.0);
-            g.setFill(Color.web("#0A0C10"));
-            g.fillRoundRect(p.x + 15.0, p.y + 12.0, Math.max(0.0, p.w - 30.0), Math.min(24.0, p.h * 0.34), 10.0, 10.0);
-            g.setStroke(brass.deriveColor(0, 0.86, 0.92, 0.90));
-            g.setLineWidth(7.0);
-            g.strokeRoundRect(p.x, p.y, p.w, p.h, 18.0, 18.0);
-            g.setStroke(Color.web("#B7A58B", 0.42));
-            g.setLineWidth(3.0);
-            g.strokeLine(p.x + 22.0, p.y + 12.0, p.x + p.w - 22.0, p.y + 12.0);
-        }
+        drawCarrionExchangePlatforms(g, accent, core, sorting);
 
         if (!core) {
             int cycle = Math.floorMod((int) simTick, 360);
             boolean warning = cycle >= 230 && cycle < 290;
             boolean active = cycle >= 290 && cycle < 326;
-            for (double magnetX : CARRION_MAGNET_X) {
-                Color state = active ? Color.web("#6BE7FF") : warning ? Color.web("#FFD166") : Color.web("#66584A");
-                g.setStroke(Color.web("#4D4238"));
-                g.setLineWidth(11.0);
-                g.strokeLine(magnetX, 305.0, magnetX, battlefieldIslandY - 55.0);
-                g.setFill(Color.web("#11131A"));
-                g.fillRoundRect(magnetX - 112.0, battlefieldIslandY - 165.0, 224.0, 100.0, 24.0, 24.0);
-                g.setStroke(state.deriveColor(0, 0.9, 1.0, 0.94));
-                g.setLineWidth(9.0);
-                g.strokeRoundRect(magnetX - 112.0, battlefieldIslandY - 165.0, 224.0, 100.0, 24.0, 24.0);
-                if (warning || active) {
-                    g.setStroke(state.deriveColor(0, 1.0, 1.0, active ? 0.58 : 0.32));
-                    g.setLineWidth(active ? 12.0 : 6.0);
-                    for (int arc = 0; arc < 3; arc++) {
-                        double radius = 150.0 + arc * 95.0;
-                        g.strokeOval(magnetX - radius, battlefieldIslandY - 125.0 - radius * 0.38,
-                                radius * 2.0, radius * 0.76);
-                    }
-                }
+            for (int index = 0; index < CARRION_MAGNET_X.length; index++) {
+                drawCarrionMagnet(g, CARRION_MAGNET_X[index], index, warning, active, pulse, sorting);
             }
         }
+
+        // Warm fog below the suspended deck gives the arena height without
+        // veiling any playable surface.
+        g.setFill(new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
+                new Stop(0, Color.TRANSPARENT),
+                new Stop(1, Color.web(core ? "#FF4D1F" : "#C47A43", 0.20))));
+        g.fillRect(0.0, GROUND_Y + 100.0, WORLD_WIDTH, WORLD_HEIGHT - GROUND_Y - 100.0);
+        g.setTextAlign(TextAlignment.LEFT);
+        g.setLineDashes();
+    }
+
+    private void drawCarrionExchangeSky(GraphicsContext g, boolean core, boolean sorting, double pulse) {
+        Color top = Color.web(core ? "#09050C" : sorting ? "#071315" : "#100C18");
+        Color horizon = Color.web(core ? "#6A1D12" : sorting ? "#244A43" : "#69341F");
+        g.setFill(new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
+                new Stop(0, top), new Stop(0.62, top.interpolate(horizon, 0.46)),
+                new Stop(1, horizon)));
+        g.fillRect(0.0, 0.0, WORLD_WIDTH, WORLD_HEIGHT);
+
+        // A half-eclipsed industrial sun is the map's distant focal point.
+        double halo = 0.10 + pulse * 0.04;
+        g.setFill(Color.web(core ? "#FF5A24" : sorting ? "#70E8D3" : "#FFB454", halo));
+        g.fillOval(2_205.0, 35.0, 1_590.0, 1_590.0);
+        g.setFill(Color.web(core ? "#FF6A2D" : sorting ? "#A9FFF0" : "#FFD17A", 0.62));
+        g.fillOval(2_405.0, 235.0, 1_190.0, 1_190.0);
+        g.setFill(Color.web("#09070D", 0.98));
+        g.fillOval(2_535.0, 150.0, 1_190.0, 1_190.0);
+        g.setStroke(Color.web(core ? "#FF6D32" : sorting ? "#76E8D6" : "#E6A74F", 0.42));
+        g.setLineWidth(18.0);
+        g.strokeOval(2_405.0, 235.0, 1_190.0, 1_190.0);
+
+        for (int cloud = 0; cloud < 11; cloud++) {
+            double x = -360.0 + cloud * 650.0;
+            double y = 450.0 + Math.floorMod(cloud * 239, 580);
+            double width = 620.0 + (cloud % 3) * 180.0;
+            g.setFill(Color.web(core ? "#5B1C18" : "#7A5341", 0.12 + (cloud % 2) * 0.03));
+            g.fillOval(x, y, width, 125.0 + (cloud % 2) * 45.0);
+        }
+    }
+
+    private void drawCarrionDeadCity(GraphicsContext g, boolean core, boolean sorting, double pulse) {
+        // Far towers receive enough rim light to read as a city, not a black wall.
+        for (int building = 0; building < 19; building++) {
+            double x = -180.0 + building * 345.0;
+            double width = 235.0 + (building % 4) * 44.0;
+            double height = 470.0 + Math.floorMod(building * 271, 830);
+            double top = GROUND_Y + 310.0 - height;
+            Color shell = Color.web(building % 3 == 0 ? "#17151D" : "#11131A", 0.98);
+            g.setFill(shell);
+            g.fillRect(x, top, width, height + 540.0);
+            g.setFill(Color.web(core ? "#FF7043" : sorting ? "#72D9C6" : "#D89B58",
+                    0.14 + pulse * 0.025));
+            for (double windowY = top + 70.0; windowY < GROUND_Y + 180.0; windowY += 128.0) {
+                g.fillRect(x + 38.0, windowY, 30.0, 16.0);
+                if (building % 2 == 0) g.fillRect(x + width - 69.0, windowY, 30.0, 16.0);
+            }
+            g.setStroke(Color.web("#A87950", 0.16));
+            g.setLineWidth(7.0);
+            g.strokeLine(x + width - 2.0, top, x + width - 2.0, GROUND_Y + 250.0);
+        }
+
+        // Closer roofline and aerial bridges break up the old flat silhouette.
+        g.setFill(Color.web("#0A0B10", 0.95));
+        for (int block = 0; block < 8; block++) {
+            double x = block * 850.0 - 260.0;
+            double top = GROUND_Y - 520.0 + (block % 3) * 105.0;
+            g.fillRect(x, top, 640.0, 760.0);
+            g.setStroke(Color.web(core ? "#7A3126" : "#69564A", 0.34));
+            g.setLineWidth(12.0);
+            g.strokeLine(x + 80.0, top + 60.0, x + 560.0, top + 60.0);
+        }
+        g.setStroke(Color.web("#9C7657", 0.22));
+        g.setLineWidth(18.0);
+        g.strokeLine(0.0, GROUND_Y - 380.0, WORLD_WIDTH, GROUND_Y - 380.0);
+        g.setLineWidth(6.0);
+        for (double x = 90.0; x < WORLD_WIDTH; x += 310.0) {
+            g.strokeLine(x, GROUND_Y - 380.0, x + 160.0, GROUND_Y - 505.0);
+            g.strokeLine(x + 160.0, GROUND_Y - 505.0, x + 310.0, GROUND_Y - 380.0);
+        }
+    }
+
+    private void drawCarrionOverheadWorks(GraphicsContext g, Color accent,
+                                           boolean core, boolean sorting) {
+        Color tower = Color.web("#16161D");
+        Color frame = Color.web(core ? "#704638" : sorting ? "#4E746D" : "#806747");
+        for (double towerX : new double[]{390.0, 5_390.0}) {
+            g.setFill(tower);
+            g.fillRoundRect(towerX, 115.0, 230.0, GROUND_Y + 410.0, 24.0, 24.0);
+            g.setStroke(frame);
+            g.setLineWidth(20.0);
+            g.strokeRoundRect(towerX, 115.0, 230.0, GROUND_Y + 410.0, 24.0, 24.0);
+            for (double y = 230.0; y < GROUND_Y + 170.0; y += 280.0) {
+                g.strokeLine(towerX + 25.0, y, towerX + 205.0, y + 210.0);
+                g.strokeLine(towerX + 205.0, y, towerX + 25.0, y + 210.0);
+            }
+        }
+
+        g.setFill(Color.web("#202028"));
+        g.fillRoundRect(330.0, 145.0, 5_340.0, 170.0, 30.0, 30.0);
+        g.setStroke(Color.web("#08090D"));
+        g.setLineWidth(32.0);
+        g.strokeRoundRect(330.0, 145.0, 5_340.0, 170.0, 30.0, 30.0);
+        g.setStroke(frame);
+        g.setLineWidth(12.0);
+        g.strokeRoundRect(330.0, 145.0, 5_340.0, 170.0, 30.0, 30.0);
+        for (double x = 430.0; x < 5_520.0; x += 255.0) {
+            g.strokeLine(x, 174.0, x + 120.0, 286.0);
+            g.strokeLine(x + 120.0, 174.0, x, 286.0);
+        }
+        g.setFill(accent.deriveColor(0, 0.82, 1.0, 0.72));
+        g.fillRect(390.0, 158.0, 5_220.0, 13.0);
+
+        // The marquee makes the location identifiable in gameplay and photos.
+        double signWidth = sorting ? 1_540.0 : core ? 1_480.0 : 1_780.0;
+        double signX = 3_000.0 - signWidth * 0.5;
+        g.setStroke(Color.web("#655746", 0.92));
+        g.setLineWidth(14.0);
+        g.strokeLine(signX + 140.0, 315.0, signX + 140.0, 455.0);
+        g.strokeLine(signX + signWidth - 140.0, 315.0, signX + signWidth - 140.0, 455.0);
+        g.setFill(Color.web("#0B0C12", 0.97));
+        g.fillRoundRect(signX, 440.0, signWidth, 235.0, 42.0, 42.0);
+        g.setStroke(accent.deriveColor(0, 0.90, 1.05, 0.95));
+        g.setLineWidth(15.0);
+        g.strokeRoundRect(signX, 440.0, signWidth, 235.0, 42.0, 42.0);
+        g.setTextAlign(TextAlignment.CENTER);
+        g.setFill(Color.web("#FFF0C8"));
+        g.setFont(Font.font("Impact", FontWeight.BOLD, 86.0));
+        g.fillText(core ? "RECLAMATION CORE" : sorting ? "SORTING FLOOR" : "CARRION EXCHANGE",
+                3_000.0, 565.0);
+        g.setFill(accent.deriveColor(0, 0.84, 1.08, 0.90));
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, 29.0));
+        g.fillText(core ? "ALL DEBTS RETURN TO THE FURNACE"
+                        : sorting ? "WEIGH  •  MARK  •  RECLAIM"
+                        : "WE BUY WHAT THE SKY FORGETS",
+                3_000.0, 625.0);
+        g.setTextAlign(TextAlignment.LEFT);
+    }
+
+    private void drawCarrionMarketBackground(GraphicsContext g, Color accent, double pulse) {
+        // Five lit trade bays turn the lower skyline into a functioning market.
+        for (int stall = 0; stall < 5; stall++) {
+            double x = 790.0 + stall * 1_105.0;
+            double y = GROUND_Y - 760.0 + (stall % 2) * 60.0;
+            g.setFill(Color.web("#17151B", 0.96));
+            g.fillRoundRect(x, y, 730.0, 430.0, 42.0, 42.0);
+            g.setStroke(Color.web("#8C6847", 0.84));
+            g.setLineWidth(14.0);
+            g.strokeRoundRect(x, y, 730.0, 430.0, 42.0, 42.0);
+            for (int awning = 0; awning < 7; awning++) {
+                g.setFill(awning % 2 == 0 ? accent.deriveColor(0, 0.78, 0.78, 0.76)
+                        : Color.web("#4D2C2D", 0.90));
+                g.fillPolygon(new double[]{x + awning * 104.0, x + (awning + 1) * 104.0,
+                                x + awning * 104.0 + 82.0, x + awning * 104.0 + 20.0},
+                        new double[]{y, y, y + 92.0, y + 92.0}, 4);
+            }
+            g.setFill(Color.web("#E9AD5D", 0.18 + pulse * 0.04));
+            g.fillRoundRect(x + 70.0, y + 145.0, 590.0, 205.0, 26.0, 26.0);
+            g.setStroke(Color.web("#FFD58C", 0.44));
+            g.setLineWidth(8.0);
+            for (int shelf = 0; shelf < 3; shelf++) {
+                double shelfY = y + 205.0 + shelf * 66.0;
+                g.strokeLine(x + 95.0, shelfY, x + 635.0, shelfY);
+            }
+            for (int crate = 0; crate < 6; crate++) {
+                double crateX = x + 105.0 + crate * 86.0;
+                double crateY = y + 250.0 + (crate % 2) * 55.0;
+                g.setFill(Color.web(crate % 3 == 0 ? "#925B39" : "#54444A"));
+                g.fillRect(crateX, crateY, 64.0, 58.0);
+                g.setStroke(Color.web("#D7AE6D", 0.48));
+                g.setLineWidth(5.0);
+                g.strokeRect(crateX, crateY, 64.0, 58.0);
+            }
+        }
+
+        // Recessed airship carcasses provide large, readable salvage shapes.
+        for (double centerX : new double[]{1_260.0, 4_740.0}) {
+            g.setStroke(Color.web("#8B735B", 0.76));
+            g.setLineWidth(16.0);
+            g.strokeLine(centerX - 250.0, 315.0, centerX - 120.0, 850.0);
+            g.strokeLine(centerX + 250.0, 315.0, centerX + 120.0, 850.0);
+            g.setFill(Color.web("#242129", 0.98));
+            g.fillOval(centerX - 500.0, 755.0, 1_000.0, 330.0);
+            g.setStroke(Color.web("#B37A48", 0.66));
+            g.setLineWidth(15.0);
+            g.strokeOval(centerX - 500.0, 755.0, 1_000.0, 330.0);
+            g.strokeLine(centerX - 360.0, 920.0, centerX + 360.0, 920.0);
+            for (double rib = centerX - 260.0; rib <= centerX + 260.0; rib += 130.0) {
+                g.strokeLine(rib, 790.0, rib, 1_050.0);
+            }
+        }
+    }
+
+    private void drawCarrionSortingLine(GraphicsContext g, Color accent, double pulse) {
+        for (int chute = 0; chute < 4; chute++) {
+            double x = 750.0 + chute * 1_390.0;
+            g.setStroke(Color.web("#334C49", 0.96));
+            g.setLineWidth(44.0);
+            g.strokeLine(x + 80.0, 315.0, x + 245.0, 830.0);
+            g.strokeLine(x + 245.0, 830.0, x + 500.0, 990.0);
+            g.setStroke(accent.deriveColor(0, 0.82, 0.92, 0.76));
+            g.setLineWidth(10.0);
+            g.strokeLine(x + 80.0, 315.0, x + 245.0, 830.0);
+            g.strokeLine(x + 245.0, 830.0, x + 500.0, 990.0);
+
+            g.setFill(Color.web("#11201F", 0.98));
+            g.fillRoundRect(x + 80.0, 940.0, 640.0, 390.0, 42.0, 42.0);
+            g.setStroke(accent.deriveColor(0, 0.90, 1.0, 0.88));
+            g.setLineWidth(14.0);
+            g.strokeRoundRect(x + 80.0, 940.0, 640.0, 390.0, 42.0, 42.0);
+            g.setFill(accent.deriveColor(0, 0.65, 0.80, 0.15 + pulse * 0.04));
+            g.fillRoundRect(x + 115.0, 985.0, 570.0, 300.0, 24.0, 24.0);
+            g.setFill(Color.web("#DFFFF8"));
+            g.setFont(Font.font("Consolas", FontWeight.BOLD, 78.0));
+            g.setTextAlign(TextAlignment.CENTER);
+            g.fillText(String.format(Locale.ROOT, "%02d", chute + 1), x + 400.0, 1_135.0);
+            g.setFont(Font.font("Consolas", FontWeight.BOLD, 25.0));
+            g.fillText(switch (chute) {
+                case 0 -> "BONE";
+                case 1 -> "BRASS";
+                case 2 -> "SIGNAL";
+                default -> "UNCLAIMED";
+            }, x + 400.0, 1_215.0);
+        }
+        g.setTextAlign(TextAlignment.LEFT);
+
+        g.setFill(Color.web("#11201F"));
+        g.fillRoundRect(720.0, GROUND_Y - 690.0, 4_560.0, 135.0, 28.0, 28.0);
+        g.setStroke(accent.deriveColor(0, 0.88, 0.90, 0.78));
+        g.setLineWidth(12.0);
+        g.strokeRoundRect(720.0, GROUND_Y - 690.0, 4_560.0, 135.0, 28.0, 28.0);
+        for (double roller = 820.0; roller < 5_200.0; roller += 145.0) {
+            g.setFill(Color.web("#87A9A3", 0.68));
+            g.fillOval(roller, GROUND_Y - 645.0, 48.0, 48.0);
+            g.setFill(Color.web("#0B1112"));
+            g.fillOval(roller + 15.0, GROUND_Y - 630.0, 18.0, 18.0);
+        }
+    }
+
+    private void drawCarrionReclamationCore(GraphicsContext g, double time,
+                                             boolean ambientFx, double pulse) {
+        double rotation = ambientFx ? time * 7.0 : 0.0;
+        double cx = 3_000.0;
+        double cy = 1_360.0;
+        g.setFill(Color.web("#030306", 0.92));
+        g.fillOval(cx - 1_080.0, cy - 1_080.0, 2_160.0, 2_160.0);
+        g.setFill(Color.web("#FF5A1F", 0.09 + pulse * 0.05));
+        g.fillOval(cx - 950.0, cy - 950.0, 1_900.0, 1_900.0);
+
+        g.save();
+        g.translate(cx, cy);
+        g.rotate(rotation);
+        for (int ring = 0; ring < 3; ring++) {
+            double radius = 590.0 + ring * 175.0;
+            g.setStroke(Color.web(ring == 0 ? "#FFB04A" : "#A94B2D", 0.58 - ring * 0.09 + pulse * 0.09));
+            g.setLineWidth(42.0 - ring * 7.0);
+            g.setLineDashes(110.0 + ring * 25.0, 48.0 + ring * 20.0);
+            g.strokeOval(-radius, -radius, radius * 2.0, radius * 2.0);
+        }
+        g.setLineDashes();
+        g.setStroke(Color.web("#A85A39", 0.76));
+        g.setLineWidth(22.0);
+        for (int spoke = 0; spoke < 12; spoke++) {
+            double angle = spoke * Math.PI / 6.0;
+            g.strokeLine(Math.cos(angle) * 330.0, Math.sin(angle) * 330.0,
+                    Math.cos(angle) * 840.0, Math.sin(angle) * 840.0);
+        }
+        g.restore();
+
+        g.setFill(Color.web("#171015"));
+        g.fillOval(cx - 410.0, cy - 410.0, 820.0, 820.0);
+        g.setStroke(Color.web("#FF9B42", 0.86));
+        g.setLineWidth(32.0);
+        g.strokeOval(cx - 410.0, cy - 410.0, 820.0, 820.0);
+        g.setFill(Color.web("#FF4D18", 0.52 + pulse * 0.16));
+        g.fillOval(cx - 270.0, cy - 270.0, 540.0, 540.0);
+        g.setFill(Color.web("#FFD180", 0.34 + pulse * 0.18));
+        g.fillOval(cx - 145.0, cy - 145.0, 290.0, 290.0);
+
+        // Intake pipes visibly connect the engine to the exchange structure.
+        g.setStroke(Color.web("#6F3D32", 0.94));
+        g.setLineWidth(70.0);
+        strokeBezier(g, 610.0, 1_020.0, 1_250.0, 1_020.0, 1_620.0, 1_300.0, 2_170.0, 1_360.0);
+        strokeBezier(g, 5_390.0, 1_020.0, 4_750.0, 1_020.0, 4_380.0, 1_300.0, 3_830.0, 1_360.0);
+        g.setStroke(Color.web("#D66D3F", 0.64));
+        g.setLineWidth(13.0);
+        strokeBezier(g, 610.0, 1_020.0, 1_250.0, 1_020.0, 1_620.0, 1_300.0, 2_170.0, 1_360.0);
+        strokeBezier(g, 5_390.0, 1_020.0, 4_750.0, 1_020.0, 4_380.0, 1_300.0, 3_830.0, 1_360.0);
+    }
+
+    private void drawCarrionExchangePlatforms(GraphicsContext g, Color accent,
+                                               boolean core, boolean sorting) {
+        Color deck = Color.web(core ? "#3B2220" : sorting ? "#193330" : "#30282A");
+        Color frame = Color.web(core ? "#864735" : sorting ? "#4D8178" : "#876847");
+        double supportFloor = GROUND_Y + 300.0;
+        for (Platform p : platforms) {
+            if (p.y >= GROUND_Y + 80.0) continue;
+            boolean mainDeck = Math.abs(p.y - battlefieldIslandY) < 2.0 && p.w > 3_000.0;
+            double center = p.x + p.w * 0.5;
+
+            if (mainDeck) {
+                g.setFill(Color.web("#111117", 0.98));
+                g.fillPolygon(new double[]{p.x + 18.0, p.x + p.w - 18.0,
+                                p.x + p.w - 170.0, p.x + 170.0},
+                        new double[]{p.y + p.h, p.y + p.h, p.y + p.h + 250.0,
+                                p.y + p.h + 250.0}, 4);
+                g.setStroke(frame.deriveColor(0, 0.86, 0.88, 0.92));
+                g.setLineWidth(18.0);
+                for (double brace = p.x + 80.0; brace < p.x + p.w - 100.0; brace += 330.0) {
+                    g.strokeLine(brace, p.y + p.h + 20.0, brace + 245.0, p.y + p.h + 230.0);
+                    g.strokeLine(brace + 245.0, p.y + p.h + 20.0, brace, p.y + p.h + 230.0);
+                }
+            } else if (p.y < battlefieldIslandY - 65.0) {
+                double braceBottom = Math.min(battlefieldIslandY - 28.0, p.y + p.h + 280.0);
+                g.setStroke(Color.web("#0A0A0F", 0.96));
+                g.setLineWidth(30.0);
+                g.strokeLine(p.x + 35.0, p.y + p.h, center, braceBottom);
+                g.strokeLine(p.x + p.w - 35.0, p.y + p.h, center, braceBottom);
+                g.setStroke(frame.deriveColor(0, 0.82, 0.82, 0.88));
+                g.setLineWidth(12.0);
+                g.strokeLine(p.x + 35.0, p.y + p.h, center, braceBottom);
+                g.strokeLine(p.x + p.w - 35.0, p.y + p.h, center, braceBottom);
+                if (p.y < battlefieldIslandY - 250.0) {
+                    g.setStroke(Color.web("#88745C", 0.88));
+                    g.setLineWidth(14.0);
+                    g.strokeLine(center - Math.min(180.0, p.w * 0.24), 315.0, p.x + 42.0, p.y);
+                    g.strokeLine(center + Math.min(180.0, p.w * 0.24), 315.0, p.x + p.w - 42.0, p.y);
+                }
+            } else if (p.y > battlefieldIslandY + 70.0) {
+                g.setStroke(frame.deriveColor(0, 0.78, 0.70, 0.78));
+                g.setLineWidth(14.0);
+                g.strokeLine(p.x + 40.0, p.y + p.h, center, Math.min(supportFloor, p.y + 350.0));
+                g.strokeLine(p.x + p.w - 40.0, p.y + p.h, center, Math.min(supportFloor, p.y + 350.0));
+            }
+
+            g.setFill(Color.web("#07080C", 0.95));
+            g.fillRoundRect(p.x - 14.0, p.y + 9.0, p.w + 28.0, p.h + 26.0, 24.0, 24.0);
+            g.setFill(deck);
+            g.fillRoundRect(p.x, p.y, p.w, p.h, 20.0, 20.0);
+            g.setFill(accent.deriveColor(0, 0.72, 0.70, 0.38));
+            g.fillRoundRect(p.x + 17.0, p.y + 8.0, Math.max(0.0, p.w - 34.0),
+                    Math.min(19.0, p.h * 0.30), 8.0, 8.0);
+            g.setStroke(accent.deriveColor(0, 0.88, 1.0, 0.98));
+            g.setLineWidth(mainDeck ? 13.0 : 11.0);
+            g.strokeRoundRect(p.x, p.y, p.w, p.h, 20.0, 20.0);
+
+            for (double seam = p.x + 110.0; seam < p.x + p.w - 50.0; seam += 235.0) {
+                g.setStroke(Color.web("#0B0C10", 0.70));
+                g.setLineWidth(5.0);
+                g.strokeLine(seam, p.y + 7.0, seam, p.y + p.h - 7.0);
+            }
+            for (double rivet = p.x + 45.0; rivet < p.x + p.w - 25.0; rivet += 145.0) {
+                g.setFill(Color.web("#FFF0C8", 0.72));
+                g.fillOval(rivet - 7.0, p.y + p.h - 21.0, 14.0, 14.0);
+            }
+        }
+    }
+
+    private void drawCarrionMagnet(GraphicsContext g, double x, int index,
+                                   boolean warning, boolean active, double pulse,
+                                   boolean sorting) {
+        Color state = active ? Color.web("#6BE7FF")
+                : warning ? Color.web("#FFD166")
+                : sorting ? Color.web("#4D9F94") : Color.web("#8A6F4D");
+        double headY = battlefieldIslandY - 250.0;
+
+        g.setStroke(Color.web("#17151A"));
+        g.setLineWidth(34.0);
+        g.strokeLine(x, 315.0, x, headY - 35.0);
+        g.setStroke(Color.web("#796A58"));
+        g.setLineWidth(9.0);
+        g.strokeLine(x, 315.0, x, headY - 35.0);
+        for (double linkY = 345.0; linkY < headY - 45.0; linkY += 92.0) {
+            g.setStroke(Color.web("#A58B69", 0.66));
+            g.setLineWidth(7.0);
+            g.strokeOval(x - 19.0, linkY, 38.0, 58.0);
+        }
+
+        g.setFill(Color.web("#14151B"));
+        g.fillRoundRect(x - 150.0, headY - 30.0, 300.0, 145.0, 34.0, 34.0);
+        g.setStroke(Color.web("#05060A"));
+        g.setLineWidth(24.0);
+        g.strokeRoundRect(x - 150.0, headY - 30.0, 300.0, 145.0, 34.0, 34.0);
+        g.setStroke(state.deriveColor(0, 0.92, 1.02, 0.96));
+        g.setLineWidth(13.0);
+        g.strokeRoundRect(x - 150.0, headY - 30.0, 300.0, 145.0, 34.0, 34.0);
+
+        // Split horseshoe coils communicate a magnetic hazard immediately.
+        g.setFill(state.deriveColor(0, 0.82, 0.84, 0.86));
+        g.fillRoundRect(x - 112.0, headY + 10.0, 78.0, 150.0, 28.0, 28.0);
+        g.fillRoundRect(x + 34.0, headY + 10.0, 78.0, 150.0, 28.0, 28.0);
+        g.setFill(Color.web("#090A0E"));
+        g.fillRect(x - 33.0, headY + 78.0, 66.0, 96.0);
+        g.setStroke(Color.web("#E8F8F6", active ? 0.92 : 0.42));
+        g.setLineWidth(8.0);
+        for (int coil = 0; coil < 4; coil++) {
+            double coilY = headY + 25.0 + coil * 29.0;
+            g.strokeLine(x - 102.0, coilY, x - 43.0, coilY);
+            g.strokeLine(x + 43.0, coilY, x + 102.0, coilY);
+        }
+
+        g.setFill(state.deriveColor(0, 1.0, 1.0, active ? 0.95 : warning ? 0.82 : 0.48));
+        g.fillOval(x - 18.0, headY - 9.0, 36.0, 36.0);
+        g.setFill(Color.web("#FFF7D6"));
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, 24.0));
+        g.setTextAlign(TextAlignment.CENTER);
+        g.fillText("M" + (index + 1), x, headY + 66.0);
+
+        if (warning || active) {
+            double alpha = active ? 0.22 + pulse * 0.10 : 0.08 + pulse * 0.06;
+            g.setFill(state.deriveColor(0, 1.0, 1.0, alpha));
+            g.fillOval(x - 390.0, headY + 30.0, 780.0, 320.0);
+            g.setStroke(state.deriveColor(0, 1.0, 1.0, active ? 0.72 : 0.45));
+            g.setLineWidth(active ? 16.0 : 9.0);
+            for (int arc = 0; arc < 3; arc++) {
+                double radius = 185.0 + arc * 95.0;
+                g.strokeArc(x - radius, headY + 75.0 - radius * 0.31,
+                        radius * 2.0, radius * 0.62, 0.0, 180.0, ArcType.OPEN);
+            }
+        }
+        g.setTextAlign(TextAlignment.LEFT);
     }
 
     private void drawMidnightWorkshopGears(GraphicsContext g, Color accent, double time, boolean ambientFx) {
