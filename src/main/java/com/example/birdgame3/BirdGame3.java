@@ -61684,7 +61684,7 @@ public class BirdGame3 {
             return healthBarYOffset + healthBarHeight;
         }
 
-        double ultimateLabelX(double portraitRight) {
+        double ultimateRowX(double portraitRight) {
             return portraitRight + 16.0;
         }
     }
@@ -62500,9 +62500,9 @@ public class BirdGame3 {
         g.strokeRoundRect(healthBarX, healthBarY, healthBarW, healthBarH, 12, 12);
 
         if (bird.hasUltimate()) {
-            double ultBarX = rect.getMinX() + 18;
+            double ultBarX = meterLayout.ultimateRowX(portraitRect.getMaxX());
             double ultBarY = rect.getMaxY() - 24;
-            double ultBarW = rect.getWidth() - 36;
+            double ultBarW = Math.max(24.0, rect.getMaxX() - meterLayout.healthBarRightInset() - ultBarX);
             double ultBarH = 10;
             double ultRatio = bird.getUltimateRatio();
             Color ultColor = bird.isUltimateReady()
@@ -62518,7 +62518,7 @@ public class BirdGame3 {
 
             g.setFill(Color.web("#B0BEC5"));
             g.setFont(Font.font("Consolas", FontWeight.BOLD, 14));
-            g.fillText("ULT", meterLayout.ultimateLabelX(portraitRect.getMaxX()), ultBarY - 4);
+            g.fillText("ULT", ultBarX, ultBarY - 4);
             g.setTextAlign(TextAlignment.RIGHT);
             g.setFill(bird.isUltimateReady() ? Color.web("#FFF59D") : Color.web("#B3E5FC"));
             g.fillText(

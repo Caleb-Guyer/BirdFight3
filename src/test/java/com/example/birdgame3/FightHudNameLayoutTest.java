@@ -58,8 +58,10 @@ class FightHudNameLayoutTest {
                     "The meter must not paint over the bottom of the damage text.");
             assertTrue(layout.healthBarBottomOffset() <= ultimateBarY - 10.0,
                     "The health and ultimate meters need a clear gap.");
-            assertTrue(layout.ultimateLabelX(106.0) >= 122.0,
-                    "The ULT label must begin beyond the portrait border.");
+            double portraitRight = 106.0;
+            double ultimateRowX = layout.ultimateRowX(portraitRight);
+            assertTrue(ultimateRowX >= 122.0,
+                    "The entire ULT row must begin beyond the portrait border.");
         }
     }
 }
