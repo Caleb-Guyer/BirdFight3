@@ -57227,7 +57227,7 @@ public class BirdGame3 {
             return;
         }
 
-        if (!usesIslandBoundsForCurrentArena() || battlefieldIslandW <= 0) {
+        if (!usesAuthoredIslandSpawnForCurrentArena()) {
             double[] spawnCenters = buildSpawnCenters(active.size(), 420.0, WORLD_WIDTH - 420.0);
             for (int i = 0; i < active.size(); i++) {
                 Bird b = active.get(i);
@@ -57255,6 +57255,17 @@ public class BirdGame3 {
             b.vx = 0;
             b.vy = 0;
         }
+    }
+
+    private boolean usesAuthoredIslandSpawnForCurrentArena() {
+        if (battlefieldIslandW <= 0.0) {
+            return false;
+        }
+        // Rooftop Relay spans almost the entire world, so it deliberately keeps
+        // full-course blast bounds. It still needs to spawn on its authored
+        // HOME roof instead of the removed City ground plane.
+        return usesIslandBoundsForCurrentArena()
+                || activeArenaGeometryVariant == MapVariant.ROOFTOP_RELAY;
     }
 
     private double[] buildSpawnCenters(int count, double left, double right) {
