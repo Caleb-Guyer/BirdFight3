@@ -53211,56 +53211,390 @@ public class BirdGame3 {
         double dawn = isClassicBlightwingEncounter()
                 ? Math.clamp(0.18 + (2 - Math.max(0, enemyStockCount())) * 0.34, 0.0, 1.0)
                 : 0.72;
-        Color top = Color.web("#09051A").interpolate(Color.web("#714B86"), dawn);
-        Color bottom = Color.web("#42113E").interpolate(Color.web("#F5A45D"), dawn);
-        for (int i = 0; i < 520; i++) {
-            double ratio = i / 520.0;
-            g.setFill(top.interpolate(bottom, ratio));
-            g.fillRect(0, i * (WORLD_HEIGHT / 520.0), WORLD_WIDTH, WORLD_HEIGHT / 520.0 + 3);
-        }
+        double time = ambientFx ? System.currentTimeMillis() / 1000.0 : 0.0;
+        Color skyTop = Color.web("#08071B").interpolate(Color.web("#243B63"), dawn);
+        Color horizon = Color.web("#35103E").interpolate(Color.web("#C66086"), dawn);
+        Color lowerSky = Color.web("#120B24").interpolate(Color.web("#293E55"), dawn);
+        g.setFill(new LinearGradient(0, 0, 0, WORLD_HEIGHT, false,
+                CycleMethod.NO_CYCLE,
+                new Stop(0.0, skyTop),
+                new Stop(0.46, skyTop.interpolate(horizon, 0.68)),
+                new Stop(0.67, horizon),
+                new Stop(1.0, lowerSky)));
+        g.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
 
-        g.setFill(Color.web("#05030C", 0.92 - dawn * 0.42));
-        g.fillOval(WORLD_WIDTH * 0.5 - 330, 130, 660, 660);
-        g.setStroke(Color.web("#FFE082", 0.35 + dawn * 0.45));
-        g.setLineWidth(22);
-        g.strokeOval(WORLD_WIDTH * 0.5 - 340, 120, 680, 680);
+        drawHeartbloomEclipse(g, dawn, ambientFx, time);
+        drawHeartbloomDistantGarden(g, dawn, ambientFx, time);
+        drawHeartbloomLivingArch(g, dawn);
 
-        for (int layer = 0; layer < 3; layer++) {
-            g.setFill(Color.web(layer == 0 ? "#20102E" : (layer == 1 ? "#391442" : "#571C51"), 0.88));
-            double baseY = GROUND_Y + 240 - layer * 80;
-            for (int i = 0; i < 9; i++) {
-                double x = i * 760 - layer * 170;
-                double h = 500 + ((i * 97 + layer * 61) % 480);
-                g.fillOval(x, baseY - h, 850, h + 230);
-            }
-        }
+        // A low veil separates the distant garden from the playable blooms
+        // without pretending that the open air is a solid floor.
+        g.setFill(new LinearGradient(0, GROUND_Y - 430.0, 0, WORLD_HEIGHT, false,
+                CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.TRANSPARENT),
+                new Stop(0.48, Color.web("#B9D8D2", 0.08 + dawn * 0.05)),
+                new Stop(1.0, Color.web("#091323", 0.48))));
+        g.fillRect(0, GROUND_Y - 430.0, WORLD_WIDTH, WORLD_HEIGHT - GROUND_Y + 430.0);
 
-        for (Platform p : platforms) {
-            boolean closed = p == classicClosedHeartbloomPetal;
-            Color petal = closed ? Color.web("#2A172E") : Color.web("#8D2D78");
-            Color lip = closed ? Color.web("#5A3D5D") : Color.web("#FF70C5");
-            g.setFill(petal);
-            g.fillRoundRect(p.x, p.y, p.w, p.h, 70, 70);
-            g.setStroke(lip);
-            g.setLineWidth(6);
-            g.strokeRoundRect(p.x, p.y, p.w, p.h, 70, 70);
-            if (!closed) {
-                g.setFill(Color.web("#FFF176", 0.50));
-                g.fillOval(p.x + p.w * 0.5 - 40, p.y - 30, 80, 46);
-            }
+        // Every fighting surface is visibly part of a living flower rooted
+        // below the camera, rather than a neon rectangle floating over shrubs.
+        for (Platform platform : platforms) {
+            drawHeartbloomBloomPlatform(g, platform,
+                    platform == classicClosedHeartbloomPetal, dawn);
         }
 
         for (WindVent vent : windVents) {
-            double pulse = ambientFx ? 0.55 + 0.45 * Math.sin(System.currentTimeMillis() / 240.0 + vent.x) : 0.65;
-            g.setFill(Color.web("#A7FFEB", 0.13 + pulse * 0.12));
-            g.fillOval(vent.x + vent.w * 0.5 - 115, vent.y - 290, 230, 520);
-            g.setFill(Color.web("#FFF176", 0.72));
-            for (int petal = 0; petal < 6; petal++) {
-                double angle = petal * Math.PI / 3.0;
-                double cx = vent.x + vent.w * 0.5 + Math.cos(angle) * 44;
-                double cy = vent.y + Math.sin(angle) * 25;
-                g.fillOval(cx - 24, cy - 14, 48, 28);
+            drawHeartbloomNectarUpdraft(g, vent, ambientFx, time, dawn);
+        }
+        drawHeartbloomPollen(g, ambientFx, time, dawn);
+    }
+
+    private void drawHeartbloomEclipse(GraphicsContext g, double dawn,
+                                        boolean ambientFx, double time) {
+        double cx = WORLD_WIDTH * 0.5;
+        double cy = 470.0;
+        double pulse = ambientFx ? 0.5 + 0.5 * Math.sin(time * 0.58) : 0.62;
+        Color corona = Color.web("#FFE79A");
+
+        g.setFill(new RadialGradient(0, 0, cx, cy, 720.0, false,
+                CycleMethod.NO_CYCLE,
+                new Stop(0.0, corona.deriveColor(0, 0.82, 1.0, 0.24 + dawn * 0.12)),
+                new Stop(0.42, Color.web("#FF9CCB", 0.09 + pulse * 0.035)),
+                new Stop(1.0, Color.TRANSPARENT)));
+        g.fillOval(cx - 720.0, cy - 720.0, 1_440.0, 1_440.0);
+
+        g.setStroke(corona.deriveColor(0, 0.82, 1.08, 0.16 + dawn * 0.20));
+        g.setLineWidth(10.0);
+        for (int ray = 0; ray < 24; ray++) {
+            double angle = ray * Math.PI * 2.0 / 24.0;
+            double inner = 355.0 + (ray % 3) * 13.0;
+            double outer = 430.0 + (ray % 5) * 24.0 + pulse * 12.0;
+            g.strokeLine(cx + Math.cos(angle) * inner, cy + Math.sin(angle) * inner,
+                    cx + Math.cos(angle) * outer, cy + Math.sin(angle) * outer);
+        }
+
+        g.setFill(corona.deriveColor(0, 0.90, 1.0, 0.78));
+        g.fillOval(cx - 345.0, cy - 345.0, 690.0, 690.0);
+        g.setFill(Color.web("#080711", 0.985));
+        g.fillOval(cx - 306.0, cy - 323.0, 650.0, 650.0);
+        g.setStroke(Color.web("#FFF3C4", 0.64 + dawn * 0.24));
+        g.setLineWidth(13.0);
+        g.strokeOval(cx - 345.0, cy - 345.0, 690.0, 690.0);
+        g.setStroke(Color.web("#FF8FD1", 0.28));
+        g.setLineWidth(5.0);
+        g.strokeOval(cx - 382.0, cy - 382.0, 764.0, 764.0);
+    }
+
+    private void drawHeartbloomDistantGarden(GraphicsContext g, double dawn,
+                                              boolean ambientFx, double time) {
+        Color[] stems = {
+                Color.web("#11142A", 0.52),
+                Color.web("#182438", 0.70),
+                Color.web("#142B35", 0.88)
+        };
+        Color[] blossoms = {
+                Color.web("#2D1640", 0.54),
+                Color.web("#472451", 0.70),
+                Color.web("#31504C", 0.84)
+        };
+        for (int layer = 0; layer < 3; layer++) {
+            double baseY = GROUND_Y + 360.0 - layer * 85.0;
+            for (int index = -1; index < 11; index++) {
+                double x = index * 680.0 + layer * 165.0;
+                double height = 520.0 + Math.floorMod(index * 211 + layer * 97, 510);
+                double flowerY = baseY - height;
+                g.setStroke(stems[layer]);
+                g.setLineWidth(58.0 - layer * 12.0);
+                g.beginPath();
+                g.moveTo(x + 300.0, baseY + 180.0);
+                g.bezierCurveTo(x + 230.0, baseY - 160.0,
+                        x + 390.0, flowerY + 280.0, x + 300.0, flowerY + 80.0);
+                g.stroke();
+
+                double sway = ambientFx ? Math.sin(time * 0.34 + index) * (8.0 + layer * 3.0) : 0.0;
+                drawHeartbloomSilhouetteFlower(g, x + 300.0 + sway, flowerY,
+                        240.0 + layer * 44.0, blossoms[layer]);
             }
+        }
+
+        // Receding terraces and pools keep the lower half from collapsing into
+        // a single row of repeated canopy circles.
+        g.setFill(Color.web("#0A1423", 0.72));
+        g.fillRoundRect(420.0, GROUND_Y + 60.0, 5_160.0, 560.0, 260.0, 260.0);
+        g.setStroke(Color.web("#77D9C0", 0.20 + dawn * 0.08));
+        g.setLineWidth(22.0);
+        g.strokeArc(560.0, GROUND_Y + 110.0, 1_500.0, 300.0, 8.0, 164.0, ArcType.OPEN);
+        g.strokeArc(2_250.0, GROUND_Y + 40.0, 1_500.0, 340.0, 8.0, 164.0, ArcType.OPEN);
+        g.strokeArc(3_940.0, GROUND_Y + 110.0, 1_500.0, 300.0, 8.0, 164.0, ArcType.OPEN);
+    }
+
+    private void drawHeartbloomSilhouetteFlower(GraphicsContext g, double cx, double cy,
+                                                 double radius, Color color) {
+        for (int petal = 0; petal < 7; petal++) {
+            double angle = petal * 360.0 / 7.0;
+            g.save();
+            g.translate(cx, cy);
+            g.rotate(angle);
+            g.setFill(color);
+            g.fillOval(-radius * 0.36, -radius * 0.96,
+                    radius * 0.72, radius * 1.16);
+            g.restore();
+        }
+        g.setFill(color.deriveColor(0, 0.78, 0.72, Math.min(1.0, color.getOpacity() + 0.10)));
+        g.fillOval(cx - radius * 0.38, cy - radius * 0.38,
+                radius * 0.76, radius * 0.76);
+    }
+
+    private void drawHeartbloomLivingArch(GraphicsContext g, double dawn) {
+        Color bark = Color.web("#16271F", 0.96);
+        Color vein = Color.web("#4F9A72", 0.56 + dawn * 0.12);
+        g.setStroke(Color.web("#07110E", 0.88));
+        g.setLineWidth(118.0);
+        g.beginPath();
+        g.moveTo(1_430.0, GROUND_Y + 260.0);
+        g.bezierCurveTo(1_290.0, 1_080.0, 2_020.0, 770.0, 2_820.0, 1_030.0);
+        g.stroke();
+        g.beginPath();
+        g.moveTo(4_570.0, GROUND_Y + 260.0);
+        g.bezierCurveTo(4_710.0, 1_080.0, 3_980.0, 770.0, 3_180.0, 1_030.0);
+        g.stroke();
+
+        g.setStroke(bark);
+        g.setLineWidth(78.0);
+        g.beginPath();
+        g.moveTo(1_430.0, GROUND_Y + 260.0);
+        g.bezierCurveTo(1_290.0, 1_080.0, 2_020.0, 770.0, 2_820.0, 1_030.0);
+        g.stroke();
+        g.beginPath();
+        g.moveTo(4_570.0, GROUND_Y + 260.0);
+        g.bezierCurveTo(4_710.0, 1_080.0, 3_980.0, 770.0, 3_180.0, 1_030.0);
+        g.stroke();
+
+        g.setStroke(vein);
+        g.setLineWidth(10.0);
+        g.beginPath();
+        g.moveTo(1_430.0, GROUND_Y + 260.0);
+        g.bezierCurveTo(1_290.0, 1_080.0, 2_020.0, 770.0, 2_820.0, 1_030.0);
+        g.stroke();
+        g.beginPath();
+        g.moveTo(4_570.0, GROUND_Y + 260.0);
+        g.bezierCurveTo(4_710.0, 1_080.0, 3_980.0, 770.0, 3_180.0, 1_030.0);
+        g.stroke();
+
+        double[][] leaves = {
+                {1_480, 1_490, -38}, {1_770, 1_120, 24}, {2_160, 940, -22},
+                {4_520, 1_490, 38}, {4_230, 1_120, -24}, {3_840, 940, 22}
+        };
+        for (double[] leaf : leaves) {
+            drawHeartbloomLeaf(g, leaf[0], leaf[1], leaf[2], 240.0,
+                    Color.web("#2B7658", 0.78));
+        }
+
+        g.setFill(Color.web("#D7FFF0", 0.12 + dawn * 0.08));
+        g.fillOval(2_770.0, 915.0, 460.0, 250.0);
+        g.setStroke(Color.web("#9AF4CB", 0.52));
+        g.setLineWidth(12.0);
+        g.strokeOval(2_810.0, 950.0, 380.0, 180.0);
+    }
+
+    private void drawHeartbloomBloomPlatform(GraphicsContext g, Platform platform,
+                                              boolean closed, double dawn) {
+        double centerX = platform.x + platform.w * 0.5;
+        boolean heart = platform.w >= 2_000.0;
+        boolean broad = platform.w >= 900.0;
+        Color stem = closed ? Color.web("#241B27") : Color.web("#173D32");
+        Color stemVein = closed ? Color.web("#574052") : Color.web("#4BB785");
+        Color petal = closed ? Color.web("#332036")
+                : (heart ? Color.web("#A82F78") : Color.web("#84367E"));
+        Color petalLight = closed ? Color.web("#5C455A")
+                : (heart ? Color.web("#FF6EB8") : Color.web("#E970CF"));
+        Color rim = closed ? Color.web("#756477")
+                : (heart ? Color.web("#FFD1E8") : Color.web("#E9B8FF"));
+
+        double stemWidth = heart ? 138.0 : broad ? 88.0 : 58.0;
+        double stemEndX = centerX + Math.sin(centerX * 0.004) * 180.0;
+        g.setStroke(Color.web("#07120F", 0.92));
+        g.setLineWidth(stemWidth + 28.0);
+        g.beginPath();
+        g.moveTo(centerX, platform.y + platform.h * 0.72);
+        g.bezierCurveTo(centerX - 120.0, platform.y + 420.0,
+                stemEndX + 120.0, WORLD_HEIGHT - 380.0, stemEndX, WORLD_HEIGHT + 100.0);
+        g.stroke();
+        g.setStroke(stem);
+        g.setLineWidth(stemWidth);
+        g.beginPath();
+        g.moveTo(centerX, platform.y + platform.h * 0.72);
+        g.bezierCurveTo(centerX - 120.0, platform.y + 420.0,
+                stemEndX + 120.0, WORLD_HEIGHT - 380.0, stemEndX, WORLD_HEIGHT + 100.0);
+        g.stroke();
+        g.setStroke(stemVein.deriveColor(0, 0.86, 1.0, 0.58));
+        g.setLineWidth(Math.max(9.0, stemWidth * 0.13));
+        g.beginPath();
+        g.moveTo(centerX - stemWidth * 0.12, platform.y + platform.h);
+        g.bezierCurveTo(centerX - 70.0, platform.y + 470.0,
+                stemEndX + 50.0, WORLD_HEIGHT - 300.0, stemEndX - 15.0, WORLD_HEIGHT + 80.0);
+        g.stroke();
+
+        if (heart || broad) {
+            double leafY = platform.y + (heart ? 520.0 : 390.0);
+            drawHeartbloomLeaf(g, centerX - stemWidth * 0.28, leafY,
+                    centerX < WORLD_WIDTH * 0.5 ? -30.0 : 210.0,
+                    heart ? 390.0 : 280.0, stemVein.deriveColor(0, 0.86, 0.72, 0.82));
+            drawHeartbloomLeaf(g, centerX + stemWidth * 0.20, leafY + 250.0,
+                    centerX < WORLD_WIDTH * 0.5 ? 24.0 : 156.0,
+                    heart ? 330.0 : 240.0, stem.deriveColor(0, 1.0, 1.22, 0.90));
+        }
+
+        int lobes = heart ? 9 : broad ? 5 : 3;
+        double lobeWidth = platform.w / (lobes - 0.34) * 1.34;
+        double lobeHeight = heart ? 270.0 : broad ? 205.0 : 145.0;
+        for (int lobe = 0; lobe < lobes; lobe++) {
+            double unit = lobes == 1 ? 0.0 : lobe / (double) (lobes - 1);
+            double x = platform.x + platform.w * (0.08 + unit * 0.84);
+            double rotation = (unit - 0.5) * (heart ? 26.0 : 34.0);
+            g.save();
+            g.translate(x, platform.y + platform.h * 0.70);
+            g.rotate(rotation);
+            g.setFill(petal.deriveColor(0, 1.0, 0.78 + (lobe % 2) * 0.10, 0.98));
+            g.fillOval(-lobeWidth * 0.5, -lobeHeight * 0.28, lobeWidth, lobeHeight);
+            g.setStroke(petalLight.deriveColor(0, 0.86, 1.0, closed ? 0.30 : 0.52));
+            g.setLineWidth(9.0);
+            g.strokeArc(-lobeWidth * 0.43, -lobeHeight * 0.18,
+                    lobeWidth * 0.86, lobeHeight * 0.70, 18.0, 145.0, ArcType.OPEN);
+            g.restore();
+        }
+
+        g.setFill(new LinearGradient(0, platform.y, 0, platform.y + platform.h, false,
+                CycleMethod.NO_CYCLE,
+                new Stop(0.0, petalLight.deriveColor(0, 0.84, closed ? 0.58 : 0.88, 1.0)),
+                new Stop(0.34, petal),
+                new Stop(1.0, petal.deriveColor(0, 1.0, 0.48, 1.0))));
+        g.fillRoundRect(platform.x, platform.y, platform.w, platform.h,
+                Math.min(76.0, platform.h), Math.min(76.0, platform.h));
+        g.setStroke(Color.web("#180A21", 0.78));
+        g.setLineWidth(11.0);
+        g.strokeRoundRect(platform.x, platform.y, platform.w, platform.h,
+                Math.min(76.0, platform.h), Math.min(76.0, platform.h));
+        g.setStroke(rim.deriveColor(0, 0.86, 1.0, closed ? 0.54 : 0.90));
+        g.setLineWidth(5.5);
+        g.strokeRoundRect(platform.x + 8.0, platform.y + 7.0,
+                platform.w - 16.0, platform.h - 14.0,
+                Math.min(66.0, platform.h), Math.min(66.0, platform.h));
+
+        if (!closed) {
+            g.setStroke(petalLight.deriveColor(0, 0.72, 1.18, 0.30));
+            g.setLineWidth(3.5);
+            int veins = heart ? 9 : broad ? 5 : 3;
+            for (int vein = 0; vein < veins; vein++) {
+                double targetX = platform.x + platform.w * (vein + 0.5) / veins;
+                g.beginPath();
+                g.moveTo(centerX, platform.y + platform.h * 0.60);
+                g.quadraticCurveTo((centerX + targetX) * 0.5,
+                        platform.y + platform.h * 0.18,
+                        targetX, platform.y + platform.h * 0.34);
+                g.stroke();
+            }
+        }
+
+        if (closed) {
+            g.setStroke(Color.web("#B58AAB", 0.46));
+            g.setLineWidth(7.0);
+            for (int crack = 0; crack < 5; crack++) {
+                double x = platform.x + platform.w * (0.18 + crack * 0.16);
+                g.strokeLine(x, platform.y + 8.0, x + 32.0, platform.y + platform.h * 0.56);
+                g.strokeLine(x + 32.0, platform.y + platform.h * 0.56,
+                        x + 8.0, platform.y + platform.h - 5.0);
+            }
+        } else {
+            double glowRadius = heart ? 142.0 : broad ? 92.0 : 64.0;
+            g.setFill(new RadialGradient(0, 0, centerX, platform.y + 4.0,
+                    glowRadius, false, CycleMethod.NO_CYCLE,
+                    new Stop(0.0, Color.web("#FFF9B0", 0.92)),
+                    new Stop(0.38, Color.web("#F7D35B", 0.72)),
+                    new Stop(1.0, Color.TRANSPARENT)));
+            g.fillOval(centerX - glowRadius, platform.y - glowRadius * 0.70,
+                    glowRadius * 2.0, glowRadius * 1.40);
+            g.setFill(Color.web("#FFF4A8", 0.88));
+            g.fillOval(centerX - glowRadius * 0.24, platform.y - glowRadius * 0.20,
+                    glowRadius * 0.48, glowRadius * 0.34);
+        }
+
+    }
+
+    private void drawHeartbloomLeaf(GraphicsContext g, double x, double y,
+                                    double rotation, double size, Color color) {
+        g.save();
+        g.translate(x, y);
+        g.rotate(rotation);
+        g.setFill(color);
+        g.fillOval(0.0, -size * 0.18, size, size * 0.36);
+        g.setStroke(color.deriveColor(0, 0.72, 1.48, 0.82));
+        g.setLineWidth(Math.max(5.0, size * 0.025));
+        g.strokeLine(size * 0.06, 0.0, size * 0.88, 0.0);
+        g.restore();
+    }
+
+    private void drawHeartbloomNectarUpdraft(GraphicsContext g, WindVent vent,
+                                              boolean ambientFx, double time, double dawn) {
+        double centerX = vent.x + vent.w * 0.5;
+        double pulse = ambientFx ? 0.5 + 0.5 * Math.sin(time * 3.0 + vent.x * 0.01) : 0.64;
+        double baseY = vent.y + 18.0;
+        double topY = vent.y - 520.0;
+
+        g.setFill(new RadialGradient(0, 0, centerX, vent.y - 150.0,
+                230.0, false, CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.web("#A7FFE4", 0.12 + pulse * 0.08)),
+                new Stop(1.0, Color.TRANSPARENT)));
+        g.fillOval(centerX - 230.0, vent.y - 430.0, 460.0, 560.0);
+
+        for (int ribbon = 0; ribbon < 3; ribbon++) {
+            g.setStroke(Color.web(ribbon == 1 ? "#FFF3A3" : "#82F3D2",
+                    0.32 + pulse * 0.20 - ribbon * 0.035));
+            g.setLineWidth(9.0 - ribbon * 1.5);
+            g.beginPath();
+            g.moveTo(centerX + (ribbon - 1) * 36.0, baseY);
+            g.bezierCurveTo(centerX - 150.0 + ribbon * 38.0, vent.y - 120.0,
+                    centerX + 140.0 - ribbon * 30.0, vent.y - 330.0,
+                    centerX + (ribbon - 1) * 24.0, topY);
+            g.stroke();
+        }
+
+        for (int petal = 0; petal < 8; petal++) {
+            double angle = petal * 360.0 / 8.0;
+            g.save();
+            g.translate(centerX, baseY);
+            g.rotate(angle);
+            g.setFill(Color.web(petal % 2 == 0 ? "#FFF39B" : "#F7A9DD", 0.86));
+            g.fillOval(-28.0, -92.0, 56.0, 102.0);
+            g.restore();
+        }
+        g.setFill(Color.web("#E7FFF6", 0.90));
+        g.fillOval(centerX - 34.0, baseY - 34.0, 68.0, 68.0);
+        g.setStroke(Color.web("#FFF9BC", 0.64 + dawn * 0.18));
+        g.setLineWidth(7.0);
+        g.strokeOval(centerX - 34.0, baseY - 34.0, 68.0, 68.0);
+
+        for (int mote = 0; mote < 9; mote++) {
+            double progress = mote / 8.0;
+            double phase = mote * 1.72 + (ambientFx ? time * 2.1 : 0.0);
+            double x = centerX + Math.sin(phase) * (52.0 + progress * 35.0);
+            double y = baseY - 60.0 - progress * 430.0;
+            double size = 10.0 + (mote % 3) * 5.0;
+            g.setFill(Color.web(mote % 2 == 0 ? "#FFF59D" : "#A7FFEB", 0.68));
+            g.fillOval(x - size * 0.5, y - size * 0.5, size, size);
+        }
+    }
+
+    private void drawHeartbloomPollen(GraphicsContext g, boolean ambientFx,
+                                      double time, double dawn) {
+        double drift = ambientFx ? time * 24.0 : 0.0;
+        for (int mote = 0; mote < 46; mote++) {
+            double x = (mote * 389.0 + Math.floorMod(mote * 97, 211) + drift) % WORLD_WIDTH;
+            double y = 150.0 + Math.floorMod(mote * 233, (int) (GROUND_Y + 420.0));
+            double size = 5.0 + Math.floorMod(mote * 7, 10);
+            double alpha = 0.18 + (mote % 4) * 0.07 + dawn * 0.05;
+            g.setFill(Color.web(mote % 3 == 0 ? "#FFF59D" : "#B8FFE7", alpha));
+            g.fillOval(x, y, size, size);
         }
     }
 
