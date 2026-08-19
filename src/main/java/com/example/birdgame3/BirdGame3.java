@@ -53074,72 +53074,498 @@ public class BirdGame3 {
     }
 
     private void drawDawnwatchBastionArena(GraphicsContext g, boolean ambientFx) {
-        for (int i = 0; i < 620; i++) {
-            double ratio = i / 620.0;
-            g.setFill(Color.web("#261544").interpolate(Color.web("#F08A55"), ratio));
-            g.fillRect(0, i * (WORLD_HEIGHT / 620.0), WORLD_WIDTH, WORLD_HEIGHT / 620.0 + 3);
-        }
-
         double dawn = classicModeActive && classicEncounter != null
                 && classicEncounter.style == ClassicEncounterStyle.BROODBREAKER_BOSS
                 ? (classicBroodbreakerEclipseBroken ? 1.0 : (classicBroodbreakerFinalPhaseActive ? 0.42 : 0.18))
                 : 0.72;
-        g.setFill(Color.web("#FFF4B0", 0.44 + dawn * 0.42));
-        g.fillOval(WORLD_WIDTH * 0.5 - 430, 90, 860, 860);
-        if (classicBroodbreakerFinalPhaseActive && !classicBroodbreakerEclipseBroken) {
-            g.setFill(Color.web("#090611", 0.94));
-            g.fillOval(WORLD_WIDTH * 0.5 - 350, 170, 700, 700);
-            g.setStroke(Color.web("#9B59B6", 0.62));
-            g.setLineWidth(24);
-            g.strokeOval(WORLD_WIDTH * 0.5 - 380, 140, 760, 760);
-        }
+        double time = ambientFx ? System.currentTimeMillis() / 1000.0 : 0.0;
+        boolean falseDawn = classicBroodbreakerFinalPhaseActive && !classicBroodbreakerEclipseBroken;
 
-        g.setFill(Color.web("#D7D9E0", 0.26));
-        for (int i = 0; i < 8; i++) {
-            double cloudX = i * 820 - 280;
-            double cloudY = 980 + (i % 3) * 95;
-            g.fillOval(cloudX, cloudY, 1_020, 260);
-        }
-
-        // Tall rectangular watchtowers continue below their roof platforms so
-        // the stage reads as a single citadel rather than floating ledges.
-        g.setFill(Color.web("#25273A"));
-        double[][] towers = {
-                {360, GROUND_Y - 430, 1_020}, {1_380, GROUND_Y - 300, 3_240}, {4_620, GROUND_Y - 430, 1_020},
-                {1_720, GROUND_Y - 620, 660}, {3_620, GROUND_Y - 620, 660}, {2_500, GROUND_Y - 970, 1_000}
-        };
-        for (double[] tower : towers) {
-            g.fillRect(tower[0], tower[1], tower[2], WORLD_HEIGHT - tower[1] + 220);
-            g.setFill(Color.web("#F6C453", 0.32));
-            for (double wx = tower[0] + 70; wx < tower[0] + tower[2] - 36; wx += 150) {
-                for (double wy = tower[1] + 115; wy < GROUND_Y + 220; wy += 190) {
-                    g.fillRoundRect(wx, wy, 44, 72, 9, 9);
-                }
-            }
-            g.setFill(Color.web("#25273A"));
-        }
+        drawDawnwatchSky(g, dawn);
+        drawDawnwatchSun(g, dawn, falseDawn, ambientFx, time);
+        drawDawnwatchMountainDepth(g, dawn);
+        drawDawnwatchCloudSea(g, dawn, ambientFx, time);
+        drawDawnwatchCitadelShell(g, dawn, falseDawn);
+        drawDawnwatchPlatformSupports(g, dawn);
 
         for (Platform platform : platforms) {
-            g.setFill(Color.web("#3D4056"));
-            g.fillRoundRect(platform.x, platform.y, platform.w, platform.h, 20, 20);
-            g.setStroke(Color.web("#F6C453"));
-            g.setLineWidth(platform.h >= 80 ? 9.0 : 5.0);
-            g.strokeRoundRect(platform.x, platform.y, platform.w, platform.h, 20, 20);
-            g.setFill(Color.web("#8E2430", 0.78));
-            g.fillRoundRect(platform.x + 20, platform.y + 18,
-                    Math.max(0.0, platform.w - 40), Math.min(24.0, platform.h - 18), 12, 12);
+            drawDawnwatchBattlement(g, platform, dawn, falseDawn);
         }
 
-        double bellX = WORLD_WIDTH * 0.5;
-        double bellY = GROUND_Y - 1_230;
-        double pulse = ambientFx ? 0.75 + 0.12 * Math.sin(System.currentTimeMillis() / 170.0) : 0.82;
-        g.setStroke(Color.web("#FFF0A8", pulse));
-        g.setLineWidth(28);
-        g.strokeOval(bellX - 180, bellY - 210, 360, 410);
-        g.setFill(Color.web("#D89A2B"));
-        g.fillOval(bellX - 148, bellY - 175, 296, 350);
-        g.setFill(Color.web("#6C3A20"));
-        g.fillOval(bellX - 34, bellY + 115, 68, 104);
+        drawDawnwatchGreatBell(g, dawn, falseDawn, ambientFx, time);
+        drawDawnwatchBanners(g, dawn, ambientFx, time);
+        for (WindVent vent : windVents) {
+            drawDawnwatchThermalVent(g, vent, dawn, falseDawn, ambientFx, time);
+        }
+        drawDawnwatchHighFlocks(g, ambientFx, time, falseDawn);
+    }
+
+    private void drawDawnwatchSky(GraphicsContext g, double dawn) {
+        Color zenith = Color.web("#0A102A").interpolate(Color.web("#244D78"), dawn);
+        Color upper = Color.web("#211635").interpolate(Color.web("#5F6F91"), dawn);
+        Color horizon = Color.web("#592342").interpolate(Color.web("#F2A25F"), dawn);
+        Color cloudDepth = Color.web("#252A45").interpolate(Color.web("#8293A7"), dawn);
+        g.setFill(new LinearGradient(0, 0, 0, WORLD_HEIGHT, false,
+                CycleMethod.NO_CYCLE,
+                new Stop(0.0, zenith),
+                new Stop(0.36, upper),
+                new Stop(0.61, horizon),
+                new Stop(0.78, horizon.interpolate(cloudDepth, 0.72)),
+                new Stop(1.0, cloudDepth)));
+        g.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+
+        g.setStroke(Color.web("#FFF5CF", 0.12 + dawn * 0.12));
+        g.setLineWidth(4.0);
+        for (int ray = 0; ray < 13; ray++) {
+            double x = 180.0 + ray * 470.0;
+            g.strokeLine(WORLD_WIDTH * 0.5, 570.0, x, GROUND_Y + 30.0);
+        }
+    }
+
+    private void drawDawnwatchSun(GraphicsContext g, double dawn, boolean falseDawn,
+                                  boolean ambientFx, double time) {
+        double cx = WORLD_WIDTH * 0.5;
+        double cy = 480.0;
+        double pulse = ambientFx ? 0.5 + 0.5 * Math.sin(time * 0.48) : 0.62;
+        Color gold = Color.web("#FFE39A");
+        Color corruption = Color.web("#B06CE2");
+
+        g.setFill(new RadialGradient(0, 0, cx, cy, 920.0, false,
+                CycleMethod.NO_CYCLE,
+                new Stop(0.0, (falseDawn ? corruption : gold)
+                        .deriveColor(0, 0.82, 1.0, 0.22 + pulse * 0.08)),
+                new Stop(0.48, Color.web(falseDawn ? "#7B3FA5" : "#FFB869",
+                        0.08 + dawn * 0.09)),
+                new Stop(1.0, Color.TRANSPARENT)));
+        g.fillOval(cx - 920.0, cy - 920.0, 1_840.0, 1_840.0);
+
+        g.setFill(gold.deriveColor(0, 0.72, 1.0, 0.54 + dawn * 0.34));
+        g.fillOval(cx - 390.0, cy - 390.0, 780.0, 780.0);
+        g.setStroke(Color.web("#FFF4C1", 0.76));
+        g.setLineWidth(16.0);
+        g.strokeOval(cx - 390.0, cy - 390.0, 780.0, 780.0);
+
+        if (falseDawn) {
+            g.setFill(Color.web("#080712", 0.98));
+            g.fillOval(cx - 335.0, cy - 355.0, 720.0, 720.0);
+            g.setStroke(corruption.deriveColor(0, 0.90, 1.12, 0.82));
+            g.setLineWidth(24.0);
+            g.strokeOval(cx - 372.0, cy - 392.0, 794.0, 794.0);
+            g.setStroke(Color.web("#E3B6FF", 0.34));
+            g.setLineWidth(7.0);
+            for (int ray = 0; ray < 16; ray++) {
+                double angle = ray * Math.PI * 2.0 / 16.0;
+                double inner = 420.0;
+                double outer = 485.0 + (ray % 3) * 30.0;
+                g.strokeLine(cx + Math.cos(angle) * inner, cy + Math.sin(angle) * inner,
+                        cx + Math.cos(angle) * outer, cy + Math.sin(angle) * outer);
+            }
+        }
+    }
+
+    private void drawDawnwatchMountainDepth(GraphicsContext g, double dawn) {
+        Color[] layers = {
+                Color.web("#263149", 0.48),
+                Color.web("#20283A", 0.72),
+                Color.web("#171D2B", 0.92)
+        };
+        for (int layer = 0; layer < 3; layer++) {
+            double baseY = GROUND_Y + 290.0 - layer * 60.0;
+            double spacing = 780.0 - layer * 90.0;
+            g.setFill(layers[layer]);
+            for (int peak = -1; peak < 10; peak++) {
+                double x = peak * spacing + layer * 145.0;
+                double height = 470.0 + Math.floorMod(peak * 191 + layer * 83, 560);
+                g.fillPolygon(new double[]{x, x + spacing * 0.52, x + spacing},
+                        new double[]{baseY, baseY - height, baseY}, 3);
+                if (layer == 0 && peak % 2 == 0) {
+                    g.setFill(Color.web("#F2D6C0", 0.10 + dawn * 0.06));
+                    g.fillPolygon(new double[]{x + spacing * 0.34, x + spacing * 0.52, x + spacing * 0.69},
+                            new double[]{baseY - height * 0.66, baseY - height, baseY - height * 0.66}, 3);
+                    g.setFill(layers[layer]);
+                }
+            }
+        }
+
+        // A remote line of watch keeps establishes a defended mountain pass.
+        g.setFill(Color.web("#151A28", 0.72));
+        for (int keep = 0; keep < 7; keep++) {
+            double x = 240.0 + keep * 930.0;
+            double top = GROUND_Y - 630.0 - (keep % 3) * 95.0;
+            g.fillRect(x, top, 170.0, GROUND_Y - top + 110.0);
+            g.fillPolygon(new double[]{x - 55.0, x + 85.0, x + 225.0},
+                    new double[]{top, top - 150.0, top}, 3);
+            g.setFill(Color.web("#F5C56A", 0.20 + dawn * 0.10));
+            g.fillRect(x + 68.0, top + 100.0, 34.0, 66.0);
+            g.setFill(Color.web("#151A28", 0.72));
+        }
+    }
+
+    private void drawDawnwatchCloudSea(GraphicsContext g, double dawn,
+                                       boolean ambientFx, double time) {
+        double drift = ambientFx ? (time * 14.0) % 980.0 : 170.0;
+        g.setFill(new LinearGradient(0, GROUND_Y - 160.0, 0, WORLD_HEIGHT, false,
+                CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.TRANSPARENT),
+                new Stop(0.34, Color.web("#EDF2F3", 0.10 + dawn * 0.05)),
+                new Stop(1.0, Color.web("#DCE5E9", 0.32 + dawn * 0.10))));
+        g.fillRect(0, GROUND_Y - 160.0, WORLD_WIDTH, WORLD_HEIGHT - GROUND_Y + 160.0);
+        for (int cloud = -2; cloud < 10; cloud++) {
+            double x = cloud * 790.0 + drift;
+            double y = GROUND_Y + 80.0 + Math.floorMod(cloud, 3) * 70.0;
+            g.setFill(Color.web(cloud % 2 == 0 ? "#F1F2EE" : "#CFDAE2",
+                    0.18 + dawn * 0.08));
+            g.fillOval(x, y, 940.0, 250.0);
+            g.fillOval(x + 220.0, y - 90.0, 520.0, 260.0);
+        }
+    }
+
+    private void drawDawnwatchCitadelShell(GraphicsContext g, double dawn, boolean falseDawn) {
+        Color stone = Color.web(falseDawn ? "#232035" : "#283044");
+        Color stoneLight = Color.web(falseDawn ? "#3B3150" : "#3E4B63");
+        Color mortar = Color.web("#111522", 0.54);
+        Color window = Color.web(falseDawn ? "#B06CE2" : "#FFD36E",
+                falseDawn ? 0.46 : 0.36 + dawn * 0.15);
+
+        // The central curtain wall and its two outer watchtowers all continue
+        // below the cloud line. No roof is painted as an isolated rectangle.
+        drawDawnwatchStoneTower(g, 1_380.0, GROUND_Y - 300.0, 3_240.0,
+                WORLD_HEIGHT - (GROUND_Y - 300.0) + 220.0,
+                stone, stoneLight, mortar, window, false);
+        drawDawnwatchStoneTower(g, 360.0, GROUND_Y - 430.0, 1_020.0,
+                WORLD_HEIGHT - (GROUND_Y - 430.0) + 220.0,
+                stone, stoneLight, mortar, window, true);
+        drawDawnwatchStoneTower(g, 4_620.0, GROUND_Y - 430.0, 1_020.0,
+                WORLD_HEIGHT - (GROUND_Y - 430.0) + 220.0,
+                stone, stoneLight, mortar, window, true);
+
+        // The bell keep is a real tower rising from the curtain wall.
+        g.setFill(Color.web("#101522", 0.94));
+        g.fillRoundRect(2_355.0, 525.0, 1_290.0, WORLD_HEIGHT - 410.0, 48.0, 48.0);
+        g.setFill(new LinearGradient(2_400.0, 0, 3_600.0, 0, false,
+                CycleMethod.NO_CYCLE,
+                new Stop(0.0, stone.deriveColor(0, 1.0, 0.76, 1.0)),
+                new Stop(0.50, stoneLight),
+                new Stop(1.0, stone.deriveColor(0, 1.0, 0.70, 1.0))));
+        g.fillRoundRect(2_400.0, 560.0, 1_200.0, WORLD_HEIGHT - 455.0, 42.0, 42.0);
+        g.setStroke(Color.web("#D8A84F", 0.62 + dawn * 0.18));
+        g.setLineWidth(18.0);
+        g.strokeRoundRect(2_400.0, 560.0, 1_200.0, WORLD_HEIGHT - 455.0, 42.0, 42.0);
+
+        // Deep arched bell chamber.
+        g.setFill(Color.web("#070A12", 0.98));
+        g.fillRoundRect(2_585.0, 640.0, 830.0, 620.0, 330.0, 330.0);
+        g.fillRect(2_585.0, 950.0, 830.0, 310.0);
+        g.setStroke(Color.web(falseDawn ? "#8B55B1" : "#B98A3E", 0.80));
+        g.setLineWidth(24.0);
+        g.strokeArc(2_585.0, 620.0, 830.0, 650.0, 0.0, 180.0, ArcType.OPEN);
+        g.strokeLine(2_585.0, 945.0, 2_585.0, 1_250.0);
+        g.strokeLine(3_415.0, 945.0, 3_415.0, 1_250.0);
+
+        // Crowned spire and side finials give the keep a memorable silhouette.
+        g.setFill(Color.web("#171C2A"));
+        g.fillPolygon(new double[]{2_465.0, 3_000.0, 3_535.0},
+                new double[]{580.0, 190.0, 580.0}, 3);
+        g.setStroke(Color.web("#E6B85E", 0.72));
+        g.setLineWidth(13.0);
+        g.strokeLine(2_465.0, 580.0, 3_000.0, 190.0);
+        g.strokeLine(3_000.0, 190.0, 3_535.0, 580.0);
+        g.strokeLine(3_000.0, 190.0, 3_000.0, 72.0);
+        g.setFill(Color.web(falseDawn ? "#C886F2" : "#FFE082", 0.90));
+        g.fillPolygon(new double[]{3_000.0, 2_954.0, 2_982.0, 3_000.0, 3_018.0, 3_046.0},
+                new double[]{52.0, 116.0, 108.0, 156.0, 108.0, 116.0}, 6);
+
+        drawDawnwatchTowerCrenels(g, 360.0, GROUND_Y - 430.0, 1_020.0, stoneLight);
+        drawDawnwatchTowerCrenels(g, 4_620.0, GROUND_Y - 430.0, 1_020.0, stoneLight);
+        drawDawnwatchTowerCrenels(g, 1_380.0, GROUND_Y - 300.0, 3_240.0, stoneLight);
+    }
+
+    private void drawDawnwatchStoneTower(GraphicsContext g, double x, double y,
+                                         double width, double height,
+                                         Color stone, Color stoneLight,
+                                         Color mortar, Color window,
+                                         boolean watchTower) {
+        g.setFill(new LinearGradient(x, 0, x + width, 0, false,
+                CycleMethod.NO_CYCLE,
+                new Stop(0.0, stone.deriveColor(0, 1.0, 0.70, 1.0)),
+                new Stop(0.18, stone),
+                new Stop(0.78, stoneLight),
+                new Stop(1.0, stone.deriveColor(0, 1.0, 0.62, 1.0))));
+        g.fillRect(x, y, width, height);
+        g.setStroke(mortar);
+        g.setLineWidth(7.0);
+        for (double rowY = y + 120.0; rowY < Math.min(WORLD_HEIGHT, y + height); rowY += 145.0) {
+            g.strokeLine(x + 18.0, rowY, x + width - 18.0, rowY);
+            double offset = ((int) ((rowY - y) / 145.0) % 2 == 0) ? 0.0 : 92.0;
+            for (double jointX = x + 120.0 + offset; jointX < x + width; jointX += 185.0) {
+                g.strokeLine(jointX, rowY - 145.0, jointX, rowY);
+            }
+        }
+
+        double windowSpacing = watchTower ? 250.0 : 330.0;
+        for (double wx = x + 125.0; wx < x + width - 80.0; wx += windowSpacing) {
+            for (double wy = y + 190.0; wy < Math.min(GROUND_Y + 500.0, y + height); wy += 300.0) {
+                g.setFill(Color.web("#080C16", 0.92));
+                g.fillRoundRect(wx, wy, 78.0, 128.0, 38.0, 38.0);
+                g.setFill(window);
+                g.fillRoundRect(wx + 14.0, wy + 16.0, 50.0, 88.0, 24.0, 24.0);
+                g.setStroke(Color.web("#D9B05A", 0.38));
+                g.setLineWidth(5.0);
+                g.strokeLine(wx + 39.0, wy + 18.0, wx + 39.0, wy + 103.0);
+            }
+        }
+
+        g.setFill(Color.web("#121827", 0.92));
+        g.fillRect(x, y + height - 78.0, width, 78.0);
+        g.setFill(Color.web("#D9A949", 0.36));
+        g.fillRect(x + 28.0, y + height - 60.0, width - 56.0, 12.0);
+    }
+
+    private void drawDawnwatchTowerCrenels(GraphicsContext g, double x, double y,
+                                           double width, Color stoneLight) {
+        int count = Math.max(4, (int) Math.floor(width / 180.0));
+        double spacing = width / count;
+        g.setFill(Color.web("#151A27", 0.96));
+        for (int crenel = 0; crenel < count; crenel++) {
+            double bx = x + crenel * spacing + spacing * 0.13;
+            g.fillRoundRect(bx, y - 72.0, spacing * 0.56, 92.0, 10.0, 10.0);
+            g.setFill(stoneLight);
+            g.fillRect(bx + 12.0, y - 56.0, spacing * 0.56 - 24.0, 16.0);
+            g.setFill(Color.web("#151A27", 0.96));
+        }
+    }
+
+    private void drawDawnwatchPlatformSupports(GraphicsContext g, double dawn) {
+        List<Platform> raised = platforms.stream()
+                .filter(platform -> platform.y < GROUND_Y - 500.0)
+                .toList();
+        for (Platform platform : raised) {
+            Platform support = platforms.stream()
+                    .filter(candidate -> candidate != platform && candidate.y > platform.y
+                            && Math.min(platform.x + platform.w, candidate.x + candidate.w)
+                            - Math.max(platform.x, candidate.x) >= 80.0)
+                    .min(Comparator.comparingDouble(candidate -> candidate.y - platform.y))
+                    .orElse(null);
+            double anchorY = support == null ? GROUND_Y - 260.0 : support.y;
+            double centerX = platform.x + platform.w * 0.5;
+            double left = platform.x + Math.min(80.0, platform.w * 0.20);
+            double right = platform.x + platform.w - Math.min(80.0, platform.w * 0.20);
+            double anchorLeft = support == null
+                    ? centerX - 100.0
+                    : Math.clamp(left + 90.0, support.x + 35.0, support.x + support.w - 35.0);
+            double anchorRight = support == null
+                    ? centerX + 100.0
+                    : Math.clamp(right - 90.0, support.x + 35.0, support.x + support.w - 35.0);
+
+            g.setStroke(Color.web("#0B101B", 0.96));
+            g.setLineWidth(34.0);
+            g.strokeLine(left, platform.y + platform.h, anchorLeft, anchorY);
+            g.strokeLine(right, platform.y + platform.h, anchorRight, anchorY);
+            g.setStroke(Color.web("#8A7047", 0.82));
+            g.setLineWidth(13.0);
+            g.strokeLine(left, platform.y + platform.h, anchorLeft, anchorY);
+            g.strokeLine(right, platform.y + platform.h, anchorRight, anchorY);
+            g.setFill(Color.web("#E8BC62", 0.62 + dawn * 0.12));
+            g.fillOval(left - 12.0, platform.y + platform.h - 12.0, 24.0, 24.0);
+            g.fillOval(right - 12.0, platform.y + platform.h - 12.0, 24.0, 24.0);
+        }
+    }
+
+    private void drawDawnwatchBattlement(GraphicsContext g, Platform platform,
+                                         double dawn, boolean falseDawn) {
+        boolean major = platform.h >= 80.0;
+        Color slab = Color.web(falseDawn ? "#3A304B" : "#46536A");
+        Color face = Color.web(falseDawn ? "#211D31" : "#252D40");
+        Color gold = Color.web(falseDawn ? "#B674D8" : "#E9B957");
+
+        g.setFill(Color.web("#090D16", 0.92));
+        g.fillRoundRect(platform.x - 10.0, platform.y + 10.0,
+                platform.w + 20.0, platform.h + (major ? 54.0 : 32.0), 24.0, 24.0);
+        g.setFill(new LinearGradient(0, platform.y, 0, platform.y + platform.h, false,
+                CycleMethod.NO_CYCLE,
+                new Stop(0.0, slab.deriveColor(0, 0.86, 1.14, 1.0)),
+                new Stop(0.32, slab),
+                new Stop(1.0, face)));
+        g.fillRoundRect(platform.x, platform.y, platform.w, platform.h, 20.0, 20.0);
+        g.setStroke(Color.web("#111725", 0.94));
+        g.setLineWidth(13.0);
+        g.strokeRoundRect(platform.x, platform.y, platform.w, platform.h, 20.0, 20.0);
+        g.setStroke(gold.deriveColor(0, 0.88, 1.0, 0.90));
+        g.setLineWidth(major ? 8.0 : 5.0);
+        g.strokeLine(platform.x + 22.0, platform.y + 9.0,
+                platform.x + platform.w - 22.0, platform.y + 9.0);
+        g.setStroke(Color.web("#8E2638", falseDawn ? 0.34 : 0.78));
+        g.setLineWidth(major ? 12.0 : 7.0);
+        g.strokeLine(platform.x + 38.0, platform.y + platform.h - 18.0,
+                platform.x + platform.w - 38.0, platform.y + platform.h - 18.0);
+
+        g.setFill(gold.deriveColor(0, 0.82, 0.92, 0.72 + dawn * 0.10));
+        double cap = Math.min(40.0, platform.w * 0.08);
+        g.fillRoundRect(platform.x + 9.0, platform.y + 11.0,
+                cap, platform.h - 22.0, 10.0, 10.0);
+        g.fillRoundRect(platform.x + platform.w - cap - 9.0, platform.y + 11.0,
+                cap, platform.h - 22.0, 10.0, 10.0);
+
+        if (major) {
+            g.setStroke(Color.web("#CBD3DD", 0.20));
+            g.setLineWidth(4.0);
+            for (double joint = platform.x + 130.0;
+                 joint < platform.x + platform.w - 90.0; joint += 210.0) {
+                g.strokeLine(joint, platform.y + 16.0, joint + 38.0, platform.y + platform.h - 20.0);
+            }
+        }
+    }
+
+    private void drawDawnwatchGreatBell(GraphicsContext g, double dawn, boolean falseDawn,
+                                        boolean ambientFx, double time) {
+        double cx = WORLD_WIDTH * 0.5;
+        double top = 700.0;
+        double pulse = ambientFx ? 0.5 + 0.5 * Math.sin(time * 2.2) : 0.64;
+        Color bell = Color.web(falseDawn ? "#8E55AC" : "#D79B2F");
+        Color highlight = Color.web(falseDawn ? "#E1B0FF" : "#FFE49A");
+
+        g.setStroke(Color.web("#080B12", 0.96));
+        g.setLineWidth(48.0);
+        g.strokeLine(cx - 290.0, top - 48.0, cx + 290.0, top - 48.0);
+        g.setStroke(Color.web("#8A704A", 0.92));
+        g.setLineWidth(22.0);
+        g.strokeLine(cx - 290.0, top - 48.0, cx + 290.0, top - 48.0);
+        g.strokeLine(cx, top - 48.0, cx, top + 34.0);
+
+        g.setFill(new RadialGradient(-0.26, -0.22, cx, top + 210.0,
+                330.0, false, CycleMethod.NO_CYCLE,
+                new Stop(0.0, highlight.deriveColor(0, 0.72, 1.0, 0.96)),
+                new Stop(0.38, bell),
+                new Stop(1.0, bell.deriveColor(0, 1.0, 0.52, 1.0))));
+        g.beginPath();
+        g.moveTo(cx - 118.0, top + 32.0);
+        g.bezierCurveTo(cx - 250.0, top + 110.0, cx - 210.0, top + 360.0, cx - 340.0, top + 430.0);
+        g.quadraticCurveTo(cx, top + 545.0, cx + 340.0, top + 430.0);
+        g.bezierCurveTo(cx + 210.0, top + 360.0, cx + 250.0, top + 110.0, cx + 118.0, top + 32.0);
+        g.closePath();
+        g.fill();
+        g.setStroke(Color.web("#5D321A", 0.90));
+        g.setLineWidth(18.0);
+        g.stroke();
+
+        g.setFill(highlight.deriveColor(0, 0.76, 1.0, 0.88));
+        g.fillOval(cx - 328.0, top + 390.0, 656.0, 92.0);
+        g.setStroke(Color.web("#FFF0B8", 0.62 + pulse * 0.20));
+        g.setLineWidth(10.0);
+        g.strokeOval(cx - 328.0, top + 390.0, 656.0, 92.0);
+        g.setStroke(Color.web("#6A381E", 0.92));
+        g.setLineWidth(20.0);
+        g.strokeLine(cx, top + 390.0, cx, top + 505.0);
+        g.setFill(Color.web(falseDawn ? "#5B3268" : "#6E3F20"));
+        g.fillOval(cx - 46.0, top + 478.0, 92.0, 108.0);
+
+        g.setStroke(highlight.deriveColor(0, 0.82, 1.0, 0.18 + pulse * 0.15));
+        g.setLineWidth(12.0);
+        for (int ring = 0; ring < 3; ring++) {
+            double offset = 390.0 + ring * 95.0;
+            g.strokeArc(cx - offset, top + 30.0 - ring * 35.0,
+                    offset * 2.0, 590.0 + ring * 70.0, 58.0, 64.0, ArcType.OPEN);
+            g.strokeArc(cx - offset, top + 30.0 - ring * 35.0,
+                    offset * 2.0, 590.0 + ring * 70.0, 58.0 + 180.0, 64.0, ArcType.OPEN);
+        }
+    }
+
+    private void drawDawnwatchBanners(GraphicsContext g, double dawn,
+                                      boolean ambientFx, double time) {
+        double wave = ambientFx ? Math.sin(time * 1.7) * 22.0 : 10.0;
+        double[][] banners = {{710.0, GROUND_Y - 930.0, 1.0}, {5_290.0, GROUND_Y - 930.0, -1.0},
+                {1_650.0, GROUND_Y - 620.0, 1.0}, {4_350.0, GROUND_Y - 620.0, -1.0}};
+        for (double[] banner : banners) {
+            double x = banner[0];
+            double y = banner[1];
+            double direction = banner[2];
+            g.setStroke(Color.web("#17131A", 0.96));
+            g.setLineWidth(18.0);
+            g.strokeLine(x, y, x, y + 390.0);
+            g.setStroke(Color.web("#D8A949", 0.86));
+            g.setLineWidth(7.0);
+            g.strokeLine(x, y, x, y + 390.0);
+
+            g.setFill(Color.web("#7D2334", 0.96));
+            g.fillPolygon(new double[]{x, x + direction * (190.0 + wave), x + direction * 146.0,
+                            x + direction * (190.0 + wave), x},
+                    new double[]{y + 35.0, y + 70.0, y + 195.0, y + 320.0, y + 280.0}, 5);
+            g.setStroke(Color.web("#F1C863", 0.88));
+            g.setLineWidth(8.0);
+            g.strokeLine(x + direction * 18.0, y + 62.0,
+                    x + direction * (168.0 + wave * 0.7), y + 86.0);
+
+            double crestX = x + direction * 92.0;
+            double crestY = y + 174.0;
+            g.setFill(Color.web("#FFE082", 0.88 + dawn * 0.08));
+            g.fillOval(crestX - 34.0, crestY - 34.0, 68.0, 68.0);
+            g.setStroke(Color.web("#FFF3BD", 0.72));
+            g.setLineWidth(5.0);
+            for (int ray = 0; ray < 8; ray++) {
+                double angle = ray * Math.PI / 4.0;
+                g.strokeLine(crestX + Math.cos(angle) * 42.0, crestY + Math.sin(angle) * 42.0,
+                        crestX + Math.cos(angle) * 58.0, crestY + Math.sin(angle) * 58.0);
+            }
+        }
+    }
+
+    private void drawDawnwatchThermalVent(GraphicsContext g, WindVent vent,
+                                          double dawn, boolean falseDawn,
+                                          boolean ambientFx, double time) {
+        double centerX = vent.x + vent.w * 0.5;
+        double baseY = vent.y + 10.0;
+        double pulse = ambientFx ? 0.5 + 0.5 * Math.sin(time * 2.8 + centerX * 0.01) : 0.66;
+        Color energy = Color.web(falseDawn ? "#D39BFF" : "#FFE39A");
+
+        g.setFill(Color.web("#101520", 0.96));
+        g.fillRoundRect(centerX - 96.0, baseY - 18.0, 192.0, 48.0, 18.0, 18.0);
+        g.setStroke(Color.web(falseDawn ? "#9B65B8" : "#B78B42", 0.88));
+        g.setLineWidth(8.0);
+        g.strokeRoundRect(centerX - 96.0, baseY - 18.0, 192.0, 48.0, 18.0, 18.0);
+        for (int slit = 0; slit < 5; slit++) {
+            g.strokeLine(centerX - 62.0 + slit * 31.0, baseY - 4.0,
+                    centerX - 62.0 + slit * 31.0, baseY + 16.0);
+        }
+
+        g.setFill(new RadialGradient(0, 0, centerX, baseY - 170.0,
+                245.0, false, CycleMethod.NO_CYCLE,
+                new Stop(0.0, energy.deriveColor(0, 0.76, 1.0, 0.12 + pulse * 0.09)),
+                new Stop(1.0, Color.TRANSPARENT)));
+        g.fillOval(centerX - 245.0, baseY - 480.0, 490.0, 600.0);
+        for (int ribbon = 0; ribbon < 3; ribbon++) {
+            g.setStroke(energy.deriveColor(0, 0.84, 1.0, 0.28 + pulse * 0.18 - ribbon * 0.04));
+            g.setLineWidth(10.0 - ribbon * 1.5);
+            g.beginPath();
+            g.moveTo(centerX + (ribbon - 1) * 32.0, baseY);
+            g.bezierCurveTo(centerX - 135.0 + ribbon * 38.0, baseY - 150.0,
+                    centerX + 125.0 - ribbon * 28.0, baseY - 330.0,
+                    centerX + (ribbon - 1) * 20.0, baseY - 490.0);
+            g.stroke();
+        }
+
+        for (int spark = 0; spark < 8; spark++) {
+            double progress = spark / 7.0;
+            double phase = spark * 1.55 + (ambientFx ? time * 2.0 : 0.0);
+            double x = centerX + Math.sin(phase) * (40.0 + progress * 48.0);
+            double y = baseY - 55.0 - progress * 410.0;
+            double size = 9.0 + spark % 3 * 4.0;
+            g.setFill(energy.deriveColor(0, 0.82, 1.10, 0.62 + dawn * 0.16));
+            g.fillOval(x - size * 0.5, y - size * 0.5, size, size);
+        }
+    }
+
+    private void drawDawnwatchHighFlocks(GraphicsContext g, boolean ambientFx,
+                                         double time, boolean falseDawn) {
+        double drift = ambientFx ? time * 18.0 : 0.0;
+        g.setStroke(Color.web(falseDawn ? "#9D78B7" : "#172139", 0.58));
+        g.setLineWidth(8.0);
+        for (int bird = 0; bird < 17; bird++) {
+            double x = (240.0 + bird * 370.0 + drift) % (WORLD_WIDTH + 300.0) - 150.0;
+            double y = 260.0 + Math.floorMod(bird * 139, 510);
+            double wing = 24.0 + bird % 4 * 6.0;
+            g.strokeArc(x - wing, y, wing, 24.0, 8.0, 145.0, ArcType.OPEN);
+            g.strokeArc(x, y, wing, 24.0, 27.0, 145.0, ArcType.OPEN);
+        }
     }
 
     private void drawHarvestTribunalArena(GraphicsContext g, boolean ambientFx) {
