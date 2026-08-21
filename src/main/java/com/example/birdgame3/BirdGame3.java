@@ -17795,55 +17795,109 @@ public class BirdGame3 {
 
     private void drawFrozenCalderaArena(GraphicsContext g, boolean ambientFx) {
         double thaw = longWinterThawProgress();
-        Color skyTop = Color.web("#071328").interpolate(Color.web("#3B2346"), thaw);
-        Color skyBottom = Color.web("#6DA4C2").interpolate(Color.web("#FF9E6D"), thaw);
+        Color skyTop = Color.web("#030B1D").interpolate(Color.web("#24122D"), thaw);
+        Color skyBottom = Color.web("#315E7D").interpolate(Color.web("#D35D47"), thaw);
         for (int i = 0; i < 640; i++) {
             double ratio = i / 640.0;
             g.setFill(skyTop.interpolate(skyBottom, ratio));
             g.fillRect(0, i * (WORLD_HEIGHT / 640.0), WORLD_WIDTH, WORLD_HEIGHT / 640.0 + 3);
         }
 
-        double time = System.currentTimeMillis() / 1000.0;
+        double time = ambientFx ? System.nanoTime() / 1_000_000_000.0 : 0.0;
+
+        // A deep aurora crowns the caldera without competing with the pale
+        // playable ice. Render-time motion is deliberately presentation-only.
+        drawFrozenCalderaAurora(g, time, thaw, ambientFx);
+        renderRandom.setSeed(0xCA1D_E4A1L);
+        for (int i = 0; i < 150; i++) {
+            double x = renderRandom.nextDouble() * WORLD_WIDTH;
+            double y = 60.0 + renderRandom.nextDouble() * (GROUND_Y - 1_100.0);
+            double radius = 2.0 + renderRandom.nextDouble() * 5.0;
+            double twinkle = ambientFx ? 0.72 + 0.28 * Math.sin(time * 1.4 + i * 0.91) : 0.84;
+            g.setFill(Color.web(i % 9 == 0 ? "#FFF0C2" : "#D6F7FF",
+                    (0.20 + renderRandom.nextDouble() * 0.44) * twinkle * (1.0 - thaw * 0.34)));
+            g.fillOval(x, y, radius, radius);
+        }
+
         double sunX = 3_000.0;
-        double sunY = 430.0 - thaw * 95.0;
-        g.setFill(Color.web("#FFF3C4", 0.06 + thaw * 0.18));
-        g.fillOval(sunX - 330, sunY - 330, 660, 660);
-        g.setFill(Color.web("#FFF8D9", 0.32 + thaw * 0.60));
-        g.fillOval(sunX - 110, sunY - 110, 220, 220);
+        double sunY = 420.0 - thaw * 80.0;
+        g.setFill(Color.web("#FFD89A", 0.05 + thaw * 0.16));
+        g.fillOval(sunX - 400, sunY - 400, 800, 800);
+        g.setFill(Color.web("#FFF5D2", 0.38 + thaw * 0.56));
+        g.fillOval(sunX - 104, sunY - 104, 208, 208);
 
-        // The buried cathedral remains readable behind the arena. Its frozen
-        // spires lose their blue cast as the boss stocks fall and dawn returns.
-        Color farIce = Color.web("#173957").interpolate(Color.web("#5A3546"), thaw);
-        Color nearIce = Color.web("#285C78").interpolate(Color.web("#824832"), thaw);
-        g.setFill(farIce.deriveColor(0, 1, 1, 0.82));
-        for (int i = 0; i < 10; i++) {
-            double x = 70 + i * 650.0;
-            double h = 650 + (i % 4) * 150.0;
-            g.fillPolygon(
-                    new double[]{x - 250, x, x + 250},
-                    new double[]{GROUND_Y + 90, GROUND_Y - h, GROUND_Y + 90},
-                    3);
-        }
-        g.setFill(nearIce.deriveColor(0, 1, 1, 0.72));
+        // Three nested crater rings give the stage a real place and scale:
+        // distant polar peaks, the black volcanic wall, then translucent ice.
+        Color farIce = Color.web("#102D49").interpolate(Color.web("#523244"), thaw);
+        drawFrozenCalderaMountainLayer(g, GROUND_Y + 110, 780, 720, farIce, 0.72);
+        drawFrozenCalderaMountainLayer(g, GROUND_Y + 130, 560, 910,
+                farIce.interpolate(Color.web("#1A3850"), 0.45), 0.88);
+
+        Color craterRock = Color.web("#07131F").interpolate(Color.web("#351922"), thaw);
+        g.setFill(craterRock);
         g.fillPolygon(
-                new double[]{0, 720, 1_360, 2_000, 3_000, 4_050, 4_720, 5_350, WORLD_WIDTH},
-                new double[]{GROUND_Y + 120, GROUND_Y - 430, GROUND_Y + 80, GROUND_Y - 520,
-                        GROUND_Y + 110, GROUND_Y - 560, GROUND_Y + 80, GROUND_Y - 420, GROUND_Y + 120},
-                9);
+                new double[]{0, 0, 520, 1_060, 1_540, 2_000, 2_420, 3_000,
+                        3_580, 4_000, 4_460, 4_940, 5_480, WORLD_WIDTH, WORLD_WIDTH},
+                new double[]{GROUND_Y + 150, GROUND_Y - 190, GROUND_Y - 540, GROUND_Y - 330,
+                        GROUND_Y - 660, GROUND_Y - 440, GROUND_Y - 770, GROUND_Y - 920,
+                        GROUND_Y - 770, GROUND_Y - 440, GROUND_Y - 660, GROUND_Y - 330,
+                        GROUND_Y - 540, GROUND_Y - 190, GROUND_Y + 150},
+                15);
+        g.setStroke(Color.web("#65BFD3", 0.18 + (1.0 - thaw) * 0.16));
+        g.setLineWidth(16.0);
+        g.strokePolyline(
+                new double[]{0, 520, 1_060, 1_540, 2_000, 2_420, 3_000, 3_580,
+                        4_000, 4_460, 4_940, 5_480, WORLD_WIDTH},
+                new double[]{GROUND_Y - 190, GROUND_Y - 540, GROUND_Y - 330, GROUND_Y - 660,
+                        GROUND_Y - 440, GROUND_Y - 770, GROUND_Y - 920, GROUND_Y - 770,
+                        GROUND_Y - 440, GROUND_Y - 660, GROUND_Y - 330, GROUND_Y - 540,
+                        GROUND_Y - 190},
+                13);
 
-        Color abyss = Color.web("#071521").interpolate(Color.web("#5A160E"), thaw);
-        Color molten = Color.web("#224C67").interpolate(Color.web("#FF6D00"), thaw);
+        // The last thermal glows through the caldera's frozen throat.
+        double corePulse = ambientFx ? 0.5 + 0.5 * Math.sin(time * 1.55) : 0.62;
+        g.setFill(Color.web("#FF6D24", 0.08 + thaw * 0.17 + corePulse * 0.025));
+        g.fillOval(2_190, GROUND_Y - 640, 1_620, 1_050);
+        g.setFill(Color.web("#FFB347", 0.07 + thaw * 0.12));
+        g.fillOval(2_500, GROUND_Y - 370, 1_000, 520);
+
+        Color abyss = Color.web("#020912").interpolate(Color.web("#260C11"), thaw);
+        Color molten = Color.web("#123A52").interpolate(Color.web("#FF5A1F"), thaw);
         g.setFill(abyss);
-        g.fillRect(0, GROUND_Y + 90, WORLD_WIDTH, WORLD_HEIGHT - GROUND_Y + 280);
-        g.setFill(molten.deriveColor(0, 1, 1, 0.42));
+        g.fillRect(0, GROUND_Y + 85, WORLD_WIDTH, WORLD_HEIGHT - GROUND_Y + 320);
+        g.setFill(molten.deriveColor(0, 1, 1, 0.30 + thaw * 0.18));
         for (int i = -1; i < 11; i++) {
-            double drift = ambientFx ? Math.sin(time * 0.75 + i) * 30.0 : 0.0;
-            g.fillOval(i * 620.0 + drift, GROUND_Y + 65 + (i % 2) * 30.0, 780, 115);
+            double drift = ambientFx ? Math.sin(time * 0.75 + i) * 24.0 : 0.0;
+            g.fillOval(i * 620.0 + drift, GROUND_Y + 74 + (i % 2) * 24.0, 760, 105);
         }
+
+        // The playable islands are the crown of one glacier rather than loose
+        // slabs. Broad foundations visibly descend into the volcanic chasm.
+        Color deepGlacier = Color.web("#0B324A").interpolate(Color.web("#403038"), thaw);
+        Color glacierFace = Color.web("#286A82").interpolate(Color.web("#9B5943"), thaw);
+        drawFrozenCalderaFoundation(g, 420, GROUND_Y - 190, 1_080, GROUND_Y + 330,
+                deepGlacier, glacierFace);
+        drawFrozenCalderaFoundation(g, 1_750, GROUND_Y - 350, 2_500, GROUND_Y + 410,
+                deepGlacier, glacierFace);
+        drawFrozenCalderaFoundation(g, 4_500, GROUND_Y - 190, 1_080, GROUND_Y + 330,
+                deepGlacier, glacierFace);
+        drawFrozenCalderaFoundation(g, 720, GROUND_Y + 55, 420, GROUND_Y + 360,
+                deepGlacier, glacierFace);
+        drawFrozenCalderaFoundation(g, 4_860, GROUND_Y + 55, 420, GROUND_Y + 360,
+                deepGlacier, glacierFace);
+
+        drawFrozenCalderaThermalVeins(g, thaw, corePulse);
+
+        drawFrozenCalderaButtress(g, 1_170, GROUND_Y - 720, 430,
+                760, GROUND_Y - 190, 1_470, GROUND_Y - 190, deepGlacier, thaw);
+        drawFrozenCalderaButtress(g, 4_400, GROUND_Y - 720, 430,
+                4_530, GROUND_Y - 190, 5_240, GROUND_Y - 190, deepGlacier, thaw);
+        drawFrozenCalderaButtress(g, 2_520, GROUND_Y - 932, 960,
+                2_080, GROUND_Y - 350, 3_920, GROUND_Y - 350, deepGlacier, thaw);
 
         if (ambientFx) {
             renderRandom.setSeed(0xF20A_E4A1L);
-            for (int i = 0; i < 120; i++) {
+            for (int i = 0; i < 95; i++) {
                 double baseX = renderRandom.nextDouble() * (WORLD_WIDTH + 400.0) - 200.0;
                 double baseY = 80.0 + renderRandom.nextDouble() * (GROUND_Y - 100.0);
                 double fall = (time * (24.0 + renderRandom.nextDouble() * 34.0) + i * 41.0)
@@ -17857,46 +17911,184 @@ public class BirdGame3 {
         }
 
         for (Platform platform : platforms) {
-            Color platformSide = Color.web("#102D43").interpolate(Color.web("#3C2529"), thaw);
-            Color platformTop = Color.web("#AEEBFF").interpolate(Color.web("#FFD0A0"), thaw);
-            Color platformRim = Color.web("#E8FCFF").interpolate(Color.web("#FFF3C4"), thaw);
-            g.setFill(platformSide);
-            g.fillRoundRect(platform.x, platform.y + platform.h * 0.30,
-                    platform.w, platform.h * 0.95, 22, 22);
-            g.setFill(platformTop.deriveColor(0, 0.62, 0.78, 0.96));
-            g.fillRoundRect(platform.x, platform.y, platform.w, platform.h, 24, 24);
-            g.setStroke(platformRim.deriveColor(0, 1, 1, 0.82));
-            g.setLineWidth(5.0);
-            g.strokeRoundRect(platform.x + 3, platform.y + 2,
-                    platform.w - 6, platform.h - 4, 24, 24);
-
-            int icicles = Math.max(2, Math.min(12, (int) (platform.w / 230.0)));
-            g.setFill(Color.web("#B8E8F7", Math.max(0.12, 0.64 - thaw * 0.42)));
-            for (int i = 0; i < icicles; i++) {
-                double ix = platform.x + (i + 0.5) * platform.w / icicles;
-                double length = 26.0 + (i % 3) * 17.0;
-                g.fillPolygon(
-                        new double[]{ix - 12, ix + 12, ix},
-                        new double[]{platform.y + platform.h - 4, platform.y + platform.h - 4,
-                                platform.y + platform.h + length},
-                        3);
-            }
+            drawFrozenCalderaPlatform(g, platform, thaw);
 
             if (platform.signText != null) {
                 g.setTextAlign(TextAlignment.CENTER);
-                g.setFont(Font.font("Arial Black", FontWeight.BOLD, 28));
-                g.setFill(Color.web("#EAFBFF", 0.84));
-                g.fillText(platform.signText, platform.x + platform.w * 0.5, platform.y + platform.h * 0.68);
+                g.setFont(Font.font("Arial Black", FontWeight.BOLD, 27));
+                g.setFill(Color.web("#E9FCFF", 0.88));
+                g.fillText(platform.signText, platform.x + platform.w * 0.5,
+                        platform.y + Math.min(platform.h * 0.70, 58.0));
             }
         }
 
         for (WindVent vent : windVents) {
             double pulse = ambientFx ? 0.5 + 0.5 * Math.sin(time * 2.0 + vent.x * 0.01) : 0.55;
-            g.setFill(Color.web("#B3E5FC", 0.12 + pulse * 0.10));
-            g.fillOval(vent.x + vent.w * 0.5 - 95, vent.y - 180, 190, 260);
-            g.setStroke(Color.web("#E1F5FE", 0.26 + pulse * 0.18));
-            g.setLineWidth(4.0);
-            g.strokeArc(vent.x + vent.w * 0.5 - 75, vent.y - 120, 150, 150, 18, 144, ArcType.OPEN);
+            double centerX = vent.x + vent.w * 0.5;
+            Color ventWarmth = Color.web("#6FE7FF").interpolate(Color.web("#FFB24D"), thaw);
+            g.setFill(ventWarmth.deriveColor(0, 1, 1, 0.06 + pulse * 0.07));
+            g.fillPolygon(
+                    new double[]{centerX - 82, centerX - 32, centerX, centerX + 32, centerX + 82},
+                    new double[]{vent.y + 30, vent.y - 145, vent.y - 215, vent.y - 145, vent.y + 30},
+                    5);
+            g.setStroke(ventWarmth.deriveColor(0, 1, 1, 0.48 + pulse * 0.24));
+            g.setLineWidth(5.0);
+            g.strokeLine(centerX - 88, vent.y + 9, centerX - 28, vent.y - 10);
+            g.strokeLine(centerX - 28, vent.y - 10, centerX + 8, vent.y + 14);
+            g.strokeLine(centerX + 8, vent.y + 14, centerX + 74, vent.y - 5);
+            g.setLineWidth(3.0);
+            g.strokeArc(centerX - 75, vent.y - 122, 150, 150, 18, 144, ArcType.OPEN);
+        }
+    }
+
+    private void drawFrozenCalderaAurora(GraphicsContext g, double time, double thaw, boolean ambientFx) {
+        double sway = ambientFx ? Math.sin(time * 0.22) * 70.0 : 0.0;
+        Color blueAurora = Color.web("#48E3F2", Math.max(0.05, 0.17 - thaw * 0.08));
+        Color greenAurora = Color.web("#72F2B8", Math.max(0.04, 0.13 - thaw * 0.06));
+        g.setFill(blueAurora);
+        g.beginPath();
+        g.moveTo(-220, 480);
+        g.bezierCurveTo(980 + sway, 90, 1_540 + sway, 760, 2_770, 300);
+        g.bezierCurveTo(3_920 - sway, -20, 4_960 - sway, 690, WORLD_WIDTH + 220, 190);
+        g.lineTo(WORLD_WIDTH + 220, 390);
+        g.bezierCurveTo(4_950 - sway, 840, 3_850 - sway, 170, 2_790, 490);
+        g.bezierCurveTo(1_550 + sway, 900, 940 + sway, 270, -220, 690);
+        g.closePath();
+        g.fill();
+        g.setFill(greenAurora);
+        g.beginPath();
+        g.moveTo(-140, 720);
+        g.bezierCurveTo(1_060 - sway, 310, 1_960 - sway, 970, 3_060, 520);
+        g.bezierCurveTo(4_230 + sway, 100, 5_100 + sway, 790, WORLD_WIDTH + 160, 370);
+        g.lineTo(WORLD_WIDTH + 160, 510);
+        g.bezierCurveTo(5_110 + sway, 920, 4_230 + sway, 280, 3_060, 690);
+        g.bezierCurveTo(1_960 - sway, 1_120, 1_030 - sway, 500, -140, 870);
+        g.closePath();
+        g.fill();
+    }
+
+    private void drawFrozenCalderaMountainLayer(GraphicsContext g, double baseY, double spacing,
+                                                  double maxHeight, Color color, double opacity) {
+        g.setFill(color.deriveColor(0, 1, 1, opacity));
+        int count = (int) Math.ceil(WORLD_WIDTH / spacing) + 2;
+        for (int i = -1; i < count; i++) {
+            double centerX = i * spacing + (i % 2 == 0 ? 110.0 : -40.0);
+            double height = maxHeight * (0.60 + Math.floorMod(i, 4) * 0.105);
+            double halfWidth = spacing * 0.62;
+            g.fillPolygon(
+                    new double[]{centerX - halfWidth, centerX - halfWidth * 0.20,
+                            centerX, centerX + halfWidth * 0.18, centerX + halfWidth},
+                    new double[]{baseY, baseY - height * 0.44,
+                            baseY - height, baseY - height * 0.48, baseY},
+                    5);
+        }
+    }
+
+    private void drawFrozenCalderaFoundation(GraphicsContext g, double x, double topY, double width,
+                                               double baseY, Color deep, Color face) {
+        double inset = Math.min(width * 0.24, 250.0);
+        g.setFill(deep);
+        g.fillPolygon(
+                new double[]{x, x + width, x + width - inset, x + width * 0.62,
+                        x + width * 0.48, x + inset},
+                new double[]{topY, topY, baseY - 54, baseY, baseY - 28, baseY - 78},
+                6);
+        g.setFill(face.deriveColor(0, 0.84, 0.78, 0.54));
+        g.fillPolygon(
+                new double[]{x + 30, x + width * 0.48, x + width * 0.38, x + inset},
+                new double[]{topY + 22, topY + 22, baseY - 92, baseY - 78},
+                4);
+        g.setStroke(Color.web("#7DDAE8", 0.22));
+        g.setLineWidth(6.0);
+        g.strokeLine(x + width * 0.49, topY + 34, x + width * 0.43, baseY - 58);
+        g.setStroke(Color.web("#A8EFF6", 0.12));
+        g.setLineWidth(3.0);
+        g.strokeLine(x + width * 0.17, topY + 64, x + width * 0.30, baseY - 96);
+        g.strokeLine(x + width * 0.76, topY + 52, x + width * 0.66, baseY - 72);
+    }
+
+    private void drawFrozenCalderaThermalVeins(GraphicsContext g, double thaw, double pulse) {
+        Color heat = Color.web("#FF7A2D", 0.30 + thaw * 0.30 + pulse * 0.06);
+        g.setStroke(Color.web("#FFB45C", 0.08 + thaw * 0.12));
+        g.setLineWidth(38.0);
+        g.strokeLine(3_000, GROUND_Y - 300, 3_000, GROUND_Y + 270);
+        g.setStroke(heat);
+        g.setLineWidth(10.0);
+        g.strokeLine(3_000, GROUND_Y - 300, 3_000, GROUND_Y + 270);
+        g.strokeLine(3_000, GROUND_Y - 28, 2_730, GROUND_Y + 125);
+        g.strokeLine(3_000, GROUND_Y + 38, 3_260, GROUND_Y + 180);
+        g.strokeLine(2_730, GROUND_Y + 125, 2_610, GROUND_Y + 250);
+        g.strokeLine(3_260, GROUND_Y + 180, 3_390, GROUND_Y + 265);
+        g.setFill(Color.web("#FFC66D", 0.12 + thaw * 0.16));
+        g.fillOval(2_650, GROUND_Y + 245, 700, 78);
+    }
+
+    private void drawFrozenCalderaButtress(GraphicsContext g, double x, double y, double width,
+                                            double anchorLeftX, double anchorY,
+                                            double anchorRightX, double anchorRightY,
+                                            Color deep, double thaw) {
+        g.setFill(deep.deriveColor(0, 0.90, 0.84, 0.88));
+        g.fillPolygon(
+                new double[]{x + 36, x + width * 0.34, anchorLeftX, anchorLeftX + 110},
+                new double[]{y + 20, y + 20, anchorY, anchorY},
+                4);
+        g.fillPolygon(
+                new double[]{x + width * 0.66, x + width - 36, anchorRightX - 110, anchorRightX},
+                new double[]{y + 20, y + 20, anchorRightY, anchorRightY},
+                4);
+        g.setStroke(Color.web("#8AE7F4", Math.max(0.10, 0.28 - thaw * 0.12)));
+        g.setLineWidth(7.0);
+        g.strokeLine(x + width * 0.18, y + 28, anchorLeftX + 55, anchorY);
+        g.strokeLine(x + width * 0.82, y + 28, anchorRightX - 55, anchorRightY);
+    }
+
+    private void drawFrozenCalderaPlatform(GraphicsContext g, Platform platform, double thaw) {
+        Color platformSide = Color.web("#0A2A40").interpolate(Color.web("#41282D"), thaw);
+        Color platformFace = Color.web("#4C9CB0").interpolate(Color.web("#B16C50"), thaw);
+        Color platformTop = Color.web("#BCEEFF").interpolate(Color.web("#FFD3A8"), thaw);
+        Color platformRim = Color.web("#F0FDFF").interpolate(Color.web("#FFF2C8"), thaw);
+
+        g.setFill(platformSide);
+        g.fillPolygon(
+                new double[]{platform.x, platform.x + platform.w,
+                        platform.x + platform.w - Math.min(36.0, platform.w * 0.08),
+                        platform.x + Math.min(36.0, platform.w * 0.08)},
+                new double[]{platform.y + 11, platform.y + 11,
+                        platform.y + platform.h + 25, platform.y + platform.h + 25},
+                4);
+        g.setFill(platformFace.deriveColor(0, 0.78, 0.76, 0.98));
+        g.fillRoundRect(platform.x, platform.y, platform.w, platform.h, 14, 14);
+        g.setFill(platformTop.deriveColor(0, 0.72, 0.95, 0.98));
+        g.fillRoundRect(platform.x + 8, platform.y + 5, platform.w - 16,
+                Math.max(10.0, platform.h * 0.27), 10, 10);
+        g.setStroke(platformRim.deriveColor(0, 1, 1, 0.90));
+        g.setLineWidth(5.0);
+        g.strokeRoundRect(platform.x + 2.5, platform.y + 2.5,
+                platform.w - 5, platform.h - 5, 14, 14);
+
+        renderRandom.setSeed(Double.doubleToLongBits(platform.x * 31.0 + platform.y * 17.0));
+        g.setStroke(Color.web("#D4F8FF", Math.max(0.16, 0.38 - thaw * 0.14)));
+        g.setLineWidth(2.5);
+        int seams = Math.max(1, Math.min(9, (int) (platform.w / 320.0)));
+        for (int i = 0; i < seams; i++) {
+            double seamX = platform.x + 38.0
+                    + renderRandom.nextDouble() * Math.max(1.0, platform.w - 76.0);
+            double seamY = platform.y + platform.h * 0.38;
+            g.strokeLine(seamX, seamY, seamX - 18, platform.y + platform.h * 0.70);
+            g.strokeLine(seamX - 18, platform.y + platform.h * 0.70,
+                    seamX + 8, platform.y + platform.h * 0.91);
+        }
+
+        int icicles = Math.max(2, Math.min(12, (int) (platform.w / 230.0)));
+        g.setFill(Color.web("#8FD9EA", Math.max(0.14, 0.48 - thaw * 0.28)));
+        for (int i = 0; i < icicles; i++) {
+            double ix = platform.x + (i + 0.5) * platform.w / icicles;
+            double length = 22.0 + (i % 3) * 14.0;
+            g.fillPolygon(
+                    new double[]{ix - 9, ix + 9, ix},
+                    new double[]{platform.y + platform.h + 17, platform.y + platform.h + 17,
+                            platform.y + platform.h + 17 + length},
+                    3);
         }
     }
 
