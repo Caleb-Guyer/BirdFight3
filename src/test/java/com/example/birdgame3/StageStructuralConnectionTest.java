@@ -95,6 +95,13 @@ class StageStructuralConnectionTest {
     }
 
     @Test
+    void crownVariantsKeepTheirAuthoredFragmentCountsAndOpenVoidGaps() throws Exception {
+        assertCrownVariantGeometry(BirdGame3.MapVariant.NULL_ROCK_DUEL, 4);
+        assertCrownVariantGeometry(BirdGame3.MapVariant.NULL_ROC_ASCENDING, 8);
+        assertCrownVariantGeometry(BirdGame3.MapVariant.VOID_CROWN, 6);
+    }
+
+    @Test
     void rooftopRelayOverhangsTerminateOnPaintedFacadeInsteadOfHiddenRoofEdge() throws Exception {
         BirdGame3 game = prepare(BirdGame3.MapType.CITY, BirdGame3.MapVariant.ROOFTOP_RELAY);
         CityBuildingGeometry.Layout layout = CityBuildingGeometry.createRooftopRelay(
@@ -245,6 +252,19 @@ class StageStructuralConnectionTest {
             assertTrue(nearest <= maximumReach,
                     () -> variant + " has a surface beyond its painted mountain support at ("
                             + platform.x + ", " + platform.y + ")");
+        }
+    }
+
+    private static void assertCrownVariantGeometry(BirdGame3.MapVariant variant,
+                                                   int expectedPlatforms) throws Exception {
+        BirdGame3 game = prepare(BirdGame3.MapType.BEACON_CROWN, variant);
+        assertEquals(expectedPlatforms, game.platforms.size(), variant + " fragment count");
+        assertFalse(game.platforms.stream().anyMatch(platform ->
+                        platform.x <= 0.0 && platform.x + platform.w >= BirdGame3.WORLD_WIDTH),
+                variant + " depicts open void and must not gain an invisible full-width floor");
+        for (Platform platform : game.platforms) {
+            assertTrue(platform.x >= 0.0 && platform.x + platform.w <= BirdGame3.WORLD_WIDTH,
+                    variant + " fragment must remain within its rendered world bounds");
         }
     }
 

@@ -21191,6 +21191,347 @@ public class BirdGame3 {
     }
 
     private void drawBeaconCrownBattlefield(GraphicsContext g, boolean ambientFx) {
+        switch (activeArenaGeometryVariant) {
+            case NULL_ROCK_DUEL -> drawFinalDuelAltar(g, ambientFx);
+            case NULL_ROC_ASCENDING -> drawNullRocAscent(g, ambientFx);
+            case VOID_CROWN -> drawVoidCrownArena(g, ambientFx);
+            default -> drawBeaconCrownCitadel(g, ambientFx);
+        }
+    }
+
+    private void drawBeaconCrownCitadel(GraphicsContext g, boolean ambientFx) {
+        double time = ambientFx ? System.nanoTime() / 1_000_000_000.0 : 0.0;
+        double bossRatio = beaconCrownBossHealthRatio();
+        drawCrownSky(g, "#02040A", "#10182D", Color.web("#FFE082"),
+                time, ambientFx, 0.42 + (1.0 - bossRatio) * 0.18);
+
+        if (isNullRockCampaign() && !isNullRockDuelPhase()) {
+            drawNullRockBackgroundCommander(g, ambientFx);
+        }
+
+        double centerX = WORLD_WIDTH * 0.5;
+        double mainY = battlefieldIslandY;
+        drawBeaconDistantCitadel(g, mainY);
+
+        // The Crown beacon is a single monumental tower. Its upper shelves are
+        // observation balconies carried by ribs from the central spire.
+        g.setFill(Color.web("#111425"));
+        g.fillPolygon(new double[]{centerX - 610.0, centerX - 185.0,
+                        centerX + 185.0, centerX + 610.0},
+                new double[]{WORLD_HEIGHT + 160.0, 690.0, 690.0, WORLD_HEIGHT + 160.0}, 4);
+        g.setFill(Color.web("#30304A", 0.76));
+        g.fillPolygon(new double[]{centerX - 240.0, centerX - 65.0,
+                        centerX + 25.0, centerX + 170.0},
+                new double[]{WORLD_HEIGHT + 160.0, 720.0, 720.0, WORLD_HEIGHT + 160.0}, 4);
+        g.setStroke(Color.web("#D8B75B", 0.54));
+        g.setLineWidth(16.0);
+        for (double y = 960.0; y < mainY; y += 310.0) {
+            double half = 120.0 + (y - 690.0) * 0.15;
+            g.strokeLine(centerX - half, y, centerX + half, y);
+        }
+
+        for (Platform platform : platforms) {
+            drawBeaconCrownSupport(g, platform, centerX, mainY);
+        }
+        for (Platform platform : platforms) {
+            drawCrownStonePlatform(g, platform,
+                    Color.web("#292C43"), Color.web("#555874"), Color.web("#E3C66B"));
+        }
+        drawBeaconCrownSeal(g, centerX, mainY, time, ambientFx, bossRatio);
+    }
+
+    private double beaconCrownBossHealthRatio() {
+        if (isUnitedFinaleClimaxContext()) {
+            Bird boss = unitedFinaleBoss();
+            return boss == null ? 1.0
+                    : Math.clamp(boss.health / unitedFinaleBossMaxHealth(), 0.0, 1.0);
+        }
+        if (bossRushModeActive && classicModeActive) {
+            return bossRushEnemyHealthRatio();
+        }
+        for (Bird bird : players) {
+            if (bird != null && bird.health > 0.0 && bird.isNullRockForm()) {
+                return Math.clamp(bird.health / Math.max(1.0, bird.getMaxHealth()), 0.0, 1.0);
+            }
+        }
+        return 1.0;
+    }
+
+    private void drawCrownSky(GraphicsContext g, String top, String bottom, Color halo,
+                              double time, boolean ambientFx, double haloAlpha) {
+        g.setFill(new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.web(top)),
+                new Stop(1.0, Color.web(bottom))));
+        g.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+
+        double centerX = WORLD_WIDTH * 0.5;
+        double eclipseY = 430.0;
+        g.setFill(halo.deriveColor(0, 0.75, 1.0, haloAlpha * 0.18));
+        g.fillOval(centerX - 470.0, eclipseY - 470.0, 940.0, 940.0);
+        g.setFill(Color.web("#010207", 0.98));
+        g.fillOval(centerX - 205.0, eclipseY - 205.0, 410.0, 410.0);
+        g.setStroke(halo.deriveColor(0, 0.88, 1.08, haloAlpha));
+        g.setLineWidth(24.0);
+        g.strokeOval(centerX - 250.0, eclipseY - 250.0, 500.0, 500.0);
+        g.setStroke(Color.web("#80DEEA", 0.18));
+        g.setLineWidth(7.0);
+        g.strokeOval(centerX - 285.0, eclipseY - 285.0, 570.0, 570.0);
+
+        renderRandom.setSeed(0xC20A_4E5EL);
+        for (int shard = 0; shard < 21; shard++) {
+            double angle = shard * Math.PI * 2.0 / 21.0 + (ambientFx ? time * 0.014 : 0.0);
+            double radius = 760.0 + (shard % 4) * 235.0;
+            double x = centerX + Math.cos(angle) * radius;
+            double y = eclipseY + Math.sin(angle) * radius * 0.34;
+            double size = 34.0 + (shard % 5) * 9.0;
+            g.setFill((shard & 1) == 0
+                    ? halo.deriveColor(0, 0.8, 1.0, 0.24)
+                    : Color.web("#75D8E8", 0.20));
+            g.fillPolygon(new double[]{x - size, x, x + size},
+                    new double[]{y + size * 0.55, y - size, y + size * 0.55}, 3);
+        }
+    }
+
+    private void drawBeaconDistantCitadel(GraphicsContext g, double mainY) {
+        g.setFill(Color.web("#090D1A", 0.94));
+        for (int tower = 0; tower < 9; tower++) {
+            double x = 100.0 + tower * 730.0;
+            double height = 680.0 + (tower % 4) * 190.0;
+            double width = 210.0 + (tower % 2) * 45.0;
+            g.fillPolygon(new double[]{x - width, x - width * 0.72, x,
+                            x + width * 0.72, x + width},
+                    new double[]{mainY + 520.0, mainY - height + 180.0, mainY - height,
+                            mainY - height + 180.0, mainY + 520.0}, 5);
+            g.setStroke(Color.web("#B89D58", 0.25));
+            g.setLineWidth(8.0);
+            g.strokeLine(x, mainY - height + 120.0, x, mainY + 330.0);
+        }
+    }
+
+    private void drawBeaconCrownSupport(GraphicsContext g, Platform platform,
+                                        double centerX, double mainY) {
+        double platformCenter = platform.x + platform.w * 0.5;
+        double underside = platform.y + platform.h;
+        boolean main = Math.abs(platform.x - battlefieldIslandX) < 2.0
+                && Math.abs(platform.w - battlefieldIslandW) < 2.0;
+        if (main) {
+            g.setFill(Color.web("#111425"));
+            g.fillPolygon(new double[]{platform.x + 80.0, platform.x + platform.w - 80.0,
+                            centerX + 360.0, centerX - 360.0},
+                    new double[]{underside, underside, WORLD_HEIGHT + 80.0, WORLD_HEIGHT + 80.0}, 4);
+            return;
+        }
+        double anchorY = Math.min(mainY + 80.0, platform.y + 285.0);
+        double anchorX = centerX + (platformCenter - centerX) * 0.30;
+        g.setStroke(Color.web("#121626"));
+        g.setLineWidth(Math.clamp(platform.w * 0.09, 34.0, 72.0));
+        g.strokeLine(anchorX, anchorY, platformCenter, underside);
+        g.setStroke(Color.web("#4A4D68", 0.84));
+        g.setLineWidth(Math.clamp(platform.w * 0.035, 12.0, 28.0));
+        g.strokeLine(anchorX, anchorY, platformCenter, underside);
+        g.setStroke(Color.web("#C3A956", 0.42));
+        g.setLineWidth(7.0);
+        g.strokeLine(anchorX, anchorY - 10.0, platformCenter, underside - 10.0);
+    }
+
+    private void drawBeaconCrownSeal(GraphicsContext g, double centerX, double mainY,
+                                     double time, boolean ambientFx, double bossRatio) {
+        double pulse = ambientFx ? 0.66 + 0.24 * Math.sin(time * 1.8) : 0.78;
+        g.setFill(Color.web("#F3CE63", 0.12 + (1.0 - bossRatio) * 0.12));
+        g.fillPolygon(new double[]{centerX - 190.0, centerX - 65.0, centerX + 65.0, centerX + 190.0},
+                new double[]{mainY + 8.0, 690.0, 690.0, mainY + 8.0}, 4);
+        g.setStroke(Color.web("#FFE27C", pulse));
+        g.setLineWidth(14.0);
+        g.strokeOval(centerX - 112.0, mainY - 134.0, 224.0, 224.0);
+        g.strokeLine(centerX, mainY - 190.0, centerX, mainY + 98.0);
+        g.strokeLine(centerX - 138.0, mainY - 22.0, centerX + 138.0, mainY - 22.0);
+    }
+
+    private void drawFinalDuelAltar(GraphicsContext g, boolean ambientFx) {
+        double time = ambientFx ? System.nanoTime() / 1_000_000_000.0 : 0.0;
+        drawCrownSky(g, "#020106", "#24111F", Color.web("#FF456C"), time, ambientFx, 0.62);
+        double centerX = WORLD_WIDTH * 0.5;
+        double mainY = battlefieldIslandY;
+
+        g.setFill(Color.web("#100A13"));
+        g.fillPolygon(new double[]{centerX - 1_050.0, centerX - 520.0, centerX - 150.0,
+                        centerX + 150.0, centerX + 520.0, centerX + 1_050.0},
+                new double[]{WORLD_HEIGHT + 140.0, mainY + 250.0, mainY - 250.0,
+                        mainY - 250.0, mainY + 250.0, WORLD_HEIGHT + 140.0}, 6);
+        g.setFill(Color.web("#382134", 0.74));
+        g.fillPolygon(new double[]{centerX - 500.0, centerX - 120.0,
+                        centerX + 30.0, centerX + 280.0},
+                new double[]{WORLD_HEIGHT + 140.0, mainY - 230.0,
+                        mainY - 230.0, WORLD_HEIGHT + 140.0}, 4);
+
+        // Fractured crown ribs hold the three upper duel ledges to the altar.
+        for (Platform platform : platforms) {
+            drawFinalDuelRib(g, platform, centerX, mainY);
+        }
+        for (Platform platform : platforms) {
+            drawCrownStonePlatform(g, platform,
+                    Color.web("#2B1B2B"), Color.web("#5A344B"), Color.web("#E76A7C"));
+        }
+        g.setStroke(Color.web("#FF5575", ambientFx ? 0.68 + 0.20 * Math.sin(time * 2.7) : 0.76));
+        g.setLineWidth(11.0);
+        for (int crack = -3; crack <= 3; crack++) {
+            g.strokeLine(centerX + crack * 135.0, mainY + 30.0,
+                    centerX + crack * 210.0, mainY + 560.0 + Math.abs(crack) * 70.0);
+        }
+    }
+
+    private void drawFinalDuelRib(GraphicsContext g, Platform platform,
+                                  double centerX, double mainY) {
+        boolean main = Math.abs(platform.x - battlefieldIslandX) < 2.0
+                && Math.abs(platform.w - battlefieldIslandW) < 2.0;
+        double center = platform.x + platform.w * 0.5;
+        double underside = platform.y + platform.h;
+        if (main) {
+            g.setFill(Color.web("#140C17"));
+            g.fillPolygon(new double[]{platform.x + 60.0, platform.x + platform.w - 60.0,
+                            centerX + 620.0, centerX - 620.0},
+                    new double[]{underside, underside, WORLD_HEIGHT + 100.0, WORLD_HEIGHT + 100.0}, 4);
+            return;
+        }
+        g.setStroke(Color.web("#160D18"));
+        g.setLineWidth(48.0);
+        g.strokeLine(centerX + (center - centerX) * 0.20,
+                Math.min(mainY + 30.0, platform.y + 300.0), center, underside);
+        g.setStroke(Color.web("#6D3A52", 0.76));
+        g.setLineWidth(17.0);
+        g.strokeLine(centerX + (center - centerX) * 0.20,
+                Math.min(mainY + 30.0, platform.y + 300.0), center, underside);
+    }
+
+    private void drawNullRocAscent(GraphicsContext g, boolean ambientFx) {
+        double time = ambientFx ? System.nanoTime() / 1_000_000_000.0 : 0.0;
+        drawCrownSky(g, "#02050D", "#12233A", Color.web("#EAC85E"), time, ambientFx, 0.52);
+        drawCrownAscentTrail(g);
+        for (Platform platform : platforms) drawCrownAscentFragment(g, platform);
+        for (WindVent vent : windVents) {
+            drawSkyVariantWindChannel(g, vent, time, ambientFx,
+                    Color.web("#84E4F4"), Color.web("#111B2A"));
+        }
+        for (Platform platform : platforms) {
+            drawCrownStonePlatform(g, platform,
+                    Color.web("#242A3E"), Color.web("#565E76"), Color.web("#E2C568"));
+        }
+    }
+
+    private void drawCrownAscentTrail(GraphicsContext g) {
+        Platform previous = null;
+        g.setStroke(Color.web("#8E793F", 0.52));
+        g.setLineWidth(36.0);
+        for (Platform platform : platforms.stream()
+                .sorted(Comparator.comparingDouble(p -> p.y))
+                .toList()) {
+            if (previous != null) {
+                g.strokeLine(previous.x + previous.w * 0.5, previous.y + previous.h + 80.0,
+                        platform.x + platform.w * 0.5, platform.y - 80.0);
+            }
+            previous = platform;
+        }
+    }
+
+    private void drawCrownAscentFragment(GraphicsContext g, Platform platform) {
+        double center = platform.x + platform.w * 0.5;
+        double underside = platform.y + platform.h;
+        double drop = platform.w > 1_000.0 ? 680.0 : 330.0 + platform.w * 0.32;
+        g.setFill(Color.web("#111827"));
+        g.fillPolygon(new double[]{platform.x - 16.0, platform.x + platform.w + 16.0,
+                        center + platform.w * 0.20, center - platform.w * 0.15},
+                new double[]{underside, underside, underside + drop, underside + drop * 0.82}, 4);
+        g.setFill(Color.web("#4A5064", 0.70));
+        g.fillPolygon(new double[]{platform.x + 40.0, center,
+                        center - platform.w * 0.06, platform.x + platform.w * 0.18},
+                new double[]{underside + 10.0, underside + 10.0,
+                        underside + drop * 0.74, underside + drop * 0.62}, 4);
+    }
+
+    private void drawVoidCrownArena(GraphicsContext g, boolean ambientFx) {
+        double time = ambientFx ? System.nanoTime() / 1_000_000_000.0 : 0.0;
+        g.setFill(new RadialGradient(0, 0, 0.5, 0.42, 0.76, true, CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.web("#24113C")),
+                new Stop(0.45, Color.web("#090718")),
+                new Stop(1.0, Color.web("#010105"))));
+        g.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+        drawVoidCrownRing(g, time, ambientFx);
+
+        for (Platform platform : platforms) drawVoidCrownFragment(g, platform);
+        for (WindVent vent : windVents) {
+            drawSkyVariantWindChannel(g, vent, time, ambientFx,
+                    Color.web("#A785FF"), Color.web("#120E24"));
+        }
+        for (Platform platform : platforms) {
+            drawCrownStonePlatform(g, platform,
+                    Color.web("#241C38"), Color.web("#5B4E79"), Color.web("#D6B9FF"));
+        }
+    }
+
+    private void drawVoidCrownRing(GraphicsContext g, double time, boolean ambientFx) {
+        double centerX = WORLD_WIDTH * 0.5;
+        double centerY = 1_300.0;
+        double pulse = ambientFx ? 0.70 + 0.20 * Math.sin(time * 1.55) : 0.78;
+        g.setFill(Color.web("#000002"));
+        g.fillOval(centerX - 640.0, centerY - 640.0, 1_280.0, 1_280.0);
+        g.setStroke(Color.web("#A47CFF", pulse * 0.62));
+        g.setLineWidth(34.0);
+        g.strokeOval(centerX - 730.0, centerY - 730.0, 1_460.0, 1_460.0);
+        g.setStroke(Color.web("#F0D066", pulse * 0.50));
+        g.setLineWidth(15.0);
+        g.strokeOval(centerX - 820.0, centerY - 820.0, 1_640.0, 1_640.0);
+        for (int shard = 0; shard < 18; shard++) {
+            double angle = shard * Math.PI * 2.0 / 18.0 + (ambientFx ? time * 0.06 : 0.0);
+            double x = centerX + Math.cos(angle) * 980.0;
+            double y = centerY + Math.sin(angle) * 520.0;
+            g.setFill(shard % 3 == 0 ? Color.web("#D4B75B", 0.52) : Color.web("#67518B", 0.62));
+            g.fillPolygon(new double[]{x - 50.0, x, x + 58.0, x + 12.0},
+                    new double[]{y + 18.0, y - 96.0, y + 10.0, y + 56.0}, 4);
+        }
+    }
+
+    private void drawVoidCrownFragment(GraphicsContext g, Platform platform) {
+        double center = platform.x + platform.w * 0.5;
+        double underside = platform.y + platform.h;
+        double direction = center < WORLD_WIDTH * 0.5 ? -1.0 : 1.0;
+        if (Math.abs(center - WORLD_WIDTH * 0.5) < 200.0) direction = 0.0;
+        g.setFill(Color.web("#130D20"));
+        g.fillPolygon(new double[]{platform.x - 18.0, platform.x + platform.w + 18.0,
+                        center + direction * platform.w * 0.22 + 70.0,
+                        center + direction * platform.w * 0.35 - 40.0},
+                new double[]{underside, underside, underside + 330.0,
+                        underside + 470.0}, 4);
+        g.setFill(Color.web("#4D3B68", 0.70));
+        g.fillPolygon(new double[]{platform.x + 35.0, center,
+                        center + direction * platform.w * 0.18,
+                        center + direction * platform.w * 0.26},
+                new double[]{underside + 9.0, underside + 9.0,
+                        underside + 280.0, underside + 350.0}, 4);
+    }
+
+    private void drawCrownStonePlatform(GraphicsContext g, Platform platform,
+                                        Color body, Color highlight, Color edge) {
+        g.setFill(body);
+        g.fillRoundRect(platform.x, platform.y, platform.w, platform.h, 22.0, 22.0);
+        g.setFill(highlight.deriveColor(0, 1, 1, 0.74));
+        g.fillRoundRect(platform.x + 10.0, platform.y + 8.0,
+                Math.max(18.0, platform.w - 20.0), Math.max(8.0, platform.h * 0.28), 13.0, 13.0);
+        g.setStroke(body.darker());
+        g.setLineWidth(8.0);
+        g.strokeRoundRect(platform.x, platform.y, platform.w, platform.h, 22.0, 22.0);
+        g.setStroke(edge.deriveColor(0, 1, 1, 0.88));
+        g.setLineWidth(6.0);
+        g.strokeLine(platform.x + 14.0, platform.y - 3.0,
+                platform.x + platform.w - 14.0, platform.y - 3.0);
+        g.setStroke(edge.deriveColor(0, 0.7, 0.78, 0.30));
+        g.setLineWidth(4.0);
+        for (double x = platform.x + 110.0; x < platform.x + platform.w; x += 150.0) {
+            g.strokeLine(x, platform.y + 12.0, x - 16.0, platform.y + platform.h - 8.0);
+        }
+    }
+
+    @SuppressWarnings("unused")
+    private void drawLegacyBeaconCrownBattlefield(GraphicsContext g, boolean ambientFx) {
         Bird boss;
         double bossRatio = 1.0;
         if (isUnitedFinaleClimaxContext()) {
