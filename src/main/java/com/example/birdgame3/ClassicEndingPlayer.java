@@ -19,6 +19,7 @@ import javafx.scene.paint.CycleMethod;
 import javafx.scene.paint.LinearGradient;
 import javafx.scene.paint.RadialGradient;
 import javafx.scene.paint.Stop;
+import javafx.scene.shape.ArcType;
 import javafx.scene.shape.StrokeLineCap;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
@@ -193,6 +194,7 @@ final class ClassicEndingPlayer {
         boolean batListeningDark = ClassicEndingContent.isBatListeningDark(cinematic);
         boolean pelicanOpenHarbor = ClassicEndingContent.isPelicanOpenHarbor(cinematic);
         boolean ravenBlackSun = ClassicEndingContent.isRavenBlackSun(cinematic);
+        boolean gooseOpenFlyway = ClassicEndingContent.isGooseOpenFlyway(cinematic);
         if (continuousPanorama) {
             double routeProgress = Math.clamp((beatIndex + progress) / cinematic.beats().size(), 0.0, 1.0);
             drawRoadrunnerPanorama(g, now / 1_000_000_000.0, routeProgress);
@@ -232,6 +234,9 @@ final class ClassicEndingPlayer {
         } else if (ravenBlackSun) {
             double routeProgress = Math.clamp((beatIndex + progress) / cinematic.beats().size(), 0.0, 1.0);
             drawRavenBlackSun(g, now / 1_000_000_000.0, routeProgress);
+        } else if (gooseOpenFlyway) {
+            double routeProgress = Math.clamp((beatIndex + progress) / cinematic.beats().size(), 0.0, 1.0);
+            drawGooseOpenFlyway(g, now / 1_000_000_000.0, routeProgress);
         } else {
             drawBackground(g, now / 1_000_000_000.0, progress);
             drawTableau(g, currentBeat().tableau(), progress, now / 1_000_000_000.0);
@@ -242,7 +247,8 @@ final class ClassicEndingPlayer {
         if (!continuousPanorama && !subglacialMontage && !stillwaterRevelation
                 && !charlesLivingScore && !razorbillFinalCut && !grinchOpenSack
                 && !vultureFinalAccount && !opiumTwelfthFuture && !heisenBlueVault
-                && !titmouseWarningBeacon && !batListeningDark && !pelicanOpenHarbor && !ravenBlackSun) {
+                && !titmouseWarningBeacon && !batListeningDark && !pelicanOpenHarbor
+                && !ravenBlackSun && !gooseOpenFlyway) {
             drawTransition(g, progress);
         }
         g.restore();
@@ -545,6 +551,100 @@ final class ClassicEndingPlayer {
             g.setFill(Color.web("#9B52C7", 0.13 * oneTomorrow));
             g.fillPolygon(new double[]{790, 1_130, 1_470, 450},
                     new double[]{LOGICAL_HEIGHT, LOGICAL_HEIGHT, 930, 930}, 4);
+        }
+
+        if (progress > 0.84) {
+            drawFinalTitle(g, ease((progress - 0.84) / 0.16));
+        }
+    }
+
+    private void drawGooseOpenFlyway(GraphicsContext g, double time, double progress) {
+        Color skyTop = Color.web("#17233B").interpolate(Color.web("#5B8FB8"), progress * 0.88);
+        Color skyBottom = Color.web("#8A4D35").interpolate(Color.web("#F4C66C"), progress * 0.92);
+        g.setFill(new LinearGradient(0, 0, 0, LOGICAL_HEIGHT, false, CycleMethod.NO_CYCLE,
+                new Stop(0, skyTop), new Stop(1, skyBottom)));
+        g.fillRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
+
+        // Dawnwatch begins as a sealed border fortress. Each wall physically
+        // opens as the intact Crown becomes a compass for a moving flock.
+        g.setFill(Color.web("#26364A"));
+        g.fillPolygon(new double[]{0, 290, 500, 720, 960, 1_220, 1_520, LOGICAL_WIDTH,
+                        LOGICAL_WIDTH, 0},
+                new double[]{900, 620, 805, 540, 760, 520, 780, 610,
+                        LOGICAL_HEIGHT, LOGICAL_HEIGHT}, 10);
+        double wallOpen = ease(Math.clamp((progress - 0.34) / 0.30, 0.0, 1.0));
+        g.setFill(Color.web("#111927"));
+        for (int wall = 0; wall < 5; wall++) {
+            double baseX = 180.0 + wall * 390.0;
+            double slide = (wall % 2 == 0 ? -1.0 : 1.0) * wallOpen * 180.0;
+            g.fillRect(baseX + slide, 360.0, 120.0, 540.0);
+            g.fillPolygon(new double[]{baseX - 35.0 + slide, baseX + 60.0 + slide,
+                            baseX + 155.0 + slide},
+                    new double[]{360.0, 270.0, 360.0}, 3);
+        }
+
+        double kingFade = Math.clamp(1.0 - progress * 4.6, 0.0, 1.0);
+        if (kingFade > 0.0) {
+            g.setStroke(Color.web("#F9CC58", 0.72 * kingFade));
+            g.setLineWidth(16.0);
+            g.strokeOval(1_210, 250, 410, 410);
+            for (int spoke = 0; spoke < 12; spoke++) {
+                double a = spoke * Math.PI / 6.0;
+                g.strokeLine(1_415 + Math.cos(a) * 210.0, 455 + Math.sin(a) * 210.0,
+                        1_415 + Math.cos(a) * 255.0, 455 + Math.sin(a) * 255.0);
+            }
+            drawBird(g, boss, 1_415, 510 + progress * 95.0, 1.32, false, kingFade);
+            drawBossName(g, "THE BORDER KING", 1_415, 735, kingFade);
+        }
+
+        double gooseArrival = ease(Math.clamp((progress - 0.07) / 0.26, 0.0, 1.0));
+        double gooseX = 250.0 + gooseArrival * 520.0;
+        double gooseY = 650.0 - Math.sin(gooseArrival * Math.PI) * 180.0
+                + Math.sin(time * 1.6) * 7.0;
+        drawBird(g, narrator, gooseX, gooseY, 1.34, true, gooseArrival);
+
+        double crownLift = ease(Math.clamp((progress - 0.24) / 0.24, 0.0, 1.0));
+        double compassForm = ease(Math.clamp((progress - 0.48) / 0.22, 0.0, 1.0));
+        double compassX = 995.0;
+        double compassY = 650.0 - crownLift * 420.0;
+        if (compassForm < 1.0) {
+            drawCrown(g, compassX, compassY, 1.06, time, crownLift * (1.0 - compassForm));
+        }
+        if (compassForm > 0.0) {
+            g.setFill(Color.web("#FFF3B0", 0.18 * compassForm));
+            g.fillOval(compassX - 150, compassY - 150, 300, 300);
+            g.setStroke(Color.web("#FFF0A0", compassForm));
+            g.setLineWidth(13.0);
+            g.strokeOval(compassX - 88, compassY - 88, 176, 176);
+            g.setFill(Color.web("#1D5A78", compassForm));
+            g.fillPolygon(new double[]{compassX, compassX + 25, compassX, compassX - 25},
+                    new double[]{compassY - 78, compassY, compassY + 78, compassY}, 4);
+            g.setFill(Color.web("#E85A4F", compassForm));
+            g.fillPolygon(new double[]{compassX - 78, compassX, compassX + 78, compassX},
+                    new double[]{compassY, compassY - 25, compassY, compassY + 25}, 4);
+        }
+
+        double routes = ease(Math.clamp((progress - 0.58) / 0.22, 0.0, 1.0));
+        for (int route = 0; route < 5; route++) {
+            double endY = 180.0 + route * 155.0;
+            g.setStroke(Color.web(route % 2 == 0 ? "#E8FBFF" : "#FFF0A0", 0.54 * routes));
+            g.setLineWidth(8.0);
+            g.beginPath();
+            g.moveTo(compassX + 80.0, compassY);
+            g.bezierCurveTo(1_240.0, compassY + (route - 2) * 45.0,
+                    1_520.0, endY, LOGICAL_WIDTH + 40.0, endY);
+            g.stroke();
+        }
+
+        double flockReveal = ease(Math.clamp((progress - 0.66) / 0.24, 0.0, 1.0));
+        for (int bird = 0; bird < 17; bird++) {
+            double lane = bird % 5;
+            double x = 880.0 + (bird / 5) * 210.0 + flockReveal * 520.0 + lane * 36.0;
+            double y = 230.0 + lane * 145.0 + Math.sin(time * 2.0 + bird) * 10.0;
+            g.setStroke(Color.web("#101621", 0.82 * flockReveal));
+            g.setLineWidth(6.0);
+            g.strokeArc(x - 22, y, 24, 15, 10, 150, ArcType.OPEN);
+            g.strokeArc(x, y, 24, 15, 20, 150, ArcType.OPEN);
         }
 
         if (progress > 0.84) {
@@ -2116,7 +2216,8 @@ final class ClassicEndingPlayer {
                 || ClassicEndingContent.isTitmouseWarningBeacon(cinematic)
                 || ClassicEndingContent.isBatListeningDark(cinematic)
                 || ClassicEndingContent.isPelicanOpenHarbor(cinematic)
-                || ClassicEndingContent.isRavenBlackSun(cinematic)) && beatIndex > 0) return;
+                || ClassicEndingContent.isRavenBlackSun(cinematic)
+                || ClassicEndingContent.isGooseOpenFlyway(cinematic)) && beatIndex > 0) return;
         game.playClassicEndingTableauCue(currentBeat().tableau());
     }
 

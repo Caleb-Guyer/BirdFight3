@@ -458,6 +458,25 @@ final class ClassicEndingContent {
                             beat("I raised the intact Crown above Ashfall and taught every omen to point toward one future: the future I permit.", Tableau.CROWN_TRANSFORMATION),
                             beat("Storms turn aside before I name them. Rebellions end in the thought. Every road reaches the same black sunrise.", Tableau.CHANGED_WORLD),
                             beat("Tomorrow is safe. Tomorrow is mine.", Tableau.FINAL_PORTRAIT)
+                    )),
+            ending(
+                    BirdGame3.BirdType.GOOSE,
+                    "THE SKY HAS NO BORDER",
+                    "THE OPEN FLYWAY",
+                    "PASSAGE - The intact Crown becomes a living compass that opens safe migration routes and recognizes no border.",
+                    Alignment.HOPEFUL,
+                    BirdGame3.BirdType.EAGLE,
+                    "The Border King",
+                    "SKY_KING_EAGLE",
+                    BirdGame3.MapType.BEACON_CROWN,
+                    "music-skycliffs.mp3",
+                    monologue(
+                            beat("The Border King chained every flyway to his bell, then called permission the same thing as safety.", Tableau.BOSS_AFTERMATH),
+                            beat("When the last chain fell, the Crown unfolded a map of every migration—every storm, refuge, and wall waiting ahead.", Tableau.CROWN_DISCOVERY),
+                            beat("I could have drawn kinder borders. A kinder cage still decides who is allowed to cross.", Tableau.DECISION),
+                            beat("I kept the Crown intact and turned its command inward. It became a compass that opens a route but cannot own the wings using it.", Tableau.CROWN_TRANSFORMATION),
+                            beat("Now safe currents appear before every flock. Gates open, warning bells carry, and no line in the sky can ask for a name.", Tableau.CHANGED_WORLD),
+                            beat("Fly together. Land where you must. The sky belongs to the crossing.", Tableau.FINAL_PORTRAIT)
                     ))
     );
 
@@ -528,6 +547,10 @@ final class ClassicEndingContent {
 
     static boolean isRavenBlackSun(Cinematic cinematic) {
         return cinematic != null && cinematic.narrator() == BirdGame3.BirdType.RAVEN;
+    }
+
+    static boolean isGooseOpenFlyway(Cinematic cinematic) {
+        return cinematic != null && cinematic.narrator() == BirdGame3.BirdType.GOOSE;
     }
 
     static Cinematic withRouteRecord(Ending ending, int birdCoins, int score, String mapReward) {

@@ -5492,7 +5492,8 @@ public class BirdGame3 {
         HOARDMASTER_BOSS,
         PELICAN_BOARDING_GAUNTLET,
         RAVEN_FORETOLD_FATES,
-        RAVEN_LAST_DAWN_BOSS
+        RAVEN_LAST_DAWN_BOSS,
+        GOOSE_BORDER_KING_BOSS
     }
 
     static final class ClassicRiftAnchor {
@@ -45310,6 +45311,9 @@ public class BirdGame3 {
         if (useAuthoredRoutes && playerType == BirdType.RAVEN) {
             return buildRavenClassicRun();
         }
+        if (useAuthoredRoutes && playerType == BirdType.GOOSE) {
+            return buildGooseClassicRun();
+        }
         List<ClassicEncounter> run = new ArrayList<>();
         Set<MapType> usedMaps = new HashSet<>();
         Set<BirdType> usedBirds = new HashSet<>();
@@ -47835,6 +47839,100 @@ public class BirdGame3 {
         return run;
     }
 
+    private List<ClassicEncounter> buildGooseClassicRun() {
+        List<ClassicEncounter> run = new ArrayList<>();
+
+        ClassicEncounter landing = new ClassicEncounter(
+                "Unauthorized Landing", "Rooftop Relay",
+                "Pigeon claims the rooftop crossing for one neighborhood. Goose answers that a flyway cannot belong to whoever landed first.",
+                MapType.CITY, MapVariant.ROOFTOP_RELAY, MatchMutator.NONE,
+                ClassicTwist.WIND_RALLY, ClassicEncounterStyle.STANDARD, 105 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{
+                classicFighter(BirdType.PIGEON, "Gatekeeper: Pigeon", 92, 0.82, 1.00)}, false);
+        landing.cpuLevel = 3;
+        run.add(landing);
+
+        ClassicEncounter winterFormation = new ClassicEncounter(
+                "Winter Formation", "Last Ice Shelf",
+                "Penguin joins Goose against Raven and Vulture, who have turned the only warm current into a toll lane.",
+                MapType.FROSTBITE_FJORD, MapVariant.LAST_ICE_SHELF, MatchMutator.NONE,
+                ClassicTwist.ICEWORKS, ClassicEncounterStyle.STANDARD, 125 * 60,
+                new ClassicFighter[]{classicFighter(BirdType.PENGUIN, "Ally: Ice Navigator", 98, 0.76, 0.96)},
+                new ClassicFighter[]{
+                        classicFighter(BirdType.RAVEN, "Tollkeeper: Raven", 78, 0.64, 1.00),
+                        classicFighter(BirdType.VULTURE, "Tollkeeper: Vulture", 82, 0.66, 0.98)}, false);
+        winterFormation.cpuLevel = 4;
+        run.add(winterFormation);
+
+        ClassicEncounter airspace = new ClassicEncounter(
+                "Restricted Airspace", "Peregrine Run",
+                "A giant Eagle patrols the entire mountain pass. Break the blockade with Goose's ordinary flight and committed honk timing.",
+                MapType.SKYCLIFFS, MapVariant.PEREGRINE_RUN, MatchMutator.NONE,
+                ClassicTwist.STORM_LIFTS, ClassicEncounterStyle.GIANT, 130 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{
+                classicFighter(BirdType.EAGLE, "Giant: Air Marshal", 100, 0.58, 0.90)}, true);
+        airspace.cpuLevel = 5;
+        run.add(airspace);
+
+        ClassicEncounter prisonCrossing = new ClassicEncounter(
+                "Open the Crossing", "The Prison",
+                "A tiny Kiwi knows the service route. Keep formation while Grinch-Hawk and Heisenbird try to close both exits.",
+                MapType.PRISON, MapVariant.STANDARD, MatchMutator.NONE,
+                ClassicTwist.AFTERMATH, ClassicEncounterStyle.STANDARD, 132 * 60,
+                new ClassicFighter[]{classicFighter(BirdType.KIWI, "Ally: Wayfinder", 78, 0.62, 1.04)},
+                new ClassicFighter[]{
+                        classicFighter(BirdType.GRINCHHAWK, "Warden: Grinch-Hawk", 76, 0.60, 0.98),
+                        classicFighter(BirdType.HEISENBIRD, "Warden: Heisenbird", 74, 0.58, 0.96)}, false);
+        prisonCrossing.cpuLevel = 5;
+        run.add(prisonCrossing);
+
+        ClassicEncounter wholeFlock = new ClassicEncounter(
+                "The Whole Flock", "Redline Canyon",
+                "Roadrunner and Hummingbird form on Goose's wings against one giant Falcon sweeping the canyon road.",
+                MapType.DESERT, MapVariant.REDLINE_CANYON, MatchMutator.TURBO_BRAWL,
+                ClassicTwist.REDLINE_SPLITS, ClassicEncounterStyle.GIANT, 128 * 60,
+                new ClassicFighter[]{
+                        classicFighter(BirdType.ROADRUNNER, "Ally: Ground Wing", 70, 0.46, 1.06),
+                        classicFighter(BirdType.HUMMINGBIRD, "Ally: High Wing", 66, 0.44, 1.08)},
+                new ClassicFighter[]{classicFighter(BirdType.FALCON, "Giant: Canyon Interceptor", 170, 0.86, 0.96)}, true);
+        wholeFlock.cpuLevel = 6;
+        run.add(wholeFlock);
+
+        ClassicEncounter migration = new ClassicEncounter(
+                "Bonus: Migration Beacons", "Skybreak Spires",
+                "Strike three open-sky beacons in order. Every marker is reachable with Goose's normal recovery and no route power carries onward.",
+                MapType.SKYCLIFFS, MapVariant.SKYBREAK_SPIRES, MatchMutator.NONE,
+                ClassicTwist.STORM_LIFTS, ClassicEncounterStyle.BONUS_RELAY, 84 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{
+                classicFighter(BirdType.TITMOUSE, "Migration Beacon I", 34, 0.05, 0.05),
+                classicFighter(BirdType.TITMOUSE, "Migration Beacon II", 34, 0.05, 0.05),
+                classicFighter(BirdType.TITMOUSE, "Migration Beacon III", 34, 0.05, 0.05)}, false);
+        migration.cpuLevel = 1;
+        run.add(migration);
+
+        ClassicEncounter loneLeader = new ClassicEncounter(
+                "The Flock of One", "Broken Harbor",
+                "An Ironclad Goose calls every ally a weakness. Defeat the reflection that mistakes formation for obedience.",
+                MapType.DOCK, MapVariant.STANDARD, MatchMutator.NONE,
+                ClassicTwist.RAGE_RITUAL, ClassicEncounterStyle.STANDARD, 135 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{
+                classicFighter(BirdType.GOOSE, "Elite: The Lone Leader", 178, 1.06, 1.00)}, true);
+        loneLeader.cpuLevel = 7;
+        run.add(loneLeader);
+
+        ClassicEncounter borderKing = new ClassicEncounter(
+                "No Sky Closed", "Dawnwatch Bastion",
+                "The Border King has chained every migration route to one golden bell. Break all three stocks and reopen the horizon.",
+                MapType.BEACON_CROWN, MapVariant.DAWNWATCH_BASTION, MatchMutator.NONE,
+                ClassicTwist.FALSE_DAWN, ClassicEncounterStyle.GOOSE_BORDER_KING_BOSS, 205 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{
+                classicFighter(BirdType.EAGLE, "Boss: The Border King", 215, 0.98, 1.00,
+                        "SKY_KING_EAGLE")}, true);
+        borderKing.cpuLevel = 8;
+        run.add(borderKing);
+        return run;
+    }
+
     private ClassicEncounter buildShoebillSwiftTrailEncounter() {
         ClassicEncounter encounter = new ClassicEncounter(
                 "Swift Trail", "Redline Track",
@@ -48556,6 +48654,7 @@ public class BirdGame3 {
         if (type == BirdType.BAT) return "THE NIGHT ANSWERS BACK";
         if (type == BirdType.PELICAN) return "THE WEIGHT OF THE HARBOR";
         if (type == BirdType.RAVEN) return "THE FUTURE HAS ONE AUTHOR";
+        if (type == BirdType.GOOSE) return "THE SKY HAS NO BORDER";
         return "TEMPORARY FLIGHT PLAN";
     }
 
@@ -50032,6 +50131,13 @@ public class BirdGame3 {
             } else if (encounter.style == ClassicEncounterStyle.RAVEN_LAST_DAWN_BOSS) {
                 bird.health = Math.max(1.0, 210.0 * enemyHealthScale);
                 bird.setBaseMultipliers(1.46, 0.98 * enemyPowerScale, 1.00);
+                bird.setUltimateEnabled(false);
+            } else if (encounter.style == ClassicEncounterStyle.GOOSE_BORDER_KING_BOSS) {
+                // Goose has to contest Eagle in the air for three stocks. Keep
+                // the boss imposing, but do not stack giant resistance and
+                // near-normal damage on top of Eagle's superior launch kit.
+                bird.health = Math.max(1.0, 175.0 * enemyHealthScale);
+                bird.setBaseMultipliers(1.08, 0.66 * enemyPowerScale, 0.92);
                 bird.setUltimateEnabled(false);
             } else if (encounter.style == ClassicEncounterStyle.HOARDMASTER_BOSS) {
                 bird.health = Math.max(1.0, 205.0 * enemyHealthScale);
@@ -61908,10 +62014,28 @@ public class BirdGame3 {
                 default -> scores[0];
             };
         }
+        if (classicSelectedBird == BirdType.GOOSE) {
+            scores[0] = switch (classicRoundIndex) {
+                case 0, 1, 4, 6 -> 1;
+                case 2, 3 -> 2;
+                case 7 -> 3;
+                default -> scores[0];
+            };
+            if (classicRoundIndex == 4) {
+                // The Canyon Interceptor is a genuine giant raid: Goose's
+                // formation has numbers, while Falcon has a second stock.
+                for (Bird bird : players) {
+                    if (bird != null && getEffectiveTeam(bird.playerIndex) == 2) {
+                        scores[bird.playerIndex] = 2;
+                    }
+                }
+            }
+        }
         int enemyStocks = switch (classicEncounter.style) {
             case STORM_TYRANT_BOSS, PHOENIX_REBIRTH, BLIGHTWING_BOSS, ICEWORKS_MIRROR -> 2;
             case NULL_ROC_BOSS, LONG_WINTER_BOSS, DEVOURER_BOSS, BROODBREAKER_BOSS,
-                    STILL_KING_BOSS, LAST_SUN_BOSS, HOARDMASTER_BOSS, RAVEN_LAST_DAWN_BOSS -> 3;
+                    STILL_KING_BOSS, LAST_SUN_BOSS, HOARDMASTER_BOSS, RAVEN_LAST_DAWN_BOSS,
+                    GOOSE_BORDER_KING_BOSS -> 3;
             default -> 0;
         };
         if (enemyStocks <= 0) return;
