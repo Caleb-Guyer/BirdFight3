@@ -18112,139 +18112,364 @@ public class BirdGame3 {
     }
 
     private void drawAshfallCathedralArena(GraphicsContext g, boolean ambientFx) {
-        for (int i = 0; i < 640; i++) {
-            double ratio = i / 640.0;
-            Color c = Color.web("#09050A").interpolate(Color.web("#3B0713"), ratio * 0.72)
-                    .interpolate(Color.web("#F4511E"), Math.max(0.0, ratio - 0.62) * 0.42);
-            g.setFill(c);
-            g.fillRect(0, i * (WORLD_HEIGHT / 640.0), WORLD_WIDTH, WORLD_HEIGHT / 640.0 + 3);
-        }
+        double time = ambientFx ? System.nanoTime() / 1_000_000_000.0 : 0.0;
+        double lavaY = GROUND_Y + 54.0;
+        g.save();
 
-        double time = System.currentTimeMillis() / 1000.0;
-        double horizonY = GROUND_Y + 38.0;
+        g.setFill(new LinearGradient(0, 0, 0, WORLD_HEIGHT, false, CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.web("#07050E")),
+                new Stop(0.35, Color.web("#1D0A18")),
+                new Stop(0.68, Color.web("#55121A")),
+                new Stop(1.0, Color.web("#A82D16"))));
+        g.fillRect(-400, -300, WORLD_WIDTH + 800, WORLD_HEIGHT + 600);
 
-        g.setFill(Color.web("#100915", 0.78));
-        for (int i = 0; i < 9; i++) {
-            double x = 180 + i * 720.0;
-            double h = 820 + (i % 3) * 140.0;
-            g.fillRoundRect(x - 92, horizonY - h, 184, h + 80, 36, 36);
-            g.fillPolygon(
-                    new double[]{x - 160, x, x + 160},
-                    new double[]{horizonY - h + 70, horizonY - h - 210, horizonY - h + 70},
-                    3
-            );
-        }
+        drawAshfallSky(g, time, ambientFx);
+        drawAshfallDistantRidge(g);
+        drawAshfallCathedralFacade(g, time, ambientFx);
+        drawAshfallPhoenixWindow(g, WORLD_WIDTH * 0.5, 915.0, time);
+        drawAshfallLava(g, lavaY, time, ambientFx);
+        drawAshfallFoundations(g, lavaY);
+        drawAshfallPlatformSupports(g);
 
-        drawAshfallPhoenixWindow(g, WORLD_WIDTH * 0.5, GROUND_Y - 1080.0, ambientFx ? time : 0.0);
-
-        g.setStroke(Color.web("#4DD0E1", 0.25));
-        g.setLineWidth(5);
-        for (int i = 0; i < 6; i++) {
-            double archX = 520 + i * 920.0;
-            g.strokeArc(archX - 270, GROUND_Y - 1060, 540, 720, 0, 180, ArcType.OPEN);
-            g.strokeLine(archX - 270, GROUND_Y - 700, archX - 270, GROUND_Y + 40);
-            g.strokeLine(archX + 270, GROUND_Y - 700, archX + 270, GROUND_Y + 40);
-        }
-
-        if (ambientFx) {
-            renderRandom.setSeed(93_771L);
-            Random emberRand = renderRandom;
-            for (int i = 0; i < 95; i++) {
-                double baseX = emberRand.nextDouble() * WORLD_WIDTH;
-                double drift = (time * (35 + emberRand.nextDouble() * 70) + i * 83.0) % (WORLD_WIDTH + 260.0);
-                double x = (baseX + drift) % (WORLD_WIDTH + 260.0) - 130.0;
-                double y = 80.0 + emberRand.nextDouble() * (GROUND_Y - 210.0);
-                double size = 2.0 + emberRand.nextDouble() * 7.0;
-                Color ember = i % 4 == 0 ? Color.web("#4DD0E1", 0.34) : Color.web("#FFCC80", 0.42);
-                g.setFill(ember);
-                g.fillOval(x, y + Math.sin(time * 1.7 + i) * 18.0, size, size * 1.55);
-            }
-        }
-
-        g.setFill(Color.web("#26060A"));
-        g.fillRect(0, horizonY, WORLD_WIDTH, WORLD_HEIGHT - horizonY + 320);
-        for (int layer = 0; layer < 4; layer++) {
-            double waveY = horizonY + 36 + layer * 58.0;
-            double shift = ambientFx ? Math.sin(time * (1.1 + layer * 0.18)) * 24.0 : 0.0;
-            g.setFill(Color.web(layer % 2 == 0 ? "#FF6D00" : "#D84315", 0.34 - layer * 0.035));
-            for (int i = -1; i < 11; i++) {
-                double x = i * 620.0 + shift * (layer + 1);
-                g.fillOval(x, waveY, 760.0, 72.0 + layer * 18.0);
-            }
-        }
-        g.setFill(Color.web("#FFF176", 0.16));
-        g.fillRect(0, horizonY + 4, WORLD_WIDTH, 18);
-
-        for (WindVent v : windVents) {
-            double pulse = ambientFx ? 0.5 + 0.5 * Math.sin(time * 2.3 + v.x * 0.017) : 0.45;
-            g.setFill(Color.web("#FFAB40", 0.16 + pulse * 0.08));
-            g.fillOval(v.x + v.w / 2.0 - v.w * 0.5, v.y - 180.0, v.w, 380.0);
-            g.setStroke(Color.web("#4DD0E1", 0.22 + pulse * 0.1));
-            g.setLineWidth(3.0);
-            g.strokeArc(v.x + 28.0, v.y - 94.0, v.w - 56.0, 170.0, 200, 140, ArcType.OPEN);
-        }
-
-        for (Platform p : platforms) {
-            drawAshfallPlatform(g, p);
-        }
-
+        for (Platform platform : platforms) drawAshfallPlatform(g, platform);
+        for (WindVent vent : windVents) drawAshfallVent(g, vent, time, ambientFx);
         drawAshfallEruptionColumns(g, ambientFx, time);
+        if (ambientFx) drawAshfallEmbers(g, time);
+        g.restore();
+    }
+
+    private void drawAshfallSky(GraphicsContext g, double time, boolean ambientFx) {
+        renderRandom.setSeed(0xA55F_A117L);
+        for (int i = 0; i < 72; i++) {
+            double x = renderRandom.nextDouble() * WORLD_WIDTH;
+            double y = 80.0 + renderRandom.nextDouble() * 1120.0;
+            double size = 1.5 + renderRandom.nextDouble() * 3.5;
+            double pulse = ambientFx ? 0.68 + Math.sin(time * 1.4 + i * 0.91) * 0.32 : 0.80;
+            g.setFill(Color.web(i % 8 == 0 ? "#FFB35C" : "#C9846B",
+                    (0.12 + renderRandom.nextDouble() * 0.30) * pulse));
+            g.fillOval(x, y, size, size);
+        }
+
+        g.setFill(Color.web("#120711", 0.42));
+        for (int i = 0; i < 7; i++) {
+            double shift = ambientFx ? Math.sin(time * 0.08 + i) * 38.0 : 0.0;
+            g.fillOval(-520 + i * 980.0 + shift, 255 + (i % 3) * 115.0, 1280, 360);
+        }
+        g.setFill(Color.web("#FF5722", 0.07));
+        g.fillOval(1320, 660, 3360, 980);
+    }
+
+    private void drawAshfallDistantRidge(GraphicsContext g) {
+        g.setFill(Color.web("#150812", 0.96));
+        g.fillPolygon(new double[]{0, 0, 430, 760, 1050, 1370, 1650, 1920, 2250,
+                        2550, 2900, 3210, 3500, 3860, 4140, 4490, 4780, 5160, 5480, 6000, 6000},
+                new double[]{1510, 2460, 2110, 1320, 2070, 1170, 2050, 1420, 2180,
+                        1510, 2170, 1250, 2070, 1450, 2130, 1210, 2050, 1390, 2130, 1580, 2460}, 21);
+        g.setStroke(Color.web("#B73A21", 0.25));
+        g.setLineWidth(9.0);
+        g.strokePolyline(new double[]{0, 430, 760, 1050, 1370, 1650, 1920, 2250,
+                        2550, 2900, 3210, 3500, 3860, 4140, 4490, 4780, 5160, 5480, 6000},
+                new double[]{2110, 2110, 1320, 2070, 1170, 2050, 1420, 2180,
+                        1510, 2170, 1250, 2070, 1450, 2130, 1210, 2050, 1390, 2130, 1580}, 19);
+    }
+
+    private void drawAshfallCathedralFacade(GraphicsContext g, double time, boolean ambientFx) {
+        g.setFill(Color.web("#140B12", 0.98));
+        g.fillPolygon(new double[]{2180, 2460, 2580, 3000, 3420, 3540, 3820, 3820, 2180},
+                new double[]{2200, 2200, 560, 180, 560, 2200, 2200, 2440, 2440}, 9);
+        g.setFill(Color.web("#211018"));
+        g.fillRect(2440, 870, 1120, 1460);
+
+        drawAshfallTower(g, 330, 760, 660, 1610);
+        drawAshfallTower(g, 5010, 760, 660, 1610);
+        drawAshfallTower(g, 1080, 1050, 510, 1240);
+        drawAshfallTower(g, 4410, 1050, 510, 1240);
+
+        g.setStroke(Color.web("#744034", 0.62));
+        g.setLineWidth(18.0);
+        for (int bay = 0; bay < 5; bay++) {
+            double centerX = 720.0 + bay * 1140.0;
+            g.strokeArc(centerX - 360, 1300, 720, 900, 0, 180, ArcType.OPEN);
+            g.strokeLine(centerX - 360, 1750, centerX - 360, ASHFALL_MAIN_Y + 20);
+            g.strokeLine(centerX + 360, 1750, centerX + 360, ASHFALL_MAIN_Y + 20);
+        }
+
+        g.setStroke(Color.web("#2B1217", 0.96));
+        g.setLineWidth(80.0);
+        g.strokeLine(2410, 1020, 1940, ASHFALL_MAIN_Y + 10);
+        g.strokeLine(3590, 1020, 4060, ASHFALL_MAIN_Y + 10);
+        g.setStroke(Color.web("#8D4633", 0.45));
+        g.setLineWidth(12.0);
+        g.strokeLine(2410, 1020, 1940, ASHFALL_MAIN_Y + 10);
+        g.strokeLine(3590, 1020, 4060, ASHFALL_MAIN_Y + 10);
+
+        double pulse = ambientFx ? 0.65 + Math.sin(time * 1.1) * 0.25 : 0.72;
+        for (int i = 0; i < 8; i++) {
+            double x = 2575 + (i % 4) * 285.0;
+            double y = 1510 + (i / 4) * 360.0;
+            g.setFill(Color.web(i % 3 == 0 ? "#43B8C5" : "#A9382A", 0.16 + pulse * 0.10));
+            g.fillPolygon(new double[]{x, x + 88, x + 44}, new double[]{y + 170, y + 170, y}, 3);
+        }
+    }
+
+    private void drawAshfallTower(GraphicsContext g, double x, double y, double width, double height) {
+        g.setFill(Color.web("#170A12"));
+        g.fillRect(x, y, width, height);
+        g.fillPolygon(new double[]{x - 80, x + width * 0.5, x + width + 80},
+                new double[]{y + 90, y - 280, y + 90}, 3);
+        g.setFill(Color.web("#281018"));
+        g.fillRect(x + 54, y + 120, width - 108, height - 120);
+        g.setStroke(Color.web("#71372F", 0.58));
+        g.setLineWidth(13.0);
+        g.strokeLine(x + 30, y + 72, x + 30, y + height);
+        g.strokeLine(x + width - 30, y + 72, x + width - 30, y + height);
+        for (int row = 0; row < 3; row++) {
+            double centerX = x + width * 0.5;
+            double windowY = y + 260 + row * 360.0;
+            g.setFill(Color.web(row % 2 == 0 ? "#D3542F" : "#37A5B4", 0.23));
+            g.fillPolygon(new double[]{centerX - 70, centerX + 70, centerX + 70, centerX, centerX - 70},
+                    new double[]{windowY + 180, windowY + 180, windowY + 70, windowY, windowY + 70}, 5);
+        }
     }
 
     private void drawAshfallPhoenixWindow(GraphicsContext g, double centerX, double centerY, double time) {
-        double pulse = 0.55 + 0.45 * Math.sin(time * 1.2);
-        g.setFill(Color.web("#FF6D00", 0.16 + pulse * 0.05));
-        g.fillOval(centerX - 430, centerY - 300, 860, 600);
-        g.setFill(Color.web("#101018", 0.78));
-        g.fillOval(centerX - 310, centerY - 220, 620, 440);
-        g.setStroke(Color.web("#FFCC80", 0.58));
-        g.setLineWidth(8);
-        g.strokeOval(centerX - 310, centerY - 220, 620, 440);
+        double pulse = 0.72 + Math.sin(time * 1.2) * 0.18;
+        g.setFill(Color.web("#FF6D00", 0.08 + pulse * 0.07));
+        g.fillOval(centerX - 465, centerY - 465, 930, 930);
+        g.setFill(Color.web("#080810"));
+        g.fillOval(centerX - 340, centerY - 340, 680, 680);
+        g.setStroke(Color.web("#C18451", 0.90));
+        g.setLineWidth(22.0);
+        g.strokeOval(centerX - 340, centerY - 340, 680, 680);
+        g.setStroke(Color.web("#5C2A24", 0.95));
+        g.setLineWidth(12.0);
+        g.strokeOval(centerX - 264, centerY - 264, 528, 528);
+        for (int spoke = 0; spoke < 12; spoke++) {
+            double angle = spoke * Math.PI * 2.0 / 12.0;
+            g.strokeLine(centerX + Math.cos(angle) * 72.0, centerY + Math.sin(angle) * 72.0,
+                    centerX + Math.cos(angle) * 330.0, centerY + Math.sin(angle) * 330.0);
+        }
 
-        g.setFill(Color.web("#FFB300", 0.78));
-        g.fillPolygon(
-                new double[]{centerX, centerX - 76, centerX - 24, centerX, centerX + 24, centerX + 76},
-                new double[]{centerY - 142, centerY + 86, centerY + 42, centerY + 150, centerY + 42, centerY + 86},
-                6
-        );
-        g.setFill(Color.web("#FF3D00", 0.76));
-        g.fillPolygon(
-                new double[]{centerX - 42, centerX - 330, centerX - 110, centerX - 28},
-                new double[]{centerY - 30, centerY + 36, centerY + 118, centerY + 28},
-                4
-        );
-        g.fillPolygon(
-                new double[]{centerX + 42, centerX + 330, centerX + 110, centerX + 28},
-                new double[]{centerY - 30, centerY + 36, centerY + 118, centerY + 28},
-                4
-        );
-        g.setFill(Color.web("#4DD0E1", 0.5));
-        g.fillOval(centerX - 28, centerY - 82, 56, 64);
+        Color[] glass = {Color.web("#FFB300", 0.82), Color.web("#E53A20", 0.86), Color.web("#36B8C8", 0.72)};
+        for (int petal = 0; petal < 12; petal++) {
+            double angle = petal * Math.PI * 2.0 / 12.0;
+            double next = angle + Math.PI * 2.0 / 12.0;
+            g.setFill(glass[petal % glass.length]);
+            g.fillPolygon(new double[]{centerX + Math.cos(angle) * 82.0,
+                            centerX + Math.cos(angle) * 258.0,
+                            centerX + Math.cos(next) * 258.0,
+                            centerX + Math.cos(next) * 82.0},
+                    new double[]{centerY + Math.sin(angle) * 82.0,
+                            centerY + Math.sin(angle) * 258.0,
+                            centerY + Math.sin(next) * 258.0,
+                            centerY + Math.sin(next) * 82.0}, 4);
+        }
+
+        g.setFill(Color.web("#FFC02E", 0.96));
+        g.fillPolygon(new double[]{centerX, centerX - 66, centerX - 22, centerX,
+                        centerX + 22, centerX + 66},
+                new double[]{centerY - 150, centerY + 76, centerY + 36, centerY + 166,
+                        centerY + 36, centerY + 76}, 6);
+        g.setFill(Color.web("#F04422", 0.94));
+        g.fillPolygon(new double[]{centerX - 32, centerX - 238, centerX - 98, centerX - 18},
+                new double[]{centerY - 34, centerY + 10, centerY + 104, centerY + 22}, 4);
+        g.fillPolygon(new double[]{centerX + 32, centerX + 238, centerX + 98, centerX + 18},
+                new double[]{centerY - 34, centerY + 10, centerY + 104, centerY + 22}, 4);
+        g.setFill(Color.web("#B9F4F3", 0.92));
+        g.fillOval(centerX - 27, centerY - 95, 54, 64);
+    }
+
+    private void drawAshfallLava(GraphicsContext g, double lavaY, double time, boolean ambientFx) {
+        g.setFill(new LinearGradient(0, lavaY, 0, WORLD_HEIGHT, false, CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.web("#FF8A16")),
+                new Stop(0.10, Color.web("#C93812")),
+                new Stop(0.55, Color.web("#5B120E")),
+                new Stop(1.0, Color.web("#1C070B"))));
+        g.fillRect(0, lavaY, WORLD_WIDTH, WORLD_HEIGHT - lavaY);
+        g.setStroke(Color.web("#FFD35A", 0.52));
+        g.setLineWidth(7.0);
+        renderRandom.setSeed(0x1A7A_5EA5L);
+        for (int row = 0; row < 13; row++) {
+            double y = lavaY + 18.0 + row * 43.0;
+            for (int segment = 0; segment < 11; segment++) {
+                double x = segment * 580.0 + renderRandom.nextDouble() * 160.0;
+                double width = 100.0 + renderRandom.nextDouble() * 260.0;
+                double shift = ambientFx ? Math.sin(time * 0.8 + row + segment * 0.4) * 24.0 : 0.0;
+                g.strokeLine(x + shift, y, Math.min(WORLD_WIDTH, x + width + shift), y + (segment % 3 - 1) * 5.0);
+            }
+        }
+        g.setFill(Color.web("#12070A", 0.42));
+        for (int i = 0; i < 17; i++) {
+            double x = 110.0 + renderRandom.nextDouble() * (WORLD_WIDTH - 220.0);
+            double y = lavaY + 70.0 + renderRandom.nextDouble() * 440.0;
+            double w = 80.0 + renderRandom.nextDouble() * 220.0;
+            g.fillPolygon(new double[]{x, x + w, x + w * 0.76, x + w * 0.18},
+                    new double[]{y, y + 7, y + 34, y + 27}, 4);
+        }
+    }
+
+    private void drawAshfallFoundations(GraphicsContext g, double lavaY) {
+        g.setFill(new LinearGradient(0, ASHFALL_MAIN_Y, 0, lavaY + 420, false, CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.web("#331117")),
+                new Stop(0.35, Color.web("#1D0B11")),
+                new Stop(1.0, Color.web("#09070B"))));
+        g.fillPolygon(new double[]{ASHFALL_MAIN_X + 18, ASHFALL_MAIN_X + ASHFALL_MAIN_W - 18,
+                        ASHFALL_MAIN_X + ASHFALL_MAIN_W - 170, ASHFALL_MAIN_X + 3500,
+                        ASHFALL_MAIN_X + 2860, ASHFALL_MAIN_X + 2200, ASHFALL_MAIN_X + 1380,
+                        ASHFALL_MAIN_X + 310},
+                new double[]{ASHFALL_MAIN_Y + 35, ASHFALL_MAIN_Y + 35, lavaY + 315,
+                        lavaY + 430, lavaY + 350, lavaY + 470, lavaY + 390, lavaY + 280}, 8);
+
+        g.setFill(Color.web("#0B090D"));
+        for (int bay = 0; bay < 9; bay++) {
+            double centerX = ASHFALL_MAIN_X + 280.0 + bay * 470.0;
+            g.fillPolygon(new double[]{centerX - 115, centerX + 115, centerX + 115,
+                            centerX, centerX - 115},
+                    new double[]{ASHFALL_MAIN_Y + 88, ASHFALL_MAIN_Y + 88, lavaY + 210,
+                            lavaY + 80, lavaY + 210}, 5);
+        }
+
+        drawAshfallRecoveryChapel(g, ASHFALL_MAIN_X - 430, ASHFALL_MAIN_Y + 164, 520, lavaY + 470);
+        drawAshfallRecoveryChapel(g, ASHFALL_MAIN_X + ASHFALL_MAIN_W - 90,
+                ASHFALL_MAIN_Y + 164, 520, lavaY + 470);
+    }
+
+    private void drawAshfallRecoveryChapel(GraphicsContext g, double x, double topY, double width, double bottomY) {
+        g.setFill(Color.web("#1B0B10"));
+        g.fillPolygon(new double[]{x, x + width, x + width * 0.90, x + width * 0.70,
+                        x + width * 0.34, x + width * 0.12},
+                new double[]{topY, topY, bottomY - 25, bottomY, bottomY - 18, bottomY - 80}, 6);
+        g.setStroke(Color.web("#8D4430", 0.52));
+        g.setLineWidth(9.0);
+        g.strokeLine(x + 35, topY + 18, x + width * 0.24, bottomY - 62);
+        g.strokeLine(x + width - 35, topY + 18, x + width * 0.78, bottomY - 25);
+    }
+
+    private void drawAshfallPlatformSupports(GraphicsContext g) {
+        drawAshfallColumn(g, 1235, ASHFALL_MAIN_Y - 270, 170, ASHFALL_MAIN_Y + 10);
+        drawAshfallColumn(g, 1665, ASHFALL_MAIN_Y - 270, 170, ASHFALL_MAIN_Y + 10);
+        drawAshfallColumn(g, 4335, ASHFALL_MAIN_Y - 270, 170, ASHFALL_MAIN_Y + 10);
+        drawAshfallColumn(g, 4765, ASHFALL_MAIN_Y - 270, 170, ASHFALL_MAIN_Y + 10);
+
+        drawAshfallFlyingButtress(g, 2100, ASHFALL_MAIN_Y - 490, 1570, ASHFALL_MAIN_Y - 260, 150);
+        drawAshfallFlyingButtress(g, 3900, ASHFALL_MAIN_Y - 490, 4430, ASHFALL_MAIN_Y - 260, 150);
+
+        g.setFill(Color.web("#250D14"));
+        g.fillPolygon(new double[]{ASHFALL_ALTAR_X + 75, ASHFALL_ALTAR_X + ASHFALL_ALTAR_W - 75,
+                        ASHFALL_ALTAR_X + ASHFALL_ALTAR_W - 185, ASHFALL_ALTAR_X + 200},
+                new double[]{ASHFALL_ALTAR_Y + 25, ASHFALL_ALTAR_Y + 25,
+                        ASHFALL_MAIN_Y + 12, ASHFALL_MAIN_Y + 12}, 4);
+        g.setStroke(Color.web("#A14B34", 0.48));
+        g.setLineWidth(11.0);
+        g.strokeLine(ASHFALL_ALTAR_X + 190, ASHFALL_ALTAR_Y + 54,
+                ASHFALL_ALTAR_X + 300, ASHFALL_MAIN_Y);
+        g.strokeLine(ASHFALL_ALTAR_X + ASHFALL_ALTAR_W - 190, ASHFALL_ALTAR_Y + 54,
+                ASHFALL_ALTAR_X + ASHFALL_ALTAR_W - 300, ASHFALL_MAIN_Y);
+
+        drawAshfallColumn(g, 2140, ASHFALL_MAIN_Y - 495, 130, ASHFALL_ALTAR_Y + 8);
+        drawAshfallColumn(g, 3730, ASHFALL_MAIN_Y - 495, 130, ASHFALL_ALTAR_Y + 8);
+        drawAshfallColumn(g, 2770, ASHFALL_MAIN_Y - 725, 120, ASHFALL_ALTAR_Y + 8);
+        drawAshfallColumn(g, 3110, ASHFALL_MAIN_Y - 725, 120, ASHFALL_ALTAR_Y + 8);
+        drawAshfallColumn(g, 2780, ASHFALL_MAIN_Y - 930, 130, ASHFALL_MAIN_Y - 710);
+        drawAshfallColumn(g, 3090, ASHFALL_MAIN_Y - 930, 130, ASHFALL_MAIN_Y - 710);
+    }
+
+    private void drawAshfallColumn(GraphicsContext g, double x, double y, double width, double bottomY) {
+        g.setFill(Color.web("#241017"));
+        g.fillPolygon(new double[]{x, x + width, x + width * 0.84, x + width * 0.70,
+                        x + width * 0.28, x + width * 0.14},
+                new double[]{y, y, bottomY - 22, bottomY, bottomY, bottomY - 22}, 6);
+        g.setStroke(Color.web("#7A392E", 0.60));
+        g.setLineWidth(7.0);
+        g.strokeLine(x + width * 0.28, y + 12, x + width * 0.33, bottomY - 12);
+        g.strokeLine(x + width * 0.72, y + 12, x + width * 0.67, bottomY - 12);
+    }
+
+    private void drawAshfallFlyingButtress(GraphicsContext g, double topX, double topY,
+                                            double footX, double footY, double width) {
+        double dx = footX - topX;
+        double dy = footY - topY;
+        double length = Math.hypot(dx, dy);
+        double nx = -dy / length * width * 0.5;
+        double ny = dx / length * width * 0.5;
+        g.setFill(Color.web("#211018"));
+        g.fillPolygon(new double[]{topX + nx, footX + nx, footX - nx, topX - nx},
+                new double[]{topY + ny, footY + ny, footY - ny, topY - ny}, 4);
+        g.setStroke(Color.web("#80402F", 0.52));
+        g.setLineWidth(8.0);
+        g.strokeLine(topX, topY, footX, footY);
     }
 
     private void drawAshfallPlatform(GraphicsContext g, Platform p) {
         boolean altar = Math.abs(p.x - ASHFALL_ALTAR_X) < 1.0 && Math.abs(p.y - ASHFALL_ALTAR_Y) < 1.0;
-        Color top = altar ? Color.web("#5C1118") : Color.web("#321016");
-        Color side = altar ? Color.web("#23070B") : Color.web("#17080D");
-        Color rim = altar ? Color.web("#FFB74D", 0.92) : Color.web("#8D6E63", 0.78);
+        boolean main = Math.abs(p.x - ASHFALL_MAIN_X) < 1.0 && Math.abs(p.w - ASHFALL_MAIN_W) < 1.0;
+        double bodyHeight = p.h + (main ? 24.0 : 16.0);
+        Color top = altar ? Color.web("#70201D") : Color.web("#37151A");
+        Color side = altar ? Color.web("#2B0C11") : Color.web("#170B10");
+        Color rim = altar ? Color.web("#F3A33C", 0.96) : Color.web("#A4553A", 0.90);
 
         g.setFill(side);
-        g.fillRoundRect(p.x, p.y + p.h * 0.35, p.w, p.h * 0.9, 18, 18);
+        g.fillPolygon(new double[]{p.x, p.x + p.w, p.x + p.w - 16,
+                        p.x + p.w * 0.74, p.x + p.w * 0.48, p.x + 14},
+                new double[]{p.y, p.y, p.y + bodyHeight, p.y + bodyHeight + (main ? 18 : 10),
+                        p.y + bodyHeight, p.y + bodyHeight - 3}, 6);
         g.setFill(top);
-        g.fillRoundRect(p.x, p.y, p.w, p.h, 22, 22);
+        g.fillRect(p.x, p.y, p.w, Math.max(18.0, p.h * 0.58));
         g.setStroke(rim);
-        g.setLineWidth(4);
-        g.strokeRoundRect(p.x + 4, p.y + 3, p.w - 8, p.h - 6, 22, 22);
+        g.setLineWidth(main ? 6.0 : 4.0);
+        g.strokeLine(p.x, p.y, p.x + p.w, p.y);
+        g.setStroke(Color.web("#613026", 0.72));
+        g.setLineWidth(3.0);
+        for (double brickX = p.x + 55.0; brickX < p.x + p.w - 25.0; brickX += 120.0) {
+            g.strokeLine(brickX, p.y + p.h * 0.58, brickX + 18.0, p.y + bodyHeight - 3.0);
+        }
 
         renderRandom.setSeed((long) (p.x * 17 + p.y * 31));
-        Random crackRand = renderRandom;
         g.setStroke(Color.web("#FF6D00", 0.42));
         g.setLineWidth(2.2);
         int cracks = Math.max(2, (int) Math.min(10, p.w / 360.0));
         for (int i = 0; i < cracks; i++) {
-            double x = p.x + 40 + crackRand.nextDouble() * Math.max(1.0, p.w - 80.0);
-            double y = p.y + 16 + crackRand.nextDouble() * Math.max(1.0, p.h - 22.0);
-            g.strokeLine(x, y, x + (crackRand.nextDouble() - 0.5) * 130.0, y + 10 + crackRand.nextDouble() * 24.0);
+            double x = p.x + 40 + renderRandom.nextDouble() * Math.max(1.0, p.w - 80.0);
+            double y = p.y + 10 + renderRandom.nextDouble() * Math.max(1.0, p.h * 0.42);
+            g.strokeLine(x, y, x + (renderRandom.nextDouble() - 0.5) * 130.0,
+                    y + 8 + renderRandom.nextDouble() * 20.0);
+        }
+    }
+
+    private void drawAshfallVent(GraphicsContext g, WindVent vent, double time, boolean ambientFx) {
+        double centerX = vent.x + vent.w * 0.5;
+        double pulse = ambientFx ? 0.60 + 0.40 * Math.sin(time * 2.8 + vent.x * 0.014) : 0.74;
+        g.setStroke(Color.web("#FFB23E", 0.56 + pulse * 0.30));
+        g.setLineWidth(7.0);
+        g.strokePolyline(new double[]{vent.x + 24, centerX - 52, centerX, centerX + 58, vent.x + vent.w - 22},
+                new double[]{vent.y + 8, vent.y - 8, vent.y + 13, vent.y - 7, vent.y + 8}, 5);
+        g.setFill(Color.web("#FF641E", 0.10 + pulse * 0.08));
+        g.fillPolygon(new double[]{centerX - vent.w * 0.24, centerX + vent.w * 0.24,
+                        centerX + vent.w * 0.11, centerX - vent.w * 0.10},
+                new double[]{vent.y - 2, vent.y - 2, vent.y - 180, vent.y - 155}, 4);
+        g.setStroke(Color.web("#FFD06A", 0.28 + pulse * 0.22));
+        g.setLineWidth(3.0);
+        g.setLineDashes(18.0, 14.0);
+        for (int stream = -2; stream <= 2; stream++) {
+            double x = centerX + stream * vent.w * 0.09;
+            double sway = ambientFx ? Math.sin(time * 1.7 + stream) * 18.0 : stream * 2.0;
+            g.strokeLine(x, vent.y - 8, x + sway, vent.y - 138.0 - Math.abs(stream) * 14.0);
+        }
+        g.setLineDashes((double[]) null);
+    }
+
+    private void drawAshfallEmbers(GraphicsContext g, double time) {
+        renderRandom.setSeed(0xE8BE_2511L);
+        double verticalSpan = GROUND_Y - 140.0;
+        for (int i = 0; i < 120; i++) {
+            double x = (renderRandom.nextDouble() * WORLD_WIDTH + time * (26.0 + i % 8))
+                    % (WORLD_WIDTH + 180.0) - 90.0;
+            double rawY = renderRandom.nextDouble() * verticalSpan - time * (22.0 + i % 6);
+            double y = 100.0 + ((rawY % verticalSpan) + verticalSpan) % verticalSpan;
+            double drift = Math.sin(time * 0.9 + i) * 20.0;
+            double size = 2.0 + renderRandom.nextDouble() * 5.0;
+            g.setFill(Color.web(i % 9 == 0 ? "#8BE4E1" : "#FFB044", 0.42 + renderRandom.nextDouble() * 0.34));
+            g.fillOval(x + drift, y, size, size * 1.5);
         }
     }
 
