@@ -13981,118 +13981,12 @@ public class BirdGame3 {
                 }
             }
             case SKYCLIFFS -> {
-                boolean tempestSummit = activeArenaGeometryVariant == MapVariant.TEMPEST_SUMMIT;
-                boolean peregrineRun = activeArenaGeometryVariant == MapVariant.PEREGRINE_RUN;
-                boolean floatingCliffVariant = tempestSummit || peregrineRun;
-                if (activeArenaGeometryVariant == MapVariant.STANDARD) {
-                    drawSkyCliffsArena(g, ambientFx);
-                    break;
-                }
-                Color cliffSkyTop = tempestSummit ? Color.web("#080C24")
-                        : (peregrineRun ? Color.web("#102E57") : Color.ORANGERED);
-                Color cliffSkyBottom = tempestSummit ? Color.web("#40577B")
-                        : (peregrineRun ? Color.web("#BEEBFF") : Color.DEEPSKYBLUE.darker());
-                for (int i = 0; i < 600; i++) {
-                    double ratio = i / 600.0;
-                    Color c = cliffSkyTop.interpolate(cliffSkyBottom, ratio);
-                    g.setFill(c.deriveColor(0, 1, 1, 0.75));
-                    g.fillRect(0, i * (WORLD_HEIGHT / 600.0), WORLD_WIDTH, WORLD_HEIGHT / 600.0 + 3);
-                }
-                g.setFill(tempestSummit ? Color.web("#11182C")
-                        : (peregrineRun ? Color.web("#405A70") : Color.PURPLE.darker().darker().darker()));
-                for (int m = 0; m < MOUNTAIN_X.length - 1; m++) {
-                    double baseY = GROUND_Y + 300;
-                    double peakY = mountainPeaks[m];
-                    double midX = MOUNTAIN_X[m] + 400 + (m % 2 == 0 ? 100 : -100);
-                    g.fillPolygon(new double[]{MOUNTAIN_X[m], midX, MOUNTAIN_X[m+1]}, new double[]{baseY, peakY, baseY}, 3);
-                }
-                if (tempestSummit) {
-                    g.setStroke(Color.web("#D9E8FF", 0.34));
-                    g.setLineWidth(10);
-                    g.strokePolyline(new double[]{780, 980, 900, 1120}, new double[]{180, 430, 390, 700}, 4);
-                    g.strokePolyline(new double[]{4660, 4510, 4580, 4380}, new double[]{120, 370, 340, 610}, 4);
-                }
-                if (peregrineRun) {
-                    g.setStroke(Color.web("#E9FAFF", 0.28));
-                    g.setLineWidth(7);
-                    for (int lane = 0; lane < 4; lane++) {
-                        double y = GROUND_Y - 1320 + lane * 145;
-                        g.strokeLine(1050 + lane * 80, y, 4920 - lane * 70, y + 210);
-                    }
-                }
-                if (ambientFx) {
-                    double cloudTime = System.currentTimeMillis() / 40.0;
-                    g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.3));
-                    renderRandom.setSeed(42L);
-                    Random cloudRandom = renderRandom;
-                    for (int layer = 0; layer < 4; layer++) {
-                        double speed = 0.15 + layer * 0.15;
-                        double offset = cloudTime * speed;
-                        for (int i = 0; i < 25; i++) {
-                            cloudRandom.setSeed(i + layer * 100);
-                            double baseX = i * 320;
-                            double cx = (baseX + offset * (layer + 1)) % (WORLD_WIDTH + 1000) - 500;
-                            double cy = 50 + layer * 350 + cloudRandom.nextDouble() * 300;
-                            double size = 150 + layer * 100;
-                            g.fillOval(cx - size/2, cy - size/4, size, size/2);
-                            g.fillOval(cx - size/3, cy - size/5, size * 0.85, size/2 * 0.85);
-                            g.fillOval(cx + size/4, cy - size/6, size * 0.75, size/2 * 0.75);
-                        }
-                    }
-                }
-                g.setFill((tempestSummit ? Color.web("#DCEBFF")
-                        : (peregrineRun ? Color.web("#F2FCFF") : Color.LIGHTBLUE))
-                        .deriveColor(0, 1, 1, floatingCliffVariant ? 0.34 : 0.25));
-                g.fillRect(0, GROUND_Y - 300, WORLD_WIDTH, floatingCliffVariant ? 900 : 500);
-                if (!floatingCliffVariant) {
-                    g.setFill(Color.SIENNA.darker().darker());
-                    g.fillRect(0, GROUND_Y, WORLD_WIDTH, WORLD_HEIGHT - GROUND_Y);
-                }
-                g.setStroke(tempestSummit ? Color.web("#90A4C0")
-                        : (peregrineRun ? Color.web("#7895A8") : Color.SADDLEBROWN.darker().darker()));
-                g.setLineWidth(10);
-                for (Platform p : platforms) {
-                    g.setFill(tempestSummit ? Color.web("#20283A")
-                            : (peregrineRun ? Color.web("#354B59") : Color.SIENNA.darker().darker().darker()));
-                    g.fillRoundRect(p.x + 10, p.y + 10, p.w - 20, p.h - 10, 50, 50);
-                    g.strokeRoundRect(p.x + 10, p.y + 10, p.w - 20, p.h - 10, 50, 50);
-                    g.setFill(tempestSummit ? Color.web("#E7C85A")
-                            : (peregrineRun ? Color.web("#C8F3FF") : Color.DARKGREEN.brighter().brighter()));
-                    g.fillRoundRect(p.x + 40, p.y + 5, p.w - 80, 40, 40, 40);
-                    renderRandom.setSeed((long) (p.x * 1000));
-                    Random crackRand = renderRandom;
-                    g.setStroke(Color.BLACK);
-                    g.setLineWidth(4);
-                    for (int c = 0; c < 10; c++) {
-                        double crackStartX = p.x + crackRand.nextDouble() * p.w;
-                        double crackEndX = crackStartX + (crackRand.nextDouble() - 0.5) * 120;
-                        g.strokeLine(crackStartX, p.y + 20, crackEndX, p.y + p.h - 20);
-                    }
-                    if (!floatingCliffVariant) {
-                        g.setFill(Color.DARKGREEN.darker());
-                        for (int v = 0; v < 8; v++) {
-                            double vineX = p.x + crackRand.nextDouble() * p.w;
-                            g.fillRect(vineX, p.y + p.h, 12, 60 + crackRand.nextDouble() * 40);
-                        }
-                    }
-                }
-                g.setStroke(Color.GOLD.brighter().brighter().brighter());
-                g.setLineWidth(16);
-                for (Platform p : platforms) {
-                    if (p.y < GROUND_Y - 1200) g.strokeRoundRect(p.x - 10, p.y - 10, p.w + 20, p.h + 20, 60, 60);
-                }
-                for (WindVent v : windVents) {
-                    if (ambientFx) {
-                        double pulse = 0.5 + 0.5 * Math.sin(System.currentTimeMillis() / 300.0 + v.x);
-                        g.setFill(Color.CYAN.deriveColor(0, 1, 1 + pulse, 0.5));
-                        g.fillOval(v.x + v.w/2 - 100, v.y - 150, 200, 300);
-                    } else {
-                        g.setFill(Color.CYAN.deriveColor(0, 1, 1, 0.22));
-                        g.fillOval(v.x + v.w/2 - 100, v.y - 150, 200, 300);
-                    }
-                }
-                if (isCrownDuelArena()) {
-                    drawCrownDuelArenaDetails(g, ambientFx);
+                switch (activeArenaGeometryVariant) {
+                    case CROWN_DUEL -> drawCommandBridgeArena(g, ambientFx);
+                    case SKYBREAK_SPIRES -> drawSkybreakSpiresArena(g, ambientFx);
+                    case PEREGRINE_RUN -> drawPeregrineRunArena(g, ambientFx);
+                    case TEMPEST_SUMMIT -> drawTempestSummitArena(g, ambientFx);
+                    default -> drawSkyCliffsArena(g, ambientFx);
                 }
             }
             case VIBRANT_JUNGLE -> {
@@ -17857,6 +17751,418 @@ public class BirdGame3 {
             g.strokeArc(x - 42.0, y, 84.0, 36.0, 15.0, 150.0, ArcType.OPEN);
             g.strokeArc(x + 34.0, y, 84.0, 36.0, 15.0, 150.0, ArcType.OPEN);
         }
+    }
+
+    private void drawCommandBridgeArena(GraphicsContext g, boolean ambientFx) {
+        double time = ambientFx ? System.nanoTime() / 1_000_000_000.0 : 0.0;
+        drawSkyVariantBackdrop(g, "#050B18", "#183653", "#946A58", true, time, ambientFx);
+
+        double bridgeLeft = CROWN_DUEL_BRIDGE_X;
+        double bridgeRight = bridgeLeft + CROWN_DUEL_BRIDGE_W;
+        double bridgeY = CROWN_DUEL_BRIDGE_Y;
+        double centerX = (bridgeLeft + bridgeRight) * 0.5;
+
+        // The command bridge is suspended between two inhabited stone pylons.
+        // Both towers continue below the cloud line, so the arena reads as a
+        // real piece of Crown infrastructure rather than four floating bars.
+        drawCommandBridgePylon(g, bridgeLeft - 150.0, bridgeY - 1_040.0, bridgeY + 1_060.0, false);
+        drawCommandBridgePylon(g, bridgeRight + 150.0, bridgeY - 1_040.0, bridgeY + 1_060.0, true);
+
+        g.setStroke(Color.web("#111B26"));
+        g.setLineWidth(34.0);
+        g.strokeLine(bridgeLeft - 105.0, bridgeY - 780.0, centerX, bridgeY - 560.0);
+        g.strokeLine(bridgeRight + 105.0, bridgeY - 780.0, centerX, bridgeY - 560.0);
+        g.setStroke(Color.web("#6D8290", 0.82));
+        g.setLineWidth(12.0);
+        g.strokeLine(bridgeLeft - 105.0, bridgeY - 780.0, centerX, bridgeY - 560.0);
+        g.strokeLine(bridgeRight + 105.0, bridgeY - 780.0, centerX, bridgeY - 560.0);
+
+        for (Platform p : platforms) {
+            drawCommandBridgePlatformSupport(g, p, bridgeLeft, bridgeRight, bridgeY);
+        }
+        for (WindVent vent : windVents) {
+            drawSkyVariantWindChannel(g, vent, time, ambientFx,
+                    Color.web("#85E8FF"), Color.web("#152C3B"));
+        }
+        for (Platform p : platforms) {
+            drawCommandBridgePlatform(g, p, p == platforms.getFirst(), time, ambientFx);
+        }
+
+        // A sealed transport carriage below the bridge makes its purpose and
+        // scale clear without becoming misleading collision geometry.
+        double carriageY = bridgeY + 470.0;
+        g.setStroke(Color.web("#26394A"));
+        g.setLineWidth(18.0);
+        g.strokeLine(bridgeLeft + 350.0, bridgeY + 55.0, centerX - 510.0, carriageY);
+        g.strokeLine(bridgeRight - 350.0, bridgeY + 55.0, centerX + 510.0, carriageY);
+        g.setFill(Color.web("#0D1825"));
+        g.fillRoundRect(centerX - 570.0, carriageY, 1_140.0, 230.0, 92.0, 92.0);
+        g.setStroke(Color.web("#7597AA", 0.74));
+        g.setLineWidth(11.0);
+        g.strokeRoundRect(centerX - 570.0, carriageY, 1_140.0, 230.0, 92.0, 92.0);
+        g.setFill(Color.web("#B9E7F5", 0.58));
+        for (int i = 0; i < 6; i++) {
+            g.fillRoundRect(centerX - 455.0 + i * 158.0, carriageY + 70.0,
+                    86.0, 54.0, 18.0, 18.0);
+        }
+
+        double pulse = ambientFx ? 0.72 + 0.20 * Math.sin(time * 2.1) : 0.82;
+        g.setStroke(Color.web("#FFE36B", pulse));
+        g.setLineWidth(13.0);
+        g.strokeOval(centerX - 116.0, bridgeY - 152.0, 232.0, 232.0);
+        g.strokeLine(centerX, bridgeY - 205.0, centerX, bridgeY + 115.0);
+        g.strokeLine(centerX - 145.0, bridgeY - 35.0, centerX + 145.0, bridgeY - 35.0);
+    }
+
+    private void drawCommandBridgePylon(GraphicsContext g, double centerX,
+                                         double topY, double bottomY, boolean mirror) {
+        double direction = mirror ? -1.0 : 1.0;
+        g.setFill(Color.web("#101A25"));
+        g.fillPolygon(new double[]{centerX - 150.0, centerX - 105.0, centerX + 105.0, centerX + 150.0},
+                new double[]{bottomY, topY + 120.0, topY + 120.0, bottomY}, 4);
+        g.setFill(Color.web("#263746"));
+        g.fillPolygon(new double[]{centerX - 84.0, centerX - 55.0, centerX + 10.0, centerX + 36.0},
+                new double[]{bottomY, topY + 165.0, topY + 165.0, bottomY}, 4);
+        g.setFill(Color.web("#0A121D"));
+        g.fillPolygon(new double[]{centerX - 170.0, centerX, centerX + 170.0},
+                new double[]{topY + 150.0, topY, topY + 150.0}, 3);
+        g.setStroke(Color.web("#7494A7", 0.72));
+        g.setLineWidth(10.0);
+        for (double y = topY + 260.0; y < bottomY - 100.0; y += 230.0) {
+            g.strokeLine(centerX - 92.0, y, centerX + 92.0, y);
+        }
+        g.setStroke(Color.web("#253A4A", 0.92));
+        g.setLineWidth(24.0);
+        g.strokeLine(centerX + direction * 90.0, topY + 330.0,
+                centerX + direction * 360.0, topY + 560.0);
+    }
+
+    private void drawCommandBridgePlatformSupport(GraphicsContext g, Platform p,
+                                                   double bridgeLeft, double bridgeRight,
+                                                   double bridgeY) {
+        double centerX = p.x + p.w * 0.5;
+        double underside = p.y + p.h;
+        if (p.y >= bridgeY - 20.0 && p.w > 1_000.0) {
+            g.setFill(Color.web("#101A25"));
+            g.fillPolygon(new double[]{p.x + 80.0, p.x + p.w - 80.0,
+                            p.x + p.w - 420.0, p.x + 420.0},
+                    new double[]{underside, underside, underside + 250.0, underside + 250.0}, 4);
+            g.setStroke(Color.web("#526B7B", 0.72));
+            g.setLineWidth(14.0);
+            for (double x = p.x + 210.0; x < p.x + p.w - 160.0; x += 280.0) {
+                g.strokeLine(x, underside + 10.0, x + 120.0, underside + 205.0);
+                g.strokeLine(x + 120.0, underside + 205.0, x + 240.0, underside + 10.0);
+            }
+            return;
+        }
+        double anchorX = centerX < (bridgeLeft + bridgeRight) * 0.5 ? bridgeLeft - 70.0 : bridgeRight + 70.0;
+        double anchorY = Math.max(p.y + 170.0, bridgeY - 70.0);
+        g.setStroke(Color.web("#101A25"));
+        g.setLineWidth(34.0);
+        g.strokeLine(anchorX, anchorY, centerX, underside);
+        g.setStroke(Color.web("#506878"));
+        g.setLineWidth(15.0);
+        g.strokeLine(anchorX, anchorY, centerX, underside);
+    }
+
+    private void drawCommandBridgePlatform(GraphicsContext g, Platform p, boolean main,
+                                           double time, boolean ambientFx) {
+        double pulse = ambientFx ? 0.68 + 0.18 * Math.sin(time * 2.4 + p.x * 0.01) : 0.78;
+        g.setFill(Color.web(main ? "#142536" : "#172B3C"));
+        g.fillRoundRect(p.x, p.y, p.w, p.h, 18.0, 18.0);
+        g.setFill(Color.web("#405868", 0.82));
+        g.fillRoundRect(p.x + 12.0, p.y + 9.0, p.w - 24.0,
+                Math.max(8.0, p.h * 0.27), 12.0, 12.0);
+        g.setStroke(Color.web("#8199A7", 0.92));
+        g.setLineWidth(main ? 10.0 : 7.0);
+        g.strokeRoundRect(p.x, p.y, p.w, p.h, 18.0, 18.0);
+        g.setStroke(Color.web("#69D9F0", pulse));
+        g.setLineWidth(5.0);
+        g.strokeLine(p.x + 24.0, p.y + 6.0, p.x + p.w - 24.0, p.y + 6.0);
+    }
+
+    private void drawSkybreakSpiresArena(GraphicsContext g, boolean ambientFx) {
+        double time = ambientFx ? System.nanoTime() / 1_000_000_000.0 : 0.0;
+        drawSkyVariantBackdrop(g, "#07101E", "#294B68", "#8BA4A9", false, time, ambientFx);
+        drawSkybreakDistantNeedles(g);
+
+        for (Platform p : platforms) {
+            if (isSkyVariantPlayablePlatform(p)) {
+                double anchor = nearestAnchor(p.x + p.w * 0.5, 720.0, 3_000.0, 5_060.0);
+                drawSkyVariantRockSupport(g, p, anchor,
+                        Color.web("#17242D"), Color.web("#344B58"), true);
+            }
+        }
+        drawSkyVariantGround(g, Color.web("#111D25"), Color.web("#263944"), Color.web("#9EB6B2"));
+        for (WindVent vent : windVents) {
+            drawSkyVariantWindChannel(g, vent, time, ambientFx,
+                    Color.web("#9EEBFF"), Color.web("#102A38"));
+        }
+        for (Platform p : platforms) {
+            if (isSkyVariantPlayablePlatform(p)) {
+                drawSkyVariantRockPlatform(g, p, Color.web("#334B58"),
+                        Color.web("#6F8790"), Color.web("#C5D9D4"));
+            }
+        }
+    }
+
+    private void drawSkybreakDistantNeedles(GraphicsContext g) {
+        g.setFill(Color.web("#132D40", 0.72));
+        for (double x : new double[]{180.0, 1_420.0, 2_090.0, 3_900.0, 4_520.0, 5_720.0}) {
+            double peak = 350.0 + (x % 700.0) * 0.35;
+            g.fillPolygon(new double[]{x - 320.0, x, x + 320.0},
+                    new double[]{GROUND_Y + 40.0, peak, GROUND_Y + 40.0}, 3);
+            g.setStroke(Color.web("#9ECBD7", 0.30));
+            g.setLineWidth(10.0);
+            g.strokeLine(x, peak + 80.0, x - 105.0, peak + 300.0);
+        }
+    }
+
+    private void drawPeregrineRunArena(GraphicsContext g, boolean ambientFx) {
+        double time = ambientFx ? System.nanoTime() / 1_000_000_000.0 : 0.0;
+        drawSkyVariantBackdrop(g, "#17253B", "#B56558", "#F2C27F", false, time, ambientFx);
+
+        g.setFill(Color.web("#8A4E45", 0.48));
+        g.fillPolygon(new double[]{0.0, 0.0, 950.0, 1_720.0, 2_420.0, 3_040.0,
+                        3_760.0, 4_520.0, 5_250.0, WORLD_WIDTH, WORLD_WIDTH},
+                new double[]{GROUND_Y + 260.0, 1_980.0, 1_230.0, 1_940.0, 1_050.0,
+                        1_860.0, 980.0, 1_900.0, 1_180.0, 1_900.0, GROUND_Y + 260.0}, 11);
+
+        for (Platform p : platforms) {
+            double anchor = nearestAnchor(p.x + p.w * 0.5, 930.0, 3_000.0, 4_990.0);
+            drawSkyVariantRockSupport(g, p, anchor,
+                    Color.web("#3A2730"), Color.web("#765044"), false);
+        }
+        for (WindVent vent : windVents) {
+            drawSkyVariantWindChannel(g, vent, time, ambientFx,
+                    Color.web("#FFE3A7"), Color.web("#4D3030"));
+        }
+        for (Platform p : platforms) {
+            drawSkyVariantRockPlatform(g, p, Color.web("#765044"),
+                    Color.web("#B37B5D"), Color.web("#F4D19A"));
+        }
+        drawPeregrineRouteMarkers(g, time, ambientFx);
+    }
+
+    private void drawPeregrineRouteMarkers(GraphicsContext g, double time, boolean ambientFx) {
+        double drift = ambientFx ? Math.sin(time * 1.3) * 12.0 : 0.0;
+        g.setStroke(Color.web("#FFE8B0", 0.46));
+        g.setLineWidth(12.0);
+        double[][] route = {{520, 1_340}, {1_580, 1_010}, {2_160, 690},
+                {3_010, 1_020}, {3_820, 650}, {4_650, 1_050}, {5_480, 1_420}};
+        for (int i = 0; i < route.length - 1; i++) {
+            g.strokeLine(route[i][0], route[i][1] + drift,
+                    route[i + 1][0], route[i + 1][1] - drift);
+        }
+        g.setFill(Color.web("#FFF1C8", 0.82));
+        for (double[] point : route) {
+            g.fillPolygon(new double[]{point[0] - 26.0, point[0] + 30.0, point[0] - 26.0},
+                    new double[]{point[1] - 18.0, point[1], point[1] + 18.0}, 3);
+        }
+    }
+
+    private void drawTempestSummitArena(GraphicsContext g, boolean ambientFx) {
+        double time = ambientFx ? System.nanoTime() / 1_000_000_000.0 : 0.0;
+        drawSkyVariantBackdrop(g, "#030711", "#17283C", "#565C69", true, time, ambientFx);
+
+        // A single colossal storm crown supports the central summit while two
+        // lower peaks form the recovery islands on either side.
+        drawTempestMountain(g, 970.0, 700.0, GROUND_Y + 920.0, 850.0);
+        drawTempestMountain(g, 3_000.0, 360.0, GROUND_Y + 1_150.0, 1_350.0);
+        drawTempestMountain(g, 5_050.0, 690.0, GROUND_Y + 920.0, 850.0);
+
+        for (Platform p : platforms) {
+            double anchor = nearestAnchor(p.x + p.w * 0.5, 970.0, 3_000.0, 5_050.0);
+            drawSkyVariantRockSupport(g, p, anchor,
+                    Color.web("#121A25"), Color.web("#303B49"), false);
+        }
+        for (WindVent vent : windVents) {
+            drawSkyVariantWindChannel(g, vent, time, ambientFx,
+                    Color.web("#C5E9FF"), Color.web("#121E2B"));
+        }
+        for (Platform p : platforms) {
+            drawSkyVariantRockPlatform(g, p, Color.web("#303B49"),
+                    Color.web("#586777"), Color.web("#E1B85B"));
+        }
+        drawTempestLightningRods(g, time, ambientFx);
+    }
+
+    private void drawTempestMountain(GraphicsContext g, double centerX, double peakY,
+                                     double baseY, double halfWidth) {
+        g.setFill(Color.web("#111923"));
+        g.fillPolygon(new double[]{centerX - halfWidth, centerX - halfWidth * 0.44,
+                        centerX, centerX + halfWidth * 0.48, centerX + halfWidth},
+                new double[]{baseY, peakY + 610.0, peakY, peakY + 570.0, baseY}, 5);
+        g.setFill(Color.web("#334150", 0.72));
+        g.fillPolygon(new double[]{centerX - halfWidth * 0.48, centerX,
+                        centerX + halfWidth * 0.08, centerX - halfWidth * 0.18},
+                new double[]{baseY, peakY, baseY, baseY}, 4);
+        g.setStroke(Color.web("#82919B", 0.32));
+        g.setLineWidth(13.0);
+        g.strokeLine(centerX, peakY + 70.0, centerX - halfWidth * 0.22, peakY + 520.0);
+    }
+
+    private void drawTempestLightningRods(GraphicsContext g, double time, boolean ambientFx) {
+        double pulse = ambientFx ? 0.58 + 0.28 * Math.sin(time * 3.2) : 0.72;
+        for (double x : new double[]{970.0, 3_000.0, 5_050.0}) {
+            double baseY = x == 3_000.0 ? 1_030.0 : 1_320.0;
+            g.setStroke(Color.web("#111821"));
+            g.setLineWidth(24.0);
+            g.strokeLine(x, baseY, x, baseY - 300.0);
+            g.setStroke(Color.web("#DDB557", 0.88));
+            g.setLineWidth(8.0);
+            g.strokeLine(x, baseY, x, baseY - 300.0);
+            g.setFill(Color.web("#FFE37B", pulse * 0.34));
+            g.fillOval(x - 55.0, baseY - 355.0, 110.0, 110.0);
+            g.setFill(Color.web("#FFF2AE", pulse));
+            g.fillOval(x - 14.0, baseY - 314.0, 28.0, 28.0);
+        }
+    }
+
+    private void drawSkyVariantBackdrop(GraphicsContext g, String topColor,
+                                        String middleColor, String horizonColor,
+                                        boolean storm, double time, boolean ambientFx) {
+        g.setFill(new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.web(topColor)),
+                new Stop(0.58, Color.web(middleColor)),
+                new Stop(1.0, Color.web(horizonColor))));
+        g.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+
+        if (!storm) {
+            g.setFill(Color.web("#FFF1B8", 0.18));
+            g.fillOval(2_520.0, 180.0, 960.0, 960.0);
+            g.setFill(Color.web("#FFF4CB", 0.76));
+            g.fillOval(2_850.0, 510.0, 300.0, 300.0);
+        }
+
+        renderRandom.setSeed(storm ? 0x57A1_0FFEL : 0x5CA1_EA5EL);
+        for (int i = 0; i < 17; i++) {
+            double drift = ambientFx ? Math.sin(time * 0.12 + i * 0.91) * 38.0 : 0.0;
+            double x = -480.0 + i * 410.0 + drift;
+            double y = 1_620.0 + (i % 4) * 120.0;
+            double width = 620.0 + renderRandom.nextDouble() * 280.0;
+            g.setFill(storm ? Color.web("#AAB7C1", 0.24) : Color.web("#F4F3E8", 0.38));
+            g.fillOval(x, y, width, 280.0);
+            g.fillOval(x + width * 0.22, y - 75.0, width * 0.62, 250.0);
+        }
+        if (storm) {
+            g.setFill(Color.web("#111827", 0.42));
+            for (int i = 0; i < 8; i++) {
+                double x = -240.0 + i * 840.0;
+                double y = 260.0 + (i % 3) * 170.0;
+                g.fillOval(x, y, 1_050.0, 310.0);
+            }
+        }
+    }
+
+    private boolean isSkyVariantPlayablePlatform(Platform p) {
+        return p != null && p.w > 120.0 && p.h < 180.0
+                && p.x >= -20.0 && p.x + p.w <= WORLD_WIDTH + 20.0;
+    }
+
+    private double nearestAnchor(double value, double... anchors) {
+        double nearest = anchors[0];
+        for (double anchor : anchors) {
+            if (Math.abs(anchor - value) < Math.abs(nearest - value)) nearest = anchor;
+        }
+        return nearest;
+    }
+
+    private void drawSkyVariantRockSupport(GraphicsContext g, Platform p, double anchorX,
+                                           Color shadow, Color light, boolean toGround) {
+        double centerX = p.x + p.w * 0.5;
+        double underside = p.y + p.h;
+        double baseY = toGround ? GROUND_Y + 130.0 : Math.max(GROUND_Y + 780.0, underside + 760.0);
+        double topHalf = Math.max(44.0, Math.min(p.w * 0.38, 260.0));
+        double baseHalf = Math.max(topHalf + 90.0, Math.min(p.w * 0.72, 560.0));
+        double baseCenter = centerX + (anchorX - centerX) * 0.32;
+        g.setFill(shadow);
+        g.fillPolygon(new double[]{centerX - topHalf, centerX + topHalf,
+                        baseCenter + baseHalf, baseCenter - baseHalf},
+                new double[]{underside - 2.0, underside - 2.0, baseY, baseY}, 4);
+        g.setFill(light.deriveColor(0, 1, 1, 0.68));
+        g.fillPolygon(new double[]{centerX - topHalf * 0.82, centerX - topHalf * 0.08,
+                        baseCenter + baseHalf * 0.04, baseCenter - baseHalf * 0.58},
+                new double[]{underside + 8.0, underside + 8.0, baseY, baseY}, 4);
+        g.setStroke(light.deriveColor(0, 0.72, 1.28, 0.28));
+        g.setLineWidth(9.0);
+        for (double y = underside + 150.0; y < baseY - 70.0; y += 260.0) {
+            double ratio = (y - underside) / Math.max(1.0, baseY - underside);
+            double x = centerX + (baseCenter - centerX) * ratio;
+            double half = topHalf + (baseHalf - topHalf) * ratio;
+            g.strokeLine(x - half * 0.64, y, x + half * 0.38, y + 20.0);
+        }
+    }
+
+    private void drawSkyVariantRockPlatform(GraphicsContext g, Platform p,
+                                            Color body, Color highlight, Color edge) {
+        g.setFill(body);
+        g.fillRoundRect(p.x, p.y, p.w, p.h, 18.0, 18.0);
+        g.setFill(highlight.deriveColor(0, 1, 1, 0.70));
+        g.fillRoundRect(p.x + 12.0, p.y + 8.0, Math.max(12.0, p.w - 24.0),
+                Math.max(7.0, p.h * 0.28), 12.0, 12.0);
+        g.setStroke(body.darker());
+        g.setLineWidth(9.0);
+        g.strokeRoundRect(p.x, p.y, p.w, p.h, 18.0, 18.0);
+        g.setStroke(edge.deriveColor(0, 1, 1, 0.92));
+        g.setLineWidth(6.0);
+        g.strokeLine(p.x + 12.0, p.y - 3.0, p.x + p.w - 12.0, p.y - 3.0);
+
+        if (p.signText != null && !p.signText.isBlank() && p.w > 700.0) {
+            g.setFont(Font.font("Arial Black", FontWeight.BOLD, Math.min(34.0, p.w / 30.0)));
+            g.setTextAlign(TextAlignment.CENTER);
+            g.setFill(edge.deriveColor(0, 0.55, 1.05, 0.82));
+            g.fillText(p.signText, p.x + p.w * 0.5, p.y + p.h * 0.72);
+            g.setTextAlign(TextAlignment.LEFT);
+        }
+    }
+
+    private void drawSkyVariantGround(GraphicsContext g, Color shadow, Color body, Color edge) {
+        g.setFill(shadow);
+        g.fillRect(0, GROUND_Y, WORLD_WIDTH, WORLD_HEIGHT - GROUND_Y);
+        g.setFill(body);
+        g.fillRect(0, GROUND_Y + 88.0, WORLD_WIDTH, WORLD_HEIGHT - GROUND_Y - 88.0);
+        g.setStroke(body.brighter().deriveColor(0, 0.72, 1.10, 0.42));
+        g.setLineWidth(14.0);
+        for (double x = -120.0; x < WORLD_WIDTH; x += 390.0) {
+            g.strokeLine(x, GROUND_Y + 90.0, x + 220.0, GROUND_Y + 275.0);
+        }
+        g.setFill(body.brighter());
+        g.fillRect(0, GROUND_Y - 18.0, WORLD_WIDTH, 70.0);
+        g.setFill(edge);
+        g.fillRect(0, GROUND_Y - 18.0, WORLD_WIDTH, 14.0);
+    }
+
+    private void drawSkyVariantWindChannel(GraphicsContext g, WindVent vent,
+                                           double time, boolean ambientFx,
+                                           Color accent, Color base) {
+        double centerX = vent.x + vent.w * 0.5;
+        double pulse = ambientFx ? 0.68 + 0.24 * Math.sin(time * 1.8 + vent.x * 0.01) : 0.78;
+        double width = Math.clamp(vent.w * 0.46, 100.0, 240.0);
+        double top = vent.y - 280.0;
+        double bottom = vent.y + 205.0;
+        g.setFill(new LinearGradient(0, 1, 0, 0, true, CycleMethod.NO_CYCLE,
+                new Stop(0.0, accent.deriveColor(0, 1, 1, 0.20 * pulse)),
+                new Stop(0.55, accent.deriveColor(0, 1, 1, 0.08 * pulse)),
+                new Stop(1.0, Color.TRANSPARENT)));
+        g.fillPolygon(new double[]{centerX - width * 0.32, centerX + width * 0.32,
+                        centerX + width * 0.72, centerX - width * 0.72},
+                new double[]{top, top, bottom, bottom}, 4);
+        g.setStroke(accent.deriveColor(0, 0.75, 1.18, 0.60 * pulse));
+        g.setLineWidth(7.0);
+        for (int ribbon = -1; ribbon <= 1; ribbon++) {
+            double x = centerX + ribbon * width * 0.24;
+            g.strokeArc(x - width * 0.30, top + 75.0 + ribbon * 24.0,
+                    width * 0.60, 150.0, ribbon < 0 ? 205.0 : 25.0, 130.0, ArcType.OPEN);
+            g.strokeArc(x - width * 0.30, top + 270.0 - ribbon * 18.0,
+                    width * 0.60, 150.0, ribbon < 0 ? 25.0 : 205.0, 130.0, ArcType.OPEN);
+        }
+        g.setFill(base);
+        g.fillOval(centerX - width * 0.58, bottom - 47.0, width * 1.16, 72.0);
+        g.setStroke(accent.deriveColor(0, 1, 1, 0.72 * pulse));
+        g.setLineWidth(8.0);
+        g.strokeArc(centerX - width * 0.49, bottom - 40.0,
+                width * 0.98, 56.0, 5.0, 170.0, ArcType.OPEN);
     }
 
     private void drawSkyCliffsArena(GraphicsContext g, boolean ambientFx) {

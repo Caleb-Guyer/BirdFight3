@@ -41,6 +41,39 @@ class StageStructuralConnectionTest {
     }
 
     @Test
+    void skyCliffsVariantSurfacesRemainWithinTheirPaintedSupportClusters() throws Exception {
+        assertSkyVariantSupports(BirdGame3.MapVariant.SKYBREAK_SPIRES,
+                new double[]{720.0, 3_000.0, 5_060.0}, 1_170.0, 10);
+        assertSkyVariantSupports(BirdGame3.MapVariant.PEREGRINE_RUN,
+                new double[]{930.0, 3_000.0, 4_990.0}, 1_070.0, 7);
+        assertSkyVariantSupports(BirdGame3.MapVariant.TEMPEST_SUMMIT,
+                new double[]{970.0, 3_000.0, 5_050.0}, 1_020.0, 6);
+
+        BirdGame3 command = prepare(BirdGame3.MapType.SKYCLIFFS, BirdGame3.MapVariant.CROWN_DUEL);
+        assertEquals(4, command.platforms.size(), "Command Bridge authored surface count");
+        Platform bridge = command.platforms.getFirst();
+        for (Platform platform : command.platforms) {
+            assertTrue(platform.x >= bridge.x - 10.0
+                            && platform.x + platform.w
+                            <= bridge.x + bridge.w + 10.0,
+                    "Command Bridge upper decks must remain inside the two suspension pylons");
+        }
+    }
+
+    @Test
+    void skybreakPaintedBedrockMatchesItsOnlyFullWidthCollider() throws Exception {
+        BirdGame3 skybreak = prepare(BirdGame3.MapType.SKYCLIFFS,
+                BirdGame3.MapVariant.SKYBREAK_SPIRES);
+        long fullWidthFloors = skybreak.platforms.stream()
+                .filter(platform -> platform.x <= TOLERANCE)
+                .filter(platform -> platform.x + platform.w >= BirdGame3.WORLD_WIDTH - TOLERANCE)
+                .filter(platform -> platform.y >= BirdGame3.GROUND_Y - TOLERANCE)
+                .count();
+        assertEquals(1, fullWidthFloors,
+                "Skybreak should expose exactly the one full-width bedrock floor that its art depicts");
+    }
+
+    @Test
     void rooftopRelayOverhangsTerminateOnPaintedFacadeInsteadOfHiddenRoofEdge() throws Exception {
         BirdGame3 game = prepare(BirdGame3.MapType.CITY, BirdGame3.MapVariant.ROOFTOP_RELAY);
         CityBuildingGeometry.Layout layout = CityBuildingGeometry.createRooftopRelay(
@@ -167,6 +200,29 @@ class StageStructuralConnectionTest {
             }
             assertTrue(nearestTree <= maximumReach,
                     () -> variant + " has an aerial platform beyond branch reach at ("
+                            + platform.x + ", " + platform.y + ")");
+        }
+    }
+
+    private static void assertSkyVariantSupports(BirdGame3.MapVariant variant,
+                                                 double[] supportCenters,
+                                                 double maximumReach,
+                                                 int expectedPlatforms) throws Exception {
+        BirdGame3 game = prepare(BirdGame3.MapType.SKYCLIFFS, variant);
+        List<Platform> playable = game.platforms.stream()
+                .filter(platform -> platform.w > 120.0 && platform.h < 180.0)
+                .filter(platform -> platform.x >= 0.0
+                        && platform.x + platform.w <= BirdGame3.WORLD_WIDTH)
+                .toList();
+        assertEquals(expectedPlatforms, playable.size(), variant + " authored surface count");
+        for (Platform platform : playable) {
+            double center = platform.x + platform.w * 0.5;
+            double nearest = Double.POSITIVE_INFINITY;
+            for (double supportCenter : supportCenters) {
+                nearest = Math.min(nearest, Math.abs(center - supportCenter));
+            }
+            assertTrue(nearest <= maximumReach,
+                    () -> variant + " has a surface beyond its painted mountain support at ("
                             + platform.x + ", " + platform.y + ")");
         }
     }
