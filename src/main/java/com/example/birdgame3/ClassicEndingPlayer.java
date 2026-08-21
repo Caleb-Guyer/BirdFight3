@@ -195,6 +195,7 @@ final class ClassicEndingPlayer {
         boolean pelicanOpenHarbor = ClassicEndingContent.isPelicanOpenHarbor(cinematic);
         boolean ravenBlackSun = ClassicEndingContent.isRavenBlackSun(cinematic);
         boolean gooseOpenFlyway = ClassicEndingContent.isGooseOpenFlyway(cinematic);
+        boolean kiwiDeepRoot = ClassicEndingContent.isKiwiDeepRoot(cinematic);
         if (continuousPanorama) {
             double routeProgress = Math.clamp((beatIndex + progress) / cinematic.beats().size(), 0.0, 1.0);
             drawRoadrunnerPanorama(g, now / 1_000_000_000.0, routeProgress);
@@ -237,6 +238,9 @@ final class ClassicEndingPlayer {
         } else if (gooseOpenFlyway) {
             double routeProgress = Math.clamp((beatIndex + progress) / cinematic.beats().size(), 0.0, 1.0);
             drawGooseOpenFlyway(g, now / 1_000_000_000.0, routeProgress);
+        } else if (kiwiDeepRoot) {
+            double routeProgress = Math.clamp((beatIndex + progress) / cinematic.beats().size(), 0.0, 1.0);
+            drawKiwiDeepRoot(g, now / 1_000_000_000.0, routeProgress);
         } else {
             drawBackground(g, now / 1_000_000_000.0, progress);
             drawTableau(g, currentBeat().tableau(), progress, now / 1_000_000_000.0);
@@ -248,7 +252,7 @@ final class ClassicEndingPlayer {
                 && !charlesLivingScore && !razorbillFinalCut && !grinchOpenSack
                 && !vultureFinalAccount && !opiumTwelfthFuture && !heisenBlueVault
                 && !titmouseWarningBeacon && !batListeningDark && !pelicanOpenHarbor
-                && !ravenBlackSun && !gooseOpenFlyway) {
+                && !ravenBlackSun && !gooseOpenFlyway && !kiwiDeepRoot) {
             drawTransition(g, progress);
         }
         g.restore();
@@ -645,6 +649,120 @@ final class ClassicEndingPlayer {
             g.setLineWidth(6.0);
             g.strokeArc(x - 22, y, 24, 15, 10, 150, ArcType.OPEN);
             g.strokeArc(x, y, 24, 15, 20, 150, ArcType.OPEN);
+        }
+
+        if (progress > 0.84) {
+            drawFinalTitle(g, ease((progress - 0.84) / 0.16));
+        }
+    }
+
+    private void drawKiwiDeepRoot(GraphicsContext g, double time, double progress) {
+        Color sky = Color.web("#26394A").interpolate(Color.web("#8AA58D"), progress * 0.78);
+        g.setFill(sky);
+        g.fillRect(0, 0, LOGICAL_WIDTH, 430);
+        g.setFill(new LinearGradient(0, 430, 0, LOGICAL_HEIGHT, false, CycleMethod.NO_CYCLE,
+                new Stop(0, Color.web("#4A3528")), new Stop(0.42, Color.web("#211D24")),
+                new Stop(1, Color.web("#081719"))));
+        g.fillRect(0, 430, LOGICAL_WIDTH, LOGICAL_HEIGHT - 430);
+
+        // One cross-section keeps the ending visually distinct: the defeated
+        // sky fortress recedes above while Kiwi carries the intact Crown into
+        // a living root network below every nest.
+        g.setFill(Color.web("#172331"));
+        for (int tower = 0; tower < 7; tower++) {
+            double x = 40 + tower * 300.0;
+            double h = 120 + (tower % 3) * 65.0;
+            g.fillRect(x, 430 - h, 190, h);
+            g.fillPolygon(new double[]{x - 20, x + 95, x + 210},
+                    new double[]{430 - h, 355 - h, 430 - h}, 3);
+        }
+        g.setFill(Color.web("#725438"));
+        g.fillRect(0, 420, LOGICAL_WIDTH, 24);
+        for (int stone = 0; stone < 24; stone++) {
+            double x = Math.floorMod(stone * 173, 1_920);
+            double y = 470 + Math.floorMod(stone * 97, 520);
+            g.setFill(Color.web(stone % 2 == 0 ? "#594234" : "#352E30", 0.72));
+            g.fillOval(x, y, 58 + (stone % 3) * 17, 25 + (stone % 4) * 9);
+        }
+
+        double bossFade = Math.clamp(1.0 - progress * 4.8, 0.0, 1.0);
+        if (bossFade > 0.0) {
+            g.setFill(Color.web("#FFF0A0", 0.16 * bossFade));
+            g.fillOval(1_180, 25, 510, 350);
+            drawBird(g, boss, 1_435, 285 + progress * 75.0, 1.30, false, bossFade);
+            drawBossName(g, "THE ZENITH", 1_435, 405, bossFade);
+        }
+
+        double descent = ease(Math.clamp((progress - 0.06) / 0.34, 0.0, 1.0));
+        double kiwiX = 330 + descent * 390.0;
+        double kiwiY = 365 + descent * 430.0 + Math.sin(time * 1.5) * 5.0;
+        g.setStroke(Color.web("#8A684B", 0.82));
+        g.setLineWidth(92.0);
+        g.beginPath();
+        g.moveTo(250, 430);
+        g.bezierCurveTo(350, 520, 420, 670, 720, 815);
+        g.stroke();
+        g.setStroke(Color.web("#251D1B"));
+        g.setLineWidth(64.0);
+        g.stroke();
+        drawBird(g, narrator, kiwiX, kiwiY, 1.16, true, Math.clamp(progress * 7.0, 0.0, 1.0));
+
+        double crownSink = ease(Math.clamp((progress - 0.18) / 0.34, 0.0, 1.0));
+        double rootForm = ease(Math.clamp((progress - 0.50) / 0.22, 0.0, 1.0));
+        double crownX = 960.0;
+        double crownY = 285.0 + crownSink * 545.0;
+        if (rootForm < 1.0) {
+            drawCrown(g, crownX, crownY, 1.05, time, crownSink * (1.0 - rootForm));
+        }
+        if (rootForm > 0.0) {
+            double pulse = 1.0 + Math.sin(time * 1.4) * 0.035;
+            g.setFill(Color.web("#D8ED8B", 0.18 * rootForm));
+            g.fillOval(crownX - 120 * pulse, 820 - 120 * pulse, 240 * pulse, 240 * pulse);
+            g.setFill(Color.web("#BDD66B", rootForm));
+            g.fillOval(crownX - 42, 778, 84, 84);
+            g.setStroke(Color.web("#99C96B", 0.82 * rootForm));
+            g.setLineCap(StrokeLineCap.ROUND);
+            for (int root = 0; root < 11; root++) {
+                double angle = Math.PI * 0.06 + root * Math.PI * 0.88 / 10.0;
+                double side = root % 2 == 0 ? -1.0 : 1.0;
+                double endX = Math.clamp(crownX + side * (260 + root * 105.0), 35.0, LOGICAL_WIDTH - 35.0);
+                double endY = 565.0 + Math.floorMod(root * 83, 390);
+                g.setLineWidth(root % 3 == 0 ? 18.0 : 10.0);
+                g.beginPath();
+                g.moveTo(crownX, 820);
+                g.bezierCurveTo(crownX + Math.cos(angle) * 210.0,
+                        850 + Math.sin(angle) * 120.0, (crownX + endX) * 0.50,
+                        endY + 80.0, endX, endY);
+                g.stroke();
+            }
+        }
+
+        double shelterReveal = ease(Math.clamp((progress - 0.66) / 0.22, 0.0, 1.0));
+        for (int shelter = 0; shelter < 5; shelter++) {
+            double x = 170 + shelter * 390.0;
+            double y = 590 + (shelter % 2) * 165.0;
+            g.setFill(Color.web("#112B28", 0.92 * shelterReveal));
+            g.fillRoundRect(x - 88, y - 54, 176, 108, 48, 48);
+            g.setStroke(Color.web("#B8E08A", 0.58 * shelterReveal));
+            g.setLineWidth(6.0);
+            g.strokeRoundRect(x - 88, y - 54, 176, 108, 48, 48);
+            if (shelter < flock.size()) {
+                drawBird(g, flock.get(shelter), x, y + 20, 0.46,
+                        shelter % 2 == 0, shelterReveal);
+            }
+        }
+
+        double fernRise = ease(Math.clamp((progress - 0.74) / 0.20, 0.0, 1.0));
+        g.setStroke(Color.web("#6FAE65", 0.88 * fernRise));
+        g.setLineWidth(14.0);
+        for (int fern = 0; fern < 9; fern++) {
+            double x = 720 + fern * 60.0;
+            double top = 420 - fernRise * (95 + (fern % 3) * 38.0);
+            g.strokeLine(x, 425, x + (fern - 4) * 12.0, top);
+            g.setLineWidth(8.0);
+            g.strokeLine(x, top + 25, x - 38, top + 5);
+            g.strokeLine(x, top + 42, x + 38, top + 18);
+            g.setLineWidth(14.0);
         }
 
         if (progress > 0.84) {
@@ -2217,7 +2335,8 @@ final class ClassicEndingPlayer {
                 || ClassicEndingContent.isBatListeningDark(cinematic)
                 || ClassicEndingContent.isPelicanOpenHarbor(cinematic)
                 || ClassicEndingContent.isRavenBlackSun(cinematic)
-                || ClassicEndingContent.isGooseOpenFlyway(cinematic)) && beatIndex > 0) return;
+                || ClassicEndingContent.isGooseOpenFlyway(cinematic)
+                || ClassicEndingContent.isKiwiDeepRoot(cinematic)) && beatIndex > 0) return;
         game.playClassicEndingTableauCue(currentBeat().tableau());
     }
 

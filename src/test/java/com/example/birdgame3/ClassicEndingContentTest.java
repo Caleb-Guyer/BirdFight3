@@ -29,7 +29,7 @@ class ClassicEndingContentTest {
     }
 
     @Test
-    void allTwentyOneAuthoredRoutesHaveUniqueMovingPictureMonologues() {
+    void allTwentyTwoAuthoredRoutesHaveUniqueMovingPictureMonologues() {
         List<ClassicEndingContent.Ending> endings = ClassicEndingContent.endings();
 
         assertEquals(List.of(
@@ -53,11 +53,12 @@ class ClassicEndingContentTest {
                         BirdGame3.BirdType.BAT,
                         BirdGame3.BirdType.PELICAN,
                         BirdGame3.BirdType.RAVEN,
-                        BirdGame3.BirdType.GOOSE),
+                        BirdGame3.BirdType.GOOSE,
+                        BirdGame3.BirdType.KIWI),
                 endings.stream().map(ClassicEndingContent.Ending::bird).toList());
-        assertEquals(21, new HashSet<>(endings.stream().map(ClassicEndingContent.Ending::title).toList()).size());
-        assertEquals(21, new HashSet<>(endings.stream().map(ClassicEndingContent.Ending::crownChoice).toList()).size());
-        assertEquals(21, new HashSet<>(endings.stream().map(ending -> ending.cinematic().id()).toList()).size());
+        assertEquals(22, new HashSet<>(endings.stream().map(ClassicEndingContent.Ending::title).toList()).size());
+        assertEquals(22, new HashSet<>(endings.stream().map(ClassicEndingContent.Ending::crownChoice).toList()).size());
+        assertEquals(22, new HashSet<>(endings.stream().map(ending -> ending.cinematic().id()).toList()).size());
 
         for (ClassicEndingContent.Ending ending : endings) {
             ClassicEndingContent.Cinematic cinematic = ending.cinematic();
@@ -155,5 +156,9 @@ class ClassicEndingContentTest {
         assertTrue(game.isClassicEndingUnlocked(BirdGame3.BirdType.TITMOUSE));
         assertTrue(ClassicEndingContent.isTitmouseWarningBeacon(
                 ClassicEndingContent.endingFor(BirdGame3.BirdType.TITMOUSE).cinematic()));
+        game.setClassicCompleted(BirdGame3.BirdType.KIWI);
+        assertTrue(game.isClassicEndingUnlocked(BirdGame3.BirdType.KIWI));
+        assertTrue(ClassicEndingContent.isKiwiDeepRoot(
+                ClassicEndingContent.endingFor(BirdGame3.BirdType.KIWI).cinematic()));
     }
 }

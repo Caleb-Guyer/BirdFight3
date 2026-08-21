@@ -5493,7 +5493,8 @@ public class BirdGame3 {
         PELICAN_BOARDING_GAUNTLET,
         RAVEN_FORETOLD_FATES,
         RAVEN_LAST_DAWN_BOSS,
-        GOOSE_BORDER_KING_BOSS
+        GOOSE_BORDER_KING_BOSS,
+        KIWI_ZENITH_BOSS
     }
 
     static final class ClassicRiftAnchor {
@@ -45314,6 +45315,9 @@ public class BirdGame3 {
         if (useAuthoredRoutes && playerType == BirdType.GOOSE) {
             return buildGooseClassicRun();
         }
+        if (useAuthoredRoutes && playerType == BirdType.KIWI) {
+            return buildKiwiClassicRun();
+        }
         List<ClassicEncounter> run = new ArrayList<>();
         Set<MapType> usedMaps = new HashSet<>();
         Set<BirdType> usedBirds = new HashSet<>();
@@ -47933,6 +47937,100 @@ public class BirdGame3 {
         return run;
     }
 
+    private List<ClassicEncounter> buildKiwiClassicRun() {
+        List<ClassicEncounter> run = new ArrayList<>();
+
+        ClassicEncounter smallest = new ClassicEncounter(
+                "The Smallest Footprint", "Heartbloom Sanctuary",
+                "Hummingbird and Titmouse overlook the fighter beneath the flowers. Kiwi needs no borrowed flight to clear the garden floor.",
+                MapType.VIBRANT_JUNGLE, MapVariant.HEARTBLOOM_SANCTUARY, MatchMutator.NONE,
+                ClassicTwist.NECTAR_BLOOM, ClassicEncounterStyle.MINIATURE_FLOCK, 112 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{
+                classicFighter(BirdType.HUMMINGBIRD, "High Scout: Hummingbird", 68, 0.68, 1.08),
+                classicFighter(BirdType.TITMOUSE, "High Scout: Titmouse", 66, 0.66, 1.06)}, false);
+        smallest.cpuLevel = 3;
+        run.add(smallest);
+
+        ClassicEncounter roots = new ClassicEncounter(
+                "Roots Know the Way", "Stillwater Marsh",
+                "Shoebill reads the water while Kiwi reads the roots. Hold the same ground against Grinch-Hawk and Vulture.",
+                MapType.FOREST, MapVariant.STILLWATER_MARSH, MatchMutator.NONE,
+                ClassicTwist.MARSH_HUNT, ClassicEncounterStyle.STANDARD, 130 * 60,
+                new ClassicFighter[]{classicFighter(BirdType.SHOEBILL, "Ally: Stillwater Guide", 92, 0.74, 0.96)},
+                new ClassicFighter[]{
+                        classicFighter(BirdType.GRINCHHAWK, "Root Thief: Grinch-Hawk", 78, 0.62, 1.00),
+                        classicFighter(BirdType.VULTURE, "Root Thief: Vulture", 82, 0.64, 0.98)}, false);
+        roots.cpuLevel = 4;
+        run.add(roots);
+
+        ClassicEncounter weight = new ClassicEncounter(
+                "The Weight Above", "Harvest Tribunal",
+                "A giant Turkey mistakes size for a claim on the earth. Stand close, survive the impact, and move the greater weight.",
+                MapType.FOREST, MapVariant.HARVEST_TRIBUNAL, MatchMutator.NONE,
+                ClassicTwist.RAGE_RITUAL, ClassicEncounterStyle.GIANT, 132 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{
+                classicFighter(BirdType.TURKEY, "Giant: The Heavy Claim", 118, 0.62, 0.90)}, true);
+        weight.cpuLevel = 5;
+        run.add(weight);
+
+        ClassicEncounter noWings = new ClassicEncounter(
+                "No Wings Required", "Redline Canyon",
+                "Roadrunner owns the road and Falcon owns the air. Kiwi crosses both lanes with the same ordinary burrow, kick, and stomp used in every battle.",
+                MapType.DESERT, MapVariant.REDLINE_CANYON, MatchMutator.TURBO_BRAWL,
+                ClassicTwist.REDLINE_SPLITS, ClassicEncounterStyle.STANDARD, 128 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{
+                classicFighter(BirdType.ROADRUNNER, "Road Claim: Roadrunner", 72, 0.54, 1.04),
+                classicFighter(BirdType.FALCON, "Sky Claim: Falcon", 76, 0.56, 1.02)}, false);
+        noWings.cpuLevel = 5;
+        run.add(noWings);
+
+        ClassicEncounter foundation = new ClassicEncounter(
+                "The Foundation Holds", "Titan Dock",
+                "Pelican braces the lower deck with Kiwi while Eagle and Raven try to take the dreadnought from above.",
+                MapType.DOCK, MapVariant.TITAN_DOCK, MatchMutator.NONE,
+                ClassicTwist.WIND_RALLY, ClassicEncounterStyle.STANDARD, 138 * 60,
+                new ClassicFighter[]{classicFighter(BirdType.PELICAN, "Ally: Harbor Foundation", 104, 0.76, 0.94)},
+                new ClassicFighter[]{
+                        classicFighter(BirdType.EAGLE, "Boarder: Eagle", 82, 0.64, 0.98),
+                        classicFighter(BirdType.RAVEN, "Boarder: Raven", 78, 0.62, 1.00)}, false);
+        foundation.cpuLevel = 6;
+        run.add(foundation);
+
+        ClassicEncounter markers = new ClassicEncounter(
+                "Bonus: Buried Markers", "Forest Floor",
+                "Break three ground-level survey markers with ordinary attacks. The course is deliberately reachable without flight or a route-only power.",
+                MapType.FOREST, MapVariant.STANDARD, MatchMutator.NONE,
+                ClassicTwist.HIDDEN_CACHES, ClassicEncounterStyle.BONUS_RELAY, 72 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{
+                classicFighter(BirdType.TITMOUSE, "Buried Marker I", 32, 0.05, 0.05),
+                classicFighter(BirdType.TITMOUSE, "Buried Marker II", 32, 0.05, 0.05),
+                classicFighter(BirdType.TITMOUSE, "Buried Marker III", 32, 0.05, 0.05)}, false);
+        markers.cpuLevel = 1;
+        run.add(markers);
+
+        ClassicEncounter lastBurrow = new ClassicEncounter(
+                "The Last Burrow", "Cave",
+                "An armored Kiwi sealed the deepest shelter and calls isolation survival. Defeat the reflection without abandoning the ground.",
+                MapType.CAVE, MapVariant.STANDARD, MatchMutator.NONE,
+                ClassicTwist.SHADOW_CACHE, ClassicEncounterStyle.STANDARD, 132 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{
+                classicFighter(BirdType.KIWI, "Elite: The Closed Burrow", 172, 1.02, 1.00)}, true);
+        lastBurrow.cpuLevel = 7;
+        run.add(lastBurrow);
+
+        ClassicEncounter zenith = new ClassicEncounter(
+                "The Ground Beneath the Crown", "Dawnwatch Bastion",
+                "The Zenith has lifted the Crown beyond every flightless bird. Break all three stocks and bring authority back to the earth it forgot.",
+                MapType.BEACON_CROWN, MapVariant.DAWNWATCH_BASTION, MatchMutator.NONE,
+                ClassicTwist.FALSE_DAWN, ClassicEncounterStyle.KIWI_ZENITH_BOSS, 205 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{
+                classicFighter(BirdType.EAGLE, "Boss: The Zenith", 170, 0.94, 1.00,
+                        "SKY_KING_EAGLE")}, true);
+        zenith.cpuLevel = 8;
+        run.add(zenith);
+        return run;
+    }
+
     private ClassicEncounter buildShoebillSwiftTrailEncounter() {
         ClassicEncounter encounter = new ClassicEncounter(
                 "Swift Trail", "Redline Track",
@@ -48655,6 +48753,7 @@ public class BirdGame3 {
         if (type == BirdType.PELICAN) return "THE WEIGHT OF THE HARBOR";
         if (type == BirdType.RAVEN) return "THE FUTURE HAS ONE AUTHOR";
         if (type == BirdType.GOOSE) return "THE SKY HAS NO BORDER";
+        if (type == BirdType.KIWI) return "THE GROUND REMEMBERS";
         return "TEMPORARY FLIGHT PLAN";
     }
 
@@ -50139,6 +50238,13 @@ public class BirdGame3 {
                 bird.health = Math.max(1.0, 175.0 * enemyHealthScale);
                 bird.setBaseMultipliers(1.08, 0.66 * enemyPowerScale, 0.92);
                 bird.setUltimateEnabled(false);
+            } else if (encounter.style == ClassicEncounterStyle.KIWI_ZENITH_BOSS) {
+                // The boss remains a real Eagle with three stocks and its real
+                // kit, but Kiwi must be able to launch it without flight-only
+                // route powers or an inflated damage race.
+                bird.health = Math.max(1.0, 170.0 * enemyHealthScale);
+                bird.setBaseMultipliers(1.10, 0.75 * enemyPowerScale, 0.94);
+                bird.setUltimateEnabled(false);
             } else if (encounter.style == ClassicEncounterStyle.HOARDMASTER_BOSS) {
                 bird.health = Math.max(1.0, 205.0 * enemyHealthScale);
                 bird.setBaseMultipliers(1.38, 0.95 * enemyPowerScale, 1.00);
@@ -50390,10 +50496,13 @@ public class BirdGame3 {
         boolean stormBeaconAscent = encounter.variant == MapVariant.SKYBREAK_SPIRES;
         boolean peregrineRun = encounter.variant == MapVariant.PEREGRINE_RUN;
         boolean rebirthRelay = "Bonus: Rebirth Relay".equals(encounter.name);
+        boolean buriedMarkers = "Bonus: Buried Markers".equals(encounter.name);
         Bird player = players[0];
         if (player != null) {
-            player.x = rebirthRelay ? 980.0 : (stormBeaconAscent ? 520.0 : 430.0);
-            double playerSurfaceY = stormBeaconAscent ? GROUND_Y - 260.0
+            player.x = buriedMarkers ? 620.0
+                    : (rebirthRelay ? 980.0 : (stormBeaconAscent ? 520.0 : 430.0));
+            double playerSurfaceY = buriedMarkers ? GROUND_Y
+                    : stormBeaconAscent ? GROUND_Y - 260.0
                     : (peregrineRun ? GROUND_Y - 280.0
                     : (rebirthRelay ? ASHFALL_MAIN_Y : GROUND_Y - 250.0));
             player.y = playerSurfaceY - player.bodyHeight();
@@ -50402,14 +50511,18 @@ public class BirdGame3 {
             player.vx = 0.0;
             player.vy = 0.0;
         }
-        double[] targetX = rebirthRelay
+        double[] targetX = buriedMarkers
+                ? new double[]{1_800.0, 3_200.0, 4_600.0}
+                : rebirthRelay
                 ? new double[]{1_450.0, 3_000.0, 4_550.0}
                 : stormBeaconAscent
                 ? new double[]{790.0, 3000.0, 5220.0}
                 : (peregrineRun
                 ? new double[]{1_250.0, 3_000.0, 4_830.0}
                 : new double[]{1_500.0, 3_500.0, 5_430.0});
-        double[] targetSurfaceY = rebirthRelay
+        double[] targetSurfaceY = buriedMarkers
+                ? new double[]{GROUND_Y, GROUND_Y, GROUND_Y}
+                : rebirthRelay
                 ? new double[]{ASHFALL_MAIN_Y - 285.0, ASHFALL_MAIN_Y - 940.0, ASHFALL_MAIN_Y - 285.0}
                 : stormBeaconAscent
                 ? new double[]{GROUND_Y - 1120.0, GROUND_Y - 700.0, GROUND_Y - 1120.0}
@@ -55984,6 +56097,7 @@ public class BirdGame3 {
             case "Bonus: Peregrine Run" -> "PEREGRINE RUN";
             case "Bonus: Rebirth Relay" -> "REBIRTH RELAY";
             case "Bonus: Ripple Hunt" -> "RIPPLE HUNT";
+            case "Bonus: Buried Markers" -> "BURIED MARKERS";
             default -> "ROOFTOP RELAY";
         };
         addToKillFeed(bonusName + ": target broken. Bird Coins +25.");
@@ -62031,11 +62145,19 @@ public class BirdGame3 {
                 }
             }
         }
+        if (classicSelectedBird == BirdType.KIWI) {
+            scores[0] = switch (classicRoundIndex) {
+                case 0, 1, 6 -> 1;
+                case 2, 3, 4 -> 2;
+                case 7 -> 3;
+                default -> scores[0];
+            };
+        }
         int enemyStocks = switch (classicEncounter.style) {
             case STORM_TYRANT_BOSS, PHOENIX_REBIRTH, BLIGHTWING_BOSS, ICEWORKS_MIRROR -> 2;
             case NULL_ROC_BOSS, LONG_WINTER_BOSS, DEVOURER_BOSS, BROODBREAKER_BOSS,
                     STILL_KING_BOSS, LAST_SUN_BOSS, HOARDMASTER_BOSS, RAVEN_LAST_DAWN_BOSS,
-                    GOOSE_BORDER_KING_BOSS -> 3;
+                    GOOSE_BORDER_KING_BOSS, KIWI_ZENITH_BOSS -> 3;
             default -> 0;
         };
         if (enemyStocks <= 0) return;

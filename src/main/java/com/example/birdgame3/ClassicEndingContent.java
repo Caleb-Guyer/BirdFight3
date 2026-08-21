@@ -477,6 +477,25 @@ final class ClassicEndingContent {
                             beat("I kept the Crown intact and turned its command inward. It became a compass that opens a route but cannot own the wings using it.", Tableau.CROWN_TRANSFORMATION),
                             beat("Now safe currents appear before every flock. Gates open, warning bells carry, and no line in the sky can ask for a name.", Tableau.CHANGED_WORLD),
                             beat("Fly together. Land where you must. The sky belongs to the crossing.", Tableau.FINAL_PORTRAIT)
+                    )),
+            ending(
+                    BirdGame3.BirdType.KIWI,
+                    "THE GROUND REMEMBERS",
+                    "THE DEEP ROOT",
+                    "FOUNDATION - Kiwi buries the intact Crown where its command becomes a root that strengthens every common ground and answers to no throne.",
+                    Alignment.HOPEFUL,
+                    BirdGame3.BirdType.EAGLE,
+                    "The Zenith",
+                    "SKY_KING_EAGLE",
+                    BirdGame3.MapType.BEACON_CROWN,
+                    "music-forest.mp3",
+                    monologue(
+                            beat("The Zenith raised the Crown beyond flightless wings and called height the same thing as worth.", Tableau.BOSS_AFTERMATH),
+                            beat("When Eagle fell, the Crown offered me every road beneath the world: foundations, tunnels, roots, and the weight under every throne.", Tableau.CROWN_DISCOVERY),
+                            beat("I could have pulled every tower down. Being ignored does not make vengeance into justice.", Tableau.DECISION),
+                            beat("I buried the Crown intact beneath the oldest fern. Its command sank into the soil until no bird could wear it.", Tableau.CROWN_TRANSFORMATION),
+                            beat("Now weak foundations warn before they fail, buried doors open toward shelter, and every nest stands on ground made equally strong.", Tableau.CHANGED_WORLD),
+                            beat("The sky may forget us. The ground never does.", Tableau.FINAL_PORTRAIT)
                     ))
     );
 
@@ -551,6 +570,10 @@ final class ClassicEndingContent {
 
     static boolean isGooseOpenFlyway(Cinematic cinematic) {
         return cinematic != null && cinematic.narrator() == BirdGame3.BirdType.GOOSE;
+    }
+
+    static boolean isKiwiDeepRoot(Cinematic cinematic) {
+        return cinematic != null && cinematic.narrator() == BirdGame3.BirdType.KIWI;
     }
 
     static Cinematic withRouteRecord(Ending ending, int birdCoins, int score, String mapReward) {
