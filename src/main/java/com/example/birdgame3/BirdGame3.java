@@ -14203,127 +14203,7 @@ public class BirdGame3 {
                     drawBeaconCrownBattlefield(g, ambientFx);
                 }
             }
-            case CAVE -> {
-                // Deep cave gradient
-                for (int i = 0; i < 700; i++) {
-                    double ratio = i / 700.0;
-                    Color c = Color.rgb(10, 12, 24).interpolate(Color.rgb(32, 22, 50), ratio);
-                    g.setFill(c);
-                    g.fillRect(0, i * (WORLD_HEIGHT / 700.0), WORLD_WIDTH, WORLD_HEIGHT / 700.0 + 3);
-                }
-
-                // Cave silhouette layers
-                g.setFill(Color.rgb(18, 14, 30));
-                for (int i = 0; i < 20; i++) {
-                    double bx = i * 320;
-                    g.fillPolygon(
-                            new double[]{bx, bx + 160, bx + 320},
-                            new double[]{0, 160 + (i % 3) * 40, 0},
-                            3
-                    );
-                    g.fillPolygon(
-                            new double[]{bx, bx + 160, bx + 320},
-                            new double[]{GROUND_Y + 250, GROUND_Y + 60 + (i % 4) * 50, GROUND_Y + 250},
-                            3
-                    );
-                }
-
-                // Back-layer stalactites/stalagmites
-                g.setFill(Color.rgb(24, 18, 38));
-                for (int i = 0; i < 28; i++) {
-                    double bx = i * 230 + (i % 2) * 70;
-                    double topLen = 120 + (i % 5) * 35;
-                    g.fillPolygon(new double[]{bx, bx + 44, bx + 88}, new double[]{0, topLen, 0}, 3);
-                    double bottomLen = 90 + (i % 4) * 42;
-                    g.fillPolygon(new double[]{bx + 30, bx + 74, bx + 118},
-                            new double[]{GROUND_Y + 240, GROUND_Y + 240 - bottomLen, GROUND_Y + 240}, 3);
-                }
-
-                if (ambientFx) {
-                    // Distant bat silhouettes for atmosphere (animated, non-linear scatter)
-                    renderRandom.setSeed(9042L);
-                    Random batRand = renderRandom;
-                    double batTime = System.currentTimeMillis() / 700.0;
-                    for (int i = 0; i < 32; i++) {
-                        double bx = 120 + batRand.nextDouble() * (WORLD_WIDTH - 240);
-                        double byBase = 120 + batRand.nextDouble() * (GROUND_Y - 520);
-                        double speed = 0.5 + batRand.nextDouble() * 1.4;
-                        double phase = batRand.nextDouble() * Math.PI * 2;
-                        double ampX = 35 + batRand.nextDouble() * 90;
-                        double ampY = 10 + batRand.nextDouble() * 35;
-                        double bxAnim = bx + Math.sin(batTime * speed + phase) * ampX;
-                        double by = byBase + Math.cos(batTime * speed * 1.3 + phase) * ampY;
-                        double flap = 0.7 + 0.3 * Math.sin(batTime * 5.0 * speed + phase);
-                        g.setFill(Color.rgb(8, 8, 16, 0.42 + 0.16 * flap));
-                        g.fillOval(bxAnim - 15, by, 30, 15);
-                        g.fillOval(bxAnim - (44 * flap), by - 5, 32 * flap + 6, 18);
-                        g.fillOval(bxAnim + 12, by - 5, 32 * flap + 6, 18);
-                    }
-
-                    // Glowing crystals/mushrooms for unique cave identity (scattered, non-linear)
-                    renderRandom.setSeed(6117L);
-                    Random crystalRand = renderRandom;
-                    for (int i = 0; i < 46; i++) {
-                        double cx = 60 + crystalRand.nextDouble() * (WORLD_WIDTH - 120);
-                        double cy = GROUND_Y - 70 - crystalRand.nextDouble() * 260;
-                        Color glow = crystalRand.nextBoolean() ? Color.CYAN : Color.MEDIUMPURPLE;
-                        g.setFill(glow.deriveColor(0, 1, 1, 0.25));
-                        g.fillOval(cx - 50, cy - 50, 100, 100);
-                        g.setFill(glow.brighter());
-                        g.fillPolygon(
-                                new double[]{cx - 14, cx, cx + 14},
-                                new double[]{cy + 20, cy - 22, cy + 20},
-                                3
-                        );
-                        if (i % 3 == 0) {
-                            g.setFill(Color.web("#66ffe0", 0.55));
-                            g.fillOval(cx - 9, cy - 34, 18, 12);
-                        }
-                    }
-                }
-
-                // Solid rock floor
-                g.setFill(Color.rgb(35, 30, 46));
-                g.fillRect(0, GROUND_Y, WORLD_WIDTH, WORLD_HEIGHT - GROUND_Y);
-
-                // Platforms as rocky shelves
-                g.setFill(Color.rgb(82, 76, 96));
-                g.setStroke(Color.rgb(130, 118, 156));
-                g.setLineWidth(4);
-                for (Platform p : platforms) {
-                    g.fillRoundRect(p.x, p.y, p.w, p.h, 20, 20);
-                    g.strokeRoundRect(p.x, p.y, p.w, p.h, 20, 20);
-                    if (p.y < GROUND_Y - 120) {
-                        g.setFill(Color.CYAN.deriveColor(0, 1, 1, 0.2));
-                        g.fillOval(p.x + p.w * 0.5 - 18, p.y - 18, 36, 24);
-                        // Hanging crystals from undersides
-                        g.setFill(Color.MEDIUMPURPLE.deriveColor(0, 1, 1, 0.4));
-                        double c1 = p.x + p.w * 0.28;
-                        double c2 = p.x + p.w * 0.72;
-                        g.fillPolygon(new double[]{c1 - 7, c1, c1 + 7}, new double[]{p.y + p.h, p.y + p.h + 24, p.y + p.h}, 3);
-                        g.fillPolygon(new double[]{c2 - 7, c2, c2 + 7}, new double[]{p.y + p.h, p.y + p.h + 24, p.y + p.h}, 3);
-                        g.setFill(Color.rgb(82, 76, 96));
-                    }
-                }
-
-                // Echo draft vents
-                for (WindVent v : windVents) {
-                    if (ambientFx) {
-                        double pulse = 0.5 + 0.5 * Math.sin(System.currentTimeMillis() / 260.0 + v.x * 0.02);
-                        g.setFill(Color.CYAN.deriveColor(0, 1, 1, 0.22 + 0.18 * pulse));
-                        g.fillOval(v.x + v.w / 2 - 120, v.y - 210, 240, 420);
-                    } else {
-                        g.setFill(Color.CYAN.deriveColor(0, 1, 1, 0.18));
-                        g.fillOval(v.x + v.w / 2 - 120, v.y - 210, 240, 420);
-                    }
-                }
-
-                // Low cave fog
-                if (ambientFx) {
-                    g.setFill(Color.rgb(120, 100, 180, 0.12));
-                    g.fillRect(0, GROUND_Y - 140, WORLD_WIDTH, 220);
-                }
-            }
+            case CAVE -> drawEchoCavernArena(g, ambientFx);
             case CITY -> drawCityArena(g, ambientFx);
         }
 
@@ -17965,6 +17845,337 @@ public class BirdGame3 {
             g.setFill(glowing ? Color.web("#FFF59D", 0.54) : Color.web("#C5E1A5", 0.3));
             double size = glowing ? 6.2 : 3.8;
             g.fillOval(x - size * 0.5, y - size * 0.5, size, size * 0.78);
+        }
+    }
+
+    private void drawEchoCavernArena(GraphicsContext g, boolean ambientFx) {
+        double time = ambientFx ? System.nanoTime() / 1_000_000_000.0 : 0.0;
+
+        g.setFill(new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.web("#060914")),
+                new Stop(0.54, Color.web("#16142B")),
+                new Stop(1.0, Color.web("#282039"))));
+        g.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+
+        drawEchoCavernBackChambers(g);
+        drawEchoCavernGeode(g, time, ambientFx);
+        drawEchoCavernPillars(g);
+        if (ambientFx) drawEchoCavernBats(g, time);
+        drawEchoCavernShell(g);
+
+        // Dark limestone braces sit behind the playable shelves. They make
+        // every collision surface part of the chamber's geology without
+        // changing the actual platform rectangles or implying a new hitbox.
+        for (Platform platform : platforms) {
+            if (isCaveAerialPlatform(platform)) drawCaveShelfSupport(g, platform);
+        }
+        for (WindVent vent : windVents) drawEchoDraftShaft(g, vent, time, ambientFx);
+        for (Platform platform : platforms) {
+            if (isCaveAerialPlatform(platform)) drawCaveRockShelf(g, platform);
+        }
+
+        drawEchoCavernCrystalLandmarks(g, time, ambientFx);
+        if (ambientFx) {
+            g.setFill(Color.web("#8C7DB4", 0.10));
+            g.fillRect(0, GROUND_Y - 150.0, WORLD_WIDTH, 230.0);
+        }
+    }
+
+    private void drawEchoCavernBackChambers(GraphicsContext g) {
+        // Three receding limestone chambers give the map a real cavern scale
+        // and preserve a quiet center behind combat silhouettes.
+        g.setFill(Color.web("#0B0C1A"));
+        g.fillPolygon(new double[]{0, 0, 560, 980, 1_360, 1_760, 2_180, 2_620,
+                        3_020, 3_440, 3_880, 4_300, 4_720, 5_160, 5_580, WORLD_WIDTH, WORLD_WIDTH},
+                new double[]{0, 390, 520, 370, 510, 320, 470, 290,
+                        430, 300, 500, 340, 520, 360, 490, 350, 0}, 17);
+
+        Color farStone = Color.web("#17182A");
+        Color farEdge = Color.web("#34324A", 0.68);
+        double[] chamberX = {620.0, 1_820.0, 3_000.0, 4_180.0, 5_380.0};
+        for (int i = 0; i < chamberX.length; i++) {
+            double center = chamberX[i];
+            double width = i == 2 ? 960.0 : 760.0;
+            double top = 390.0 + (i % 2) * 120.0;
+            g.setFill(farStone);
+            g.fillOval(center - width * 0.5, top, width, 1_760.0);
+            g.setFill(Color.web("#090B17"));
+            g.fillOval(center - width * 0.36, top + 150.0, width * 0.72, 1_530.0);
+            g.setStroke(farEdge);
+            g.setLineWidth(22.0);
+            g.strokeArc(center - width * 0.39, top + 85.0, width * 0.78, 1_610.0,
+                    8.0, 164.0, ArcType.OPEN);
+        }
+
+        g.setStroke(Color.web("#3C3852", 0.30));
+        g.setLineWidth(9.0);
+        for (double y = 650.0; y < GROUND_Y - 150.0; y += 280.0) {
+            g.strokeLine(160.0, y, WORLD_WIDTH - 160.0, y + 32.0 * Math.sin(y * 0.01));
+        }
+    }
+
+    private void drawEchoCavernGeode(GraphicsContext g, double time, boolean ambientFx) {
+        double pulse = ambientFx ? 0.88 + 0.12 * Math.sin(time * 1.15) : 0.94;
+        double centerX = WORLD_WIDTH * 0.5;
+        double centerY = 1_050.0;
+        g.setFill(Color.web("#42D9E8", 0.045 * pulse));
+        g.fillOval(centerX - 720.0, centerY - 620.0, 1_440.0, 1_240.0);
+        g.setStroke(Color.web("#5BE0EC", 0.18 * pulse));
+        g.setLineWidth(28.0);
+        g.strokeOval(centerX - 500.0, centerY - 430.0, 1_000.0, 860.0);
+        g.setStroke(Color.web("#A77BE8", 0.24 * pulse));
+        g.setLineWidth(18.0);
+        g.strokeOval(centerX - 390.0, centerY - 330.0, 780.0, 660.0);
+
+        g.setFill(Color.web("#5CE8EA", 0.52 * pulse));
+        for (int i = 0; i < 11; i++) {
+            double angle = Math.PI * 2.0 * i / 11.0;
+            double innerX = centerX + Math.cos(angle) * 245.0;
+            double innerY = centerY + Math.sin(angle) * 200.0;
+            double outerX = centerX + Math.cos(angle) * (340.0 + (i % 3) * 28.0);
+            double outerY = centerY + Math.sin(angle) * (285.0 + (i % 2) * 25.0);
+            double sideX = innerX + Math.cos(angle + Math.PI * 0.5) * 32.0;
+            double sideY = innerY + Math.sin(angle + Math.PI * 0.5) * 32.0;
+            g.fillPolygon(new double[]{innerX, sideX, outerX}, new double[]{innerY, sideY, outerY}, 3);
+        }
+    }
+
+    private void drawEchoCavernPillars(GraphicsContext g) {
+        double[] pillarX = {520.0, 1_650.0, 2_760.0, 3_880.0, 5_060.0, 5_760.0};
+        for (int i = 0; i < pillarX.length; i++) {
+            double x = pillarX[i];
+            double width = 220.0 + (i % 3) * 42.0;
+            g.setFill(Color.web(i % 2 == 0 ? "#202031" : "#242136", 0.84));
+            g.fillPolygon(new double[]{x - width * 0.42, x - width * 0.58, x - width * 0.48,
+                            x + width * 0.48, x + width * 0.58, x + width * 0.42},
+                    new double[]{190.0, 760.0, GROUND_Y + 120.0,
+                            GROUND_Y + 120.0, 760.0, 190.0}, 6);
+            g.setStroke(Color.web("#514B62", 0.48));
+            g.setLineWidth(14.0);
+            g.strokeLine(x - width * 0.18, 270.0, x - width * 0.26, GROUND_Y + 40.0);
+            g.setStroke(Color.web("#0B0B15", 0.55));
+            g.setLineWidth(20.0);
+            g.strokeLine(x + width * 0.23, 240.0, x + width * 0.30, GROUND_Y + 50.0);
+        }
+    }
+
+    private void drawEchoCavernShell(GraphicsContext g) {
+        // The visible roof and side walls match the real collision shell.
+        g.setFill(Color.web("#151421"));
+        g.fillRect(0, 0, WORLD_WIDTH, 86.0);
+        g.setFill(Color.web("#292636"));
+        g.fillRect(0, 0, WORLD_WIDTH, 44.0);
+        g.setStroke(Color.web("#494357", 0.72));
+        g.setLineWidth(9.0);
+        g.strokeLine(0, 76.0, WORLD_WIDTH, 76.0);
+
+        renderRandom.setSeed(0xEC40_CE11L);
+        for (int i = 0; i < 30; i++) {
+            double x = 30.0 + i * 205.0 + renderRandom.nextDouble() * 54.0;
+            double length = 90.0 + renderRandom.nextDouble() * 210.0;
+            double half = 36.0 + renderRandom.nextDouble() * 34.0;
+            g.setFill(Color.web(i % 3 == 0 ? "#242235" : "#1C1B2A"));
+            g.fillPolygon(new double[]{x - half, x + half, x + (renderRandom.nextDouble() - 0.5) * 18.0},
+                    new double[]{72.0, 72.0, 72.0 + length}, 3);
+            if (i % 5 == 0) {
+                g.setStroke(Color.web("#8D78B5", 0.28));
+                g.setLineWidth(6.0);
+                g.strokeLine(x - half * 0.35, 80.0, x, 72.0 + length * 0.78);
+            }
+        }
+
+        g.setFill(Color.web("#1C1927"));
+        g.fillRect(0, GROUND_Y, WORLD_WIDTH, WORLD_HEIGHT - GROUND_Y);
+        g.setFill(Color.web("#302A3B"));
+        g.fillRect(0, GROUND_Y + 100.0, WORLD_WIDTH, WORLD_HEIGHT - GROUND_Y - 100.0);
+        g.setStroke(Color.web("#575064", 0.54));
+        g.setLineWidth(13.0);
+        for (double x = -80.0; x < WORLD_WIDTH; x += 330.0) {
+            g.strokeLine(x, GROUND_Y + 128.0, x + 220.0, GROUND_Y + 265.0);
+        }
+        g.setFill(Color.web("#454050"));
+        g.fillRect(0, GROUND_Y - 18.0, WORLD_WIDTH, 72.0);
+        g.setFill(Color.web("#756C82"));
+        g.fillRect(0, GROUND_Y - 18.0, WORLD_WIDTH, 16.0);
+
+        g.setFill(Color.web("#1A1825"));
+        g.fillPolygon(new double[]{0, 180.0, 230.0, 170.0, 0},
+                new double[]{0, 0, 620.0, GROUND_Y + 80.0, GROUND_Y + 80.0}, 5);
+        g.fillPolygon(new double[]{WORLD_WIDTH, WORLD_WIDTH - 180.0, WORLD_WIDTH - 230.0,
+                        WORLD_WIDTH - 170.0, WORLD_WIDTH},
+                new double[]{0, 0, 620.0, GROUND_Y + 80.0, GROUND_Y + 80.0}, 5);
+    }
+
+    private boolean isCaveAerialPlatform(Platform platform) {
+        return platform != null
+                && platform.y > 90.0
+                && platform.y < GROUND_Y - 55.0
+                && platform.w > 120.0
+                && platform.h < 140.0;
+    }
+
+    private void drawCaveShelfSupport(GraphicsContext g, Platform platform) {
+        double centerX = platform.x + platform.w * 0.5;
+        double underside = platform.y + platform.h;
+        if (platform.y < 820.0) {
+            double neckWidth = Math.clamp(platform.w * 0.20, 40.0, 92.0);
+            g.setFill(Color.web("#1D1C2A"));
+            g.fillPolygon(new double[]{centerX - neckWidth * 0.34, centerX + neckWidth * 0.34,
+                            centerX + neckWidth, centerX - neckWidth},
+                    new double[]{70.0, 70.0, underside + 8.0, underside + 8.0}, 4);
+            g.setStroke(Color.web("#4A4558", 0.50));
+            g.setLineWidth(8.0);
+            g.strokeLine(centerX - neckWidth * 0.16, 80.0, centerX - neckWidth * 0.48, underside);
+            return;
+        }
+
+        double[] pillarX = {520.0, 1_650.0, 2_760.0, 3_880.0, 5_060.0, 5_760.0};
+        double anchorX = pillarX[0];
+        for (double candidate : pillarX) {
+            if (Math.abs(candidate - centerX) < Math.abs(anchorX - centerX)) anchorX = candidate;
+        }
+        double innerEdge = centerX < anchorX ? platform.x + platform.w : platform.x;
+        double pillarEdge = anchorX + Math.copySign(110.0, centerX - anchorX);
+        double anchorY = Math.min(GROUND_Y - 90.0,
+                platform.y + 160.0 + Math.abs(innerEdge - pillarEdge) * 0.10);
+        double thickness = Math.clamp(platform.w * 0.11, 30.0, 74.0);
+        g.setStroke(Color.web("#11111B", 0.86));
+        g.setLineWidth(thickness + 20.0);
+        g.strokeLine(pillarEdge, anchorY, innerEdge, underside * 0.96 + platform.y * 0.04);
+        g.setStroke(Color.web("#34303F"));
+        g.setLineWidth(thickness);
+        g.strokeLine(pillarEdge, anchorY, innerEdge, underside);
+        g.setStroke(Color.web("#665F73", 0.42));
+        g.setLineWidth(Math.max(7.0, thickness * 0.18));
+        g.strokeLine(pillarEdge, anchorY - thickness * 0.12, innerEdge, underside - thickness * 0.12);
+
+        if (platform.y > GROUND_Y - 520.0) {
+            double baseHalf = Math.clamp(platform.w * 0.28, 60.0, 150.0);
+            g.setFill(Color.web("#292633"));
+            g.fillPolygon(new double[]{centerX - 25.0, centerX + 25.0,
+                            centerX + baseHalf, centerX - baseHalf},
+                    new double[]{underside, underside, GROUND_Y + 18.0, GROUND_Y + 18.0}, 4);
+        }
+    }
+
+    private void drawCaveRockShelf(GraphicsContext g, Platform platform) {
+        renderRandom.setSeed(Double.doubleToLongBits(platform.x * 29.0 + platform.y * 13.0 + platform.w * 17.0));
+        double bottom = platform.y + platform.h + 12.0;
+        double pointA = platform.x + platform.w * (0.22 + renderRandom.nextDouble() * 0.10);
+        double pointB = platform.x + platform.w * (0.70 + renderRandom.nextDouble() * 0.10);
+
+        g.setFill(Color.web("#181722"));
+        g.fillPolygon(new double[]{platform.x - 10.0, platform.x + platform.w + 10.0,
+                        platform.x + platform.w - 16.0, pointB, pointA, platform.x + 14.0},
+                new double[]{platform.y - 5.0, platform.y - 5.0, bottom,
+                        bottom + 36.0, bottom + 24.0, bottom}, 6);
+        g.setFill(Color.web("#494454"));
+        g.fillRoundRect(platform.x, platform.y, platform.w, platform.h, 18.0, 18.0);
+        g.setFill(Color.web("#625B6D", 0.80));
+        g.fillRoundRect(platform.x + 12.0, platform.y + 7.0,
+                Math.max(18.0, platform.w - 24.0), Math.max(7.0, platform.h * 0.28), 12.0, 12.0);
+
+        // A pale, level mineral seam marks the actual collision surface.
+        g.setFill(Color.web("#393748"));
+        g.fillRoundRect(platform.x - 6.0, platform.y - 11.0, platform.w + 12.0, 20.0, 18.0, 18.0);
+        g.setStroke(Color.web("#A79AB9", 0.92));
+        g.setLineWidth(5.0);
+        g.strokeLine(platform.x + 10.0, platform.y - 8.0,
+                platform.x + platform.w - 10.0, platform.y - 8.0);
+
+        int seamCount = Math.clamp((int) Math.round(platform.w / 210.0), 1, 4);
+        g.setStroke(Color.web("#24212E", 0.84));
+        g.setLineWidth(4.0);
+        for (int i = 0; i < seamCount; i++) {
+            double x = platform.x + (i + 1.0) * platform.w / (seamCount + 1.0);
+            g.strokeLine(x - 18.0, platform.y + platform.h * 0.42,
+                    x + 11.0, platform.y + platform.h + 10.0);
+        }
+
+        if (((long) Math.floor(platform.x + platform.y)) % 3L == 0L) {
+            drawCaveCrystalCluster(g, platform.x + platform.w * 0.52,
+                    platform.y - 12.0, 0.42, false);
+        }
+    }
+
+    private void drawEchoDraftShaft(GraphicsContext g, WindVent vent, double time, boolean ambientFx) {
+        double centerX = vent.x + vent.w * 0.5;
+        double pulse = ambientFx ? 0.72 + 0.28 * Math.sin(time * 2.0 + vent.x * 0.013) : 0.82;
+        double width = Math.clamp(vent.w * 0.46, 96.0, 180.0);
+        double top = vent.y - 250.0;
+        double height = 500.0;
+        g.setFill(new LinearGradient(0, 1, 0, 0, true, CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.web("#55DDE8", 0.20 * pulse)),
+                new Stop(0.48, Color.web("#55DDE8", 0.09 * pulse)),
+                new Stop(1.0, Color.TRANSPARENT)));
+        g.fillPolygon(new double[]{centerX - width * 0.36, centerX + width * 0.36,
+                        centerX + width * 0.72, centerX - width * 0.72},
+                new double[]{top, top, top + height, top + height}, 4);
+        g.setStroke(Color.web("#75E6EC", 0.30 * pulse));
+        g.setLineWidth(7.0);
+        for (int stream = -1; stream <= 1; stream++) {
+            double x = centerX + stream * width * 0.24;
+            g.strokeLine(x, top + 45.0 + Math.abs(stream) * 30.0,
+                    x + stream * 11.0, top + height - 38.0);
+        }
+        g.setFill(Color.web("#11141F", 0.92));
+        g.fillOval(centerX - width * 0.62, top + height - 48.0, width * 1.24, 74.0);
+        g.setStroke(Color.web("#55DDE8", 0.62 * pulse));
+        g.setLineWidth(8.0);
+        g.strokeArc(centerX - width * 0.52, top + height - 42.0,
+                width * 1.04, 56.0, 5.0, 170.0, ArcType.OPEN);
+    }
+
+    private void drawEchoCavernCrystalLandmarks(GraphicsContext g, double time, boolean ambientFx) {
+        double pulse = ambientFx ? 0.90 + 0.10 * Math.sin(time * 1.7) : 0.94;
+        double[] x = {430.0, 1_470.0, 2_650.0, 3_520.0, 4_720.0, 5_650.0};
+        double[] scale = {1.0, 0.72, 1.18, 0.82, 1.10, 0.78};
+        for (int i = 0; i < x.length; i++) {
+            drawCaveCrystalCluster(g, x[i], GROUND_Y - 18.0,
+                    scale[i] * pulse, i % 2 != 0);
+        }
+    }
+
+    private void drawCaveCrystalCluster(GraphicsContext g, double x, double baseY,
+                                        double scale, boolean violet) {
+        Color glow = Color.web(violet ? "#A884F4" : "#64E7EC");
+        g.setFill(glow.deriveColor(0, 1, 1, 0.10));
+        g.fillOval(x - 105.0 * scale, baseY - 150.0 * scale,
+                210.0 * scale, 180.0 * scale);
+        double[] offsets = {-52.0, -16.0, 24.0, 58.0};
+        double[] heights = {88.0, 146.0, 112.0, 70.0};
+        for (int i = 0; i < offsets.length; i++) {
+            double cx = x + offsets[i] * scale;
+            double height = heights[i] * scale;
+            double half = (14.0 + (i % 2) * 5.0) * scale;
+            g.setFill(glow.deriveColor(0, 1, 0.82 + i * 0.05, 0.82));
+            g.fillPolygon(new double[]{cx - half, cx + half, cx + half * 0.60, cx,
+                            cx - half * 0.60},
+                    new double[]{baseY, baseY, baseY - height * 0.72, baseY - height,
+                            baseY - height * 0.72}, 5);
+            g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.42));
+            g.setLineWidth(Math.max(2.0, 4.0 * scale));
+            g.strokeLine(cx - half * 0.20, baseY - height * 0.12,
+                    cx - half * 0.10, baseY - height * 0.72);
+        }
+    }
+
+    private void drawEchoCavernBats(GraphicsContext g, double time) {
+        renderRandom.setSeed(9_042L);
+        for (int i = 0; i < 24; i++) {
+            double baseX = 180.0 + renderRandom.nextDouble() * (WORLD_WIDTH - 360.0);
+            double baseY = 320.0 + renderRandom.nextDouble() * (GROUND_Y - 780.0);
+            double phase = renderRandom.nextDouble() * Math.PI * 2.0;
+            double speed = 0.42 + renderRandom.nextDouble() * 0.85;
+            double x = baseX + Math.sin(time * speed + phase) * (30.0 + renderRandom.nextDouble() * 70.0);
+            double y = baseY + Math.cos(time * speed * 1.3 + phase) * (12.0 + renderRandom.nextDouble() * 26.0);
+            double flap = 0.58 + 0.42 * Math.sin(time * speed * 6.0 + phase);
+            g.setFill(Color.web("#02040A", 0.64));
+            g.fillOval(x - 10.0, y - 5.0, 20.0, 13.0);
+            g.fillPolygon(new double[]{x - 6.0, x - 22.0 - 18.0 * flap, x - 12.0},
+                    new double[]{y, y - 9.0 * flap, y + 6.0}, 3);
+            g.fillPolygon(new double[]{x + 6.0, x + 22.0 + 18.0 * flap, x + 12.0},
+                    new double[]{y, y - 9.0 * flap, y + 6.0}, 3);
         }
     }
 
