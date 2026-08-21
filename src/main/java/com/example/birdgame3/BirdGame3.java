@@ -17641,73 +17641,248 @@ public class BirdGame3 {
     }
 
     private void drawForestArena(GraphicsContext g, boolean ambientFx) {
-        drawForestHillLayer(g, Color.web("#B7D4B0", 0.72), GROUND_Y + 220, 250, 110, 0.12, 8_101L);
-        drawForestHillLayer(g, Color.web("#7FA27B", 0.76), GROUND_Y + 310, 360, 150, 0.20, 8_102L);
-        drawForestHillLayer(g, Color.web("#4E7253", 0.88), GROUND_Y + 420, 440, 180, 0.30, 8_103L);
+        double time = ambientFx ? System.nanoTime() / 1_000_000_000.0 : 0.0;
 
-        drawForestTreeLayer(g, 0.18, GROUND_Y + 60, 420, 250, 360,
-                Color.web("#4A2E20", 0.26), Color.web("#315A38", 0.34), 8_120L);
-        drawForestTreeLayer(g, 0.30, GROUND_Y + 70, 560, 320, 300,
-                Color.web("#402318", 0.44), Color.web("#224C2D", 0.56), 8_121L);
+        // Big Forest is an ancient woodland, not a collection of green test
+        // ledges. A cool dawn behind the canopy gives fighters high contrast,
+        // while every collision platform is presented as a real living branch.
+        g.setFill(new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.web("#173B4A")),
+                new Stop(0.46, Color.web("#7FB08A")),
+                new Stop(1.0, Color.web("#D4C58A"))));
+        g.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+
+        g.setFill(Color.web("#FFF3B0", 0.16));
+        g.fillOval(2_510, 180, 980, 980);
+        g.setFill(Color.web("#FFF5C7", 0.82));
+        g.fillOval(2_850, 520, 300, 300);
+
+        drawForestHillLayer(g, Color.web("#547C65", 0.66), GROUND_Y + 230, 260, 120, 0.10, 8_101L);
+        drawForestHillLayer(g, Color.web("#315B48", 0.78), GROUND_Y + 330, 390, 170, 0.18, 8_102L);
+        drawForestHillLayer(g, Color.web("#173D34", 0.94), GROUND_Y + 450, 470, 190, 0.27, 8_103L);
+
+        drawForestTreeLayer(g, 0.16, GROUND_Y + 70, 620, 320, 330,
+                Color.web("#263E32", 0.46), Color.web("#2F6247", 0.52), 8_120L);
+        drawForestTreeLayer(g, 0.26, GROUND_Y + 100, 760, 430, 360,
+                Color.web("#233427", 0.70), Color.web("#17462F", 0.76), 8_121L);
+        drawForestDistantCanopy(g);
 
         if (ambientFx) {
             drawForestSunbeams(g);
             drawForestAmbientMotes(g);
         }
 
-        g.setFill(Color.web("#4E342E"));
+        drawForestAncientTrunks(g, time, ambientFx);
+        drawForestGround(g);
+
+        // Supports are deliberately drawn before the collision surfaces. This
+        // makes even the procedurally placed ledges terminate in a trunk or root
+        // instead of hovering independently in the scene.
+        for (Platform platform : platforms) {
+            if (isForestAerialPlatform(platform)) {
+                drawForestBranchSupport(g, platform);
+            }
+        }
+        for (Platform platform : platforms) {
+            if (isForestAerialPlatform(platform)) {
+                drawForestBranchPlatform(g, platform);
+            }
+        }
+    }
+
+    private void drawForestDistantCanopy(GraphicsContext g) {
+        renderRandom.setSeed(8_124L);
+        for (int i = 0; i < 34; i++) {
+            double x = -180.0 + i * 190.0 + renderRandom.nextDouble() * 80.0;
+            double y = 250.0 + renderRandom.nextDouble() * 420.0;
+            double width = 300.0 + renderRandom.nextDouble() * 260.0;
+            double height = 170.0 + renderRandom.nextDouble() * 130.0;
+            Color shadow = i % 3 == 0 ? Color.web("#123B2D", 0.76) : Color.web("#1C4D36", 0.66);
+            g.setFill(shadow);
+            g.fillOval(x - width * 0.50, y, width, height);
+            g.fillOval(x - width * 0.72, y + 54.0, width * 0.72, height * 0.72);
+            g.fillOval(x + width * 0.02, y + 38.0, width * 0.70, height * 0.76);
+        }
+        g.setFill(Color.web("#0D2F28", 0.80));
+        g.fillPolygon(new double[]{0, 0, 620, 1_050, 1_530, 2_030, 2_500, 3_020,
+                        3_530, 4_020, 4_520, 5_030, 5_520, WORLD_WIDTH, WORLD_WIDTH},
+                new double[]{0, 310, 410, 260, 360, 220, 340, 210,
+                        350, 230, 390, 250, 370, 290, 0}, 15);
+    }
+
+    private void drawForestAncientTrunks(GraphicsContext g, double time, boolean ambientFx) {
+        double[] treeX = {760.0, 2_080.0, 3_400.0, 4_780.0, 5_610.0};
+        for (int i = 0; i < treeX.length; i++) {
+            double sway = ambientFx ? Math.sin(time * 0.24 + i * 1.7) * 5.0 : 0.0;
+            drawForestAncientTrunk(g, treeX[i] + sway, i);
+        }
+    }
+
+    private void drawForestAncientTrunk(GraphicsContext g, double centerX, int index) {
+        double baseWidth = 330.0 + (index % 3) * 54.0;
+        double crownWidth = baseWidth * 0.54;
+        double topY = index % 2 == 0 ? 260.0 : 390.0;
+        double baseY = GROUND_Y + 235.0;
+
+        g.setFill(Color.web("#17271F", 0.34));
+        g.fillOval(centerX - baseWidth * 1.15, GROUND_Y - 80.0, baseWidth * 2.30, 250.0);
+
+        g.setFill(Color.web(index % 2 == 0 ? "#3B2C20" : "#432E20"));
+        g.fillPolygon(
+                new double[]{centerX - baseWidth * 0.50, centerX - crownWidth * 0.52,
+                        centerX + crownWidth * 0.46, centerX + baseWidth * 0.50},
+                new double[]{baseY, topY, topY - 30.0, baseY}, 4);
+        g.setFill(Color.web("#65452D", 0.72));
+        g.fillPolygon(
+                new double[]{centerX - baseWidth * 0.22, centerX - crownWidth * 0.16,
+                        centerX + crownWidth * 0.04, centerX + baseWidth * 0.12},
+                new double[]{baseY, topY + 30.0, topY, baseY}, 4);
+        g.setStroke(Color.web("#9B7145", 0.34));
+        g.setLineWidth(16.0);
+        g.strokeLine(centerX - baseWidth * 0.18, baseY - 40.0, centerX - crownWidth * 0.16, topY + 90.0);
+        g.strokeLine(centerX + baseWidth * 0.16, baseY - 90.0, centerX + crownWidth * 0.18, topY + 55.0);
+
+        // Flared roots make the foreground trees visibly continue into the
+        // soil instead of ending as thin columns on top of the floor.
+        g.setFill(Color.web("#38271E"));
+        g.fillPolygon(new double[]{centerX - baseWidth * 0.40, centerX - baseWidth * 1.18,
+                        centerX - baseWidth * 0.10, centerX},
+                new double[]{GROUND_Y - 90.0, GROUND_Y + 82.0, GROUND_Y + 110.0, GROUND_Y - 20.0}, 4);
+        g.fillPolygon(new double[]{centerX + baseWidth * 0.36, centerX + baseWidth * 1.22,
+                        centerX + baseWidth * 0.12, centerX},
+                new double[]{GROUND_Y - 82.0, GROUND_Y + 88.0, GROUND_Y + 112.0, GROUND_Y - 18.0}, 4);
+
+        double canopyY = topY - 120.0;
+        g.setFill(Color.web("#0C3024"));
+        g.fillOval(centerX - 430.0, canopyY - 160.0, 860.0, 360.0);
+        g.fillOval(centerX - 650.0, canopyY - 60.0, 520.0, 300.0);
+        g.fillOval(centerX + 120.0, canopyY - 80.0, 560.0, 320.0);
+        g.setFill(Color.web("#1F5A37", 0.88));
+        g.fillOval(centerX - 320.0, canopyY - 205.0, 520.0, 250.0);
+        g.fillOval(centerX - 520.0, canopyY - 80.0, 380.0, 220.0);
+        g.setFill(Color.web("#6F9851", 0.42));
+        g.fillOval(centerX - 210.0, canopyY - 170.0, 260.0, 100.0);
+    }
+
+    private void drawForestGround(GraphicsContext g) {
+        g.setFill(Color.web("#241D18"));
         g.fillRect(0, GROUND_Y, WORLD_WIDTH, WORLD_HEIGHT - GROUND_Y);
-        g.setFill(Color.web("#245A2B"));
-        g.fillRect(0, GROUND_Y, WORLD_WIDTH, 120);
-        g.setFill(Color.web("#4CAF50", 0.28));
+        g.setFill(Color.web("#3B2A20"));
+        g.fillRect(0, GROUND_Y + 95.0, WORLD_WIDTH, WORLD_HEIGHT - GROUND_Y - 95.0);
+
+        g.setStroke(Color.web("#6A4930", 0.72));
+        g.setLineWidth(24.0);
+        for (double x = -120.0; x < WORLD_WIDTH; x += 310.0) {
+            g.strokeLine(x, GROUND_Y + 120.0, x + 210.0, GROUND_Y + 260.0);
+        }
+
+        g.setFill(Color.web("#173E29"));
+        g.fillRect(0, GROUND_Y - 18.0, WORLD_WIDTH, 95.0);
+        g.setFill(Color.web("#2F6C36"));
+        g.fillRect(0, GROUND_Y - 22.0, WORLD_WIDTH, 34.0);
+        g.setFill(Color.web("#7CAD57"));
         renderRandom.setSeed(8_130L);
-        Random grassRandom = renderRandom;
-        for (int i = 0; i < 180; i++) {
-            double patchX = -40 + i * 34 + grassRandom.nextDouble() * 26;
-            double patchW = 70 + grassRandom.nextDouble() * 60;
-            double patchH = 20 + grassRandom.nextDouble() * 26;
-            g.fillOval(patchX, GROUND_Y - 8 - patchH * 0.25, patchW, patchH);
+        for (int i = 0; i < 150; i++) {
+            double x = renderRandom.nextDouble() * WORLD_WIDTH;
+            double width = 42.0 + renderRandom.nextDouble() * 64.0;
+            g.fillOval(x - width * 0.5, GROUND_Y - 32.0 - renderRandom.nextDouble() * 13.0,
+                    width, 28.0 + renderRandom.nextDouble() * 16.0);
         }
+        g.setStroke(Color.web("#B5D57B", 0.62));
+        g.setLineWidth(5.0);
+        for (double x = 25.0; x < WORLD_WIDTH; x += 68.0) {
+            double lean = ((int) x / 68) % 2 == 0 ? -10.0 : 12.0;
+            g.strokeLine(x, GROUND_Y - 18.0, x + lean, GROUND_Y - 55.0);
+        }
+    }
 
-        g.setFill(Color.web("#5FAE5B", 0.2));
-        for (Platform p : platforms) {
-            if (p.y < GROUND_Y - 50) {
-                g.fillRoundRect(p.x - 34, p.y - 42, p.w + 68, 92, 70, 70);
+    private boolean isForestAerialPlatform(Platform platform) {
+        return platform != null
+                && platform.y < GROUND_Y - 40.0
+                && platform.w > 120.0
+                && platform.h < 180.0;
+    }
+
+    private void drawForestBranchSupport(GraphicsContext g, Platform platform) {
+        double[] treeX = {760.0, 2_080.0, 3_400.0, 4_780.0, 5_610.0};
+        double platformCenter = platform.x + platform.w * 0.5;
+        double anchorX = treeX[0];
+        for (double candidate : treeX) {
+            if (Math.abs(candidate - platformCenter) < Math.abs(anchorX - platformCenter)) {
+                anchorX = candidate;
             }
         }
 
-        g.setStroke(Color.web("#4E342E", 0.42));
-        g.setLineWidth(2.5);
-        for (Platform p : platforms) {
-            if (p.y >= GROUND_Y - 40) {
-                continue;
-            }
-            renderRandom.setSeed(Double.doubleToLongBits(p.x * 31.0 + p.y * 17.0 + p.w * 13.0));
-            Random rootRandom = renderRandom;
-            int rootCount = Math.clamp((int) Math.round(p.w / 170.0), 1, 4);
-            for (int i = 0; i < rootCount; i++) {
-                double startX = p.x + 30 + rootRandom.nextDouble() * Math.max(30, p.w - 60);
-                double length = 28 + rootRandom.nextDouble() * 34;
-                double drift = (rootRandom.nextDouble() - 0.5) * 18;
-                g.strokeLine(startX, p.y + p.h, startX + drift, p.y + p.h + length);
-            }
+        double innerEdge = platformCenter < anchorX ? platform.x + platform.w : platform.x;
+        double trunkEdge = anchorX + Math.copySign(120.0, platformCenter - anchorX);
+        double attachY = platform.y + platform.h * 0.58;
+        double rootY = Math.min(GROUND_Y - 55.0, platform.y + 150.0 + Math.abs(innerEdge - trunkEdge) * 0.12);
+        double thickness = Math.clamp(platform.w * 0.10, 24.0, 54.0);
+
+        g.setStroke(Color.web("#201A15", 0.82));
+        g.setLineWidth(thickness + 16.0);
+        g.strokeLine(trunkEdge, rootY, innerEdge, attachY);
+        g.setStroke(Color.web("#513724"));
+        g.setLineWidth(thickness);
+        g.strokeLine(trunkEdge, rootY, innerEdge, attachY);
+        g.setStroke(Color.web("#8A6040", 0.46));
+        g.setLineWidth(Math.max(7.0, thickness * 0.22));
+        g.strokeLine(trunkEdge, rootY - thickness * 0.12, innerEdge, attachY - thickness * 0.12);
+
+        // Very low ledges also receive a root into the forest floor, ensuring
+        // their silhouette still makes structural sense when the trunk is far.
+        if (platform.y > GROUND_Y - 420.0) {
+            double rootX = platform.x + platform.w * 0.5;
+            g.setStroke(Color.web("#38281E"));
+            g.setLineWidth(Math.clamp(platform.w * 0.08, 22.0, 48.0));
+            g.strokeLine(rootX, platform.y + platform.h, rootX + (anchorX - rootX) * 0.28, GROUND_Y + 18.0);
+        }
+    }
+
+    private void drawForestBranchPlatform(GraphicsContext g, Platform platform) {
+        double barkRadius = Math.min(34.0, platform.h * 0.72);
+        g.setFill(Color.web("#241A15"));
+        g.fillRoundRect(platform.x - 9.0, platform.y - 4.0,
+                platform.w + 18.0, platform.h + 20.0, barkRadius + 10.0, barkRadius + 10.0);
+        g.setFill(Color.web("#60402A"));
+        g.fillRoundRect(platform.x, platform.y, platform.w, platform.h,
+                barkRadius, barkRadius);
+        g.setFill(Color.web("#7B5434", 0.72));
+        g.fillRoundRect(platform.x + 14.0, platform.y + 8.0,
+                Math.max(20.0, platform.w - 28.0), Math.max(8.0, platform.h * 0.28), 18.0, 18.0);
+
+        renderRandom.setSeed(Double.doubleToLongBits(platform.x * 31.0 + platform.y * 17.0 + platform.w * 13.0));
+        int knotCount = Math.clamp((int) Math.round(platform.w / 230.0), 1, 3);
+        for (int i = 0; i < knotCount; i++) {
+            double knotX = platform.x + 46.0 + renderRandom.nextDouble() * Math.max(12.0, platform.w - 92.0);
+            double knotY = platform.y + platform.h * (0.48 + renderRandom.nextDouble() * 0.24);
+            g.setFill(Color.web("#2A1D17", 0.82));
+            g.fillOval(knotX - 13.0, knotY - 8.0, 26.0, 16.0);
+            g.setStroke(Color.web("#A4774D", 0.42));
+            g.setLineWidth(3.0);
+            g.strokeOval(knotX - 19.0, knotY - 12.0, 38.0, 24.0);
         }
 
-        g.setFill(Color.web("#5D4037"));
-        g.setStroke(Color.web("#8D6E63"));
-        g.setLineWidth(3);
-        for (Platform p : platforms) {
-            g.fillRoundRect(p.x, p.y, p.w, p.h, 18, 18);
-            g.strokeRoundRect(p.x, p.y, p.w, p.h, 18, 18);
+        // The bright, perfectly level moss line marks the real collision top.
+        g.setFill(Color.web("#173E29"));
+        g.fillRoundRect(platform.x - 7.0, platform.y - 13.0,
+                platform.w + 14.0, 24.0, 22.0, 22.0);
+        g.setFill(Color.web("#4F8B45"));
+        g.fillRoundRect(platform.x - 3.0, platform.y - 16.0,
+                platform.w + 6.0, 15.0, 16.0, 16.0);
+        g.setStroke(Color.web("#A8D06D", 0.82));
+        g.setLineWidth(4.0);
+        g.strokeLine(platform.x + 12.0, platform.y - 13.0,
+                platform.x + platform.w - 12.0, platform.y - 13.0);
 
-            g.setFill(Color.web("#2E7D32"));
-            g.fillRoundRect(p.x - 6, p.y - 16, p.w + 12, 24, 24, 24);
-            g.setFill(Color.web("#81C784", 0.88));
-            g.fillOval(p.x + 12, p.y - 14, 46, 18);
-            g.fillOval(p.x + p.w * 0.33, p.y - 16, 54, 20);
-            g.fillOval(p.x + p.w * 0.62, p.y - 14, 52, 18);
-            g.fillOval(p.x + p.w - 56, p.y - 12, 44, 16);
-            g.setFill(Color.web("#5D4037"));
+        int hangingRoots = Math.clamp((int) Math.round(platform.w / 180.0), 1, 4);
+        g.setStroke(Color.web("#315533", 0.78));
+        g.setLineWidth(5.0);
+        for (int i = 0; i < hangingRoots; i++) {
+            double rootX = platform.x + (i + 1.0) * platform.w / (hangingRoots + 1.0);
+            double length = 34.0 + renderRandom.nextDouble() * 54.0;
+            double drift = (renderRandom.nextDouble() - 0.5) * 24.0;
+            g.strokeLine(rootX, platform.y + platform.h, rootX + drift, platform.y + platform.h + length);
         }
     }
 
