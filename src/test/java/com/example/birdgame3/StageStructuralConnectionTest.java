@@ -102,6 +102,60 @@ class StageStructuralConnectionTest {
     }
 
     @Test
+    void desertWatchtowerRoofsHaveGroundedFoundationsAndCliffLedgesStayInTheMesa() throws Exception {
+        BirdGame3 game = prepare(BirdGame3.MapType.DESERT, BirdGame3.MapVariant.STANDARD);
+        List<Platform> freestandingRoofs = game.platforms.stream()
+                .filter(platform -> platform.y < BirdGame3.GROUND_Y - 40.0)
+                .filter(platform -> platform.x < 4_640.0)
+                .filter(platform -> platform.x >= 0.0 && platform.h < 100.0)
+                .toList();
+
+        assertEquals(3, freestandingRoofs.size(), "Desert grounded waystation roof count");
+        for (Platform roof : freestandingRoofs) {
+            assertTrue(roof.x >= 1_500.0 && roof.x + roof.w <= 4_100.0,
+                    () -> "Desert waystation roof escaped the grounded caravan route at ("
+                            + roof.x + ", " + roof.y + ")");
+            assertTrue(roof.w >= 150.0 && roof.w <= 200.0,
+                    "the shared watchtower renderer must be able to reach both roof edges");
+        }
+
+        long cliffLedges = game.platforms.stream()
+                .filter(platform -> platform.x >= 4_640.0)
+                .filter(platform -> platform.y < BirdGame3.GROUND_Y - 40.0)
+                .count();
+        assertTrue(cliffLedges >= 7,
+                "the stepped mesa must retain its integrated climb and recovery ledges");
+    }
+
+    @Test
+    void redlineSwitchbacksAndBattlefieldPerchesRemainInsideTheirPaintedFoundations() throws Exception {
+        BirdGame3 redline = prepare(BirdGame3.MapType.DESERT, BirdGame3.MapVariant.REDLINE_CANYON);
+        Platform road = redline.platforms.stream()
+                .filter(platform -> platform.w >= 3_000.0)
+                .findFirst()
+                .orElseThrow();
+        assertTrue(road.w >= 5_500.0, "Redline must retain one finishable continuous road");
+        for (Platform ledge : redline.platforms) {
+            if (ledge == road) continue;
+            assertTrue(ledge.x >= road.x && ledge.x + ledge.w <= road.x + road.w,
+                    () -> "Redline switchback escaped the canyon viaduct foundation at ("
+                            + ledge.x + ", " + ledge.y + ")");
+            assertTrue(ledge.y + ledge.h < road.y,
+                    "upper route ledges must remain visibly separated from the road deck");
+        }
+
+        BirdGame3 battlefield = prepare(BirdGame3.MapType.BATTLEFIELD, BirdGame3.MapVariant.STANDARD);
+        Platform island = battlefield.platforms.get(0);
+        assertEquals(4, battlefield.platforms.size(), "Battlefield authored surface count");
+        for (int i = 1; i < battlefield.platforms.size(); i++) {
+            Platform perch = battlefield.platforms.get(i);
+            assertTrue(perch.x >= island.x && perch.x + perch.w <= island.x + island.w,
+                    () -> "Battlefield perch cannot be joined to its citadel at ("
+                            + perch.x + ", " + perch.y + ")");
+        }
+    }
+
+    @Test
     void rooftopRelayOverhangsTerminateOnPaintedFacadeInsteadOfHiddenRoofEdge() throws Exception {
         BirdGame3 game = prepare(BirdGame3.MapType.CITY, BirdGame3.MapVariant.ROOFTOP_RELAY);
         CityBuildingGeometry.Layout layout = CityBuildingGeometry.createRooftopRelay(

@@ -21080,6 +21080,8 @@ public class BirdGame3 {
             }
         }
 
+        drawBattlefieldCitadelSupports(g);
+
         for (Platform p : platforms) {
             drawPremiumBattlefieldPlatform(g, p);
         }
@@ -21105,6 +21107,96 @@ public class BirdGame3 {
         xs[segments + 1] = startX + segments * segmentWidth;
         ys[segments + 1] = baseY + 360.0;
         g.fillPolygon(xs, ys, xs.length);
+    }
+
+    /**
+     * Grounds Battlefield's three upper perches in one readable ruin.  These
+     * supports are deliberately painted behind the collision platforms: the
+     * platform tops remain the only solid surfaces, while the architecture
+     * makes their placement believable at both gameplay and thumbnail scale.
+     */
+    private void drawBattlefieldCitadelSupports(GraphicsContext g) {
+        if (platforms.size() < 4 || battlefieldIslandW <= 0.0) return;
+
+        Platform main = platforms.get(0);
+        Platform left = platforms.get(1);
+        Platform right = platforms.get(2);
+        Platform crown = platforms.get(3);
+        double centerX = main.x + main.w * 0.5;
+        double foundationY = main.y + 22.0;
+
+        // A broad, broken temple silhouette keeps the compact combat island
+        // from disappearing against the six-thousand-unit world preview.
+        g.setFill(Color.web("#1A3039", 0.92));
+        g.fillPolygon(
+                new double[]{main.x - 330.0, main.x - 120.0, main.x + main.w + 120.0,
+                        main.x + main.w + 330.0, main.x + main.w + 190.0, main.x - 190.0},
+                new double[]{foundationY + 250.0, foundationY - 10.0, foundationY - 10.0,
+                        foundationY + 250.0, foundationY + 430.0, foundationY + 430.0}, 6);
+        g.setStroke(Color.web("#D0B86F", 0.40));
+        g.setLineWidth(8.0);
+        g.strokeLine(main.x - 112.0, foundationY + 4.0,
+                main.x + main.w + 112.0, foundationY + 4.0);
+
+        drawBattlefieldPerchTower(g, left, foundationY, false);
+        drawBattlefieldPerchTower(g, right, foundationY, true);
+
+        // The summit perch is the lintel of a large open arch.  Keeping the
+        // centre hollow preserves fighter readability and avoids implying an
+        // invisible wall beneath the platform.
+        double crownLeft = crown.x + 48.0;
+        double crownRight = crown.x + crown.w - 48.0;
+        g.setFill(Color.web("#203A42", 0.96));
+        g.fillPolygon(
+                new double[]{crownLeft, crownLeft + 70.0, crownLeft + 94.0, crownLeft + 28.0},
+                new double[]{crown.y + crown.h, crown.y + crown.h, foundationY, foundationY}, 4);
+        g.fillPolygon(
+                new double[]{crownRight - 70.0, crownRight, crownRight - 28.0, crownRight - 94.0},
+                new double[]{crown.y + crown.h, crown.y + crown.h, foundationY, foundationY}, 4);
+        g.setStroke(Color.web("#78948D", 0.38));
+        g.setLineWidth(5.0);
+        g.strokeArc(centerX - 265.0, crown.y + 88.0, 530.0,
+                Math.max(220.0, foundationY - crown.y - 70.0), 0.0, 180.0, ArcType.OPEN);
+
+        // Three open doorways and a central standard turn the island into a
+        // recognisable ancient arena without adding misleading collision art.
+        g.setStroke(Color.web("#A9C1AC", 0.30));
+        g.setLineWidth(10.0);
+        for (double x : new double[]{main.x + 235.0, centerX, main.x + main.w - 235.0}) {
+            g.strokeArc(x - 72.0, foundationY + 88.0, 144.0, 210.0,
+                    0.0, 180.0, ArcType.OPEN);
+            g.strokeLine(x - 72.0, foundationY + 193.0, x - 72.0, foundationY + 300.0);
+            g.strokeLine(x + 72.0, foundationY + 193.0, x + 72.0, foundationY + 300.0);
+        }
+        g.setStroke(Color.web("#D7BE6E", 0.64));
+        g.setLineWidth(7.0);
+        g.strokeLine(centerX, crown.y - 105.0, centerX, crown.y + 8.0);
+        g.setFill(Color.web("#D7BE6E", 0.54));
+        g.fillPolygon(new double[]{centerX, centerX + 112.0, centerX},
+                new double[]{crown.y - 96.0, crown.y - 58.0, crown.y - 20.0}, 3);
+    }
+
+    private void drawBattlefieldPerchTower(GraphicsContext g, Platform platform,
+                                           double foundationY, boolean mirrored) {
+        double centerX = platform.x + platform.w * 0.5;
+        double towerTop = platform.y + platform.h;
+        double shoulder = platform.w * 0.34;
+        g.setFill(Color.web("#203A42", 0.94));
+        g.fillPolygon(
+                new double[]{centerX - shoulder, centerX + shoulder,
+                        centerX + shoulder + 54.0, centerX - shoulder - 54.0},
+                new double[]{towerTop, towerTop, foundationY, foundationY}, 4);
+        g.setFill(Color.web("#35535A", 0.56));
+        double slitX = centerX + (mirrored ? 34.0 : -46.0);
+        for (double y = towerTop + 82.0; y < foundationY - 46.0; y += 118.0) {
+            g.fillRoundRect(slitX, y, 18.0, 54.0, 9.0, 9.0);
+        }
+        g.setStroke(Color.web("#D0B86F", 0.30));
+        g.setLineWidth(5.0);
+        g.strokeLine(centerX - shoulder, towerTop + 22.0,
+                centerX - shoulder - 44.0, foundationY - 18.0);
+        g.strokeLine(centerX + shoulder, towerTop + 22.0,
+                centerX + shoulder + 44.0, foundationY - 18.0);
     }
 
     private void drawPremiumBattlefieldPlatform(GraphicsContext g, Platform p) {
@@ -21683,7 +21775,9 @@ public class BirdGame3 {
     private void drawDesertArena(GraphicsContext g, boolean ambientFx) {
         for (int i = 0; i < 620; i++) {
             double ratio = i / 620.0;
-            Color c = Color.web("#F7B267").interpolate(Color.web("#FDE7B2"), ratio);
+            Color c = ratio < 0.52
+                    ? Color.web("#6B4055").interpolate(Color.web("#E78A59"), ratio / 0.52)
+                    : Color.web("#E78A59").interpolate(Color.web("#F8D99A"), (ratio - 0.52) / 0.48);
             g.setFill(c);
             g.fillRect(0, i * (WORLD_HEIGHT / 620.0), WORLD_WIDTH, WORLD_HEIGHT / 620.0 + 3);
         }
@@ -21692,10 +21786,10 @@ public class BirdGame3 {
         double horizonY = GROUND_Y - 250;
         double waterline = dockWaterSurfaceY();
 
-        g.setFill(Color.web("#FFD180", 0.52));
-        g.fillOval(420, 110, 500, 500);
-        g.setFill(Color.web("#FFF8E1", 0.22));
-        g.fillOval(560, 245, 220, 220);
+        g.setFill(Color.web("#FFD180", 0.20));
+        g.fillOval(250, 35, 770, 770);
+        g.setFill(Color.web("#FFF0B4", 0.80));
+        g.fillOval(470, 255, 330, 330);
 
         g.setFill(Color.web("#D8A45B", 0.46));
         for (int i = 0; i < 6; i++) {
@@ -21719,6 +21813,8 @@ public class BirdGame3 {
                 new double[]{horizonY + 82, horizonY - 38, horizonY - 116, horizonY - 100, horizonY + 18, horizonY + 114, horizonY + 144},
                 7
         );
+
+        drawDesertDistantCaravanCity(g, horizonY);
 
         if (ambientFx) {
             g.setStroke(Color.web("#FFF8E1", 0.16));
@@ -21894,6 +21990,15 @@ public class BirdGame3 {
             g.strokeLine(topX, topY, WORLD_WIDTH, topY);
         }
 
+        // Every freestanding gameplay ledge is the roof of a grounded adobe
+        // watchtower.  Drawing this before the collision cap lets the cap and
+        // tower read as one object while leaving the open arch non-solid.
+        for (Platform p : platforms) {
+            if (p.y >= GROUND_Y - 40.0 || isDesertCliffPlatform(p)
+                    || p.x < 0.0 || p.x + p.w > WORLD_WIDTH) continue;
+            drawDesertWaystation(g, p);
+        }
+
         for (Platform p : platforms) {
             if (p.y >= GROUND_Y - 6 || p.x < -50 || p.x > WORLD_WIDTH - 50) {
                 continue;
@@ -21909,14 +22014,70 @@ public class BirdGame3 {
             g.setStroke(Color.web("#5D4037"));
             g.setLineWidth(3.2);
             g.strokeRoundRect(p.x, p.y, p.w, p.h, 24, 24);
-            if (plateau && !cliffPlatform) {
-                g.setStroke(Color.web("#6D4C41", 0.72));
-                g.setLineWidth(7);
-                for (double supportX = p.x + 44; supportX < p.x + p.w - 18; supportX += 120) {
-                    g.strokeLine(supportX, p.y + p.h, supportX, GROUND_Y + 8);
-                }
-            }
         }
+    }
+
+    private void drawDesertDistantCaravanCity(GraphicsContext g, double horizonY) {
+        // A half-buried caravan city fills the old empty centre without
+        // pretending to be collision geometry.  Its bases all disappear into
+        // the same dune shelf, so no tower can read as floating.
+        double cityFloor = horizonY + 205.0;
+        g.setFill(Color.web("#75483D", 0.30));
+        double[][] towers = {
+                {1_420, 390, 250}, {1_850, 510, 330}, {2_360, 355, 220},
+                {2_780, 650, 410}, {3_400, 445, 285}, {3_900, 570, 355}
+        };
+        for (double[] tower : towers) {
+            double x = tower[0];
+            double w = tower[1];
+            double h = tower[2];
+            double top = cityFloor - h;
+            g.fillPolygon(new double[]{x, x + w * 0.5, x + w, x + w, x},
+                    new double[]{top + 72.0, top, top + 72.0, cityFloor, cityFloor}, 5);
+            g.setFill(Color.web("#F1B86F", 0.16));
+            for (double windowX = x + 62.0; windowX < x + w - 35.0; windowX += 90.0) {
+                g.fillRoundRect(windowX, top + 110.0, 24.0, 54.0, 12.0, 12.0);
+            }
+            g.setFill(Color.web("#75483D", 0.30));
+        }
+
+        g.setStroke(Color.web("#6A4038", 0.36));
+        g.setLineWidth(34.0);
+        g.strokeArc(2_070.0, cityFloor - 520.0, 1_760.0, 840.0,
+                12.0, 156.0, ArcType.OPEN);
+        g.setStroke(Color.web("#E8B36B", 0.15));
+        g.setLineWidth(8.0);
+        g.strokeArc(2_115.0, cityFloor - 475.0, 1_670.0, 750.0,
+                12.0, 156.0, ArcType.OPEN);
+    }
+
+    private void drawDesertWaystation(GraphicsContext g, Platform platform) {
+        double top = platform.y + platform.h - 3.0;
+        double bottom = GROUND_Y + 12.0;
+        double inset = Math.min(30.0, platform.w * 0.16);
+        double left = platform.x + inset;
+        double right = platform.x + platform.w - inset;
+        double centre = (left + right) * 0.5;
+
+        g.setFill(Color.web("#865637"));
+        g.fillPolygon(new double[]{left, right, right + 18.0, left - 18.0},
+                new double[]{top, top, bottom, bottom}, 4);
+        g.setFill(Color.web("#B97B48", 0.72));
+        g.fillRect(left + 10.0, top + 22.0, Math.max(18.0, right - left - 20.0),
+                Math.max(12.0, bottom - top - 22.0));
+
+        double openingW = Math.max(34.0, (right - left) * 0.48);
+        double openingH = Math.min(150.0, Math.max(72.0, bottom - top - 42.0));
+        g.setFill(Color.web("#3E2B31", 0.74));
+        g.fillArc(centre - openingW * 0.5, bottom - openingH,
+                openingW, openingH * 0.72, 0.0, 180.0, ArcType.CHORD);
+        g.fillRect(centre - openingW * 0.5, bottom - openingH * 0.64,
+                openingW, openingH * 0.64);
+
+        g.setStroke(Color.web("#E6B568", 0.66));
+        g.setLineWidth(5.0);
+        g.strokeLine(left - 12.0, top + 20.0, right + 12.0, top + 20.0);
+        g.strokeLine(left - 18.0, bottom, right + 18.0, bottom);
     }
 
     private boolean isDesertCliffPlatform(Platform p) {
@@ -56225,22 +56386,13 @@ public class BirdGame3 {
 
         if (stillKingArena) {
             drawStillKingArenaFoundation(g);
+        } else {
+            drawRedlineRoadFoundation(g);
         }
 
-        // The race course uses bridge supports. The boss arena instead sits on
-        // one broad temple foundation so fighters are never hidden by poles.
+        // The race course is carried by the canyon viaduct painted above. The
+        // boss arena instead sits on one broad temple foundation.
         for (Platform p : platforms) {
-            double supportY = p.y + p.h;
-            if (!stillKingArena) {
-                g.setFill(Color.web("#6E382F"));
-            }
-            if (!stillKingArena && p.w >= 600) {
-                int supports = Math.max(2, (int) Math.floor(p.w / 520));
-                for (int i = 0; i <= supports; i++) {
-                    double sx = p.x + 55 + i * Math.max(1.0, (p.w - 110) / supports);
-                    g.fillRect(sx - 24, supportY, 48, Math.max(0, GROUND_Y + 300 - supportY));
-                }
-            }
             g.setFill(Color.web(stillKingArena ? "#241B27" : "#3A3335"));
             g.fillRoundRect(p.x, p.y, p.w, p.h, 24, 24);
             g.setFill(Color.web(stillKingArena ? "#C79035" : "#D95B36"));
@@ -56272,6 +56424,102 @@ public class BirdGame3 {
                         vent.y - 100 - ring * 68, w, 42 + ring * 12);
             }
         }
+    }
+
+    private void drawRedlineRoadFoundation(GraphicsContext g) {
+        Platform road = platforms.stream()
+                .filter(platform -> platform.w >= 3_000.0)
+                .findFirst()
+                .orElse(null);
+        if (road == null) return;
+
+        double canyonFloor = GROUND_Y + 330.0;
+
+        // The long playable road is a real iron viaduct, not a flat line with
+        // unrelated poles.  Alternating stone piers and a continuous truss
+        // make its collider unmistakable from one end of the course to the other.
+        g.setFill(Color.web("#502B31"));
+        g.fillRect(road.x - 55.0, road.y + road.h - 4.0,
+                road.w + 110.0, 94.0);
+        g.setStroke(Color.web("#D06B45", 0.72));
+        g.setLineWidth(10.0);
+        double trussTop = road.y + road.h + 12.0;
+        double trussBottom = trussTop + 76.0;
+        g.strokeLine(road.x - 30.0, trussTop, road.x + road.w + 30.0, trussTop);
+        g.strokeLine(road.x - 30.0, trussBottom, road.x + road.w + 30.0, trussBottom);
+        for (double x = road.x; x < road.x + road.w; x += 260.0) {
+            g.strokeLine(x, trussTop, Math.min(x + 260.0, road.x + road.w), trussBottom);
+            g.strokeLine(x, trussBottom, Math.min(x + 260.0, road.x + road.w), trussTop);
+        }
+
+        for (double x = road.x + 370.0; x < road.x + road.w - 250.0; x += 720.0) {
+            g.setFill(Color.web("#713A35"));
+            g.fillPolygon(
+                    new double[]{x - 78.0, x + 78.0, x + 138.0, x - 138.0},
+                    new double[]{trussBottom, trussBottom, canyonFloor, canyonFloor}, 4);
+            g.setFill(Color.web("#9B5140", 0.62));
+            g.fillPolygon(
+                    new double[]{x - 42.0, x + 16.0, x + 52.0, x - 74.0},
+                    new double[]{trussBottom + 28.0, trussBottom + 28.0,
+                            canyonFloor - 24.0, canyonFloor - 24.0}, 4);
+            g.setStroke(Color.web("#E18A57", 0.46));
+            g.setLineWidth(7.0);
+            g.strokeLine(x - 78.0, trussBottom + 18.0, x - 128.0, canyonFloor - 8.0);
+            g.strokeLine(x + 78.0, trussBottom + 18.0, x + 128.0, canyonFloor - 8.0);
+        }
+
+        int ledgeIndex = 0;
+        for (Platform ledge : platforms) {
+            if (ledge == road) continue;
+            double top = ledge.y + ledge.h - 2.0;
+            double centre = ledge.x + ledge.w * 0.5;
+            double shoulder = Math.max(90.0, ledge.w * 0.39);
+            double foot = Math.max(74.0, ledge.w * 0.24);
+            Color rock = Color.web((ledgeIndex++ & 1) == 0 ? "#7D3F39" : "#66323A");
+            g.setFill(rock);
+            g.fillPolygon(
+                    new double[]{centre - shoulder, centre + shoulder,
+                            centre + foot, centre + foot * 0.70,
+                            centre - foot * 0.82, centre - foot},
+                    new double[]{top, top, canyonFloor,
+                            canyonFloor + 65.0, canyonFloor + 65.0, canyonFloor}, 6);
+            g.setStroke(Color.web("#D47B4E", 0.42));
+            g.setLineWidth(7.0);
+            g.strokeLine(centre - shoulder + 34.0, top + 26.0,
+                    centre - foot + 14.0, canyonFloor - 8.0);
+            g.strokeLine(centre + shoulder - 34.0, top + 26.0,
+                    centre + foot - 14.0, canyonFloor - 8.0);
+
+            // Eroded windows keep the pillars reading as natural mesas with
+            // old route markers, not as solid collision walls.
+            g.setFill(Color.web("#321E2B", 0.55));
+            for (double y = top + 110.0; y < canyonFloor - 80.0; y += 180.0) {
+                g.fillOval(centre - 30.0, y, 60.0, 96.0);
+            }
+        }
+
+        drawRedlineTunnelPortal(g, road.x - 30.0, road.y, false);
+        drawRedlineTunnelPortal(g, road.x + road.w + 30.0, road.y, true);
+    }
+
+    private void drawRedlineTunnelPortal(GraphicsContext g, double edgeX,
+                                         double roadY, boolean mirrored) {
+        double direction = mirrored ? -1.0 : 1.0;
+        g.setFill(Color.web("#5D3035"));
+        g.fillPolygon(
+                new double[]{edgeX, edgeX + direction * 310.0,
+                        edgeX + direction * 420.0, edgeX},
+                new double[]{roadY + 82.0, roadY + 82.0,
+                        roadY - 310.0, roadY - 310.0}, 4);
+        g.setFill(Color.web("#1E1724", 0.92));
+        double portalX = mirrored ? edgeX - 265.0 : edgeX + 45.0;
+        g.fillArc(portalX, roadY - 210.0, 220.0, 260.0,
+                0.0, 180.0, ArcType.CHORD);
+        g.fillRect(portalX, roadY - 80.0, 220.0, 162.0);
+        g.setStroke(Color.web("#F4A45E", 0.64));
+        g.setLineWidth(10.0);
+        g.strokeArc(portalX, roadY - 210.0, 220.0, 260.0,
+                0.0, 180.0, ArcType.OPEN);
     }
 
     private void drawStillKingSundialBackdrop(GraphicsContext g) {
