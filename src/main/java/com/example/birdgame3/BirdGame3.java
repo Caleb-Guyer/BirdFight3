@@ -5490,7 +5490,9 @@ public class BirdGame3 {
         TITMOUSE_MEMORY_CACHE,
         TITMOUSE_OLD_OWL_BOSS,
         HOARDMASTER_BOSS,
-        PELICAN_BOARDING_GAUNTLET
+        PELICAN_BOARDING_GAUNTLET,
+        RAVEN_FORETOLD_FATES,
+        RAVEN_LAST_DAWN_BOSS
     }
 
     static final class ClassicRiftAnchor {
@@ -45305,6 +45307,9 @@ public class BirdGame3 {
         if (useAuthoredRoutes && playerType == BirdType.PELICAN) {
             return buildPelicanClassicRun();
         }
+        if (useAuthoredRoutes && playerType == BirdType.RAVEN) {
+            return buildRavenClassicRun();
+        }
         List<ClassicEncounter> run = new ArrayList<>();
         Set<MapType> usedMaps = new HashSet<>();
         Set<BirdType> usedBirds = new HashSet<>();
@@ -47736,6 +47741,100 @@ public class BirdGame3 {
         return run;
     }
 
+    private List<ClassicEncounter> buildRavenClassicRun() {
+        List<ClassicEncounter> run = new ArrayList<>();
+
+        ClassicEncounter omen = new ClassicEncounter(
+                "The First Omen", "Stillwater Marsh",
+                "Hummingbird calls the shadow over the marsh a coincidence. Raven intends to prove that every warning has a source.",
+                MapType.FOREST, MapVariant.STILLWATER_MARSH, MatchMutator.NONE,
+                ClassicTwist.MARSH_HUNT, ClassicEncounterStyle.STANDARD, 105 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{
+                classicFighter(BirdType.HUMMINGBIRD, "Witness: Hummingbird", 86, 0.78, 1.08)}, false);
+        omen.cpuLevel = 3;
+        run.add(omen);
+
+        ClassicEncounter murder = new ClassicEncounter(
+                "A Murder of Two", "Carrion Exchange",
+                "Vulture recognizes the pattern. Fight beside him against the two skyward enforcers sent to silence it.",
+                MapType.CARRION_EXCHANGE, MapVariant.STANDARD, MatchMutator.NONE,
+                ClassicTwist.FINAL_ACCOUNT, ClassicEncounterStyle.STANDARD, 125 * 60,
+                new ClassicFighter[]{classicFighter(BirdType.VULTURE, "Ally: Keeper of Accounts", 96, 0.74, 0.98)},
+                new ClassicFighter[]{
+                        classicFighter(BirdType.EAGLE, "Enforcer: Eagle", 82, 0.68, 1.00),
+                        classicFighter(BirdType.FALCON, "Enforcer: Falcon", 78, 0.66, 1.04)}, false);
+        murder.cpuLevel = 4;
+        run.add(murder);
+
+        ClassicEncounter foretold = new ClassicEncounter(
+                "Three Bad Endings", "Parliament Towers",
+                "Three condemned messengers begin at the brink of launch. Read their escapes and make Raven's prediction come true.",
+                MapType.CITY, MapVariant.PARLIAMENT_ROOFTOPS, MatchMutator.NONE,
+                ClassicTwist.AFTERMATH, ClassicEncounterStyle.RAVEN_FORETOLD_FATES, 115 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{
+                        classicFighter(BirdType.PIGEON, "Foretold: Pigeon", 72, 0.58, 1.00),
+                        classicFighter(BirdType.ROADRUNNER, "Foretold: Roadrunner", 70, 0.56, 1.04),
+                        classicFighter(BirdType.TITMOUSE, "Foretold: Titmouse", 68, 0.54, 1.06)}, false);
+        foretold.cpuLevel = 5;
+        run.add(foretold);
+
+        ClassicEncounter oracle = new ClassicEncounter(
+                "The Oracle Blinks", "Oneiric Observatory",
+                "A giant Opium Bird sells twelve incompatible futures. Break the dream before one of them becomes law.",
+                MapType.ONEIRIC_OBSERVATORY, MapVariant.STANDARD, MatchMutator.NONE,
+                ClassicTwist.FORECAST_SHADOWS, ClassicEncounterStyle.GIANT, 130 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{
+                classicFighter(BirdType.OPIUMBIRD, "Giant: False Oracle", 98, 0.58, 0.88)}, true);
+        oracle.cpuLevel = 5;
+        run.add(oracle);
+
+        ClassicEncounter futures = new ClassicEncounter(
+                "Bonus: Break the Futures", "Skybreak Spires",
+                "Destroy three false-future markers across the ascent. Every target is reachable with Raven's ordinary movement.",
+                MapType.SKYCLIFFS, MapVariant.SKYBREAK_SPIRES, MatchMutator.NONE,
+                ClassicTwist.STORM_LIFTS, ClassicEncounterStyle.BONUS_RELAY, 84 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{
+                classicFighter(BirdType.TITMOUSE, "False Future I", 34, 0.05, 0.05),
+                classicFighter(BirdType.TITMOUSE, "False Future II", 34, 0.05, 0.05),
+                classicFighter(BirdType.TITMOUSE, "False Future III", 34, 0.05, 0.05)}, false);
+        futures.cpuLevel = 1;
+        run.add(futures);
+
+        ClassicEncounter historians = new ClassicEncounter(
+                "History Is Written", "The Prison",
+                "Charles records what happened; Heisenbird manufactures what did not. Silence both authors before their version closes the gates.",
+                MapType.PRISON, MapVariant.STANDARD, MatchMutator.NONE,
+                ClassicTwist.AUDITION_ORDER, ClassicEncounterStyle.STANDARD, 128 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{
+                classicFighter(BirdType.MOCKINGBIRD, "Historian: Charles", 76, 0.82, 1.00),
+                classicFighter(BirdType.HEISENBIRD, "Revisionist: Heisenbird", 80, 0.84, 0.98)}, false);
+        historians.cpuLevel = 6;
+        run.add(historians);
+
+        ClassicEncounter mirror = new ClassicEncounter(
+                "The Unwritten Raven", "Echo Cavern",
+                "A Void Herald claims every choice was decided before Raven arrived. Defeat the reflection without borrowing a new power.",
+                MapType.CAVE, MapVariant.STANDARD, MatchMutator.NONE,
+                ClassicTwist.RAGE_RITUAL, ClassicEncounterStyle.STANDARD, 135 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{
+                classicFighter(BirdType.RAVEN, "Elite: The Unwritten Raven", 176, 1.04, 1.00,
+                        VOID_HERALD_RAVEN_SKIN)}, true);
+        mirror.cpuLevel = 7;
+        run.add(mirror);
+
+        ClassicEncounter lastDawn = new ClassicEncounter(
+                "No Dawn Promised", "Rebirth Altar",
+                "The Last Dawn would burn every uncertain future until only one spotless morning remains. Break all three lives and leave choice in the sky.",
+                MapType.ASHFALL_CATHEDRAL, MapVariant.ASHFALL_REBIRTH, MatchMutator.NONE,
+                ClassicTwist.LAST_SUN, ClassicEncounterStyle.RAVEN_LAST_DAWN_BOSS, 205 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{
+                classicFighter(BirdType.PHOENIX, "Boss: The Last Dawn", 215, 0.96, 1.00,
+                        ASHEN_SOVEREIGN_PHOENIX_SKIN)}, true);
+        lastDawn.cpuLevel = 8;
+        run.add(lastDawn);
+        return run;
+    }
+
     private ClassicEncounter buildShoebillSwiftTrailEncounter() {
         ClassicEncounter encounter = new ClassicEncounter(
                 "Swift Trail", "Redline Track",
@@ -48456,6 +48555,7 @@ public class BirdGame3 {
         if (type == BirdType.TITMOUSE) return "THE ALARM IN THE TREES";
         if (type == BirdType.BAT) return "THE NIGHT ANSWERS BACK";
         if (type == BirdType.PELICAN) return "THE WEIGHT OF THE HARBOR";
+        if (type == BirdType.RAVEN) return "THE FUTURE HAS ONE AUTHOR";
         return "TEMPORARY FLIGHT PLAN";
     }
 
@@ -49721,6 +49821,8 @@ public class BirdGame3 {
                     // lesson, not a full-power Penguin damage check. Pelican's
                     // deliberate recovery needs room to answer the giant body.
                     scaleBossRushBird(bird, 1.48, 0.80, 0.92);
+                } else if (classicSelectedBird == BirdType.RAVEN) {
+                    scaleBossRushBird(bird, 1.46, 0.90, 0.92);
                 } else if (classicSelectedBird == BirdType.GRINCHHAWK) {
                     // Cold Storage is an early-route giant lesson. Preserve the
                     // silhouette without stacking giant size, armor, and full
@@ -49922,6 +50024,14 @@ public class BirdGame3 {
                 isAI[bird.playerIndex] = false;
             } else if (encounter.style == ClassicEncounterStyle.PELICAN_BOARDING_GAUNTLET) {
                 scaleBossRushBird(bird, 0.90, 0.88, 0.98);
+                bird.setUltimateEnabled(false);
+            } else if (encounter.style == ClassicEncounterStyle.RAVEN_FORETOLD_FATES) {
+                scaleBossRushBird(bird, 0.86, 0.82, 1.00);
+                bird.setTrailerSmashDamagePercent(52.0 + bird.playerIndex * 10.0);
+                bird.setUltimateEnabled(false);
+            } else if (encounter.style == ClassicEncounterStyle.RAVEN_LAST_DAWN_BOSS) {
+                bird.health = Math.max(1.0, 210.0 * enemyHealthScale);
+                bird.setBaseMultipliers(1.46, 0.98 * enemyPowerScale, 1.00);
                 bird.setUltimateEnabled(false);
             } else if (encounter.style == ClassicEncounterStyle.HOARDMASTER_BOSS) {
                 bird.health = Math.max(1.0, 205.0 * enemyHealthScale);
@@ -61790,10 +61900,18 @@ public class BirdGame3 {
                 default -> scores[0];
             };
         }
+        if (classicSelectedBird == BirdType.RAVEN) {
+            scores[0] = switch (classicRoundIndex) {
+                case 0, 1, 2, 6 -> 1;
+                case 3, 5 -> 2;
+                case 7 -> 3;
+                default -> scores[0];
+            };
+        }
         int enemyStocks = switch (classicEncounter.style) {
             case STORM_TYRANT_BOSS, PHOENIX_REBIRTH, BLIGHTWING_BOSS, ICEWORKS_MIRROR -> 2;
             case NULL_ROC_BOSS, LONG_WINTER_BOSS, DEVOURER_BOSS, BROODBREAKER_BOSS,
-                    STILL_KING_BOSS, LAST_SUN_BOSS, HOARDMASTER_BOSS -> 3;
+                    STILL_KING_BOSS, LAST_SUN_BOSS, HOARDMASTER_BOSS, RAVEN_LAST_DAWN_BOSS -> 3;
             default -> 0;
         };
         if (enemyStocks <= 0) return;

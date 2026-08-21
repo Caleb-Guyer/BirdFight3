@@ -19,6 +19,7 @@ import javafx.scene.paint.CycleMethod;
 import javafx.scene.paint.LinearGradient;
 import javafx.scene.paint.RadialGradient;
 import javafx.scene.paint.Stop;
+import javafx.scene.shape.StrokeLineCap;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
@@ -191,6 +192,7 @@ final class ClassicEndingPlayer {
         boolean titmouseWarningBeacon = ClassicEndingContent.isTitmouseWarningBeacon(cinematic);
         boolean batListeningDark = ClassicEndingContent.isBatListeningDark(cinematic);
         boolean pelicanOpenHarbor = ClassicEndingContent.isPelicanOpenHarbor(cinematic);
+        boolean ravenBlackSun = ClassicEndingContent.isRavenBlackSun(cinematic);
         if (continuousPanorama) {
             double routeProgress = Math.clamp((beatIndex + progress) / cinematic.beats().size(), 0.0, 1.0);
             drawRoadrunnerPanorama(g, now / 1_000_000_000.0, routeProgress);
@@ -227,6 +229,9 @@ final class ClassicEndingPlayer {
         } else if (pelicanOpenHarbor) {
             double routeProgress = Math.clamp((beatIndex + progress) / cinematic.beats().size(), 0.0, 1.0);
             drawPelicanOpenHarbor(g, now / 1_000_000_000.0, routeProgress);
+        } else if (ravenBlackSun) {
+            double routeProgress = Math.clamp((beatIndex + progress) / cinematic.beats().size(), 0.0, 1.0);
+            drawRavenBlackSun(g, now / 1_000_000_000.0, routeProgress);
         } else {
             drawBackground(g, now / 1_000_000_000.0, progress);
             drawTableau(g, currentBeat().tableau(), progress, now / 1_000_000_000.0);
@@ -237,7 +242,7 @@ final class ClassicEndingPlayer {
         if (!continuousPanorama && !subglacialMontage && !stillwaterRevelation
                 && !charlesLivingScore && !razorbillFinalCut && !grinchOpenSack
                 && !vultureFinalAccount && !opiumTwelfthFuture && !heisenBlueVault
-                && !titmouseWarningBeacon && !batListeningDark && !pelicanOpenHarbor) {
+                && !titmouseWarningBeacon && !batListeningDark && !pelicanOpenHarbor && !ravenBlackSun) {
             drawTransition(g, progress);
         }
         g.restore();
@@ -459,6 +464,91 @@ final class ClassicEndingPlayer {
         if (progress > 0.84) {
             double finale = ease((progress - 0.84) / 0.16);
             drawFinalTitle(g, finale);
+        }
+    }
+
+    private void drawRavenBlackSun(GraphicsContext g, double time, double progress) {
+        Color upperSky = Color.web("#28121B").interpolate(Color.web("#05040A"), progress);
+        Color lowerSky = Color.web("#B0442F").interpolate(Color.web("#291038"), progress * 0.88);
+        g.setFill(new LinearGradient(0, 0, 0, LOGICAL_HEIGHT, false, CycleMethod.NO_CYCLE,
+                new Stop(0, upperSky), new Stop(1, lowerSky)));
+        g.fillRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
+
+        // Ashfall's broken nave remains one continuous shot while its many
+        // possible horizons are erased into Raven's single authored road.
+        g.setFill(Color.web("#120D16"));
+        for (int tower = 0; tower < 9; tower++) {
+            double x = tower * 250.0 - 65.0;
+            double height = 250.0 + (tower % 4) * 72.0;
+            g.fillRect(x, 810.0 - height, 175.0, height + 270.0);
+            g.fillPolygon(new double[]{x - 26.0, x + 87.5, x + 201.0},
+                    new double[]{810.0 - height, 735.0 - height, 810.0 - height}, 3);
+        }
+        g.setFill(Color.web("#08070C"));
+        g.fillPolygon(new double[]{0, 430, 780, 1_210, 1_610, LOGICAL_WIDTH, LOGICAL_WIDTH, 0},
+                new double[]{930, 785, 910, 760, 900, 800, LOGICAL_HEIGHT, LOGICAL_HEIGHT}, 8);
+
+        double phoenixFade = Math.clamp(1.0 - progress * 4.8, 0.0, 1.0);
+        if (phoenixFade > 0.0) {
+            double emberPulse = 0.78 + Math.sin(time * 4.0) * 0.12;
+            g.setFill(Color.web("#FF6D3A", 0.20 * phoenixFade * emberPulse));
+            g.fillOval(1_180, 245, 520, 520);
+            drawBird(g, boss, 1_440, 525 + progress * 90.0, 1.34, false, phoenixFade);
+            drawBossName(g, "THE LAST DAWN", 1_440, 740, phoenixFade);
+        }
+
+        double ravenArrival = ease(Math.clamp((progress - 0.06) / 0.25, 0.0, 1.0));
+        drawBird(g, narrator, 300.0 + ravenArrival * 410.0,
+                675.0 - Math.sin(ravenArrival * Math.PI) * 145.0 + Math.sin(time * 1.7) * 6.0,
+                1.28, true, ravenArrival);
+
+        double futuresReveal = ease(Math.clamp((progress - 0.18) / 0.20, 0.0, 1.0));
+        double futuresCollapse = ease(Math.clamp((progress - 0.42) / 0.26, 0.0, 1.0));
+        g.setLineCap(StrokeLineCap.ROUND);
+        for (int future = 0; future < 9; future++) {
+            double spread = (future - 4) * 78.0;
+            double endX = 1_720.0;
+            double endY = 260.0 + future * 72.0;
+            double alpha = futuresReveal * (future == 4 ? 0.92 : 0.54 * (1.0 - futuresCollapse));
+            g.setStroke(Color.web(future == 4 ? "#D184FF" : "#FFD37A", alpha));
+            g.setLineWidth(future == 4 ? 13.0 : 6.0);
+            g.beginPath();
+            g.moveTo(905.0, 555.0);
+            g.bezierCurveTo(1_080.0, 555.0 + spread * 0.25,
+                    1_360.0, endY - spread * 0.12, endX, endY);
+            g.stroke();
+        }
+
+        double crownRise = ease(Math.clamp((progress - 0.28) / 0.24, 0.0, 1.0));
+        double sunForm = ease(Math.clamp((progress - 0.54) / 0.20, 0.0, 1.0));
+        double crownY = 625.0 - crownRise * 390.0;
+        if (sunForm < 1.0) {
+            drawCrown(g, 960.0, crownY, 1.08, time, crownRise * (1.0 - sunForm));
+        }
+        if (sunForm > 0.0) {
+            double pulse = 1.0 + Math.sin(time * 1.2) * 0.025;
+            g.setFill(Color.web("#C06BFF", 0.16 * sunForm));
+            g.fillOval(960.0 - 170.0 * pulse, crownY - 170.0 * pulse,
+                    340.0 * pulse, 340.0 * pulse);
+            g.setFill(Color.web("#020207", sunForm));
+            g.fillOval(842.0, crownY - 118.0, 236.0, 236.0);
+            g.setStroke(Color.web("#E1A5FF", sunForm));
+            g.setLineWidth(18.0);
+            g.strokeOval(822.0, crownY - 138.0, 276.0, 276.0);
+        }
+
+        double oneTomorrow = ease(Math.clamp((progress - 0.68) / 0.22, 0.0, 1.0));
+        if (oneTomorrow > 0.0) {
+            g.setStroke(Color.web("#D184FF", 0.72 * oneTomorrow));
+            g.setLineWidth(18.0);
+            g.strokeLine(960.0, crownY + 150.0, 960.0, 925.0);
+            g.setFill(Color.web("#9B52C7", 0.13 * oneTomorrow));
+            g.fillPolygon(new double[]{790, 1_130, 1_470, 450},
+                    new double[]{LOGICAL_HEIGHT, LOGICAL_HEIGHT, 930, 930}, 4);
+        }
+
+        if (progress > 0.84) {
+            drawFinalTitle(g, ease((progress - 0.84) / 0.16));
         }
     }
 
@@ -2025,7 +2115,8 @@ final class ClassicEndingPlayer {
                 || ClassicEndingContent.isHeisenBlueVault(cinematic)
                 || ClassicEndingContent.isTitmouseWarningBeacon(cinematic)
                 || ClassicEndingContent.isBatListeningDark(cinematic)
-                || ClassicEndingContent.isPelicanOpenHarbor(cinematic)) && beatIndex > 0) return;
+                || ClassicEndingContent.isPelicanOpenHarbor(cinematic)
+                || ClassicEndingContent.isRavenBlackSun(cinematic)) && beatIndex > 0) return;
         game.playClassicEndingTableauCue(currentBeat().tableau());
     }
 

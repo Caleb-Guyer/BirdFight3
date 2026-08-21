@@ -6,18 +6,18 @@
 - Objective/bonus rounds: listed but not simulated
 - Metric: attempt-based team clear rate in the real Classic encounter setup; harness cutoffs count as draws and failed clears
 
-## Pelican
+## Raven
 
 | Round | Encounter | Kind | Map | W-L-D | Clear rate | Avg time | Damage dealt | Read |
 |---:|---|---|---|---:|---:|---:|---:|---|
-| 1 | All Hands | Combat | Dock | 38-26-0 | 59.4% | 49.3s | 260 | Target band |
-| 2 | Rush Order | Combat | Rooftop Relay | 27-37-0 | 42.2% | 19.5s | 37 | Target band |
-| 3 | Cold Storage | Combat | Last Ice Shelf | 30-34-0 | 46.9% | 101.2s | 125 | Target band |
-| 4 | Convoy Duty | Combat | Desert | 41-23-0 | 64.1% | 63.6s | 155 | Target band |
-| 5 | The Pirate Hold | Combat | Titan Dock | 45-19-0 | 70.3% | 165.3s | 144 | Possibly too easy |
-| 6 | Bonus: Rooftop Airlift | Objective | Rooftop Relay | — | — | — | — | Not scored |
-| 7 | Bottomless Appetite | Combat | Cave | 37-27-0 | 57.8% | 128.1s | 184 | Target band |
-| 8 | The Empty Hold | Combat | Carrion Exchange | 29-35-0 | 45.3% | 217.9s | 579 | Target band |
+| 1 | The First Omen | Combat | Stillwater Marsh | 32-32-0 | 50.0% | 36.5s | 70 | Target band |
+| 2 | A Murder of Two | Combat | Carrion Exchange | 26-38-0 | 40.6% | 70.4s | 135 | Target band |
+| 3 | Three Bad Endings | Combat | Parliament Rooftops | 36-28-0 | 56.3% | 40.9s | 130 | Target band |
+| 4 | The Oracle Blinks | Combat | Oneiric Observatory | 45-19-0 | 70.3% | 70.9s | 139 | Possibly too easy |
+| 5 | Bonus: Break the Futures | Objective | Skybreak Spires | — | — | — | — | Not scored |
+| 6 | History Is Written | Combat | Prison | 37-27-0 | 57.8% | 87.4s | 227 | Target band |
+| 7 | The Unwritten Raven | Combat | Cave | 34-30-0 | 53.1% | 59.0s | 140 | Target band |
+| 8 | No Dawn Promised | Combat | Ashfall Rebirth | 44-20-0 | 68.8% | 199.1s | 176 | Target band |
 
 ## How to use this report
 

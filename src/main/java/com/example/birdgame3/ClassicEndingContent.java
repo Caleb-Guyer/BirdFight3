@@ -439,6 +439,25 @@ final class ClassicEndingContent {
                             beat("Instead, I carried the intact Crown into the harbor light and threw its ownership key into the deepest channel.", Tableau.CROWN_TRANSFORMATION),
                             beat("Now the light finds shortage, opens a safe route, and guides the nearest full hold there without asking who deserves it.", Tableau.CHANGED_WORLD),
                             beat("A full hold means nothing if the harbor stays hungry.", Tableau.FINAL_PORTRAIT)
+                    )),
+            ending(
+                    BirdGame3.BirdType.RAVEN,
+                    "THE FUTURE HAS ONE AUTHOR",
+                    "THE ONLY TOMORROW",
+                    "AUTHORSHIP - Raven keeps the intact Crown and turns every omen toward the future Raven alone permits.",
+                    Alignment.DOMINATING,
+                    BirdGame3.BirdType.PHOENIX,
+                    "The Last Dawn",
+                    "ASHEN_SOVEREIGN_PHOENIX",
+                    BirdGame3.MapType.ASHFALL_CATHEDRAL,
+                    "music-ashfall.mp3",
+                    monologue(
+                            beat("The Last Dawn burned uncertain futures and called the ashes peace. It never noticed that certainty was only another cage.", Tableau.BOSS_AFTERMATH),
+                            beat("When its final morning went dark, the Crown showed me every tomorrow at once—wars avoided, thrones overturned, names forgotten.", Tableau.CROWN_DISCOVERY),
+                            beat("Choice made the sky dangerous. Choice also kept it beyond prediction. I decided danger had lasted long enough.", Tableau.DECISION),
+                            beat("I raised the intact Crown above Ashfall and taught every omen to point toward one future: the future I permit.", Tableau.CROWN_TRANSFORMATION),
+                            beat("Storms turn aside before I name them. Rebellions end in the thought. Every road reaches the same black sunrise.", Tableau.CHANGED_WORLD),
+                            beat("Tomorrow is safe. Tomorrow is mine.", Tableau.FINAL_PORTRAIT)
                     ))
     );
 
@@ -505,6 +524,10 @@ final class ClassicEndingContent {
 
     static boolean isPelicanOpenHarbor(Cinematic cinematic) {
         return cinematic != null && cinematic.narrator() == BirdGame3.BirdType.PELICAN;
+    }
+
+    static boolean isRavenBlackSun(Cinematic cinematic) {
+        return cinematic != null && cinematic.narrator() == BirdGame3.BirdType.RAVEN;
     }
 
     static Cinematic withRouteRecord(Ending ending, int birdCoins, int score, String mapReward) {
