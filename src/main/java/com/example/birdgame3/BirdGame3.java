@@ -18291,115 +18291,288 @@ public class BirdGame3 {
     }
 
     private void drawFrostbiteFjordArena(GraphicsContext g, boolean ambientFx) {
-        for (int i = 0; i < 660; i++) {
-            double ratio = i / 660.0;
-            Color top = Color.web("#08142C");
-            Color mid = Color.web("#13436A");
-            Color bottom = Color.web("#AEEBFF");
-            Color c = ratio < 0.55
-                    ? top.interpolate(mid, ratio / 0.55)
-                    : mid.interpolate(bottom, (ratio - 0.55) / 0.45);
-            g.setFill(c);
-            g.fillRect(0, i * (WORLD_HEIGHT / 660.0), WORLD_WIDTH, WORLD_HEIGHT / 660.0 + 3);
-        }
+        double time = ambientFx ? System.nanoTime() / 1_000_000_000.0 : 0.0;
+        double waterY = FROSTBITE_MAIN_Y + 138.0;
+        g.save();
 
-        double time = System.currentTimeMillis() / 1000.0;
-        g.setFill(Color.web("#E3F2FD", 0.78));
-        g.fillOval(4680, 150, 320, 320);
-        g.setFill(Color.web("#B2EBF2", 0.12));
-        g.fillOval(4588, 62, 504, 504);
+        g.setFill(new LinearGradient(0, 0, 0, WORLD_HEIGHT, false, CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.web("#02081B")),
+                new Stop(0.34, Color.web("#0A2443")),
+                new Stop(0.66, Color.web("#18516A")),
+                new Stop(1.0, Color.web("#477D88"))));
+        g.fillRect(-400, -300, WORLD_WIDTH + 800, WORLD_HEIGHT + 600);
 
-        renderRandom.setSeed(77_401L);
-        for (int i = 0; i < 120; i++) {
-            double sx = renderRandom.nextDouble() * WORLD_WIDTH;
-            double sy = 70 + renderRandom.nextDouble() * 950;
-            double twinkle = ambientFx ? 0.48 + 0.36 * Math.sin(time * 1.8 + i * 0.71) : 0.52;
-            g.setFill(Color.web("#E1F5FE", twinkle * 0.48));
-            double size = 1.5 + renderRandom.nextDouble() * 2.4;
-            g.fillOval(sx, sy, size, size);
-        }
+        drawFrostbiteFjordAurora(g, time, ambientFx);
+        drawFrostbiteFjordMoonAndStars(g, time, ambientFx);
+        drawFrostbiteFjordWalls(g, waterY);
 
-        if (ambientFx) {
-            drawFrostbiteAurora(g, time);
-        } else {
-            g.setFill(Color.web("#80DEEA", 0.10));
-            g.fillPolygon(new double[]{580, 1360, 2390, 3180, 4200, 5050},
-                    new double[]{320, 450, 260, 410, 240, 380}, 6);
-        }
+        g.setFill(new LinearGradient(0, waterY, 0, WORLD_HEIGHT, false, CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.web("#0B3A52")),
+                new Stop(0.24, Color.web("#05243B")),
+                new Stop(1.0, Color.web("#010813"))));
+        g.fillRect(0, waterY, WORLD_WIDTH, WORLD_HEIGHT - waterY);
+        drawFrostbiteFjordWater(g, waterY, time, ambientFx);
+        drawFrostbiteFjordShelfFoundations(g, waterY);
+        drawFrostbiteFjordSupports(g);
 
-        for (int layer = 0; layer < 3; layer++) {
-            double baseY = FROSTBITE_MAIN_Y + 270 + layer * 120;
-            double alpha = 0.22 + layer * 0.13;
-            Color ridge = switch (layer) {
-                case 0 -> Color.web("#10233C", alpha);
-                case 1 -> Color.web("#1C4864", alpha);
-                default -> Color.web("#7DD8F0", alpha);
-            };
-            g.setFill(ridge);
-            renderRandom.setSeed(88_220L + layer);
-            double[] xs = new double[10];
-            double[] ys = new double[10];
-            for (int i = 0; i < 8; i++) {
-                double worldX = -420 + i * (WORLD_WIDTH + 840.0) / 7.0;
-                xs[i] = parallaxAdjustedWorldX(worldX, 0.12 + layer * 0.09);
-                double peak = baseY - 520 - renderRandom.nextDouble() * (350 - layer * 70);
-                ys[i] = i % 2 == 0 ? peak : peak + 140 + renderRandom.nextDouble() * 90;
+        for (Platform platform : platforms) drawFrostbiteFjordPlatform(g, platform);
+        drawFrostbiteSnowbanks(g);
+        for (WindVent vent : windVents) drawFrostbiteFjordVent(g, vent, time, ambientFx);
+
+        drawFrostbiteFjordForeground(g, waterY, time, ambientFx);
+        if (ambientFx) drawFrostbiteFjordSnow(g, time);
+        g.restore();
+    }
+
+    private void drawFrostbiteFjordAurora(GraphicsContext g, double time, boolean ambientFx) {
+        Color[] colors = {
+                Color.web("#63FFD5", 0.18), Color.web("#69CFFF", 0.14), Color.web("#B990FF", 0.12)
+        };
+        for (int band = 0; band < colors.length; band++) {
+            int segments = 18;
+            double[] xs = new double[(segments + 1) * 2];
+            double[] ys = new double[(segments + 1) * 2];
+            for (int i = 0; i <= segments; i++) {
+                double t = i / (double) segments;
+                double x = -260.0 + t * (WORLD_WIDTH + 520.0);
+                double wave = Math.sin(t * 8.2 + band * 1.7 + time * (0.20 + band * 0.04)) * 74.0;
+                double top = 170.0 + band * 96.0 + wave;
+                double curtain = 390.0 + 115.0 * Math.sin(t * 5.3 + band * 0.9 + time * 0.13);
+                xs[i] = x;
+                ys[i] = top;
+                xs[xs.length - 1 - i] = x + 38.0;
+                ys[ys.length - 1 - i] = top + curtain;
             }
-            xs[8] = parallaxAdjustedWorldX(WORLD_WIDTH + 520, 0.12 + layer * 0.09);
-            ys[8] = WORLD_HEIGHT + 120;
-            xs[9] = parallaxAdjustedWorldX(-520, 0.12 + layer * 0.09);
-            ys[9] = WORLD_HEIGHT + 120;
+            g.setFill(colors[band]);
             g.fillPolygon(xs, ys, xs.length);
         }
+    }
 
-        double waterY = FROSTBITE_MAIN_Y + 138;
-        g.setFill(Color.web("#082339", 0.92));
-        g.fillRect(0, waterY, WORLD_WIDTH, WORLD_HEIGHT - waterY);
-        g.setFill(Color.web("#1BA9C8", 0.20));
-        for (int i = 0; i < 8; i++) {
-            double waveY = waterY + 36 + i * 82;
-            double offset = ambientFx ? Math.sin(time * 0.8 + i * 0.62) * 34.0 : 0.0;
-            g.fillOval(-260 + offset + i * 36, waveY, WORLD_WIDTH + 520, 34 + (i % 3) * 12);
-        }
-        g.setStroke(Color.web("#E1F5FE", 0.23));
-        g.setLineWidth(2.5);
-        for (int i = 0; i < 18; i++) {
-            double y = waterY + 28 + i * 46;
-            double shift = ambientFx ? Math.sin(time * 1.25 + i * 0.5) * 42 : 0;
-            g.strokeLine(160 + shift, y, WORLD_WIDTH - 160 - shift * 0.35, y + Math.sin(i) * 10);
+    private void drawFrostbiteFjordMoonAndStars(GraphicsContext g, double time, boolean ambientFx) {
+        renderRandom.setSeed(0xF205_7B17L);
+        for (int i = 0; i < 150; i++) {
+            double x = renderRandom.nextDouble() * WORLD_WIDTH;
+            double y = 55.0 + renderRandom.nextDouble() * 960.0;
+            double size = 1.3 + renderRandom.nextDouble() * 3.4;
+            double pulse = ambientFx ? 0.72 + Math.sin(time * 1.2 + i * 0.83) * 0.28 : 0.82;
+            g.setFill(Color.web(i % 12 == 0 ? "#CCFFF1" : "#D9F5FF",
+                    (0.20 + renderRandom.nextDouble() * 0.46) * pulse));
+            g.fillOval(x, y, size, size);
         }
 
-        drawFrostbiteIceberg(g, 310, waterY + 86, 520, 0.34);
-        drawFrostbiteIceberg(g, 5070, waterY + 68, 610, 0.38);
-        drawFrostbiteIceberg(g, 2700, waterY + 170, 420, 0.22);
+        double moonX = 4725.0;
+        double moonY = 270.0;
+        g.setFill(Color.web("#A9E8F4", 0.08));
+        g.fillOval(moonX - 145, moonY - 145, 500, 500);
+        g.setFill(Color.web("#DFFAFF", 0.18));
+        g.fillOval(moonX - 82, moonY - 82, 374, 374);
+        g.setFill(Color.web("#F4FCFF", 0.94));
+        g.fillOval(moonX, moonY, 236, 236);
+        g.setFill(Color.web("#B8D7E3", 0.28));
+        g.fillOval(moonX + 48, moonY + 38, 64, 42);
+        g.fillOval(moonX + 132, moonY + 112, 42, 30);
+    }
 
-        if (ambientFx) {
-            renderRandom.setSeed(95_603L);
-            g.setFill(Color.web("#FFFFFF", 0.55));
-            for (int i = 0; i < 130; i++) {
-                double sx = (renderRandom.nextDouble() * WORLD_WIDTH + time * (18 + i % 7) + i * 47) % (WORLD_WIDTH + 160) - 80;
-                double sy = 120 + (renderRandom.nextDouble() * (WORLD_HEIGHT - 120) + time * (22 + i % 5) + i * 31) % (WORLD_HEIGHT - 120);
-                double drift = Math.sin(time * 0.6 + i) * 16;
-                double size = 2.0 + renderRandom.nextDouble() * 4.6;
-                g.fillOval(sx + drift, sy, size, size);
+    private void drawFrostbiteFjordWalls(GraphicsContext g, double waterY) {
+        g.setFill(Color.web("#17364B", 0.86));
+        g.fillPolygon(new double[]{0, 0, 720, 1190, 1570, 1930, 2210, 0},
+                new double[]{560, waterY, waterY, 2050, 1680, 1910, waterY, waterY}, 8);
+        g.fillPolygon(new double[]{WORLD_WIDTH, WORLD_WIDTH, 5280, 4810, 4430, 4070, 3790, WORLD_WIDTH},
+                new double[]{560, waterY, waterY, 2050, 1680, 1910, waterY, waterY}, 8);
+
+        g.setFill(Color.web("#214F63", 0.94));
+        g.fillPolygon(new double[]{0, 0, 410, 790, 1060, 1300, 1510, 920, 0},
+                new double[]{930, waterY + 90, waterY + 90, 2140, 1810, 2050, waterY + 90, waterY + 90, waterY + 90}, 9);
+        g.fillPolygon(new double[]{WORLD_WIDTH, WORLD_WIDTH, 5590, 5210, 4940, 4700, 4490, 5080, WORLD_WIDTH},
+                new double[]{930, waterY + 90, waterY + 90, 2140, 1810, 2050, waterY + 90, waterY + 90, waterY + 90}, 9);
+
+        g.setFill(Color.web("#94D7E3", 0.26));
+        g.fillPolygon(new double[]{350, 690, 1020, 800, 520},
+                new double[]{waterY + 45, 1930, waterY - 80, waterY + 70, waterY + 100}, 5);
+        g.fillPolygon(new double[]{5650, 5310, 4980, 5200, 5480},
+                new double[]{waterY + 45, 1930, waterY - 80, waterY + 70, waterY + 100}, 5);
+
+        g.setStroke(Color.web("#C6F4FF", 0.24));
+        g.setLineWidth(10.0);
+        g.strokePolyline(new double[]{250, 690, 1030, 1310, 1510},
+                new double[]{waterY + 20, 1945, 1810, 2050, waterY + 20}, 5);
+        g.strokePolyline(new double[]{5750, 5310, 4970, 4690, 4490},
+                new double[]{waterY + 20, 1945, 1810, 2050, waterY + 20}, 5);
+    }
+
+    private void drawFrostbiteFjordWater(GraphicsContext g, double waterY, double time, boolean ambientFx) {
+        g.setStroke(Color.web("#78D9EE", 0.28));
+        g.setLineWidth(3.0);
+        renderRandom.setSeed(0xF10A_7E25L);
+        for (int row = 0; row < 15; row++) {
+            double y = waterY + 22.0 + row * 43.0;
+            for (int segment = 0; segment < 10; segment++) {
+                double x = 80.0 + segment * 620.0 + renderRandom.nextDouble() * 170.0;
+                double width = 110.0 + renderRandom.nextDouble() * 270.0;
+                double shift = ambientFx ? Math.sin(time * 0.7 + row * 0.61 + segment) * 18.0 : 0.0;
+                g.strokeLine(x + shift, y, Math.min(WORLD_WIDTH - 45.0, x + width + shift), y + (segment % 3 - 1) * 4.0);
             }
         }
 
-        for (Platform p : platforms) {
-            drawFrostbitePlatform(g, p);
+        g.setFill(Color.web("#CFF8FF", 0.12));
+        for (int row = 0; row < 7; row++) {
+            double y = waterY + 48.0 + row * 72.0;
+            double width = 360.0 - row * 28.0;
+            double x = 4835.0 + row * 18.0;
+            g.fillRoundRect(x, y, width, 9.0, 9.0, 9.0);
         }
-        drawFrostbiteSnowbanks(g);
+    }
 
-        for (WindVent v : windVents) {
-            double pulse = ambientFx ? 0.5 + 0.5 * Math.sin(time * 3.2 + v.x * 0.018) : 0.45;
-            double centerX = v.x + v.w * 0.5;
-            g.setFill(Color.web("#E1F5FE", 0.14 + pulse * 0.12));
-            g.fillOval(centerX - v.w * 0.43, v.y - 270, v.w * 0.86, 390);
-            g.setFill(Color.web("#80DEEA", 0.10 + pulse * 0.10));
-            g.fillOval(centerX - v.w * 0.28, v.y - 215, v.w * 0.56, 300);
-            g.setStroke(Color.web("#FFFFFF", 0.18 + pulse * 0.18));
-            g.setLineWidth(2.2);
-            g.strokeOval(centerX - v.w * 0.34, v.y - 190, v.w * 0.68, 248);
+    private void drawFrostbiteFjordShelfFoundations(GraphicsContext g, double waterY) {
+        g.setFill(new LinearGradient(0, FROSTBITE_MAIN_Y, 0, waterY + 330, false, CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.web("#79D4E8")),
+                new Stop(0.40, Color.web("#28718D")),
+                new Stop(1.0, Color.web("#092C49"))));
+        g.fillPolygon(new double[]{FROSTBITE_MAIN_X + 25, FROSTBITE_MAIN_X + FROSTBITE_MAIN_W - 25,
+                        FROSTBITE_MAIN_X + FROSTBITE_MAIN_W - 210, FROSTBITE_MAIN_X + 2860,
+                        FROSTBITE_MAIN_X + 2360, FROSTBITE_MAIN_X + 1740, FROSTBITE_MAIN_X + 970,
+                        FROSTBITE_MAIN_X + 220},
+                new double[]{FROSTBITE_MAIN_Y + 36, FROSTBITE_MAIN_Y + 36, waterY + 170,
+                        waterY + 250, waterY + 190, waterY + 310, waterY + 210, waterY + 145}, 8);
+
+        drawFrostbiteFjordFloe(g, FROSTBITE_MAIN_X - 500, FROSTBITE_MAIN_Y + 154, 610, waterY + 285);
+        drawFrostbiteFjordFloe(g, FROSTBITE_MAIN_X + FROSTBITE_MAIN_W - 90,
+                FROSTBITE_MAIN_Y + 140, 680, waterY + 270);
+
+        g.setStroke(Color.web("#BCEFFF", 0.34));
+        g.setLineWidth(4.0);
+        for (int i = 0; i < 12; i++) {
+            double x = FROSTBITE_MAIN_X + 220 + i * 275.0;
+            g.strokeLine(x, FROSTBITE_MAIN_Y + 75, x + (i % 2 == 0 ? 85 : -70), waterY + 130 + i % 3 * 38);
+        }
+    }
+
+    private void drawFrostbiteFjordFloe(GraphicsContext g, double x, double topY, double width, double bottomY) {
+        g.setFill(Color.web("#2B7893"));
+        g.fillPolygon(new double[]{x, x + width, x + width * 0.82, x + width * 0.58, x + width * 0.22},
+                new double[]{topY, topY, bottomY - 18, bottomY, bottomY - 52}, 5);
+        g.setFill(Color.web("#9BE4F1", 0.42));
+        g.fillPolygon(new double[]{x + 24, x + width * 0.48, x + width * 0.22},
+                new double[]{topY + 14, topY + 14, bottomY - 52}, 3);
+    }
+
+    private void drawFrostbiteFjordSupports(GraphicsContext g) {
+        drawFrostbiteFjordIcefall(g, 1520, FROSTBITE_MAIN_Y - 260, 500, FROSTBITE_MAIN_Y + 20);
+        drawFrostbiteFjordIcefall(g, 3980, FROSTBITE_MAIN_Y - 260, 500, FROSTBITE_MAIN_Y + 20);
+        drawFrostbiteFjordIcefall(g, 2630, FROSTBITE_MAIN_Y - 440, 740, FROSTBITE_MAIN_Y + 30);
+        drawFrostbiteFjordIcefall(g, 1840, FROSTBITE_MAIN_Y - 680, 260, FROSTBITE_MAIN_Y - 245);
+        drawFrostbiteFjordIcefall(g, 3900, FROSTBITE_MAIN_Y - 680, 260, FROSTBITE_MAIN_Y - 245);
+        drawFrostbiteFjordIcefall(g, 2820, FROSTBITE_MAIN_Y - 830, 360, FROSTBITE_MAIN_Y - 420);
+    }
+
+    private void drawFrostbiteFjordIcefall(GraphicsContext g, double x, double y, double width, double bottomY) {
+        g.setFill(Color.web("#17506D", 0.86));
+        g.fillPolygon(new double[]{x, x + width, x + width * 0.86, x + width * 0.58,
+                        x + width * 0.30, x + width * 0.10},
+                new double[]{y, y, bottomY - 45, bottomY, bottomY - 20, bottomY - 82}, 6);
+        g.setFill(Color.web("#8CD9E9", 0.30));
+        g.fillPolygon(new double[]{x + width * 0.08, x + width * 0.38, x + width * 0.29},
+                new double[]{y + 10, y + 10, bottomY - 30}, 3);
+        g.setStroke(Color.web("#D9F8FF", 0.26));
+        g.setLineWidth(4.0);
+        g.strokeLine(x + width * 0.72, y + 12, x + width * 0.58, bottomY - 18);
+    }
+
+    private void drawFrostbiteFjordPlatform(GraphicsContext g, Platform platform) {
+        boolean main = Math.abs(platform.x - FROSTBITE_MAIN_X) < 2.0
+                && Math.abs(platform.w - FROSTBITE_MAIN_W) < 2.0;
+        double bodyHeight = platform.h + (main ? 22.0 : 15.0);
+        g.setFill(new LinearGradient(0, platform.y, 0, platform.y + bodyHeight, false, CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.web("#C8F4FA")),
+                new Stop(0.26, Color.web("#70C9DF")),
+                new Stop(1.0, Color.web("#1A5876"))));
+        g.fillPolygon(new double[]{platform.x, platform.x + platform.w, platform.x + platform.w - 18,
+                        platform.x + platform.w * 0.72, platform.x + platform.w * 0.46, platform.x + 16},
+                new double[]{platform.y, platform.y, platform.y + bodyHeight,
+                        platform.y + bodyHeight + (main ? 20 : 10), platform.y + bodyHeight,
+                        platform.y + bodyHeight - 4}, 6);
+        g.setFill(Color.web("#F4FDFF"));
+        g.fillPolygon(new double[]{platform.x - 8, platform.x + platform.w + 7,
+                        platform.x + platform.w - 10, platform.x + platform.w * 0.66,
+                        platform.x + platform.w * 0.40, platform.x + 12},
+                new double[]{platform.y - 11, platform.y - 11, platform.y + 7,
+                        platform.y + 3, platform.y + 9, platform.y + 5}, 6);
+        g.setStroke(Color.web("#D7FAFF", 0.92));
+        g.setLineWidth(main ? 5.0 : 3.5);
+        g.strokeLine(platform.x, platform.y, platform.x + platform.w, platform.y);
+
+        renderRandom.setSeed(Double.doubleToLongBits(platform.x * 11.0 + platform.y * 5.0 + platform.w));
+        g.setStroke(Color.web("#144C68", 0.48));
+        g.setLineWidth(2.2);
+        int cracks = Math.clamp((int) Math.round(platform.w / 240.0), 1, main ? 15 : 5);
+        for (int i = 0; i < cracks; i++) {
+            double x = platform.x + 30.0 + renderRandom.nextDouble() * Math.max(20.0, platform.w - 60.0);
+            double y = platform.y + 12.0 + renderRandom.nextDouble() * Math.max(10.0, platform.h * 0.45);
+            double direction = renderRandom.nextBoolean() ? 1.0 : -1.0;
+            g.strokeLine(x, y, x + direction * (24.0 + renderRandom.nextDouble() * 48.0), y + 18.0);
+        }
+
+        if (!main) {
+            g.setFill(Color.web("#C7F2FA", 0.78));
+            int icicles = Math.clamp((int) Math.round(platform.w / 150.0), 2, 7);
+            for (int i = 0; i < icicles; i++) {
+                double x = platform.x + 24.0 + i * (platform.w - 48.0) / Math.max(1, icicles - 1);
+                double height = 18.0 + (i * 23 % 34);
+                g.fillPolygon(new double[]{x - 8, x + 8, x},
+                        new double[]{platform.y + bodyHeight - 2, platform.y + bodyHeight - 2,
+                                platform.y + bodyHeight + height}, 3);
+            }
+        }
+    }
+
+    private void drawFrostbiteFjordVent(GraphicsContext g, WindVent vent, double time, boolean ambientFx) {
+        double centerX = vent.x + vent.w * 0.5;
+        double pulse = ambientFx ? 0.58 + 0.42 * Math.sin(time * 3.0 + vent.x * 0.013) : 0.72;
+        g.setStroke(Color.web("#092E49", 0.86));
+        g.setLineWidth(7.0);
+        g.strokePolyline(new double[]{vent.x + 32, centerX - 52, centerX, centerX + 62, vent.x + vent.w - 28},
+                new double[]{vent.y + 10, vent.y - 6, vent.y + 14, vent.y - 8, vent.y + 8}, 5);
+        g.setStroke(Color.web("#E6FCFF", 0.34 + pulse * 0.32));
+        g.setLineWidth(3.0);
+        g.setLineDashes(20.0, 16.0);
+        for (int stream = -2; stream <= 2; stream++) {
+            double startX = centerX + stream * vent.w * 0.095;
+            double sway = ambientFx ? Math.sin(time * 1.8 + stream) * 22.0 : stream * 3.0;
+            g.strokeLine(startX, vent.y - 12, startX + sway, vent.y - 150.0 - Math.abs(stream) * 18.0);
+        }
+        g.setLineDashes((double[]) null);
+        g.setFill(Color.web("#D8F8FF", 0.10 + pulse * 0.08));
+        g.fillPolygon(new double[]{centerX - vent.w * 0.22, centerX + vent.w * 0.22,
+                        centerX + vent.w * 0.10, centerX - vent.w * 0.08},
+                new double[]{vent.y - 5, vent.y - 5, vent.y - 190, vent.y - 170}, 4);
+    }
+
+    private void drawFrostbiteFjordForeground(GraphicsContext g, double waterY, double time, boolean ambientFx) {
+        renderRandom.setSeed(0xF10E_5EEDL);
+        for (int i = 0; i < 13; i++) {
+            double x = 90.0 + renderRandom.nextDouble() * (WORLD_WIDTH - 180.0);
+            double y = waterY + 120.0 + renderRandom.nextDouble() * 520.0;
+            double width = 80.0 + renderRandom.nextDouble() * 220.0;
+            double drift = ambientFx ? Math.sin(time * 0.24 + i * 0.91) * 18.0 : 0.0;
+            g.setFill(Color.web("#6DB9CD", 0.20 + renderRandom.nextDouble() * 0.12));
+            g.fillPolygon(new double[]{x + drift, x + width + drift, x + width * 0.78 + drift, x + width * 0.18 + drift},
+                    new double[]{y, y + 5, y + 32, y + 25}, 4);
+            g.setStroke(Color.web("#C5F4FC", 0.25));
+            g.setLineWidth(2.0);
+            g.strokeLine(x + drift, y, x + width + drift, y + 5);
+        }
+    }
+
+    private void drawFrostbiteFjordSnow(GraphicsContext g, double time) {
+        renderRandom.setSeed(0x5A0F_7F11L);
+        g.setFill(Color.web("#FFFFFF", 0.58));
+        for (int i = 0; i < 120; i++) {
+            double x = (renderRandom.nextDouble() * WORLD_WIDTH + time * (20.0 + i % 6)) % (WORLD_WIDTH + 180.0) - 90.0;
+            double y = 90.0 + (renderRandom.nextDouble() * (WORLD_HEIGHT - 90.0) + time * (24.0 + i % 5))
+                    % (WORLD_HEIGHT - 90.0);
+            double drift = Math.sin(time * 0.65 + i) * 18.0;
+            double size = 2.0 + renderRandom.nextDouble() * 4.8;
+            g.fillOval(x + drift, y, size, size);
         }
     }
 
@@ -19192,96 +19365,6 @@ public class BirdGame3 {
             g.fillOval(x - 18 + drift, y - 18, 36, 36);
             g.setFill(Color.web("#F3FFAA", 0.45 + glow * 0.42));
             g.fillOval(x - 3 + drift, y - 3, 6, 6);
-        }
-    }
-
-    private void drawFrostbiteAurora(GraphicsContext g, double time) {
-        Color[] colors = {
-                Color.web("#64FFDA", 0.30),
-                Color.web("#B388FF", 0.22),
-                Color.web("#FF80AB", 0.18),
-                Color.web("#A7FFEB", 0.24)
-        };
-        for (int band = 0; band < colors.length; band++) {
-            int segments = 15;
-            double[] xs = new double[(segments + 1) * 2];
-            double[] ys = new double[(segments + 1) * 2];
-            double startX = -280 + band * 260;
-            double width = WORLD_WIDTH + 420;
-            double baseY = 260 + band * 78;
-            double height = 340 + band * 42;
-            for (int i = 0; i <= segments; i++) {
-                double t = i / (double) segments;
-                double x = startX + t * width;
-                double wave = Math.sin(time * (0.55 + band * 0.08) + t * 7.2 + band) * 64
-                        + Math.cos(time * 0.42 + t * 11.0 + band * 1.7) * 28;
-                xs[i] = parallaxAdjustedWorldX(x, 0.06);
-                ys[i] = baseY + wave;
-                xs[xs.length - 1 - i] = parallaxAdjustedWorldX(x + 40, 0.06);
-                ys[ys.length - 1 - i] = baseY + height + wave * 0.35;
-            }
-            g.setFill(colors[band]);
-            g.fillPolygon(xs, ys, xs.length);
-        }
-    }
-
-    private void drawFrostbiteIceberg(GraphicsContext g, double x, double y, double width, double alpha) {
-        g.setFill(Color.web("#D7F7FF", alpha));
-        g.fillPolygon(
-                new double[]{x, x + width * 0.18, x + width * 0.42, x + width * 0.64, x + width, x + width * 0.78, x + width * 0.28},
-                new double[]{y + 82, y - 42, y + 12, y - 86, y + 70, y + 122, y + 116},
-                7
-        );
-        g.setFill(Color.web("#80DEEA", alpha * 0.58));
-        g.fillPolygon(
-                new double[]{x + width * 0.18, x + width * 0.42, x + width * 0.34},
-                new double[]{y - 42, y + 12, y + 88},
-                3
-        );
-    }
-
-    private void drawFrostbitePlatform(GraphicsContext g, Platform p) {
-        boolean main = Math.abs(p.x - FROSTBITE_MAIN_X) < 2.0 && Math.abs(p.w - FROSTBITE_MAIN_W) < 2.0;
-        double round = main ? 42.0 : 30.0;
-        double keel = main ? 76.0 : 42.0;
-        g.setFill(Color.web("#062239", 0.78));
-        g.fillRoundRect(p.x + 8, p.y + p.h * 0.42, p.w - 16, p.h + keel, round, round);
-        g.setFill(new LinearGradient(0, p.y, 0, p.y + p.h + keel, false, CycleMethod.NO_CYCLE,
-                new Stop(0, Color.web("#E8FBFF")),
-                new Stop(0.42, Color.web("#86DDF2")),
-                new Stop(1, Color.web("#1A5A7A"))));
-        g.fillRoundRect(p.x, p.y, p.w, p.h + (main ? 18 : 10), round, round);
-        g.setFill(Color.web("#FFFFFF", 0.86));
-        g.fillRoundRect(p.x + 12, p.y - 18, Math.max(24, p.w - 24), Math.max(22, p.h * 0.45), round, round);
-        g.setFill(Color.web("#B2EBF2", 0.42));
-        g.fillRoundRect(p.x + 26, p.y + p.h * 0.25, Math.max(18, p.w - 52), Math.max(12, p.h * 0.26), round * 0.7, round * 0.7);
-        g.setStroke(Color.web("#E1F5FE", 0.88));
-        g.setLineWidth(main ? 4.4 : 3.2);
-        g.strokeRoundRect(p.x, p.y, p.w, p.h + (main ? 18 : 10), round, round);
-
-        renderRandom.setSeed(Double.doubleToLongBits(p.x * 13.0 + p.y * 7.0 + p.w * 3.0));
-        g.setStroke(Color.web("#0C4A63", 0.42));
-        g.setLineWidth(2.1);
-        int cracks = Math.clamp((int) Math.round(p.w / 260.0), 1, main ? 14 : 4);
-        for (int i = 0; i < cracks; i++) {
-            double cx = p.x + 34 + renderRandom.nextDouble() * Math.max(20, p.w - 68);
-            double cy = p.y + 12 + renderRandom.nextDouble() * Math.max(8, p.h * 0.52);
-            double len = 38 + renderRandom.nextDouble() * 94;
-            double dir = renderRandom.nextBoolean() ? 1.0 : -1.0;
-            g.strokeLine(cx, cy, cx + dir * len * 0.42, cy + 10 + renderRandom.nextDouble() * 24);
-            if (renderRandom.nextDouble() < 0.55) {
-                g.strokeLine(cx + dir * len * 0.18, cy + 5, cx + dir * len * 0.35, cy - 12);
-            }
-        }
-
-        if (p.y < FROSTBITE_MAIN_Y - 70 || main) {
-            g.setFill(Color.web("#D7F7FF", 0.74));
-            int icicles = Math.clamp((int) Math.round(p.w / 180.0), 2, main ? 18 : 6);
-            for (int i = 0; i < icicles; i++) {
-                double ix = p.x + 28 + i * (p.w - 56) / Math.max(1, icicles - 1);
-                double ih = 22 + ((i * 37) % 34);
-                g.fillPolygon(new double[]{ix - 10, ix + 10, ix}, new double[]{p.y + p.h, p.y + p.h, p.y + p.h + ih}, 3);
-            }
         }
     }
 
