@@ -31,6 +31,16 @@ class StageStructuralConnectionTest {
     }
 
     @Test
+    void junglePlatformsRemainWithinVisibleBranchReachOfTheirRootedTrees() throws Exception {
+        assertJunglePlatformsWithinBranchReach(BirdGame3.MapVariant.STANDARD,
+                new double[]{600.0, 1_600.0, 2_600.0, 3_600.0, 4_600.0, 5_400.0},
+                620.0, 24);
+        assertJunglePlatformsWithinBranchReach(BirdGame3.MapVariant.CARRION_THRONE,
+                new double[]{1_050.0, 3_000.0, 4_950.0},
+                1_000.0, 7);
+    }
+
+    @Test
     void rooftopRelayOverhangsTerminateOnPaintedFacadeInsteadOfHiddenRoofEdge() throws Exception {
         BirdGame3 game = prepare(BirdGame3.MapType.CITY, BirdGame3.MapVariant.ROOFTOP_RELAY);
         CityBuildingGeometry.Layout layout = CityBuildingGeometry.createRooftopRelay(
@@ -136,6 +146,29 @@ class StageStructuralConnectionTest {
             }
         }
         auditedLayouts.add(map + " / " + variant);
+    }
+
+    private static void assertJunglePlatformsWithinBranchReach(BirdGame3.MapVariant variant,
+                                                               double[] treeCenters,
+                                                               double maximumReach,
+                                                               int minimumPlatforms) throws Exception {
+        BirdGame3 game = prepare(BirdGame3.MapType.VIBRANT_JUNGLE, variant);
+        List<Platform> aerialPlatforms = game.platforms.stream()
+                .filter(platform -> platform.y < BirdGame3.GROUND_Y - 55.0)
+                .filter(platform -> platform.w > 105.0 && platform.h < 135.0)
+                .toList();
+        assertTrue(aerialPlatforms.size() >= minimumPlatforms,
+                variant + " must retain enough authored climbing ledges for this audit");
+        for (Platform platform : aerialPlatforms) {
+            double center = platform.x + platform.w * 0.5;
+            double nearestTree = Double.POSITIVE_INFINITY;
+            for (double treeCenter : treeCenters) {
+                nearestTree = Math.min(nearestTree, Math.abs(center - treeCenter));
+            }
+            assertTrue(nearestTree <= maximumReach,
+                    () -> variant + " has an aerial platform beyond branch reach at ("
+                            + platform.x + ", " + platform.y + ")");
+        }
     }
 
     private static BirdGame3 prepare(BirdGame3.MapType map,

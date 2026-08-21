@@ -14100,63 +14100,10 @@ public class BirdGame3 {
                     drawHeartbloomSanctuary(g, ambientFx);
                     break;
                 }
-                for (int i = 0; i < 600; i++) {
-                    double ratio = i / 600.0;
-                    Color c = Color.TEAL.interpolate(Color.LIMEGREEN.darker(), ratio);
-                    g.setFill(c.deriveColor(0, 1, 1, 0.85));
-                    g.fillRect(0, i * (WORLD_HEIGHT / 600.0), WORLD_WIDTH, WORLD_HEIGHT / 600.0 + 3);
-                }
-                g.setFill(Color.SADDLEBROWN.darker().darker());
-                g.setStroke(Color.SIENNA.darker());
-                g.setLineWidth(20);
-                for (double tx : JUNGLE_TREE_X) {
-                    g.fillRect(tx - 100, GROUND_Y - 2100, 200, 2200);
-                    g.strokeRect(tx - 100, GROUND_Y - 2100, 200, 2200);
-                    g.setFill(Color.SADDLEBROWN.darker());
-                    g.fillOval(tx - 180, GROUND_Y - 100, 360, 200);
-                    g.setStroke(Color.SIENNA.darker().darker());
-                    g.setLineWidth(6);
-                    for (int i = 0; i < 15; i++) {
-                        double offset = (i % 2 == 0 ? 30 : -30);
-                        g.strokeLine(tx - 80 + offset, GROUND_Y - 2000, tx - 80 + offset, GROUND_Y - 100);
-                    }
-                    g.setFill(Color.DARKGREEN.darker().darker());
-                    g.fillOval(tx - 300, GROUND_Y - 2150, 600, 300);
-                }
-                g.setFill(Color.DARKGREEN.darker().darker());
-                for (int m = 0; m < MOUNTAIN_X.length - 1; m++) {
-                    double baseY = GROUND_Y + 500;
-                    double peakY = mountainPeaks[m];
-                    double midX = MOUNTAIN_X[m] + 400;
-                    g.fillPolygon(new double[]{MOUNTAIN_X[m], midX, MOUNTAIN_X[m+1]}, new double[]{baseY, peakY, baseY}, 3);
-                }
-                g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.25));
-                g.fillRect(800, GROUND_Y - 1300, 1000, 1500);
-                g.fillRect(3200, GROUND_Y - 1400, 900, 1600);
-                g.fillRect(5000, GROUND_Y - 1200, 1100, 1400);
-                g.setFill(Color.DARKOLIVEGREEN.darker());
-                g.fillRect(0, GROUND_Y, WORLD_WIDTH, WORLD_HEIGHT - GROUND_Y);
-                g.setFill(Color.SEAGREEN.darker());
-                for (Platform p : platforms) {
-                    g.fillRoundRect(p.x, p.y, p.w, p.h, 40, 40);
-                    g.setFill(Color.web("#8BC34A", 0.6));
-                    g.fillOval(p.x + p.w / 2 - 36, p.y - 34, 72, 40);
-                    g.setFill(Color.SEAGREEN.darker());
-                }
-                for (NectarNode node : nectarNodes) {
-                    if (node.active) {
-                        Color orb = node.isSpeed ? Color.GOLD.brighter() : Color.AQUA.brighter();
-                        g.setFill(orb);
-                        g.fillOval(node.x - 20, node.y - 20, 40, 40);
-                        g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.6));
-                        g.fillOval(node.x - 10, node.y - 10, 20, 20);
-                    }
-                }
-                for (WindVent v : windVents) {
-                    double ventWidth = Math.max(170, v.w * 0.55);
-                    double ventHeight = 230 + v.w * 0.36;
-                    g.setFill(Color.CYAN.deriveColor(0, 1, 1, 0.18));
-                    g.fillOval(v.x + v.w / 2 - ventWidth / 2, v.y - ventHeight * 0.72, ventWidth, ventHeight);
+                if (activeArenaGeometryVariant == MapVariant.CARRION_THRONE) {
+                    drawCarrionThroneArena(g, ambientFx);
+                } else {
+                    drawVibrantJungleArena(g, ambientFx);
                 }
             }
             case DESERT -> {
@@ -17522,6 +17469,394 @@ public class BirdGame3 {
     private double quadraticPoint(double start, double control, double end, double t) {
         double inv = 1.0 - t;
         return inv * inv * start + 2 * inv * t * control + t * t * end;
+    }
+
+    private void drawVibrantJungleArena(GraphicsContext g, boolean ambientFx) {
+        double time = ambientFx ? System.nanoTime() / 1_000_000_000.0 : 0.0;
+        g.setFill(new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.web("#082C36")),
+                new Stop(0.42, Color.web("#2F7469")),
+                new Stop(0.74, Color.web("#8CB68A")),
+                new Stop(1.0, Color.web("#D4C47A"))));
+        g.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+
+        g.setFill(Color.web("#FFF1A8", 0.13));
+        g.fillOval(4_360.0, 140.0, 820.0, 820.0);
+        g.setFill(Color.web("#FFF6BD", 0.82));
+        g.fillOval(4_650.0, 425.0, 240.0, 240.0);
+
+        drawJungleDistantRidges(g);
+        drawJungleMistBands(g, time, ambientFx);
+        drawJungleDistantCanopy(g);
+        for (int i = 0; i < JUNGLE_TREE_X.length; i++) {
+            drawJungleLivingTree(g, JUNGLE_TREE_X[i], i);
+        }
+        drawJungleRootFloor(g);
+
+        for (Platform platform : platforms) {
+            if (isJungleAerialPlatform(platform)) drawJungleBranchSupport(g, platform, false);
+        }
+        for (Platform platform : platforms) {
+            if (isJungleAerialPlatform(platform)) drawJungleLivingLedge(g, platform, false);
+        }
+        for (WindVent vent : windVents) drawJungleUpdraft(g, vent, time, ambientFx, false);
+        for (NectarNode node : nectarNodes) drawJungleNectar(g, node, time, ambientFx, false);
+        drawJungleOrchidsAndFireflies(g, time, ambientFx);
+    }
+
+    private void drawJungleDistantRidges(GraphicsContext g) {
+        double[] peaks = mountainPeaks;
+        g.setFill(Color.web("#174B45", 0.58));
+        for (int m = 0; m < MOUNTAIN_X.length - 1; m++) {
+            double baseY = GROUND_Y + 340.0;
+            double peakY = peaks != null && m < peaks.length
+                    ? peaks[m] + 310.0 : GROUND_Y - 650.0 - (m % 3) * 230.0;
+            double midX = (MOUNTAIN_X[m] + MOUNTAIN_X[m + 1]) * 0.5;
+            g.fillPolygon(new double[]{MOUNTAIN_X[m], midX, MOUNTAIN_X[m + 1]},
+                    new double[]{baseY, peakY, baseY}, 3);
+        }
+        g.setFill(Color.web("#123A38", 0.72));
+        for (int m = 0; m < MOUNTAIN_X.length - 1; m++) {
+            double baseY = GROUND_Y + 390.0;
+            double peakY = GROUND_Y - 470.0 - (m % 2) * 260.0;
+            double midX = (MOUNTAIN_X[m] + MOUNTAIN_X[m + 1]) * 0.5 + (m % 2 == 0 ? 110.0 : -90.0);
+            g.fillPolygon(new double[]{MOUNTAIN_X[m], midX, MOUNTAIN_X[m + 1]},
+                    new double[]{baseY, peakY, baseY}, 3);
+        }
+    }
+
+    private void drawJungleMistBands(GraphicsContext g, double time, boolean ambientFx) {
+        for (int band = 0; band < 4; band++) {
+            double drift = ambientFx ? Math.sin(time * 0.08 + band * 1.4) * 65.0 : 0.0;
+            double y = 1_280.0 + band * 360.0;
+            g.setFill(Color.web(band % 2 == 0 ? "#D7F2DF" : "#BCE5D9", 0.12 + band * 0.025));
+            for (int cloud = 0; cloud < 7; cloud++) {
+                double x = -520.0 + cloud * 1_070.0 + (band % 2 == 0 ? drift : -drift);
+                g.fillOval(x, y + (cloud % 2) * 42.0, 1_180.0, 250.0);
+            }
+        }
+    }
+
+    private void drawJungleDistantCanopy(GraphicsContext g) {
+        for (int i = 0; i < 18; i++) {
+            double x = 90.0 + i * 355.0;
+            double top = 610.0 + (i % 4) * 115.0;
+            double width = 92.0 + (i % 3) * 22.0;
+            g.setFill(Color.web("#17483F", 0.66));
+            g.fillRoundRect(x - width * 0.5, top, width, GROUND_Y - top + 50.0, 60.0, 60.0);
+            g.setFill(Color.web(i % 2 == 0 ? "#24634F" : "#1F5A49", 0.82));
+            g.fillOval(x - 180.0, top - 85.0, 360.0, 190.0);
+            g.fillOval(x - 115.0, top - 155.0, 280.0, 180.0);
+        }
+    }
+
+    private void drawJungleLivingTree(GraphicsContext g, double centerX, int index) {
+        double crownY = GROUND_Y - 2_180.0 + (index % 2) * 80.0;
+        double trunkTop = crownY + 105.0;
+        double baseHalf = 155.0 + (index % 3) * 18.0;
+        double topHalf = 82.0 + (index % 2) * 14.0;
+        g.setFill(Color.web(index % 2 == 0 ? "#4B2E22" : "#543426"));
+        g.fillPolygon(new double[]{centerX - baseHalf, centerX - topHalf,
+                        centerX + topHalf, centerX + baseHalf},
+                new double[]{GROUND_Y + 75.0, trunkTop, trunkTop, GROUND_Y + 75.0}, 4);
+        g.setFill(Color.web("#744A2E", 0.78));
+        g.fillPolygon(new double[]{centerX - baseHalf * 0.46, centerX - topHalf * 0.42,
+                        centerX + topHalf * 0.06, centerX + baseHalf * 0.12},
+                new double[]{GROUND_Y + 55.0, trunkTop + 15.0, trunkTop, GROUND_Y + 55.0}, 4);
+        g.setStroke(Color.web("#2B241C", 0.70));
+        g.setLineWidth(14.0);
+        for (int groove = -1; groove <= 1; groove++) {
+            double x = centerX + groove * 50.0;
+            g.strokeLine(x, trunkTop + 90.0 + Math.abs(groove) * 60.0,
+                    x + groove * 24.0, GROUND_Y - 90.0);
+        }
+
+        g.setFill(Color.web(index % 2 == 0 ? "#0E4A32" : "#13563A"));
+        g.fillOval(centerX - 350.0, crownY - 110.0, 700.0, 285.0);
+        g.setFill(Color.web("#1C6C45"));
+        g.fillOval(centerX - 250.0, crownY - 210.0, 500.0, 260.0);
+        g.fillOval(centerX - 410.0, crownY - 30.0, 400.0, 215.0);
+        g.fillOval(centerX + 25.0, crownY - 45.0, 390.0, 220.0);
+        g.setFill(Color.web("#4E9960", 0.58));
+        g.fillOval(centerX - 205.0, crownY - 170.0, 275.0, 105.0);
+
+        g.setFill(Color.web("#4B2E22"));
+        g.fillPolygon(new double[]{centerX - baseHalf, centerX - baseHalf - 255.0,
+                        centerX - 38.0, centerX + 38.0,
+                        centerX + baseHalf + 255.0, centerX + baseHalf},
+                new double[]{GROUND_Y - 25.0, GROUND_Y + 80.0, GROUND_Y + 36.0,
+                        GROUND_Y + 36.0, GROUND_Y + 80.0, GROUND_Y - 25.0}, 6);
+    }
+
+    private void drawJungleRootFloor(GraphicsContext g) {
+        g.setFill(Color.web("#1C2C20"));
+        g.fillRect(0, GROUND_Y, WORLD_WIDTH, WORLD_HEIGHT - GROUND_Y);
+        g.setFill(Color.web("#37462B"));
+        g.fillRect(0, GROUND_Y + 80.0, WORLD_WIDTH, WORLD_HEIGHT - GROUND_Y - 80.0);
+        g.setFill(Color.web("#668A43"));
+        g.fillRect(0, GROUND_Y - 22.0, WORLD_WIDTH, 30.0);
+        g.setFill(Color.web("#9CCB64", 0.88));
+        renderRandom.setSeed(0x71B8_A11EL);
+        for (int tuft = 0; tuft < 150; tuft++) {
+            double x = renderRandom.nextDouble() * WORLD_WIDTH;
+            double width = 22.0 + renderRandom.nextDouble() * 62.0;
+            g.fillOval(x - width * 0.5, GROUND_Y - 34.0 - renderRandom.nextDouble() * 9.0,
+                    width, 19.0 + renderRandom.nextDouble() * 11.0);
+        }
+    }
+
+    private boolean isJungleAerialPlatform(Platform platform) {
+        return platform != null && platform.y < GROUND_Y - 55.0
+                && platform.w > 105.0 && platform.h < 135.0;
+    }
+
+    private void drawJungleBranchSupport(GraphicsContext g, Platform platform, boolean deadwood) {
+        double[] anchors = deadwood ? new double[]{1_050.0, 3_000.0, 4_950.0} : JUNGLE_TREE_X;
+        double ledgeCenter = platform.x + platform.w * 0.5;
+        double anchorX = anchors[0];
+        for (double candidate : anchors) {
+            if (Math.abs(candidate - ledgeCenter) < Math.abs(anchorX - ledgeCenter)) anchorX = candidate;
+        }
+        double innerEdge = ledgeCenter < anchorX ? platform.x + platform.w : platform.x;
+        double underside = platform.y + platform.h;
+        double anchorY = Math.min(GROUND_Y - 90.0,
+                underside + 150.0 + Math.abs(innerEdge - anchorX) * 0.10);
+        double thickness = Math.clamp(platform.w * 0.10, 28.0, 82.0);
+        strokeJungleBranch(g, anchorX, anchorY, innerEdge, underside,
+                Color.web(deadwood ? "#211B1C" : "#251D17"), thickness + 20.0);
+        strokeJungleBranch(g, anchorX, anchorY, innerEdge, underside,
+                Color.web(deadwood ? "#5B4439" : "#5A3825"), thickness);
+        strokeJungleBranch(g, anchorX, anchorY - thickness * 0.10,
+                innerEdge, underside - thickness * 0.10,
+                Color.web(deadwood ? "#9C7960" : "#976342", 0.52),
+                Math.max(6.0, thickness * 0.15));
+
+        if (platform.y > GROUND_Y - 380.0) {
+            double center = platform.x + platform.w * 0.5;
+            double half = Math.clamp(platform.w * 0.27, 48.0, 150.0);
+            g.setFill(Color.web(deadwood ? "#3B2B28" : "#443022"));
+            g.fillPolygon(new double[]{center - 22.0, center + 22.0,
+                            center + half, center - half},
+                    new double[]{underside, underside, GROUND_Y + 10.0, GROUND_Y + 10.0}, 4);
+        }
+    }
+
+    private void strokeJungleBranch(GraphicsContext g, double anchorX, double anchorY,
+                                    double edgeX, double edgeY, Color color, double width) {
+        double direction = Math.signum(edgeX - anchorX);
+        g.setStroke(color);
+        g.setLineWidth(width);
+        g.beginPath();
+        g.moveTo(anchorX, anchorY);
+        g.bezierCurveTo(anchorX + direction * Math.abs(edgeX - anchorX) * 0.28, anchorY - 60.0,
+                edgeX - direction * Math.abs(edgeX - anchorX) * 0.25, edgeY + 38.0,
+                edgeX, edgeY);
+        g.stroke();
+    }
+
+    private void drawJungleLivingLedge(GraphicsContext g, Platform platform, boolean deadwood) {
+        renderRandom.setSeed(Double.doubleToLongBits(
+                platform.x * 31.0 + platform.y * 17.0 + platform.w * 13.0));
+        double underside = platform.y + platform.h + 12.0;
+        double toothA = platform.x + platform.w * (0.24 + renderRandom.nextDouble() * 0.08);
+        double toothB = platform.x + platform.w * (0.70 + renderRandom.nextDouble() * 0.08);
+        g.setFill(Color.web(deadwood ? "#231B1B" : "#241C17"));
+        g.fillPolygon(new double[]{platform.x - 9.0, platform.x + platform.w + 9.0,
+                        platform.x + platform.w - 18.0, toothB, toothA, platform.x + 16.0},
+                new double[]{platform.y - 4.0, platform.y - 4.0, underside,
+                        underside + 38.0, underside + 28.0, underside}, 6);
+        g.setFill(Color.web(deadwood ? "#60483B" : "#5E3D27"));
+        g.fillRoundRect(platform.x, platform.y, platform.w, platform.h, 24.0, 24.0);
+        g.setFill(Color.web(deadwood ? "#91705A" : "#8A5B38", 0.72));
+        g.fillRoundRect(platform.x + 11.0, platform.y + 8.0,
+                Math.max(20.0, platform.w - 22.0), Math.max(7.0, platform.h * 0.25), 14.0, 14.0);
+        g.setFill(Color.web(deadwood ? "#4B3832" : "#3E4F2B"));
+        g.fillRoundRect(platform.x - 7.0, platform.y - 13.0,
+                platform.w + 14.0, 24.0, 20.0, 20.0);
+        g.setStroke(Color.web(deadwood ? "#C6A56E" : "#A9D86D", 0.94));
+        g.setLineWidth(6.0);
+        g.strokeLine(platform.x + 10.0, platform.y - 10.0,
+                platform.x + platform.w - 10.0, platform.y - 10.0);
+
+        int leaves = Math.clamp((int) Math.round(platform.w / 180.0), 1, 5);
+        for (int i = 0; i < leaves; i++) {
+            double x = platform.x + (i + 1.0) * platform.w / (leaves + 1.0);
+            g.setFill(Color.web(deadwood ? "#8A7245" : (i % 2 == 0 ? "#4D8F45" : "#66A953"), 0.86));
+            g.fillOval(x - 20.0, platform.y - 34.0 - (i % 2) * 7.0, 40.0, 26.0);
+        }
+    }
+
+    private void drawJungleUpdraft(GraphicsContext g, WindVent vent,
+                                   double time, boolean ambientFx, boolean carrion) {
+        double centerX = vent.x + vent.w * 0.5;
+        double pulse = ambientFx ? 0.78 + 0.22 * Math.sin(time * 1.7 + vent.x * 0.014) : 0.86;
+        double width = Math.clamp(vent.w * 0.52, 120.0, 240.0);
+        double top = vent.y - 280.0;
+        double bottom = vent.y + 180.0;
+        g.setFill(new LinearGradient(0, 1, 0, 0, true, CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.web(carrion ? "#D4C77B" : "#C5F3DB", 0.20 * pulse)),
+                new Stop(0.58, Color.web(carrion ? "#8F9F63" : "#8CDECC", 0.10 * pulse)),
+                new Stop(1.0, Color.TRANSPARENT)));
+        g.fillPolygon(new double[]{centerX - width * 0.30, centerX + width * 0.30,
+                        centerX + width * 0.72, centerX - width * 0.72},
+                new double[]{top, top, bottom, bottom}, 4);
+        g.setStroke(Color.web(carrion ? "#E8D58D" : "#D9FFF0", 0.54 * pulse));
+        g.setLineWidth(7.0);
+        for (int ribbon = -1; ribbon <= 1; ribbon++) {
+            double x = centerX + ribbon * width * 0.22;
+            g.strokeArc(x - width * 0.25, top + 60.0 + ribbon * 32.0,
+                    width * 0.50, 150.0, ribbon < 0 ? 205.0 : 25.0, 130.0, ArcType.OPEN);
+        }
+        g.setFill(Color.web(carrion ? "#574634" : "#315B3B"));
+        g.fillOval(centerX - width * 0.34, vent.y + 115.0, width * 0.68, 54.0);
+        g.setStroke(Color.web(carrion ? "#C6A56E" : "#8ED08A", 0.78));
+        g.setLineWidth(8.0);
+        g.strokeArc(centerX - width * 0.34, vent.y + 115.0,
+                width * 0.68, 54.0, 185.0, 170.0, ArcType.OPEN);
+    }
+
+    private void drawJungleNectar(GraphicsContext g, NectarNode node,
+                                  double time, boolean ambientFx, boolean carrion) {
+        if (!node.active) return;
+        double pulse = ambientFx ? 1.0 + Math.sin(time * 2.2 + node.x * 0.02) * 0.10 : 1.0;
+        Color outer = carrion ? Color.web("#D6B85C")
+                : (node.isSpeed ? Color.web("#FFE477") : Color.web("#8EF1D1"));
+        g.setFill(outer.deriveColor(0, 1, 1, 0.20));
+        g.fillOval(node.x - 45.0 * pulse, node.y - 45.0 * pulse,
+                90.0 * pulse, 90.0 * pulse);
+        g.setFill(outer);
+        g.fillOval(node.x - 22.0, node.y - 26.0, 44.0, 52.0);
+        g.setFill(Color.web("#FFFDE7", 0.82));
+        g.fillOval(node.x - 9.0, node.y - 14.0, 16.0, 18.0);
+        g.setStroke(Color.web(carrion ? "#6E5731" : "#417D4B"));
+        g.setLineWidth(6.0);
+        g.strokeLine(node.x, node.y - 25.0, node.x + 12.0, node.y - 47.0);
+    }
+
+    private void drawJungleOrchidsAndFireflies(GraphicsContext g, double time, boolean ambientFx) {
+        renderRandom.setSeed(0x0AC1_DF11L);
+        for (int i = 0; i < 42; i++) {
+            double x = renderRandom.nextDouble() * WORLD_WIDTH;
+            double y = 680.0 + renderRandom.nextDouble() * (GROUND_Y - 780.0);
+            double drift = ambientFx ? Math.sin(time * 0.8 + i * 1.7) * 18.0 : 0.0;
+            g.setFill(Color.web(i % 3 == 0 ? "#FFF59D" : "#B7FFD4", 0.38 + (i % 4) * 0.08));
+            g.fillOval(x + drift, y, 10.0 + (i % 3) * 3.0, 10.0 + (i % 3) * 3.0);
+        }
+    }
+
+    private void drawCarrionThroneArena(GraphicsContext g, boolean ambientFx) {
+        double time = ambientFx ? System.nanoTime() / 1_000_000_000.0 : 0.0;
+        g.setFill(new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.web("#17151F")),
+                new Stop(0.48, Color.web("#3B3032")),
+                new Stop(0.78, Color.web("#665044")),
+                new Stop(1.0, Color.web("#8A6B4A"))));
+        g.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+        g.setFill(Color.web("#E7D7A0", 0.12));
+        g.fillOval(4_540.0, 150.0, 760.0, 760.0);
+        g.setFill(Color.web("#E9DEB0", 0.78));
+        g.fillOval(4_815.0, 425.0, 210.0, 210.0);
+
+        g.setFill(Color.web("#23262A", 0.72));
+        for (int i = 0; i < 13; i++) {
+            double x = -180.0 + i * 510.0;
+            double top = 850.0 + (i % 4) * 125.0;
+            g.fillPolygon(new double[]{x, x + 160.0, x + 260.0, x + 410.0},
+                    new double[]{GROUND_Y + 120.0, top, top + 250.0, GROUND_Y + 120.0}, 4);
+        }
+        drawCarrionDeadTree(g, 1_050.0, 0.72, false);
+        drawCarrionDeadTree(g, 3_000.0, 1.18, true);
+        drawCarrionDeadTree(g, 4_950.0, 0.72, false);
+        drawCarrionRootFloor(g);
+
+        for (Platform platform : platforms) {
+            if (isJungleAerialPlatform(platform)) drawJungleBranchSupport(g, platform, true);
+        }
+        drawCarrionBoneThrone(g);
+        for (Platform platform : platforms) {
+            if (isJungleAerialPlatform(platform)) drawJungleLivingLedge(g, platform, true);
+        }
+        for (WindVent vent : windVents) drawJungleUpdraft(g, vent, time, ambientFx, true);
+        for (NectarNode node : nectarNodes) drawJungleNectar(g, node, time, ambientFx, true);
+        drawCarrionSilhouettes(g, time, ambientFx);
+    }
+
+    private void drawCarrionDeadTree(GraphicsContext g, double centerX,
+                                     double scale, boolean throneTree) {
+        double baseY = GROUND_Y + 70.0;
+        double topY = throneTree ? 420.0 : 870.0;
+        double baseHalf = 235.0 * scale;
+        double topHalf = 86.0 * scale;
+        g.setFill(Color.web(throneTree ? "#352624" : "#3D2D29"));
+        g.fillPolygon(new double[]{centerX - baseHalf, centerX - topHalf,
+                        centerX + topHalf, centerX + baseHalf},
+                new double[]{baseY, topY, topY, baseY}, 4);
+        g.setFill(Color.web("#62483A", 0.66));
+        g.fillPolygon(new double[]{centerX - baseHalf * 0.45, centerX - topHalf * 0.46,
+                        centerX + topHalf * 0.04, centerX + baseHalf * 0.12},
+                new double[]{baseY, topY + 20.0, topY, baseY}, 4);
+        g.setStroke(Color.web("#21191A"));
+        g.setLineWidth(44.0 * scale);
+        double branchY = topY + 190.0;
+        g.strokeLine(centerX - topHalf * 0.35, branchY,
+                centerX - 340.0 * scale, branchY - 250.0 * scale);
+        g.strokeLine(centerX + topHalf * 0.35, branchY + 40.0,
+                centerX + 350.0 * scale, branchY - 180.0 * scale);
+        g.setStroke(Color.web("#735342"));
+        g.setLineWidth(25.0 * scale);
+        g.strokeLine(centerX - topHalf * 0.35, branchY,
+                centerX - 340.0 * scale, branchY - 250.0 * scale);
+        g.strokeLine(centerX + topHalf * 0.35, branchY + 40.0,
+                centerX + 350.0 * scale, branchY - 180.0 * scale);
+    }
+
+    private void drawCarrionRootFloor(GraphicsContext g) {
+        g.setFill(Color.web("#201A1C"));
+        g.fillRect(0, GROUND_Y, WORLD_WIDTH, WORLD_HEIGHT - GROUND_Y);
+        g.setFill(Color.web("#352B2A"));
+        g.fillRect(0, GROUND_Y + 88.0, WORLD_WIDTH, WORLD_HEIGHT - GROUND_Y - 88.0);
+        g.setFill(Color.web("#735A42"));
+        g.fillRect(0, GROUND_Y - 20.0, WORLD_WIDTH, 30.0);
+        for (double rootX : new double[]{1_050.0, 3_000.0, 4_950.0}) {
+            g.setFill(Color.web("#3D2B28"));
+            g.fillPolygon(new double[]{rootX - 170.0, rootX - 520.0, rootX - 35.0,
+                            rootX + 35.0, rootX + 520.0, rootX + 170.0},
+                    new double[]{GROUND_Y - 18.0, GROUND_Y + 105.0, GROUND_Y + 42.0,
+                            GROUND_Y + 42.0, GROUND_Y + 105.0, GROUND_Y - 18.0}, 6);
+        }
+    }
+
+    private void drawCarrionBoneThrone(GraphicsContext g) {
+        double centerX = 3_000.0;
+        double seatY = GROUND_Y - 1_520.0;
+        g.setStroke(Color.web("#D5C59B", 0.82));
+        g.setLineWidth(28.0);
+        for (int rib = -3; rib <= 3; rib++) {
+            double x = centerX + rib * 112.0;
+            double height = 430.0 - Math.abs(rib) * 45.0;
+            g.strokeArc(x - 105.0, seatY - height, 210.0, height * 1.25,
+                    rib <= 0 ? 275.0 : 175.0, 92.0, ArcType.OPEN);
+        }
+        g.setFill(Color.web("#C8B88B"));
+        g.fillPolygon(new double[]{centerX - 190.0, centerX, centerX + 190.0,
+                        centerX + 115.0, centerX - 115.0},
+                new double[]{seatY - 410.0, seatY - 565.0, seatY - 410.0,
+                        seatY - 335.0, seatY - 335.0}, 5);
+        g.setFill(Color.web("#2A2020"));
+        g.fillOval(centerX - 48.0, seatY - 475.0, 38.0, 52.0);
+        g.fillOval(centerX + 10.0, seatY - 475.0, 38.0, 52.0);
+    }
+
+    private void drawCarrionSilhouettes(GraphicsContext g, double time, boolean ambientFx) {
+        g.setStroke(Color.web("#171820", 0.78));
+        g.setLineWidth(11.0);
+        for (int i = 0; i < 8; i++) {
+            double drift = ambientFx ? (time * (18.0 + i * 1.8)) % (WORLD_WIDTH + 600.0) : 0.0;
+            double x = (420.0 + i * 790.0 + drift) % (WORLD_WIDTH + 500.0) - 250.0;
+            double y = 430.0 + (i % 4) * 145.0;
+            g.strokeArc(x - 42.0, y, 84.0, 36.0, 15.0, 150.0, ArcType.OPEN);
+            g.strokeArc(x + 34.0, y, 84.0, 36.0, 15.0, 150.0, ArcType.OPEN);
+        }
     }
 
     private void drawSkyCliffsArena(GraphicsContext g, boolean ambientFx) {
