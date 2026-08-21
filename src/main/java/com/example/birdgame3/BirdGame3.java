@@ -20680,8 +20680,8 @@ public class BirdGame3 {
     }
 
     private void drawPrisonArena(GraphicsContext g, boolean ambientFx) {
-        long presentationMillis = ambientFx ? System.currentTimeMillis() : 0L;
-        double presentationSeconds = presentationMillis / 1000.0;
+        double presentationSeconds = ambientFx ? System.nanoTime() / 1_000_000_000.0 : 0.0;
+        long presentationMillis = (long) (presentationSeconds * 1000.0);
 
         // The shattered roof opens Crownlock directly to the city night. The outside
         // is deliberately brighter than the cell hall so the upper blast exit reads
@@ -20730,6 +20730,7 @@ public class BirdGame3 {
             }
         }
 
+        drawPrisonStructuralFrame(g);
         drawPrisonBrokenRoof(g);
         drawPrisonCellBank(g, 180, 700, false);
         drawPrisonCellBank(g, WORLD_WIDTH - 180, 700, true);
@@ -20773,6 +20774,46 @@ public class BirdGame3 {
         }
     }
 
+    private void drawPrisonStructuralFrame(GraphicsContext g) {
+        double[] columns = {760.0, 1920.0, 4080.0, 5240.0};
+        g.setStroke(Color.web("#0A1116", 0.98));
+        g.setLineWidth(78.0);
+        for (double x : columns) g.strokeLine(x, 500, x, PRISON_MAIN_Y + 12);
+        g.setStroke(Color.web("#526774", 0.55));
+        g.setLineWidth(8.0);
+        for (double x : columns) {
+            g.strokeLine(x - 25, 510, x - 25, PRISON_MAIN_Y);
+            g.strokeLine(x + 25, 510, x + 25, PRISON_MAIN_Y);
+        }
+
+        g.setStroke(Color.web("#0C151B"));
+        g.setLineWidth(48.0);
+        g.strokeLine(0, 1110, 2110, 1110);
+        g.strokeLine(3890, 1110, WORLD_WIDTH, 1110);
+        g.strokeLine(0, 1710, 2110, 1710);
+        g.strokeLine(3890, 1710, WORLD_WIDTH, 1710);
+        g.setStroke(Color.web("#465B67", 0.50));
+        g.setLineWidth(6.0);
+        g.strokeLine(0, 1092, 2110, 1092);
+        g.strokeLine(3890, 1092, WORLD_WIDTH, 1092);
+        g.strokeLine(0, 1692, 2110, 1692);
+        g.strokeLine(3890, 1692, WORLD_WIDTH, 1692);
+
+        drawPrisonRearBrace(g, 760, 1110, 1920, 1710);
+        drawPrisonRearBrace(g, 1920, 1110, 760, 1710);
+        drawPrisonRearBrace(g, 4080, 1110, 5240, 1710);
+        drawPrisonRearBrace(g, 5240, 1110, 4080, 1710);
+    }
+
+    private void drawPrisonRearBrace(GraphicsContext g, double x1, double y1, double x2, double y2) {
+        g.setStroke(Color.web("#263943", 0.58));
+        g.setLineWidth(22.0);
+        g.strokeLine(x1, y1, x2, y2);
+        g.setStroke(Color.web("#607D8B", 0.24));
+        g.setLineWidth(5.0);
+        g.strokeLine(x1, y1, x2, y2);
+    }
+
     private void drawPrisonBrokenRoof(GraphicsContext g) {
         g.setFill(Color.web("#070C10"));
         g.fillPolygon(
@@ -20797,6 +20838,14 @@ public class BirdGame3 {
             g.strokeLine(x, 300 + (i % 3) * 45, x + direction * 70, 540 + (i % 2) * 80);
         }
 
+        g.setFill(Color.web("#111B21"));
+        g.fillPolygon(new double[]{2140, 2360, 2500, 2250}, new double[]{390, 390, 560, 520}, 4);
+        g.fillPolygon(new double[]{3860, 3640, 3500, 3750}, new double[]{390, 390, 560, 520}, 4);
+        g.setStroke(Color.web("#607D8B", 0.72));
+        g.setLineWidth(12.0);
+        g.strokeLine(2080, 390, 2520, 590);
+        g.strokeLine(3920, 390, 3480, 590);
+
         // Suspended fragments frame the launch route without acting as platforms.
         g.setFill(Color.web("#101920"));
         g.fillPolygon(new double[]{2360, 2510, 2460, 2300}, new double[]{90, 165, 310, 220}, 4);
@@ -20812,6 +20861,17 @@ public class BirdGame3 {
         double gateY = 800;
         double gateW = 1480;
         double gateH = PRISON_MAIN_Y - gateY;
+        g.setFill(Color.web("#0A1116"));
+        g.fillPolygon(new double[]{gateX - 150, gateX + 100, gateX + 100, gateX - 55},
+                new double[]{gateY + 170, gateY, PRISON_MAIN_Y, PRISON_MAIN_Y}, 4);
+        g.fillPolygon(new double[]{gateX + gateW + 150, gateX + gateW - 100,
+                        gateX + gateW - 100, gateX + gateW + 55},
+                new double[]{gateY + 170, gateY, PRISON_MAIN_Y, PRISON_MAIN_Y}, 4);
+        g.setStroke(Color.web("#607D8B", 0.62));
+        g.setLineWidth(10.0);
+        g.strokeLine(gateX - 110, gateY + 190, gateX + 45, PRISON_MAIN_Y);
+        g.strokeLine(gateX + gateW + 110, gateY + 190, gateX + gateW - 45, PRISON_MAIN_Y);
+
         g.setFill(Color.web("#0B141A"));
         g.fillRoundRect(gateX, gateY, gateW, gateH, 34, 34);
         g.setStroke(Color.web("#50636F"));
@@ -20826,6 +20886,23 @@ public class BirdGame3 {
             double sx = gateX + 190 + seam * (gateW - 380) / 4.0;
             g.strokeLine(sx, gateY + 340, sx, gateY + gateH - 40);
         }
+        g.setStroke(Color.web("#3B4E58", 0.70));
+        g.setLineWidth(5.0);
+        for (int row = 0; row < 5; row++) {
+            double sy = gateY + 410 + row * 220.0;
+            g.strokeLine(gateX + 205, sy, gateX + gateW - 205, sy);
+        }
+        g.setFill(Color.web("#101E25"));
+        for (int side = 0; side < 2; side++) {
+            double panelX = side == 0 ? gateX + 38 : gateX + gateW - 158;
+            for (int row = 0; row < 4; row++) {
+                double panelY = gateY + 330 + row * 260.0;
+                g.fillRoundRect(panelX, panelY, 120, 180, 12, 12);
+                g.setStroke(Color.web("#455A64", 0.64));
+                g.setLineWidth(5.0);
+                g.strokeRoundRect(panelX, panelY, 120, 180, 12, 12);
+            }
+        }
         g.setFill(Color.web("#081018"));
         g.fillRoundRect(gateX + 350, gateY + 80, gateW - 700, 190, 22, 22);
         g.setStroke(Color.web("#00BCD4", 0.75));
@@ -20835,6 +20912,13 @@ public class BirdGame3 {
         g.fillOval(WORLD_WIDTH / 2.0 - 68, gateY + 108, 136, 136);
         g.setFill(Color.web("#041016"));
         g.fillOval(WORLD_WIDTH / 2.0 - 34, gateY + 142, 68, 68);
+        g.setStroke(Color.web("#8FE6F0", 0.82));
+        g.setLineWidth(7.0);
+        g.strokeArc(WORLD_WIDTH / 2.0 - 31, gateY + 147, 62, 56, 22, 136, ArcType.OPEN);
+        g.strokeLine(WORLD_WIDTH / 2.0 - 20, gateY + 175,
+                WORLD_WIDTH / 2.0 - 20, gateY + 208);
+        g.strokeLine(WORLD_WIDTH / 2.0 + 20, gateY + 175,
+                WORLD_WIDTH / 2.0 + 20, gateY + 208);
         g.setFont(Font.font("Arial Black", FontWeight.BOLD, 38));
         g.setFill(Color.web("#CFD8DC", 0.82));
         g.setTextAlign(TextAlignment.CENTER);
@@ -20863,12 +20947,14 @@ public class BirdGame3 {
         g.fillOval(targetX - 250, PRISON_MAIN_Y - 38, 500, 76);
 
         g.setFill(Color.web("#101A21"));
-        g.fillOval(originX - 52, originY - 30, 104, 60);
+        g.fillRoundRect(originX - 62, originY - 34, 124, 68, 30, 30);
         g.setStroke(Color.web("#90A4AE"));
         g.setLineWidth(7);
-        g.strokeOval(originX - 52, originY - 30, 104, 60);
+        g.strokeRoundRect(originX - 62, originY - 34, 124, 68, 30, 30);
         g.setFill(beamColor.deriveColor(0, 1, 1, 0.88));
         g.fillOval(originX - 22, originY - 13, 44, 26);
+        g.setFill(Color.web("#263943"));
+        g.fillRect(originX - 18, originY - 58, 36, 26);
     }
 
     private void drawPrisonFloor(GraphicsContext g) {
@@ -20916,24 +21002,19 @@ public class BirdGame3 {
                 continue;
             }
 
-            // The slim suspension rods visually anchor each catwalk to the damaged
-            // cell-block structure without changing its collision footprint.
-            double leftSupport = platform.x + Math.min(110.0, platform.w * 0.22);
-            double rightSupport = platform.x + platform.w - Math.min(110.0, platform.w * 0.22);
-            g.setStroke(Color.web("#607D8B", 0.55));
-            g.setLineWidth(7);
-            g.strokeLine(leftSupport, platform.y + platform.h, leftSupport + 24, PRISON_MAIN_Y);
-            g.strokeLine(rightSupport, platform.y + platform.h, rightSupport - 24, PRISON_MAIN_Y);
+            drawPrisonCatwalkSupports(g, platform);
 
             LinearGradient steel = new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
-                    new Stop(0.0, Color.web("#536B77")),
-                    new Stop(0.24, Color.web("#263943")),
-                    new Stop(1.0, Color.web("#101A20")));
+                    new Stop(0.0, Color.web("#6F8791")),
+                    new Stop(0.20, Color.web("#344A55")),
+                    new Stop(1.0, Color.web("#0B151B")));
             g.setFill(steel);
-            g.fillRoundRect(platform.x, platform.y, platform.w, platform.h, 18, 18);
+            g.fillRect(platform.x, platform.y, platform.w, platform.h);
             g.setStroke(Color.web("#90A4AE"));
             g.setLineWidth(7);
-            g.strokeRoundRect(platform.x, platform.y, platform.w, platform.h, 18, 18);
+            g.strokeLine(platform.x, platform.y, platform.x + platform.w, platform.y);
+            g.strokeLine(platform.x, platform.y + platform.h,
+                    platform.x + platform.w, platform.y + platform.h);
             g.setStroke(Color.web("#C5D5DC", 0.52));
             g.setLineWidth(4);
             g.strokeLine(platform.x + 20, platform.y + 12,
@@ -20945,11 +21026,79 @@ public class BirdGame3 {
                 double rx = platform.x + rivet * platform.w / (rivets + 1.0);
                 g.fillOval(rx - 5, platform.y + platform.h / 2.0 - 5, 10, 10);
             }
+
+            g.setStroke(Color.web("#526A76", 0.70));
+            g.setLineWidth(5.0);
+            int trussBays = Math.max(2, (int) Math.round(platform.w / 240.0));
+            double bayWidth = platform.w / trussBays;
+            for (int bay = 0; bay < trussBays; bay++) {
+                double x = platform.x + bay * bayWidth;
+                if ((bay & 1) == 0) {
+                    g.strokeLine(x, platform.y + platform.h, x + bayWidth, platform.y);
+                } else {
+                    g.strokeLine(x, platform.y, x + bayWidth, platform.y + platform.h);
+                }
+            }
+        }
+    }
+
+    private void drawPrisonCatwalkSupports(GraphicsContext g, Platform platform) {
+        double centerX = platform.x + platform.w * 0.5;
+        double relativeY = platform.y - PRISON_MAIN_Y;
+        g.setStroke(Color.web("#17262E", 0.96));
+
+        if (relativeY > -430.0) {
+            double left = platform.x + Math.min(140.0, platform.w * 0.20);
+            double right = platform.x + platform.w - Math.min(140.0, platform.w * 0.20);
+            g.setLineWidth(34.0);
+            g.strokeLine(left, platform.y + platform.h, left + 18.0, PRISON_MAIN_Y);
+            g.strokeLine(right, platform.y + platform.h, right - 18.0, PRISON_MAIN_Y);
+            g.setStroke(Color.web("#708793", 0.52));
+            g.setLineWidth(7.0);
+            g.strokeLine(left, platform.y + platform.h, left + 18.0, PRISON_MAIN_Y);
+            g.strokeLine(right, platform.y + platform.h, right - 18.0, PRISON_MAIN_Y);
+            g.strokeLine(left, platform.y + platform.h, right - 18.0, PRISON_MAIN_Y);
+            g.strokeLine(right, platform.y + platform.h, left + 18.0, PRISON_MAIN_Y);
+        } else if (platform.w > 1000.0) {
+            g.setLineWidth(42.0);
+            g.strokeLine(platform.x + 120, platform.y + platform.h, 2310, PRISON_MAIN_Y - 55.0);
+            g.strokeLine(platform.x + platform.w - 120, platform.y + platform.h,
+                    3690, PRISON_MAIN_Y - 55.0);
+            g.setStroke(Color.web("#718996", 0.54));
+            g.setLineWidth(8.0);
+            g.strokeLine(platform.x + 120, platform.y + platform.h, 2310, PRISON_MAIN_Y - 55.0);
+            g.strokeLine(platform.x + platform.w - 120, platform.y + platform.h,
+                    3690, PRISON_MAIN_Y - 55.0);
+        } else if (Math.abs(centerX - WORLD_WIDTH * 0.5) < 420.0) {
+            g.setLineWidth(24.0);
+            g.strokeLine(platform.x + 95, platform.y, platform.x + 95, 780.0);
+            g.strokeLine(platform.x + platform.w - 95, platform.y,
+                    platform.x + platform.w - 95, 780.0);
+            g.setStroke(Color.web("#78909C", 0.60));
+            g.setLineWidth(6.0);
+            g.strokeLine(platform.x + 95, platform.y, platform.x + 95, 780.0);
+            g.strokeLine(platform.x + platform.w - 95, platform.y,
+                    platform.x + platform.w - 95, 780.0);
+        } else {
+            boolean leftWing = centerX < WORLD_WIDTH * 0.5;
+            double wallX = leftWing ? 1930.0 : 4070.0;
+            double nearX = leftWing ? platform.x + platform.w - 36.0 : platform.x + 36.0;
+            g.setLineWidth(40.0);
+            g.strokeLine(nearX, platform.y + platform.h, wallX, platform.y + 360.0);
+            g.setStroke(Color.web("#78909C", 0.54));
+            g.setLineWidth(8.0);
+            g.strokeLine(nearX, platform.y + platform.h, wallX, platform.y + 360.0);
         }
     }
 
     private void drawPrisonCellBank(GraphicsContext g, double edgeX, double topY, boolean faceLeft) {
         double direction = faceLeft ? -1.0 : 1.0;
+        double backingX = faceLeft ? edgeX - 1380.0 : edgeX;
+        g.setFill(Color.web("#0B141A", 0.92));
+        g.fillRect(backingX - 28, topY - 48, 1436, 1368);
+        g.setStroke(Color.web("#3C505B", 0.72));
+        g.setLineWidth(13.0);
+        g.strokeRect(backingX - 28, topY - 48, 1436, 1368);
         for (int tier = 0; tier < 2; tier++) {
             double y = topY + tier * 520.0;
             for (int cell = 0; cell < 4; cell++) {
@@ -20970,6 +21119,18 @@ public class BirdGame3 {
                 g.fillRect(x + 30, y + 260, 62, 12);
             }
         }
+        g.setFill(Color.web("#263943"));
+        g.fillRect(backingX - 20, topY + 360, 1420, 58);
+        g.fillRect(backingX - 20, topY + 880, 1420, 58);
+        g.setStroke(Color.web("#90A4AE", 0.58));
+        g.setLineWidth(7.0);
+        g.strokeLine(backingX - 20, topY + 360, backingX + 1400, topY + 360);
+        g.strokeLine(backingX - 20, topY + 880, backingX + 1400, topY + 880);
+        for (int post = 0; post <= 7; post++) {
+            double x = backingX + post * 200.0;
+            g.strokeLine(x, topY + 360, x, topY + 418);
+            g.strokeLine(x, topY + 880, x, topY + 938);
+        }
     }
 
     private void drawPrisonLever(GraphicsContext g, int lever) {
@@ -20977,15 +21138,15 @@ public class BirdGame3 {
         double y = PRISON_LEVER_Y;
         boolean ready = prisonLeverCooldowns[lever] <= 0;
         g.setFill(Color.web("#111A20"));
-        g.fillRoundRect(x - 48, y - 5, 96, 62, 14, 14);
+        g.fillRoundRect(x - 58, y - 7, 116, 72, 14, 14);
         g.setStroke(ready ? Color.web("#FFD54F") : Color.web("#546E7A"));
-        g.setLineWidth(5);
-        g.strokeRoundRect(x - 48, y - 5, 96, 62, 14, 14);
+        g.setLineWidth(7);
+        g.strokeRoundRect(x - 58, y - 7, 116, 72, 14, 14);
         double handleX = x + (ready ? (lever == 0 ? 23 : -23) : 0);
         double handleY = y - (ready ? 45 : 22);
         g.strokeLine(x, y + 14, handleX, handleY);
         g.setFill(ready ? Color.web("#FFCA28") : Color.web("#78909C"));
-        g.fillOval(handleX - 12, handleY - 12, 24, 24);
+        g.fillOval(handleX - 15, handleY - 15, 30, 30);
         g.setTextAlign(TextAlignment.CENTER);
         g.setFont(Font.font("Consolas", FontWeight.BOLD, 19));
         g.setFill(ready ? Color.web("#FFF8E1") : Color.web("#90A4AE"));
