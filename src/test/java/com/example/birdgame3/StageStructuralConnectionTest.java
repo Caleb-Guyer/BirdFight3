@@ -74,6 +74,27 @@ class StageStructuralConnectionTest {
     }
 
     @Test
+    void titanDockCatwalksTerminateOnDreadnoughtMastsOrDrydockGantries() throws Exception {
+        BirdGame3 titan = prepare(BirdGame3.MapType.DOCK, BirdGame3.MapVariant.TITAN_DOCK);
+        Platform mainDeck = titan.platforms.stream()
+                .filter(platform -> platform.w >= 2_000.0)
+                .findFirst()
+                .orElseThrow();
+        assertEquals(10, titan.platforms.size(), "Titan Dock authored surface count");
+
+        for (Platform platform : titan.platforms) {
+            if (platform == mainDeck || platform.w >= 800.0) continue;
+            double center = platform.x + platform.w * 0.5;
+            boolean shipMounted = center >= mainDeck.x - 300.0
+                    && center <= mainDeck.x + mainDeck.w + 300.0;
+            boolean gantryMounted = center <= 1_600.0 || center >= 4_400.0;
+            assertTrue(shipMounted || gantryMounted,
+                    () -> "Titan Dock catwalk has no painted mast or gantry at ("
+                            + platform.x + ", " + platform.y + ")");
+        }
+    }
+
+    @Test
     void rooftopRelayOverhangsTerminateOnPaintedFacadeInsteadOfHiddenRoofEdge() throws Exception {
         BirdGame3 game = prepare(BirdGame3.MapType.CITY, BirdGame3.MapVariant.ROOFTOP_RELAY);
         CityBuildingGeometry.Layout layout = CityBuildingGeometry.createRooftopRelay(

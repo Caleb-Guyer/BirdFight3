@@ -21875,6 +21875,277 @@ public class BirdGame3 {
     }
 
     private void drawTitanDockArena(GraphicsContext g, boolean ambientFx) {
+        double time = ambientFx ? System.nanoTime() / 1_000_000_000.0 : 0.0;
+        double waterline = dockWaterSurfaceY();
+        double pulse = ambientFx ? 0.66 + 0.22 * Math.sin(time * 1.9) : 0.76;
+
+        g.setFill(new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.web("#030812")),
+                new Stop(0.52, Color.web("#183248")),
+                new Stop(1.0, Color.web("#57656A"))));
+        g.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+
+        drawTitanDockStormBank(g, time, ambientFx);
+        drawTitanDockDistantHarbor(g, waterline);
+        drawTitanDockWater(g, waterline, time, ambientFx);
+        drawTitanDockDrydockFrame(g, waterline);
+
+        // Every authored surface is supported before its collision deck is
+        // painted. The central decks are part of the dreadnought, the two low
+        // shelves are armored service barges, and high catwalks terminate on a
+        // mast or gantry instead of hanging from invisible lines.
+        for (Platform p : platforms) drawTitanDockSupport(g, p, waterline);
+        drawTitanDockHull(g, waterline);
+        drawTitanDockCommandTower(g);
+
+        for (WindVent vent : windVents) {
+            drawSkyVariantWindChannel(g, vent, time, ambientFx,
+                    Color.web("#78DDF2"), Color.web("#102833"));
+        }
+        for (Platform p : platforms) drawTitanDockDeck(g, p);
+
+        drawTitanDockCannon(g, pulse);
+        drawTitanDockLever(g);
+        drawTitanDockWarningLamps(g, pulse);
+    }
+
+    private void drawTitanDockStormBank(GraphicsContext g, double time, boolean ambientFx) {
+        g.setFill(Color.web("#AAB9C2", 0.16));
+        for (int i = 0; i < 9; i++) {
+            double drift = ambientFx ? Math.sin(time * 0.13 + i * 0.8) * 64.0 : 0.0;
+            double x = -520.0 + i * 760.0 + drift;
+            double y = 170.0 + (i % 3) * 135.0;
+            g.fillOval(x, y, 1_020.0, 250.0);
+            g.fillOval(x + 180.0, y - 75.0, 620.0, 230.0);
+        }
+        g.setStroke(Color.web("#B9D8E5", 0.20));
+        g.setLineWidth(7.0);
+        for (double x = 410.0; x < WORLD_WIDTH; x += 930.0) {
+            g.strokeLine(x, 120.0, x - 125.0, 410.0);
+        }
+    }
+
+    private void drawTitanDockDistantHarbor(GraphicsContext g, double waterline) {
+        g.setFill(Color.web("#091824", 0.88));
+        for (int i = 0; i < 13; i++) {
+            double x = -180.0 + i * 520.0;
+            double height = 250.0 + (i % 4) * 95.0;
+            g.fillRect(x, waterline - height, 260.0, height);
+            g.fillPolygon(new double[]{x + 210.0, x + 330.0, x + 450.0},
+                    new double[]{waterline, waterline - 170.0 - (i % 2) * 70.0, waterline}, 3);
+        }
+        g.setFill(Color.web("#D8B462", 0.38));
+        for (double x = 150.0; x < WORLD_WIDTH; x += 360.0) {
+            g.fillRect(x, waterline - 75.0 - (x % 3.0) * 18.0, 20.0, 10.0);
+        }
+    }
+
+    private void drawTitanDockWater(GraphicsContext g, double waterline,
+                                    double time, boolean ambientFx) {
+        g.setFill(Color.web("#04131E"));
+        g.fillRect(0, waterline, WORLD_WIDTH, WORLD_HEIGHT - waterline + 260.0);
+        g.setFill(Color.web("#0D3548", 0.76));
+        g.fillRect(0, waterline + 18.0, WORLD_WIDTH, 56.0);
+        g.setStroke(Color.web("#69D6EE", 0.26));
+        g.setLineWidth(4.0);
+        for (int wave = 0; wave < 19; wave++) {
+            double y = waterline + 20.0 + wave * 27.0;
+            double shift = ambientFx ? Math.sin(time * 1.1 + wave * 0.63) * 20.0 : 0.0;
+            g.strokeLine(0, y + shift, WORLD_WIDTH, y - shift * 0.32);
+        }
+        g.setStroke(Color.web("#B7ECF6", 0.58));
+        g.setLineWidth(6.0);
+        g.strokeLine(0, waterline, WORLD_WIDTH, waterline);
+    }
+
+    private void drawTitanDockDrydockFrame(GraphicsContext g, double waterline) {
+        double[] gantryX = {350.0, 1_180.0, 4_820.0, 5_650.0};
+        g.setFill(Color.web("#0A141E"));
+        for (double x : gantryX) {
+            g.fillRect(x - 72.0, 430.0, 144.0, waterline - 430.0);
+            g.setStroke(Color.web("#506777", 0.58));
+            g.setLineWidth(10.0);
+            for (double y = 520.0; y < waterline - 80.0; y += 190.0) {
+                g.strokeLine(x - 56.0, y, x + 56.0, y + 92.0);
+                g.strokeLine(x + 56.0, y, x - 56.0, y + 92.0);
+            }
+        }
+        g.setStroke(Color.web("#101C27"));
+        g.setLineWidth(44.0);
+        g.strokeLine(350.0, 490.0, 1_500.0, 490.0);
+        g.strokeLine(4_500.0, 490.0, 5_650.0, 490.0);
+        g.setStroke(Color.web("#6C8390"));
+        g.setLineWidth(15.0);
+        g.strokeLine(350.0, 490.0, 1_500.0, 490.0);
+        g.strokeLine(4_500.0, 490.0, 5_650.0, 490.0);
+        g.setStroke(Color.web("#D9A734", 0.68));
+        g.setLineWidth(7.0);
+        g.strokeLine(390.0, 505.0, 1_460.0, 505.0);
+        g.strokeLine(4_540.0, 505.0, 5_610.0, 505.0);
+    }
+
+    private void drawTitanDockSupport(GraphicsContext g, Platform p, double waterline) {
+        boolean mainDeck = Math.abs(p.x - battlefieldIslandX) < 1.0
+                && Math.abs(p.w - battlefieldIslandW) < 1.0;
+        boolean serviceBarge = p.w >= 800.0 && !mainDeck;
+        double centerX = p.x + p.w * 0.5;
+        double underside = p.y + p.h;
+        if (mainDeck) return;
+
+        if (serviceBarge) {
+            g.setFill(Color.web("#111E28"));
+            g.fillPolygon(new double[]{p.x - 25.0, p.x + p.w + 25.0,
+                            p.x + p.w - 105.0, p.x + 110.0},
+                    new double[]{underside, underside, waterline + 100.0, waterline + 100.0}, 4);
+            g.setFill(Color.web("#314551", 0.70));
+            g.fillPolygon(new double[]{p.x + 45.0, p.x + p.w - 45.0,
+                            p.x + p.w - 135.0, p.x + 130.0},
+                    new double[]{underside + 18.0, underside + 18.0,
+                            waterline + 45.0, waterline + 45.0}, 4);
+            return;
+        }
+
+        double anchorY = mainDeckTopAt(centerX);
+        if (!Double.isFinite(anchorY)) anchorY = waterline + 28.0;
+        g.setStroke(Color.web("#0D1821"));
+        g.setLineWidth(p.w >= 500.0 ? 48.0 : 32.0);
+        g.strokeLine(centerX, underside, centerX, anchorY);
+        g.setStroke(Color.web("#4D6471", 0.82));
+        g.setLineWidth(p.w >= 500.0 ? 19.0 : 13.0);
+        g.strokeLine(centerX, underside, centerX, anchorY);
+
+        double brace = Math.min(170.0, p.w * 0.32);
+        g.setStroke(Color.web("#374C58", 0.72));
+        g.setLineWidth(12.0);
+        g.strokeLine(centerX, underside + 75.0, centerX - brace, underside);
+        g.strokeLine(centerX, underside + 75.0, centerX + brace, underside);
+
+        // Outer crane decks visibly hang from their matching gantry beams.
+        if (p.y < GROUND_Y - 950.0 && (centerX < 1_600.0 || centerX > 4_400.0)) {
+            double beamY = 510.0;
+            g.setStroke(Color.web("#728995", 0.72));
+            g.setLineWidth(9.0);
+            g.strokeLine(centerX, beamY, centerX, p.y);
+        }
+    }
+
+    private double mainDeckTopAt(double x) {
+        if (x >= battlefieldIslandX && x <= battlefieldIslandX + battlefieldIslandW) {
+            return battlefieldIslandY + 180.0;
+        }
+        return Double.NaN;
+    }
+
+    private void drawTitanDockHull(GraphicsContext g, double waterline) {
+        double left = battlefieldIslandX - 165.0;
+        double right = battlefieldIslandX + battlefieldIslandW + 165.0;
+        double deckBottom = battlefieldIslandY + 105.0;
+        g.setFill(Color.web("#0A141D"));
+        g.fillPolygon(new double[]{left, right, right - 250.0, 3_620.0, 3_000.0,
+                        2_380.0, left + 250.0},
+                new double[]{deckBottom, deckBottom, waterline + 40.0, waterline + 250.0,
+                        waterline + 360.0, waterline + 250.0, waterline + 40.0}, 7);
+        g.setFill(Color.web("#263945"));
+        g.fillPolygon(new double[]{left + 120.0, right - 120.0, right - 330.0,
+                        3_000.0, left + 330.0},
+                new double[]{deckBottom + 45.0, deckBottom + 45.0, waterline + 18.0,
+                        waterline + 235.0, waterline + 18.0}, 5);
+        g.setStroke(Color.web("#6A8190", 0.68));
+        g.setLineWidth(12.0);
+        g.strokeLine(left + 180.0, deckBottom + 86.0, right - 180.0, deckBottom + 86.0);
+        g.setStroke(Color.web("#E0AC39", 0.72));
+        g.setLineWidth(7.0);
+        g.strokeLine(left + 260.0, deckBottom + 120.0, right - 260.0, deckBottom + 120.0);
+        g.setFill(Color.web("#A6CEDB", 0.34));
+        for (double x = left + 360.0; x < right - 300.0; x += 260.0) {
+            g.fillRoundRect(x, deckBottom + 165.0, 94.0, 28.0, 12.0, 12.0);
+        }
+    }
+
+    private void drawTitanDockCommandTower(GraphicsContext g) {
+        double x = 3_000.0;
+        double baseY = battlefieldIslandY;
+        g.setFill(Color.web("#121F29"));
+        g.fillPolygon(new double[]{x - 330.0, x - 240.0, x + 240.0, x + 330.0},
+                new double[]{baseY, baseY - 680.0, baseY - 680.0, baseY}, 4);
+        g.setFill(Color.web("#314754"));
+        g.fillRoundRect(x - 205.0, baseY - 720.0, 410.0, 130.0, 30.0, 30.0);
+        g.setFill(Color.web("#8FD4E5", 0.54));
+        for (int window = -2; window <= 2; window++) {
+            g.fillRoundRect(x + window * 72.0 - 23.0, baseY - 682.0, 46.0, 34.0, 9.0, 9.0);
+        }
+        g.setStroke(Color.web("#506B7A"));
+        g.setLineWidth(18.0);
+        g.strokeLine(x, baseY - 720.0, x, baseY - 1_220.0);
+        g.setStroke(Color.web("#D9A52E", 0.78));
+        g.setLineWidth(7.0);
+        g.strokeLine(x - 170.0, baseY - 850.0, x + 170.0, baseY - 850.0);
+    }
+
+    private void drawTitanDockDeck(GraphicsContext g, Platform p) {
+        boolean mainDeck = Math.abs(p.x - battlefieldIslandX) < 1.0
+                && Math.abs(p.w - battlefieldIslandW) < 1.0;
+        g.setFill(Color.web(mainDeck ? "#253944" : "#2D424D"));
+        g.fillRoundRect(p.x, p.y, p.w, p.h, mainDeck ? 18.0 : 13.0, mainDeck ? 18.0 : 13.0);
+        g.setFill(Color.web(mainDeck ? "#5B7480" : "#526A75", 0.78));
+        g.fillRoundRect(p.x + 10.0, p.y + 8.0, Math.max(18.0, p.w - 20.0),
+                Math.max(8.0, p.h * 0.27), 11.0, 11.0);
+        g.setStroke(Color.web(mainDeck ? "#D9A735" : "#92A9B1", mainDeck ? 0.88 : 0.74));
+        g.setLineWidth(mainDeck ? 7.0 : 5.0);
+        g.strokeRoundRect(p.x, p.y, p.w, p.h, mainDeck ? 18.0 : 13.0, mainDeck ? 18.0 : 13.0);
+        g.setStroke(Color.web("#14232C", 0.76));
+        g.setLineWidth(4.0);
+        for (double seamX = p.x + 120.0; seamX < p.x + p.w; seamX += 150.0) {
+            g.strokeLine(seamX, p.y + 8.0, seamX - 10.0, p.y + p.h - 7.0);
+        }
+    }
+
+    private void drawTitanDockCannon(GraphicsContext g, double pulse) {
+        double muzzleX = dockShipCannonMuzzleX();
+        double muzzleY = dockShipCannonMuzzleY();
+        g.setFill(Color.web("#15242D"));
+        g.fillOval(muzzleX - 95.0, muzzleY - 78.0, 190.0, 150.0);
+        g.setStroke(Color.web("#536B77"));
+        g.setLineWidth(34.0);
+        g.strokeLine(muzzleX + 28.0, muzzleY - 12.0, muzzleX - 145.0, muzzleY - 42.0);
+        g.setStroke(Color.web("#91A8B1"));
+        g.setLineWidth(10.0);
+        g.strokeLine(muzzleX + 18.0, muzzleY - 18.0, muzzleX - 144.0, muzzleY - 46.0);
+        if (dockShipBomb != null && !dockShipBomb.exploded) {
+            g.setFill(Color.web("#FFCA4A", 0.20 + pulse * 0.32));
+            g.fillOval(muzzleX - 194.0, muzzleY - 82.0, 105.0, 74.0);
+        }
+    }
+
+    private void drawTitanDockLever(GraphicsContext g) {
+        boolean ready = dockLeverCooldown <= 0;
+        double baseY = dockLeverY + 26.0;
+        g.setFill(ready ? Color.web("#DCA72E") : Color.web("#526773"));
+        g.fillRoundRect(dockLeverX - 38.0, baseY - 12.0, 76.0, 24.0, 11.0, 11.0);
+        g.setStroke(Color.web("#101922"));
+        g.setLineWidth(5.0);
+        double tipX = dockLeverX + (ready ? 20.0 : -20.0);
+        double tipY = dockLeverY - (ready ? 24.0 : 38.0);
+        g.strokeLine(dockLeverX, baseY - 3.0, tipX, tipY);
+        g.setFill(ready ? Color.web("#FFE082") : Color.web("#B0BEC5"));
+        g.fillOval(tipX - 9.0, tipY - 9.0, 18.0, 18.0);
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, 20.0));
+        g.setFill(Color.web("#FFF8E1", ready ? 0.86 : 0.52));
+        g.fillText(ready ? "TITAN CANNON" : "CANNON RELOADING", dockLeverX - 94.0, dockLeverY - 28.0);
+    }
+
+    private void drawTitanDockWarningLamps(GraphicsContext g, double pulse) {
+        g.setFill(Color.web("#FFCA4A", pulse));
+        for (double x : new double[]{650.0, 1_650.0, 2_520.0, 3_480.0, 4_350.0, 5_350.0}) {
+            g.fillOval(x - 12.0, battlefieldIslandY + 28.0, 24.0, 24.0);
+            g.setFill(Color.web("#FFCA4A", pulse * 0.20));
+            g.fillOval(x - 42.0, battlefieldIslandY - 2.0, 84.0, 84.0);
+            g.setFill(Color.web("#FFCA4A", pulse));
+        }
+    }
+
+    @SuppressWarnings("unused")
+    private void drawLegacyTitanDockArena(GraphicsContext g, boolean ambientFx) {
         for (int i = 0; i < 620; i++) {
             double ratio = i / 620.0;
             Color c = Color.web("#050A12").interpolate(Color.web("#263C4B"), ratio);
