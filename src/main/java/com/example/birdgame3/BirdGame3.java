@@ -18469,74 +18469,413 @@ public class BirdGame3 {
     }
 
     private void drawStillwaterMarshArena(GraphicsContext g, boolean ambientFx) {
-        double time = System.currentTimeMillis() / 1000.0;
-        for (int i = 0; i < 620; i++) {
-            double ratio = i / 620.0;
-            g.setFill(Color.web("#030A12").interpolate(Color.web("#16454A"), ratio));
-            g.fillRect(0, i * (WORLD_HEIGHT / 620.0), WORLD_WIDTH, WORLD_HEIGHT / 620.0 + 3);
+        double time = ambientFx ? System.nanoTime() / 1_000_000_000.0 : 0.0;
+        g.save();
+        g.setFill(new LinearGradient(0, 0, 0, WORLD_HEIGHT, false, CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.web("#020813")),
+                new Stop(0.40, Color.web("#0B2830")),
+                new Stop(0.72, Color.web("#17473F")),
+                new Stop(1.0, Color.web("#102E2B"))));
+        g.fillRect(-500, -300, WORLD_WIDTH + 1_000, WORLD_HEIGHT + 600);
+
+        drawStillwaterMoon(g, time, ambientFx);
+
+        renderRandom.setSeed(0x5711_0A7EL);
+        for (int i = 0; i < 125; i++) {
+            double x = renderRandom.nextDouble() * WORLD_WIDTH;
+            double y = 55.0 + renderRandom.nextDouble() * (STILLWATER_MAIN_Y - 720.0);
+            double size = 1.5 + renderRandom.nextDouble() * 4.0;
+            double pulse = ambientFx ? 0.65 + 0.35 * Math.sin(time * 1.3 + i * 1.17) : 0.82;
+            g.setFill(Color.web(i % 11 == 0 ? "#DDF6B6" : "#B9E7E0",
+                    (0.18 + renderRandom.nextDouble() * 0.42) * pulse));
+            g.fillOval(x, y, size, size);
         }
 
-        g.setFill(Color.web("#E9F4CF", 0.78));
-        g.fillOval(4_650, 120, 390, 390);
-        g.setFill(Color.web("#B8E6C5", 0.10));
-        g.fillOval(4_500, -20, 700, 700);
-
-        // Distant cypress crowns and shrine silhouettes establish depth while
-        // every playable surface below remains visibly rooted to the marsh.
-        g.setFill(Color.web("#071B22", 0.88));
-        for (int i = 0; i < 12; i++) {
-            double x = -180 + i * 560.0;
-            double top = 300 + (i % 4) * 95.0;
-            g.fillRect(x + 170, top, 64, STILLWATER_MAIN_Y + 420 - top);
-            g.fillOval(x, top - 120, 420, 210);
+        // Layered cypress silhouettes frame the flooded shrine and make the
+        // playable foreground feel like a clearing rather than a flat backdrop.
+        double distantBase = STILLWATER_MAIN_Y + 260.0;
+        for (int i = 0; i < 11; i++) {
+            double x = -220 + i * 640.0;
+            double height = 820.0 + (i % 4) * 125.0;
+            drawStillwaterCypress(g, x, distantBase, height, 420.0,
+                    Color.web("#06191E", 0.88), Color.web("#0B2525", 0.86), false);
         }
-        g.setFill(Color.web("#13262B", 0.72));
-        g.fillPolygon(new double[]{2_480, 2_760, 3_040, 3_320, 3_600},
-                new double[]{STILLWATER_MAIN_Y + 230, 510, 350, 510, STILLWATER_MAIN_Y + 230}, 5);
+        for (int i = 0; i < 7; i++) {
+            double x = -320 + i * 1_050.0;
+            double height = 1_050.0 + (i % 3) * 145.0;
+            drawStillwaterCypress(g, x, distantBase + 60.0, height, 610.0,
+                    Color.web("#082027", 0.78), Color.web("#10332E", 0.76), true);
+        }
 
         double waterY = STILLWATER_MAIN_Y + 230.0;
-        g.setFill(Color.web("#031921", 0.96));
+        drawStillwaterRuinedShrine(g, waterY);
+
+        g.setFill(new LinearGradient(0, waterY, 0, WORLD_HEIGHT, false, CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.web("#0B3E42", 0.97)),
+                new Stop(0.34, Color.web("#06282F", 0.98)),
+                new Stop(1.0, Color.web("#020D17"))));
         g.fillRect(0, waterY, WORLD_WIDTH, WORLD_HEIGHT - waterY);
-        g.setStroke(Color.web("#78D5C1", 0.22));
+        drawStillwaterMoonReflection(g, waterY, time, ambientFx);
+        drawStillwaterRipples(g, waterY, time, ambientFx);
+        drawStillwaterRootWeb(g, waterY);
+        drawStillwaterForegroundTrees(g, waterY);
+
+        for (Platform platform : platforms) drawStillwaterPlatform(g, platform);
+
+        for (WindVent vent : windVents) drawStillwaterMarshGas(g, vent, time, ambientFx);
+
+        drawStillwaterWaterPlants(g, waterY);
+        drawStillwaterFog(g, waterY, time, ambientFx);
+        drawStillwaterFireflies(g, time, ambientFx);
+        g.restore();
+    }
+
+    private void drawStillwaterMoon(GraphicsContext g, double time, boolean ambientFx) {
+        double moonX = 4_820.0;
+        double moonY = 300.0;
+        double pulse = ambientFx ? 0.92 + Math.sin(time * 0.38) * 0.08 : 0.96;
+        g.setFill(new RadialGradient(0, 0, moonX, moonY, 500.0, false, CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.web("#EAF5D2", 0.22 * pulse)),
+                new Stop(0.48, Color.web("#B6E5C6", 0.08 * pulse)),
+                new Stop(1.0, Color.TRANSPARENT)));
+        g.fillOval(moonX - 500, moonY - 500, 1_000, 1_000);
+        g.setFill(Color.web("#EDF5D3", 0.92));
+        g.fillOval(moonX - 168, moonY - 168, 336, 336);
+        g.setFill(Color.web("#AFCDB8", 0.18));
+        g.fillOval(moonX - 92, moonY - 74, 72, 48);
+        g.fillOval(moonX + 32, moonY + 38, 82, 56);
+        g.fillOval(moonX - 118, moonY + 52, 54, 34);
+
+        // Thin cloud banks pass behind the fighter silhouettes while breaking
+        // the perfect moon disc into a more natural marsh-night focal point.
+        double cloudShift = ambientFx ? Math.sin(time * 0.12) * 85.0 : 0.0;
+        g.setFill(Color.web("#17373B", 0.58));
+        g.fillOval(4_280 + cloudShift, 250, 500, 105);
+        g.fillOval(4_650 + cloudShift, 220, 580, 125);
+        g.fillOval(5_040 + cloudShift, 280, 430, 90);
+    }
+
+    private void drawStillwaterCypress(GraphicsContext g, double x, double baseY,
+                                        double height, double crownWidth,
+                                        Color trunk, Color foliage, boolean moss) {
+        double centerX = x + crownWidth * 0.5;
+        double topY = baseY - height;
+        double trunkWidth = Math.max(58.0, crownWidth * 0.16);
+        g.setFill(trunk);
+        g.fillPolygon(
+                new double[]{centerX - trunkWidth * 0.45, centerX + trunkWidth * 0.42,
+                        centerX + trunkWidth * 0.78, centerX + trunkWidth * 1.22,
+                        centerX - trunkWidth * 1.12, centerX - trunkWidth * 0.68},
+                new double[]{topY + height * 0.18, topY + height * 0.18,
+                        baseY - 70, baseY, baseY, baseY - 70},
+                6);
+        g.setFill(foliage);
+        g.fillOval(x, topY, crownWidth, height * 0.22);
+        g.fillOval(x + crownWidth * 0.10, topY - height * 0.07,
+                crownWidth * 0.72, height * 0.20);
+        g.fillOval(x + crownWidth * 0.25, topY + height * 0.07,
+                crownWidth * 0.70, height * 0.18);
+        if (moss) {
+            g.setStroke(Color.web("#4D7F65", 0.26));
+            g.setLineWidth(8.0);
+            for (int i = 0; i < 5; i++) {
+                double mx = x + crownWidth * (0.18 + i * 0.15);
+                double length = 95.0 + (i % 3) * 65.0;
+                g.strokeLine(mx, topY + height * 0.13, mx + 14, topY + height * 0.13 + length);
+            }
+        }
+    }
+
+    private void drawStillwaterRuinedShrine(GraphicsContext g, double waterY) {
+        Color stone = Color.web("#172F31", 0.86);
+        Color stoneLight = Color.web("#35544B", 0.58);
+        double centerX = WORLD_WIDTH * 0.5;
+        double baseY = STILLWATER_MAIN_Y + 28.0;
+        g.setFill(stone);
+        g.fillRect(centerX - 540, baseY - 850, 150, 880);
+        g.fillRect(centerX + 390, baseY - 850, 150, 880);
+        g.fillRect(centerX - 620, baseY - 920, 340, 105);
+        g.fillRect(centerX + 280, baseY - 920, 340, 105);
+        g.setStroke(stone);
+        g.setLineWidth(125.0);
+        g.strokeArc(centerX - 470, baseY - 1_125, 940, 760, 0, 180, ArcType.OPEN);
+        g.setStroke(stoneLight);
+        g.setLineWidth(15.0);
+        g.strokeArc(centerX - 430, baseY - 1_085, 860, 690, 0, 180, ArcType.OPEN);
+
+        g.setFill(Color.web("#89C49A", 0.18));
+        g.fillPolygon(
+                new double[]{centerX - 575, centerX - 390, centerX - 270,
+                        centerX + 110, centerX + 300, centerX + 565},
+                new double[]{baseY - 915, baseY - 940, baseY - 895,
+                        baseY - 930, baseY - 900, baseY - 930}, 6);
+
+        // Broken steps sink below the waterline instead of becoming deceptive
+        // extra platforms.
+        g.setFill(Color.web("#122B2D", 0.74));
+        for (int i = 0; i < 4; i++) {
+            double width = 1_420.0 - i * 210.0;
+            g.fillRect(centerX - width * 0.5, baseY + 80 + i * 58, width, 32);
+        }
+        g.setFill(Color.web("#79CBB0", 0.08));
+        g.fillRect(centerX - 780, waterY - 12, 1_560, 24);
+    }
+
+    private void drawStillwaterMoonReflection(GraphicsContext g, double waterY,
+                                               double time, boolean ambientFx) {
+        double centerX = 4_820.0;
+        g.setFill(Color.web("#DDF1C4", 0.08));
+        g.fillPolygon(
+                new double[]{centerX - 155, centerX + 155, centerX + 470, centerX - 430},
+                new double[]{waterY, waterY, WORLD_HEIGHT, WORLD_HEIGHT}, 4);
+        g.setStroke(Color.web("#DDF1C4", 0.20));
+        g.setLineWidth(5.0);
+        for (int i = 0; i < 18; i++) {
+            double width = 75.0 + i * 24.0;
+            double shift = ambientFx ? Math.sin(time * 0.7 + i * 0.63) * 22.0 : 0.0;
+            double y = waterY + 35.0 + i * 68.0;
+            g.strokeLine(centerX - width + shift, y, centerX + width + shift, y);
+        }
+    }
+
+    private void drawStillwaterRipples(GraphicsContext g, double waterY,
+                                       double time, boolean ambientFx) {
+        g.setStroke(Color.web("#79D6C4", 0.17));
         g.setLineWidth(3.0);
         for (int row = 0; row < 22; row++) {
-            double shift = ambientFx ? Math.sin(time * 0.7 + row * 0.61) * 46.0 : 0.0;
-            double y = waterY + 28 + row * 48.0;
-            g.strokeLine(70 + shift, y, WORLD_WIDTH - 70 - shift * 0.25, y + 5);
+            double shift = ambientFx ? Math.sin(time * 0.62 + row * 0.61) * 42.0 : 0.0;
+            double y = waterY + 28 + row * 52.0;
+            for (int segment = 0; segment < 7; segment++) {
+                double x = 80 + segment * 890.0 + (row % 2) * 90.0 + shift;
+                double width = 300.0 + ((row + segment) % 3) * 95.0;
+                g.strokeLine(x, y, Math.min(WORLD_WIDTH - 60, x + width), y + 3.0);
+            }
+        }
+    }
+
+    private void drawStillwaterRootWeb(GraphicsContext g, double waterY) {
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setStroke(Color.web("#171411"));
+        g.setLineWidth(190.0);
+        g.beginPath();
+        g.moveTo(420, STILLWATER_MAIN_Y + 260);
+        g.bezierCurveTo(1_280, STILLWATER_MAIN_Y + 110, 1_840, waterY + 270, 2_520, waterY + 400);
+        g.bezierCurveTo(3_020, waterY + 510, 3_520, waterY + 510, 4_060, waterY + 385);
+        g.bezierCurveTo(4_720, waterY + 225, 5_160, STILLWATER_MAIN_Y + 125, 5_580, STILLWATER_MAIN_Y + 255);
+        g.stroke();
+        g.setStroke(Color.web("#493324"));
+        g.setLineWidth(52.0);
+        g.strokeLine(900, STILLWATER_MAIN_Y + 104, 5_100, STILLWATER_MAIN_Y + 104);
+
+        drawStillwaterRootBranch(g, 1_040, STILLWATER_MAIN_Y + 85, 510, waterY + 590, -430);
+        drawStillwaterRootBranch(g, 1_620, STILLWATER_MAIN_Y + 85, 1_150, waterY + 780, -160);
+        drawStillwaterRootBranch(g, 2_500, STILLWATER_MAIN_Y + 100, 2_200, waterY + 860, 80);
+        drawStillwaterRootBranch(g, 3_500, STILLWATER_MAIN_Y + 100, 3_770, waterY + 860, -80);
+        drawStillwaterRootBranch(g, 4_380, STILLWATER_MAIN_Y + 85, 4_860, waterY + 780, 160);
+        drawStillwaterRootBranch(g, 4_970, STILLWATER_MAIN_Y + 85, 5_480, waterY + 590, 430);
+    }
+
+    private void drawStillwaterRootBranch(GraphicsContext g, double startX, double startY,
+                                          double endX, double endY, double curve) {
+        g.setStroke(Color.web("#201814"));
+        g.setLineWidth(86.0);
+        g.beginPath();
+        g.moveTo(startX, startY);
+        g.bezierCurveTo(startX + curve, startY + 180, endX - curve * 0.35, endY - 250, endX, endY);
+        g.stroke();
+        g.setStroke(Color.web("#5A3D29", 0.50));
+        g.setLineWidth(15.0);
+        g.beginPath();
+        g.moveTo(startX, startY);
+        g.bezierCurveTo(startX + curve, startY + 180, endX - curve * 0.35, endY - 250, endX, endY);
+        g.stroke();
+    }
+
+    private void drawStillwaterForegroundTrees(GraphicsContext g, double waterY) {
+        // These two cypresses are the actual visual supports for the upper root
+        // shelves; their knees join the same submerged root web as the main span.
+        drawStillwaterForegroundCypress(g, 2_160, waterY + 620, STILLWATER_MAIN_Y - 850, -1.0);
+        drawStillwaterForegroundCypress(g, 3_840, waterY + 620, STILLWATER_MAIN_Y - 850, 1.0);
+    }
+
+    private void drawStillwaterForegroundCypress(GraphicsContext g, double centerX,
+                                                  double baseY, double topY, double direction) {
+        g.setFill(Color.web("#231A16"));
+        g.fillPolygon(
+                new double[]{centerX - 105, centerX + 95, centerX + 150, centerX + 280,
+                        centerX - 260, centerX - 145},
+                new double[]{topY + 24, topY + 24, baseY - 120, baseY,
+                        baseY, baseY - 125}, 6);
+        g.setStroke(Color.web("#6C4930", 0.62));
+        g.setLineWidth(18.0);
+        g.strokeLine(centerX - 20, topY + 70, centerX + direction * 32, baseY - 85);
+
+        g.setStroke(Color.web("#241A15"));
+        g.setLineWidth(110.0);
+        g.beginPath();
+        g.moveTo(centerX, topY + 250);
+        g.bezierCurveTo(centerX - direction * 190, topY + 180,
+                centerX - direction * 360, STILLWATER_MAIN_Y - 300,
+                centerX - direction * 610, STILLWATER_MAIN_Y - 300);
+        g.stroke();
+        g.setStroke(Color.web("#51745A", 0.34));
+        g.setLineWidth(20.0);
+        g.strokeLine(centerX - 44, topY + 42, centerX - 44, topY + 350);
+    }
+
+    private void drawStillwaterPlatform(GraphicsContext g, Platform platform) {
+        boolean mainRoot = Math.abs(platform.x - STILLWATER_MAIN_X) < 1.0
+                && Math.abs(platform.w - STILLWATER_MAIN_W) < 1.0;
+        boolean shrineStone = platform.y <= STILLWATER_MAIN_Y - 610.0;
+        if (shrineStone) {
+            drawStillwaterStonePlatform(g, platform);
+        } else {
+            drawStillwaterRootPlatform(g, platform, mainRoot);
         }
 
-        for (Platform platform : platforms) {
-            double center = platform.x + platform.w * 0.5;
-            double supportTop = platform.y + platform.h * 0.45;
-            double supportBottom = waterY + 430.0;
-            double spread = Math.max(60.0, Math.min(310.0, platform.w * 0.38));
-            g.setFill(Color.web("#2B211C", 0.92));
-            g.fillPolygon(new double[]{platform.x + 18, platform.x + platform.w - 18,
-                            center + spread, center - spread},
-                    new double[]{supportTop, supportTop, supportBottom, supportBottom}, 4);
-            g.setStroke(Color.web("#5A4937", 0.72));
-            g.setLineWidth(12.0);
-            g.strokeLine(platform.x + 38, supportTop, center - spread * 0.55, supportBottom);
-            g.strokeLine(platform.x + platform.w - 38, supportTop,
-                    center + spread * 0.55, supportBottom);
+        if (platform.signText != null) {
+            g.setTextAlign(TextAlignment.CENTER);
+            g.setFont(Font.font("Arial Black", FontWeight.BOLD, 25));
+            g.setFill(Color.web("#D8F1D2", 0.76));
+            g.fillText(platform.signText, platform.x + platform.w * 0.5,
+                    platform.y + Math.min(65.0, platform.h * 0.70));
         }
+    }
 
-        for (Platform platform : platforms) {
-            g.setFill(Color.web("#30251F"));
-            g.fillRoundRect(platform.x, platform.y, platform.w, platform.h, 28, 28);
-            g.setStroke(Color.web("#7E6650"));
-            g.setLineWidth(7.0);
-            g.strokeRoundRect(platform.x, platform.y, platform.w, platform.h, 28, 28);
-            g.setFill(Color.web("#4E8064"));
-            g.fillRoundRect(platform.x + 12, platform.y + 5,
-                    Math.max(0.0, platform.w - 24), 22, 18, 18);
+    private void drawStillwaterRootPlatform(GraphicsContext g, Platform platform, boolean mainRoot) {
+        double taper = Math.min(80.0, platform.w * 0.10);
+        g.setFill(Color.web("#171310"));
+        g.fillPolygon(
+                new double[]{platform.x + taper, platform.x + platform.w - taper,
+                        platform.x + platform.w, platform.x + platform.w - taper * 0.25,
+                        platform.x + taper * 0.25, platform.x},
+                new double[]{platform.y - 8, platform.y - 8, platform.y + platform.h * 0.44,
+                        platform.y + platform.h + (mainRoot ? 58 : 34),
+                        platform.y + platform.h + (mainRoot ? 58 : 34),
+                        platform.y + platform.h * 0.44}, 6);
+        g.setFill(new LinearGradient(0, platform.y, 0, platform.y + platform.h, false,
+                CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.web("#684A30")),
+                new Stop(0.42, Color.web("#3B2B20")),
+                new Stop(1.0, Color.web("#211814"))));
+        g.fillRoundRect(platform.x, platform.y, platform.w, platform.h, 32, 32);
+        g.setStroke(Color.web("#8B6540", 0.68));
+        g.setLineWidth(6.0);
+        g.strokeRoundRect(platform.x + 3, platform.y + 3,
+                platform.w - 6, platform.h - 6, 30, 30);
+        g.setFill(Color.web("#47745A"));
+        g.fillRoundRect(platform.x + 12, platform.y - 2,
+                Math.max(0.0, platform.w - 24), 24, 18, 18);
+        g.setFill(Color.web("#83A86C", 0.58));
+        for (int i = 0; i < Math.max(2, (int) (platform.w / 330.0)); i++) {
+            double x = platform.x + 45 + i * (platform.w - 90)
+                    / Math.max(1, Math.max(2, (int) (platform.w / 330.0)) - 1);
+            g.fillOval(x - 26, platform.y - 7, 52, 18);
         }
+    }
 
-        g.setStroke(Color.web("#5FB6A1", ambientFx ? 0.22 : 0.14));
-        g.setLineWidth(42.0);
-        for (int fog = 0; fog < 5; fog++) {
-            double x = -500 + fog * 1_550.0 + (ambientFx ? Math.sin(time * 0.19 + fog) * 150.0 : 0.0);
-            g.strokeLine(x, waterY - 25 - fog * 18.0, x + 1_200, waterY - 55 - fog * 18.0);
+    private void drawStillwaterStonePlatform(GraphicsContext g, Platform platform) {
+        g.setFill(Color.web("#101E1E"));
+        g.fillPolygon(
+                new double[]{platform.x + 18, platform.x + platform.w - 18,
+                        platform.x + platform.w - 50, platform.x + platform.w * 0.58,
+                        platform.x + platform.w * 0.45, platform.x + 45},
+                new double[]{platform.y + 18, platform.y + 18,
+                        platform.y + platform.h + 45, platform.y + platform.h + 64,
+                        platform.y + platform.h + 52, platform.y + platform.h + 42}, 6);
+        g.setFill(new LinearGradient(0, platform.y, 0, platform.y + platform.h, false,
+                CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.web("#607069")),
+                new Stop(0.42, Color.web("#3C4C48")),
+                new Stop(1.0, Color.web("#1F302F"))));
+        g.fillRoundRect(platform.x, platform.y, platform.w, platform.h, 18, 18);
+        g.setStroke(Color.web("#91A79A", 0.66));
+        g.setLineWidth(5.0);
+        g.strokeRoundRect(platform.x + 3, platform.y + 3,
+                platform.w - 6, platform.h - 6, 16, 16);
+        g.setFill(Color.web("#588165", 0.86));
+        g.fillRoundRect(platform.x + 10, platform.y - 3,
+                platform.w - 20, 20, 14, 14);
+
+        renderRandom.setSeed(Double.doubleToLongBits(platform.x * 19.0 + platform.y * 11.0));
+        g.setStroke(Color.web("#172524", 0.68));
+        g.setLineWidth(2.5);
+        int cracks = Math.max(2, (int) (platform.w / 220.0));
+        for (int i = 0; i < cracks; i++) {
+            double x = platform.x + 30 + renderRandom.nextDouble() * Math.max(1, platform.w - 60);
+            g.strokeLine(x, platform.y + 14, x - 14, platform.y + platform.h * 0.70);
+            g.strokeLine(x - 14, platform.y + platform.h * 0.70,
+                    x + 11, platform.y + platform.h - 5);
+        }
+    }
+
+    private void drawStillwaterMarshGas(GraphicsContext g, WindVent vent,
+                                         double time, boolean ambientFx) {
+        double centerX = vent.x + vent.w * 0.5;
+        double pulse = ambientFx ? 0.5 + 0.5 * Math.sin(time * 1.75 + vent.x * 0.013) : 0.58;
+        g.setFill(Color.web("#72E2C4", 0.05 + pulse * 0.06));
+        g.fillOval(centerX - 105, vent.y - 250, 210, 320);
+        g.setStroke(Color.web("#A4F1D5", 0.25 + pulse * 0.18));
+        g.setLineWidth(4.0);
+        for (int ring = 0; ring < 3; ring++) {
+            double width = 100.0 + ring * 64.0;
+            g.strokeArc(centerX - width * 0.5, vent.y - 55 - ring * 76.0,
+                    width, 52.0 + ring * 12.0, 18, 144, ArcType.OPEN);
+        }
+        g.setFill(Color.web("#B9F5D1", 0.34));
+        for (int i = 0; i < 5; i++) {
+            double drift = ambientFx ? Math.sin(time * 1.2 + i) * 16.0 : 0.0;
+            g.fillOval(centerX - 34 + i * 17 + drift, vent.y - 42 - i * 38,
+                    10 + i * 2.0, 10 + i * 2.0);
+        }
+    }
+
+    private void drawStillwaterWaterPlants(GraphicsContext g, double waterY) {
+        g.setFill(Color.web("#183E35", 0.94));
+        for (int i = 0; i < 16; i++) {
+            double x = 90 + i * 390.0;
+            double y = waterY + 85 + (i % 4) * 170.0;
+            g.fillOval(x, y, 120 + (i % 3) * 26.0, 30 + (i % 2) * 8.0);
+            if (i % 3 == 0) {
+                g.setFill(Color.web("#7FAD78", 0.40));
+                g.fillOval(x + 54, y - 5, 24, 14);
+                g.setFill(Color.web("#183E35", 0.94));
+            }
+        }
+        g.setStroke(Color.web("#315B43", 0.72));
+        g.setLineWidth(12.0);
+        for (int i = 0; i < 18; i++) {
+            double x = 45 + i * 360.0;
+            double base = WORLD_HEIGHT + 30.0;
+            double height = 130.0 + (i % 5) * 38.0;
+            g.strokeLine(x, base, x - 24 + (i % 3) * 20, base - height);
+        }
+    }
+
+    private void drawStillwaterFog(GraphicsContext g, double waterY,
+                                    double time, boolean ambientFx) {
+        g.setStroke(Color.web("#A3D8C4", ambientFx ? 0.13 : 0.10));
+        g.setLineCap(StrokeLineCap.ROUND);
+        for (int fog = 0; fog < 6; fog++) {
+            double x = -650 + fog * 1_320.0
+                    + (ambientFx ? Math.sin(time * 0.16 + fog) * 135.0 : 0.0);
+            double y = waterY - 42 - fog * 16.0;
+            g.setLineWidth(70.0 - fog * 5.0);
+            g.strokeLine(x, y, x + 1_080, y - 22.0);
+        }
+    }
+
+    private void drawStillwaterFireflies(GraphicsContext g, double time, boolean ambientFx) {
+        renderRandom.setSeed(0xF1AE_F11EL);
+        for (int i = 0; i < 78; i++) {
+            double x = 260.0 + renderRandom.nextDouble() * (WORLD_WIDTH - 520.0);
+            double y = 480.0 + renderRandom.nextDouble() * (STILLWATER_MAIN_Y - 420.0);
+            double drift = ambientFx ? Math.sin(time * 0.72 + i * 1.31) * 24.0 : 0.0;
+            double glow = ambientFx ? 0.58 + 0.42 * Math.sin(time * 1.85 + i * 0.77) : 0.78;
+            g.setFill(Color.web("#E7F58A", 0.08 + glow * 0.10));
+            g.fillOval(x - 18 + drift, y - 18, 36, 36);
+            g.setFill(Color.web("#F3FFAA", 0.45 + glow * 0.42));
+            g.fillOval(x - 3 + drift, y - 3, 6, 6);
         }
     }
 
