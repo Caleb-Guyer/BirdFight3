@@ -18404,67 +18404,383 @@ public class BirdGame3 {
     }
 
     private void drawLastIceShelfArena(GraphicsContext g, boolean ambientFx) {
-        double time = System.currentTimeMillis() / 1000.0;
-        for (int i = 0; i < 620; i++) {
-            double ratio = i / 620.0;
-            g.setFill(Color.web("#050C25").interpolate(Color.web("#2A6689"), ratio));
-            g.fillRect(0, i * (WORLD_HEIGHT / 620.0), WORLD_WIDTH, WORLD_HEIGHT / 620.0 + 3);
-        }
-        if (ambientFx) {
-            drawFrostbiteAurora(g, time * 0.74);
-        }
-        g.setFill(Color.web("#DDF9FF", 0.78));
-        g.fillOval(4_650, 130, 360, 360);
-        g.setFill(Color.web("#72F2E2", 0.12));
-        g.fillOval(4_520, 0, 620, 620);
+        double time = ambientFx ? System.nanoTime() / 1_000_000_000.0 : 0.0;
+        g.save();
+        g.setFill(new LinearGradient(0, 0, 0, WORLD_HEIGHT, false, CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.web("#02061A")),
+                new Stop(0.38, Color.web("#10284B")),
+                new Stop(0.70, Color.web("#2C6A82")),
+                new Stop(1.0, Color.web("#5D91A0"))));
+        g.fillRect(-500, -300, WORLD_WIDTH + 1_000, WORLD_HEIGHT + 600);
 
-        g.setFill(Color.web("#173951", 0.72));
-        for (int i = 0; i < 9; i++) {
-            double x = -280 + i * 790.0;
-            double peak = LAST_ICE_MAIN_Y + 110 - (i % 3) * 170.0;
-            g.fillPolygon(new double[]{x, x + 330, x + 690},
-                    new double[]{LAST_ICE_MAIN_Y + 470, peak, LAST_ICE_MAIN_Y + 470}, 3);
+        drawLastIceShelfAurora(g, time, ambientFx);
+        drawLastIceShelfMoon(g, time, ambientFx);
+
+        renderRandom.setSeed(0x1CE5_11E1L);
+        for (int i = 0; i < 140; i++) {
+            double x = renderRandom.nextDouble() * WORLD_WIDTH;
+            double y = 60.0 + renderRandom.nextDouble() * (LAST_ICE_MAIN_Y - 640.0);
+            double size = 1.5 + renderRandom.nextDouble() * 4.2;
+            double pulse = ambientFx ? 0.70 + Math.sin(time * 1.1 + i * 0.79) * 0.30 : 0.84;
+            g.setFill(Color.web(i % 13 == 0 ? "#E6FFF2" : "#D8F5FF",
+                    (0.18 + renderRandom.nextDouble() * 0.38) * pulse));
+            g.fillOval(x, y, size, size);
         }
 
+        drawLastIceShelfDistantCliffs(g);
         double waterY = LAST_ICE_MAIN_Y + 260;
-        g.setFill(Color.web("#031B31", 0.96));
+        g.setFill(new LinearGradient(0, waterY, 0, WORLD_HEIGHT, false, CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.web("#082B46", 0.98)),
+                new Stop(0.28, Color.web("#03182B", 0.99)),
+                new Stop(1.0, Color.web("#010713"))));
         g.fillRect(0, waterY, WORLD_WIDTH, WORLD_HEIGHT - waterY);
-        g.setStroke(Color.web("#76DDEA", 0.24));
-        g.setLineWidth(3.0);
-        for (int i = 0; i < 17; i++) {
-            double waveY = waterY + 34 + i * 54.0;
-            double shift = ambientFx ? Math.sin(time * 0.85 + i * 0.62) * 42.0 : 0.0;
-            g.strokeLine(100 + shift, waveY, WORLD_WIDTH - 100 - shift * 0.25, waveY + 8);
+        drawLastIceShelfWater(g, waterY, time, ambientFx);
+        drawLastIceShelfGlacierBase(g, waterY);
+        drawLastIceShelfFortressSupports(g, waterY);
+
+        for (Platform p : platforms) drawLastIceShelfPlatform(g, p, time, ambientFx);
+        for (WindVent vent : windVents) drawLastIceShelfVent(g, vent, time, ambientFx);
+
+        drawLastIceShelfForeground(g, waterY, time, ambientFx);
+        if (ambientFx) drawLastIceShelfSnow(g, time);
+        g.restore();
+    }
+
+    private void drawLastIceShelfAurora(GraphicsContext g, double time, boolean ambientFx) {
+        double sway = ambientFx ? Math.sin(time * 0.20) * 85.0 : 0.0;
+        Color[] colors = {
+                Color.web("#58F1D1", 0.16),
+                Color.web("#7BB8FF", 0.14),
+                Color.web("#B68CFF", 0.11)
+        };
+        for (int band = 0; band < colors.length; band++) {
+            double offset = band * 155.0;
+            g.setFill(colors[band]);
+            g.beginPath();
+            g.moveTo(-240, 340 + offset);
+            g.bezierCurveTo(980 + sway, 30 + offset, 1_720 - sway, 610 + offset,
+                    2_930, 245 + offset);
+            g.bezierCurveTo(4_070 + sway, -30 + offset, 5_070 - sway, 610 + offset,
+                    WORLD_WIDTH + 260, 170 + offset);
+            g.lineTo(WORLD_WIDTH + 260, 350 + offset);
+            g.bezierCurveTo(5_060 - sway, 770 + offset, 4_080 + sway, 170 + offset,
+                    2_930, 470 + offset);
+            g.bezierCurveTo(1_720 - sway, 810 + offset, 980 + sway, 260 + offset,
+                    -240, 570 + offset);
+            g.closePath();
+            g.fill();
         }
 
-        // Every playable ledge grows from the same glacier. Wide tapered
-        // columns visually connect collision surfaces to the waterline.
-        for (Platform p : platforms) {
-            double center = p.x + p.w * 0.5;
-            double supportTop = p.y + p.h * 0.55;
-            double supportBottom = waterY + 520;
-            double shoulder = Math.max(54.0, Math.min(p.w * 0.34, 330.0));
-            g.setFill(new LinearGradient(0, supportTop, 0, supportBottom, false, CycleMethod.NO_CYCLE,
-                    new Stop(0, Color.web("#A9EAF4", 0.86)),
-                    new Stop(0.45, Color.web("#2C7894", 0.78)),
-                    new Stop(1, Color.web("#092B49", 0.60))));
-            g.fillPolygon(new double[]{p.x + 24, p.x + p.w - 24, center + shoulder, center - shoulder},
-                    new double[]{supportTop, supportTop, supportBottom, supportBottom}, 4);
-        }
+        g.setStroke(Color.web("#C9FFF2", 0.11));
+        g.setLineWidth(7.0);
+        g.beginPath();
+        g.moveTo(-180, 470);
+        g.bezierCurveTo(1_080 + sway, 120, 1_960 - sway, 710, 3_050, 335);
+        g.bezierCurveTo(4_240 + sway, 30, 5_120 - sway, 680, WORLD_WIDTH + 180, 275);
+        g.stroke();
+    }
 
-        for (Platform p : platforms) {
-            drawFrostbitePlatform(g, p);
-        }
+    private void drawLastIceShelfMoon(GraphicsContext g, double time, boolean ambientFx) {
+        double moonX = 4_830.0;
+        double moonY = 300.0;
+        double pulse = ambientFx ? 0.92 + Math.sin(time * 0.31) * 0.08 : 0.96;
+        g.setFill(new RadialGradient(0, 0, moonX, moonY, 490.0, false, CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.web("#D9FAFF", 0.20 * pulse)),
+                new Stop(0.48, Color.web("#74E2E1", 0.08 * pulse)),
+                new Stop(1.0, Color.TRANSPARENT)));
+        g.fillOval(moonX - 490, moonY - 490, 980, 980);
+        g.setFill(Color.web("#E5FAFF", 0.90));
+        g.fillOval(moonX - 150, moonY - 150, 300, 300);
+        g.setFill(Color.web("#A8D7E2", 0.20));
+        g.fillOval(moonX - 82, moonY - 55, 62, 42);
+        g.fillOval(moonX + 28, moonY + 38, 76, 48);
+    }
 
-        g.setStroke(Color.web("#D9FFFF", 0.34));
-        g.setLineWidth(9.0);
-        for (WindVent vent : windVents) {
-            double pulse = ambientFx ? Math.sin(time * 2.1 + vent.x * 0.01) * 20.0 : 0.0;
-            for (int ring = 0; ring < 4; ring++) {
-                double w = 90 + ring * 58.0 + pulse;
-                g.strokeOval(vent.x + vent.w * 0.5 - w * 0.5,
-                        vent.y - 95 - ring * 70.0, w, 44 + ring * 14.0);
+    private void drawLastIceShelfDistantCliffs(GraphicsContext g) {
+        double baseY = LAST_ICE_MAIN_Y + 300.0;
+        Color far = Color.web("#102D4A", 0.72);
+        Color near = Color.web("#1B4A64", 0.68);
+        for (int layer = 0; layer < 2; layer++) {
+            Color color = layer == 0 ? far : near;
+            double spacing = layer == 0 ? 760.0 : 980.0;
+            double shift = layer == 0 ? -220.0 : 180.0;
+            g.setFill(color);
+            int count = (int) Math.ceil(WORLD_WIDTH / spacing) + 2;
+            for (int i = -1; i < count; i++) {
+                double x = shift + i * spacing;
+                double height = (layer == 0 ? 610.0 : 450.0) + Math.floorMod(i, 3) * 110.0;
+                double width = spacing * 0.88;
+                g.fillPolygon(
+                        new double[]{x, x + width * 0.18, x + width * 0.42,
+                                x + width * 0.60, x + width, x + width * 0.82},
+                        new double[]{baseY, baseY - height * 0.54, baseY - height,
+                                baseY - height * 0.62, baseY, baseY + 20}, 6);
+                g.setFill(Color.web("#70C7D7", layer == 0 ? 0.08 : 0.11));
+                g.fillPolygon(
+                        new double[]{x + width * 0.18, x + width * 0.42, x + width * 0.34},
+                        new double[]{baseY - height * 0.54, baseY - height, baseY - 20}, 3);
+                g.setFill(color);
             }
+        }
+        g.setFill(Color.web("#06192C", 0.76));
+        g.fillPolygon(
+                new double[]{0, 620, 1_130, 1_730, 2_320, 3_020,
+                        3_650, 4_290, 4_920, 5_470, WORLD_WIDTH},
+                new double[]{baseY, baseY - 270, baseY - 80, baseY - 350,
+                        baseY - 120, baseY - 420, baseY - 150, baseY - 330,
+                        baseY - 100, baseY - 280, baseY}, 11);
+    }
+
+    private void drawLastIceShelfWater(GraphicsContext g, double waterY,
+                                       double time, boolean ambientFx) {
+        g.setStroke(Color.web("#70CFE3", 0.20));
+        g.setLineWidth(3.0);
+        for (int row = 0; row < 20; row++) {
+            double y = waterY + 28 + row * 58.0;
+            double shift = ambientFx ? Math.sin(time * 0.72 + row * 0.67) * 38.0 : 0.0;
+            for (int segment = 0; segment < 7; segment++) {
+                double x = 55.0 + segment * 905.0 + (row % 2) * 110.0 + shift;
+                double width = 330.0 + ((row + segment) % 3) * 90.0;
+                g.strokeLine(x, y, Math.min(WORLD_WIDTH - 45.0, x + width), y + 4.0);
+            }
+        }
+
+        double moonX = 4_830.0;
+        g.setFill(Color.web("#BCEBF1", 0.045));
+        g.fillPolygon(new double[]{moonX - 120, moonX + 120, moonX + 420, moonX - 390},
+                new double[]{waterY, waterY, WORLD_HEIGHT, WORLD_HEIGHT}, 4);
+        g.setStroke(Color.web("#D4FAFF", 0.15));
+        g.setLineWidth(5.0);
+        for (int i = 0; i < 15; i++) {
+            double width = 70.0 + i * 25.0;
+            double y = waterY + 45.0 + i * 72.0;
+            double drift = ambientFx ? Math.sin(time * 0.64 + i) * 20.0 : 0.0;
+            g.strokeLine(moonX - width + drift, y, moonX + width + drift, y);
+        }
+    }
+
+    private void drawLastIceShelfGlacierBase(GraphicsContext g, double waterY) {
+        // One continuous above-water cliff joins both recovery shelves to the
+        // main fighting span. The larger translucent body below the waterline
+        // communicates real iceberg mass without suggesting a hidden floor.
+        g.setFill(new LinearGradient(0, LAST_ICE_MAIN_Y, 0, waterY + 160.0, false,
+                CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.web("#8DE1EE")),
+                new Stop(0.38, Color.web("#397E9A")),
+                new Stop(1.0, Color.web("#123A5B"))));
+        g.fillPolygon(
+                new double[]{520, 1_000, 5_000, 5_840, 5_680, 5_170,
+                        4_670, 3_760, 3_000, 2_230, 1_350, 760},
+                new double[]{LAST_ICE_MAIN_Y + 155, LAST_ICE_MAIN_Y + 52,
+                        LAST_ICE_MAIN_Y + 52, LAST_ICE_MAIN_Y + 155,
+                        waterY + 185, waterY + 215, waterY + 255,
+                        waterY + 335, waterY + 440, waterY + 340,
+                        waterY + 245, waterY + 200}, 12);
+        g.setFill(Color.web("#0E385A", 0.58));
+        g.fillPolygon(
+                new double[]{760, 1_350, 2_230, 3_000, 3_760, 4_670, 5_170, 5_680,
+                        5_310, 4_410, 3_640, 3_000, 2_270, 1_430, 690},
+                new double[]{waterY + 180, waterY + 230, waterY + 330, waterY + 430,
+                        waterY + 325, waterY + 240, waterY + 205, waterY + 180,
+                        waterY + 620, waterY + 820, waterY + 1_020, waterY + 1_180,
+                        waterY + 1_000, waterY + 790, waterY + 590}, 15);
+
+        g.setFill(Color.web("#65BDD2", 0.28));
+        g.fillPolygon(
+                new double[]{1_000, 2_230, 3_000, 2_270, 1_430, 760},
+                new double[]{LAST_ICE_MAIN_Y + 65, waterY + 330, waterY + 430,
+                        waterY + 1_000, waterY + 790, waterY + 180}, 6);
+        g.setStroke(Color.web("#9AE7F1", 0.22));
+        g.setLineWidth(7.0);
+        g.strokeLine(1_140, LAST_ICE_MAIN_Y + 100, 2_270, waterY + 960);
+        g.strokeLine(4_860, LAST_ICE_MAIN_Y + 100, 3_640, waterY + 990);
+        g.strokeLine(3_000, LAST_ICE_MAIN_Y + 120, 3_000, waterY + 1_120);
+
+        g.setStroke(Color.web("#D8FAFF", 0.34));
+        g.setLineWidth(10.0);
+        g.strokeLine(500, waterY, 5_860, waterY);
+    }
+
+    private void drawLastIceShelfFortressSupports(GraphicsContext g, double waterY) {
+        for (Platform p : platforms) {
+            if (p.y >= LAST_ICE_MAIN_Y - 40.0) continue;
+            boolean melting = classicLastIceMeltPlatforms.contains(p);
+            if (p.y <= LAST_ICE_MAIN_Y - 850.0) {
+                drawLastIceShelfArchSupport(g, p, melting);
+            } else {
+                drawLastIceShelfCliffSupport(g, p, waterY, melting);
+            }
+        }
+    }
+
+    private void drawLastIceShelfCliffSupport(GraphicsContext g, Platform p,
+                                              double waterY, boolean melting) {
+        double centerX = p.x + p.w * 0.5;
+        double bottomY = LAST_ICE_MAIN_Y + 84.0;
+        double inset = Math.min(190.0, p.w * 0.22);
+        Color top = melting ? Color.web("#76CADD", 0.90) : Color.web("#72D6E5", 0.92);
+        Color bottom = melting ? Color.web("#244C71", 0.84) : Color.web("#1A5775", 0.88);
+        g.setFill(new LinearGradient(0, p.y, 0, bottomY, false, CycleMethod.NO_CYCLE,
+                new Stop(0.0, top), new Stop(1.0, bottom)));
+        g.fillPolygon(
+                new double[]{p.x + 22, p.x + p.w - 22, centerX + inset,
+                        centerX + inset * 0.30, centerX - inset * 0.38, centerX - inset},
+                new double[]{p.y + p.h * 0.40, p.y + p.h * 0.40, bottomY - 45,
+                        bottomY, bottomY - 20, bottomY - 52}, 6);
+        g.setStroke(Color.web("#B6F3F7", melting ? 0.20 : 0.30));
+        g.setLineWidth(5.0);
+        g.strokeLine(p.x + p.w * 0.30, p.y + p.h, centerX - inset * 0.26, bottomY - 28);
+        g.strokeLine(p.x + p.w * 0.70, p.y + p.h, centerX + inset * 0.22, bottomY - 18);
+
+        if (Math.abs(centerX - WORLD_WIDTH * 0.5) < 100.0) {
+            g.setFill(Color.web("#061A2D", 0.62));
+            g.fillOval(centerX - 190, p.y + 175, 380, Math.max(220.0, bottomY - p.y - 245));
+            g.setStroke(Color.web("#75D7E5", 0.22));
+            g.setLineWidth(9.0);
+            g.strokeArc(centerX - 190, p.y + 175, 380,
+                    Math.max(220.0, bottomY - p.y - 245), 0, 180, ArcType.OPEN);
+        }
+    }
+
+    private void drawLastIceShelfArchSupport(GraphicsContext g, Platform p, boolean melting) {
+        double centerX = p.x + p.w * 0.5;
+        boolean west = centerX < WORLD_WIDTH * 0.5;
+        double outerAnchorX = west ? 1_600.0 : 4_400.0;
+        double innerAnchorX = west ? 2_670.0 : 3_330.0;
+        double anchorY = LAST_ICE_MAIN_Y - 300.0;
+        Color ice = melting ? Color.web("#4E94B7", 0.80) : Color.web("#5AB7CE", 0.88);
+        g.setFill(ice);
+        g.fillPolygon(
+                new double[]{p.x + 30, p.x + p.w * 0.36, outerAnchorX - 70, outerAnchorX + 105},
+                new double[]{p.y + p.h * 0.45, p.y + p.h * 0.45, anchorY, anchorY}, 4);
+        g.fillPolygon(
+                new double[]{p.x + p.w * 0.64, p.x + p.w - 30,
+                        innerAnchorX - 105, innerAnchorX + 70},
+                new double[]{p.y + p.h * 0.45, p.y + p.h * 0.45, anchorY - 145, anchorY - 145}, 4);
+        g.setStroke(Color.web("#C6F8FA", melting ? 0.22 : 0.34));
+        g.setLineWidth(6.0);
+        g.strokeLine(p.x + p.w * 0.22, p.y + p.h,
+                outerAnchorX + (west ? 30 : -30), anchorY);
+        g.strokeLine(p.x + p.w * 0.78, p.y + p.h,
+                innerAnchorX + (west ? -30 : 30), anchorY - 145);
+    }
+
+    private void drawLastIceShelfPlatform(GraphicsContext g, Platform p,
+                                          double time, boolean ambientFx) {
+        boolean main = Math.abs(p.x - LAST_ICE_MAIN_X) < 1.0
+                && Math.abs(p.w - LAST_ICE_MAIN_W) < 1.0;
+        boolean melting = classicLastIceMeltPlatforms.contains(p);
+        Color side = melting ? Color.web("#245071") : Color.web("#165774");
+        Color faceTop = melting ? Color.web("#70C6D8") : Color.web("#7CE0EC");
+        Color faceBottom = melting ? Color.web("#397D9B") : Color.web("#3C91A9");
+        Color rim = melting ? Color.web("#D9F4FF") : Color.web("#EEFEFF");
+
+        g.setFill(side);
+        g.fillPolygon(
+                new double[]{p.x + 8, p.x + p.w - 8, p.x + p.w - 34,
+                        p.x + p.w * 0.56, p.x + p.w * 0.44, p.x + 34},
+                new double[]{p.y + 18, p.y + 18, p.y + p.h + (main ? 58 : 34),
+                        p.y + p.h + (main ? 76 : 46), p.y + p.h + (main ? 68 : 42),
+                        p.y + p.h + (main ? 54 : 32)}, 6);
+        g.setFill(new LinearGradient(0, p.y, 0, p.y + p.h, false, CycleMethod.NO_CYCLE,
+                new Stop(0.0, faceTop), new Stop(1.0, faceBottom)));
+        g.fillRoundRect(p.x, p.y, p.w, p.h, 18, 18);
+        g.setFill(Color.web("#F5FEFF", melting ? 0.82 : 0.94));
+        g.fillRoundRect(p.x + 9, p.y - 12, p.w - 18,
+                Math.max(20.0, p.h * 0.34), 14, 14);
+        g.setFill(Color.web("#B9EEF5", 0.52));
+        g.fillRoundRect(p.x + 22, p.y + p.h * 0.33,
+                Math.max(20.0, p.w - 44), Math.max(10.0, p.h * 0.22), 10, 10);
+        g.setStroke(rim.deriveColor(0, 1, 1, 0.88));
+        g.setLineWidth(main ? 5.5 : 4.2);
+        g.strokeRoundRect(p.x + 2.5, p.y + 2.5, p.w - 5, p.h - 5, 16, 16);
+
+        renderRandom.setSeed(Double.doubleToLongBits(p.x * 13.0 + p.y * 23.0 + p.w * 5.0));
+        g.setStroke(Color.web(melting ? "#4D5E9A" : "#17617B", melting ? 0.62 : 0.46));
+        g.setLineWidth(melting ? 3.6 : 2.6);
+        int cracks = Math.max(2, Math.min(14, (int) (p.w / 230.0)));
+        for (int i = 0; i < cracks; i++) {
+            double x = p.x + 30 + renderRandom.nextDouble() * Math.max(1.0, p.w - 60);
+            double y = p.y + 11 + renderRandom.nextDouble() * Math.max(8.0, p.h * 0.42);
+            double direction = renderRandom.nextBoolean() ? 1.0 : -1.0;
+            g.strokeLine(x, y, x + direction * 28, y + 20);
+            g.strokeLine(x + direction * 28, y + 20,
+                    x + direction * 12, y + Math.min(p.h - 4, 42));
+        }
+
+        if (melting) {
+            double pulse = ambientFx ? 0.5 + 0.5 * Math.sin(time * 1.3 + p.x * 0.01) : 0.58;
+            g.setFill(Color.web("#C8F7FF", 0.55 + pulse * 0.22));
+            int drips = Math.max(3, Math.min(8, (int) (p.w / 120.0)));
+            for (int i = 0; i < drips; i++) {
+                double x = p.x + (i + 0.55) * p.w / drips;
+                double length = 30.0 + (i % 3) * 24.0 + pulse * 12.0;
+                g.fillPolygon(new double[]{x - 8, x + 8, x},
+                        new double[]{p.y + p.h + 18, p.y + p.h + 18,
+                                p.y + p.h + 18 + length}, 3);
+            }
+        }
+
+        if (p.signText != null) {
+            g.setTextAlign(TextAlignment.CENTER);
+            g.setFont(Font.font("Arial Black", FontWeight.BOLD, 25));
+            g.setFill(Color.web("#E8FDFF", 0.82));
+            g.fillText(p.signText, p.x + p.w * 0.5,
+                    p.y + Math.min(67.0, p.h * 0.70));
+        }
+    }
+
+    private void drawLastIceShelfVent(GraphicsContext g, WindVent vent,
+                                      double time, boolean ambientFx) {
+        double centerX = vent.x + vent.w * 0.5;
+        double pulse = ambientFx ? 0.5 + 0.5 * Math.sin(time * 2.1 + vent.x * 0.011) : 0.58;
+        g.setFill(Color.web("#A5F4FF", 0.06 + pulse * 0.07));
+        g.fillPolygon(
+                new double[]{centerX - 95, centerX - 34, centerX, centerX + 34, centerX + 95},
+                new double[]{vent.y + 30, vent.y - 145, vent.y - 245, vent.y - 145, vent.y + 30}, 5);
+        g.setStroke(Color.web("#D9FFFF", 0.28 + pulse * 0.24));
+        g.setLineWidth(5.0);
+        g.strokeLine(centerX - 88, vent.y + 8, centerX - 28, vent.y - 12);
+        g.strokeLine(centerX - 28, vent.y - 12, centerX + 10, vent.y + 13);
+        g.strokeLine(centerX + 10, vent.y + 13, centerX + 78, vent.y - 7);
+        for (int ring = 0; ring < 3; ring++) {
+            double width = 100.0 + ring * 66.0 + pulse * 10.0;
+            g.strokeArc(centerX - width * 0.5, vent.y - 68 - ring * 74.0,
+                    width, 50.0 + ring * 13.0, 18, 144, ArcType.OPEN);
+        }
+    }
+
+    private void drawLastIceShelfForeground(GraphicsContext g, double waterY,
+                                             double time, boolean ambientFx) {
+        g.setFill(Color.web("#0B2841", 0.88));
+        for (int i = -1; i < 12; i++) {
+            double x = i * 620.0 + (i % 2) * 80.0;
+            double drift = ambientFx ? Math.sin(time * 0.37 + i) * 18.0 : 0.0;
+            double y = waterY + 620.0 + (i % 3) * 95.0;
+            g.fillPolygon(
+                    new double[]{x + drift, x + 120 + drift, x + 250 + drift,
+                            x + 430 + drift, x + 570 + drift},
+                    new double[]{y + 45, y - 26, y + 8, y - 42, y + 54}, 5);
+        }
+        g.setStroke(Color.web("#80DDE8", 0.12));
+        g.setLineWidth(4.0);
+        for (int i = 0; i < 9; i++) {
+            double y = waterY + 540.0 + i * 86.0;
+            g.strokeLine(60 + (i % 2) * 140, y, WORLD_WIDTH - 60 - (i % 3) * 120, y + 4);
+        }
+    }
+
+    private void drawLastIceShelfSnow(GraphicsContext g, double time) {
+        renderRandom.setSeed(0x5A0F_1CE5L);
+        for (int i = 0; i < 105; i++) {
+            double baseX = renderRandom.nextDouble() * (WORLD_WIDTH + 360.0) - 180.0;
+            double speed = 28.0 + renderRandom.nextDouble() * 42.0;
+            double x = baseX + Math.sin(time * 0.52 + i) * 34.0;
+            double y = 35.0 + (renderRandom.nextDouble() * WORLD_HEIGHT + time * speed + i * 29.0)
+                    % Math.max(1.0, WORLD_HEIGHT - 35.0);
+            double size = 2.0 + renderRandom.nextDouble() * 4.6;
+            g.setFill(Color.web("#F1FDFF", 0.30 + renderRandom.nextDouble() * 0.42));
+            g.fillOval(x, y, size, size);
         }
     }
 
