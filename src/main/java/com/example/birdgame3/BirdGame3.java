@@ -5284,6 +5284,7 @@ public class BirdGame3 {
     private final List<ClassicVaultSeal> classicTitmouseMemoryCaches = new ArrayList<>();
     private final List<ClassicBellkeeperProjectile> classicOldOwlProjectiles = new ArrayList<>();
     private int classicTitmouseWaveIndex = 0;
+    private int classicPelicanBoardingWaveIndex = 0;
     private int classicTitmouseMemoryRevealFrames = 0;
     private int classicTitmouseMemoryHintIndex = 0;
     private boolean classicTitmouseMemoryCompleted = false;
@@ -5487,7 +5488,9 @@ public class BirdGame3 {
         TITMOUSE_VOICE_GAUNTLET,
         TITMOUSE_SHADOW_HUNT,
         TITMOUSE_MEMORY_CACHE,
-        TITMOUSE_OLD_OWL_BOSS
+        TITMOUSE_OLD_OWL_BOSS,
+        HOARDMASTER_BOSS,
+        PELICAN_BOARDING_GAUNTLET
     }
 
     static final class ClassicRiftAnchor {
@@ -45299,6 +45302,9 @@ public class BirdGame3 {
         if (useAuthoredRoutes && playerType == BirdType.BAT) {
             return buildBatClassicRun();
         }
+        if (useAuthoredRoutes && playerType == BirdType.PELICAN) {
+            return buildPelicanClassicRun();
+        }
         List<ClassicEncounter> run = new ArrayList<>();
         Set<MapType> usedMaps = new HashSet<>();
         Set<BirdType> usedBirds = new HashSet<>();
@@ -47632,6 +47638,104 @@ public class BirdGame3 {
         return run;
     }
 
+    private List<ClassicEncounter> buildPelicanClassicRun() {
+        List<ClassicEncounter> run = new ArrayList<>();
+
+        ClassicEncounter dockhands = new ClassicEncounter(
+                "All Hands", "Broken Harbor",
+                "Three small dockhands test the new quartermaster. Clear the pier without letting their numbers crowd Pelican away from the cargo lane.",
+                MapType.DOCK, MapVariant.STANDARD, MatchMutator.NONE,
+                ClassicTwist.AFTERMATH, ClassicEncounterStyle.MINIATURE_FLOCK, 108 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{
+                classicFighter(BirdType.PIGEON, "Dockhand: Pigeon", 50, 0.46, 1.06),
+                classicFighter(BirdType.KIWI, "Dockhand: Kiwi", 52, 0.46, 1.04),
+                classicFighter(BirdType.TITMOUSE, "Dockhand: Titmouse", 48, 0.44, 1.08)}, false);
+        dockhands.cpuLevel = 3;
+        run.add(dockhands);
+
+        ClassicEncounter rushOrder = new ClassicEncounter(
+                "Rush Order", "Rooftop Relay",
+                "Roadrunner and Hummingbird race the same urgent parcel through different lanes. Hold the handoff point and stop both couriers.",
+                MapType.CITY, MapVariant.ROOFTOP_RELAY, MatchMutator.TURBO_BRAWL,
+                ClassicTwist.WIND_RALLY, ClassicEncounterStyle.STANDARD, 112 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{
+                classicFighter(BirdType.ROADRUNNER, "Express: Roadrunner", 54, 0.46, 1.10),
+                classicFighter(BirdType.HUMMINGBIRD, "Express: Hummingbird", 50, 0.44, 1.12)}, false);
+        rushOrder.cpuLevel = 4;
+        run.add(rushOrder);
+
+        ClassicEncounter coldStorage = new ClassicEncounter(
+                "Cold Storage", "Last Ice Shelf",
+                "A giant Penguin has frozen the warehouse shut. Break the fortified guard without losing the stable shelf beneath the fight.",
+                MapType.FROSTBITE_FJORD, MapVariant.LAST_ICE_SHELF, MatchMutator.NONE,
+                ClassicTwist.ICEWORKS, ClassicEncounterStyle.GIANT, 125 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{
+                classicFighter(BirdType.PENGUIN, "Giant: Cold Storage Keeper", 88, 0.58, 0.88)}, true);
+        coldStorage.cpuLevel = 5;
+        run.add(coldStorage);
+
+        ClassicEncounter convoy = new ClassicEncounter(
+                "Convoy Duty", "Caravan Quarter",
+                "Goose guards the convoy beside Pelican while Vulture and Grinch-Hawk raid from opposite roofs.",
+                MapType.DESERT, MapVariant.STANDARD, MatchMutator.NONE,
+                ClassicTwist.WIND_RALLY, ClassicEncounterStyle.STANDARD, 130 * 60,
+                new ClassicFighter[]{classicFighter(BirdType.GOOSE, "Ally: Convoy Guard", 96, 0.72, 0.98)},
+                new ClassicFighter[]{
+                        classicFighter(BirdType.VULTURE, "Raider: Vulture", 84, 0.66, 0.98),
+                        classicFighter(BirdType.GRINCHHAWK, "Raider: Grinch-Hawk", 82, 0.64, 1.02)}, false);
+        convoy.cpuLevel = 5;
+        run.add(convoy);
+
+        ClassicFighter[] firstBoardingWave = {
+                classicFighter(BirdType.FALCON, "Boarder: Falcon", 64, 0.74, 1.04)};
+        ClassicEncounter pirateHold = new ClassicEncounter(
+                "The Pirate Hold", "Titan Dock",
+                "Falcon, Raven, and Heisenbird have divided the dreadnought into three hostile holds. Reclaim each deck as its boarder arrives.",
+                MapType.DOCK, MapVariant.TITAN_DOCK, MatchMutator.NONE,
+                ClassicTwist.RAGE_RITUAL, ClassicEncounterStyle.PELICAN_BOARDING_GAUNTLET, 155 * 60,
+                new ClassicFighter[0], firstBoardingWave, false).withWaves(
+                firstBoardingWave,
+                new ClassicFighter[]{classicFighter(BirdType.RAVEN, "Boarder: Raven", 68, 0.74, 1.02)},
+                new ClassicFighter[]{classicFighter(BirdType.HEISENBIRD, "Boarder: Heisenbird", 72, 0.76, 1.00)});
+        pirateHold.cpuLevel = 6;
+        run.add(pirateHold);
+
+        ClassicEncounter airlift = new ClassicEncounter(
+                "Bonus: Rooftop Airlift", "Rooftop Relay",
+                "Break three emergency cargo markers across the skyline. Every marker awards Bird Coins, and a fall or timeout advances safely.",
+                MapType.CITY, MapVariant.ROOFTOP_RELAY, MatchMutator.NONE,
+                ClassicTwist.WIND_RALLY, ClassicEncounterStyle.BONUS_RELAY, 82 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{
+                classicFighter(BirdType.TITMOUSE, "Cargo Marker I", 34, 0.05, 0.05),
+                classicFighter(BirdType.TITMOUSE, "Cargo Marker II", 34, 0.05, 0.05),
+                classicFighter(BirdType.TITMOUSE, "Cargo Marker III", 34, 0.05, 0.05)}, false);
+        airlift.cpuLevel = 1;
+        run.add(airlift);
+
+        ClassicEncounter appetite = new ClassicEncounter(
+                "Bottomless Appetite", "Echo Cavern",
+                "Ironclad Pelican mistakes carrying everything for protecting it. Defeat the armored reflection without changing Pelican's ordinary kit.",
+                MapType.CAVE, MapVariant.STANDARD, MatchMutator.NONE,
+                ClassicTwist.RAGE_RITUAL, ClassicEncounterStyle.STANDARD, 135 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{
+                classicFighter(BirdType.PELICAN, "Elite: Ironclad Appetite", 170, 1.08, 0.98,
+                        IRONCLAD_PELICAN_SKIN)}, true);
+        appetite.cpuLevel = 7;
+        run.add(appetite);
+
+        ClassicEncounter hoardmaster = new ClassicEncounter(
+                "The Empty Hold", "Carrion Exchange",
+                "The Hoardmaster has locked every relief shipment inside one private exchange. Break all three stocks and reopen the skyways.",
+                MapType.CARRION_EXCHANGE, MapVariant.STANDARD, MatchMutator.NONE,
+                ClassicTwist.FINAL_ACCOUNT, ClassicEncounterStyle.HOARDMASTER_BOSS, 200 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{
+                classicFighter(BirdType.VULTURE, "Boss: The Hoardmaster", 230, 1.08, 1.00,
+                        TIDE_VULTURE_SKIN)}, true);
+        hoardmaster.cpuLevel = 8;
+        run.add(hoardmaster);
+        return run;
+    }
+
     private ClassicEncounter buildShoebillSwiftTrailEncounter() {
         ClassicEncounter encounter = new ClassicEncounter(
                 "Swift Trail", "Redline Track",
@@ -48351,6 +48455,7 @@ public class BirdGame3 {
         if (type == BirdType.HEISENBIRD) return "THE PERFECT PRODUCT";
         if (type == BirdType.TITMOUSE) return "THE ALARM IN THE TREES";
         if (type == BirdType.BAT) return "THE NIGHT ANSWERS BACK";
+        if (type == BirdType.PELICAN) return "THE WEIGHT OF THE HARBOR";
         return "TEMPORARY FLIGHT PLAN";
     }
 
@@ -49611,6 +49716,11 @@ public class BirdGame3 {
             } else if (encounter.style == ClassicEncounterStyle.GIANT) {
                 if (classicSelectedBird == BirdType.SHOEBILL) {
                     scaleBossRushBird(bird, 1.34, 0.90, 0.92);
+                } else if (classicSelectedBird == BirdType.PELICAN) {
+                    // Cold Storage is a fortified silhouette and positioning
+                    // lesson, not a full-power Penguin damage check. Pelican's
+                    // deliberate recovery needs room to answer the giant body.
+                    scaleBossRushBird(bird, 1.48, 0.80, 0.92);
                 } else if (classicSelectedBird == BirdType.GRINCHHAWK) {
                     // Cold Storage is an early-route giant lesson. Preserve the
                     // silhouette without stacking giant size, armor, and full
@@ -49810,6 +49920,15 @@ public class BirdGame3 {
                 bird.setBaseMultipliers(1.86, 0.92 * enemyPowerScale, 0.96);
                 bird.setUltimateEnabled(false);
                 isAI[bird.playerIndex] = false;
+            } else if (encounter.style == ClassicEncounterStyle.PELICAN_BOARDING_GAUNTLET) {
+                scaleBossRushBird(bird, 0.90, 0.88, 0.98);
+                bird.setUltimateEnabled(false);
+            } else if (encounter.style == ClassicEncounterStyle.HOARDMASTER_BOSS) {
+                bird.health = Math.max(1.0, 205.0 * enemyHealthScale);
+                bird.setBaseMultipliers(1.38, 0.95 * enemyPowerScale, 1.00);
+                // Vulture's real crow kit is the boss pattern; only the screen-
+                // filling ultimate is removed so every attack remains readable.
+                bird.setUltimateEnabled(false);
             }
             if (classicSelectedBird == BirdType.OPIUMBIRD && getEffectiveTeam(bird.playerIndex) == 2) {
                 // Forecasts are encounter rules, never bonus fighter powers.
@@ -50152,6 +50271,7 @@ public class BirdGame3 {
         setupOpiumBirdClassicRoute(encounter);
         setupHeisenbirdClassicRoute(encounter);
         setupTitmouseClassicRoute(encounter);
+        setupPelicanClassicRoute(encounter);
         if (bossRushModeActive) {
             applyBossRushEncounterArenaModifiers(encounter);
         }
@@ -53528,6 +53648,69 @@ public class BirdGame3 {
         g.setFont(Font.font("Consolas", FontWeight.BOLD, Math.max(14, canvas.getWidth() * 0.045)));
         g.setTextAlign(TextAlignment.CENTER);
         g.fillText("THE BLUE SKY ENGINE", canvas.getWidth() / 2.0, canvas.getHeight() - 22.0);
+    }
+
+    private void setupPelicanClassicRoute(ClassicEncounter encounter) {
+        classicPelicanBoardingWaveIndex = 0;
+        if (!classicModeActive || bossRushModeActive || ashfallTrialModeActive
+                || classicSelectedBird != BirdType.PELICAN || encounter == null
+                || encounter.style != ClassicEncounterStyle.PELICAN_BOARDING_GAUNTLET) return;
+        addToKillFeed("BOARDING WAVE 1/3: reclaim each hold before the next hatch opens.");
+    }
+
+    boolean holdClassicPelicanEncounterOpen() {
+        if (!classicModeActive || classicEncounter == null || classicSelectedBird != BirdType.PELICAN
+                || bossRushModeActive || ashfallTrialModeActive || matchEnded
+                || classicEncounter.style != ClassicEncounterStyle.PELICAN_BOARDING_GAUNTLET
+                || classicEncounter.waves == null || classicEncounter.waves.length == 0
+                || !playerHasStocksRemaining(0) || classicEnemyTeamHasStocks()
+                || classicPelicanBoardingWaveIndex + 1 >= classicEncounter.waves.length) return false;
+        classicPelicanBoardingWaveIndex++;
+        Bird player = players[0];
+        if (player != null) player.heal(28.0);
+        spawnPelicanBoardingWave(classicEncounter.waves[classicPelicanBoardingWaveIndex]);
+        return true;
+    }
+
+    private void spawnPelicanBoardingWave(ClassicFighter[] wave) {
+        if (wave == null || wave.length == 0 || classicEncounter == null) return;
+        for (int slot = 1; slot < MAX_COMBATANTS; slot++) {
+            if (players[slot] != null && getEffectiveTeam(slot) == 2) {
+                players[slot] = null;
+                isAI[slot] = false;
+                scores[slot] = 0;
+                classicCpuLevels[slot] = 0;
+            }
+        }
+        double difficultyDelta = classicDifficulty - CLASSIC_STARTING_DIFFICULTY;
+        double enemyHealthScale = 1.0 + difficultyDelta * 0.045;
+        double enemyPowerScale = 1.0 + difficultyDelta * 0.015;
+        int spawned = 0;
+        for (ClassicFighter fighter : wave) {
+            int slot = 1;
+            while (slot < MAX_COMBATANTS && players[slot] != null) slot++;
+            if (slot >= MAX_COMBATANTS) break;
+            Bird enemy = createStoryBird(0.0, fighter.type, slot, fighter.title,
+                    fighter.health * enemyHealthScale,
+                    fighter.powerMult * enemyPowerScale, fighter.speedMult, true);
+            scaleBossRushBird(enemy, 0.90, 0.88, 0.98);
+            if (fighter.skinKey != null) applyPreviewSkinChoiceToBird(enemy, fighter.type, fighter.skinKey);
+            enemy.setUltimateEnabled(false);
+            classicTeams[slot] = 2;
+            classicCpuLevels[slot] = resolvedClassicFighterCpuLevel(fighter, classicEncounter);
+            scores[slot] = 1;
+            enemy.x = battlefieldSpawnCenterX() + 780.0 + spawned * 360.0 - enemy.bodyWidth() * 0.5;
+            enemy.y = battlefieldSpawnY(enemy.sizeMultiplier);
+            enemy.prevX = enemy.x;
+            enemy.prevY = enemy.y;
+            enemy.vx = 0.0;
+            enemy.vy = 0.0;
+            enemy.facingRight = false;
+            activePlayers = Math.max(activePlayers, slot + 1);
+            spawned++;
+        }
+        addToKillFeed("BOARDING WAVE " + (classicPelicanBoardingWaveIndex + 1) + "/"
+                + classicEncounter.waves.length + ": the next hold opens. 28% damage repaired.");
     }
 
     private void setupTitmouseClassicRoute(ClassicEncounter encounter) {
@@ -61597,10 +61780,20 @@ public class BirdGame3 {
                 default -> scores[0];
             };
         }
+        if (classicSelectedBird == BirdType.PELICAN) {
+            // Unequal teams and armored holds are authored around Pelican's
+            // deliberate cargo rhythm, not extra normal-mode armor.
+            scores[0] = switch (classicRoundIndex) {
+                case 0, 1, 3, 6 -> 1;
+                case 4 -> 2;
+                case 2, 7 -> 3;
+                default -> scores[0];
+            };
+        }
         int enemyStocks = switch (classicEncounter.style) {
             case STORM_TYRANT_BOSS, PHOENIX_REBIRTH, BLIGHTWING_BOSS, ICEWORKS_MIRROR -> 2;
             case NULL_ROC_BOSS, LONG_WINTER_BOSS, DEVOURER_BOSS, BROODBREAKER_BOSS,
-                    STILL_KING_BOSS, LAST_SUN_BOSS -> 3;
+                    STILL_KING_BOSS, LAST_SUN_BOSS, HOARDMASTER_BOSS -> 3;
             default -> 0;
         };
         if (enemyStocks <= 0) return;

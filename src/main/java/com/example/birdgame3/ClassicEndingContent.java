@@ -420,6 +420,25 @@ final class ClassicEndingContent {
                             beat("I carried the intact Crown below the oldest cave and taught it one difference: danger echoes; ordinary life does not.", Tableau.CROWN_TRANSFORMATION),
                             beat("Now alarms ripple through the night before hunters arrive, while quiet nests remain invisible even to me.", Tableau.CHANGED_WORLD),
                             beat("The dark is free. It is not unwatched.", Tableau.FINAL_PORTRAIT)
+                    )),
+            ending(
+                    BirdGame3.BirdType.PELICAN,
+                    "THE WEIGHT OF THE HARBOR",
+                    "THE HARBOR WITHOUT TOLLS",
+                    "SERVICE - The intact Crown becomes a harbor light that routes abundance toward need and accepts no owner.",
+                    Alignment.HOPEFUL,
+                    BirdGame3.BirdType.VULTURE,
+                    "The Hoardmaster",
+                    "TIDE_VULTURE",
+                    BirdGame3.MapType.DOCK,
+                    "music-dock.mp3",
+                    monologue(
+                            beat("The Hoardmaster locked every relief ship in one exchange and called a full warehouse prosperity.", Tableau.BOSS_AFTERMATH),
+                            beat("The Crown opened a ledger of every hold and every hunger beneath the sky.", Tableau.CROWN_DISCOVERY),
+                            beat("I could have owned the routes, charged every crossing, and mistaken being needed for being good.", Tableau.DECISION),
+                            beat("Instead, I carried the intact Crown into the harbor light and threw its ownership key into the deepest channel.", Tableau.CROWN_TRANSFORMATION),
+                            beat("Now the light finds shortage, opens a safe route, and guides the nearest full hold there without asking who deserves it.", Tableau.CHANGED_WORLD),
+                            beat("A full hold means nothing if the harbor stays hungry.", Tableau.FINAL_PORTRAIT)
                     ))
     );
 
@@ -482,6 +501,10 @@ final class ClassicEndingContent {
 
     static boolean isBatListeningDark(Cinematic cinematic) {
         return cinematic != null && cinematic.narrator() == BirdGame3.BirdType.BAT;
+    }
+
+    static boolean isPelicanOpenHarbor(Cinematic cinematic) {
+        return cinematic != null && cinematic.narrator() == BirdGame3.BirdType.PELICAN;
     }
 
     static Cinematic withRouteRecord(Ending ending, int birdCoins, int score, String mapReward) {

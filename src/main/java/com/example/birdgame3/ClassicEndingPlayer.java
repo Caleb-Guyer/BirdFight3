@@ -190,6 +190,7 @@ final class ClassicEndingPlayer {
         boolean heisenBlueVault = ClassicEndingContent.isHeisenBlueVault(cinematic);
         boolean titmouseWarningBeacon = ClassicEndingContent.isTitmouseWarningBeacon(cinematic);
         boolean batListeningDark = ClassicEndingContent.isBatListeningDark(cinematic);
+        boolean pelicanOpenHarbor = ClassicEndingContent.isPelicanOpenHarbor(cinematic);
         if (continuousPanorama) {
             double routeProgress = Math.clamp((beatIndex + progress) / cinematic.beats().size(), 0.0, 1.0);
             drawRoadrunnerPanorama(g, now / 1_000_000_000.0, routeProgress);
@@ -223,6 +224,9 @@ final class ClassicEndingPlayer {
         } else if (batListeningDark) {
             double routeProgress = Math.clamp((beatIndex + progress) / cinematic.beats().size(), 0.0, 1.0);
             drawBatListeningDark(g, now / 1_000_000_000.0, routeProgress);
+        } else if (pelicanOpenHarbor) {
+            double routeProgress = Math.clamp((beatIndex + progress) / cinematic.beats().size(), 0.0, 1.0);
+            drawPelicanOpenHarbor(g, now / 1_000_000_000.0, routeProgress);
         } else {
             drawBackground(g, now / 1_000_000_000.0, progress);
             drawTableau(g, currentBeat().tableau(), progress, now / 1_000_000_000.0);
@@ -233,7 +237,7 @@ final class ClassicEndingPlayer {
         if (!continuousPanorama && !subglacialMontage && !stillwaterRevelation
                 && !charlesLivingScore && !razorbillFinalCut && !grinchOpenSack
                 && !vultureFinalAccount && !opiumTwelfthFuture && !heisenBlueVault
-                && !titmouseWarningBeacon && !batListeningDark) {
+                && !titmouseWarningBeacon && !batListeningDark && !pelicanOpenHarbor) {
             drawTransition(g, progress);
         }
         g.restore();
@@ -340,6 +344,120 @@ final class ClassicEndingPlayer {
             double finale = ease((progress - 0.84) / 0.16);
             g.setFill(Color.web("#78F2FF", 0.055 * finale));
             g.fillOval(330, 85, 1_260, 820);
+            drawFinalTitle(g, finale);
+        }
+    }
+
+    private void drawPelicanOpenHarbor(GraphicsContext g, double time, double progress) {
+        Color skyTop = Color.web("#07111C").interpolate(Color.web("#31556B"), progress * 0.88);
+        Color skyBottom = Color.web("#1E3340").interpolate(Color.web("#E29B61"), progress * 0.72);
+        g.setFill(new LinearGradient(0, 0, 0, 780, false, CycleMethod.NO_CYCLE,
+                new Stop(0, skyTop), new Stop(1, skyBottom)));
+        g.fillRect(0, 0, LOGICAL_WIDTH, 780);
+        g.setFill(Color.web("#071D2C"));
+        g.fillRect(0, 780, LOGICAL_WIDTH, 300);
+
+        double waterDrift = time * 18.0;
+        for (int wave = 0; wave < 20; wave++) {
+            double y = 790.0 + wave * 14.0;
+            double offset = Math.sin(time * 0.8 + wave) * 45.0;
+            g.setStroke(Color.web(wave % 3 == 0 ? "#75D5E8" : "#31566C",
+                    0.18 + progress * 0.20));
+            g.setLineWidth(wave % 3 == 0 ? 4.0 : 2.0);
+            g.strokeLine(-120 + offset + waterDrift % 180.0, y,
+                    LOGICAL_WIDTH + 120 + offset, y);
+        }
+
+        // The exchange is one continuous harbor shot: locked warehouses open,
+        // the intact Crown becomes the lighthouse lens, and relief ships leave.
+        double dockDrift = progress * 230.0;
+        g.setFill(Color.web("#111B25"));
+        for (int warehouse = 0; warehouse < 7; warehouse++) {
+            double x = -90 + warehouse * 330.0 - dockDrift * 0.12;
+            double h = 250.0 + (warehouse % 3) * 70.0;
+            g.fillRect(x, 780 - h, 270, h);
+            g.setFill(Color.web("#223140"));
+            g.fillPolygon(new double[]{x - 18, x + 135, x + 288},
+                    new double[]{780 - h, 700 - h, 780 - h}, 3);
+            double doorOpen = ease(Math.clamp((progress - 0.46 - warehouse * 0.025) / 0.18, 0.0, 1.0));
+            g.setFill(Color.web("#071018"));
+            g.fillRect(x + 55, 650 - h + doorOpen * 130, 160, 130 - doorOpen * 130);
+            g.setFill(Color.web("#111B25"));
+        }
+
+        double bossFade = Math.clamp(1.0 - progress * 4.7, 0.0, 1.0);
+        if (bossFade > 0.0) {
+            g.setFill(Color.web("#D3A648", 0.15 * bossFade));
+            for (int crate = 0; crate < 12; crate++) {
+                double x = 1_120 + (crate % 4) * 135.0;
+                double y = 700 - (crate / 4) * 98.0;
+                g.fillRect(x, y, 112, 76);
+                g.setStroke(Color.web("#FFE082", 0.45 * bossFade));
+                g.setLineWidth(5.0);
+                g.strokeRect(x, y, 112, 76);
+            }
+            drawBird(g, boss, 1_500, 550 + progress * 110.0, 1.23, false, bossFade);
+            drawBossName(g, "THE HOARDMASTER", 1_500, 735, bossFade);
+        }
+
+        double pelicanArrival = ease(Math.clamp((progress - 0.08) / 0.30, 0.0, 1.0));
+        double pelicanX = 230.0 + pelicanArrival * 470.0;
+        double pelicanY = 620.0 - Math.sin(pelicanArrival * Math.PI) * 150.0
+                + Math.sin(time * 1.5) * 8.0;
+        drawBird(g, narrator, pelicanX, pelicanY, 1.36, true, pelicanArrival);
+
+        double towerRise = ease(Math.clamp((progress - 0.24) / 0.28, 0.0, 1.0));
+        double towerX = 980.0;
+        double towerTop = 690.0 - towerRise * 500.0;
+        g.setFill(Color.web("#E8E1CC", towerRise));
+        g.fillPolygon(new double[]{towerX - 92, towerX + 92, towerX + 58, towerX - 58},
+                new double[]{760, 760, towerTop, towerTop}, 4);
+        g.setFill(Color.web("#172B38", towerRise));
+        g.fillRect(towerX - 118, towerTop - 54, 236, 82);
+        g.setStroke(Color.web("#F5CC6A", towerRise));
+        g.setLineWidth(11.0);
+        g.strokeRect(towerX - 118, towerTop - 54, 236, 82);
+
+        double crownLift = ease(Math.clamp((progress - 0.32) / 0.22, 0.0, 1.0));
+        double lensReveal = ease(Math.clamp((progress - 0.50) / 0.19, 0.0, 1.0));
+        if (lensReveal < 1.0) {
+            drawCrown(g, 980.0, 585.0 - crownLift * 390.0, 1.05,
+                    time, crownLift * (1.0 - lensReveal));
+        }
+        if (lensReveal > 0.0) {
+            double lensY = towerTop - 13.0;
+            g.setFill(Color.web("#FFF59D", 0.30 * lensReveal));
+            g.fillOval(towerX - 145, lensY - 145, 290, 290);
+            g.setFill(Color.web("#FFE082", lensReveal));
+            g.fillOval(towerX - 42, lensY - 42, 84, 84);
+            g.setFill(Color.web("#80DEEA", lensReveal));
+            g.fillOval(towerX - 18, lensY - 18, 36, 36);
+            double sweep = time * 0.35;
+            double reach = 1_050.0;
+            g.setFill(Color.web("#FFF7C0", 0.13 * lensReveal));
+            g.fillPolygon(new double[]{towerX, towerX,
+                            towerX + Math.cos(sweep - 0.10) * reach,
+                            towerX + Math.cos(sweep + 0.10) * reach},
+                    new double[]{lensY, lensY,
+                            lensY + Math.sin(sweep - 0.10) * reach * 0.42,
+                            lensY + Math.sin(sweep + 0.10) * reach * 0.42}, 4);
+        }
+
+        double fleetReveal = ease(Math.clamp((progress - 0.64) / 0.25, 0.0, 1.0));
+        for (int ship = 0; ship < 6; ship++) {
+            double x = 180 + ship * 320.0 + fleetReveal * (ship % 2 == 0 ? 170 : -130);
+            double y = 835 + (ship % 3) * 42.0;
+            g.setFill(Color.web(ship % 2 == 0 ? "#C7784A" : "#5A7890", fleetReveal));
+            g.fillPolygon(new double[]{x - 85, x + 95, x + 55, x - 55},
+                    new double[]{y, y, y + 44, y + 44}, 4);
+            g.setStroke(Color.web("#E8F4F8", 0.72 * fleetReveal));
+            g.setLineWidth(5.0);
+            g.strokeLine(x, y, x, y - 82);
+            g.strokeLine(x, y - 80, x + 58, y - 32);
+        }
+
+        if (progress > 0.84) {
+            double finale = ease((progress - 0.84) / 0.16);
             drawFinalTitle(g, finale);
         }
     }
@@ -1906,7 +2024,8 @@ final class ClassicEndingPlayer {
                 || ClassicEndingContent.isOpiumTwelfthFuture(cinematic)
                 || ClassicEndingContent.isHeisenBlueVault(cinematic)
                 || ClassicEndingContent.isTitmouseWarningBeacon(cinematic)
-                || ClassicEndingContent.isBatListeningDark(cinematic)) && beatIndex > 0) return;
+                || ClassicEndingContent.isBatListeningDark(cinematic)
+                || ClassicEndingContent.isPelicanOpenHarbor(cinematic)) && beatIndex > 0) return;
         game.playClassicEndingTableauCue(currentBeat().tableau());
     }
 

@@ -6,18 +6,18 @@
 - Objective/bonus rounds: listed but not simulated
 - Metric: attempt-based team clear rate in the real Classic encounter setup; harness cutoffs count as draws and failed clears
 
-## Bat
+## Pelican
 
 | Round | Encounter | Kind | Map | W-L-D | Clear rate | Avg time | Damage dealt | Read |
 |---:|---|---|---|---:|---:|---:|---:|---|
-| 1 | First Echo | Combat | Cave | 41-23-0 | 64.1% | 103.0s | 458 | Target band |
-| 2 | What Hunts at Night | Combat | Oneiric Observatory | 27-37-0 | 42.2% | 103.3s | 219 | Target band |
-| 3 | The Weight of Silence | Combat | Silent Amphitheater | 32-32-0 | 50.0% | 122.5s | 105 | Target band |
-| 4 | Counterpoint | Combat | Resonance Hall | 27-37-0 | 42.2% | 111.2s | 150 | Target band |
-| 5 | False Echoes | Combat | Midnight Workshop | 36-28-0 | 56.3% | 86.3s | 234 | Target band |
-| 6 | Bonus: Moonlit Survey | Objective | Peregrine Run | — | — | — | — | Not scored |
-| 7 | The Voice in the Cave | Combat | Bellkeeper Vault | 31-33-0 | 48.4% | 30.8s | 70 | Target band |
-| 8 | Thunder Without End | Combat | Tempest Summit | 25-39-0 | 39.1% | 76.5s | 137 | Too hard / weak matchup |
+| 1 | All Hands | Combat | Dock | 38-26-0 | 59.4% | 49.3s | 260 | Target band |
+| 2 | Rush Order | Combat | Rooftop Relay | 27-37-0 | 42.2% | 19.5s | 37 | Target band |
+| 3 | Cold Storage | Combat | Last Ice Shelf | 30-34-0 | 46.9% | 101.2s | 125 | Target band |
+| 4 | Convoy Duty | Combat | Desert | 41-23-0 | 64.1% | 63.6s | 155 | Target band |
+| 5 | The Pirate Hold | Combat | Titan Dock | 45-19-0 | 70.3% | 165.3s | 144 | Possibly too easy |
+| 6 | Bonus: Rooftop Airlift | Objective | Rooftop Relay | — | — | — | — | Not scored |
+| 7 | Bottomless Appetite | Combat | Cave | 37-27-0 | 57.8% | 128.1s | 184 | Target band |
+| 8 | The Empty Hold | Combat | Carrion Exchange | 29-35-0 | 45.3% | 217.9s | 579 | Target band |
 
 ## How to use this report
 

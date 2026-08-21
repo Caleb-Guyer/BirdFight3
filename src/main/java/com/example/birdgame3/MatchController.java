@@ -601,6 +601,9 @@ final class MatchController {
         if (game.holdClassicTitmouseEncounterOpen()) {
             return;
         }
+        if (game.holdClassicPelicanEncounterOpen()) {
+            return;
+        }
         if (game.campaignModeActive) {
             game.checkCampaignMissionCompletion();
             return;
