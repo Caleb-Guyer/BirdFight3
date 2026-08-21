@@ -6,18 +6,18 @@
 - Objective/bonus rounds: listed but not simulated
 - Metric: attempt-based team clear rate in the real Classic encounter setup; harness cutoffs count as draws and failed clears
 
-## Tufted Titmouse
+## Bat
 
 | Round | Encounter | Kind | Map | W-L-D | Clear rate | Avg time | Damage dealt | Read |
 |---:|---|---|---|---:|---:|---:|---:|---|
-| 1 | First Chirp | Combat | Forest | 28-36-0 | 43.8% | 73.3s | 542 | Target band |
-| 2 | Cache Thieves | Combat | Rooftop Relay | 41-23-0 | 64.1% | 79.9s | 303 | Target band |
-| 3 | Raise the Alarm | Combat | Heartbloom Sanctuary | 42-22-0 | 65.6% | 93.6s | 170 | Target band |
-| 4 | Every Voice Different | Combat | Stillwater Marsh | 42-22-0 | 65.6% | 158.0s | 540 | Target band |
-| 5 | No Place to Hide | Combat | Cave | 38-26-0 | 59.4% | 128.5s | 377 | Target band |
-| 6 | All Wings Answer | Combat | Dawnwatch Bastion | 29-35-0 | 45.3% | 90.3s | 101 | Target band |
-| 7 | Bonus: Where I Left Everything | Objective | Last Ice Shelf | — | — | — | — | Not scored |
-| 8 | The Last Hush | Combat | Silent Amphitheater | 28-36-0 | 43.8% | 169.8s | 417 | Target band |
+| 1 | First Echo | Combat | Cave | 41-23-0 | 64.1% | 103.0s | 458 | Target band |
+| 2 | What Hunts at Night | Combat | Oneiric Observatory | 27-37-0 | 42.2% | 103.3s | 219 | Target band |
+| 3 | The Weight of Silence | Combat | Silent Amphitheater | 32-32-0 | 50.0% | 122.5s | 105 | Target band |
+| 4 | Counterpoint | Combat | Resonance Hall | 27-37-0 | 42.2% | 111.2s | 150 | Target band |
+| 5 | False Echoes | Combat | Midnight Workshop | 36-28-0 | 56.3% | 86.3s | 234 | Target band |
+| 6 | Bonus: Moonlit Survey | Objective | Peregrine Run | — | — | — | — | Not scored |
+| 7 | The Voice in the Cave | Combat | Bellkeeper Vault | 31-33-0 | 48.4% | 30.8s | 70 | Target band |
+| 8 | Thunder Without End | Combat | Tempest Summit | 25-39-0 | 39.1% | 76.5s | 137 | Too hard / weak matchup |
 
 ## How to use this report
 

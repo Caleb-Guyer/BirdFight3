@@ -189,6 +189,7 @@ final class ClassicEndingPlayer {
         boolean opiumTwelfthFuture = ClassicEndingContent.isOpiumTwelfthFuture(cinematic);
         boolean heisenBlueVault = ClassicEndingContent.isHeisenBlueVault(cinematic);
         boolean titmouseWarningBeacon = ClassicEndingContent.isTitmouseWarningBeacon(cinematic);
+        boolean batListeningDark = ClassicEndingContent.isBatListeningDark(cinematic);
         if (continuousPanorama) {
             double routeProgress = Math.clamp((beatIndex + progress) / cinematic.beats().size(), 0.0, 1.0);
             drawRoadrunnerPanorama(g, now / 1_000_000_000.0, routeProgress);
@@ -219,6 +220,9 @@ final class ClassicEndingPlayer {
         } else if (titmouseWarningBeacon) {
             double routeProgress = Math.clamp((beatIndex + progress) / cinematic.beats().size(), 0.0, 1.0);
             drawTitmouseWarningBeacon(g, now / 1_000_000_000.0, routeProgress);
+        } else if (batListeningDark) {
+            double routeProgress = Math.clamp((beatIndex + progress) / cinematic.beats().size(), 0.0, 1.0);
+            drawBatListeningDark(g, now / 1_000_000_000.0, routeProgress);
         } else {
             drawBackground(g, now / 1_000_000_000.0, progress);
             drawTableau(g, currentBeat().tableau(), progress, now / 1_000_000_000.0);
@@ -229,10 +233,115 @@ final class ClassicEndingPlayer {
         if (!continuousPanorama && !subglacialMontage && !stillwaterRevelation
                 && !charlesLivingScore && !razorbillFinalCut && !grinchOpenSack
                 && !vultureFinalAccount && !opiumTwelfthFuture && !heisenBlueVault
-                && !titmouseWarningBeacon) {
+                && !titmouseWarningBeacon && !batListeningDark) {
             drawTransition(g, progress);
         }
         g.restore();
+    }
+
+    private void drawBatListeningDark(GraphicsContext g, double time, double progress) {
+        Color caveTop = Color.web("#02030B").interpolate(Color.web("#08172A"), progress * 0.72);
+        Color caveBottom = Color.web("#170D25").interpolate(Color.web("#062D36"), progress * 0.68);
+        g.setFill(new LinearGradient(0, 0, 0, LOGICAL_HEIGHT, false, CycleMethod.NO_CYCLE,
+                new Stop(0, caveTop), new Stop(1, caveBottom)));
+        g.fillRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
+
+        // One uninterrupted descent from the defeated storm into the buried
+        // listening chamber. All motion is presentation-only and deterministic.
+        double descent = ease(progress) * 720.0;
+        g.setFill(Color.web("#0A0B16"));
+        for (int ledge = 0; ledge < 9; ledge++) {
+            double x = -160.0 + ledge * 260.0;
+            double depth = 130.0 + Math.floorMod(ledge * 137, 260);
+            g.fillPolygon(new double[]{x, x + 170, x + 90},
+                    new double[]{-20, -20, depth + descent * 0.10}, 3);
+        }
+        g.setFill(Color.web("#050812"));
+        g.fillRect(0, 800, LOGICAL_WIDTH, 280);
+        for (int spire = 0; spire < 12; spire++) {
+            double x = spire * 185.0 - 75.0 - descent * 0.08;
+            double height = 170.0 + Math.floorMod(spire * 79, 250);
+            g.fillPolygon(new double[]{x, x + 135, x + 68},
+                    new double[]{880, 880, 880 - height}, 3);
+        }
+
+        double stormFade = Math.clamp(1.0 - progress * 5.2, 0.0, 1.0);
+        if (stormFade > 0.0) {
+            for (int bolt = 0; bolt < 6; bolt++) {
+                double bx = 1_220 + bolt * 88.0;
+                g.setStroke(Color.web("#D9F4FF", stormFade * 0.52));
+                g.setLineWidth(7.0);
+                g.strokePolyline(new double[]{bx, bx - 35, bx + 8, bx - 28},
+                        new double[]{115, 235, 320, 430}, 4);
+            }
+            drawBird(g, boss, 1_480, 600 + progress * 90.0, 1.18, false, stormFade);
+            drawBossName(g, "THE STORM TYRANT", 1_480, 765, stormFade);
+        }
+
+        double flight = ease(Math.clamp((progress - 0.08) / 0.42, 0.0, 1.0));
+        double batX = 310.0 + flight * 650.0;
+        double batY = 400.0 + flight * 260.0 + Math.sin(time * 1.7) * 11.0;
+        drawBird(g, narrator, batX, batY, 1.30, true, 1.0);
+
+        double crownDescent = ease(Math.clamp((progress - 0.18) / 0.32, 0.0, 1.0));
+        double crownX = 1_095.0 - crownDescent * 135.0;
+        double crownY = 320.0 + crownDescent * 385.0;
+        double latticeReveal = ease(Math.clamp((progress - 0.45) / 0.24, 0.0, 1.0));
+        if (latticeReveal < 1.0) {
+            drawCrown(g, crownX, crownY, 1.08 - crownDescent * 0.18,
+                    time, Math.clamp(crownDescent * 3.5, 0.0, 1.0) * (1.0 - latticeReveal));
+        }
+
+        if (latticeReveal > 0.0) {
+            g.setStroke(Color.web("#78F2FF", 0.62 * latticeReveal));
+            for (int ray = 0; ray < 14; ray++) {
+                double angle = ray * Math.PI * 2.0 / 14.0;
+                double reach = 180.0 + (ray % 4) * 80.0;
+                g.setLineWidth(ray % 3 == 0 ? 7.0 : 3.0);
+                g.strokeLine(960.0, 705.0,
+                        960.0 + Math.cos(angle) * reach,
+                        705.0 + Math.sin(angle) * reach * 0.58);
+            }
+            g.setFill(Color.web("#80DEEA", 0.15 * latticeReveal));
+            g.fillOval(790, 610, 340, 190);
+            for (int node = 0; node < 10; node++) {
+                double angle = node * Math.PI * 2.0 / 10.0;
+                double x = 960.0 + Math.cos(angle) * (170 + node % 3 * 55);
+                double y = 705.0 + Math.sin(angle) * (95 + node % 2 * 30);
+                g.setFill(Color.web("#B2F7FF", 0.85 * latticeReveal));
+                g.fillOval(x - 7, y - 7, 14, 14);
+            }
+        }
+
+        double warningReveal = ease(Math.clamp((progress - 0.62) / 0.23, 0.0, 1.0));
+        if (warningReveal > 0.0) {
+            double[] dangerX = {250, 540, 1_360, 1_680};
+            double[] dangerY = {710, 350, 410, 700};
+            for (int source = 0; source < dangerX.length; source++) {
+                double pulse = Math.floorMod((long) (time * 95.0 + source * 118.0), 430L);
+                g.setStroke(Color.web(source % 2 == 0 ? "#FF5C8A" : "#FFE082",
+                        warningReveal * Math.max(0.12, 1.0 - pulse / 430.0)));
+                g.setLineWidth(6.0);
+                g.strokeOval(dangerX[source] - pulse, dangerY[source] - pulse * 0.52,
+                        pulse * 2.0, pulse * 1.04);
+            }
+
+            // Ordinary nests remain deliberately dark: visible to the viewer,
+            // but never connected to the Crown's warning lattice.
+            g.setFill(Color.web("#B8C5D6", 0.32 * warningReveal));
+            for (int nest = 0; nest < 7; nest++) {
+                double x = 175 + nest * 265.0;
+                double y = 895 - (nest % 2) * 55.0;
+                g.fillOval(x, y, 86, 28);
+            }
+        }
+
+        if (progress > 0.84) {
+            double finale = ease((progress - 0.84) / 0.16);
+            g.setFill(Color.web("#78F2FF", 0.055 * finale));
+            g.fillOval(330, 85, 1_260, 820);
+            drawFinalTitle(g, finale);
+        }
     }
 
     private void drawTitmouseWarningBeacon(GraphicsContext g, double time, double progress) {
@@ -1796,7 +1905,8 @@ final class ClassicEndingPlayer {
                 || ClassicEndingContent.isStillwaterRevelation(cinematic)
                 || ClassicEndingContent.isOpiumTwelfthFuture(cinematic)
                 || ClassicEndingContent.isHeisenBlueVault(cinematic)
-                || ClassicEndingContent.isTitmouseWarningBeacon(cinematic)) && beatIndex > 0) return;
+                || ClassicEndingContent.isTitmouseWarningBeacon(cinematic)
+                || ClassicEndingContent.isBatListeningDark(cinematic)) && beatIndex > 0) return;
         game.playClassicEndingTableauCue(currentBeat().tableau());
     }
 

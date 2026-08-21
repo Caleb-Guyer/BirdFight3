@@ -45296,6 +45296,9 @@ public class BirdGame3 {
         if (useAuthoredRoutes && playerType == BirdType.TITMOUSE) {
             return buildTitmouseClassicRun();
         }
+        if (useAuthoredRoutes && playerType == BirdType.BAT) {
+            return buildBatClassicRun();
+        }
         List<ClassicEncounter> run = new ArrayList<>();
         Set<MapType> usedMaps = new HashSet<>();
         Set<BirdType> usedBirds = new HashSet<>();
@@ -47532,6 +47535,103 @@ public class BirdGame3 {
         return run;
     }
 
+    private List<ClassicEncounter> buildBatClassicRun() {
+        List<ClassicEncounter> run = new ArrayList<>();
+
+        ClassicEncounter firstEcho = new ClassicEncounter(
+                "First Echo", "Echo Cavern",
+                "Three tiny scouts disturb the cave. Read their movement through the dark and clear the chamber; their ultimates are sealed.",
+                MapType.CAVE, MapVariant.STANDARD, MatchMutator.NONE,
+                ClassicTwist.SHADOW_CACHE, ClassicEncounterStyle.MINIATURE_FLOCK, 105 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{
+                classicFighter(BirdType.TITMOUSE, "Cave Scout I", 52, 0.48, 1.06),
+                classicFighter(BirdType.TITMOUSE, "Cave Scout II", 52, 0.48, 1.06),
+                classicFighter(BirdType.TITMOUSE, "Cave Scout III", 52, 0.48, 1.06)}, false);
+        firstEcho.cpuLevel = 3;
+        run.add(firstEcho);
+
+        ClassicEncounter hunters = new ClassicEncounter(
+                "What Hunts at Night", "Oneiric Observatory",
+                "Opium Bird and Raven stalk opposite dream lanes. Keep both inside Bat's echo range and deny the surround.",
+                MapType.ONEIRIC_OBSERVATORY, MapVariant.STANDARD, MatchMutator.NONE,
+                ClassicTwist.SHADOW_CACHE, ClassicEncounterStyle.STANDARD, 115 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{
+                classicFighter(BirdType.OPIUMBIRD, "Dream Hunter: Opium Bird", 50, 0.42, 0.98),
+                classicFighter(BirdType.RAVEN, "Night Hunter: Raven", 52, 0.42, 0.98)}, false);
+        hunters.cpuLevel = 4;
+        run.add(hunters);
+
+        ClassicEncounter silence = new ClassicEncounter(
+                "The Weight of Silence", "Silent Amphitheater",
+                "A giant Shoebill refuses every warning. Circle the heavy counterattacks and make the silent arena answer.",
+                MapType.SILENT_AMPHITHEATER, MapVariant.STANDARD, MatchMutator.NONE,
+                ClassicTwist.WIND_RALLY, ClassicEncounterStyle.GIANT, 125 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{
+                classicFighter(BirdType.SHOEBILL, "Giant: The Quiet Wall", 85, 0.55, 0.86)}, true);
+        silence.cpuLevel = 5;
+        run.add(silence);
+
+        ClassicEncounter counterpoint = new ClassicEncounter(
+                "Counterpoint", "Resonance Hall",
+                "Charles hears the same hidden rhythm. Fight beside him against Eagle and Falcon without letting either raptor isolate your wingmate.",
+                MapType.RESONANCE_HALL, MapVariant.STANDARD, MatchMutator.NONE,
+                ClassicTwist.OVERCHARGE_FURY, ClassicEncounterStyle.STANDARD, 130 * 60,
+                new ClassicFighter[]{
+                        classicFighter(BirdType.MOCKINGBIRD, "Ally: Charles", 96, 0.72, 1.04)},
+                new ClassicFighter[]{
+                        classicFighter(BirdType.EAGLE, "High Note: Eagle", 90, 0.70, 0.98),
+                        classicFighter(BirdType.FALCON, "Sharp Note: Falcon", 86, 0.70, 1.04)}, false);
+        counterpoint.cpuLevel = 5;
+        run.add(counterpoint);
+
+        ClassicEncounter falseEchoes = new ClassicEncounter(
+                "False Echoes", "Midnight Workshop",
+                "Three rival Bats answer with different spacing. Break the chorus before identical silhouettes erase the real opening.",
+                MapType.MIDNIGHT_WORKSHOP, MapVariant.STANDARD, MatchMutator.TURBO_BRAWL,
+                ClassicTwist.SHADOW_CACHE, ClassicEncounterStyle.STANDARD, 135 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{
+                classicFighter(BirdType.BAT, "False Echo: Near", 52, 0.48, 1.04),
+                classicFighter(BirdType.BAT, "False Echo: High", 52, 0.48, 1.06, UMBRA_BAT_SKIN),
+                classicFighter(BirdType.BAT, "False Echo: Far", 52, 0.48, 1.02, RESONANCE_BAT_SKIN)}, false);
+        falseEchoes.cpuLevel = 6;
+        run.add(falseEchoes);
+
+        ClassicEncounter survey = new ClassicEncounter(
+                "Bonus: Moonlit Survey", "Peregrine Run",
+                "Cross the moonlit spires and break three echo markers. Falling or timing out advances safely, and every marker awards Bird Coins.",
+                MapType.SKYCLIFFS, MapVariant.PEREGRINE_RUN, MatchMutator.NONE,
+                ClassicTwist.WIND_RALLY, ClassicEncounterStyle.BONUS_RELAY, 80 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{
+                classicFighter(BirdType.TITMOUSE, "Echo Marker I", 34, 0.05, 0.05),
+                classicFighter(BirdType.TITMOUSE, "Echo Marker II", 34, 0.05, 0.05),
+                classicFighter(BirdType.TITMOUSE, "Echo Marker III", 34, 0.05, 0.05)}, false);
+        survey.cpuLevel = 1;
+        run.add(survey);
+
+        ClassicEncounter sovereign = new ClassicEncounter(
+                "The Voice in the Cave", "Bellkeeper Vault",
+                "Resonance Bat claims that the loudest echo owns the dark. Defeat the perfected reflection with the ordinary kit that brought you here.",
+                MapType.MIDNIGHT_WORKSHOP, MapVariant.BELLKEEPER_VAULT, MatchMutator.NONE,
+                ClassicTwist.RAGE_RITUAL, ClassicEncounterStyle.STANDARD, 130 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{
+                classicFighter(BirdType.BAT, "Elite: Resonance Sovereign", 172, 1.10, 1.08,
+                        RESONANCE_BAT_SKIN)}, true);
+        sovereign.cpuLevel = 7;
+        run.add(sovereign);
+
+        ClassicEncounter tyrant = new ClassicEncounter(
+                "Thunder Without End", "Tempest Summit",
+                "The Storm Tyrant buries every useful sound beneath command and thunder. Break both stocks, read the crosswinds, and make the night audible again.",
+                MapType.SKYCLIFFS, MapVariant.TEMPEST_SUMMIT, MatchMutator.NONE,
+                ClassicTwist.STORM_CROWN, ClassicEncounterStyle.STORM_TYRANT_BOSS, 195 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{
+                classicFighter(BirdType.EAGLE, "Boss: The Storm Tyrant", 160, 1.02, 1.02,
+                        "SKY_KING_EAGLE")}, true);
+        tyrant.cpuLevel = 8;
+        run.add(tyrant);
+        return run;
+    }
+
     private ClassicEncounter buildShoebillSwiftTrailEncounter() {
         ClassicEncounter encounter = new ClassicEncounter(
                 "Swift Trail", "Redline Track",
@@ -48250,6 +48350,7 @@ public class BirdGame3 {
         if (type == BirdType.OPIUMBIRD) return "THE TWELFTH FUTURE";
         if (type == BirdType.HEISENBIRD) return "THE PERFECT PRODUCT";
         if (type == BirdType.TITMOUSE) return "THE ALARM IN THE TREES";
+        if (type == BirdType.BAT) return "THE NIGHT ANSWERS BACK";
         return "TEMPORARY FLIGHT PLAN";
     }
 
@@ -61483,6 +61584,16 @@ public class BirdGame3 {
                 case 1, 4 -> 3;
                 case 2, 3, 7 -> 2;
                 case 0, 5 -> 1;
+                default -> scores[0];
+            };
+        }
+        if (classicSelectedBird == BirdType.BAT) {
+            // Bat's route emphasizes uneven night encounters and a two-stock
+            // storm boss. These route lives keep the multi-enemy rounds fair
+            // without changing Bat's normal battle durability or moveset.
+            scores[0] = switch (classicRoundIndex) {
+                case 0, 2, 3 -> 2;
+                case 1, 4, 7 -> 3;
                 default -> scores[0];
             };
         }

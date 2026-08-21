@@ -401,6 +401,25 @@ final class ClassicEndingContent {
                             beat("I carried the Crown intact to the oldest tree and fastened it above the canopy where no throne could hide it.", Tableau.CROWN_TRANSFORMATION),
                             beat("Now danger in one nest becomes light across every sky. The Crown carries the warning, but every bird chooses the flight.", Tableau.CHANGED_WORLD),
                             beat("A crown tells everyone who rules. A warning tells everyone to fly.", Tableau.FINAL_PORTRAIT)
+                    )),
+            ending(
+                    BirdGame3.BirdType.BAT,
+                    "THE NIGHT ANSWERS BACK",
+                    "THE LISTENING DARK",
+                    "WATCHFULNESS - The intact Crown becomes a hidden echo lattice that reveals danger, never ordinary lives.",
+                    Alignment.AMBIGUOUS,
+                    BirdGame3.BirdType.EAGLE,
+                    "The Storm Tyrant",
+                    "SKY_KING_EAGLE",
+                    BirdGame3.MapType.CAVE,
+                    "music-cave.mp3",
+                    monologue(
+                            beat("The Storm Tyrant buried every warning beneath thunder, then called the silence obedience.", Tableau.BOSS_AFTERMATH),
+                            beat("When the storm broke, the Crown heard everything: every wingbeat, whispered plan, and closing cage.", Tableau.CROWN_DISCOVERY),
+                            beat("I could have listened to every life forever. Knowing where someone hides is another kind of chain.", Tableau.DECISION),
+                            beat("I carried the intact Crown below the oldest cave and taught it one difference: danger echoes; ordinary life does not.", Tableau.CROWN_TRANSFORMATION),
+                            beat("Now alarms ripple through the night before hunters arrive, while quiet nests remain invisible even to me.", Tableau.CHANGED_WORLD),
+                            beat("The dark is free. It is not unwatched.", Tableau.FINAL_PORTRAIT)
                     ))
     );
 
@@ -459,6 +478,10 @@ final class ClassicEndingContent {
 
     static boolean isHeisenBlueVault(Cinematic cinematic) {
         return cinematic != null && cinematic.narrator() == BirdGame3.BirdType.HEISENBIRD;
+    }
+
+    static boolean isBatListeningDark(Cinematic cinematic) {
+        return cinematic != null && cinematic.narrator() == BirdGame3.BirdType.BAT;
     }
 
     static Cinematic withRouteRecord(Ending ending, int birdCoins, int score, String mapReward) {
