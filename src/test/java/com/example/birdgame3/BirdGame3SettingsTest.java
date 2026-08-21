@@ -466,6 +466,30 @@ class BirdGame3SettingsTest {
     }
 
     @Test
+    void legacyDeveloperProfileAlwaysReceivesDawnwatchBastionInStageSelect() throws Exception {
+        // Reproduce a FEATHERDEV save created before Dawnwatch Bastion existed:
+        // the permanent entitlement is present, but the later reward flag is not.
+        prefs.putBoolean("developer_infinite_bird_coins", true);
+        prefs.putBoolean("map_variant_dawnwatch_bastion_unlocked", false);
+
+        BirdGame3 reloaded = new BirdGame3();
+        Method loadProfileProgress = BirdGame3.class.getDeclaredMethod("loadProfileProgress", Preferences.class);
+        loadProfileProgress.setAccessible(true);
+        loadProfileProgress.invoke(reloaded, prefs);
+
+        assertTrue(getPrivateBooleanField(reloaded, "developerInfiniteBirdCoins"));
+        assertTrue(getPrivateBooleanField(reloaded, "dawnwatchBastionUnlocked"),
+                "FEATHERDEV must repair the saved Dawnwatch reward flag during profile load");
+        assertTrue(reloaded.unifiedStageSelectCatalog().stream()
+                        .anyMatch(choice -> choice.variant() == BirdGame3.MapVariant.DAWNWATCH_BASTION),
+                "Dawnwatch Bastion must be selectable, not merely marked unlocked internally");
+
+        reloaded.persistAchievements(prefs);
+        assertTrue(prefs.getBoolean("map_variant_dawnwatch_bastion_unlocked", false),
+                "the repaired entitlement must survive the next launch");
+    }
+
+    @Test
     void legacyDeveloperBadgeEntitlementsAreRemovedOnlyOnce() throws Exception {
         prefs.putBoolean("developer_infinite_bird_coins", true);
         prefs.putBoolean("ashfall_trial_completed", true);
