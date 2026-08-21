@@ -53569,67 +53569,347 @@ public class BirdGame3 {
     }
 
     private void drawHarvestTribunalArena(GraphicsContext g, boolean ambientFx) {
-        Color skyTop = Color.web("#080916");
-        Color skyBottom = Color.web("#4A2630");
-        for (int i = 0; i < 520; i++) {
-            double ratio = i / 520.0;
-            g.setFill(skyTop.interpolate(skyBottom, ratio));
-            g.fillRect(0, i * (WORLD_HEIGHT / 520.0), WORLD_WIDTH, WORLD_HEIGHT / 520.0 + 3);
-        }
+        double time = ambientFx ? System.currentTimeMillis() / 1000.0 : 0.0;
+        boolean famine = classicModeActive && classicEncounter != null
+                && classicEncounter.style == ClassicEncounterStyle.DEVOURER_BOSS
+                && classicDevourerFinalPhaseActive;
 
-        // The moon remains far behind every solid surface, with the court and
-        // mountain silhouettes establishing the stage's extreme scale.
-        g.setFill(Color.web("#F8E7B0", 0.74));
-        g.fillOval(WORLD_WIDTH * 0.5 - 350, 130, 700, 700);
-        g.setFill(Color.web("#151522", 0.92));
-        for (int i = 0; i < 8; i++) {
-            double x = i * 840 - 260;
-            double peak = 800 + (i % 3) * 210;
-            g.fillPolygon(new double[]{x, x + 510, x + 1_020},
-                    new double[]{GROUND_Y + 240, peak, GROUND_Y + 240}, 3);
-        }
+        drawHarvestTribunalSky(g, famine);
+        drawHarvestTribunalMoon(g, famine, ambientFx, time);
+        drawHarvestTribunalDistantCourt(g, famine);
+        drawHarvestTribunalFields(g, famine, ambientFx, time);
+        drawHarvestTribunalSupports(g, famine);
 
-        g.setFill(Color.web("#1B1720"));
-        for (int i = 0; i < 7; i++) {
-            double x = 250 + i * 900;
-            double h = 760 + (i % 2) * 180;
-            g.fillRect(x, GROUND_Y - h, 150, h + 200);
-            g.fillPolygon(new double[]{x - 80, x + 75, x + 230},
-                    new double[]{GROUND_Y - h, GROUND_Y - h - 180, GROUND_Y - h}, 3);
-            g.setFill(Color.web(i % 2 == 0 ? "#7B2D26" : "#5D243C", 0.88));
-            g.fillPolygon(new double[]{x + 24, x + 126, x + 112, x + 75, x + 38},
-                    new double[]{GROUND_Y - h + 110, GROUND_Y - h + 110, GROUND_Y - h + 430,
-                            GROUND_Y - h + 500, GROUND_Y - h + 430}, 5);
-            g.setFill(Color.web("#1B1720"));
-        }
-
-        g.setFill(Color.web("#211A18"));
-        g.fillRect(0, GROUND_Y + 40, WORLD_WIDTH, WORLD_HEIGHT - GROUND_Y + 120);
         for (Platform platform : platforms) {
-            g.setFill(Color.web("#3E3A43"));
-            g.fillRoundRect(platform.x, platform.y, platform.w, platform.h, 28, 28);
-            g.setStroke(Color.web("#D39A45"));
-            g.setLineWidth(platform.h >= 80 ? 10.0 : 6.0);
-            g.strokeRoundRect(platform.x, platform.y, platform.w, platform.h, 28, 28);
-            g.setFill(Color.web("#6B2737", 0.76));
-            g.fillRoundRect(platform.x + 24, platform.y + 18,
-                    Math.max(0.0, platform.w - 48), Math.min(26.0, platform.h - 18), 18, 18);
+            drawHarvestTribunalSurface(g, platform, famine);
         }
 
-        double flicker = ambientFx ? 0.72 + 0.18 * Math.sin(System.currentTimeMillis() / 130.0) : 0.82;
-        double[] brazierX = {930, 1_880, 4_120, 5_070};
+        double[] brazierX = {930.0, 1_880.0, 4_120.0, 5_070.0};
         for (double x : brazierX) {
-            g.setFill(Color.web("#17151A"));
-            g.fillRect(x - 34, GROUND_Y - 620, 68, 300);
-            g.setFill(Color.web("#FF9E40", flicker));
-            g.fillOval(x - 62, GROUND_Y - 700, 124, 145);
-            g.setFill(Color.web("#FFE082", flicker));
-            g.fillOval(x - 30, GROUND_Y - 674, 60, 96);
+            if (hasHarvestTribunalMainSurfaceAt(x)) {
+                drawHarvestTribunalBrazier(g, x, famine, ambientFx, time);
+            }
+        }
+        drawHarvestTribunalOfferings(g, famine);
+        for (WindVent vent : windVents) {
+            drawHarvestTribunalGrainCenser(g, vent, famine, ambientFx, time);
+        }
+        drawHarvestTribunalAtmosphere(g, famine, ambientFx, time);
+    }
+
+    private void drawHarvestTribunalSky(GraphicsContext g, boolean famine) {
+        Color zenith = Color.web(famine ? "#07030C" : "#080B1D");
+        Color upper = Color.web(famine ? "#241020" : "#22213B");
+        Color horizon = Color.web(famine ? "#6A2020" : "#71393A");
+        Color haze = Color.web(famine ? "#351314" : "#9A654B");
+        g.setFill(new LinearGradient(0, 0, 0, WORLD_HEIGHT, false,
+                CycleMethod.NO_CYCLE,
+                new Stop(0.0, zenith),
+                new Stop(0.38, upper),
+                new Stop(0.68, horizon),
+                new Stop(0.86, haze),
+                new Stop(1.0, Color.web("#1B1213"))));
+        g.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+
+        g.setStroke(Color.web(famine ? "#FF5B3A" : "#FFE3A0", famine ? 0.08 : 0.10));
+        g.setLineWidth(5.0);
+        for (int ray = 0; ray < 12; ray++) {
+            double x = -420.0 + ray * 620.0;
+            g.strokeLine(WORLD_WIDTH * 0.5, 650.0, x, GROUND_Y + 210.0);
+        }
+    }
+
+    private void drawHarvestTribunalMoon(GraphicsContext g, boolean famine,
+                                          boolean ambientFx, double time) {
+        double cx = WORLD_WIDTH * 0.5;
+        double cy = 455.0;
+        double pulse = ambientFx ? 0.5 + 0.5 * Math.sin(time * 0.44) : 0.58;
+        Color moon = Color.web(famine ? "#FF9B64" : "#FFF0BE");
+
+        g.setFill(new RadialGradient(0, 0, cx, cy, 690.0, false,
+                CycleMethod.NO_CYCLE,
+                new Stop(0.0, moon.deriveColor(0, 0.88, 1.0, 0.27 + pulse * 0.04)),
+                new Stop(0.52, moon.deriveColor(0, 0.80, 1.0, 0.08)),
+                new Stop(1.0, Color.TRANSPARENT)));
+        g.fillOval(cx - 690.0, cy - 690.0, 1_380.0, 1_380.0);
+        g.setFill(moon.deriveColor(0, 0.92, 1.0, 0.94));
+        g.fillOval(cx - 330.0, cy - 330.0, 660.0, 660.0);
+        g.setFill(Color.web(famine ? "#6F332D" : "#C5B789", 0.20));
+        g.fillOval(cx - 210.0, cy - 166.0, 176.0, 114.0);
+        g.fillOval(cx + 58.0, cy + 40.0, 138.0, 92.0);
+        g.fillOval(cx - 112.0, cy + 116.0, 106.0, 72.0);
+        g.setStroke(moon.deriveColor(0, 0.74, 1.05, 0.48));
+        g.setLineWidth(12.0);
+        g.strokeOval(cx - 330.0, cy - 330.0, 660.0, 660.0);
+    }
+
+    private void drawHarvestTribunalDistantCourt(GraphicsContext g, boolean famine) {
+        Color farHill = Color.web(famine ? "#180B13" : "#171527", 0.88);
+        Color nearHill = Color.web(famine ? "#241016" : "#211A27", 0.98);
+        for (int layer = 0; layer < 2; layer++) {
+            g.setFill(layer == 0 ? farHill : nearHill);
+            double base = GROUND_Y + 260.0 - layer * 80.0;
+            double spacing = layer == 0 ? 760.0 : 610.0;
+            for (int i = -1; i < 11; i++) {
+                double x = i * spacing + layer * 170.0;
+                double peak = 810.0 + Math.floorMod(i * 173 + layer * 97, 360);
+                g.fillPolygon(new double[]{x, x + spacing * 0.53, x + spacing * 1.18},
+                        new double[]{base, base - peak, base}, 3);
+            }
         }
 
-        for (WindVent vent : windVents) {
-            g.setFill(Color.web("#FFD180", ambientFx ? 0.20 : 0.14));
-            g.fillOval(vent.x + vent.w * 0.5 - 90, vent.y - 190, 180, 350);
+        // The distant granaries form a complete civic complex rather than a
+        // collection of detached silhouettes.
+        g.setFill(Color.web(famine ? "#231318" : "#28212A"));
+        g.fillRect(0, GROUND_Y - 70.0, WORLD_WIDTH, 450.0);
+        for (int tower = 0; tower < 7; tower++) {
+            double x = 145.0 + tower * 955.0;
+            double width = 330.0 + (tower % 2) * 90.0;
+            double top = GROUND_Y - 710.0 - (tower % 3) * 115.0;
+            g.setFill(Color.web(famine ? "#2A171B" : "#302830"));
+            g.fillRect(x, top, width, GROUND_Y + 80.0 - top);
+            g.setFill(Color.web(famine ? "#35181B" : "#403238"));
+            g.fillPolygon(new double[]{x - 70.0, x + width * 0.5, x + width + 70.0},
+                    new double[]{top, top - 195.0, top}, 3);
+
+            g.setStroke(Color.web("#B97942", famine ? 0.30 : 0.50));
+            g.setLineWidth(16.0);
+            g.strokeLine(x + 55.0, top + 80.0, x + 55.0, GROUND_Y - 25.0);
+            g.strokeLine(x + width - 55.0, top + 80.0, x + width - 55.0, GROUND_Y - 25.0);
+            g.setFill(Color.web(famine ? "#7D2D29" : "#A14A35", 0.82));
+            g.fillPolygon(new double[]{x + width * 0.28, x + width * 0.72,
+                            x + width * 0.66, x + width * 0.50, x + width * 0.34},
+                    new double[]{top + 105.0, top + 105.0, top + 395.0,
+                            top + 480.0, top + 395.0}, 5);
+            g.setFill(Color.web("#E6B65D", famine ? 0.34 : 0.62));
+            g.fillOval(x + width * 0.5 - 22.0, top + 174.0, 44.0, 44.0);
+        }
+    }
+
+    private void drawHarvestTribunalFields(GraphicsContext g, boolean famine,
+                                            boolean ambientFx, double time) {
+        Color soil = Color.web(famine ? "#170D0D" : "#211714");
+        g.setFill(soil);
+        g.fillRect(0, GROUND_Y + 40.0, WORLD_WIDTH, WORLD_HEIGHT - GROUND_Y + 180.0);
+
+        g.setStroke(Color.web(famine ? "#6D3322" : "#B2763D", 0.56));
+        g.setLineWidth(12.0);
+        double sway = ambientFx ? Math.sin(time * 0.72) * 8.0 : 0.0;
+        for (int stalk = 0; stalk < 95; stalk++) {
+            double x = 20.0 + stalk * 65.0;
+            double height = 120.0 + Math.floorMod(stalk * 37, 105);
+            double baseY = GROUND_Y + 150.0;
+            g.strokeLine(x, baseY, x + sway + (stalk % 3 - 1) * 5.0, baseY - height);
+            g.setFill(Color.web(famine ? "#8D4328" : "#D5A34E", 0.66));
+            g.fillOval(x + sway - 11.0, baseY - height - 28.0, 22.0, 48.0);
+        }
+    }
+
+    private void drawHarvestTribunalSupports(GraphicsContext g, boolean famine) {
+        Color stone = Color.web(famine ? "#251A1B" : "#37323A");
+        Color stoneLight = Color.web(famine ? "#4A2825" : "#655A5B");
+        Color timber = Color.web(famine ? "#4A241C" : "#77452B");
+        Color gold = Color.web(famine ? "#A64A31" : "#D9A34D");
+
+        // Every surviving feast-table section has massive piers that reach the
+        // ground. When the Devourer collapses an outer section, its supports
+        // disappear with it instead of leaving false solid-looking scenery.
+        for (Platform platform : platforms) {
+            if (platform.h < 80.0) continue;
+            double underside = platform.y + platform.h;
+            double pedestalBottom = GROUND_Y + 130.0;
+            g.setFill(Color.web("#0C090B", 0.72));
+            g.fillRect(platform.x + 30.0, underside, platform.w - 60.0,
+                    Math.max(0.0, pedestalBottom - underside));
+            int bays = Math.max(2, (int) Math.round(platform.w / 520.0));
+            for (int bay = 0; bay <= bays; bay++) {
+                double x = platform.x + 90.0 + bay * (platform.w - 180.0) / bays;
+                g.setFill(stone);
+                g.fillPolygon(new double[]{x - 58.0, x + 58.0, x + 92.0, x - 92.0},
+                        new double[]{underside, underside, pedestalBottom, pedestalBottom}, 4);
+                g.setStroke(stoneLight.deriveColor(0, 0.82, 1.0, 0.76));
+                g.setLineWidth(10.0);
+                g.strokeLine(x - 38.0, underside + 34.0, x - 58.0, pedestalBottom - 20.0);
+                g.setFill(gold.deriveColor(0, 0.88, 1.0, 0.60));
+                g.fillOval(x - 25.0, underside + 52.0, 50.0, 50.0);
+            }
+        }
+
+        List<Platform> upper = platforms.stream()
+                .filter(platform -> platform.h < 80.0)
+                .sorted(Comparator.comparingDouble(platform -> platform.y))
+                .toList();
+        for (Platform platform : upper) {
+            Platform support = platforms.stream()
+                    .filter(candidate -> candidate != platform && candidate.y > platform.y)
+                    .filter(candidate -> Math.min(platform.x + platform.w, candidate.x + candidate.w)
+                            - Math.max(platform.x, candidate.x) >= 80.0)
+                    .min(Comparator.comparingDouble(candidate -> candidate.y))
+                    .orElse(null);
+            double supportY = support == null ? GROUND_Y + 110.0 : support.y;
+            double left = platform.x + 72.0;
+            double right = platform.x + platform.w - 72.0;
+            g.setStroke(Color.web("#100B0D", 0.86));
+            g.setLineWidth(34.0);
+            g.strokeLine(left, platform.y + platform.h, left, supportY);
+            g.strokeLine(right, platform.y + platform.h, right, supportY);
+            g.setStroke(timber);
+            g.setLineWidth(19.0);
+            g.strokeLine(left, platform.y + platform.h, left, supportY);
+            g.strokeLine(right, platform.y + platform.h, right, supportY);
+            g.strokeLine(left, platform.y + platform.h + 28.0, right, supportY - 16.0);
+            g.strokeLine(right, platform.y + platform.h + 28.0, left, supportY - 16.0);
+            g.setFill(gold);
+            g.fillOval(left - 15.0, platform.y + platform.h + 18.0, 30.0, 30.0);
+            g.fillOval(right - 15.0, platform.y + platform.h + 18.0, 30.0, 30.0);
+        }
+    }
+
+    private void drawHarvestTribunalSurface(GraphicsContext g, Platform platform, boolean famine) {
+        boolean table = platform.h >= 80.0;
+        Color top = Color.web(famine ? "#4A3030" : "#62545A");
+        Color face = Color.web(famine ? "#271B20" : "#39323B");
+        Color gold = Color.web(famine ? "#B54E32" : "#E0AB50");
+        Color runner = Color.web(famine ? "#571C21" : "#7E2E3A");
+
+        g.setFill(Color.web("#0B080B", 0.92));
+        g.fillRoundRect(platform.x - 12.0, platform.y + 12.0,
+                platform.w + 24.0, platform.h + (table ? 42.0 : 26.0), 22.0, 22.0);
+        g.setFill(new LinearGradient(0, platform.y, 0, platform.y + platform.h, false,
+                CycleMethod.NO_CYCLE,
+                new Stop(0.0, top.deriveColor(0, 0.86, 1.12, 1.0)),
+                new Stop(0.24, top),
+                new Stop(1.0, face)));
+        g.fillRoundRect(platform.x, platform.y, platform.w, platform.h, 18.0, 18.0);
+        g.setStroke(Color.web("#161019", 0.96));
+        g.setLineWidth(table ? 14.0 : 10.0);
+        g.strokeRoundRect(platform.x, platform.y, platform.w, platform.h, 18.0, 18.0);
+        g.setStroke(gold);
+        g.setLineWidth(table ? 9.0 : 6.0);
+        g.strokeLine(platform.x + 20.0, platform.y + 8.0,
+                platform.x + platform.w - 20.0, platform.y + 8.0);
+
+        if (table) {
+            g.setFill(runner.deriveColor(0, 0.94, 1.0, 0.90));
+            g.fillRoundRect(platform.x + 36.0, platform.y + 25.0,
+                    platform.w - 72.0, 25.0, 12.0, 12.0);
+            g.setStroke(gold.deriveColor(0, 0.90, 1.0, 0.66));
+            g.setLineWidth(5.0);
+            for (double x = platform.x + 88.0; x < platform.x + platform.w - 50.0; x += 132.0) {
+                g.strokePolygon(new double[]{x, x + 24.0, x + 48.0, x + 24.0},
+                        new double[]{platform.y + 61.0, platform.y + 42.0,
+                                platform.y + 61.0, platform.y + 80.0}, 4);
+            }
+        } else {
+            g.setFill(runner.deriveColor(0, 0.92, 1.0, 0.82));
+            g.fillRoundRect(platform.x + 24.0, platform.y + 17.0,
+                    Math.max(0.0, platform.w - 48.0), 12.0, 8.0, 8.0);
+        }
+    }
+
+    private boolean hasHarvestTribunalMainSurfaceAt(double x) {
+        return platforms.stream().anyMatch(platform -> platform.h >= 80.0
+                && x >= platform.x && x <= platform.x + platform.w);
+    }
+
+    private void drawHarvestTribunalBrazier(GraphicsContext g, double x, boolean famine,
+                                             boolean ambientFx, double time) {
+        double tableY = platforms.stream()
+                .filter(platform -> platform.h >= 80.0 && x >= platform.x && x <= platform.x + platform.w)
+                .mapToDouble(platform -> platform.y).min().orElse(GROUND_Y - 330.0);
+        double flicker = ambientFx ? 0.84 + 0.14 * Math.sin(time * 8.4 + x * 0.013) : 0.90;
+        Color flame = Color.web(famine ? "#FF4D31" : "#FF9E40");
+        Color hot = Color.web(famine ? "#FFD07A" : "#FFF0A5");
+
+        g.setFill(Color.web("#151117"));
+        g.fillPolygon(new double[]{x - 60.0, x + 60.0, x + 42.0, x - 42.0},
+                new double[]{tableY - 118.0, tableY - 118.0, tableY - 70.0, tableY - 70.0}, 4);
+        g.setStroke(Color.web(famine ? "#9D432D" : "#D5A24C"));
+        g.setLineWidth(8.0);
+        g.strokeLine(x - 58.0, tableY - 115.0, x + 58.0, tableY - 115.0);
+        g.setFill(Color.web("#29202A"));
+        g.fillRect(x - 18.0, tableY - 70.0, 36.0, 70.0);
+        g.fillRoundRect(x - 46.0, tableY - 22.0, 92.0, 22.0, 10.0, 10.0);
+
+        g.setFill(flame.deriveColor(0, 1.0, 1.0, flicker * 0.88));
+        g.fillOval(x - 51.0, tableY - 225.0, 102.0, 128.0);
+        g.setFill(hot.deriveColor(0, 1.0, 1.0, flicker));
+        g.fillOval(x - 24.0, tableY - 190.0, 48.0, 86.0);
+        g.setFill(Color.web("#FFF8D0", flicker * 0.86));
+        g.fillOval(x - 10.0, tableY - 156.0, 20.0, 46.0);
+    }
+
+    private void drawHarvestTribunalOfferings(GraphicsContext g, boolean famine) {
+        Color pumpkin = Color.web(famine ? "#8A3B26" : "#D97732");
+        Color squash = Color.web(famine ? "#78602D" : "#D4A84D");
+        double[][] baskets = {{1_425.0, GROUND_Y - 330.0}, {3_000.0, GROUND_Y - 330.0},
+                {4_575.0, GROUND_Y - 330.0}};
+        for (double[] basket : baskets) {
+            if (!hasHarvestTribunalMainSurfaceAt(basket[0])) continue;
+            double x = basket[0];
+            double y = basket[1];
+            g.setFill(Color.web("#4B2B1E"));
+            g.fillArc(x - 74.0, y - 58.0, 148.0, 78.0, 180.0, 180.0, ArcType.ROUND);
+            g.setStroke(Color.web("#BD7B3D"));
+            g.setLineWidth(8.0);
+            g.strokeArc(x - 62.0, y - 100.0, 124.0, 100.0, 0.0, 180.0, ArcType.OPEN);
+            g.setFill(pumpkin);
+            g.fillOval(x - 54.0, y - 76.0, 68.0, 58.0);
+            g.setFill(squash);
+            g.fillOval(x + 4.0, y - 68.0, 54.0, 47.0);
+            g.setStroke(Color.web("#6E7A35"));
+            g.setLineWidth(8.0);
+            g.strokeLine(x - 20.0, y - 74.0, x - 12.0, y - 94.0);
+        }
+    }
+
+    private void drawHarvestTribunalGrainCenser(GraphicsContext g, WindVent vent,
+                                                  boolean famine, boolean ambientFx, double time) {
+        double cx = vent.x + vent.w * 0.5;
+        double baseY = vent.y + 52.0;
+        double pulse = ambientFx ? 0.5 + 0.5 * Math.sin(time * 2.4 + cx * 0.009) : 0.58;
+        Color gold = Color.web(famine ? "#B65032" : "#E0AA4E");
+
+        g.setFill(Color.web("#18131A", 0.94));
+        g.fillRoundRect(cx - 64.0, baseY - 42.0, 128.0, 42.0, 14.0, 14.0);
+        g.setStroke(gold);
+        g.setLineWidth(8.0);
+        g.strokeRoundRect(cx - 64.0, baseY - 42.0, 128.0, 42.0, 14.0, 14.0);
+        g.setFill(gold.deriveColor(0, 0.90, 1.0, 0.76));
+        for (int grain = 0; grain < 5; grain++) {
+            g.fillOval(cx - 42.0 + grain * 18.0, baseY - 31.0, 12.0, 20.0);
+        }
+
+        g.setFill(new LinearGradient(0, baseY, 0, vent.y - 290.0, false,
+                CycleMethod.NO_CYCLE,
+                new Stop(0.0, gold.deriveColor(0, 0.88, 1.0, 0.12 + pulse * 0.08)),
+                new Stop(0.55, Color.web(famine ? "#FF6A3A" : "#FFD786", 0.08 + pulse * 0.06)),
+                new Stop(1.0, Color.TRANSPARENT)));
+        g.fillOval(cx - 105.0, vent.y - 300.0, 210.0, 390.0);
+        g.setStroke(gold.deriveColor(0, 0.84, 1.0, 0.32 + pulse * 0.18));
+        g.setLineWidth(6.0);
+        for (int spiral = 0; spiral < 3; spiral++) {
+            double y = vent.y - 70.0 - spiral * 82.0;
+            g.strokeArc(cx - 58.0 - spiral * 10.0, y,
+                    116.0 + spiral * 20.0, 52.0, 20.0 + spiral * 18.0, 210.0, ArcType.OPEN);
+        }
+    }
+
+    private void drawHarvestTribunalAtmosphere(GraphicsContext g, boolean famine,
+                                                 boolean ambientFx, double time) {
+        if (!ambientFx) return;
+        Color leaf = Color.web(famine ? "#9A3326" : "#D98A3D", 0.52);
+        g.setFill(leaf);
+        for (int i = 0; i < 28; i++) {
+            double x = Math.floorMod((long) (i * 463.0 + time * (34.0 + i % 5 * 5.0)),
+                    (long) (WORLD_WIDTH + 240.0)) - 120.0;
+            double y = 520.0 + Math.floorMod(i * 277, (int) (GROUND_Y - 420.0));
+            double turn = Math.sin(time * 1.8 + i) * 9.0;
+            g.save();
+            g.translate(x, y);
+            g.rotate(turn * 4.0);
+            g.fillOval(-14.0, -6.0, 28.0, 12.0);
+            g.restore();
         }
     }
 
