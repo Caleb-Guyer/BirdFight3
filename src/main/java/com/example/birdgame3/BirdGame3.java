@@ -1346,6 +1346,11 @@ public class BirdGame3 {
         playManagedSfxVaried(swingClip, 0.48 + charge * 0.18, 1.48 - charge * 0.10, 0.06);
     }
 
+    void playPenguinAttackWhoosh(double chargeRatio) {
+        double charge = Math.clamp(chargeRatio, 0.0, 1.0);
+        playManagedSfxVaried(swingClip, 0.52 + charge * 0.20, 1.06 - charge * 0.12, 0.045);
+    }
+
     void playPigeonFeatherBurstSfx(boolean ultimate) {
         playManagedSfxVaried(swingClip, ultimate ? 0.72 : 0.56, ultimate ? 1.42 : 1.58, 0.035);
     }
@@ -46767,7 +46772,7 @@ public class BirdGame3 {
                 "Mint Penguin offers perfect safety through permanent stillness. Break the rival fortress without surrendering your own.",
                 MapType.PRISON, MapVariant.STANDARD, MatchMutator.NONE, ClassicTwist.ICEWORKS,
                 ClassicEncounterStyle.ICEWORKS_MIRROR, 120 * 60, new ClassicFighter[0],
-                new ClassicFighter[]{classicFighter(BirdType.PENGUIN, "The Cold King", 175, 1.04, 1.02,
+                new ClassicFighter[]{classicFighter(BirdType.PENGUIN, "The Cold King", 175, 1.07, 1.02,
                         MINT_PENGUIN_SKIN)}, false);
         coldKing.cpuLevel = 6;
         run.add(coldKing);
@@ -50148,10 +50153,11 @@ public class BirdGame3 {
                 bird.setUltimateEnabled(false);
             } else if (encounter.style == ClassicEncounterStyle.LAST_SUN_BOSS) {
                 bird.health = Math.max(1.0, 220.0 * enemyHealthScale);
-                // Size scaling already increases the giant Phoenix's damage,
-                // launch, and resistance. Keep its authored power neutral so
-                // the three-stock duel remains difficult without double-dipping.
-                bird.setBaseMultipliers(1.58, 1.00 * enemyPowerScale, 1.00);
+                // This is a three-stock phase boss on a stage that progressively
+                // loses platforms. Preserve the giant silhouette, but avoid
+                // stacking maximum size, launch resistance, power, and terrain
+                // attrition into a matchup Penguin's ordinary kit cannot clear.
+                bird.setBaseMultipliers(1.36, 0.88 * enemyPowerScale, 0.98);
                 bird.setUltimateEnabled(false);
             } else if (encounter.style == ClassicEncounterStyle.MIRE_ORACLE_BOSS) {
                 boolean realOracle = bird.name != null && bird.name.startsWith("Boss:");

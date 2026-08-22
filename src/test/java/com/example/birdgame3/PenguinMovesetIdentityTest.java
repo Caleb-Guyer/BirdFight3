@@ -7,74 +7,74 @@ import java.lang.reflect.Method;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class RoadrunnerMovesetIdentityTest {
+class PenguinMovesetIdentityTest {
     @Test
-    void roadrunnerHasAnAuthoredCompleteGroundSpeedKit() throws Exception {
+    void penguinHasAnAuthoredCompleteTractionCounterhitKit() throws Exception {
         BirdGame3 game = new BirdGame3();
-        Bird roadrunner = groundedBird(game, BirdGame3.BirdType.ROADRUNNER, 0, 320.0);
-        Bird rooster = groundedBird(game, BirdGame3.BirdType.ROOSTER, 1, 320.0);
+        Bird penguin = groundedBird(game, BirdGame3.BirdType.PENGUIN, 0, 320.0);
+        Bird roadrunner = groundedBird(game, BirdGame3.BirdType.ROADRUNNER, 1, 320.0);
         Bird shoebill = groundedBird(game, BirdGame3.BirdType.SHOEBILL, 2, 320.0);
 
-        int distinctFromRooster = 0;
+        int distinctFromRoadrunner = 0;
         int distinctFromSharedProfile = 0;
         for (Object variant : normalAttackVariantClass().getEnumConstants()) {
-            Object profile = invoke(roadrunner, "normalAttackProfile", variant);
-            if (!profile.equals(invoke(rooster, "normalAttackProfile", variant))) distinctFromRooster++;
+            Object profile = invoke(penguin, "normalAttackProfile", variant);
+            if (!profile.equals(invoke(roadrunner, "normalAttackProfile", variant))) distinctFromRoadrunner++;
             if (!profile.equals(invoke(shoebill, "normalAttackProfile", variant))) distinctFromSharedProfile++;
-            String moveName = (String) invoke(roadrunner, "normalAttackTelemetryName", variant);
-            assertTrue(moveName.startsWith("Roadrunner "));
+            String moveName = (String) invoke(penguin, "normalAttackTelemetryName", variant);
+            assertTrue(moveName.startsWith("Penguin "));
             assertFalse(moveName.contains("Normal Attack"));
             assertFalse(moveName.contains("Tilt"));
         }
 
-        assertEquals(15, distinctFromRooster);
+        assertEquals(15, distinctFromRoadrunner);
         assertEquals(15, distinctFromSharedProfile);
     }
 
     @Test
-    void roadrunnerPummelIsRapidKneePressure() throws Exception {
+    void penguinPummelIsMeasuredColdShoulderPressure() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;
-        Bird roadrunner = groundedBird(game, BirdGame3.BirdType.ROADRUNNER, 0, 320.0);
+        Bird penguin = groundedBird(game, BirdGame3.BirdType.PENGUIN, 0, 320.0);
         Bird target = groundedBird(game, BirdGame3.BirdType.PIGEON, 1, 385.0);
-        game.players[0] = roadrunner;
+        game.players[0] = penguin;
         game.players[1] = target;
-        linkGrab(roadrunner, target);
+        linkGrab(penguin, target);
         game.setAiControlKey(0, game.attackKeyForPlayer(0), true);
 
         double healthBefore = target.health;
-        assertTrue((boolean) invoke(roadrunner, "handleHoldingGrabState", false, false));
+        assertTrue((boolean) invoke(penguin, "handleHoldingGrabState", false, false));
 
-        double tunedDamage = 2.0 * roadrunner.type.damageDealtMult * target.type.damageTakenMult;
+        double tunedDamage = 3.0 * penguin.type.damageDealtMult * target.type.damageTakenMult;
         assertEquals(tunedDamage, healthBefore - target.health, 0.001);
-        assertSame(target, getField(roadrunner, "grabbedTarget"));
-        assertSame(roadrunner, getField(target, "grabbedBy"));
-        assertEquals(7, getInt(roadrunner, "grabThrowLockTimer"));
-        assertEquals(54, getInt(roadrunner, "grabHoldTimer"),
-                "The normal hold tick plus Roadrunner's five-frame knee cost should be deterministic.");
+        assertSame(target, getField(penguin, "grabbedTarget"));
+        assertSame(penguin, getField(target, "grabbedBy"));
+        assertEquals(10, getInt(penguin, "grabThrowLockTimer"));
+        assertEquals(51, getInt(penguin, "grabHoldTimer"),
+                "The normal hold tick plus Penguin's eight-frame pummel cost should be deterministic.");
     }
 
     @Test
-    void roadrunnerThrowsHaveFourDistinctRacecraftRoles() throws Exception {
+    void penguinThrowsHaveFourDistinctRinkControlRoles() throws Exception {
         ThrowOutcome forward = performThrow("FORWARD");
         ThrowOutcome back = performThrow("BACK");
         ThrowOutcome up = performThrow("UP");
         ThrowOutcome down = performThrow("DOWN");
 
-        assertTrue(forward.vx >= 18.6);
-        assertTrue(back.vx <= -19.8);
+        assertTrue(forward.vx >= 18.0);
+        assertTrue(back.vx <= -19.0);
         assertTrue(up.vy < forward.vy);
-        assertTrue(down.vy > up.vy);
-        assertEquals("Roadrunner Finish-Line Fling", forward.name);
-        assertEquals("Roadrunner Draft Pull", back.name);
-        assertEquals("Roadrunner Top Gear Toss", up.name);
-        assertEquals("Roadrunner Track Spike", down.name);
+        assertTrue(down.damage > forward.damage);
+        assertEquals("Penguin Belly Bump", forward.name);
+        assertEquals("Penguin Flipper Sweep", back.name);
+        assertEquals("Penguin Iceberg Toss", up.name);
+        assertEquals("Penguin Ice Press", down.name);
     }
 
     @Test
-    void roadrunnerGroundedAttackPosesStayFloorSafeByConstruction() throws Exception {
+    void penguinGroundedAttackPosesKeepWebbedFeetAboveTheFloor() throws Exception {
         BirdGame3 game = new BirdGame3();
-        Bird roadrunner = groundedBird(game, BirdGame3.BirdType.ROADRUNNER, 0, 320.0);
+        Bird penguin = groundedBird(game, BirdGame3.BirdType.PENGUIN, 0, 320.0);
         String[] groundedVariants = {
                 "NEUTRAL", "SIDE_TILT", "UP_TILT", "DOWN_TILT",
                 "SIDE_SMASH", "UP_SMASH", "DOWN_SMASH",
@@ -83,39 +83,58 @@ class RoadrunnerMovesetIdentityTest {
 
         for (String variantName : groundedVariants) {
             Object variant = enumConstant("com.example.birdgame3.Bird$NormalAttackVariant", variantName);
-            Object pose = invoke(roadrunner, "currentRoadrunnerNormalAttackPose", variant, 1.0);
+            Object pose = invoke(penguin, "currentPenguinNormalAttackPose", variant, 1.0);
             double translateY = (double) invoke(pose, "translateY");
             double rotation = (double) invoke(pose, "bodyRotationDegrees");
-            assertTrue(translateY <= 0.0, variantName + " must not push Roadrunner's feet below the floor");
-            assertTrue(Math.abs(rotation) <= 14.0,
-                    variantName + " must use restrained body rotation while grounded");
+            assertTrue(translateY <= 0.0, variantName + " must not push Penguin's feet below the floor");
+            assertTrue(Math.abs(rotation) <= 12.0,
+                    variantName + " must keep Penguin's grounded pear silhouette stable");
         }
     }
 
     @Test
-    void roadrunnerDashAttackOwnsTheLongestFastGroundLane() throws Exception {
+    void penguinDashAttackOwnsALowWideBellySlideLane() throws Exception {
         BirdGame3 game = new BirdGame3();
-        Bird roadrunner = groundedBird(game, BirdGame3.BirdType.ROADRUNNER, 0, 320.0);
+        Bird penguin = groundedBird(game, BirdGame3.BirdType.PENGUIN, 0, 320.0);
         Bird shoebill = groundedBird(game, BirdGame3.BirdType.SHOEBILL, 1, 320.0);
         Object dash = enumConstant("com.example.birdgame3.Bird$NormalAttackVariant", "DASH_ATTACK");
-        Object roadrunnerProfile = invoke(roadrunner, "normalAttackProfile", dash);
+        Object penguinProfile = invoke(penguin, "normalAttackProfile", dash);
         Object sharedProfile = invoke(shoebill, "normalAttackProfile", dash);
 
-        assertTrue((double) invoke(roadrunnerProfile, "horizontalReach")
+        assertTrue((double) invoke(penguinProfile, "horizontalReach")
                 > (double) invoke(sharedProfile, "horizontalReach"));
-        assertTrue((int) invoke(roadrunnerProfile, "cooldownFrames")
-                < (int) invoke(sharedProfile, "cooldownFrames"));
-        assertTrue((double) invoke(roadrunnerProfile, "horizontalLaunchScale") >= 1.45);
+        assertTrue((double) invoke(penguinProfile, "verticalReach")
+                < (double) invoke(sharedProfile, "verticalReach"));
+        assertTrue((double) invoke(penguinProfile, "horizontalLaunchScale") >= 1.30);
     }
 
     @Test
-    void roadrunnerAttackIdentityRoundTripsThroughLanState() throws Exception {
+    void penguinFlippersOpenForClapsAndTuckForTheRinkSlide() throws Exception {
         BirdGame3 game = new BirdGame3();
-        Bird source = groundedBird(game, BirdGame3.BirdType.ROADRUNNER, 0, 320.0);
+        Bird penguin = groundedBird(game, BirdGame3.BirdType.PENGUIN, 0, 320.0);
+        Object upSmash = enumConstant("com.example.birdgame3.Bird$NormalAttackVariant", "UP_SMASH");
+        Object dashAttack = enumConstant("com.example.birdgame3.Bird$NormalAttackVariant", "DASH_ATTACK");
+
+        invoke(penguin, "performAttack", 0, upSmash);
+        Object attackState = invoke(penguin, "currentBirdAnimationState");
+        double clapOpenness = (double) invoke(penguin, "penguinFlipperOpenness", attackState);
+
+        invoke(penguin, "performAttack", 0, dashAttack);
+        attackState = invoke(penguin, "currentBirdAnimationState");
+        double slideOpenness = (double) invoke(penguin, "penguinFlipperOpenness", attackState);
+
+        assertTrue(clapOpenness >= 0.82, "Penguin's upward clap must visibly spread both flippers");
+        assertTrue(slideOpenness <= 0.30, "Penguin's rink slide must streamline both flippers");
+    }
+
+    @Test
+    void penguinAttackIdentityRoundTripsThroughLanState() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        Bird source = groundedBird(game, BirdGame3.BirdType.PENGUIN, 0, 320.0);
         Object dashAttack = enumConstant("com.example.birdgame3.Bird$NormalAttackVariant", "DASH_ATTACK");
         invoke(source, "performAttack", 0, dashAttack);
 
-        Bird restored = groundedBird(game, BirdGame3.BirdType.ROADRUNNER, 0, 320.0);
+        Bird restored = groundedBird(game, BirdGame3.BirdType.PENGUIN, 0, 320.0);
         restored.applyLanState(source.toLanState());
 
         assertEquals("DASH_ATTACK", ((Enum<?>) getField(restored, "activeAttackVariant")).name());
@@ -125,15 +144,15 @@ class RoadrunnerMovesetIdentityTest {
     private static ThrowOutcome performThrow(String directionName) throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;
-        Bird roadrunner = groundedBird(game, BirdGame3.BirdType.ROADRUNNER, 0, 320.0);
+        Bird penguin = groundedBird(game, BirdGame3.BirdType.PENGUIN, 0, 320.0);
         Bird target = groundedBird(game, BirdGame3.BirdType.PIGEON, 1, 385.0);
-        game.players[0] = roadrunner;
+        game.players[0] = penguin;
         game.players[1] = target;
-        linkGrab(roadrunner, target);
+        linkGrab(penguin, target);
         Object direction = enumConstant("com.example.birdgame3.Bird$GrabThrowDirection", directionName);
-        String name = (String) invoke(roadrunner, "throwTelemetryName", direction);
+        String name = (String) invoke(penguin, "throwTelemetryName", direction);
         double before = target.health;
-        invoke(roadrunner, "performThrow", direction);
+        invoke(penguin, "performThrow", direction);
         return new ThrowOutcome(before - target.health, target.vx, target.vy, name);
     }
 

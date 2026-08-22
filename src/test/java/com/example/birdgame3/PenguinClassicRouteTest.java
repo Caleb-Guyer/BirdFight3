@@ -195,7 +195,8 @@ class PenguinClassicRouteTest {
 
         assertEquals(3, game.scores[boss.playerIndex]);
         assertEquals(3, game.scores[0]);
-        assertEquals(1.58, boss.sizeMultiplier, 0.0001);
+        assertEquals(1.36, boss.sizeMultiplier, 0.0001);
+        assertEquals(0.88, boss.powerMultiplier, 0.0001);
         assertFalse(boss.hasUltimate());
         assertEquals(BirdGame3.LAST_ICE_MAIN_Y, game.players[0].bodyBottomY(), 0.001);
         assertEquals(BirdGame3.LAST_ICE_MAIN_Y, boss.bodyBottomY(), 0.001);

@@ -13,14 +13,14 @@ class TurkeyMovesetIdentityTest {
         BirdGame3 game = new BirdGame3();
         Bird turkey = groundedBird(game, BirdGame3.BirdType.TURKEY, 0, 320.0);
         Bird kiwi = groundedBird(game, BirdGame3.BirdType.KIWI, 1, 320.0);
-        Bird penguin = groundedBird(game, BirdGame3.BirdType.PENGUIN, 2, 320.0);
+        Bird shoebill = groundedBird(game, BirdGame3.BirdType.SHOEBILL, 2, 320.0);
 
         int distinctFromKiwi = 0;
         int distinctFromSharedProfile = 0;
         for (Object variant : normalAttackVariantClass().getEnumConstants()) {
             Object profile = invoke(turkey, "normalAttackProfile", variant);
             if (!profile.equals(invoke(kiwi, "normalAttackProfile", variant))) distinctFromKiwi++;
-            if (!profile.equals(invoke(penguin, "normalAttackProfile", variant))) distinctFromSharedProfile++;
+            if (!profile.equals(invoke(shoebill, "normalAttackProfile", variant))) distinctFromSharedProfile++;
             String moveName = (String) invoke(turkey, "normalAttackTelemetryName", variant);
             assertTrue(moveName.startsWith("Turkey "));
             assertFalse(moveName.contains("Normal Attack"));
@@ -74,16 +74,16 @@ class TurkeyMovesetIdentityTest {
         BirdGame3 game = new BirdGame3();
         Bird turkey = airborneBird(game, BirdGame3.BirdType.TURKEY, 0, 320.0);
         Bird kiwi = airborneBird(game, BirdGame3.BirdType.KIWI, 1, 320.0);
-        Bird penguin = airborneBird(game, BirdGame3.BirdType.PENGUIN, 2, 320.0);
+        Bird shoebill = airborneBird(game, BirdGame3.BirdType.SHOEBILL, 2, 320.0);
         Object backAir = enumConstant("com.example.birdgame3.Bird$NormalAttackVariant", "BACK_AIR");
 
         invoke(turkey, "performAttack", 0, backAir);
         invoke(kiwi, "performAttack", 0, backAir);
-        invoke(penguin, "performAttack", 0, backAir);
+        invoke(shoebill, "performAttack", 0, backAir);
 
         Object pose = invoke(turkey, "currentTargetAttackVisualPose");
         assertNotEquals(invoke(kiwi, "currentTargetAttackVisualPose"), pose);
-        assertNotEquals(invoke(penguin, "currentTargetAttackVisualPose"), pose);
+        assertNotEquals(invoke(shoebill, "currentTargetAttackVisualPose"), pose);
     }
 
     @Test
