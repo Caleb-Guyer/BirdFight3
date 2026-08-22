@@ -29,6 +29,8 @@ class VultureClassicRouteTest {
                         MapType.CARRION_EXCHANGE, MapType.CARRION_EXCHANGE),
                 route.stream().map(encounter -> encounter.map).toList());
         assertEquals(ClassicEncounterStyle.VULTURE_FALSE_FLOCK, route.get(4).style);
+        assertEquals(5, route.get(4).cpuLevel,
+                "False Flock should test the mirror kit without giving every impostor a reaction-speed advantage.");
         assertEquals(ClassicEncounterStyle.VULTURE_AUCTION_GAUNTLET, route.get(5).style);
         assertEquals(ClassicEncounterStyle.FINAL_INVENTORY, route.get(6).style);
         assertEquals(ClassicEncounterStyle.DEBT_ENGINE_BOSS, route.get(7).style);
@@ -62,6 +64,22 @@ class VultureClassicRouteTest {
     void falseFlockAndAuctionAreThreeSeparateUltlessWaves() {
         assertThreeWaves(prepared(4, 0x7A1110L, 0x7A1111L));
         assertThreeWaves(prepared(5, 0x7A1112L, 0x7A1113L));
+    }
+
+    @Test
+    void falseFlockRepairsVultureBetweenItsThreeMirrorDuels() {
+        BirdGame3 game = prepared(4, 0x7A1114L, 0x7A1115L);
+        Bird player = game.players[0];
+        Bird enemy = firstEnemy(game);
+        assertNotNull(enemy);
+        player.setTrailerSmashDamagePercent(80.0);
+        enemy.health = 0.0;
+        game.scores[enemy.playerIndex] = 0;
+
+        assertTrue(game.holdClassicVultureEncounterOpen());
+        assertEquals(80.0 - BirdGame3.VULTURE_FALSE_FLOCK_CHECKPOINT_REPAIR,
+                player.smashDamagePercent(), 0.001,
+                "Each mirror should begin as a readable duel instead of inheriting nearly all prior damage.");
     }
 
     @Test
@@ -107,6 +125,8 @@ class VultureClassicRouteTest {
         assertFalse(boss.hasUltimate());
         assertEquals(3, game.scores[0]);
         assertEquals(BirdGame3.DEBT_ENGINE_BASE_HEALTH, boss.health, 0.001);
+        assertEquals(300.0, boss.health, 0.001,
+                "The Debt Engine needs enough stamina to survive Vulture's authored finishers without becoming a damage sponge.");
         assertEquals("music-vulture-debt-engine.mp3",
                 invoke(game, "gameplayMusicFile", new Class<?>[0]));
 

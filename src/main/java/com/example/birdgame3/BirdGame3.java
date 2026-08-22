@@ -1371,6 +1371,11 @@ public class BirdGame3 {
         playManagedSfxVaried(swingClip, 0.50 + charge * 0.22, 0.91 - charge * 0.09, 0.05);
     }
 
+    void playVultureAttackWhoosh(double chargeRatio) {
+        double charge = Math.clamp(chargeRatio, 0.0, 1.0);
+        playManagedSfxVaried(swingClip, 0.54 + charge * 0.24, 0.80 - charge * 0.08, 0.04);
+    }
+
     void playPigeonFeatherBurstSfx(boolean ultimate) {
         playManagedSfxVaried(swingClip, ultimate ? 0.72 : 0.56, ultimate ? 1.42 : 1.58, 0.035);
     }
@@ -5238,7 +5243,11 @@ public class BirdGame3 {
     private double classicBellkeeperCloseDamage = 0.0;
     private double classicBellkeeperTargetX = 3_000.0;
     private double classicBellkeeperTargetY = GROUND_Y - 680.0;
-    static final double DEBT_ENGINE_BASE_HEALTH = 285.0;
+    static final double DEBT_ENGINE_BASE_HEALTH = 300.0;
+    static final double VULTURE_FALSE_FLOCK_SIZE_SCALE = 0.76;
+    static final double VULTURE_FALSE_FLOCK_POWER_SCALE = 0.76;
+    static final double VULTURE_FALSE_FLOCK_SPEED_SCALE = 1.00;
+    static final double VULTURE_FALSE_FLOCK_CHECKPOINT_REPAIR = 28.0;
     static final double[] CARRION_MAGNET_X = {1_450.0, 3_000.0, 4_550.0};
     static final double[] DEBT_ENGINE_FLIGHT_X = {1_320.0, 2_220.0, 3_780.0, 4_680.0, 3_000.0};
     static final double[] DEBT_ENGINE_FLIGHT_Y = {
@@ -47283,7 +47292,7 @@ public class BirdGame3 {
                         new ClassicFighter[]{caller},
                         new ClassicFighter[]{classicFighter(BirdType.VULTURE, "False Flock: Gravewind Glider", 116, 0.96, 1.06)},
                         new ClassicFighter[]{classicFighter(BirdType.VULTURE, "False Flock: Bone Baiter", 120, 0.98, 0.98)});
-        flock.cpuLevel = 6;
+        flock.cpuLevel = 5;
         run.add(flock);
 
         ClassicFighter auctioneer = classicFighter(BirdType.MOCKINGBIRD, "Elite I: The Auctioneer", 112, 0.90, 0.98);
@@ -50228,8 +50237,11 @@ public class BirdGame3 {
                 bird.setBaseMultipliers(1.82, 0.92 * enemyPowerScale, 0.96);
                 bird.setUltimateEnabled(false);
                 isAI[bird.playerIndex] = false;
-            } else if (encounter.style == ClassicEncounterStyle.VULTURE_FALSE_FLOCK
-                    || encounter.style == ClassicEncounterStyle.VULTURE_AUCTION_GAUNTLET) {
+            } else if (encounter.style == ClassicEncounterStyle.VULTURE_FALSE_FLOCK) {
+                scaleBossRushBird(bird, VULTURE_FALSE_FLOCK_SIZE_SCALE,
+                        VULTURE_FALSE_FLOCK_POWER_SCALE, VULTURE_FALSE_FLOCK_SPEED_SCALE);
+                bird.setUltimateEnabled(false);
+            } else if (encounter.style == ClassicEncounterStyle.VULTURE_AUCTION_GAUNTLET) {
                 scaleBossRushBird(bird, 0.82, 0.84, 1.02);
                 bird.setUltimateEnabled(false);
             } else if (encounter.style == ClassicEncounterStyle.DEBT_ENGINE_BOSS) {
@@ -53635,7 +53647,7 @@ public class BirdGame3 {
         classicVultureWaveIndex++;
         Bird player = players[0];
         if (player != null) player.heal(classicEncounter.style == ClassicEncounterStyle.VULTURE_AUCTION_GAUNTLET
-                ? 32.0 : 10.0);
+                ? 32.0 : VULTURE_FALSE_FLOCK_CHECKPOINT_REPAIR);
         spawnVultureClassicWave(classicEncounter.waves[classicVultureWaveIndex]);
         return true;
     }
@@ -53659,7 +53671,12 @@ public class BirdGame3 {
                     fighter.health * (1.0 + difficultyDelta * 0.045),
                     fighter.powerMult * (1.0 + difficultyDelta * 0.015), fighter.speedMult, true);
             enemy.setUltimateEnabled(false);
-            scaleBossRushBird(enemy, 0.82, 0.84, 1.02);
+            if (classicEncounter.style == ClassicEncounterStyle.VULTURE_FALSE_FLOCK) {
+                scaleBossRushBird(enemy, VULTURE_FALSE_FLOCK_SIZE_SCALE,
+                        VULTURE_FALSE_FLOCK_POWER_SCALE, VULTURE_FALSE_FLOCK_SPEED_SCALE);
+            } else {
+                scaleBossRushBird(enemy, 0.82, 0.84, 1.02);
+            }
             enemy.setTrailerSmashDamagePercent(
                     classicEncounter.style == ClassicEncounterStyle.VULTURE_AUCTION_GAUNTLET ? 45.0 : 30.0);
             classicTeams[slot] = 2;

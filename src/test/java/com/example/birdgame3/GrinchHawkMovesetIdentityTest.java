@@ -13,14 +13,14 @@ class GrinchHawkMovesetIdentityTest {
         BirdGame3 game = new BirdGame3();
         Bird grinchHawk = groundedBird(game, BirdGame3.BirdType.GRINCHHAWK, 0, 320.0);
         Bird razorbill = groundedBird(game, BirdGame3.BirdType.RAZORBILL, 1, 320.0);
-        Bird vulture = groundedBird(game, BirdGame3.BirdType.VULTURE, 2, 320.0);
+        Bird opiumBird = groundedBird(game, BirdGame3.BirdType.OPIUMBIRD, 2, 320.0);
 
         int distinctFromRazorbill = 0;
         int distinctFromSharedProfile = 0;
         for (Object variant : normalAttackVariantClass().getEnumConstants()) {
             Object profile = invoke(grinchHawk, "normalAttackProfile", variant);
             if (!profile.equals(invoke(razorbill, "normalAttackProfile", variant))) distinctFromRazorbill++;
-            if (!profile.equals(invoke(vulture, "normalAttackProfile", variant))) distinctFromSharedProfile++;
+            if (!profile.equals(invoke(opiumBird, "normalAttackProfile", variant))) distinctFromSharedProfile++;
             String moveName = (String) invoke(grinchHawk, "normalAttackTelemetryName", variant);
             assertTrue(moveName.startsWith("Grinch-Hawk "));
             assertFalse(moveName.contains("Normal Attack"));
@@ -96,12 +96,12 @@ class GrinchHawkMovesetIdentityTest {
     void grinchHawkKitRewardsFastSetupsAndABackwardFinisher() throws Exception {
         BirdGame3 game = new BirdGame3();
         Bird grinchHawk = groundedBird(game, BirdGame3.BirdType.GRINCHHAWK, 0, 320.0);
-        Bird vulture = groundedBird(game, BirdGame3.BirdType.VULTURE, 1, 320.0);
+        Bird opiumBird = groundedBird(game, BirdGame3.BirdType.OPIUMBIRD, 1, 320.0);
         Object downTilt = enumConstant("com.example.birdgame3.Bird$NormalAttackVariant", "DOWN_TILT");
         Object backAir = enumConstant("com.example.birdgame3.Bird$NormalAttackVariant", "BACK_AIR");
         Object dashAttack = enumConstant("com.example.birdgame3.Bird$NormalAttackVariant", "DASH_ATTACK");
         Object grinchDownTilt = invoke(grinchHawk, "normalAttackProfile", downTilt);
-        Object sharedDownTilt = invoke(vulture, "normalAttackProfile", downTilt);
+        Object sharedDownTilt = invoke(opiumBird, "normalAttackProfile", downTilt);
         Object grinchBackAir = invoke(grinchHawk, "normalAttackProfile", backAir);
         Object grinchDash = invoke(grinchHawk, "normalAttackProfile", dashAttack);
 

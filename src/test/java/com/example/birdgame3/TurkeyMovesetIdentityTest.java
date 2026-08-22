@@ -13,14 +13,14 @@ class TurkeyMovesetIdentityTest {
         BirdGame3 game = new BirdGame3();
         Bird turkey = groundedBird(game, BirdGame3.BirdType.TURKEY, 0, 320.0);
         Bird kiwi = groundedBird(game, BirdGame3.BirdType.KIWI, 1, 320.0);
-        Bird vulture = groundedBird(game, BirdGame3.BirdType.VULTURE, 2, 320.0);
+        Bird opiumBird = groundedBird(game, BirdGame3.BirdType.OPIUMBIRD, 2, 320.0);
 
         int distinctFromKiwi = 0;
         int distinctFromSharedProfile = 0;
         for (Object variant : normalAttackVariantClass().getEnumConstants()) {
             Object profile = invoke(turkey, "normalAttackProfile", variant);
             if (!profile.equals(invoke(kiwi, "normalAttackProfile", variant))) distinctFromKiwi++;
-            if (!profile.equals(invoke(vulture, "normalAttackProfile", variant))) distinctFromSharedProfile++;
+            if (!profile.equals(invoke(opiumBird, "normalAttackProfile", variant))) distinctFromSharedProfile++;
             String moveName = (String) invoke(turkey, "normalAttackTelemetryName", variant);
             assertTrue(moveName.startsWith("Turkey "));
             assertFalse(moveName.contains("Normal Attack"));
@@ -74,16 +74,16 @@ class TurkeyMovesetIdentityTest {
         BirdGame3 game = new BirdGame3();
         Bird turkey = airborneBird(game, BirdGame3.BirdType.TURKEY, 0, 320.0);
         Bird kiwi = airborneBird(game, BirdGame3.BirdType.KIWI, 1, 320.0);
-        Bird vulture = airborneBird(game, BirdGame3.BirdType.VULTURE, 2, 320.0);
+        Bird opiumBird = airborneBird(game, BirdGame3.BirdType.OPIUMBIRD, 2, 320.0);
         Object backAir = enumConstant("com.example.birdgame3.Bird$NormalAttackVariant", "BACK_AIR");
 
         invoke(turkey, "performAttack", 0, backAir);
         invoke(kiwi, "performAttack", 0, backAir);
-        invoke(vulture, "performAttack", 0, backAir);
+        invoke(opiumBird, "performAttack", 0, backAir);
 
         Object pose = invoke(turkey, "currentTargetAttackVisualPose");
         assertNotEquals(invoke(kiwi, "currentTargetAttackVisualPose"), pose);
-        assertNotEquals(invoke(vulture, "currentTargetAttackVisualPose"), pose);
+        assertNotEquals(invoke(opiumBird, "currentTargetAttackVisualPose"), pose);
     }
 
     @Test

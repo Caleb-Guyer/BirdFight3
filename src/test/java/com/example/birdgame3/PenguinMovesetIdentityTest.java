@@ -13,14 +13,14 @@ class PenguinMovesetIdentityTest {
         BirdGame3 game = new BirdGame3();
         Bird penguin = groundedBird(game, BirdGame3.BirdType.PENGUIN, 0, 320.0);
         Bird roadrunner = groundedBird(game, BirdGame3.BirdType.ROADRUNNER, 1, 320.0);
-        Bird vulture = groundedBird(game, BirdGame3.BirdType.VULTURE, 2, 320.0);
+        Bird opiumBird = groundedBird(game, BirdGame3.BirdType.OPIUMBIRD, 2, 320.0);
 
         int distinctFromRoadrunner = 0;
         int distinctFromSharedProfile = 0;
         for (Object variant : normalAttackVariantClass().getEnumConstants()) {
             Object profile = invoke(penguin, "normalAttackProfile", variant);
             if (!profile.equals(invoke(roadrunner, "normalAttackProfile", variant))) distinctFromRoadrunner++;
-            if (!profile.equals(invoke(vulture, "normalAttackProfile", variant))) distinctFromSharedProfile++;
+            if (!profile.equals(invoke(opiumBird, "normalAttackProfile", variant))) distinctFromSharedProfile++;
             String moveName = (String) invoke(penguin, "normalAttackTelemetryName", variant);
             assertTrue(moveName.startsWith("Penguin "));
             assertFalse(moveName.contains("Normal Attack"));
@@ -96,10 +96,10 @@ class PenguinMovesetIdentityTest {
     void penguinDashAttackOwnsALowWideBellySlideLane() throws Exception {
         BirdGame3 game = new BirdGame3();
         Bird penguin = groundedBird(game, BirdGame3.BirdType.PENGUIN, 0, 320.0);
-        Bird vulture = groundedBird(game, BirdGame3.BirdType.VULTURE, 1, 320.0);
+        Bird opiumBird = groundedBird(game, BirdGame3.BirdType.OPIUMBIRD, 1, 320.0);
         Object dash = enumConstant("com.example.birdgame3.Bird$NormalAttackVariant", "DASH_ATTACK");
         Object penguinProfile = invoke(penguin, "normalAttackProfile", dash);
-        Object sharedProfile = invoke(vulture, "normalAttackProfile", dash);
+        Object sharedProfile = invoke(opiumBird, "normalAttackProfile", dash);
 
         assertTrue((double) invoke(penguinProfile, "horizontalReach")
                 > (double) invoke(sharedProfile, "horizontalReach"));
