@@ -1361,6 +1361,11 @@ public class BirdGame3 {
         playManagedSfxVaried(swingClip, 0.48 + charge * 0.19, 1.34 - charge * 0.14, 0.055);
     }
 
+    void playRazorbillAttackWhoosh(double chargeRatio) {
+        double charge = Math.clamp(chargeRatio, 0.0, 1.0);
+        playManagedSfxVaried(swingClip, 0.52 + charge * 0.21, 1.48 - charge * 0.16, 0.045);
+    }
+
     void playPigeonFeatherBurstSfx(boolean ultimate) {
         playManagedSfxVaried(swingClip, ultimate ? 0.72 : 0.56, ultimate ? 1.42 : 1.58, 0.035);
     }
@@ -50664,7 +50669,7 @@ public class BirdGame3 {
         } else if (classicSelectedBird == BirdType.SHOEBILL && roundIndex == 6) {
             enemy.setTrailerSmashDamagePercent(90.0);
         } else if (classicSelectedBird == BirdType.RAZORBILL && roundIndex == 6) {
-            enemy.setTrailerSmashDamagePercent(75.0);
+            enemy.setStartingSmashDamagePercent(75.0);
         } else if (classicSelectedBird == BirdType.OPIUMBIRD && roundIndex == 5) {
             enemy.setTrailerSmashDamagePercent(70.0);
         }
@@ -52379,8 +52384,12 @@ public class BirdGame3 {
                     fighter.powerMult * (1.0 + difficultyDelta * 0.015), fighter.speedMult, true);
             if (fighter.skinKey != null) applyPreviewSkinChoiceToBird(enemy, fighter.type, fighter.skinKey);
             enemy.setUltimateEnabled(false);
-            if (construct) enemy.setBaseMultipliers(0.62, 0.20, 0.90);
-            else scaleBossRushBird(enemy, 0.64, 0.76, 1.10);
+            if (construct) {
+                enemy.setBaseMultipliers(0.62, 0.20, 0.90);
+                enemy.setStartingSmashDamagePercent(30.0 + classicRazorbillWaveIndex * 8.0);
+            } else {
+                scaleBossRushBird(enemy, 0.64, 0.76, 1.10);
+            }
             classicTeams[slot] = 2;
             classicCpuLevels[slot] = resolvedClassicFighterCpuLevel(fighter, classicEncounter);
             scores[slot] = 1;

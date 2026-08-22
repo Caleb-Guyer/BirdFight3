@@ -54,11 +54,11 @@ class RazorbillClassicRouteTest {
     @Test
     void splintersAndOriginalWardensUseThreeUltlessWaves() {
         BirdGame3 splinters = prepared(1, 0x5E_AA03L, 0x5E_AA04L);
-        assertThreeWaves(splinters, true);
+        assertThreeWaves(splinters, true, null);
 
         BirdGame3 wardens = prepared(6, 0x5E_AA05L, 0x5E_AA06L);
         assertEquals(3, wardens.scores[0]);
-        assertThreeWaves(wardens, true);
+        assertThreeWaves(wardens, true, new double[]{75.0, 38.0, 46.0});
     }
 
     @Test
@@ -260,12 +260,16 @@ class RazorbillClassicRouteTest {
         assertTrue(target.smashDamagePercent() > before);
     }
 
-    private static void assertThreeWaves(BirdGame3 game, boolean normalAi) {
+    private static void assertThreeWaves(BirdGame3 game, boolean normalAi, double[] startingDamage) {
         for (int wave = 0; wave < 3; wave++) {
             Bird enemy = firstEnemy(game);
             assertNotNull(enemy);
             assertEquals(normalAi, game.isAI[enemy.playerIndex]);
             assertFalse(enemy.hasUltimate());
+            if (startingDamage != null) {
+                assertEquals(startingDamage[wave], enemy.smashDamagePercent(), 0.0001,
+                        "Each successive cracked construct should enter a little closer to launch range.");
+            }
             enemy.health = 0.0;
             game.scores[enemy.playerIndex] = 0;
             assertEquals(wave < 2, game.holdClassicRazorbillEncounterOpen());

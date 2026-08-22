@@ -7,55 +7,55 @@ import java.lang.reflect.Method;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class ShoebillMovesetIdentityTest {
+class RazorbillMovesetIdentityTest {
     @Test
-    void shoebillHasAnAuthoredCompleteStillHunterKit() throws Exception {
+    void razorbillHasAnAuthoredCompletePrecisionBladeKit() throws Exception {
         BirdGame3 game = new BirdGame3();
-        Bird shoebill = groundedBird(game, BirdGame3.BirdType.SHOEBILL, 0, 320.0);
-        Bird penguin = groundedBird(game, BirdGame3.BirdType.PENGUIN, 1, 320.0);
+        Bird razorbill = groundedBird(game, BirdGame3.BirdType.RAZORBILL, 0, 320.0);
+        Bird charles = groundedBird(game, BirdGame3.BirdType.MOCKINGBIRD, 1, 320.0);
         Bird grinchHawk = groundedBird(game, BirdGame3.BirdType.GRINCHHAWK, 2, 320.0);
 
-        int distinctFromPenguin = 0;
+        int distinctFromCharles = 0;
         int distinctFromSharedProfile = 0;
         for (Object variant : normalAttackVariantClass().getEnumConstants()) {
-            Object profile = invoke(shoebill, "normalAttackProfile", variant);
-            if (!profile.equals(invoke(penguin, "normalAttackProfile", variant))) distinctFromPenguin++;
+            Object profile = invoke(razorbill, "normalAttackProfile", variant);
+            if (!profile.equals(invoke(charles, "normalAttackProfile", variant))) distinctFromCharles++;
             if (!profile.equals(invoke(grinchHawk, "normalAttackProfile", variant))) distinctFromSharedProfile++;
-            String moveName = (String) invoke(shoebill, "normalAttackTelemetryName", variant);
-            assertTrue(moveName.startsWith("Shoebill "));
+            String moveName = (String) invoke(razorbill, "normalAttackTelemetryName", variant);
+            assertTrue(moveName.startsWith("Razorbill "));
             assertFalse(moveName.contains("Normal Attack"));
             assertFalse(moveName.contains("Tilt"));
         }
 
-        assertEquals(15, distinctFromPenguin);
+        assertEquals(15, distinctFromCharles);
         assertEquals(15, distinctFromSharedProfile);
     }
 
     @Test
-    void shoebillPummelIsAHeavyDeliberateBillClamp() throws Exception {
+    void razorbillPummelUsesAQuickEdgePress() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;
-        Bird shoebill = groundedBird(game, BirdGame3.BirdType.SHOEBILL, 0, 320.0);
+        Bird razorbill = groundedBird(game, BirdGame3.BirdType.RAZORBILL, 0, 320.0);
         Bird target = groundedBird(game, BirdGame3.BirdType.PIGEON, 1, 385.0);
-        game.players[0] = shoebill;
+        game.players[0] = razorbill;
         game.players[1] = target;
-        linkGrab(shoebill, target);
+        linkGrab(razorbill, target);
         game.setAiControlKey(0, game.attackKeyForPlayer(0), true);
 
         double healthBefore = target.health;
-        assertTrue((boolean) invoke(shoebill, "handleHoldingGrabState", false, false));
+        assertTrue((boolean) invoke(razorbill, "handleHoldingGrabState", false, false));
 
-        double tunedDamage = 4.0 * shoebill.type.damageDealtMult * target.type.damageTakenMult;
+        double tunedDamage = 3.0 * razorbill.type.damageDealtMult * target.type.damageTakenMult;
         assertEquals(tunedDamage, healthBefore - target.health, 0.001);
-        assertSame(target, getField(shoebill, "grabbedTarget"));
-        assertSame(shoebill, getField(target, "grabbedBy"));
-        assertEquals(13, getInt(shoebill, "grabThrowLockTimer"));
-        assertEquals(49, getInt(shoebill, "grabHoldTimer"),
-                "The normal hold tick plus Shoebill's ten-frame pummel cost should be deterministic.");
+        assertSame(target, getField(razorbill, "grabbedTarget"));
+        assertSame(razorbill, getField(target, "grabbedBy"));
+        assertEquals(8, getInt(razorbill, "grabThrowLockTimer"));
+        assertEquals(53, getInt(razorbill, "grabHoldTimer"),
+                "The normal hold tick plus Razorbill's six-frame pummel cost must stay deterministic.");
     }
 
     @Test
-    void shoebillThrowsCoverFourPatientControlRoles() throws Exception {
+    void razorbillThrowsCutAcrossFourDistinctLaunchLanes() throws Exception {
         ThrowOutcome forward = performThrow("FORWARD");
         ThrowOutcome back = performThrow("BACK");
         ThrowOutcome up = performThrow("UP");
@@ -65,16 +65,16 @@ class ShoebillMovesetIdentityTest {
         assertTrue(back.vx <= -21.0);
         assertTrue(up.vy < back.vy);
         assertTrue(down.damage > up.damage);
-        assertEquals("Shoebill Marsh Cast", forward.name);
-        assertEquals("Shoebill Reed Reversal", back.name);
-        assertEquals("Shoebill Canopy Lift", up.name);
-        assertEquals("Shoebill Stillwater Press", down.name);
+        assertEquals("Razorbill Line Cut", forward.name);
+        assertEquals("Razorbill Crosscut", back.name);
+        assertEquals("Razorbill Vertical Incision", up.name);
+        assertEquals("Razorbill Keel Drop", down.name);
     }
 
     @Test
-    void shoebillGroundedAttackPosesKeepLongLegsAboveTheFloor() throws Exception {
+    void razorbillGroundedAttackPosesKeepHisFeetAboveTheStage() throws Exception {
         BirdGame3 game = new BirdGame3();
-        Bird shoebill = groundedBird(game, BirdGame3.BirdType.SHOEBILL, 0, 320.0);
+        Bird razorbill = groundedBird(game, BirdGame3.BirdType.RAZORBILL, 0, 320.0);
         String[] groundedVariants = {
                 "NEUTRAL", "SIDE_TILT", "UP_TILT", "DOWN_TILT",
                 "SIDE_SMASH", "UP_SMASH", "DOWN_SMASH",
@@ -83,60 +83,69 @@ class ShoebillMovesetIdentityTest {
 
         for (String variantName : groundedVariants) {
             Object variant = enumConstant("com.example.birdgame3.Bird$NormalAttackVariant", variantName);
-            Object pose = invoke(shoebill, "currentShoebillNormalAttackPose", variant, 1.0);
+            Object pose = invoke(razorbill, "currentRazorbillNormalAttackPose", variant, 1.0);
             double translateY = (double) invoke(pose, "translateY");
             double rotation = (double) invoke(pose, "bodyRotationDegrees");
-            assertTrue(translateY <= 0.0, variantName + " must not push Shoebill's feet below the floor");
-            assertTrue(Math.abs(rotation) <= 11.0,
-                    variantName + " must preserve Shoebill's grounded, statuesque silhouette");
+            assertTrue(translateY <= 0.0, variantName + " must not sink Razorbill below the stage");
+            assertTrue(Math.abs(rotation) <= 12.0,
+                    variantName + " must keep Razorbill's grounded cuts visually planted");
         }
     }
 
     @Test
-    void shoebillOwnsTheLongestNarrowGroundedPokeSoFar() throws Exception {
+    void razorbillNormalsFavorLongNarrowCutsWithoutReplacingBladeStorm() throws Exception {
         BirdGame3 game = new BirdGame3();
-        Bird shoebill = groundedBird(game, BirdGame3.BirdType.SHOEBILL, 0, 320.0);
-        Bird penguin = groundedBird(game, BirdGame3.BirdType.PENGUIN, 1, 320.0);
+        Bird razorbill = groundedBird(game, BirdGame3.BirdType.RAZORBILL, 0, 320.0);
+        Bird grinchHawk = groundedBird(game, BirdGame3.BirdType.GRINCHHAWK, 1, 320.0);
         Object sideTilt = enumConstant("com.example.birdgame3.Bird$NormalAttackVariant", "SIDE_TILT");
-        Object shoebillProfile = invoke(shoebill, "normalAttackProfile", sideTilt);
-        Object penguinProfile = invoke(penguin, "normalAttackProfile", sideTilt);
-
-        assertTrue((double) invoke(shoebillProfile, "horizontalReach")
-                >= (double) invoke(penguinProfile, "horizontalReach") + 30.0);
-        assertTrue((double) invoke(shoebillProfile, "verticalReach")
-                < (double) invoke(penguinProfile, "verticalReach"));
-        assertTrue((int) invoke(shoebillProfile, "cooldownFrames")
-                > (int) invoke(penguinProfile, "cooldownFrames"),
-                "Shoebill's superior spacing must retain a deliberate commitment cost.");
-    }
-
-    @Test
-    void shoebillWingsOpenForCanopyAttacksAndTuckBehindBillThrusts() throws Exception {
-        BirdGame3 game = new BirdGame3();
-        Bird shoebill = groundedBird(game, BirdGame3.BirdType.SHOEBILL, 0, 320.0);
-        Object upSmash = enumConstant("com.example.birdgame3.Bird$NormalAttackVariant", "UP_SMASH");
+        Object forwardAir = enumConstant("com.example.birdgame3.Bird$NormalAttackVariant", "FORWARD_AIR");
         Object sideSmash = enumConstant("com.example.birdgame3.Bird$NormalAttackVariant", "SIDE_SMASH");
+        Object dashAttack = enumConstant("com.example.birdgame3.Bird$NormalAttackVariant", "DASH_ATTACK");
+        Object razorbillTilt = invoke(razorbill, "normalAttackProfile", sideTilt);
+        Object sharedTilt = invoke(grinchHawk, "normalAttackProfile", sideTilt);
+        Object razorbillFair = invoke(razorbill, "normalAttackProfile", forwardAir);
+        Object razorbillSmash = invoke(razorbill, "normalAttackProfile", sideSmash);
+        Object razorbillDash = invoke(razorbill, "normalAttackProfile", dashAttack);
 
-        invoke(shoebill, "performAttack", 0, upSmash);
-        Object attackState = invoke(shoebill, "currentBirdAnimationState");
-        double canopyOpenness = (double) invoke(shoebill, "shoebillWingOpenness", attackState);
-
-        invoke(shoebill, "performAttack", 0, sideSmash);
-        attackState = invoke(shoebill, "currentBirdAnimationState");
-        double thrustOpenness = (double) invoke(shoebill, "shoebillWingOpenness", attackState);
-
-        assertTrue(canopyOpenness >= 0.78, "Canopy attacks must visibly spread Shoebill's wings");
-        assertTrue(thrustOpenness <= 0.52, "Bill thrusts must keep Shoebill's wings tucked and readable");
+        assertTrue((double) invoke(razorbillTilt, "horizontalReach")
+                > (double) invoke(sharedTilt, "horizontalReach"));
+        assertTrue((double) invoke(razorbillTilt, "verticalReach")
+                < (double) invoke(sharedTilt, "verticalReach"));
+        assertTrue((double) invoke(razorbillFair, "horizontalReach") >= 180.0);
+        assertTrue((double) invoke(razorbillSmash, "horizontalLaunchScale") > 1.50);
+        assertTrue((int) invoke(razorbillDash, "cooldownFrames") <= 25);
+        assertTrue((double) invoke(razorbillDash, "horizontalLaunchScale") >= 1.40,
+                "Slipstream Cleave should reward a committed ground approach without becoming reusable flight.");
     }
 
     @Test
-    void shoebillAttackIdentityRoundTripsThroughLanState() throws Exception {
+    void razorbillWingsOpenForVerticalCutsAndTuckForSlipstreamCleave() throws Exception {
         BirdGame3 game = new BirdGame3();
-        Bird source = groundedBird(game, BirdGame3.BirdType.SHOEBILL, 0, 320.0);
+        Object upSmash = enumConstant("com.example.birdgame3.Bird$NormalAttackVariant", "UP_SMASH");
+        Object dashAttack = enumConstant("com.example.birdgame3.Bird$NormalAttackVariant", "DASH_ATTACK");
+        Bird verticalCutter = groundedBird(game, BirdGame3.BirdType.RAZORBILL, 0, 320.0);
+        Bird dasher = groundedBird(game, BirdGame3.BirdType.RAZORBILL, 1, 320.0);
+
+        invoke(verticalCutter, "performAttack", 0, upSmash);
+        Object attackState = invoke(verticalCutter, "currentBirdAnimationState");
+        double verticalOpenness = (double) invoke(verticalCutter, "razorbillWingOpenness", attackState);
+
+        invoke(dasher, "performAttack", 0, dashAttack);
+        attackState = invoke(dasher, "currentBirdAnimationState");
+        double dashOpenness = (double) invoke(dasher, "razorbillWingOpenness", attackState);
+
+        assertTrue(verticalOpenness >= 0.82, "Split Horizon must visibly spread Razorbill's blade wings");
+        assertTrue(dashOpenness <= 0.30, "Slipstream Cleave must tuck Razorbill into a narrow silhouette");
+    }
+
+    @Test
+    void razorbillAttackIdentityRoundTripsThroughLanState() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        Bird source = groundedBird(game, BirdGame3.BirdType.RAZORBILL, 0, 320.0);
         Object forwardAir = enumConstant("com.example.birdgame3.Bird$NormalAttackVariant", "FORWARD_AIR");
         invoke(source, "performAttack", 0, forwardAir);
 
-        Bird restored = groundedBird(game, BirdGame3.BirdType.SHOEBILL, 0, 320.0);
+        Bird restored = groundedBird(game, BirdGame3.BirdType.RAZORBILL, 0, 320.0);
         restored.applyLanState(source.toLanState());
 
         assertEquals("FORWARD_AIR", ((Enum<?>) getField(restored, "activeAttackVariant")).name());
@@ -146,15 +155,15 @@ class ShoebillMovesetIdentityTest {
     private static ThrowOutcome performThrow(String directionName) throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;
-        Bird shoebill = groundedBird(game, BirdGame3.BirdType.SHOEBILL, 0, 320.0);
+        Bird razorbill = groundedBird(game, BirdGame3.BirdType.RAZORBILL, 0, 320.0);
         Bird target = groundedBird(game, BirdGame3.BirdType.PIGEON, 1, 385.0);
-        game.players[0] = shoebill;
+        game.players[0] = razorbill;
         game.players[1] = target;
-        linkGrab(shoebill, target);
+        linkGrab(razorbill, target);
         Object direction = enumConstant("com.example.birdgame3.Bird$GrabThrowDirection", directionName);
-        String name = (String) invoke(shoebill, "throwTelemetryName", direction);
+        String name = (String) invoke(razorbill, "throwTelemetryName", direction);
         double before = target.health;
-        invoke(shoebill, "performThrow", direction);
+        invoke(razorbill, "performThrow", direction);
         return new ThrowOutcome(before - target.health, target.vx, target.vy, name);
     }
 

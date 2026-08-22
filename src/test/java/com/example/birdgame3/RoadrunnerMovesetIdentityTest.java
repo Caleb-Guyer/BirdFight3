@@ -13,14 +13,14 @@ class RoadrunnerMovesetIdentityTest {
         BirdGame3 game = new BirdGame3();
         Bird roadrunner = groundedBird(game, BirdGame3.BirdType.ROADRUNNER, 0, 320.0);
         Bird rooster = groundedBird(game, BirdGame3.BirdType.ROOSTER, 1, 320.0);
-        Bird razorbill = groundedBird(game, BirdGame3.BirdType.RAZORBILL, 2, 320.0);
+        Bird grinchHawk = groundedBird(game, BirdGame3.BirdType.GRINCHHAWK, 2, 320.0);
 
         int distinctFromRooster = 0;
         int distinctFromSharedProfile = 0;
         for (Object variant : normalAttackVariantClass().getEnumConstants()) {
             Object profile = invoke(roadrunner, "normalAttackProfile", variant);
             if (!profile.equals(invoke(rooster, "normalAttackProfile", variant))) distinctFromRooster++;
-            if (!profile.equals(invoke(razorbill, "normalAttackProfile", variant))) distinctFromSharedProfile++;
+            if (!profile.equals(invoke(grinchHawk, "normalAttackProfile", variant))) distinctFromSharedProfile++;
             String moveName = (String) invoke(roadrunner, "normalAttackTelemetryName", variant);
             assertTrue(moveName.startsWith("Roadrunner "));
             assertFalse(moveName.contains("Normal Attack"));
@@ -96,10 +96,10 @@ class RoadrunnerMovesetIdentityTest {
     void roadrunnerDashAttackOwnsTheLongestFastGroundLane() throws Exception {
         BirdGame3 game = new BirdGame3();
         Bird roadrunner = groundedBird(game, BirdGame3.BirdType.ROADRUNNER, 0, 320.0);
-        Bird razorbill = groundedBird(game, BirdGame3.BirdType.RAZORBILL, 1, 320.0);
+        Bird grinchHawk = groundedBird(game, BirdGame3.BirdType.GRINCHHAWK, 1, 320.0);
         Object dash = enumConstant("com.example.birdgame3.Bird$NormalAttackVariant", "DASH_ATTACK");
         Object roadrunnerProfile = invoke(roadrunner, "normalAttackProfile", dash);
-        Object sharedProfile = invoke(razorbill, "normalAttackProfile", dash);
+        Object sharedProfile = invoke(grinchHawk, "normalAttackProfile", dash);
 
         assertTrue((double) invoke(roadrunnerProfile, "horizontalReach")
                 > (double) invoke(sharedProfile, "horizontalReach"));
