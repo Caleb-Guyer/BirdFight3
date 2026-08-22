@@ -660,6 +660,33 @@ class LanBirdState {
     boolean gooseUltimateFinalHitResolved;
     boolean[] gooseUltimateMarked = new boolean[4];
     int[] gooseUltimateHitCooldown = new int[4];
+    int kiwiProbeTimer;
+    int kiwiProbeReuseTimer;
+    int kiwiProbeDirection;
+    int kiwiProbeStrikeIndex;
+    boolean[] kiwiProbeHit = new boolean[4];
+    int kiwiBurrowTimer;
+    int kiwiBurrowReuseTimer;
+    int kiwiBurrowDirection;
+    boolean kiwiBurrowGrounded;
+    boolean kiwiBurrowErupted;
+    boolean[] kiwiBurrowHit = new boolean[4];
+    int kiwiSpringTimer;
+    int kiwiSpringReuseTimer;
+    int kiwiSpringDirection;
+    boolean kiwiSpringUsed;
+    boolean[] kiwiSpringHit = new boolean[4];
+    int kiwiStompTimer;
+    int kiwiStompReuseTimer;
+    boolean kiwiStompAirborne;
+    boolean kiwiStompImpactResolved;
+    int kiwiStompImpactFxTimer;
+    boolean[] kiwiStompHit = new boolean[4];
+    int kiwiUltimateTimer;
+    int kiwiUltimateDirection;
+    int kiwiUltimateWaveIndex;
+    boolean kiwiUltimateFinalResolved;
+    int[] kiwiUltimateHitCooldown = new int[4];
 
     void write(DataOutputStream out) throws IOException {
         out.writeInt(typeOrdinal);
@@ -1389,6 +1416,33 @@ class LanBirdState {
         out.writeBoolean(gooseUltimateFinalHitResolved);
         for (boolean marked : gooseUltimateMarked) out.writeBoolean(marked);
         for (int cooldown : gooseUltimateHitCooldown) out.writeInt(cooldown);
+        out.writeInt(kiwiProbeTimer);
+        out.writeInt(kiwiProbeReuseTimer);
+        out.writeInt(kiwiProbeDirection);
+        out.writeInt(kiwiProbeStrikeIndex);
+        for (boolean hit : kiwiProbeHit) out.writeBoolean(hit);
+        out.writeInt(kiwiBurrowTimer);
+        out.writeInt(kiwiBurrowReuseTimer);
+        out.writeInt(kiwiBurrowDirection);
+        out.writeBoolean(kiwiBurrowGrounded);
+        out.writeBoolean(kiwiBurrowErupted);
+        for (boolean hit : kiwiBurrowHit) out.writeBoolean(hit);
+        out.writeInt(kiwiSpringTimer);
+        out.writeInt(kiwiSpringReuseTimer);
+        out.writeInt(kiwiSpringDirection);
+        out.writeBoolean(kiwiSpringUsed);
+        for (boolean hit : kiwiSpringHit) out.writeBoolean(hit);
+        out.writeInt(kiwiStompTimer);
+        out.writeInt(kiwiStompReuseTimer);
+        out.writeBoolean(kiwiStompAirborne);
+        out.writeBoolean(kiwiStompImpactResolved);
+        out.writeInt(kiwiStompImpactFxTimer);
+        for (boolean hit : kiwiStompHit) out.writeBoolean(hit);
+        out.writeInt(kiwiUltimateTimer);
+        out.writeInt(kiwiUltimateDirection);
+        out.writeInt(kiwiUltimateWaveIndex);
+        out.writeBoolean(kiwiUltimateFinalResolved);
+        for (int cooldown : kiwiUltimateHitCooldown) out.writeInt(cooldown);
     }
 
     static LanBirdState read(DataInputStream in) throws IOException {
@@ -2127,6 +2181,35 @@ class LanBirdState {
         }
         for (int i = 0; i < state.gooseUltimateHitCooldown.length; i++) {
             state.gooseUltimateHitCooldown[i] = in.readInt();
+        }
+        state.kiwiProbeTimer = in.readInt();
+        state.kiwiProbeReuseTimer = in.readInt();
+        state.kiwiProbeDirection = in.readInt();
+        state.kiwiProbeStrikeIndex = in.readInt();
+        for (int i = 0; i < state.kiwiProbeHit.length; i++) state.kiwiProbeHit[i] = in.readBoolean();
+        state.kiwiBurrowTimer = in.readInt();
+        state.kiwiBurrowReuseTimer = in.readInt();
+        state.kiwiBurrowDirection = in.readInt();
+        state.kiwiBurrowGrounded = in.readBoolean();
+        state.kiwiBurrowErupted = in.readBoolean();
+        for (int i = 0; i < state.kiwiBurrowHit.length; i++) state.kiwiBurrowHit[i] = in.readBoolean();
+        state.kiwiSpringTimer = in.readInt();
+        state.kiwiSpringReuseTimer = in.readInt();
+        state.kiwiSpringDirection = in.readInt();
+        state.kiwiSpringUsed = in.readBoolean();
+        for (int i = 0; i < state.kiwiSpringHit.length; i++) state.kiwiSpringHit[i] = in.readBoolean();
+        state.kiwiStompTimer = in.readInt();
+        state.kiwiStompReuseTimer = in.readInt();
+        state.kiwiStompAirborne = in.readBoolean();
+        state.kiwiStompImpactResolved = in.readBoolean();
+        state.kiwiStompImpactFxTimer = in.readInt();
+        for (int i = 0; i < state.kiwiStompHit.length; i++) state.kiwiStompHit[i] = in.readBoolean();
+        state.kiwiUltimateTimer = in.readInt();
+        state.kiwiUltimateDirection = in.readInt();
+        state.kiwiUltimateWaveIndex = in.readInt();
+        state.kiwiUltimateFinalResolved = in.readBoolean();
+        for (int i = 0; i < state.kiwiUltimateHitCooldown.length; i++) {
+            state.kiwiUltimateHitCooldown[i] = in.readInt();
         }
         return state;
     }

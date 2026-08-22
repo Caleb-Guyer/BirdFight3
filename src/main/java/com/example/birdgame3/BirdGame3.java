@@ -1396,6 +1396,11 @@ public class BirdGame3 {
         playManagedSfxVaried(swingClip, 0.56 + charge * 0.24, 0.84 - charge * 0.08, 0.035);
     }
 
+    void playKiwiAttackWhoosh(double chargeRatio) {
+        double charge = Math.clamp(chargeRatio, 0.0, 1.0);
+        playManagedSfxVaried(swingClip, 0.52 + charge * 0.23, 0.94 - charge * 0.10, 0.04);
+    }
+
     void playPigeonFeatherBurstSfx(boolean ultimate) {
         playManagedSfxVaried(swingClip, ultimate ? 0.72 : 0.56, ultimate ? 1.42 : 1.58, 0.035);
     }
@@ -48059,10 +48064,10 @@ public class BirdGame3 {
                 "Shoebill reads the water while Kiwi reads the roots. Hold the same ground against Grinch-Hawk and Vulture.",
                 MapType.FOREST, MapVariant.STILLWATER_MARSH, MatchMutator.NONE,
                 ClassicTwist.MARSH_HUNT, ClassicEncounterStyle.STANDARD, 130 * 60,
-                new ClassicFighter[]{classicFighter(BirdType.SHOEBILL, "Ally: Stillwater Guide", 92, 0.74, 0.96)},
+                new ClassicFighter[]{classicFighter(BirdType.SHOEBILL, "Ally: Stillwater Guide", 88, 0.70, 0.96)},
                 new ClassicFighter[]{
-                        classicFighter(BirdType.GRINCHHAWK, "Root Thief: Grinch-Hawk", 78, 0.62, 1.00),
-                        classicFighter(BirdType.VULTURE, "Root Thief: Vulture", 82, 0.64, 0.98)}, false);
+                        classicFighter(BirdType.GRINCHHAWK, "Root Thief: Grinch-Hawk", 80, 0.66, 1.00),
+                        classicFighter(BirdType.VULTURE, "Root Thief: Vulture", 84, 0.68, 0.98)}, false);
         roots.cpuLevel = 4;
         run.add(roots);
 
@@ -48072,7 +48077,7 @@ public class BirdGame3 {
                 MapType.FOREST, MapVariant.HARVEST_TRIBUNAL, MatchMutator.NONE,
                 ClassicTwist.RAGE_RITUAL, ClassicEncounterStyle.GIANT, 132 * 60,
                 new ClassicFighter[0], new ClassicFighter[]{
-                classicFighter(BirdType.TURKEY, "Giant: The Heavy Claim", 118, 0.62, 0.90)}, true);
+                classicFighter(BirdType.TURKEY, "Giant: The Heavy Claim", 92, 0.48, 0.86)}, true);
         weight.cpuLevel = 5;
         run.add(weight);
 

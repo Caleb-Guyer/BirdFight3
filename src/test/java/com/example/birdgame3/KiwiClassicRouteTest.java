@@ -53,6 +53,12 @@ class KiwiClassicRouteTest {
         assertEquals(BirdType.KIWI, route.get(6).enemies[0].type());
         assertTrue(route.stream().map(encounter -> encounter.briefing)
                 .noneMatch(text -> text.contains("route power") || text.contains("borrowed ability")));
+        assertTrue(route.get(1).allies[0].powerMult() <= 0.70,
+                "Stillwater's ally must not trivialize the team round");
+        assertTrue(route.get(1).enemies[0].powerMult() >= 0.66);
+        assertTrue(route.get(2).enemies[0].health() <= 92.0,
+                "The giant claim must remain a survivable mid-route skill check");
+        assertTrue(route.get(2).enemies[0].powerMult() <= 0.48);
     }
 
     @Test

@@ -5082,6 +5082,7 @@ public class Bird {
             case HEISENBIRD -> 2;
             case RAVEN -> 2;
             case GOOSE -> 3;
+            case KIWI -> 3;
             default -> 2;
         };
         String moveName = switch (type) {
@@ -5103,6 +5104,7 @@ public class Bird {
             case HEISENBIRD -> "Heisenbird Crystal Check";
             case RAVEN -> "Raven Omen Prick";
             case GOOSE -> "Goose Beak Clamp";
+            case KIWI -> "Kiwi Root Probe";
             default -> type.name + " Pummel";
         };
         game.recordNormalMoveUse(this, moveName);
@@ -5138,6 +5140,7 @@ public class Bird {
             case HEISENBIRD -> 9;
             case RAVEN -> 8;
             case GOOSE -> 10;
+            case KIWI -> 9;
             default -> 10;
         };
         int grabHoldCost = switch (type) {
@@ -5158,6 +5161,7 @@ public class Bird {
             case HEISENBIRD -> 7;
             case RAVEN -> 6;
             case GOOSE -> 8;
+            case KIWI -> 7;
             default -> 8;
         };
         grabHoldTimer = Math.max(1, grabHoldTimer - grabHoldCost);
@@ -5403,6 +5407,14 @@ public class Bird {
                 case FORWARD, NONE -> new ThrowProfile(8, facingDir * 19.5, -6.2, 17, "border-shoved");
             };
         }
+        if (type == BirdGame3.BirdType.KIWI) {
+            return switch (direction) {
+                case BACK -> new ThrowProfile(8, -facingDir * 20.0, -6.4, 17, "root-reversed");
+                case UP -> new ThrowProfile(7, facingDir * 2.0, -18.4, 19, "fern-lifted");
+                case DOWN -> new ThrowProfile(9, facingDir * 4.0, -2.6, 24, "burrow-pressed");
+                case FORWARD, NONE -> new ThrowProfile(8, facingDir * 19.2, -5.6, 16, "underbrush-heaved");
+            };
+        }
         return switch (direction) {
             case BACK -> new ThrowProfile(THROW_BACK_DAMAGE, -facingDir * 20.0, -8.2, 18, "back-threw");
             case UP -> new ThrowProfile(THROW_UP_DAMAGE, facingDir * 4.2, -17.0, 20, "up-threw");
@@ -5556,6 +5568,14 @@ public class Bird {
                 case FORWARD, NONE -> "Goose Open-Border Shove";
             };
         }
+        if (type == BirdGame3.BirdType.KIWI) {
+            return switch (direction) {
+                case BACK -> "Kiwi Root Reversal";
+                case UP -> "Kiwi Fern Lift";
+                case DOWN -> "Kiwi Burrow Press";
+                case FORWARD, NONE -> "Kiwi Underbrush Heave";
+            };
+        }
         String label = switch (direction) {
             case BACK -> "Back Throw";
             case UP -> "Up Throw";
@@ -5698,6 +5718,8 @@ public class Bird {
             game.playRavenAttackWhoosh(chargeRatio);
         } else if (type == BirdGame3.BirdType.GOOSE) {
             game.playGooseAttackWhoosh(chargeRatio);
+        } else if (type == BirdGame3.BirdType.KIWI) {
+            game.playKiwiAttackWhoosh(chargeRatio);
         } else {
             game.playButterSfx();
         }
@@ -6066,6 +6088,25 @@ public class Bird {
                 case DASH_ATTACK -> "Goose Runway Charge";
                 case LEDGE_ATTACK -> "Goose Riverbank Snap";
                 case GETUP_ATTACK -> "Goose No-Fly Zone";
+            };
+        }
+        if (type == BirdGame3.BirdType.KIWI) {
+            return switch (variant) {
+                case NEUTRAL -> "Kiwi Soil Probe";
+                case SIDE_TILT -> "Kiwi Rootline Kick";
+                case UP_TILT -> "Kiwi Fern Hook";
+                case DOWN_TILT -> "Kiwi Forager Rake";
+                case SIDE_SMASH -> "Kiwi Burrow Breaker";
+                case UP_SMASH -> "Kiwi Canopy Kick";
+                case DOWN_SMASH -> "Kiwi Earth Ring";
+                case NEUTRAL_AIR -> "Kiwi Night Run";
+                case FORWARD_AIR -> "Kiwi Longbill Lance";
+                case BACK_AIR -> "Kiwi Heel Reversal";
+                case UP_AIR -> "Kiwi Moonward Kick";
+                case DOWN_AIR -> "Kiwi Earthbound Drop";
+                case DASH_ATTACK -> "Kiwi Underbrush Rush";
+                case LEDGE_ATTACK -> "Kiwi Bank Scramble";
+                case GETUP_ATTACK -> "Kiwi Ground Reclaim";
             };
         }
         String label = switch (variant) {
@@ -18940,6 +18981,34 @@ public class Bird {
                 gooseUltimateMarked.length);
         System.arraycopy(gooseUltimateHitCooldown, 0, state.gooseUltimateHitCooldown, 0,
                 gooseUltimateHitCooldown.length);
+        state.kiwiProbeTimer = kiwiProbeTimer;
+        state.kiwiProbeReuseTimer = kiwiProbeReuseTimer;
+        state.kiwiProbeDirection = kiwiProbeDirection;
+        state.kiwiProbeStrikeIndex = kiwiProbeStrikeIndex;
+        System.arraycopy(kiwiProbeHit, 0, state.kiwiProbeHit, 0, kiwiProbeHit.length);
+        state.kiwiBurrowTimer = kiwiBurrowTimer;
+        state.kiwiBurrowReuseTimer = kiwiBurrowReuseTimer;
+        state.kiwiBurrowDirection = kiwiBurrowDirection;
+        state.kiwiBurrowGrounded = kiwiBurrowGrounded;
+        state.kiwiBurrowErupted = kiwiBurrowErupted;
+        System.arraycopy(kiwiBurrowHit, 0, state.kiwiBurrowHit, 0, kiwiBurrowHit.length);
+        state.kiwiSpringTimer = kiwiSpringTimer;
+        state.kiwiSpringReuseTimer = kiwiSpringReuseTimer;
+        state.kiwiSpringDirection = kiwiSpringDirection;
+        state.kiwiSpringUsed = kiwiSpringUsed;
+        System.arraycopy(kiwiSpringHit, 0, state.kiwiSpringHit, 0, kiwiSpringHit.length);
+        state.kiwiStompTimer = kiwiStompTimer;
+        state.kiwiStompReuseTimer = kiwiStompReuseTimer;
+        state.kiwiStompAirborne = kiwiStompAirborne;
+        state.kiwiStompImpactResolved = kiwiStompImpactResolved;
+        state.kiwiStompImpactFxTimer = kiwiStompImpactFxTimer;
+        System.arraycopy(kiwiStompHit, 0, state.kiwiStompHit, 0, kiwiStompHit.length);
+        state.kiwiUltimateTimer = kiwiUltimateTimer;
+        state.kiwiUltimateDirection = kiwiUltimateDirection;
+        state.kiwiUltimateWaveIndex = kiwiUltimateWaveIndex;
+        state.kiwiUltimateFinalResolved = kiwiUltimateFinalResolved;
+        System.arraycopy(kiwiUltimateHitCooldown, 0, state.kiwiUltimateHitCooldown, 0,
+                kiwiUltimateHitCooldown.length);
         return state;
     }
 
@@ -19826,6 +19895,44 @@ public class Bird {
         Arrays.fill(this.gooseUltimateHitCooldown, 0);
         System.arraycopy(state.gooseUltimateHitCooldown, 0, this.gooseUltimateHitCooldown, 0,
                 Math.min(this.gooseUltimateHitCooldown.length, state.gooseUltimateHitCooldown.length));
+        this.kiwiProbeTimer = Math.max(0, state.kiwiProbeTimer);
+        this.kiwiProbeReuseTimer = Math.max(0, state.kiwiProbeReuseTimer);
+        this.kiwiProbeDirection = state.kiwiProbeDirection == 0 ? facingDirection() : state.kiwiProbeDirection;
+        this.kiwiProbeStrikeIndex = Math.max(0, state.kiwiProbeStrikeIndex);
+        Arrays.fill(this.kiwiProbeHit, false);
+        System.arraycopy(state.kiwiProbeHit, 0, this.kiwiProbeHit, 0,
+                Math.min(this.kiwiProbeHit.length, state.kiwiProbeHit.length));
+        this.kiwiBurrowTimer = Math.max(0, state.kiwiBurrowTimer);
+        this.kiwiBurrowReuseTimer = Math.max(0, state.kiwiBurrowReuseTimer);
+        this.kiwiBurrowDirection = state.kiwiBurrowDirection == 0 ? facingDirection() : state.kiwiBurrowDirection;
+        this.kiwiBurrowGrounded = state.kiwiBurrowGrounded;
+        this.kiwiBurrowErupted = state.kiwiBurrowErupted;
+        Arrays.fill(this.kiwiBurrowHit, false);
+        System.arraycopy(state.kiwiBurrowHit, 0, this.kiwiBurrowHit, 0,
+                Math.min(this.kiwiBurrowHit.length, state.kiwiBurrowHit.length));
+        this.kiwiSpringTimer = Math.max(0, state.kiwiSpringTimer);
+        this.kiwiSpringReuseTimer = Math.max(0, state.kiwiSpringReuseTimer);
+        this.kiwiSpringDirection = state.kiwiSpringDirection == 0 ? facingDirection() : state.kiwiSpringDirection;
+        this.kiwiSpringUsed = state.kiwiSpringUsed;
+        Arrays.fill(this.kiwiSpringHit, false);
+        System.arraycopy(state.kiwiSpringHit, 0, this.kiwiSpringHit, 0,
+                Math.min(this.kiwiSpringHit.length, state.kiwiSpringHit.length));
+        this.kiwiStompTimer = Math.max(0, state.kiwiStompTimer);
+        this.kiwiStompReuseTimer = Math.max(0, state.kiwiStompReuseTimer);
+        this.kiwiStompAirborne = state.kiwiStompAirborne;
+        this.kiwiStompImpactResolved = state.kiwiStompImpactResolved;
+        this.kiwiStompImpactFxTimer = Math.max(0, state.kiwiStompImpactFxTimer);
+        Arrays.fill(this.kiwiStompHit, false);
+        System.arraycopy(state.kiwiStompHit, 0, this.kiwiStompHit, 0,
+                Math.min(this.kiwiStompHit.length, state.kiwiStompHit.length));
+        this.kiwiUltimateTimer = Math.max(0, state.kiwiUltimateTimer);
+        this.kiwiUltimateDirection = state.kiwiUltimateDirection == 0
+                ? facingDirection() : state.kiwiUltimateDirection;
+        this.kiwiUltimateWaveIndex = Math.max(0, state.kiwiUltimateWaveIndex);
+        this.kiwiUltimateFinalResolved = state.kiwiUltimateFinalResolved;
+        Arrays.fill(this.kiwiUltimateHitCooldown, 0);
+        System.arraycopy(state.kiwiUltimateHitCooldown, 0, this.kiwiUltimateHitCooldown, 0,
+                Math.min(this.kiwiUltimateHitCooldown.length, state.kiwiUltimateHitCooldown.length));
         updateDisplayPose(1.0);
     }
 
@@ -23511,6 +23618,73 @@ public class Bird {
         };
     }
 
+    private AttackVisualPose currentKiwiNormalAttackPose(NormalAttackVariant variant, double phase) {
+        double dir = facingRight ? 1.0 : -1.0;
+        double p = Math.clamp(phase, 0.0, 1.0);
+        return switch (variant) {
+            case NEUTRAL -> new AttackVisualPose(dir * (7.0 + 6.0 * p), -1.0 * p,
+                    -dir * (2.0 + p), aimAngleForLocalPitch(0.02),
+                    12.0 * p, -1.0 * p, 17.0 * p, 0.93,
+                    dir * 4.0 * p, 1.19, 0.82);
+            case SIDE_TILT -> new AttackVisualPose(dir * (12.0 + 10.0 * p), -2.0 * p,
+                    -dir * (5.0 + 2.0 * p), aimAngleForLocalPitch(-0.06),
+                    10.0 * p, -3.0 * p, 8.0 * p, 0.90,
+                    dir * 10.0 * p, 1.43, 0.65);
+            case UP_TILT -> new AttackVisualPose(dir * 1.0 * p, -9.0 * p,
+                    dir * 4.0 * p, aimAngleForLocalPitch(-1.26),
+                    12.0 * p, -18.0 * p, 9.0 * p, 1.00,
+                    -dir * 17.0 * p, 0.86, 1.22);
+            case DOWN_TILT -> new AttackVisualPose(dir * (8.0 + 6.0 * p), -1.0 * p,
+                    -dir * 6.0 * p, aimAngleForLocalPitch(0.30),
+                    13.0 * p, 6.0 * p, 15.0 * p, 0.78,
+                    dir * 12.0 * p, 1.36, 0.63);
+            case SIDE_SMASH -> new AttackVisualPose(dir * (20.0 + 17.0 * p), -4.0 * p,
+                    -dir * (8.0 + 2.0 * p), aimAngleForLocalPitch(-0.08),
+                    18.0 * p, -6.0 * p, 22.0 * p, 0.98,
+                    dir * 15.0 * p, 1.55, 0.53);
+            case UP_SMASH -> new AttackVisualPose(dir * 1.0 * p, -14.0 * p,
+                    -dir * 5.0 * p, aimAngleForLocalPitch(-1.45),
+                    15.0 * p, -28.0 * p, 11.0 * p, 1.04,
+                    -dir * 20.0 * p, 0.76, 1.44);
+            case DOWN_SMASH -> new AttackVisualPose(0.0, -3.0 * p,
+                    dir * (6.0 + 2.0 * p), aimAngleForLocalPitch(0.18),
+                    9.0 * p, 6.0 * p, 10.0 * p, 0.76,
+                    dir * 72.0 * p, 1.47, 0.55);
+            case NEUTRAL_AIR -> new AttackVisualPose(dir * 1.0 * p, -9.0 * p,
+                    dir * (30.0 + 92.0 * p), aimAngleForLocalPitch(-0.01),
+                    8.0 * p, -7.0 * p, 8.0 * p, 0.86,
+                    dir * 142.0 * p, 1.31, 0.70);
+            case FORWARD_AIR -> new AttackVisualPose(dir * (17.0 + 15.0 * p), -8.0 * p,
+                    -dir * (6.0 + 2.0 * p), aimAngleForLocalPitch(-0.12),
+                    17.0 * p, -9.0 * p, 22.0 * p, 0.88,
+                    dir * 27.0 * p, 1.47, 0.58);
+            case BACK_AIR -> new AttackVisualPose(-dir * (15.0 + 13.0 * p), -6.0 * p,
+                    -dir * (12.0 + 7.0 * p), aimAngleForLocalPitch(0.10),
+                    3.0 * p, -4.0 * p, 4.0 * p, 0.76,
+                    -dir * 47.0 * p, 1.48, 0.57);
+            case UP_AIR -> new AttackVisualPose(dir * 1.0 * p, -19.0 * p,
+                    dir * 5.0 * p, aimAngleForLocalPitch(-1.40),
+                    12.0 * p, -26.0 * p, 9.0 * p, 1.00,
+                    -dir * 36.0 * p, 0.75, 1.44);
+            case DOWN_AIR -> new AttackVisualPose(dir * 2.0 * p, 16.0 * p,
+                    dir * 6.0 * p, aimAngleForLocalPitch(1.39),
+                    11.0 * p, 23.0 * p, 10.0 * p, 0.80,
+                    dir * 40.0 * p, 0.72, 1.45);
+            case DASH_ATTACK -> new AttackVisualPose(dir * (26.0 + 22.0 * p), -5.0 * p,
+                    -dir * (8.0 + 2.0 * p), aimAngleForLocalPitch(-0.07),
+                    15.0 * p, -5.0 * p, 18.0 * p, 0.92,
+                    dir * 17.0 * p, 1.54, 0.51);
+            case LEDGE_ATTACK -> new AttackVisualPose(dir * (14.0 + 12.0 * p), -4.0 * p,
+                    -dir * 5.0 * p, aimAngleForLocalPitch(-0.04),
+                    13.0 * p, -2.0 * p, 15.0 * p, 0.86,
+                    dir * 13.0 * p, 1.37, 0.62);
+            case GETUP_ATTACK -> new AttackVisualPose(0.0, -4.0 * p,
+                    dir * (7.0 + 2.0 * p), aimAngleForLocalPitch(0.01),
+                    7.0 * p, 3.0 * p, 8.0 * p, 0.78,
+                    dir * 78.0 * p, 1.43, 0.57);
+        };
+    }
+
     private BirdVisualProfile currentVisualProfile() {
         return switch (type) {
             case PIGEON -> PIGEON_VISUAL_PROFILE;
@@ -26243,6 +26417,8 @@ public class Bird {
             basePose = currentRavenNormalAttackPose(variant, phase);
         } else if (type == BirdGame3.BirdType.GOOSE) {
             basePose = currentGooseNormalAttackPose(variant, phase);
+        } else if (type == BirdGame3.BirdType.KIWI) {
+            basePose = currentKiwiNormalAttackPose(variant, phase);
         } else {
             basePose = switch (variant) {
             case NEUTRAL -> new AttackVisualPose(dir * 3.0 * phase, -2.0 * phase, dir * 4.0 * phase,
@@ -26624,6 +26800,11 @@ public class Bird {
         }
         if (type == BirdGame3.BirdType.GOOSE) {
             drawGooseNormalAttackFx(g, drawSize, variant, phase, alpha, glowAlpha, charging);
+            g.restore();
+            return;
+        }
+        if (type == BirdGame3.BirdType.KIWI) {
+            drawKiwiNormalAttackFx(g, drawSize, variant, phase, alpha, glowAlpha, charging);
             g.restore();
             return;
         }
@@ -28728,6 +28909,128 @@ public class Bird {
         }
     }
 
+    private void drawKiwiNormalAttackFx(GraphicsContext g, double drawSize,
+                                        NormalAttackVariant variant,
+                                        double phase, double alpha,
+                                        double glowAlpha, boolean charging) {
+        double s = sizeMultiplier;
+        double centerX = x + drawSize * 0.5;
+        double centerY = y + drawSize * 0.5;
+        double dir = facingRight ? 1.0 : -1.0;
+        Color soil = Color.web("#795548").deriveColor(0, 0.88, 1.08,
+                Math.min(0.88, glowAlpha + 0.28));
+        Color fern = Color.web("#8BC34A").deriveColor(0, 0.90, 1.03,
+                Math.min(0.88, alpha + 0.16));
+        Color bill = Color.web("#D7CCC8").deriveColor(0, 0.72, 1.05,
+                Math.min(0.94, alpha + 0.22));
+        Color rootGold = Color.web("#FFD54F").deriveColor(0, 0.84, 1.02,
+                Math.min(0.90, glowAlpha + 0.26));
+        double broad = (charging ? 2.5 : 4.4) * s;
+        double fine = (charging ? 1.0 : 1.7) * s;
+
+        switch (variant) {
+            case NEUTRAL, SIDE_TILT, SIDE_SMASH, FORWARD_AIR, DASH_ATTACK, LEDGE_ATTACK -> {
+                boolean smash = variant == NormalAttackVariant.SIDE_SMASH;
+                boolean dash = variant == NormalAttackVariant.DASH_ATTACK;
+                double reach = ((smash ? 108.0 : dash ? 98.0 : 76.0)
+                        + phase * (smash ? 39.0 : dash ? 30.0 : 24.0)) * s;
+                double rootX = centerX + dir * 13.0 * s;
+                double tipX = centerX + dir * reach;
+                double tipY = centerY - (smash ? 13.0 : 7.0) * s;
+                g.setStroke(soil);
+                g.setLineWidth(broad * (smash ? 1.25 : 1.0));
+                g.strokeLine(rootX, centerY + 7.0 * s, tipX, tipY);
+                g.setStroke(bill);
+                g.setLineWidth(fine * (smash ? 1.25 : 1.0));
+                g.strokeLine(rootX - dir * 5.0 * s, centerY + 1.0 * s,
+                        tipX - dir * 4.0 * s, tipY - 2.0 * s);
+                double tine = (smash ? 22.0 : 15.0) * s;
+                g.setStroke(smash ? rootGold : fern);
+                g.setLineJoin(StrokeLineJoin.MITER);
+                g.strokeLine(tipX - dir * tine, tipY - tine * 0.55, tipX, tipY);
+                g.strokeLine(tipX, tipY, tipX - dir * tine, tipY + tine * 0.55);
+            }
+            case BACK_AIR -> {
+                double attackDir = -dir;
+                double reach = (88.0 + phase * 34.0) * s;
+                double rootX = centerX + attackDir * 7.0 * s;
+                double tipX = centerX + attackDir * reach;
+                for (int rake = -1; rake <= 1; rake++) {
+                    g.setStroke(rake == 0 ? rootGold : soil);
+                    g.setLineWidth(rake == 0 ? broad : fine * 1.18);
+                    g.strokeLine(rootX, centerY + rake * 5.0 * s,
+                            tipX, centerY + rake * 13.0 * s);
+                }
+                g.setStroke(fern);
+                g.setLineWidth(fine);
+                g.strokeArc(Math.min(rootX, tipX), centerY - 31.0 * s,
+                        Math.abs(tipX - rootX), 62.0 * s,
+                        attackDir > 0.0 ? 250.0 : -70.0, 140.0, ArcType.OPEN);
+            }
+            case UP_TILT, UP_SMASH, UP_AIR -> {
+                boolean smash = variant == NormalAttackVariant.UP_SMASH;
+                double rise = ((smash ? 143.0 : 108.0) + phase * (smash ? 43.0 : 30.0)) * s;
+                double spread = (smash ? 38.0 : 28.0) * s;
+                double apexY = centerY - rise;
+                g.setStroke(soil);
+                g.setLineWidth(broad * (smash ? 1.18 : 1.0));
+                g.strokePolyline(new double[]{centerX - spread, centerX, centerX + spread},
+                        new double[]{centerY + 9.0 * s, apexY, centerY + 9.0 * s}, 3);
+                g.setStroke(fern);
+                g.setLineWidth(fine * 1.15);
+                g.strokeArc(centerX - spread * 0.82, apexY - 3.0 * s,
+                        spread * 1.64, rise * 0.72,
+                        19.0 + phase * 22.0, 142.0, ArcType.OPEN);
+                g.setStroke(smash ? rootGold : bill);
+                g.setLineWidth(fine);
+                g.strokeLine(centerX, apexY - 7.0 * s, centerX, apexY + 24.0 * s);
+            }
+            case DOWN_TILT, DOWN_AIR -> {
+                boolean aerial = variant == NormalAttackVariant.DOWN_AIR;
+                double drop = ((aerial ? 136.0 : 54.0) + phase * 36.0) * s;
+                double tipX = centerX + dir * (aerial ? 3.0 : 73.0) * s;
+                double tipY = centerY + drop;
+                g.setStroke(soil);
+                g.setLineWidth(broad * 1.10);
+                g.strokeLine(centerX - dir * 4.0 * s, centerY - 5.0 * s, tipX, tipY);
+                g.setStroke(bill);
+                g.setLineWidth(fine * 1.10);
+                g.strokeLine(centerX + dir * 7.0 * s, centerY + 1.0 * s, tipX, tipY);
+                g.setStroke(rootGold);
+                double crack = (aerial ? 20.0 : 16.0) * s;
+                g.strokeLine(tipX - crack, tipY, tipX + crack, tipY);
+                g.strokeLine(tipX - crack * 0.62, tipY + 7.0 * s,
+                        tipX + crack * 0.62, tipY + 7.0 * s);
+            }
+            case DOWN_SMASH, NEUTRAL_AIR, GETUP_ATTACK -> {
+                double radius = ((variant == NormalAttackVariant.DOWN_SMASH ? 86.0 : 71.0)
+                        + phase * 29.0) * s;
+                double verticalScale = variant == NormalAttackVariant.DOWN_SMASH ? 0.42 : 0.66;
+                g.setStroke(soil);
+                g.setLineWidth(broad * 1.20);
+                g.strokeArc(centerX - radius, centerY - radius * verticalScale,
+                        radius * 2.0, radius * verticalScale * 2.0,
+                        15.0 + phase * 24.0, 328.0, ArcType.OPEN);
+                g.setStroke(fern);
+                g.setLineWidth(broad * 0.58);
+                g.strokeArc(centerX - radius * 0.76, centerY - radius * verticalScale * 0.76,
+                        radius * 1.52, radius * verticalScale * 1.52,
+                        42.0 + phase * 28.0, 276.0, ArcType.OPEN);
+                for (int root = 0; root < 6; root++) {
+                    double angle = root * Math.PI / 3.0 + phase * 0.16;
+                    double cos = Math.cos(angle);
+                    double sin = Math.sin(angle);
+                    g.setStroke(root % 2 == 0 ? rootGold : bill);
+                    g.setLineWidth(fine);
+                    g.strokeLine(centerX + cos * radius * 0.70,
+                            centerY + sin * radius * verticalScale * 0.70,
+                            centerX + cos * (radius + 12.0 * s),
+                            centerY + sin * (radius * verticalScale + 7.0 * s));
+                }
+            }
+        }
+    }
+
     private void drawPhoenixNormalAttackFx(GraphicsContext g, double drawSize,
                                             NormalAttackVariant variant,
                                             double phase, double alpha,
@@ -29499,6 +29802,16 @@ public class Bird {
             int elapsed = KIWI_ULTIMATE_FRAMES - kiwiUltimateTimer;
             return 0.62 + 0.30 * Math.abs(Math.sin(elapsed * 0.34));
         }
+        NormalAttackVariant attackVariant = currentDisplayedAttackVariant();
+        if (attackVariant != null) {
+            return switch (attackVariant) {
+                case UP_AIR -> 0.90;
+                case DOWN_AIR -> 1.0;
+                case FORWARD_AIR, BACK_AIR -> 0.86;
+                case NEUTRAL_AIR -> 0.76;
+                default -> 0.0;
+            };
+        }
         return switch (state) {
             case FLAP -> 0.80;
             case FALL -> 0.58;
@@ -29528,7 +29841,13 @@ public class Bird {
             GraphicsContext g, BirdAnimationState state, double cx, double originY,
             double dir, double compression, double extension, Color leg, Color shade) {
         double s = sizeMultiplier;
-        boolean airborne = state == BirdAnimationState.FLAP || state == BirdAnimationState.FALL
+        NormalAttackVariant attackVariant = currentDisplayedAttackVariant();
+        boolean aerialAttack = attackVariant == NormalAttackVariant.NEUTRAL_AIR
+                || attackVariant == NormalAttackVariant.FORWARD_AIR
+                || attackVariant == NormalAttackVariant.BACK_AIR
+                || attackVariant == NormalAttackVariant.UP_AIR
+                || attackVariant == NormalAttackVariant.DOWN_AIR;
+        boolean airborne = aerialAttack || state == BirdAnimationState.FLAP || state == BirdAnimationState.FALL
                 || kiwiSpringTimer > 0
                 || (kiwiStompTimer > 0 && kiwiStompAirborne && !kiwiStompImpactResolved);
         double run = !airborne && state == BirdAnimationState.IDLE
@@ -29546,11 +29865,19 @@ public class Bird {
             double ankleY;
             double toeY;
             if (airborne) {
-                double kick = kiwiSpringTimer > 0 && i == 0 ? 7.0 : 0.0;
+                double kick = kiwiSpringTimer > 0 && i == 0 ? 7.0
+                        : attackVariant == NormalAttackVariant.FORWARD_AIR && i == 1 ? 8.0
+                        : attackVariant == NormalAttackVariant.BACK_AIR && i == 0 ? 8.0
+                        : 0.0;
                 kneeX = hipX - dir * (4.0 + kick) * s;
-                kneeY = originY + (62.0 + i * 1.5) * s;
-                ankleX = kneeX + dir * (i == 0 ? 7.0 : -4.0) * extension * s;
-                ankleY = originY + (68.0 + extension * (i == 0 ? 7.0 : 3.0)) * s;
+                kneeY = originY + (62.0 + i * 1.5
+                        + (attackVariant == NormalAttackVariant.UP_AIR ? 4.0 : 0.0)) * s;
+                double attackReach = attackVariant == NormalAttackVariant.DOWN_AIR ? 7.0
+                        : attackVariant == NormalAttackVariant.UP_AIR ? -5.0 : 0.0;
+                ankleX = kneeX + dir * ((i == 0 ? 7.0 : -4.0) * extension + attackReach) * s;
+                ankleY = originY + (68.0 + extension * (i == 0 ? 7.0 : 3.0)
+                        + (attackVariant == NormalAttackVariant.DOWN_AIR ? 8.0 : 0.0)
+                        - (attackVariant == NormalAttackVariant.UP_AIR ? 7.0 : 0.0)) * s;
                 toeY = Math.min(y + 80.0 * s, ankleY + 4.0 * s);
             } else {
                 kneeX = hipX + step * 0.45;
