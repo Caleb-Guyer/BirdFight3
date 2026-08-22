@@ -1351,6 +1351,11 @@ public class BirdGame3 {
         playManagedSfxVaried(swingClip, 0.52 + charge * 0.20, 1.06 - charge * 0.12, 0.045);
     }
 
+    void playShoebillAttackWhoosh(double chargeRatio) {
+        double charge = Math.clamp(chargeRatio, 0.0, 1.0);
+        playManagedSfxVaried(swingClip, 0.56 + charge * 0.22, 0.88 - charge * 0.10, 0.035);
+    }
+
     void playPigeonFeatherBurstSfx(boolean ultimate) {
         playManagedSfxVaried(swingClip, ultimate ? 0.72 : 0.56, ultimate ? 1.42 : 1.58, 0.035);
     }
