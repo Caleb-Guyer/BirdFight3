@@ -1336,6 +1336,11 @@ public class BirdGame3 {
         playManagedSfxVaried(swingClip, 0.62 + charge * 0.24, 0.86 - charge * 0.14, 0.045);
     }
 
+    void playRoosterAttackWhoosh(double chargeRatio) {
+        double charge = Math.clamp(chargeRatio, 0.0, 1.0);
+        playManagedSfxVaried(swingClip, 0.54 + charge * 0.22, 1.26 - charge * 0.12, 0.05);
+    }
+
     void playPigeonFeatherBurstSfx(boolean ultimate) {
         playManagedSfxVaried(swingClip, ultimate ? 0.72 : 0.56, ultimate ? 1.42 : 1.58, 0.035);
     }
@@ -50426,11 +50431,11 @@ public class BirdGame3 {
             case ROOSTER -> {
                 switch (roundIndex) {
                     case 0 -> { sizeScale = 0.86; powerScale = 0.68; sealUltimate = true; }
-                    case 1 -> { sizeScale = 0.90; powerScale = 0.72; sealUltimate = true; }
-                    case 2 -> { sizeScale = 0.86; powerScale = 0.60; sealUltimate = true; }
-                    case 3 -> { sizeScale = 0.81; powerScale = 0.53; sealUltimate = true; }
+                    case 1 -> { sizeScale = 0.96; powerScale = 0.86; sealUltimate = true; }
+                    case 2 -> { sizeScale = 0.90; powerScale = 0.68; sealUltimate = true; }
+                    case 3 -> { sizeScale = 0.88; powerScale = 0.64; sealUltimate = true; }
                     case 4 -> { healthScale = 0.45; sizeScale = 0.60; powerScale = 0.16; sealUltimate = true; }
-                    case 5 -> { sizeScale = 0.82; powerScale = 0.55; sealUltimate = true; }
+                    case 5 -> { sizeScale = 0.90; powerScale = 0.68; sealUltimate = true; }
                     case 7 -> {
                         healthScale = 0.78;
                         sizeScale = 0.82;
