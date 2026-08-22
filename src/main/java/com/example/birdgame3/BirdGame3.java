@@ -1356,6 +1356,11 @@ public class BirdGame3 {
         playManagedSfxVaried(swingClip, 0.56 + charge * 0.22, 0.88 - charge * 0.10, 0.035);
     }
 
+    void playCharlesAttackWhoosh(double chargeRatio) {
+        double charge = Math.clamp(chargeRatio, 0.0, 1.0);
+        playManagedSfxVaried(swingClip, 0.48 + charge * 0.19, 1.34 - charge * 0.14, 0.055);
+    }
+
     void playPigeonFeatherBurstSfx(boolean ultimate) {
         playManagedSfxVaried(swingClip, ultimate ? 0.72 : 0.56, ultimate ? 1.42 : 1.58, 0.035);
     }
@@ -46961,7 +46966,7 @@ public class BirdGame3 {
         run.add(stolen);
 
         ClassicFighter firstUnderstudy = classicFighter(BirdType.MOCKINGBIRD,
-                "Understudy: The Inherited Voice", 92, 0.82, 1.02, ECLIPSE_MOCKINGBIRD_SKIN);
+                "Understudy: The Inherited Voice", 86, 0.76, 1.02, ECLIPSE_MOCKINGBIRD_SKIN);
         ClassicEncounter understudies = new ClassicEncounter(
                 "The Understudies", "Resonance Hall",
                 "Three Charles understudies enter one at a time. Each uses the ordinary Mimic system, never a route-only move.",
@@ -46971,12 +46976,12 @@ public class BirdGame3 {
                 .withWaves(
                         new ClassicFighter[]{firstUnderstudy},
                         new ClassicFighter[]{classicFighter(BirdType.MOCKINGBIRD,
-                                "Understudy: The Manufactured Voice", 96, 0.84, 1.02,
+                                "Understudy: The Manufactured Voice", 90, 0.78, 1.02,
                                 classicSkinDataKey(BirdType.MOCKINGBIRD))},
                         new ClassicFighter[]{classicFighter(BirdType.MOCKINGBIRD,
-                                "Understudy: The Stolen Voice", 100, 0.86, 1.04,
+                                "Understudy: The Stolen Voice", 94, 0.80, 1.04,
                                 ECLIPSE_MOCKINGBIRD_SKIN)});
-        understudies.cpuLevel = 6;
+        understudies.cpuLevel = 5;
         run.add(understudies);
 
         ClassicEncounter perfectPitch = new ClassicEncounter(
@@ -50085,9 +50090,9 @@ public class BirdGame3 {
                 // lighter bodies launch cleanly while reduced pressure gives
                 // Mimic enough time to establish an actual answer.
                 double auditionSize = "Inherited Voice".equals(encounter.name) ? 0.82
-                        : ("Manufactured Voice".equals(encounter.name) ? 0.92 : 0.88);
+                        : ("Manufactured Voice".equals(encounter.name) ? 0.95 : 0.88);
                 double auditionPower = "Inherited Voice".equals(encounter.name) ? 0.62
-                        : ("Manufactured Voice".equals(encounter.name) ? 0.74 : 0.70);
+                        : ("Manufactured Voice".equals(encounter.name) ? 0.78 : 0.70);
                 scaleBossRushBird(bird, auditionSize, auditionPower, 0.95);
                 bird.setUltimateEnabled(false);
             } else if (encounter.style == ClassicEncounterStyle.SHOEBILL_TRAIL) {

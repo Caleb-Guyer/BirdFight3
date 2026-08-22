@@ -118,7 +118,7 @@ class CharlesClassicRouteTest {
         for (int round = 1; round <= 3; round++) {
             BirdGame3 game = prepared(round, 0xC4A260L + round, 0xC4A270L + round);
             assertEquals(2, game.scores[0]);
-            double expectedSize = round == 1 ? 0.82 : (round == 2 ? 0.92 : 0.88);
+            double expectedSize = round == 1 ? 0.82 : (round == 2 ? 0.95 : 0.88);
             for (int slot = 1; slot < game.activePlayers; slot++) {
                 Bird enemy = game.players[slot];
                 if (enemy == null) continue;

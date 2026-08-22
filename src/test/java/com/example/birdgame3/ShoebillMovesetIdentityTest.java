@@ -13,14 +13,14 @@ class ShoebillMovesetIdentityTest {
         BirdGame3 game = new BirdGame3();
         Bird shoebill = groundedBird(game, BirdGame3.BirdType.SHOEBILL, 0, 320.0);
         Bird penguin = groundedBird(game, BirdGame3.BirdType.PENGUIN, 1, 320.0);
-        Bird charles = groundedBird(game, BirdGame3.BirdType.MOCKINGBIRD, 2, 320.0);
+        Bird razorbill = groundedBird(game, BirdGame3.BirdType.RAZORBILL, 2, 320.0);
 
         int distinctFromPenguin = 0;
         int distinctFromSharedProfile = 0;
         for (Object variant : normalAttackVariantClass().getEnumConstants()) {
             Object profile = invoke(shoebill, "normalAttackProfile", variant);
             if (!profile.equals(invoke(penguin, "normalAttackProfile", variant))) distinctFromPenguin++;
-            if (!profile.equals(invoke(charles, "normalAttackProfile", variant))) distinctFromSharedProfile++;
+            if (!profile.equals(invoke(razorbill, "normalAttackProfile", variant))) distinctFromSharedProfile++;
             String moveName = (String) invoke(shoebill, "normalAttackTelemetryName", variant);
             assertTrue(moveName.startsWith("Shoebill "));
             assertFalse(moveName.contains("Normal Attack"));
