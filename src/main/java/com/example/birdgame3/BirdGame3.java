@@ -1381,6 +1381,11 @@ public class BirdGame3 {
         playManagedSfxVaried(swingClip, 0.43 + charge * 0.20, 1.08 - charge * 0.10, 0.045);
     }
 
+    void playHeisenbirdAttackWhoosh(double chargeRatio) {
+        double charge = Math.clamp(chargeRatio, 0.0, 1.0);
+        playManagedSfxVaried(swingClip, 0.46 + charge * 0.22, 1.20 - charge * 0.12, 0.035);
+    }
+
     void playPigeonFeatherBurstSfx(boolean ultimate) {
         playManagedSfxVaried(swingClip, ultimate ? 0.72 : 0.56, ultimate ? 1.42 : 1.58, 0.035);
     }
@@ -47460,7 +47465,7 @@ public class BirdGame3 {
         formula.cpuLevel = 5;
         run.add(formula);
 
-        ClassicFighter cold = classicFighter(BirdType.PENGUIN, "Stress Test I: Cold", 86, 0.76, 1.00);
+        ClassicFighter cold = classicFighter(BirdType.PENGUIN, "Stress Test I: Cold", 76, 0.68, 1.00);
         ClassicEncounter stress = new ClassicEncounter(
                 "Stress Test", "Frozen Caldera",
                 "Cold, pressure, and fire arrive as separate product trials. The fighter's real moveset remains unchanged.",
@@ -47469,9 +47474,9 @@ public class BirdGame3 {
                 new ClassicFighter[0], new ClassicFighter[]{cold}, false)
                 .withWaves(
                         new ClassicFighter[]{cold},
-                        new ClassicFighter[]{classicFighter(BirdType.PELICAN, "Stress Test II: Pressure", 92, 0.78, 0.98)},
-                        new ClassicFighter[]{classicFighter(BirdType.PHOENIX, "Stress Test III: Heat", 98, 0.80, 0.98)});
-        stress.cpuLevel = 5;
+                        new ClassicFighter[]{classicFighter(BirdType.PELICAN, "Stress Test II: Pressure", 78, 0.68, 0.98)},
+                        new ClassicFighter[]{classicFighter(BirdType.PHOENIX, "Stress Test III: Heat", 82, 0.70, 0.98)});
+        stress.cpuLevel = 4;
         run.add(stress);
 
         ClassicEncounter market = new ClassicEncounter(
@@ -54252,7 +54257,11 @@ public class BirdGame3 {
                 || classicHeisenWaveIndex + 1 >= classicEncounter.waves.length) return false;
         classicHeisenWaveIndex++;
         Bird player = players[0];
-        if (player != null) player.heal("Hostile Takeover".equals(classicEncounter.name) ? 24.0 : 14.0);
+        if (player != null) {
+            double checkpointRepair = "Hostile Takeover".equals(classicEncounter.name) ? 24.0
+                    : "Stress Test".equals(classicEncounter.name) ? 22.0 : 14.0;
+            player.heal(checkpointRepair);
+        }
         spawnHeisenClassicWave(classicEncounter.waves[classicHeisenWaveIndex]);
         return true;
     }

@@ -59,6 +59,35 @@ class HeisenbirdClassicRouteTest {
     }
 
     @Test
+    void stressTestUsesThreeFairTrialsAndRepairsBetweenBatches() throws Exception {
+        List<ClassicEncounter> route = route(new BirdGame3());
+        ClassicEncounter stress = route.get(2);
+
+        assertEquals(4, stress.cpuLevel);
+        assertNotNull(stress.waves);
+        assertEquals(3, stress.waves.length);
+        assertArrayEquals(new double[]{76.0, 78.0, 82.0},
+                new double[]{stress.waves[0][0].health(), stress.waves[1][0].health(),
+                        stress.waves[2][0].health()}, 0.001);
+        assertArrayEquals(new double[]{0.68, 0.68, 0.70},
+                new double[]{stress.waves[0][0].powerMult(), stress.waves[1][0].powerMult(),
+                        stress.waves[2][0].powerMult()}, 0.001);
+
+        BirdGame3 game = prepared(2, 0x483200L, 0x483201L);
+        Bird player = game.players[0];
+        player.setStartingSmashDamagePercent(70.0);
+        for (int slot = 1; slot < game.activePlayers; slot++) {
+            if (game.players[slot] != null && game.getEffectiveTeam(slot) == 2) {
+                game.players[slot].health = 0.0;
+                game.scores[slot] = 0;
+            }
+        }
+        assertTrue(game.holdClassicHeisenbirdEncounterOpen());
+        assertEquals(48.0, player.smashDamagePercent(), 0.001,
+                "Each completed stress batch must repair 22 damage before the next trial.");
+    }
+
+    @Test
     void counterfeitBalanceAppliesToEveryDynamicallySpawnedBatch() {
         BirdGame3 game = prepared(4, 0x483100L, 0x483101L);
         Bird firstBatch = firstEnemy(game);
