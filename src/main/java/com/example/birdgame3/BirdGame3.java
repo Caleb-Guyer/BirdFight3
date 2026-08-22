@@ -1411,6 +1411,11 @@ public class BirdGame3 {
         playManagedSfxVaried(swingClip, 0.46 + charge * 0.20, 1.34 - charge * 0.16, 0.055);
     }
 
+    void playPelicanAttackWhoosh(double chargeRatio) {
+        double charge = Math.clamp(chargeRatio, 0.0, 1.0);
+        playManagedSfxVaried(swingClip, 0.58 + charge * 0.25, 0.80 - charge * 0.08, 0.035);
+    }
+
     void playPigeonFeatherBurstSfx(boolean ultimate) {
         playManagedSfxVaried(swingClip, ultimate ? 0.72 : 0.56, ultimate ? 1.42 : 1.58, 0.035);
     }
@@ -47786,13 +47791,15 @@ public class BirdGame3 {
 
         ClassicEncounter rushOrder = new ClassicEncounter(
                 "Rush Order", "Rooftop Relay",
-                "Roadrunner and Hummingbird race the same urgent parcel through different lanes. Hold the handoff point and stop both couriers.",
+                "A dock dispatcher holds the handoff point beside Pelican while Roadrunner and Hummingbird race the same urgent parcel through different lanes.",
                 MapType.CITY, MapVariant.ROOFTOP_RELAY, MatchMutator.TURBO_BRAWL,
                 ClassicTwist.WIND_RALLY, ClassicEncounterStyle.STANDARD, 112 * 60,
-                new ClassicFighter[0], new ClassicFighter[]{
-                classicFighter(BirdType.ROADRUNNER, "Express: Roadrunner", 54, 0.46, 1.10),
-                classicFighter(BirdType.HUMMINGBIRD, "Express: Hummingbird", 50, 0.44, 1.12)}, false);
-        rushOrder.cpuLevel = 4;
+                new ClassicFighter[]{
+                        classicFighter(BirdType.PIGEON, "Ally: Dock Dispatcher", 60, 0.34, 1.04)},
+                new ClassicFighter[]{
+                        classicFighter(BirdType.ROADRUNNER, "Express: Roadrunner", 46, 0.36, 1.10),
+                        classicFighter(BirdType.HUMMINGBIRD, "Express: Hummingbird", 42, 0.34, 1.12)}, false);
+        rushOrder.cpuLevel = 3;
         run.add(rushOrder);
 
         ClassicEncounter coldStorage = new ClassicEncounter(
@@ -47801,7 +47808,7 @@ public class BirdGame3 {
                 MapType.FROSTBITE_FJORD, MapVariant.LAST_ICE_SHELF, MatchMutator.NONE,
                 ClassicTwist.ICEWORKS, ClassicEncounterStyle.GIANT, 125 * 60,
                 new ClassicFighter[0], new ClassicFighter[]{
-                classicFighter(BirdType.PENGUIN, "Giant: Cold Storage Keeper", 88, 0.58, 0.88)}, true);
+                classicFighter(BirdType.PENGUIN, "Giant: Cold Storage Keeper", 98, 0.62, 0.84)}, true);
         coldStorage.cpuLevel = 5;
         run.add(coldStorage);
 
@@ -47860,7 +47867,7 @@ public class BirdGame3 {
                 MapType.CARRION_EXCHANGE, MapVariant.STANDARD, MatchMutator.NONE,
                 ClassicTwist.FINAL_ACCOUNT, ClassicEncounterStyle.HOARDMASTER_BOSS, 200 * 60,
                 new ClassicFighter[0], new ClassicFighter[]{
-                classicFighter(BirdType.VULTURE, "Boss: The Hoardmaster", 230, 1.08, 1.00,
+                classicFighter(BirdType.VULTURE, "Boss: The Hoardmaster", 220, 1.06, 1.00,
                         TIDE_VULTURE_SKIN)}, true);
         hoardmaster.cpuLevel = 8;
         run.add(hoardmaster);
@@ -50351,8 +50358,8 @@ public class BirdGame3 {
                 bird.setBaseMultipliers(1.10, 0.75 * enemyPowerScale, 0.94);
                 bird.setUltimateEnabled(false);
             } else if (encounter.style == ClassicEncounterStyle.HOARDMASTER_BOSS) {
-                bird.health = Math.max(1.0, 205.0 * enemyHealthScale);
-                bird.setBaseMultipliers(1.38, 0.95 * enemyPowerScale, 1.00);
+                bird.health = Math.max(1.0, 190.0 * enemyHealthScale);
+                bird.setBaseMultipliers(1.38, 0.88 * enemyPowerScale, 1.00);
                 // Vulture's real crow kit is the boss pattern; only the screen-
                 // filling ultimate is removed so every attack remains readable.
                 bird.setUltimateEnabled(false);

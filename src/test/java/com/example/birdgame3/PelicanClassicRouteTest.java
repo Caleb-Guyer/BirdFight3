@@ -41,6 +41,8 @@ class PelicanClassicRouteTest {
         List<ClassicEncounter> route = route(new BirdGame3());
 
         assertEquals(ClassicEncounterStyle.MINIATURE_FLOCK, route.get(0).style);
+        assertEquals(1, route.get(1).allies.length);
+        assertEquals(BirdType.PIGEON, route.get(1).allies[0].type());
         assertEquals(2, route.get(1).enemies.length);
         assertEquals(ClassicEncounterStyle.GIANT, route.get(2).style);
         assertEquals(1, route.get(3).allies.length);
@@ -92,7 +94,7 @@ class PelicanClassicRouteTest {
         assertEquals(3, game.scores[1]);
         assertEquals(3, game.scores[0]);
         assertEquals(1.38, boss.baseSizeMultiplier, 0.001);
-        assertEquals(205.0, boss.health, 0.001);
+        assertEquals(190.0, boss.health, 0.001);
         assertFalse(boss.hasUltimate());
         assertTrue(game.isAI[1]);
 
