@@ -1321,6 +1321,11 @@ public class BirdGame3 {
         playManagedSfxVaried(swingClip, 0.54 + charge * 0.18, 1.42 - charge * 0.20, 0.05);
     }
 
+    void playPhoenixAttackWhoosh(double chargeRatio) {
+        double charge = Math.clamp(chargeRatio, 0.0, 1.0);
+        playManagedSfxVaried(swingClip, 0.60 + charge * 0.24, 1.12 - charge * 0.16, 0.045);
+    }
+
     void playPigeonFeatherBurstSfx(boolean ultimate) {
         playManagedSfxVaried(swingClip, ultimate ? 0.72 : 0.56, ultimate ? 1.42 : 1.58, 0.035);
     }
@@ -46157,7 +46162,7 @@ public class BirdGame3 {
                 },
                 false
         );
-        sparks.cpuLevel = 3;
+        sparks.cpuLevel = 4;
         run.add(sparks);
 
         ClassicEncounter coldFront = new ClassicEncounter(
@@ -46214,11 +46219,11 @@ public class BirdGame3 {
                 108 * 60,
                 new ClassicFighter[0],
                 new ClassicFighter[]{
-                        classicFighter(BirdType.PELICAN, "Giant: The Deluge", 260, 1.14, 0.84, IRONCLAD_PELICAN_SKIN)
+                        classicFighter(BirdType.PELICAN, "Giant: The Deluge", 290, 1.18, 0.92, IRONCLAD_PELICAN_SKIN)
                 },
                 true
         );
-        deluge.cpuLevel = 5;
+        deluge.cpuLevel = 6;
         run.add(deluge);
 
         ClassicEncounter falseSuns = new ClassicEncounter(
@@ -46233,8 +46238,8 @@ public class BirdGame3 {
                 102 * 60,
                 new ClassicFighter[0],
                 new ClassicFighter[]{
-                        classicFighter(BirdType.ROOSTER, "False Sun: Rooster", 128, 1.05, 1.04),
-                        classicFighter(BirdType.TURKEY, "False Sun: Turkey", 136, 1.06, 0.98)
+                        classicFighter(BirdType.ROOSTER, "False Sun: Rooster", 170, 1.35, 1.02),
+                        classicFighter(BirdType.TURKEY, "False Sun: Turkey", 180, 1.38, 0.98)
                 },
                 false
         );
