@@ -1341,6 +1341,11 @@ public class BirdGame3 {
         playManagedSfxVaried(swingClip, 0.54 + charge * 0.22, 1.26 - charge * 0.12, 0.05);
     }
 
+    void playRoadrunnerAttackWhoosh(double chargeRatio) {
+        double charge = Math.clamp(chargeRatio, 0.0, 1.0);
+        playManagedSfxVaried(swingClip, 0.48 + charge * 0.18, 1.48 - charge * 0.10, 0.06);
+    }
+
     void playPigeonFeatherBurstSfx(boolean ultimate) {
         playManagedSfxVaried(swingClip, ultimate ? 0.72 : 0.56, ultimate ? 1.42 : 1.58, 0.035);
     }
@@ -46640,8 +46645,8 @@ public class BirdGame3 {
                 MapType.PRISON, MapVariant.STANDARD, MatchMutator.NONE, ClassicTwist.REDLINE_SPLITS,
                 ClassicEncounterStyle.STANDARD, 112 * 60, new ClassicFighter[0],
                 new ClassicFighter[]{
-                        classicFighter(BirdType.HEISENBIRD, "Warden: Heisenbird", 120, 1.00, 1.00),
-                        classicFighter(BirdType.OPIUMBIRD, "Warden: Opium Bird", 116, 0.98, 1.06)}, false);
+                        classicFighter(BirdType.HEISENBIRD, "Warden: Heisenbird", 120, 0.96, 1.00),
+                        classicFighter(BirdType.OPIUMBIRD, "Warden: Opium Bird", 116, 0.94, 1.06)}, false);
         speedTrap.cpuLevel = 4;
         run.add(speedTrap);
 
@@ -46661,7 +46666,7 @@ public class BirdGame3 {
                 MapType.DOCK, MapVariant.TITAN_DOCK, MatchMutator.NONE, ClassicTwist.REDLINE_SPLITS,
                 ClassicEncounterStyle.GIANT, 115 * 60, new ClassicFighter[0],
                 new ClassicFighter[]{classicFighter(BirdType.PELICAN, "Giant Roadblock: Ironclad Pelican", 230,
-                        1.12, 0.90, IRONCLAD_PELICAN_SKIN)}, false);
+                        1.10, 0.90, IRONCLAD_PELICAN_SKIN)}, false);
         roadblock.cpuLevel = 5;
         run.add(roadblock);
 
