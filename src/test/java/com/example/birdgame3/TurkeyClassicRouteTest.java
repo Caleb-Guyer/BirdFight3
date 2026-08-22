@@ -110,7 +110,7 @@ class TurkeyClassicRouteTest {
 
         assertEquals(1, getField(game, "classicTurkeyWaveIndex"));
         assertEquals(BirdType.KIWI, game.players[1].type);
-        assertEquals(1, game.scores[1]);
+        assertEquals(2, game.scores[1]);
         assertTrue((int) getField(game, "classicTurkeyFamineFrames") > 0);
     }
 
@@ -147,7 +147,7 @@ class TurkeyClassicRouteTest {
 
         assertEquals(3, game.scores[1]);
         assertFalse(game.players[1].hasUltimate());
-        assertEquals(1.72 * 0.76, game.players[1].sizeMultiplier, 0.0001);
+        assertEquals(1.72 * 0.94, game.players[1].sizeMultiplier, 0.0001);
         int openingPlatforms = game.platforms.size();
 
         game.scores[1] = 2;
@@ -158,7 +158,7 @@ class TurkeyClassicRouteTest {
         game.applyTurkeyClassicRuntimeEffects();
         assertTrue((boolean) getField(game, "classicDevourerFinalPhaseActive"));
         assertEquals(openingPlatforms - 2, game.platforms.size());
-        assertEquals(1.26, game.players[1].sizeMultiplier, 0.0001);
+        assertEquals(1.34, game.players[1].sizeMultiplier, 0.0001);
     }
 
     @Test

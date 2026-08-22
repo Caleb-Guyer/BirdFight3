@@ -1331,6 +1331,11 @@ public class BirdGame3 {
         playManagedSfxVaried(swingClip, 0.46 + charge * 0.16, 1.56 - charge * 0.18, 0.055);
     }
 
+    void playTurkeyAttackWhoosh(double chargeRatio) {
+        double charge = Math.clamp(chargeRatio, 0.0, 1.0);
+        playManagedSfxVaried(swingClip, 0.62 + charge * 0.24, 0.86 - charge * 0.14, 0.045);
+    }
+
     void playPigeonFeatherBurstSfx(boolean ultimate) {
         playManagedSfxVaried(swingClip, ultimate ? 0.72 : 0.56, ultimate ? 1.42 : 1.58, 0.035);
     }
@@ -46415,7 +46420,7 @@ public class BirdGame3 {
                 new ClassicFighter[]{firstPigeon, firstKiwi, firstGoose}, false)
                 .withWaves(new ClassicFighter[]{firstPigeon}, new ClassicFighter[]{firstKiwi},
                         new ClassicFighter[]{firstGoose});
-        first.cpuLevel = 3;
+        first.cpuLevel = 4;
         run.add(first);
 
         ClassicFighter swiftRoadrunner = classicFighter(BirdType.ROADRUNNER, "Swift Thief: Roadrunner", 112, 1.00, 1.17);
@@ -50399,13 +50404,20 @@ public class BirdGame3 {
                     case 0 -> { sizeScale = 1.12; powerScale = 1.10; sealUltimate = true; }
                     case 1 -> { sizeScale = 0.90; powerScale = 0.76; sealUltimate = true; }
                     case 2 -> { sizeScale = 0.86; powerScale = 0.62; sealUltimate = true; }
+                    case 3 -> {
+                        healthScale = 0.90;
+                        sizeScale = 0.92;
+                        powerScale = 0.86;
+                        speedScale = 0.98;
+                        sealUltimate = true;
+                    }
                     case 4 -> { sizeScale = 0.92; powerScale = 0.82; sealUltimate = true; }
                     case 5 -> { sizeScale = 0.98; powerScale = 0.95; sealUltimate = true; }
                     case 7 -> {
-                        healthScale = 0.90;
-                        sizeScale = 0.76;
-                        powerScale = 0.68;
-                        speedScale = 0.96;
+                        healthScale = 1.00;
+                        sizeScale = 0.94;
+                        powerScale = 0.90;
+                        speedScale = 1.00;
                         sealUltimate = true;
                     }
                     default -> { }
@@ -55745,8 +55757,11 @@ public class BirdGame3 {
             applyClassicOpponentBalancePass(classicEncounter, enemy);
             classicTeams[slot] = 2;
             classicCpuLevels[slot] = resolvedClassicFighterCpuLevel(fighter, classicEncounter);
-            scores[slot] = !defenseWave && authoredClassicRoundIndex(classicEncounter) == 1
-                    && classicTurkeyWaveIndex == 1 ? 2 : 1;
+            int authoredRound = authoredClassicRoundIndex(classicEncounter);
+            boolean secondStockCourse = !defenseWave
+                    && ((authoredRound == 0 && classicTurkeyWaveIndex >= 1)
+                    || (authoredRound == 1 && classicTurkeyWaveIndex == 1));
+            scores[slot] = secondStockCourse ? 2 : 1;
 
             double spawnCenter;
             if (defenseWave) {
@@ -55927,10 +55942,10 @@ public class BirdGame3 {
     private void updateDevourerScale(Bird devourer) {
         if (devourer == null) return;
         double difficultyPower = 1.0 + (classicDifficulty - CLASSIC_STARTING_DIFFICULTY) * 0.015;
-        double size = classicDevourerFinalPhaseActive ? 1.26 : 1.30 + classicDevourerMeals * 0.07;
-        double power = (classicDevourerFinalPhaseActive ? 0.94 : 0.84 + classicDevourerMeals * 0.025)
+        double size = classicDevourerFinalPhaseActive ? 1.34 : 1.38 + classicDevourerMeals * 0.07;
+        double power = (classicDevourerFinalPhaseActive ? 1.06 : 0.98 + classicDevourerMeals * 0.025)
                 * difficultyPower;
-        double speed = classicDevourerFinalPhaseActive ? 1.06 : 0.94;
+        double speed = classicDevourerFinalPhaseActive ? 1.12 : 1.02;
         double health = devourer.health;
         devourer.setBaseMultipliers(size, power, speed);
         devourer.health = health;
