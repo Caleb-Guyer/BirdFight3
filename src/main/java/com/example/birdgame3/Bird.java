@@ -49,7 +49,10 @@ public class Bird {
         FORWARD_AIR,
         BACK_AIR,
         UP_AIR,
-        DOWN_AIR;
+        DOWN_AIR,
+        DASH_ATTACK,
+        LEDGE_ATTACK,
+        GETUP_ATTACK;
 
         boolean usesDownInput() {
             return this == DOWN_TILT || this == DOWN_SMASH || this == DOWN_AIR;
@@ -291,6 +294,15 @@ public class Bird {
     }
 
     private record HeadPose(double centerX, double centerY, double aimAngleRadians) {
+    }
+
+    private record ThrowProfile(
+            int damage,
+            double launchX,
+            double launchY,
+            int stunFrames,
+            String verb
+    ) {
     }
 
     record VisualFeatureBounds(double left, double top, double right, double bottom) {
@@ -3284,7 +3296,13 @@ public class Bird {
             climbFromLedge(true);
             return false;
         }
-        if (ledgeTowardStagePressed() || attackPressed() || specialPressed()) {
+        if (attackPressed() && attackCooldown <= 0) {
+            climbFromLedge(false);
+            performAttack(0, NormalAttackVariant.LEDGE_ATTACK);
+            ledgeInvulnerabilityTimer = Math.max(ledgeInvulnerabilityTimer, 8);
+            return false;
+        }
+        if (ledgeTowardStagePressed() || specialPressed()) {
             climbFromLedge(false);
             return false;
         }
@@ -3460,6 +3478,9 @@ public class Bird {
         boolean leftHeld = leftPressed();
         boolean rightHeld = rightPressed();
         if (grounded) {
+            if (dashTimer > 0 && (leftHeld ^ rightHeld)) {
+                return NormalAttackVariant.DASH_ATTACK;
+            }
             if (downAttackPressed()) {
                 return NormalAttackVariant.DOWN_TILT;
             }
@@ -3501,6 +3522,9 @@ public class Bird {
 
     private NormalAttackProfile normalAttackProfile(NormalAttackVariant variant) {
         double facingDir = facingRight ? 1.0 : -1.0;
+        if (type == BirdGame3.BirdType.PIGEON) {
+            return pigeonNormalAttackProfile(variant, facingDir);
+        }
         if (type == BirdGame3.BirdType.GOOSE) {
             return gooseNormalAttackProfile(variant, facingDir);
         }
@@ -3535,6 +3559,47 @@ public class Bird {
                     0.88, 0.98, 0.55, 1.82, 1.82, 25, 12, 6);
             case DOWN_AIR -> new NormalAttackProfile(92.0, 136.0, 0.0, 46.0,
                     1.02, 1.08, 0.72, 0.34, -0.95, 28, 14, 12);
+            case DASH_ATTACK -> new NormalAttackProfile(142.0, 88.0, facingDir * 34.0, 0.0,
+                    0.98, 1.02, 1.26, 0.76, 0.76, 28, 13, AERIAL_LANDING_LAG_FRAMES);
+            case LEDGE_ATTACK -> new NormalAttackProfile(132.0, 82.0, facingDir * 26.0, 2.0,
+                    0.88, 0.90, 1.08, 0.70, 0.70, 27, 13, AERIAL_LANDING_LAG_FRAMES);
+            case GETUP_ATTACK -> new NormalAttackProfile(142.0, 76.0, 0.0, 16.0,
+                    0.84, 0.86, 0.96, 0.62, 0.62, 30, 15, AERIAL_LANDING_LAG_FRAMES);
+        };
+    }
+
+    private NormalAttackProfile pigeonNormalAttackProfile(NormalAttackVariant variant, double facingDir) {
+        return switch (variant) {
+            case NEUTRAL -> new NormalAttackProfile(110.0, 76.0, facingDir * 19.0, -1.0,
+                    0.72, 0.64, 0.76, 0.62, 0.62, 13, 7, AERIAL_LANDING_LAG_FRAMES);
+            case SIDE_TILT -> new NormalAttackProfile(142.0, 78.0, facingDir * 34.0, -2.0,
+                    0.90, 0.86, 1.08, 0.70, 0.70, 19, 10, AERIAL_LANDING_LAG_FRAMES);
+            case UP_TILT -> new NormalAttackProfile(92.0, 142.0, facingDir * 5.0, -40.0,
+                    0.82, 0.84, 0.52, 1.58, 1.58, 18, 10, AERIAL_LANDING_LAG_FRAMES);
+            case DOWN_TILT -> new NormalAttackProfile(126.0, 62.0, facingDir * 23.0, 23.0,
+                    0.78, 0.76, 0.84, 0.24, 0.24, 17, 9, AERIAL_LANDING_LAG_FRAMES);
+            case SIDE_SMASH -> new NormalAttackProfile(164.0, 88.0, facingDir * 50.0, -1.0,
+                    1.18, 1.28, 1.56, 0.82, 0.82, 35, 15, AERIAL_LANDING_LAG_FRAMES);
+            case UP_SMASH -> new NormalAttackProfile(108.0, 174.0, 0.0, -54.0,
+                    1.08, 1.18, 0.68, 2.02, 2.02, 34, 15, AERIAL_LANDING_LAG_FRAMES);
+            case DOWN_SMASH -> new NormalAttackProfile(152.0, 82.0, 0.0, 31.0,
+                    1.12, 1.18, 1.04, 0.44, 0.44, 36, 16, AERIAL_LANDING_LAG_FRAMES);
+            case NEUTRAL_AIR -> new NormalAttackProfile(126.0, 116.0, 0.0, -4.0,
+                    0.88, 0.90, 0.92, 1.04, 1.04, 23, 12, 6);
+            case FORWARD_AIR -> new NormalAttackProfile(150.0, 84.0, facingDir * 43.0, -7.0,
+                    0.96, 1.00, 1.20, 0.82, 0.82, 25, 13, 8);
+            case BACK_AIR -> new NormalAttackProfile(140.0, 82.0, -facingDir * 39.0, -2.0,
+                    1.04, 1.08, 1.38, 0.72, 0.72, 26, 13, 9);
+            case UP_AIR -> new NormalAttackProfile(96.0, 158.0, 0.0, -49.0,
+                    0.84, 0.94, 0.54, 1.88, 1.88, 23, 12, 6);
+            case DOWN_AIR -> new NormalAttackProfile(98.0, 146.0, 0.0, 51.0,
+                    0.98, 1.02, 0.68, 0.32, -1.02, 28, 14, 11);
+            case DASH_ATTACK -> new NormalAttackProfile(154.0, 84.0, facingDir * 42.0, 1.0,
+                    1.00, 1.04, 1.32, 0.70, 0.70, 27, 13, AERIAL_LANDING_LAG_FRAMES);
+            case LEDGE_ATTACK -> new NormalAttackProfile(138.0, 78.0, facingDir * 31.0, 4.0,
+                    0.86, 0.88, 1.08, 0.68, 0.68, 25, 12, AERIAL_LANDING_LAG_FRAMES);
+            case GETUP_ATTACK -> new NormalAttackProfile(154.0, 74.0, 0.0, 18.0,
+                    0.82, 0.84, 0.98, 0.58, 0.58, 29, 14, AERIAL_LANDING_LAG_FRAMES);
         };
     }
 
@@ -3564,6 +3629,12 @@ public class Bird {
                     0.94, 1.04, 0.60, 1.92, 1.92, 28, 13, 8);
             case DOWN_AIR -> new NormalAttackProfile(110.0, 152.0, 0.0, 50.0,
                     1.10, 1.16, 0.76, 0.36, -1.02, 31, 15, 12);
+            case DASH_ATTACK -> new NormalAttackProfile(168.0, 94.0, facingDir * 48.0, 1.0,
+                    1.08, 1.12, 1.42, 0.74, 0.74, 31, 15, AERIAL_LANDING_LAG_FRAMES);
+            case LEDGE_ATTACK -> new NormalAttackProfile(148.0, 84.0, facingDir * 31.0, 4.0,
+                    0.94, 0.96, 1.16, 0.68, 0.68, 28, 14, AERIAL_LANDING_LAG_FRAMES);
+            case GETUP_ATTACK -> new NormalAttackProfile(158.0, 78.0, 0.0, 18.0,
+                    0.90, 0.92, 1.04, 0.60, 0.60, 31, 15, AERIAL_LANDING_LAG_FRAMES);
         };
     }
 
@@ -3593,6 +3664,12 @@ public class Bird {
                     0.94, 1.04, 0.56, 1.92, 1.92, 28, 14, 8);
             case DOWN_AIR -> new NormalAttackProfile(98.0, 150.0, 0.0, 52.0,
                     1.08, 1.16, 0.72, 0.30, -1.06, 32, 16, 13);
+            case DASH_ATTACK -> new NormalAttackProfile(166.0, 94.0, facingDir * 46.0, 0.0,
+                    1.08, 1.14, 1.40, 0.74, 0.74, 32, 15, AERIAL_LANDING_LAG_FRAMES);
+            case LEDGE_ATTACK -> new NormalAttackProfile(148.0, 84.0, facingDir * 30.0, 3.0,
+                    0.94, 0.98, 1.16, 0.68, 0.68, 29, 14, AERIAL_LANDING_LAG_FRAMES);
+            case GETUP_ATTACK -> new NormalAttackProfile(160.0, 80.0, 0.0, 18.0,
+                    0.92, 0.94, 1.06, 0.60, 0.60, 32, 15, AERIAL_LANDING_LAG_FRAMES);
         };
     }
 
@@ -3622,6 +3699,12 @@ public class Bird {
                     0.90, 1.00, 0.54, 1.88, 1.88, 24, 12, 6);
             case DOWN_AIR -> new NormalAttackProfile(94.0, 142.0, 0.0, 50.0,
                     1.04, 1.10, 0.72, 0.32, -1.02, 28, 14, 12);
+            case DASH_ATTACK -> new NormalAttackProfile(150.0, 86.0, facingDir * 40.0, -1.0,
+                    0.96, 1.00, 1.28, 0.72, 0.72, 27, 13, AERIAL_LANDING_LAG_FRAMES);
+            case LEDGE_ATTACK -> new NormalAttackProfile(136.0, 80.0, facingDir * 28.0, 2.0,
+                    0.86, 0.90, 1.08, 0.68, 0.68, 25, 13, AERIAL_LANDING_LAG_FRAMES);
+            case GETUP_ATTACK -> new NormalAttackProfile(146.0, 76.0, 0.0, 17.0,
+                    0.82, 0.86, 0.98, 0.58, 0.58, 28, 14, AERIAL_LANDING_LAG_FRAMES);
         };
     }
 
@@ -4374,7 +4457,8 @@ public class Bird {
         }
 
         cancelAttackCharge();
-        attackHeldLastFrame = attackPressed();
+        boolean attackHeld = attackPressed();
+        boolean pummelPressed = attackHeld && !attackHeldLastFrame;
         isBlocking = false;
         parryWindowFrames = 0;
         shieldStunFrames = 0;
@@ -4394,11 +4478,48 @@ public class Bird {
             grabHoldTimer--;
         }
 
+        boolean pummeled = pummelPressed && grabThrowLockTimer <= 0 && performGrabPummel(target);
         GrabThrowDirection direction = throwDirectionFromInput();
-        if (direction != GrabThrowDirection.NONE && grabThrowLockTimer <= 0) {
+        if (!pummeled && direction != GrabThrowDirection.NONE && grabThrowLockTimer <= 0) {
             performThrow(direction);
-        } else if (grabHoldTimer <= 0) {
+        } else if (!pummeled && grabHoldTimer <= 0) {
             performThrow(GrabThrowDirection.FORWARD);
+        }
+        attackHeldLastFrame = attackHeld;
+        return true;
+    }
+
+    private boolean performGrabPummel(Bird target) {
+        if (target == null || target.grabbedBy != this || target.health <= 0) {
+            return false;
+        }
+        int rawDamage = type == BirdGame3.BirdType.PIGEON ? 3 : 2;
+        String moveName = type == BirdGame3.BirdType.PIGEON
+                ? "Pigeon Bread Peck"
+                : type.name + " Pummel";
+        game.recordNormalMoveUse(this, moveName);
+        // Ordinary damage breaks grabs. A pummel is the exception: temporarily
+        // hide the victim-side link while the shared damage pipeline runs, then
+        // restore the same deterministic hold if the victim survives.
+        target.grabbedBy = null;
+        double dealtDamage = applyUnshieldedDamageTo(target, rawDamage);
+        if (grabbedTarget == target && target.health > 0) {
+            target.grabbedBy = this;
+        }
+        game.damageDealt[playerIndex] += (int) Math.round(dealtDamage);
+        if (dealtDamage > 0.0) {
+            game.recordNormalMoveImpact(this, moveName, (int) Math.round(dealtDamage), false);
+            spawnDamageParticles(target, dealtDamage);
+            game.playHitSound(dealtDamage);
+        }
+        grabThrowLockTimer = 10;
+        grabHoldTimer = Math.max(1, grabHoldTimer - 8);
+        attackAnimationTimer = Math.max(attackAnimationTimer, 7);
+        game.hitstopFrames = Math.max(game.hitstopFrames, 2);
+        if (target.health <= 0) {
+            releaseGrabState(true);
+        } else {
+            syncGrabbedTargetPosition();
         }
         return true;
     }
@@ -4443,43 +4564,7 @@ public class Bird {
         }
 
         double facingDir = facingRight ? 1.0 : -1.0;
-        int rawDamage;
-        double launchX;
-        double launchY;
-        int stunFrames;
-        String verb;
-
-        switch (direction) {
-            case BACK -> {
-                rawDamage = THROW_BACK_DAMAGE;
-                launchX = -facingDir * 20.0;
-                launchY = -8.2;
-                stunFrames = 18;
-                verb = "back-threw";
-            }
-            case UP -> {
-                rawDamage = THROW_UP_DAMAGE;
-                launchX = facingDir * 4.2;
-                launchY = -17.0;
-                stunFrames = 20;
-                verb = "up-threw";
-            }
-            case DOWN -> {
-                rawDamage = THROW_DOWN_DAMAGE;
-                launchX = facingDir * 6.0;
-                launchY = -3.4;
-                stunFrames = 24;
-                verb = "down-threw";
-            }
-            case FORWARD, NONE -> {
-                rawDamage = THROW_FORWARD_DAMAGE;
-                launchX = facingDir * 18.0;
-                launchY = -6.8;
-                stunFrames = 16;
-                verb = "forward-threw";
-            }
-            default -> throw new IllegalStateException("Unexpected value: " + direction);
-        }
+        ThrowProfile profile = throwProfile(direction, facingDir);
 
         clearGrabLink(target);
         grabHoldTimer = 0;
@@ -4492,11 +4577,11 @@ public class Bird {
         game.recordNormalMoveUse(this, moveName);
 
         double oldHealth = target.health;
-        double dealtDamage = applyUnshieldedDamageTo(target, rawDamage);
-        target.vx += launchX;
-        target.vy = Math.min(target.vy, launchY);
+        double dealtDamage = applyUnshieldedDamageTo(target, profile.damage());
+        target.vx += profile.launchX();
+        target.vy = Math.min(target.vy, profile.launchY());
         if (target.health > 0) {
-            target.applyStun(stunFrames);
+            target.applyStun(profile.stunFrames());
             target.applyPendingSmashLaunch();
         }
 
@@ -4519,14 +4604,39 @@ public class Bird {
             spawnDamageParticles(target, dealtDamage);
         }
         if (dealtDamage >= 4.0) {
-            game.addToKillFeed(shortName() + " " + verb + " " + target.shortName() + "! -" + (int) Math.round(dealtDamage) + " HP");
+            game.addToKillFeed(shortName() + " " + profile.verb() + " " + target.shortName() + "! -" + (int) Math.round(dealtDamage) + " HP");
             game.playHitSound(dealtDamage);
         }
         game.hitstopFrames = Math.max(game.hitstopFrames, 4);
         game.shakeIntensity = Math.max(game.shakeIntensity, 5.0);
     }
 
+    private ThrowProfile throwProfile(GrabThrowDirection direction, double facingDir) {
+        if (type == BirdGame3.BirdType.PIGEON) {
+            return switch (direction) {
+                case BACK -> new ThrowProfile(7, -facingDir * 21.5, -7.6, 18, "gutter-tossed");
+                case UP -> new ThrowProfile(6, facingDir * 3.4, -18.4, 21, "chimney-launched");
+                case DOWN -> new ThrowProfile(8, facingDir * 5.0, -2.8, 25, "curb-bounced");
+                case FORWARD, NONE -> new ThrowProfile(7, facingDir * 18.8, -6.2, 16, "parcel-tossed");
+            };
+        }
+        return switch (direction) {
+            case BACK -> new ThrowProfile(THROW_BACK_DAMAGE, -facingDir * 20.0, -8.2, 18, "back-threw");
+            case UP -> new ThrowProfile(THROW_UP_DAMAGE, facingDir * 4.2, -17.0, 20, "up-threw");
+            case DOWN -> new ThrowProfile(THROW_DOWN_DAMAGE, facingDir * 6.0, -3.4, 24, "down-threw");
+            case FORWARD, NONE -> new ThrowProfile(THROW_FORWARD_DAMAGE, facingDir * 18.0, -6.8, 16, "forward-threw");
+        };
+    }
+
     private String throwTelemetryName(GrabThrowDirection direction) {
+        if (type == BirdGame3.BirdType.PIGEON) {
+            return switch (direction) {
+                case BACK -> "Pigeon Gutter Toss";
+                case UP -> "Pigeon Chimney Launch";
+                case DOWN -> "Pigeon Curb Bounce";
+                case FORWARD, NONE -> "Pigeon Parcel Toss";
+            };
+        }
         String label = switch (direction) {
             case BACK -> "Back Throw";
             case UP -> "Up Throw";
@@ -4638,7 +4748,11 @@ public class Bird {
         } else {
             game.playButterSfx();
         }
-        activeAttackVariant = variant;
+        if (variant == NormalAttackVariant.DASH_ATTACK) {
+            dashTimer = 0;
+            double dashCarry = Math.max(10.0, type.speed * speedMultiplier * 1.55);
+            vx = (facingRight ? 1.0 : -1.0) * dashCarry;
+        }
         attackCooldown = scaledAttackCooldown(profile.cooldownFrames()) + (int) Math.round(chargeRatio * 18.0);
         attackAnimationTimer = profile.animationFrames() + (int) Math.round(chargeRatio * 10.0);
         if (!isOnGround()) {
@@ -4652,10 +4766,32 @@ public class Bird {
                 addRavenGroundPortent(portentX, ravenPortentSurfaceY(portentX), false);
             }
         }
+        // clearAerialAttackState intentionally clears stale landing state and
+        // resets the old visual variant, so assign this move after that cleanup.
+        activeAttackVariant = variant;
         cancelAttackCharge();
     }
 
     private String normalAttackTelemetryName(NormalAttackVariant variant) {
+        if (type == BirdGame3.BirdType.PIGEON) {
+            return switch (variant) {
+                case NEUTRAL -> "Pigeon Rooftop Peck";
+                case SIDE_TILT -> "Pigeon Double Peck";
+                case UP_TILT -> "Pigeon Awning Wing";
+                case DOWN_TILT -> "Pigeon Curb Sweep";
+                case SIDE_SMASH -> "Pigeon Mailroom Ram";
+                case UP_SMASH -> "Pigeon Fire-Escape Flap";
+                case DOWN_SMASH -> "Pigeon Rooftop Rake";
+                case NEUTRAL_AIR -> "Pigeon Wing Wheel";
+                case FORWARD_AIR -> "Pigeon Beak Lance";
+                case BACK_AIR -> "Pigeon Tail Draft";
+                case UP_AIR -> "Pigeon Sky Clap";
+                case DOWN_AIR -> "Pigeon Heel Drop";
+                case DASH_ATTACK -> "Pigeon Rooftop Shoulder Check";
+                case LEDGE_ATTACK -> "Pigeon Gutter Snap";
+                case GETUP_ATTACK -> "Pigeon Scatterwing";
+            };
+        }
         String label = switch (variant) {
             case NEUTRAL -> "Neutral Attack";
             case SIDE_TILT -> "Side Tilt";
@@ -4669,6 +4805,9 @@ public class Bird {
             case BACK_AIR -> "Back Air";
             case UP_AIR -> "Up Air";
             case DOWN_AIR -> "Down Air";
+            case DASH_ATTACK -> "Dash Attack";
+            case LEDGE_ATTACK -> "Ledge Attack";
+            case GETUP_ATTACK -> "Get-Up Attack";
         };
         return type.name + " " + label;
     }
@@ -11621,6 +11760,8 @@ public class Bird {
             return;
         }
 
+        handleGroundedGetupAttack(stunned, airborne);
+
         if (type == BirdGame3.BirdType.BAT && handleBatHanging(stunned)) {
             rememberFrameInputs(jumpHeld, specialHeld, blockHeld, grabHeld, leftHeld, rightHeld);
             handleTaunts();
@@ -13066,6 +13207,22 @@ public class Bird {
 
     private void clearKnockdownState() {
         knockdownTimer = 0;
+    }
+
+    private boolean handleGroundedGetupAttack(boolean stunned, boolean airborne) {
+        boolean attackHeld = attackPressed();
+        if (stunned || airborne || knockdownTimer <= 0 || attackCooldown > 0
+                || !attackHeld || attackHeldLastFrame) {
+            return false;
+        }
+        clearKnockdownState();
+        clearActiveDodge();
+        vx = 0.0;
+        vy = 0.0;
+        dodgeInvulnerabilityTimer = Math.max(dodgeInvulnerabilityTimer, 8);
+        performAttack(0, NormalAttackVariant.GETUP_ATTACK);
+        attackHeldLastFrame = true;
+        return true;
     }
 
     private void clearLandingTechCombatState() {
@@ -23559,6 +23716,18 @@ public class Bird {
                     normalizeAngleRadians(Math.PI / 2.0 - dir * 0.12),
                     13.0 * phase, 15.0 * phase, 12.0 * phase, 1.12 + 0.18 * phase,
                     34.0 * phase, 1.03 + 0.02 * phase, 0.92);
+            case DASH_ATTACK -> new AttackVisualPose(dir * (13.0 + 9.0 * phase), 2.0 * phase,
+                    dir * (10.0 + 7.0 * phase), facingRight ? -0.10 : Math.PI + 0.10,
+                    12.0 * phase, -2.0 * phase, 10.0 * phase, 1.10 + 0.16 * phase,
+                    dir * 9.0 * phase, 1.10 + 0.06 * phase, 0.92);
+            case LEDGE_ATTACK -> new AttackVisualPose(dir * (9.0 + 6.0 * phase), 4.0 * phase,
+                    dir * (8.0 + 5.0 * phase), facingRight ? -0.06 : Math.PI + 0.06,
+                    10.0 * phase, 1.0 * phase, 8.0 * phase, 1.08 + 0.12 * phase,
+                    dir * 6.0 * phase, 1.06 + 0.04 * phase, 0.95);
+            case GETUP_ATTACK -> new AttackVisualPose(0.0, 5.0 * phase, dir * 3.0 * phase,
+                    facingRight ? 0.0 : Math.PI,
+                    7.0 * phase, 5.0 * phase, 6.0 * phase, 1.06 + 0.12 * phase,
+                    dir * 26.0 * phase, 1.12 + 0.05 * phase, 0.90);
             };
         }
         return addAttackVisualPose(basePose, currentAnimationLayerPose(variant));
@@ -23804,7 +23973,7 @@ public class Bird {
         }
 
         switch (variant) {
-            case NEUTRAL, NEUTRAL_AIR -> {
+            case NEUTRAL, NEUTRAL_AIR, GETUP_ATTACK -> {
                 double ringRadius = (drawSize * 0.42) + (charging ? 8.0 : 14.0) * s + phase * 10.0 * s;
                 g.setStroke(Color.WHITE.deriveColor(0, 1, 1, alpha));
                 g.setLineWidth((charging ? 2.2 : 3.2) * s);
@@ -23815,7 +23984,7 @@ public class Bird {
                         ringRadius * 1.56, ringRadius * 1.56,
                         40 + phase * 45, 220, ArcType.OPEN);
             }
-            case SIDE_TILT, SIDE_SMASH, FORWARD_AIR -> {
+            case SIDE_TILT, SIDE_SMASH, FORWARD_AIR, DASH_ATTACK, LEDGE_ATTACK -> {
                 boolean smash = variant == NormalAttackVariant.SIDE_SMASH;
                 double reach = (smash ? 64.0 : 50.0) * s + phase * (smash ? 18.0 : 12.0) * s;
                 double attackY = centerY + (charging ? -4.0 : 0.0) * s;
