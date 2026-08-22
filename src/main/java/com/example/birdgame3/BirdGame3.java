@@ -1316,6 +1316,11 @@ public class BirdGame3 {
         playManagedSfxVaried(swingClip, 0.62 + charge * 0.22, 0.88 - charge * 0.12, 0.035);
     }
 
+    void playFalconAttackWhoosh(double chargeRatio) {
+        double charge = Math.clamp(chargeRatio, 0.0, 1.0);
+        playManagedSfxVaried(swingClip, 0.54 + charge * 0.18, 1.42 - charge * 0.20, 0.05);
+    }
+
     void playPigeonFeatherBurstSfx(boolean ultimate) {
         playManagedSfxVaried(swingClip, ultimate ? 0.72 : 0.56, ultimate ? 1.42 : 1.58, 0.035);
     }
@@ -46058,7 +46063,7 @@ public class BirdGame3 {
                 ClassicEncounterStyle.STANDARD,
                 105 * 60,
                 new ClassicFighter[]{
-                        classicFighter(BirdType.EAGLE, "Ally: Sky King", 118, 1.04, 1.08, "SKY_KING_EAGLE")
+                        classicFighter(BirdType.EAGLE, "Ally: Sky King", 104, 0.94, 1.04, "SKY_KING_EAGLE")
                 },
                 new ClassicFighter[]{
                         classicFighter(BirdType.RAVEN, "Night Prey: Raven", 122, 1.04, 1.08),
