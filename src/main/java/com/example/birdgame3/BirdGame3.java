@@ -1326,6 +1326,11 @@ public class BirdGame3 {
         playManagedSfxVaried(swingClip, 0.60 + charge * 0.24, 1.12 - charge * 0.16, 0.045);
     }
 
+    void playHummingbirdAttackWhoosh(double chargeRatio) {
+        double charge = Math.clamp(chargeRatio, 0.0, 1.0);
+        playManagedSfxVaried(swingClip, 0.46 + charge * 0.16, 1.56 - charge * 0.18, 0.055);
+    }
+
     void playPigeonFeatherBurstSfx(boolean ultimate) {
         playManagedSfxVaried(swingClip, ultimate ? 0.72 : 0.56, ultimate ? 1.42 : 1.58, 0.035);
     }
@@ -46345,12 +46350,12 @@ public class BirdGame3 {
         ClassicEncounter tailwind = new ClassicEncounter(
                 "Tailwind Team", "Rooftop Relay",
                 "Roadrunner carries the ground lane while Hummingbird races Falcon and Eagle through the sky lane.",
-                MapType.CITY, MapVariant.ROOFTOP_RELAY, MatchMutator.TURBO_BRAWL, ClassicTwist.NECTAR_CHAIN,
+                MapType.CITY, MapVariant.ROOFTOP_RELAY, MatchMutator.NONE, ClassicTwist.NECTAR_CHAIN,
                 ClassicEncounterStyle.STANDARD, 105 * 60,
                 new ClassicFighter[]{classicFighter(BirdType.ROADRUNNER, "Ally: Tailwind Runner", 112, 1.00, 1.15)},
                 new ClassicFighter[]{
-                        classicFighter(BirdType.FALCON, "Tailwind Rival: Falcon", 118, 1.04, 1.12),
-                        classicFighter(BirdType.EAGLE, "Tailwind Rival: Eagle", 126, 1.05, 1.04)}, false);
+                        classicFighter(BirdType.FALCON, "Tailwind Rival: Falcon", 104, 0.88, 1.04),
+                        classicFighter(BirdType.EAGLE, "Tailwind Rival: Eagle", 112, 0.90, 0.98)}, false);
         tailwind.cpuLevel = 6;
         run.add(tailwind);
 
@@ -50103,8 +50108,8 @@ public class BirdGame3 {
                         1.06
                 );
             } else if (encounter.style == ClassicEncounterStyle.BLIGHTWING_BOSS) {
-                bird.health = Math.max(1.0, 225.0 * enemyHealthScale);
-                bird.setBaseMultipliers(1.55, 1.15 * enemyPowerScale, 1.07);
+                bird.health = Math.max(1.0, 255.0 * enemyHealthScale);
+                bird.setBaseMultipliers(1.55, 1.22 * enemyPowerScale, 1.10);
             } else if (encounter.style == ClassicEncounterStyle.HARVEST_DEFENSE) {
                 scaleBossRushBird(bird, 0.62, 0.92, 1.08);
                 bird.setUltimateEnabled(false);
