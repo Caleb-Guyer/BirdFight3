@@ -5081,6 +5081,7 @@ public class Bird {
             case OPIUMBIRD -> 2;
             case HEISENBIRD -> 2;
             case RAVEN -> 2;
+            case GOOSE -> 3;
             default -> 2;
         };
         String moveName = switch (type) {
@@ -5101,6 +5102,7 @@ public class Bird {
             case OPIUMBIRD -> "Opium Bird Dream Tap";
             case HEISENBIRD -> "Heisenbird Crystal Check";
             case RAVEN -> "Raven Omen Prick";
+            case GOOSE -> "Goose Beak Clamp";
             default -> type.name + " Pummel";
         };
         game.recordNormalMoveUse(this, moveName);
@@ -5135,6 +5137,7 @@ public class Bird {
             case OPIUMBIRD -> 8;
             case HEISENBIRD -> 9;
             case RAVEN -> 8;
+            case GOOSE -> 10;
             default -> 10;
         };
         int grabHoldCost = switch (type) {
@@ -5154,6 +5157,7 @@ public class Bird {
             case OPIUMBIRD -> 6;
             case HEISENBIRD -> 7;
             case RAVEN -> 6;
+            case GOOSE -> 8;
             default -> 8;
         };
         grabHoldTimer = Math.max(1, grabHoldTimer - grabHoldCost);
@@ -5391,6 +5395,14 @@ public class Bird {
                 case FORWARD, NONE -> new ThrowProfile(7, facingDir * 18.8, -5.8, 15, "written-out");
             };
         }
+        if (type == BirdGame3.BirdType.GOOSE) {
+            return switch (direction) {
+                case BACK -> new ThrowProfile(9, -facingDir * 20.5, -7.0, 18, "rearguard-cast");
+                case UP -> new ThrowProfile(7, facingDir * 3.0, -18.2, 20, "formation-lifted");
+                case DOWN -> new ThrowProfile(8, facingDir * 5.0, -3.0, 23, "nest-evicted");
+                case FORWARD, NONE -> new ThrowProfile(8, facingDir * 19.5, -6.2, 17, "border-shoved");
+            };
+        }
         return switch (direction) {
             case BACK -> new ThrowProfile(THROW_BACK_DAMAGE, -facingDir * 20.0, -8.2, 18, "back-threw");
             case UP -> new ThrowProfile(THROW_UP_DAMAGE, facingDir * 4.2, -17.0, 20, "up-threw");
@@ -5536,6 +5548,14 @@ public class Bird {
                 case FORWARD, NONE -> "Raven Final Draft";
             };
         }
+        if (type == BirdGame3.BirdType.GOOSE) {
+            return switch (direction) {
+                case BACK -> "Goose Rearguard Cast";
+                case UP -> "Goose V-Formation Toss";
+                case DOWN -> "Goose Nest Eviction";
+                case FORWARD, NONE -> "Goose Open-Border Shove";
+            };
+        }
         String label = switch (direction) {
             case BACK -> "Back Throw";
             case UP -> "Up Throw";
@@ -5676,6 +5696,8 @@ public class Bird {
             game.playHeisenbirdAttackWhoosh(chargeRatio);
         } else if (type == BirdGame3.BirdType.RAVEN) {
             game.playRavenAttackWhoosh(chargeRatio);
+        } else if (type == BirdGame3.BirdType.GOOSE) {
+            game.playGooseAttackWhoosh(chargeRatio);
         } else {
             game.playButterSfx();
         }
@@ -6025,6 +6047,25 @@ public class Bird {
                 case DASH_ATTACK -> "Raven Shadow Entry";
                 case LEDGE_ATTACK -> "Raven Margin Cut";
                 case GETUP_ATTACK -> "Raven Revised Fate";
+            };
+        }
+        if (type == BirdGame3.BirdType.GOOSE) {
+            return switch (variant) {
+                case NEUTRAL -> "Goose Border Peck";
+                case SIDE_TILT -> "Goose Neck Check";
+                case UP_TILT -> "Goose Airspace Claim";
+                case DOWN_TILT -> "Goose Nest Sweep";
+                case SIDE_SMASH -> "Goose Border Breaker";
+                case UP_SMASH -> "Goose Flightpath Verdict";
+                case DOWN_SMASH -> "Goose Territory Circle";
+                case NEUTRAL_AIR -> "Goose Formation Wheel";
+                case FORWARD_AIR -> "Goose Beak Lance";
+                case BACK_AIR -> "Goose Rearguard Wing";
+                case UP_AIR -> "Goose V-Formation Rise";
+                case DOWN_AIR -> "Goose Migration Drop";
+                case DASH_ATTACK -> "Goose Runway Charge";
+                case LEDGE_ATTACK -> "Goose Riverbank Snap";
+                case GETUP_ATTACK -> "Goose No-Fly Zone";
             };
         }
         String label = switch (variant) {
@@ -18852,6 +18893,53 @@ public class Bird {
         state.nullRockSideReuseTimer = nullRockSideReuseTimer;
         state.nullRockUpReuseTimer = nullRockUpReuseTimer;
         state.nullRockDownReuseTimer = nullRockDownReuseTimer;
+        state.gooseTerritoryMeter = gooseTerritoryMeter;
+        state.gooseHonkTimer = gooseHonkTimer;
+        state.gooseHonkHoldFrames = gooseHonkHoldFrames;
+        state.gooseHonkDirection = gooseHonkDirection;
+        state.gooseHonkReuseTimer = gooseHonkReuseTimer;
+        state.gooseHonkUltimate = gooseHonkUltimate;
+        state.gooseHonkEmpowered = gooseHonkEmpowered;
+        state.gooseHonkReleased = gooseHonkReleased;
+        System.arraycopy(gooseHonkHit, 0, state.gooseHonkHit, 0, gooseHonkHit.length);
+        state.gooseBargeTimer = gooseBargeTimer;
+        state.gooseBargeDirection = gooseBargeDirection;
+        state.gooseBargeReuseTimer = gooseBargeReuseTimer;
+        state.gooseBargeUltimate = gooseBargeUltimate;
+        state.gooseBargeEmpowered = gooseBargeEmpowered;
+        System.arraycopy(gooseBargeHit, 0, state.gooseBargeHit, 0, gooseBargeHit.length);
+        state.gooseLiftTimer = gooseLiftTimer;
+        state.gooseLiftDirection = gooseLiftDirection;
+        state.gooseLiftReuseTimer = gooseLiftReuseTimer;
+        state.gooseLiftUsed = gooseLiftUsed;
+        state.gooseLiftUltimate = gooseLiftUltimate;
+        state.gooseLiftEmpowered = gooseLiftEmpowered;
+        System.arraycopy(gooseLiftHit, 0, state.gooseLiftHit, 0, gooseLiftHit.length);
+        state.gooseNestGuardTimer = gooseNestGuardTimer;
+        state.gooseNestReuseTimer = gooseNestReuseTimer;
+        state.gooseNestCounterTimer = gooseNestCounterTimer;
+        state.gooseNestGuardUltimate = gooseNestGuardUltimate;
+        state.gooseNestCounterUltimate = gooseNestCounterUltimate;
+        state.gooseNestEmpowered = gooseNestEmpowered;
+        System.arraycopy(gooseNestCounterHit, 0, state.gooseNestCounterHit, 0,
+                gooseNestCounterHit.length);
+        state.gooseNestActive = gooseNest != null;
+        if (gooseNest != null) {
+            state.gooseNestX = gooseNest.x;
+            state.gooseNestY = gooseNest.y;
+            state.gooseNestLifeFrames = gooseNest.lifeFrames;
+            state.gooseNestAgeFrames = gooseNest.ageFrames;
+            state.gooseNestPulseCooldown = gooseNest.pulseCooldown;
+            state.gooseNestUltimate = gooseNest.ultimate;
+        }
+        state.gooseUltimateTimer = gooseUltimateTimer;
+        state.gooseUltimateDirection = gooseUltimateDirection;
+        state.gooseUltimateWaveIndex = gooseUltimateWaveIndex;
+        state.gooseUltimateFinalHitResolved = gooseUltimateFinalHitResolved;
+        System.arraycopy(gooseUltimateMarked, 0, state.gooseUltimateMarked, 0,
+                gooseUltimateMarked.length);
+        System.arraycopy(gooseUltimateHitCooldown, 0, state.gooseUltimateHitCooldown, 0,
+                gooseUltimateHitCooldown.length);
         return state;
     }
 
@@ -19681,6 +19769,63 @@ public class Bird {
         this.nullRockSideReuseTimer = Math.max(0, state.nullRockSideReuseTimer);
         this.nullRockUpReuseTimer = Math.max(0, state.nullRockUpReuseTimer);
         this.nullRockDownReuseTimer = Math.max(0, state.nullRockDownReuseTimer);
+        this.gooseTerritoryMeter = Math.clamp(state.gooseTerritoryMeter, 0.0, GOOSE_TERRITORY_MAX);
+        this.gooseHonkTimer = Math.max(0, state.gooseHonkTimer);
+        this.gooseHonkHoldFrames = Math.max(0, state.gooseHonkHoldFrames);
+        this.gooseHonkDirection = state.gooseHonkDirection == 0 ? facingDirection() : state.gooseHonkDirection;
+        this.gooseHonkReuseTimer = Math.max(0, state.gooseHonkReuseTimer);
+        this.gooseHonkUltimate = state.gooseHonkUltimate;
+        this.gooseHonkEmpowered = state.gooseHonkEmpowered;
+        this.gooseHonkReleased = state.gooseHonkReleased;
+        Arrays.fill(this.gooseHonkHit, false);
+        System.arraycopy(state.gooseHonkHit, 0, this.gooseHonkHit, 0,
+                Math.min(this.gooseHonkHit.length, state.gooseHonkHit.length));
+        this.gooseBargeTimer = Math.max(0, state.gooseBargeTimer);
+        this.gooseBargeDirection = state.gooseBargeDirection == 0 ? facingDirection() : state.gooseBargeDirection;
+        this.gooseBargeReuseTimer = Math.max(0, state.gooseBargeReuseTimer);
+        this.gooseBargeUltimate = state.gooseBargeUltimate;
+        this.gooseBargeEmpowered = state.gooseBargeEmpowered;
+        Arrays.fill(this.gooseBargeHit, false);
+        System.arraycopy(state.gooseBargeHit, 0, this.gooseBargeHit, 0,
+                Math.min(this.gooseBargeHit.length, state.gooseBargeHit.length));
+        this.gooseLiftTimer = Math.max(0, state.gooseLiftTimer);
+        this.gooseLiftDirection = state.gooseLiftDirection == 0 ? facingDirection() : state.gooseLiftDirection;
+        this.gooseLiftReuseTimer = Math.max(0, state.gooseLiftReuseTimer);
+        this.gooseLiftUsed = state.gooseLiftUsed;
+        this.gooseLiftUltimate = state.gooseLiftUltimate;
+        this.gooseLiftEmpowered = state.gooseLiftEmpowered;
+        Arrays.fill(this.gooseLiftHit, false);
+        System.arraycopy(state.gooseLiftHit, 0, this.gooseLiftHit, 0,
+                Math.min(this.gooseLiftHit.length, state.gooseLiftHit.length));
+        this.gooseNestGuardTimer = Math.max(0, state.gooseNestGuardTimer);
+        this.gooseNestReuseTimer = Math.max(0, state.gooseNestReuseTimer);
+        this.gooseNestCounterTimer = Math.max(0, state.gooseNestCounterTimer);
+        this.gooseNestGuardUltimate = state.gooseNestGuardUltimate;
+        this.gooseNestCounterUltimate = state.gooseNestCounterUltimate;
+        this.gooseNestEmpowered = state.gooseNestEmpowered;
+        Arrays.fill(this.gooseNestCounterHit, false);
+        System.arraycopy(state.gooseNestCounterHit, 0, this.gooseNestCounterHit, 0,
+                Math.min(this.gooseNestCounterHit.length, state.gooseNestCounterHit.length));
+        if (state.gooseNestActive) {
+            this.gooseNest = new GooseSpecials.GooseNest(
+                    state.gooseNestX, state.gooseNestY, state.gooseNestUltimate);
+            this.gooseNest.lifeFrames = Math.max(0, state.gooseNestLifeFrames);
+            this.gooseNest.ageFrames = Math.max(0, state.gooseNestAgeFrames);
+            this.gooseNest.pulseCooldown = Math.max(0, state.gooseNestPulseCooldown);
+        } else {
+            this.gooseNest = null;
+        }
+        this.gooseUltimateTimer = Math.max(0, state.gooseUltimateTimer);
+        this.gooseUltimateDirection = state.gooseUltimateDirection == 0
+                ? facingDirection() : state.gooseUltimateDirection;
+        this.gooseUltimateWaveIndex = Math.max(0, state.gooseUltimateWaveIndex);
+        this.gooseUltimateFinalHitResolved = state.gooseUltimateFinalHitResolved;
+        Arrays.fill(this.gooseUltimateMarked, false);
+        System.arraycopy(state.gooseUltimateMarked, 0, this.gooseUltimateMarked, 0,
+                Math.min(this.gooseUltimateMarked.length, state.gooseUltimateMarked.length));
+        Arrays.fill(this.gooseUltimateHitCooldown, 0);
+        System.arraycopy(state.gooseUltimateHitCooldown, 0, this.gooseUltimateHitCooldown, 0,
+                Math.min(this.gooseUltimateHitCooldown.length, state.gooseUltimateHitCooldown.length));
         updateDisplayPose(1.0);
     }
 
@@ -23299,6 +23444,73 @@ public class Bird {
         };
     }
 
+    private AttackVisualPose currentGooseNormalAttackPose(NormalAttackVariant variant, double phase) {
+        double dir = facingRight ? 1.0 : -1.0;
+        double p = Math.clamp(phase, 0.0, 1.0);
+        return switch (variant) {
+            case NEUTRAL -> new AttackVisualPose(dir * (6.0 + 5.0 * p), -1.0 * p,
+                    -dir * (2.0 + p), aimAngleForLocalPitch(-0.03),
+                    9.0 * p, -2.0 * p, 8.0 * p, 0.96,
+                    dir * 4.0 * p, 1.16, 0.84);
+            case SIDE_TILT -> new AttackVisualPose(dir * (12.0 + 10.0 * p), -2.0 * p,
+                    -dir * (5.0 + 2.0 * p), aimAngleForLocalPitch(-0.08),
+                    17.0 * p, -4.0 * p, 14.0 * p, 0.92,
+                    dir * 9.0 * p, 1.42, 0.67);
+            case UP_TILT -> new AttackVisualPose(dir * 1.0 * p, -10.0 * p,
+                    dir * 4.0 * p, aimAngleForLocalPitch(-1.34),
+                    16.0 * p, -20.0 * p, 10.0 * p, 1.02,
+                    -dir * 16.0 * p, 0.88, 1.20);
+            case DOWN_TILT -> new AttackVisualPose(dir * (8.0 + 6.0 * p), -1.0 * p,
+                    -dir * 6.0 * p, aimAngleForLocalPitch(0.26),
+                    14.0 * p, 6.0 * p, 12.0 * p, 0.82,
+                    dir * 12.0 * p, 1.34, 0.66);
+            case SIDE_SMASH -> new AttackVisualPose(dir * (19.0 + 16.0 * p), -4.0 * p,
+                    -dir * (9.0 + 3.0 * p), aimAngleForLocalPitch(-0.10),
+                    25.0 * p, -7.0 * p, 18.0 * p, 1.02,
+                    dir * 14.0 * p, 1.52, 0.56);
+            case UP_SMASH -> new AttackVisualPose(dir * 1.0 * p, -15.0 * p,
+                    -dir * 6.0 * p, aimAngleForLocalPitch(-1.49),
+                    20.0 * p, -29.0 * p, 14.0 * p, 1.08,
+                    -dir * 20.0 * p, 0.80, 1.41);
+            case DOWN_SMASH -> new AttackVisualPose(0.0, -3.0 * p,
+                    dir * (6.0 + 2.0 * p), aimAngleForLocalPitch(0.14),
+                    8.0 * p, 6.0 * p, 8.0 * p, 0.82,
+                    dir * 62.0 * p, 1.46, 0.58);
+            case NEUTRAL_AIR -> new AttackVisualPose(dir * 1.0 * p, -9.0 * p,
+                    dir * (30.0 + 92.0 * p), aimAngleForLocalPitch(-0.02),
+                    8.0 * p, -8.0 * p, 9.0 * p, 0.90,
+                    dir * 136.0 * p, 1.30, 0.73);
+            case FORWARD_AIR -> new AttackVisualPose(dir * (16.0 + 14.0 * p), -8.0 * p,
+                    -dir * (7.0 + 2.0 * p), aimAngleForLocalPitch(-0.14),
+                    22.0 * p, -10.0 * p, 17.0 * p, 0.92,
+                    dir * 27.0 * p, 1.44, 0.61);
+            case BACK_AIR -> new AttackVisualPose(-dir * (15.0 + 13.0 * p), -7.0 * p,
+                    -dir * (13.0 + 7.0 * p), aimAngleForLocalPitch(0.08),
+                    4.0 * p, -5.0 * p, 5.0 * p, 0.80,
+                    -dir * 45.0 * p, 1.46, 0.59);
+            case UP_AIR -> new AttackVisualPose(dir * 1.0 * p, -19.0 * p,
+                    dir * 5.0 * p, aimAngleForLocalPitch(-1.45),
+                    19.0 * p, -27.0 * p, 13.0 * p, 1.05,
+                    -dir * 35.0 * p, 0.77, 1.42);
+            case DOWN_AIR -> new AttackVisualPose(dir * 2.0 * p, 16.0 * p,
+                    dir * 6.0 * p, aimAngleForLocalPitch(1.44),
+                    13.0 * p, 24.0 * p, 12.0 * p, 0.86,
+                    dir * 39.0 * p, 0.74, 1.42);
+            case DASH_ATTACK -> new AttackVisualPose(dir * (25.0 + 21.0 * p), -5.0 * p,
+                    -dir * (8.0 + 2.0 * p), aimAngleForLocalPitch(-0.09),
+                    18.0 * p, -6.0 * p, 15.0 * p, 0.97,
+                    dir * 18.0 * p, 1.51, 0.54);
+            case LEDGE_ATTACK -> new AttackVisualPose(dir * (14.0 + 11.0 * p), -4.0 * p,
+                    -dir * 5.0 * p, aimAngleForLocalPitch(-0.06),
+                    15.0 * p, -3.0 * p, 12.0 * p, 0.91,
+                    dir * 14.0 * p, 1.35, 0.65);
+            case GETUP_ATTACK -> new AttackVisualPose(0.0, -4.0 * p,
+                    dir * (7.0 + 2.0 * p), aimAngleForLocalPitch(-0.01),
+                    7.0 * p, 3.0 * p, 7.0 * p, 0.82,
+                    dir * 74.0 * p, 1.42, 0.59);
+        };
+    }
+
     private BirdVisualProfile currentVisualProfile() {
         return switch (type) {
             case PIGEON -> PIGEON_VISUAL_PROFILE;
@@ -26029,6 +26241,8 @@ public class Bird {
             basePose = currentHeisenbirdNormalAttackPose(variant, phase);
         } else if (type == BirdGame3.BirdType.RAVEN) {
             basePose = currentRavenNormalAttackPose(variant, phase);
+        } else if (type == BirdGame3.BirdType.GOOSE) {
+            basePose = currentGooseNormalAttackPose(variant, phase);
         } else {
             basePose = switch (variant) {
             case NEUTRAL -> new AttackVisualPose(dir * 3.0 * phase, -2.0 * phase, dir * 4.0 * phase,
@@ -26405,6 +26619,11 @@ public class Bird {
         }
         if (type == BirdGame3.BirdType.RAVEN) {
             drawRavenNormalAttackFx(g, drawSize, variant, phase, alpha, glowAlpha, charging);
+            g.restore();
+            return;
+        }
+        if (type == BirdGame3.BirdType.GOOSE) {
+            drawGooseNormalAttackFx(g, drawSize, variant, phase, alpha, glowAlpha, charging);
             g.restore();
             return;
         }
@@ -28371,6 +28590,138 @@ public class Bird {
                     g.strokeLine(centerX + cos * radius * 0.70,
                             centerY + sin * radius * verticalScale * 0.70,
                             centerX + cos * (radius + 12.0 * s),
+                            centerY + sin * (radius * verticalScale + 8.0 * s));
+                }
+            }
+        }
+    }
+
+    private void drawGooseNormalAttackFx(GraphicsContext g, double drawSize,
+                                         NormalAttackVariant variant,
+                                         double phase, double alpha,
+                                         double glowAlpha, boolean charging) {
+        double s = sizeMultiplier;
+        double centerX = x + drawSize * 0.5;
+        double centerY = y + drawSize * 0.5;
+        double dir = facingRight ? 1.0 : -1.0;
+        Color territory = Color.web("#8A9A5B").deriveColor(0, 0.90, 1.08,
+                Math.min(0.86, glowAlpha + 0.24));
+        Color crownGold = Color.web("#D7C56E").deriveColor(0, 0.90, 1.05,
+                Math.min(0.88, alpha + 0.18));
+        Color flightWhite = Color.web("#F7F3DE").deriveColor(0, 0.58, 1.0,
+                Math.min(0.92, alpha + 0.20));
+        Color border = Color.web("#344238").deriveColor(0, 0.82, 1.12,
+                Math.min(0.82, glowAlpha + 0.20));
+        double broad = (charging ? 2.7 : 4.7) * s;
+        double fine = (charging ? 1.1 : 1.8) * s;
+
+        switch (variant) {
+            case NEUTRAL, SIDE_TILT, SIDE_SMASH, FORWARD_AIR, DASH_ATTACK, LEDGE_ATTACK -> {
+                boolean smash = variant == NormalAttackVariant.SIDE_SMASH;
+                boolean dash = variant == NormalAttackVariant.DASH_ATTACK;
+                double reach = ((smash ? 112.0 : dash ? 102.0 : 80.0)
+                        + phase * (smash ? 40.0 : dash ? 31.0 : 25.0)) * s;
+                double rootX = centerX + dir * 15.0 * s;
+                double tipX = centerX + dir * reach;
+                double tilt = (smash ? -10.0 : -5.0) * s;
+                g.setStroke(border);
+                g.setLineCap(StrokeLineCap.ROUND);
+                g.setLineWidth(broad * (smash ? 1.22 : 1.0));
+                g.strokeLine(rootX, centerY + 8.0 * s, tipX, centerY + tilt);
+                g.setStroke(flightWhite);
+                g.setLineWidth(fine);
+                for (int lane = -1; lane <= 1; lane++) {
+                    double laneY = lane * (smash ? 11.0 : 8.0) * s;
+                    g.strokeLine(rootX - dir * 6.0 * s, centerY + laneY,
+                            tipX - dir * (smash ? 10.0 : 5.0) * s,
+                            centerY + tilt + laneY * 0.42);
+                }
+                double chevron = (smash ? 24.0 : 17.0) * s;
+                g.setStroke(smash ? crownGold : territory);
+                g.setLineJoin(StrokeLineJoin.MITER);
+                g.setLineWidth(fine * (smash ? 1.45 : 1.12));
+                g.strokeLine(tipX - dir * chevron, centerY + tilt - chevron * 0.62,
+                        tipX, centerY + tilt);
+                g.strokeLine(tipX, centerY + tilt,
+                        tipX - dir * chevron, centerY + tilt + chevron * 0.62);
+            }
+            case BACK_AIR -> {
+                double attackDir = -dir;
+                double reach = (96.0 + phase * 35.0) * s;
+                double rootX = centerX + attackDir * 8.0 * s;
+                double tipX = centerX + attackDir * reach;
+                for (int feather = -2; feather <= 2; feather++) {
+                    double spread = feather * 13.0 * s;
+                    g.setStroke(feather == 0 ? crownGold : territory);
+                    g.setLineWidth(feather == 0 ? broad : fine * 1.20);
+                    g.strokeLine(rootX, centerY + feather * 3.0 * s,
+                            tipX, centerY + spread);
+                }
+                g.setStroke(flightWhite);
+                g.setLineWidth(fine);
+                g.strokeArc(Math.min(rootX, tipX), centerY - 35.0 * s,
+                        Math.abs(tipX - rootX), 70.0 * s,
+                        attackDir > 0.0 ? 250.0 : -70.0, 140.0, ArcType.OPEN);
+            }
+            case UP_TILT, UP_SMASH, UP_AIR -> {
+                boolean smash = variant == NormalAttackVariant.UP_SMASH;
+                double rise = ((smash ? 151.0 : 113.0) + phase * (smash ? 45.0 : 32.0)) * s;
+                double spread = (smash ? 42.0 : 31.0) * s;
+                double apexY = centerY - rise;
+                g.setStroke(border);
+                g.setLineJoin(StrokeLineJoin.MITER);
+                g.setLineWidth(broad * (smash ? 1.20 : 1.0));
+                g.strokePolyline(new double[]{centerX - spread, centerX, centerX + spread},
+                        new double[]{centerY + 10.0 * s, apexY, centerY + 10.0 * s}, 3);
+                g.setStroke(territory);
+                g.setLineWidth(fine * 1.15);
+                g.strokePolyline(new double[]{centerX - spread * 0.68, centerX, centerX + spread * 0.68},
+                        new double[]{centerY - 5.0 * s, apexY + 18.0 * s, centerY - 5.0 * s}, 3);
+                g.setStroke(smash ? crownGold : flightWhite);
+                g.setLineWidth(fine);
+                g.strokeLine(centerX, apexY - 8.0 * s, centerX, apexY + 26.0 * s);
+            }
+            case DOWN_TILT, DOWN_AIR -> {
+                boolean aerial = variant == NormalAttackVariant.DOWN_AIR;
+                double drop = ((aerial ? 141.0 : 58.0) + phase * 38.0) * s;
+                double tipX = centerX + dir * (aerial ? 2.0 : 78.0) * s;
+                double tipY = centerY + drop;
+                g.setStroke(border);
+                g.setLineWidth(broad * 1.12);
+                g.strokeLine(centerX - dir * 5.0 * s, centerY - 6.0 * s, tipX, tipY);
+                g.setStroke(territory);
+                g.setLineWidth(fine * 1.15);
+                g.strokeLine(centerX + dir * 8.0 * s, centerY + 2.0 * s, tipX, tipY);
+                g.setStroke(crownGold);
+                g.setLineWidth(fine);
+                double boundary = (aerial ? 21.0 : 17.0) * s;
+                g.strokeLine(tipX - boundary, tipY, tipX + boundary, tipY);
+                g.strokeLine(tipX - boundary * 0.68, tipY + 8.0 * s,
+                        tipX + boundary * 0.68, tipY + 8.0 * s);
+            }
+            case DOWN_SMASH, NEUTRAL_AIR, GETUP_ATTACK -> {
+                double radius = ((variant == NormalAttackVariant.DOWN_SMASH ? 91.0 : 75.0)
+                        + phase * 31.0) * s;
+                double verticalScale = variant == NormalAttackVariant.DOWN_SMASH ? 0.46 : 0.70;
+                g.setStroke(border);
+                g.setLineWidth(broad * 1.24);
+                g.strokeArc(centerX - radius, centerY - radius * verticalScale,
+                        radius * 2.0, radius * verticalScale * 2.0,
+                        14.0 + phase * 26.0, 330.0, ArcType.OPEN);
+                g.setStroke(territory);
+                g.setLineWidth(broad * 0.62);
+                g.strokeArc(centerX - radius * 0.78, centerY - radius * verticalScale * 0.78,
+                        radius * 1.56, radius * verticalScale * 1.56,
+                        40.0 + phase * 31.0, 280.0, ArcType.OPEN);
+                for (int post = 0; post < 6; post++) {
+                    double angle = post * Math.PI / 3.0 + phase * 0.18;
+                    double cos = Math.cos(angle);
+                    double sin = Math.sin(angle);
+                    g.setStroke(post % 2 == 0 ? crownGold : flightWhite);
+                    g.setLineWidth(fine);
+                    g.strokeLine(centerX + cos * radius * 0.72,
+                            centerY + sin * radius * verticalScale * 0.72,
+                            centerX + cos * (radius + 13.0 * s),
                             centerY + sin * (radius * verticalScale + 8.0 * s));
                 }
             }
@@ -42954,7 +43305,23 @@ public class Bird {
             case FLAP -> 0.58 + 0.40 * Math.abs(Math.sin(
                     (animationGlobalFrame + playerIndex * 13.0) * 0.66));
             case FALL -> 0.70;
-            case ATTACK -> 0.48;
+            case ATTACK -> switch (activeAttackVariant) {
+                case NEUTRAL -> 0.12;
+                case SIDE_TILT -> 0.22;
+                case UP_TILT -> 0.66;
+                case DOWN_TILT -> 0.12;
+                case SIDE_SMASH -> 0.43;
+                case UP_SMASH -> 0.96;
+                case DOWN_SMASH -> 0.84;
+                case NEUTRAL_AIR -> 1.00;
+                case FORWARD_AIR -> 0.64;
+                case BACK_AIR -> 1.00;
+                case UP_AIR -> 1.00;
+                case DOWN_AIR -> 0.74;
+                case DASH_ATTACK -> 0.26;
+                case LEDGE_ATTACK -> 0.38;
+                case GETUP_ATTACK -> 0.90;
+            };
             case HITSTUN -> 0.18;
             case KO -> 0.10;
             case DODGE -> 0.22;
@@ -43023,20 +43390,39 @@ public class Bird {
     private void drawGooseLegs(GraphicsContext g, BirdAnimationState state, Color leg, Color shade) {
         double s = sizeMultiplier;
         double dir = facingRight ? 1.0 : -1.0;
+        boolean attackPose = state == BirdAnimationState.ATTACK && activeAttackVariant != null;
+        boolean aerialAttack = attackPose && isAerialNormalAttackVariant(activeAttackVariant);
         boolean airborne = state == BirdAnimationState.FLAP || state == BirdAnimationState.FALL
-                || gooseLiftTimer > 0 || gooseUltimateTimer > 0;
+                || gooseLiftTimer > 0 || gooseUltimateTimer > 0 || aerialAttack;
         double runAmount = state == BirdAnimationState.IDLE
                 ? Math.clamp(Math.abs(vx) / 6.0, 0.0, 1.0) : 0.0;
         double stride = Math.sin((animationGlobalFrame + playerIndex * 17.0) * 0.36)
                 * 3.8 * runAmount;
+        double attackPlant = attackPose && !aerialAttack ? switch (activeAttackVariant) {
+            case SIDE_TILT, LEDGE_ATTACK -> 4.0;
+            case SIDE_SMASH, DASH_ATTACK -> 8.0;
+            case DOWN_TILT -> 6.0;
+            case DOWN_SMASH, GETUP_ATTACK -> 10.0;
+            default -> 2.0;
+        } : 0.0;
         for (int i = 0; i < 2; i++) {
             double hipX = x + 40.0 * s + dir * (i == 0 ? -8.0 : 8.0) * s;
-            double hipY = y + 61.0 * s;
+            double hipY = y + (61.0
+                    + (attackPose && activeAttackVariant == NormalAttackVariant.DOWN_TILT ? 2.0 : 0.0)) * s;
             double step = (i == 0 ? stride : -stride) * dir * s;
-            double ankleX = airborne ? hipX - dir * (5.0 + i * 2.0) * s : hipX + step;
-            double ankleY = y + (airborne ? 69.0 + i * 1.5 : 75.0) * s;
+            if (attackPose && !aerialAttack) {
+                step += (i == 0 ? -dir : dir) * attackPlant * s;
+            }
+            double aerialReach = attackPose && activeAttackVariant == NormalAttackVariant.DOWN_AIR ? 10.0 : 0.0;
+            double ankleX = airborne
+                    ? hipX - dir * (5.0 + i * 2.0 - aerialReach * 0.18) * s
+                    : hipX + step;
+            double ankleY = y + (airborne ? 69.0 + i * 1.5 + aerialReach : 75.0) * s;
             double toeY = airborne ? ankleY + 4.0 * s : y + 80.0 * s;
-            double toeDir = airborne ? -dir : dir;
+            double toeDir = airborne ? -dir
+                    : attackPose && (activeAttackVariant == NormalAttackVariant.DOWN_SMASH
+                    || activeAttackVariant == NormalAttackVariant.GETUP_ATTACK)
+                    ? (i == 0 ? -dir : dir) : dir;
             g.setStroke(leg.deriveColor(0, 0.90, i == 0 ? 0.84 : 1.0, i == 0 ? 0.76 : 0.98));
             g.setLineCap(StrokeLineCap.ROUND);
             g.setLineWidth(2.4 * s);

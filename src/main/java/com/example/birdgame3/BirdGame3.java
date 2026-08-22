@@ -1391,6 +1391,11 @@ public class BirdGame3 {
         playManagedSfxVaried(swingClip, 0.44 + charge * 0.22, 0.92 - charge * 0.09, 0.035);
     }
 
+    void playGooseAttackWhoosh(double chargeRatio) {
+        double charge = Math.clamp(chargeRatio, 0.0, 1.0);
+        playManagedSfxVaried(swingClip, 0.56 + charge * 0.24, 0.84 - charge * 0.08, 0.035);
+    }
+
     void playPigeonFeatherBurstSfx(boolean ultimate) {
         playManagedSfxVaried(swingClip, ultimate ? 0.72 : 0.56, ultimate ? 1.42 : 1.58, 0.035);
     }
@@ -47959,7 +47964,7 @@ public class BirdGame3 {
                 "Penguin joins Goose against Raven and Vulture, who have turned the only warm current into a toll lane.",
                 MapType.FROSTBITE_FJORD, MapVariant.LAST_ICE_SHELF, MatchMutator.NONE,
                 ClassicTwist.ICEWORKS, ClassicEncounterStyle.STANDARD, 125 * 60,
-                new ClassicFighter[]{classicFighter(BirdType.PENGUIN, "Ally: Ice Navigator", 98, 0.76, 0.96)},
+                new ClassicFighter[]{classicFighter(BirdType.PENGUIN, "Ally: Ice Navigator", 104, 0.82, 1.00)},
                 new ClassicFighter[]{
                         classicFighter(BirdType.RAVEN, "Tollkeeper: Raven", 78, 0.64, 1.00),
                         classicFighter(BirdType.VULTURE, "Tollkeeper: Vulture", 82, 0.66, 0.98)}, false);
@@ -50321,7 +50326,7 @@ public class BirdGame3 {
                 // the boss imposing, but do not stack giant resistance and
                 // near-normal damage on top of Eagle's superior launch kit.
                 bird.health = Math.max(1.0, 175.0 * enemyHealthScale);
-                bird.setBaseMultipliers(1.08, 0.66 * enemyPowerScale, 0.92);
+                bird.setBaseMultipliers(1.08, 0.63 * enemyPowerScale, 0.92);
                 bird.setUltimateEnabled(false);
             } else if (encounter.style == ClassicEncounterStyle.KIWI_ZENITH_BOSS) {
                 // The boss remains a real Eagle with three stocks and its real

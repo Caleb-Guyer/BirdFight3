@@ -618,6 +618,48 @@ class LanBirdState {
     int nullRockSideReuseTimer;
     int nullRockUpReuseTimer;
     int nullRockDownReuseTimer;
+    double gooseTerritoryMeter;
+    int gooseHonkTimer;
+    int gooseHonkHoldFrames;
+    int gooseHonkDirection;
+    int gooseHonkReuseTimer;
+    boolean gooseHonkUltimate;
+    boolean gooseHonkEmpowered;
+    boolean gooseHonkReleased;
+    boolean[] gooseHonkHit = new boolean[4];
+    int gooseBargeTimer;
+    int gooseBargeDirection;
+    int gooseBargeReuseTimer;
+    boolean gooseBargeUltimate;
+    boolean gooseBargeEmpowered;
+    boolean[] gooseBargeHit = new boolean[4];
+    int gooseLiftTimer;
+    int gooseLiftDirection;
+    int gooseLiftReuseTimer;
+    boolean gooseLiftUsed;
+    boolean gooseLiftUltimate;
+    boolean gooseLiftEmpowered;
+    boolean[] gooseLiftHit = new boolean[4];
+    int gooseNestGuardTimer;
+    int gooseNestReuseTimer;
+    int gooseNestCounterTimer;
+    boolean gooseNestGuardUltimate;
+    boolean gooseNestCounterUltimate;
+    boolean gooseNestEmpowered;
+    boolean[] gooseNestCounterHit = new boolean[4];
+    boolean gooseNestActive;
+    double gooseNestX;
+    double gooseNestY;
+    int gooseNestLifeFrames;
+    int gooseNestAgeFrames;
+    int gooseNestPulseCooldown;
+    boolean gooseNestUltimate;
+    int gooseUltimateTimer;
+    int gooseUltimateDirection;
+    int gooseUltimateWaveIndex;
+    boolean gooseUltimateFinalHitResolved;
+    boolean[] gooseUltimateMarked = new boolean[4];
+    int[] gooseUltimateHitCooldown = new int[4];
 
     void write(DataOutputStream out) throws IOException {
         out.writeInt(typeOrdinal);
@@ -1305,6 +1347,48 @@ class LanBirdState {
         out.writeInt(nullRockSideReuseTimer);
         out.writeInt(nullRockUpReuseTimer);
         out.writeInt(nullRockDownReuseTimer);
+        out.writeDouble(gooseTerritoryMeter);
+        out.writeInt(gooseHonkTimer);
+        out.writeInt(gooseHonkHoldFrames);
+        out.writeInt(gooseHonkDirection);
+        out.writeInt(gooseHonkReuseTimer);
+        out.writeBoolean(gooseHonkUltimate);
+        out.writeBoolean(gooseHonkEmpowered);
+        out.writeBoolean(gooseHonkReleased);
+        for (boolean hit : gooseHonkHit) out.writeBoolean(hit);
+        out.writeInt(gooseBargeTimer);
+        out.writeInt(gooseBargeDirection);
+        out.writeInt(gooseBargeReuseTimer);
+        out.writeBoolean(gooseBargeUltimate);
+        out.writeBoolean(gooseBargeEmpowered);
+        for (boolean hit : gooseBargeHit) out.writeBoolean(hit);
+        out.writeInt(gooseLiftTimer);
+        out.writeInt(gooseLiftDirection);
+        out.writeInt(gooseLiftReuseTimer);
+        out.writeBoolean(gooseLiftUsed);
+        out.writeBoolean(gooseLiftUltimate);
+        out.writeBoolean(gooseLiftEmpowered);
+        for (boolean hit : gooseLiftHit) out.writeBoolean(hit);
+        out.writeInt(gooseNestGuardTimer);
+        out.writeInt(gooseNestReuseTimer);
+        out.writeInt(gooseNestCounterTimer);
+        out.writeBoolean(gooseNestGuardUltimate);
+        out.writeBoolean(gooseNestCounterUltimate);
+        out.writeBoolean(gooseNestEmpowered);
+        for (boolean hit : gooseNestCounterHit) out.writeBoolean(hit);
+        out.writeBoolean(gooseNestActive);
+        out.writeDouble(gooseNestX);
+        out.writeDouble(gooseNestY);
+        out.writeInt(gooseNestLifeFrames);
+        out.writeInt(gooseNestAgeFrames);
+        out.writeInt(gooseNestPulseCooldown);
+        out.writeBoolean(gooseNestUltimate);
+        out.writeInt(gooseUltimateTimer);
+        out.writeInt(gooseUltimateDirection);
+        out.writeInt(gooseUltimateWaveIndex);
+        out.writeBoolean(gooseUltimateFinalHitResolved);
+        for (boolean marked : gooseUltimateMarked) out.writeBoolean(marked);
+        for (int cooldown : gooseUltimateHitCooldown) out.writeInt(cooldown);
     }
 
     static LanBirdState read(DataInputStream in) throws IOException {
@@ -1996,6 +2080,54 @@ class LanBirdState {
         state.nullRockSideReuseTimer = in.readInt();
         state.nullRockUpReuseTimer = in.readInt();
         state.nullRockDownReuseTimer = in.readInt();
+        state.gooseTerritoryMeter = in.readDouble();
+        state.gooseHonkTimer = in.readInt();
+        state.gooseHonkHoldFrames = in.readInt();
+        state.gooseHonkDirection = in.readInt();
+        state.gooseHonkReuseTimer = in.readInt();
+        state.gooseHonkUltimate = in.readBoolean();
+        state.gooseHonkEmpowered = in.readBoolean();
+        state.gooseHonkReleased = in.readBoolean();
+        for (int i = 0; i < state.gooseHonkHit.length; i++) state.gooseHonkHit[i] = in.readBoolean();
+        state.gooseBargeTimer = in.readInt();
+        state.gooseBargeDirection = in.readInt();
+        state.gooseBargeReuseTimer = in.readInt();
+        state.gooseBargeUltimate = in.readBoolean();
+        state.gooseBargeEmpowered = in.readBoolean();
+        for (int i = 0; i < state.gooseBargeHit.length; i++) state.gooseBargeHit[i] = in.readBoolean();
+        state.gooseLiftTimer = in.readInt();
+        state.gooseLiftDirection = in.readInt();
+        state.gooseLiftReuseTimer = in.readInt();
+        state.gooseLiftUsed = in.readBoolean();
+        state.gooseLiftUltimate = in.readBoolean();
+        state.gooseLiftEmpowered = in.readBoolean();
+        for (int i = 0; i < state.gooseLiftHit.length; i++) state.gooseLiftHit[i] = in.readBoolean();
+        state.gooseNestGuardTimer = in.readInt();
+        state.gooseNestReuseTimer = in.readInt();
+        state.gooseNestCounterTimer = in.readInt();
+        state.gooseNestGuardUltimate = in.readBoolean();
+        state.gooseNestCounterUltimate = in.readBoolean();
+        state.gooseNestEmpowered = in.readBoolean();
+        for (int i = 0; i < state.gooseNestCounterHit.length; i++) {
+            state.gooseNestCounterHit[i] = in.readBoolean();
+        }
+        state.gooseNestActive = in.readBoolean();
+        state.gooseNestX = in.readDouble();
+        state.gooseNestY = in.readDouble();
+        state.gooseNestLifeFrames = in.readInt();
+        state.gooseNestAgeFrames = in.readInt();
+        state.gooseNestPulseCooldown = in.readInt();
+        state.gooseNestUltimate = in.readBoolean();
+        state.gooseUltimateTimer = in.readInt();
+        state.gooseUltimateDirection = in.readInt();
+        state.gooseUltimateWaveIndex = in.readInt();
+        state.gooseUltimateFinalHitResolved = in.readBoolean();
+        for (int i = 0; i < state.gooseUltimateMarked.length; i++) {
+            state.gooseUltimateMarked[i] = in.readBoolean();
+        }
+        for (int i = 0; i < state.gooseUltimateHitCooldown.length; i++) {
+            state.gooseUltimateHitCooldown[i] = in.readInt();
+        }
         return state;
     }
 }

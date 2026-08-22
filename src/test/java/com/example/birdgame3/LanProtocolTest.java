@@ -381,6 +381,20 @@ class LanProtocolTest {
         state.nullRockSideReuseTimer = 420;
         state.nullRockUpReuseTimer = 599;
         state.nullRockDownReuseTimer = 539;
+        state.gooseTerritoryMeter = 117.5;
+        state.gooseHonkHoldFrames = 21;
+        state.gooseHonkReleased = true;
+        state.gooseHonkHit[1] = true;
+        state.gooseBargeDirection = -1;
+        state.gooseBargeHit[2] = true;
+        state.gooseLiftUsed = true;
+        state.gooseNestActive = true;
+        state.gooseNestX = 654.25;
+        state.gooseNestLifeFrames = 321;
+        state.gooseNestUltimate = true;
+        state.gooseUltimateWaveIndex = 3;
+        state.gooseUltimateMarked[2] = true;
+        state.gooseUltimateHitCooldown[3] = 8;
 
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         state.write(new DataOutputStream(bos));
@@ -670,5 +684,19 @@ class LanProtocolTest {
         assertEquals(420, decoded.nullRockSideReuseTimer);
         assertEquals(599, decoded.nullRockUpReuseTimer);
         assertEquals(539, decoded.nullRockDownReuseTimer);
+        assertEquals(117.5, decoded.gooseTerritoryMeter);
+        assertEquals(21, decoded.gooseHonkHoldFrames);
+        assertTrue(decoded.gooseHonkReleased);
+        assertTrue(decoded.gooseHonkHit[1]);
+        assertEquals(-1, decoded.gooseBargeDirection);
+        assertTrue(decoded.gooseBargeHit[2]);
+        assertTrue(decoded.gooseLiftUsed);
+        assertTrue(decoded.gooseNestActive);
+        assertEquals(654.25, decoded.gooseNestX);
+        assertEquals(321, decoded.gooseNestLifeFrames);
+        assertTrue(decoded.gooseNestUltimate);
+        assertEquals(3, decoded.gooseUltimateWaveIndex);
+        assertTrue(decoded.gooseUltimateMarked[2]);
+        assertEquals(8, decoded.gooseUltimateHitCooldown[3]);
     }
 }

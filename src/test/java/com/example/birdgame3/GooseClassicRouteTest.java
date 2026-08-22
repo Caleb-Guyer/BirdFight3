@@ -41,6 +41,10 @@ class GooseClassicRouteTest {
 
         assertEquals(1, route.get(1).allies.length);
         assertEquals(2, route.get(1).enemies.length);
+        assertTrue(route.get(1).allies[0].health() >= 104.0,
+                "Winter Formation needs a durable navigator rather than a disposable ally.");
+        assertTrue(route.get(1).allies[0].powerMult() >= 0.82,
+                "The navigator must contribute enough to keep the two-on-two route fair.");
         assertEquals(ClassicEncounterStyle.GIANT, route.get(2).style);
         assertEquals(1, route.get(3).allies.length);
         assertEquals(2, route.get(3).enemies.length);
@@ -98,6 +102,8 @@ class GooseClassicRouteTest {
         assertEquals(3, game.scores[0]);
         assertEquals(3, game.scores[1]);
         assertEquals(1.08, boss.baseSizeMultiplier, 0.001);
+        assertEquals(0.63, boss.basePowerMultiplier, 0.001,
+                "Three-stock Border King pressure must not also erase Goose in a few openings.");
         assertEquals(175.0, boss.health, 0.001);
         assertFalse(boss.hasUltimate());
         assertTrue(game.isAI[1]);
