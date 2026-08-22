@@ -43,6 +43,11 @@ class ClassicModeEndToEndRegressionTest {
                 assertFalse(encounter.announcer.isBlank(), bird + " encounter announcer");
                 assertTrue(encounter.timerFrames >= 30 * 60,
                         bird + " / " + encounter.name + " needs a human-completable timer");
+                if (encounter.name.startsWith("Bonus:")) {
+                    assertTrue(BirdGame3.isClassicObjectiveEncounterStyle(encounter.style),
+                            bird + " / " + encounter.name
+                                    + " must use the shared objective completion and difficulty path");
+                }
                 if (encounter.variant != BirdGame3.MapVariant.STANDARD) {
                     assertEquals(encounter.map, encounter.variant.baseMap,
                             bird + " / " + encounter.name + " variant belongs to another map");

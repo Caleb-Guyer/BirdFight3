@@ -241,20 +241,7 @@ final class ClassicBalanceLab {
     }
 
     static boolean isObjectiveRound(ClassicEncounterStyle style) {
-        return style == ClassicEncounterStyle.BONUS_RELAY
-                || style == ClassicEncounterStyle.NECTAR_DASH
-                || style == ClassicEncounterStyle.HARVEST_DEFENSE
-                || style == ClassicEncounterStyle.DAWN_MUSTER
-                || style == ClassicEncounterStyle.REDLINE_RUN
-                || style == ClassicEncounterStyle.ICE_ARCHITECT
-                || style == ClassicEncounterStyle.RIPPLE_HUNT
-                || style == ClassicEncounterStyle.PERFECT_PITCH
-                || style == ClassicEncounterStyle.BETWEEN_LINES
-                || style == ClassicEncounterStyle.QUIET_VAULT
-                || style == ClassicEncounterStyle.FINAL_INVENTORY
-                || style == ClassicEncounterStyle.OPIUM_LUCID_DASH
-                || style == ClassicEncounterStyle.HEISEN_CALIBRATION
-                || style == ClassicEncounterStyle.TITMOUSE_MEMORY_CACHE;
+        return BirdGame3.isClassicObjectiveEncounterStyle(style);
     }
 
     private static String encounterMapName(ClassicEncounter encounter) {

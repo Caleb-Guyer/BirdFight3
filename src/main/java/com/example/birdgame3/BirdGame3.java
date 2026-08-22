@@ -5497,6 +5497,17 @@ public class BirdGame3 {
         KIWI_ZENITH_BOSS
     }
 
+    static boolean isClassicObjectiveEncounterStyle(ClassicEncounterStyle style) {
+        if (style == null) return false;
+        return switch (style) {
+            case BONUS_RELAY, NECTAR_DASH, HARVEST_DEFENSE, DAWN_MUSTER,
+                    REDLINE_RUN, ICE_ARCHITECT, RIPPLE_HUNT, PERFECT_PITCH,
+                    BETWEEN_LINES, QUIET_VAULT, FINAL_INVENTORY,
+                    OPIUM_LUCID_DASH, HEISEN_CALIBRATION, TITMOUSE_MEMORY_CACHE -> true;
+            default -> false;
+        };
+    }
+
     static final class ClassicRiftAnchor {
         final double x;
         final double y;
@@ -49104,18 +49115,7 @@ public class BirdGame3 {
         Label routeName = new Label(classicRunCodename.isBlank() ? "CLASSIC ROUTE" : classicRunCodename);
         routeName.setFont(Font.font("Consolas", FontWeight.BOLD, 24));
         routeName.setTextFill(Color.WHITE);
-        boolean routeBonus = classicEncounter.style == ClassicEncounterStyle.BONUS_RELAY
-                || classicEncounter.style == ClassicEncounterStyle.NECTAR_DASH
-                || classicEncounter.style == ClassicEncounterStyle.HARVEST_DEFENSE
-                || classicEncounter.style == ClassicEncounterStyle.DAWN_MUSTER
-                || classicEncounter.style == ClassicEncounterStyle.REDLINE_RUN
-                || classicEncounter.style == ClassicEncounterStyle.ICE_ARCHITECT
-                || classicEncounter.style == ClassicEncounterStyle.RIPPLE_HUNT
-                || classicEncounter.style == ClassicEncounterStyle.PERFECT_PITCH
-                || classicEncounter.style == ClassicEncounterStyle.BETWEEN_LINES
-                || classicEncounter.style == ClassicEncounterStyle.OPIUM_LUCID_DASH
-                || classicEncounter.style == ClassicEncounterStyle.HEISEN_CALIBRATION
-                || classicEncounter.style == ClassicEncounterStyle.TITMOUSE_MEMORY_CACHE;
+        boolean routeBonus = isClassicObjectiveEncounterStyle(classicEncounter.style);
         Label round = new Label((routeBonus ? "BONUS " : "ROUND ")
                 + (classicRoundIndex + 1));
         round.setFont(Font.font("Arial Black", FontWeight.BOLD, 72));
@@ -49548,18 +49548,7 @@ public class BirdGame3 {
         for (int i = 0; i < classicRun.size(); i++) {
             ClassicEncounter encounter = classicRun.get(i);
             boolean selected = i == classicRoundIndex;
-            boolean bonus = encounter.style == ClassicEncounterStyle.BONUS_RELAY
-                    || encounter.style == ClassicEncounterStyle.NECTAR_DASH
-                    || encounter.style == ClassicEncounterStyle.HARVEST_DEFENSE
-                    || encounter.style == ClassicEncounterStyle.DAWN_MUSTER
-                    || encounter.style == ClassicEncounterStyle.REDLINE_RUN
-                    || encounter.style == ClassicEncounterStyle.ICE_ARCHITECT
-                    || encounter.style == ClassicEncounterStyle.RIPPLE_HUNT
-                    || encounter.style == ClassicEncounterStyle.PERFECT_PITCH
-                    || encounter.style == ClassicEncounterStyle.BETWEEN_LINES
-                    || encounter.style == ClassicEncounterStyle.OPIUM_LUCID_DASH
-                    || encounter.style == ClassicEncounterStyle.HEISEN_CALIBRATION
-                    || encounter.style == ClassicEncounterStyle.TITMOUSE_MEMORY_CACHE;
+            boolean bonus = isClassicObjectiveEncounterStyle(encounter.style);
             int roundIndex = i;
             Button card = uiFactory.action(
                     (bonus ? "BONUS " : "ROUND ") + (i + 1) + "\n"
@@ -59303,19 +59292,7 @@ public class BirdGame3 {
         claimDestroyedClassicBonusTargets();
         boolean playerWon = didPlayerWinClassic(winner);
         evaluateRoosterClassicEncounter(playerWon);
-        if (classicEncounter.style == ClassicEncounterStyle.BONUS_RELAY
-                || classicEncounter.style == ClassicEncounterStyle.NECTAR_DASH
-                || classicEncounter.style == ClassicEncounterStyle.HARVEST_DEFENSE
-                || classicEncounter.style == ClassicEncounterStyle.DAWN_MUSTER
-                || classicEncounter.style == ClassicEncounterStyle.REDLINE_RUN
-                || classicEncounter.style == ClassicEncounterStyle.ICE_ARCHITECT
-                || classicEncounter.style == ClassicEncounterStyle.RIPPLE_HUNT
-                || classicEncounter.style == ClassicEncounterStyle.PERFECT_PITCH
-                || classicEncounter.style == ClassicEncounterStyle.BETWEEN_LINES
-                || classicEncounter.style == ClassicEncounterStyle.QUIET_VAULT
-                || classicEncounter.style == ClassicEncounterStyle.OPIUM_LUCID_DASH
-                || classicEncounter.style == ClassicEncounterStyle.HEISEN_CALIBRATION
-                || classicEncounter.style == ClassicEncounterStyle.TITMOUSE_MEMORY_CACHE) {
+        if (isClassicObjectiveEncounterStyle(classicEncounter.style)) {
             recordClassicEncounterScore(playerWon);
             classicRoundIndex++;
             classicEncounter = classicRun.get(classicRoundIndex);
@@ -59382,46 +59359,16 @@ public class BirdGame3 {
                 queueMapUnlockCard(MapType.STORMGLASS_REFINERY);
             }
             profileProgressController.onClassicRunCompleted(classicSelectedBird, achievementEvaluator::onClassicRunCompleted);
-            ClassicEndingContent.Ending authoredEnding = ClassicEndingContent.endingFor(classicSelectedBird);
-            if (authoredEnding != null) {
-                ClassicEndingContent.Cinematic playback = ClassicEndingContent.withRouteRecord(
-                        authoredEnding,
-                        routePayout,
-                        finalScore,
-                        classicRouteMapRewardName(classicSelectedBird));
-                playClassicEnding(stage, playback, classicSelectedSkinKey,
-                        () -> runAfterUnlockCards(stage, () -> showClassicBirdSelect(stage)));
-                return;
-            }
-            String reward = classicRewardFor(classicSelectedBird);
-            String charReward = classicCharacterReward(classicSelectedBird);
-            String routeReward = "";
-            String ending = "";
-            showStoryDialogue(
-                    stage,
-                    classicSelectedBird == BirdType.PIGEON ? "Rooftop Ascent Complete"
-                            : (classicSelectedBird == BirdType.EAGLE ? "The Sky Has One King"
-                            : (classicSelectedBird == BirdType.FALCON ? "Nothing Escapes"
-                            : (classicSelectedBird == BirdType.PHOENIX ? "The Flame That Returns"
-                            : (classicSelectedBird == BirdType.HUMMINGBIRD ? "Beat of the Bloom"
-                            : (classicSelectedBird == BirdType.TURKEY ? "The Last Feast"
-                            : (classicSelectedBird == BirdType.ROOSTER ? "No One Left Behind" : "Classic Cleared")))))),
-                    classicSelectedBird == BirdType.PIGEON ? "The Beacon"
-                            : (classicSelectedBird == BirdType.EAGLE ? "Summit Prime"
-                            : (classicSelectedBird == BirdType.FALCON ? "Crown Pursuit"
-                            : (classicSelectedBird == BirdType.PHOENIX ? "Dawn Oracle"
-                            : (classicSelectedBird == BirdType.HUMMINGBIRD ? "Heartbloom"
-                            : (classicSelectedBird == BirdType.TURKEY ? "Harvest Tribunal"
-                            : (classicSelectedBird == BirdType.ROOSTER ? "Dawnwatch Bastion" : "Skycaster Prime")))))),
-                    "Run " + classicRunCodename + " completed with " + classicSelectedBird.name + ".\nReward unlocked: "
-                            + reward + (charReward.isBlank() ? "" : "\nCharacter unlocked: " + charReward) + "."
-                            + routeReward
-                            + "\nBird Coins awarded: +" + routePayout
-                            + "\nRoute score: " + String.format(Locale.US, "%,d", finalScore)
-                            + "\nThis bird now has a completion badge."
-                            + ending,
-                    () -> runAfterUnlockCards(stage, () -> showClassicBirdSelect(stage))
-            );
+            ClassicEndingContent.Ending authoredEnding = Objects.requireNonNull(
+                    ClassicEndingContent.endingFor(classicSelectedBird),
+                    "Every playable bird must have an authored Classic ending: " + classicSelectedBird);
+            ClassicEndingContent.Cinematic playback = ClassicEndingContent.withRouteRecord(
+                    authoredEnding,
+                    routePayout,
+                    finalScore,
+                    classicRouteMapRewardName(classicSelectedBird));
+            playClassicEnding(stage, playback, classicSelectedSkinKey,
+                    () -> runAfterUnlockCards(stage, () -> showClassicBirdSelect(stage)));
             return;
         }
 
