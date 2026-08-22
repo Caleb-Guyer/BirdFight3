@@ -13,14 +13,14 @@ class VultureMovesetIdentityTest {
         BirdGame3 game = new BirdGame3();
         Bird vulture = groundedBird(game, BirdGame3.BirdType.VULTURE, 0, 320.0);
         Bird grinchHawk = groundedBird(game, BirdGame3.BirdType.GRINCHHAWK, 1, 320.0);
-        Bird opiumBird = groundedBird(game, BirdGame3.BirdType.TITMOUSE, 2, 320.0);
+        Bird titmouse = groundedBird(game, BirdGame3.BirdType.TITMOUSE, 2, 320.0);
 
         int distinctFromGrinchHawk = 0;
-        int distinctFromSharedProfile = 0;
+        int distinctFromTitmouse = 0;
         for (Object variant : normalAttackVariantClass().getEnumConstants()) {
             Object profile = invoke(vulture, "normalAttackProfile", variant);
             if (!profile.equals(invoke(grinchHawk, "normalAttackProfile", variant))) distinctFromGrinchHawk++;
-            if (!profile.equals(invoke(opiumBird, "normalAttackProfile", variant))) distinctFromSharedProfile++;
+            if (!profile.equals(invoke(titmouse, "normalAttackProfile", variant))) distinctFromTitmouse++;
             String moveName = (String) invoke(vulture, "normalAttackTelemetryName", variant);
             assertTrue(moveName.startsWith("Vulture "));
             assertFalse(moveName.contains("Normal Attack"));
@@ -28,7 +28,7 @@ class VultureMovesetIdentityTest {
         }
 
         assertEquals(15, distinctFromGrinchHawk);
-        assertEquals(15, distinctFromSharedProfile);
+        assertEquals(15, distinctFromTitmouse);
     }
 
     @Test
@@ -96,18 +96,15 @@ class VultureMovesetIdentityTest {
     void vultureNormalsFavorBroadCoverageAndCommittedFinishers() throws Exception {
         BirdGame3 game = new BirdGame3();
         Bird vulture = groundedBird(game, BirdGame3.BirdType.VULTURE, 0, 320.0);
-        Bird opiumBird = groundedBird(game, BirdGame3.BirdType.TITMOUSE, 1, 320.0);
         Object neutralAir = enumConstant("com.example.birdgame3.Bird$NormalAttackVariant", "NEUTRAL_AIR");
         Object sideSmash = enumConstant("com.example.birdgame3.Bird$NormalAttackVariant", "SIDE_SMASH");
         Object downAir = enumConstant("com.example.birdgame3.Bird$NormalAttackVariant", "DOWN_AIR");
         Object vultureNeutralAir = invoke(vulture, "normalAttackProfile", neutralAir);
-        Object sharedNeutralAir = invoke(opiumBird, "normalAttackProfile", neutralAir);
         Object vultureSideSmash = invoke(vulture, "normalAttackProfile", sideSmash);
         Object vultureDownAir = invoke(vulture, "normalAttackProfile", downAir);
 
-        assertTrue((double) invoke(vultureNeutralAir, "horizontalReach")
-                >= (double) invoke(sharedNeutralAir, "horizontalReach") + 40.0,
-                "Circling Wings must provide visibly broader space control than the shared aerial.");
+        assertTrue((double) invoke(vultureNeutralAir, "horizontalReach") >= 160.0,
+                "Circling Wings must retain its authored broad space control as other birds gain complete kits.");
         assertTrue((double) invoke(vultureNeutralAir, "verticalReach") >= 140.0);
         assertTrue((double) invoke(vultureSideSmash, "damageMultiplier") >= 1.20);
         assertTrue((double) invoke(vultureSideSmash, "horizontalLaunchScale") >= 1.55);

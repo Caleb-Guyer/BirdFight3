@@ -13,14 +13,14 @@ class GrinchHawkMovesetIdentityTest {
         BirdGame3 game = new BirdGame3();
         Bird grinchHawk = groundedBird(game, BirdGame3.BirdType.GRINCHHAWK, 0, 320.0);
         Bird razorbill = groundedBird(game, BirdGame3.BirdType.RAZORBILL, 1, 320.0);
-        Bird opiumBird = groundedBird(game, BirdGame3.BirdType.TITMOUSE, 2, 320.0);
+        Bird titmouse = groundedBird(game, BirdGame3.BirdType.TITMOUSE, 2, 320.0);
 
         int distinctFromRazorbill = 0;
-        int distinctFromSharedProfile = 0;
+        int distinctFromTitmouse = 0;
         for (Object variant : normalAttackVariantClass().getEnumConstants()) {
             Object profile = invoke(grinchHawk, "normalAttackProfile", variant);
             if (!profile.equals(invoke(razorbill, "normalAttackProfile", variant))) distinctFromRazorbill++;
-            if (!profile.equals(invoke(opiumBird, "normalAttackProfile", variant))) distinctFromSharedProfile++;
+            if (!profile.equals(invoke(titmouse, "normalAttackProfile", variant))) distinctFromTitmouse++;
             String moveName = (String) invoke(grinchHawk, "normalAttackTelemetryName", variant);
             assertTrue(moveName.startsWith("Grinch-Hawk "));
             assertFalse(moveName.contains("Normal Attack"));
@@ -28,7 +28,7 @@ class GrinchHawkMovesetIdentityTest {
         }
 
         assertEquals(15, distinctFromRazorbill);
-        assertEquals(15, distinctFromSharedProfile);
+        assertEquals(15, distinctFromTitmouse);
     }
 
     @Test
@@ -96,17 +96,15 @@ class GrinchHawkMovesetIdentityTest {
     void grinchHawkKitRewardsFastSetupsAndABackwardFinisher() throws Exception {
         BirdGame3 game = new BirdGame3();
         Bird grinchHawk = groundedBird(game, BirdGame3.BirdType.GRINCHHAWK, 0, 320.0);
-        Bird opiumBird = groundedBird(game, BirdGame3.BirdType.TITMOUSE, 1, 320.0);
         Object downTilt = enumConstant("com.example.birdgame3.Bird$NormalAttackVariant", "DOWN_TILT");
         Object backAir = enumConstant("com.example.birdgame3.Bird$NormalAttackVariant", "BACK_AIR");
         Object dashAttack = enumConstant("com.example.birdgame3.Bird$NormalAttackVariant", "DASH_ATTACK");
         Object grinchDownTilt = invoke(grinchHawk, "normalAttackProfile", downTilt);
-        Object sharedDownTilt = invoke(opiumBird, "normalAttackProfile", downTilt);
         Object grinchBackAir = invoke(grinchHawk, "normalAttackProfile", backAir);
         Object grinchDash = invoke(grinchHawk, "normalAttackProfile", dashAttack);
 
-        assertTrue((int) invoke(grinchDownTilt, "cooldownFrames")
-                < (int) invoke(sharedDownTilt, "cooldownFrames"));
+        assertTrue((int) invoke(grinchDownTilt, "cooldownFrames") <= 16,
+                "Stocking Rake must remain one of Grinch-Hawk's quick setup tools.");
         assertTrue((double) invoke(grinchDownTilt, "horizontalLaunchScale") < 0.80,
                 "Stocking Rake should hold targets near Grinch-Hawk's trap space.");
         assertTrue((double) invoke(grinchBackAir, "horizontalReach") >= 168.0);

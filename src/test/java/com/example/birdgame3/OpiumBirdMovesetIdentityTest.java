@@ -13,14 +13,14 @@ class OpiumBirdMovesetIdentityTest {
         BirdGame3 game = new BirdGame3();
         Bird opiumBird = groundedBird(game, BirdGame3.BirdType.OPIUMBIRD, 0, 320.0);
         Bird heisenbird = groundedBird(game, BirdGame3.BirdType.HEISENBIRD, 1, 320.0);
-        Bird sharedBird = groundedBird(game, BirdGame3.BirdType.TITMOUSE, 2, 320.0);
+        Bird titmouse = groundedBird(game, BirdGame3.BirdType.TITMOUSE, 2, 320.0);
 
         int distinctFromHeisenbird = 0;
-        int distinctFromSharedProfile = 0;
+        int distinctFromTitmouse = 0;
         for (Object variant : normalAttackVariantClass().getEnumConstants()) {
             Object profile = invoke(opiumBird, "normalAttackProfile", variant);
             if (!profile.equals(invoke(heisenbird, "normalAttackProfile", variant))) distinctFromHeisenbird++;
-            if (!profile.equals(invoke(sharedBird, "normalAttackProfile", variant))) distinctFromSharedProfile++;
+            if (!profile.equals(invoke(titmouse, "normalAttackProfile", variant))) distinctFromTitmouse++;
             String moveName = (String) invoke(opiumBird, "normalAttackTelemetryName", variant);
             assertTrue(moveName.startsWith("Opium Bird "));
             assertFalse(moveName.contains("Normal Attack"));
@@ -29,7 +29,7 @@ class OpiumBirdMovesetIdentityTest {
 
         assertEquals(15, distinctFromHeisenbird,
                 "Opium Bird must no longer inherit Heisenbird's generic normal kit.");
-        assertEquals(15, distinctFromSharedProfile);
+        assertEquals(15, distinctFromTitmouse);
     }
 
     @Test
@@ -97,11 +97,9 @@ class OpiumBirdMovesetIdentityTest {
     void opiumBirdNormalsFavorCoverageWithoutBecomingHiddenResourceMoves() throws Exception {
         BirdGame3 game = new BirdGame3();
         Bird opiumBird = groundedBird(game, BirdGame3.BirdType.OPIUMBIRD, 0, 320.0);
-        Bird sharedBird = groundedBird(game, BirdGame3.BirdType.TITMOUSE, 1, 320.0);
         Object neutralAir = enumConstant("com.example.birdgame3.Bird$NormalAttackVariant", "NEUTRAL_AIR");
         Object sideSmash = enumConstant("com.example.birdgame3.Bird$NormalAttackVariant", "SIDE_SMASH");
         Object opiumNeutralAir = invoke(opiumBird, "normalAttackProfile", neutralAir);
-        Object sharedNeutralAir = invoke(sharedBird, "normalAttackProfile", neutralAir);
         Object opiumSideSmash = invoke(opiumBird, "normalAttackProfile", sideSmash);
         double resourceBefore = opiumBird.opiumResourceMeter;
 
@@ -109,8 +107,8 @@ class OpiumBirdMovesetIdentityTest {
 
         assertEquals(resourceBefore, opiumBird.opiumResourceMeter, 0.001,
                 "Normal attacks must not imply resource behavior that only the special kit owns.");
-        assertTrue((double) invoke(opiumNeutralAir, "horizontalReach")
-                >= (double) invoke(sharedNeutralAir, "horizontalReach") + 24.0);
+        assertTrue((double) invoke(opiumNeutralAir, "horizontalReach") >= 144.0,
+                "Dream Orbit must retain authored circular coverage as other birds gain complete kits.");
         assertTrue((double) invoke(opiumNeutralAir, "verticalReach") >= 130.0);
         assertTrue((double) invoke(opiumSideSmash, "horizontalLaunchScale") <= 1.46,
                 "Haze Break should finish through commitment, not raw launch inflation.");

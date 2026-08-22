@@ -687,6 +687,19 @@ class LanBirdState {
     int kiwiUltimateWaveIndex;
     boolean kiwiUltimateFinalResolved;
     int[] kiwiUltimateHitCooldown = new int[4];
+    boolean[] titmouseScoldHitSync = new boolean[4];
+    boolean[] titmouseBarkskipHitSync = new boolean[4];
+    boolean[] titmouseVaultHitSync = new boolean[4];
+    int titmouseSeedStashCount;
+    double[] titmouseSeedStashX = new double[3];
+    double[] titmouseSeedStashY = new double[3];
+    int[] titmouseSeedStashLifeFrames = new int[3];
+    int[] titmouseSeedStashAgeFrames = new int[3];
+    boolean[] titmouseSeedStashUltimateSync = new boolean[3];
+    int titmouseMobbingNodeCount;
+    double[] titmouseMobbingNodeX = new double[4];
+    double[] titmouseMobbingNodeY = new double[4];
+    int[] titmouseMobbingNodeTargetIndex = {-1, -1, -1, -1};
 
     void write(DataOutputStream out) throws IOException {
         out.writeInt(typeOrdinal);
@@ -1443,6 +1456,23 @@ class LanBirdState {
         out.writeInt(kiwiUltimateWaveIndex);
         out.writeBoolean(kiwiUltimateFinalResolved);
         for (int cooldown : kiwiUltimateHitCooldown) out.writeInt(cooldown);
+        for (boolean hit : titmouseScoldHitSync) out.writeBoolean(hit);
+        for (boolean hit : titmouseBarkskipHitSync) out.writeBoolean(hit);
+        for (boolean hit : titmouseVaultHitSync) out.writeBoolean(hit);
+        out.writeInt(titmouseSeedStashCount);
+        for (int i = 0; i < titmouseSeedStashX.length; i++) {
+            out.writeDouble(titmouseSeedStashX[i]);
+            out.writeDouble(titmouseSeedStashY[i]);
+            out.writeInt(titmouseSeedStashLifeFrames[i]);
+            out.writeInt(titmouseSeedStashAgeFrames[i]);
+            out.writeBoolean(titmouseSeedStashUltimateSync[i]);
+        }
+        out.writeInt(titmouseMobbingNodeCount);
+        for (int i = 0; i < titmouseMobbingNodeX.length; i++) {
+            out.writeDouble(titmouseMobbingNodeX[i]);
+            out.writeDouble(titmouseMobbingNodeY[i]);
+            out.writeInt(titmouseMobbingNodeTargetIndex[i]);
+        }
     }
 
     static LanBirdState read(DataInputStream in) throws IOException {
@@ -2210,6 +2240,29 @@ class LanBirdState {
         state.kiwiUltimateFinalResolved = in.readBoolean();
         for (int i = 0; i < state.kiwiUltimateHitCooldown.length; i++) {
             state.kiwiUltimateHitCooldown[i] = in.readInt();
+        }
+        for (int i = 0; i < state.titmouseScoldHitSync.length; i++) {
+            state.titmouseScoldHitSync[i] = in.readBoolean();
+        }
+        for (int i = 0; i < state.titmouseBarkskipHitSync.length; i++) {
+            state.titmouseBarkskipHitSync[i] = in.readBoolean();
+        }
+        for (int i = 0; i < state.titmouseVaultHitSync.length; i++) {
+            state.titmouseVaultHitSync[i] = in.readBoolean();
+        }
+        state.titmouseSeedStashCount = in.readInt();
+        for (int i = 0; i < state.titmouseSeedStashX.length; i++) {
+            state.titmouseSeedStashX[i] = in.readDouble();
+            state.titmouseSeedStashY[i] = in.readDouble();
+            state.titmouseSeedStashLifeFrames[i] = in.readInt();
+            state.titmouseSeedStashAgeFrames[i] = in.readInt();
+            state.titmouseSeedStashUltimateSync[i] = in.readBoolean();
+        }
+        state.titmouseMobbingNodeCount = in.readInt();
+        for (int i = 0; i < state.titmouseMobbingNodeX.length; i++) {
+            state.titmouseMobbingNodeX[i] = in.readDouble();
+            state.titmouseMobbingNodeY[i] = in.readDouble();
+            state.titmouseMobbingNodeTargetIndex[i] = in.readInt();
         }
         return state;
     }

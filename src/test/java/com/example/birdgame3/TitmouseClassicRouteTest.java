@@ -28,6 +28,11 @@ class TitmouseClassicRouteTest {
                 route.stream().map(encounter -> encounter.map).toList());
         assertEquals(ClassicEncounterStyle.TITMOUSE_MEMORY_CACHE, route.get(6).style);
         assertEquals(ClassicEncounterStyle.TITMOUSE_OLD_OWL_BOSS, route.get(7).style);
+        assertEquals(3, route.get(3).waves.length);
+        assertTrue(route.get(3).waves[0][0].powerMult() >= 0.95);
+        assertTrue(route.get(3).waves[1][0].powerMult() >= 1.00);
+        assertTrue(route.get(3).waves[2][0].powerMult() >= 1.10,
+                "The voice gauntlet must escalate despite its safety-oriented style scale.");
         assertTrue(route.getLast().bossFight);
         assertEquals("THE ALARM IN THE TREES", invoke(new BirdGame3(), "classicRouteTitle",
                 new Class<?>[]{BirdType.class}, BirdType.TITMOUSE));

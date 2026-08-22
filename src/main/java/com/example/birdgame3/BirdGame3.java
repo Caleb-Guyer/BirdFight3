@@ -1401,6 +1401,11 @@ public class BirdGame3 {
         playManagedSfxVaried(swingClip, 0.52 + charge * 0.23, 0.94 - charge * 0.10, 0.04);
     }
 
+    void playTitmouseAttackWhoosh(double chargeRatio) {
+        double charge = Math.clamp(chargeRatio, 0.0, 1.0);
+        playManagedSfxVaried(swingClip, 0.44 + charge * 0.18, 1.50 - charge * 0.16, 0.055);
+    }
+
     void playPigeonFeatherBurstSfx(boolean ultimate) {
         playManagedSfxVaried(swingClip, ultimate ? 0.72 : 0.56, ultimate ? 1.42 : 1.58, 0.035);
     }
@@ -47598,7 +47603,7 @@ public class BirdGame3 {
         alarm.cpuLevel = 5;
         run.add(alarm);
 
-        ClassicFighter firstVoice = classicFighter(BirdType.TITMOUSE, "Voice I: The Scold", 82, 0.72, 1.00);
+        ClassicFighter firstVoice = classicFighter(BirdType.TITMOUSE, "Voice I: The Scold", 92, 0.96, 1.00);
         ClassicEncounter voices = new ClassicEncounter(
                 "Every Voice Different", "Stillwater Marsh",
                 "Three Titmice arrive in separate waves and emphasize different parts of the real move set.",
@@ -47607,9 +47612,9 @@ public class BirdGame3 {
                 new ClassicFighter[0], new ClassicFighter[]{firstVoice}, false)
                 .withWaves(
                         new ClassicFighter[]{firstVoice},
-                        new ClassicFighter[]{classicFighter(BirdType.TITMOUSE, "Voice II: The Cache", 88, 0.74, 0.98)},
-                        new ClassicFighter[]{classicFighter(BirdType.TITMOUSE, "Voice III: The Vault", 94, 0.76, 1.02)});
-        voices.cpuLevel = 5;
+                        new ClassicFighter[]{classicFighter(BirdType.TITMOUSE, "Voice II: The Cache", 104, 1.04, 0.98)},
+                        new ClassicFighter[]{classicFighter(BirdType.TITMOUSE, "Voice III: The Vault", 116, 1.12, 1.02)});
+        voices.cpuLevel = 6;
         run.add(voices);
 
         ClassicEncounter hide = new ClassicEncounter(
