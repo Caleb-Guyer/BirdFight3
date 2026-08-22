@@ -111,7 +111,7 @@ class GrinchHawkClassicRouteTest {
         assertFalse(game.isAI[boss.playerIndex]);
         assertFalse(boss.hasUltimate());
         assertEquals(3, game.scores[0]);
-        assertEquals(BirdGame3.BELLKEEPER_BASE_HEALTH, boss.health, 0.0001);
+        assertEquals(BirdGame3.BELLKEEPER_BASE_HEALTH * 0.78, boss.health, 0.0001);
         assertEquals("music-grinch-bellkeeper.mp3",
                 invoke(game, "gameplayMusicFile", new Class<?>[0]));
 

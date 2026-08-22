@@ -215,11 +215,12 @@ class PenguinClassicRouteTest {
     }
 
     @Test
-    void combatRouteUsesTwoPlayerStocksSoIceworksHaveTimeToMatter() throws Exception {
+    void combatRouteUsesAuthoredStocksSoIceworksHaveTimeToMatter() throws Exception {
         BirdGame3 game = preparedGame();
         for (int round = 0; round < 6; round++) {
             prepareEncounter(game, route(game).get(round));
-            assertEquals(2, game.scores[0], "Penguin stock count in round " + (round + 1));
+            assertEquals(round == 2 ? 1 : 2, game.scores[0],
+                    "Penguin stock count in round " + (round + 1));
         }
         assertTrue(ClassicBalanceLab.isObjectiveRound(ClassicEncounterStyle.ICE_ARCHITECT));
     }
@@ -273,6 +274,7 @@ class PenguinClassicRouteTest {
     }
 
     private static void prepareEncounter(BirdGame3 game, ClassicEncounter encounter) throws Exception {
+        setField(game, "classicRoundIndex", route(game).indexOf(encounter));
         game.classicEncounter = encounter;
         game.selectedMap = encounter.map;
         game.selectedMapVariant = encounter.variant;

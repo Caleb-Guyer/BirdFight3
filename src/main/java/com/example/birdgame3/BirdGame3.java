@@ -50283,7 +50283,444 @@ public class BirdGame3 {
                     scaleBossRushBird(bird, 1.48, 0.88, 0.92);
                 }
             }
+            applyClassicOpponentBalancePass(encounter, bird);
         }
+    }
+
+    /**
+     * The first authored routes predate Smash-stock Classic and were balanced
+     * as stamina fights. Keep their player fighters completely authentic and
+     * correct the encounter side of the equation instead: uneven teams become
+     * launchable, giants keep their silhouette without stacking every possible
+     * defensive bonus, and the old multi-stock bosses leave real punish windows.
+     */
+    private void applyClassicOpponentBalancePass(ClassicEncounter encounter, Bird enemy) {
+        if (encounter == null || enemy == null || getEffectiveTeam(enemy.playerIndex) != 2) return;
+        int roundIndex = authoredClassicRoundIndex(encounter);
+
+        double healthScale = 1.0;
+        double sizeScale = 1.0;
+        double powerScale = 1.0;
+        double speedScale = 1.0;
+        boolean sealUltimate = false;
+
+        switch (classicSelectedBird) {
+            case PIGEON -> {
+                switch (roundIndex) {
+                    case 2 -> { sizeScale = 1.30; powerScale = 1.50; }
+                    case 3 -> { sizeScale = 0.95; powerScale = 0.80; sealUltimate = true; }
+                    case 5 -> { sizeScale = 0.94; powerScale = 0.88; }
+                    case 7 -> {
+                        healthScale = 0.25;
+                        sizeScale = 0.60;
+                        powerScale = 0.18;
+                        speedScale = 0.76;
+                        sealUltimate = true;
+                    }
+                    default -> { }
+                }
+            }
+            case EAGLE -> {
+                switch (roundIndex) {
+                    case 0 -> { sizeScale = 0.94; powerScale = 0.90; }
+                    case 1 -> { sizeScale = 0.84; powerScale = 0.74; }
+                    case 2 -> powerScale = 0.90;
+                    case 3 -> { sizeScale = 1.00; powerScale = 1.04; }
+                    case 4 -> { sizeScale = 0.92; powerScale = 0.84; }
+                    case 5 -> { sizeScale = 1.28; powerScale = 1.28; }
+                    case 7 -> {
+                        healthScale = 0.76;
+                        sizeScale = 0.82;
+                        powerScale = 0.78;
+                        speedScale = 0.94;
+                        sealUltimate = true;
+                    }
+                    default -> { }
+                }
+            }
+            case FALCON -> {
+                switch (roundIndex) {
+                    case 1 -> { sizeScale = 1.05; powerScale = 1.08; }
+                    case 3 -> { sizeScale = 0.90; powerScale = 0.86; }
+                    case 5 -> { sizeScale = 1.05; powerScale = 1.05; }
+                    case 7 -> {
+                        sizeScale = 0.62;
+                        powerScale = 0.34;
+                        speedScale = 0.82;
+                        sealUltimate = true;
+                    }
+                    default -> { }
+                }
+            }
+            case PHOENIX -> {
+                switch (roundIndex) {
+                    case 0 -> { sizeScale = 1.00; powerScale = 1.00; }
+                    case 1 -> { sizeScale = 0.92; powerScale = 0.74; sealUltimate = true; }
+                    case 3 -> { sizeScale = 0.88; powerScale = 0.88; }
+                    case 4 -> { sizeScale = 0.94; powerScale = 0.84; sealUltimate = true; }
+                    case 5 -> { sizeScale = 0.90; powerScale = 0.70; speedScale = 0.96; }
+                    case 7 -> {
+                        healthScale = 0.82;
+                        sizeScale = 0.88;
+                        powerScale = 0.62;
+                        speedScale = 0.94;
+                        sealUltimate = true;
+                    }
+                    default -> { }
+                }
+            }
+            case HUMMINGBIRD -> {
+                switch (roundIndex) {
+                    case 1 -> { sizeScale = 1.35; powerScale = 1.75; }
+                    case 2 -> { sizeScale = 0.94; powerScale = 0.86; sealUltimate = true; }
+                    case 3 -> { powerScale = 0.72; sealUltimate = true; }
+                    case 4 -> { sizeScale = 0.88; powerScale = 0.64; sealUltimate = true; }
+                    case 7 -> {
+                        healthScale = 1.05;
+                        sizeScale = 0.94;
+                        powerScale = 0.95;
+                        speedScale = 0.98;
+                        sealUltimate = true;
+                    }
+                    default -> { }
+                }
+            }
+            case TURKEY -> {
+                switch (roundIndex) {
+                    case 0 -> { sizeScale = 1.12; powerScale = 1.10; sealUltimate = true; }
+                    case 1 -> { sizeScale = 0.90; powerScale = 0.76; sealUltimate = true; }
+                    case 2 -> { sizeScale = 0.86; powerScale = 0.62; sealUltimate = true; }
+                    case 4 -> { sizeScale = 0.92; powerScale = 0.82; sealUltimate = true; }
+                    case 5 -> { sizeScale = 0.98; powerScale = 0.95; sealUltimate = true; }
+                    case 7 -> {
+                        healthScale = 0.90;
+                        sizeScale = 0.76;
+                        powerScale = 0.68;
+                        speedScale = 0.96;
+                        sealUltimate = true;
+                    }
+                    default -> { }
+                }
+            }
+            case ROOSTER -> {
+                switch (roundIndex) {
+                    case 0 -> { sizeScale = 0.86; powerScale = 0.68; sealUltimate = true; }
+                    case 1 -> { sizeScale = 0.90; powerScale = 0.72; sealUltimate = true; }
+                    case 2 -> { sizeScale = 0.86; powerScale = 0.60; sealUltimate = true; }
+                    case 3 -> { sizeScale = 0.81; powerScale = 0.53; sealUltimate = true; }
+                    case 4 -> { healthScale = 0.45; sizeScale = 0.60; powerScale = 0.16; sealUltimate = true; }
+                    case 5 -> { sizeScale = 0.82; powerScale = 0.55; sealUltimate = true; }
+                    case 7 -> {
+                        healthScale = 0.78;
+                        sizeScale = 0.82;
+                        powerScale = 0.56;
+                        speedScale = 0.94;
+                        sealUltimate = true;
+                    }
+                    default -> { }
+                }
+            }
+            case ROADRUNNER -> {
+                switch (roundIndex) {
+                    case 0 -> { sizeScale = 1.10; powerScale = 1.16; }
+                    case 1 -> { sizeScale = 0.94; powerScale = 0.80; sealUltimate = true; }
+                    case 2 -> { sizeScale = 0.88; powerScale = 0.70; }
+                    case 3 -> { sizeScale = 1.08; powerScale = 1.12; }
+                    case 5 -> { sizeScale = 1.10; powerScale = 1.08; speedScale = 0.90; }
+                    case 7 -> {
+                        healthScale = 0.80;
+                        sizeScale = 0.70;
+                        powerScale = 0.34;
+                        speedScale = 0.94;
+                        sealUltimate = true;
+                    }
+                    default -> { }
+                }
+            }
+            case PENGUIN -> {
+                // The route's extra construction stock is valuable; the two
+                // easiest holds compensate with attackers that can actually
+                // threaten the fort instead of deleting that route identity.
+                if (roundIndex == 0) {
+                    sizeScale = 1.10;
+                    powerScale = 1.16;
+                    speedScale = 1.04;
+                } else if (roundIndex == 1) {
+                    sizeScale = 0.90;
+                    powerScale = 0.76;
+                } else if (roundIndex == 2) {
+                    sizeScale = 0.88;
+                    powerScale = 0.70;
+                    speedScale = 0.92;
+                } else if (roundIndex == 5) {
+                    sizeScale = 1.20;
+                    powerScale = 1.30;
+                    speedScale = 1.06;
+                }
+            }
+            case SHOEBILL -> {
+                if (roundIndex == 1) {
+                    sizeScale = 1.50;
+                    powerScale = 1.80;
+                } else if (roundIndex == 3) {
+                    sizeScale = 1.04;
+                    powerScale = 1.08;
+                    speedScale = 1.02;
+                } else if (roundIndex == 6) {
+                    healthScale = 0.72;
+                    sizeScale = 1.00;
+                    powerScale = 0.52;
+                    sealUltimate = true;
+                }
+            }
+            case MOCKINGBIRD -> {
+                if (roundIndex == 4) {
+                    sizeScale = 1.42;
+                    powerScale = 1.65;
+                } else if (roundIndex == 6) {
+                    sizeScale = 1.10;
+                    powerScale = 1.14;
+                } else if (roundIndex == 7) {
+                    healthScale = 1.05;
+                    sizeScale = 1.05;
+                    powerScale = 1.08;
+                }
+            }
+            case RAZORBILL -> {
+                if (roundIndex == 3) {
+                    sizeScale = 1.08;
+                    powerScale = 1.12;
+                } else if (roundIndex == 4) {
+                    sizeScale = 1.12;
+                    powerScale = 1.15;
+                } else if (roundIndex == 6) {
+                    healthScale = 0.38;
+                    sizeScale = 0.92;
+                    powerScale = 0.30;
+                    sealUltimate = true;
+                } else if (roundIndex == 7) {
+                    healthScale = 0.50;
+                    sizeScale = 0.80;
+                    powerScale = 0.56;
+                    speedScale = 0.92;
+                    sealUltimate = true;
+                }
+            }
+            case GRINCHHAWK -> {
+                if (roundIndex == 0) {
+                    sizeScale = 1.10;
+                    powerScale = 1.14;
+                } else if (roundIndex == 2) {
+                    sizeScale = 0.95;
+                    powerScale = 0.85;
+                } else if (roundIndex == 4) {
+                    sizeScale = 1.12;
+                    powerScale = 1.15;
+                } else if (roundIndex == 7) {
+                    healthScale = 0.78;
+                    sizeScale = 0.88;
+                    powerScale = 0.72;
+                    sealUltimate = true;
+                }
+            }
+            case VULTURE -> {
+                if (roundIndex == 3) {
+                    healthScale = 0.80;
+                    sizeScale = 0.86;
+                    powerScale = 0.68;
+                    sealUltimate = true;
+                }
+            }
+            case OPIUMBIRD -> {
+                if (roundIndex == 2) {
+                    sizeScale = 1.10;
+                    powerScale = 1.16;
+                } else if (roundIndex == 4) {
+                    sizeScale = 1.10;
+                    powerScale = 1.14;
+                } else if (roundIndex == 5) {
+                    healthScale = 0.48;
+                    sizeScale = 0.95;
+                    powerScale = 0.40;
+                    sealUltimate = true;
+                }
+            }
+            case HEISENBIRD -> {
+                if (roundIndex == 0) {
+                    sizeScale = 1.15;
+                    powerScale = 1.25;
+                } else if (roundIndex == 2) {
+                    sizeScale = 1.12;
+                    powerScale = 1.18;
+                } else if (roundIndex == 4) {
+                    sizeScale = 1.20;
+                    powerScale = 1.75;
+                } else if (roundIndex == 7) {
+                    healthScale = 0.72;
+                    sizeScale = 0.90;
+                    powerScale = 0.68;
+                    speedScale = 0.94;
+                    sealUltimate = true;
+                }
+            }
+            case TITMOUSE -> {
+                if (roundIndex == 7) {
+                    healthScale = 0.82;
+                    sizeScale = 0.88;
+                    powerScale = 0.72;
+                    sealUltimate = true;
+                }
+            }
+            case BAT -> {
+                if (roundIndex == 7) {
+                    healthScale = 0.94;
+                    sizeScale = 0.94;
+                    powerScale = 0.82;
+                    sealUltimate = true;
+                }
+            }
+            case PELICAN -> {
+                if (roundIndex == 4) {
+                    sizeScale = 1.10;
+                    powerScale = 1.15;
+                }
+            }
+            case RAVEN -> {
+                if (roundIndex == 3) {
+                    sizeScale = 0.75;
+                    powerScale = 0.60;
+                    speedScale = 0.94;
+                }
+            }
+            default -> { }
+        }
+
+        if (healthScale != 1.0) {
+            enemy.health = Math.max(1.0, enemy.health * healthScale);
+            if (enemy.classicMaxHealthOverride > 0.0) enemy.classicMaxHealthOverride = enemy.health;
+        }
+        if (sizeScale != 1.0 || powerScale != 1.0 || speedScale != 1.0) {
+            scaleBossRushBird(enemy, sizeScale, powerScale, speedScale);
+        }
+        if (classicSelectedBird == BirdType.PIGEON && roundIndex == 7) {
+            enemy.setTrailerSmashDamagePercent(92.0);
+        } else if (classicSelectedBird == BirdType.FALCON && roundIndex == 7) {
+            enemy.setTrailerSmashDamagePercent(125.0);
+        } else if (classicSelectedBird == BirdType.PENGUIN && roundIndex == 2) {
+            enemy.setTrailerSmashDamagePercent(115.0);
+        } else if (classicSelectedBird == BirdType.ROOSTER && roundIndex == 4) {
+            enemy.setTrailerSmashDamagePercent(140.0);
+        } else if (classicSelectedBird == BirdType.ROOSTER && roundIndex == 7) {
+            enemy.setTrailerSmashDamagePercent(68.0);
+        } else if (classicSelectedBird == BirdType.ROADRUNNER && roundIndex == 7) {
+            enemy.setTrailerSmashDamagePercent(82.0);
+        } else if (classicSelectedBird == BirdType.SHOEBILL && roundIndex == 6) {
+            enemy.setTrailerSmashDamagePercent(90.0);
+        } else if (classicSelectedBird == BirdType.RAZORBILL && roundIndex == 6) {
+            enemy.setTrailerSmashDamagePercent(75.0);
+        } else if (classicSelectedBird == BirdType.OPIUMBIRD && roundIndex == 5) {
+            enemy.setTrailerSmashDamagePercent(70.0);
+        }
+        if (sealUltimate) enemy.setUltimateEnabled(false);
+    }
+
+    private int authoredClassicRoundIndex(ClassicEncounter encounter) {
+        if (encounter == null) return classicRoundIndex;
+        if (classicRun != null) {
+            int authoredIndex = classicRun.indexOf(encounter);
+            if (authoredIndex >= 0) return authoredIndex;
+        }
+        return switch (classicSelectedBird) {
+            case PIGEON -> switch (encounter.name) {
+                case "Rooftop Rookies" -> 0;
+                case "Predators Overhead" -> 1;
+                case "Heavy Traffic" -> 2;
+                case "City After Dark" -> 3;
+                case "No Free Lunch" -> 4;
+                case "The Beacon's Reflection" -> 5;
+                case "Bonus: Rooftop Relay" -> 6;
+                case "No Crown, No King" -> 7;
+                default -> classicRoundIndex;
+            };
+            case EAGLE -> switch (encounter.name) {
+                case "Needle Squadron" -> 0;
+                case "Talon to Talon" -> 1;
+                case "Night Watch" -> 2;
+                case "The Migration Wall" -> 3;
+                case "Raptors Against Rebirth" -> 4;
+                case "Carrion Crown" -> 5;
+                case "Bonus: Storm Beacon Ascent" -> 6;
+                case "The Weight of the Crown" -> 7;
+                default -> classicRoundIndex;
+            };
+            case FALCON -> switch (encounter.name) {
+                case "Scatter the Flock" -> 0;
+                case "Faster Than Royalty" -> 1;
+                case "Rush Hour Crossfire" -> 2;
+                case "The Immovable Target" -> 3;
+                case "Hunt After Dark" -> 4;
+                case "Outrun Rebirth" -> 5;
+                case "Bonus: Peregrine Run" -> 6;
+                case "The Ultimate Prey" -> 7;
+                default -> classicRoundIndex;
+            };
+            case PHOENIX -> switch (encounter.name) {
+                case "Small Sparks" -> 0;
+                case "Cold Front" -> 1;
+                case "Volatile Mixture" -> 2;
+                case "The Deluge" -> 3;
+                case "False Suns" -> 4;
+                case "Ashen Reflection" -> 5;
+                case "Bonus: Rebirth Relay" -> 6;
+                case "The Long Winter" -> 7;
+                default -> classicRoundIndex;
+            };
+            case HUMMINGBIRD -> switch (encounter.name) {
+                case "First Flutter" -> 0;
+                case "Too Big to Miss" -> 1;
+                case "Night Garden" -> 2;
+                case "Tailwind Team" -> 3;
+                case "Poison in the Pollen" -> 4;
+                case "Needle Against Spear" -> 5;
+                case "Bonus: Hundred-Flower Dash" -> 6;
+                case "The Bloom That Wouldn't Die" -> 7;
+                default -> classicRoundIndex;
+            };
+            case TURKEY -> switch (encounter.name) {
+                case "First at the Table" -> 0;
+                case "The Swift Take" -> 1;
+                case "Poisoned Course" -> 2;
+                case "Open Season" -> 3;
+                case "Carving Blades" -> 4;
+                case "False Dawn" -> 5;
+                case "Bonus: Defend the Harvest" -> 6;
+                case "The Great Hunger" -> 7;
+                default -> classicRoundIndex;
+            };
+            case ROOSTER -> switch (encounter.name) {
+                case "The First Call" -> 0;
+                case "Two Kinds of Leadership" -> 1;
+                case "Hold Formation" -> 2;
+                case "The Cagekeepers" -> 3;
+                case "One Hunter, Five Targets" -> 4;
+                case "The Last Night" -> 5;
+                case "Bonus: The Great Muster" -> 6;
+                case "The Broodbreaker" -> 7;
+                default -> classicRoundIndex;
+            };
+            case ROADRUNNER -> switch (encounter.name) {
+                case "Off the Line" -> 0;
+                case "Speed Trap" -> 1;
+                case "No Straight Lines" -> 2;
+                case "The Roadblock" -> 3;
+                case "The Other Me" -> 4;
+                case "Break the Pursuit" -> 5;
+                case "Bonus: Redline Run" -> 6;
+                case "The Still King" -> 7;
+                default -> classicRoundIndex;
+            };
+            default -> classicRoundIndex;
+        };
     }
 
     private void positionClassicEncounterSpawns(ClassicEncounter encounter) {
@@ -53749,6 +54186,9 @@ public class BirdGame3 {
             boolean counterfeit = fighter.title.startsWith("Counterfeit");
             scaleBossRushBird(enemy, giantBoard ? 1.52 : counterfeit ? 0.66 : 0.86,
                     giantBoard ? 0.92 : 0.80, giantBoard ? 0.92 : 1.04);
+            if (authoredClassicRoundIndex(classicEncounter) == 4) {
+                applyClassicOpponentBalancePass(classicEncounter, enemy);
+            }
             classicTeams[slot] = 2;
             classicCpuLevels[slot] = resolvedClassicFighterCpuLevel(fighter, classicEncounter);
             scores[slot] = 1;
@@ -54740,9 +55180,12 @@ public class BirdGame3 {
     private void updateRazorbillSeamWarden(Bird player) {
         Bird warden = firstClassicEnemyWithStocks();
         if (warden == null) return;
-        int cadence = Math.max(70, 118 - classicRazorbillWaveIndex * 16);
+        // The construct's ordinary attacks remain the main threat. Telegraph
+        // shards punctuate each wave instead of forming a near-continuous
+        // screen lock that the navigation AI (and new players) cannot route.
+        int cadence = Math.max(104, 154 - classicRazorbillWaveIndex * 14);
         if ((simTick + 30L) % cadence == 0L) {
-            spawnRazorbillPattern(warden, player, classicRazorbillWaveIndex, 0.82);
+            spawnRazorbillPattern(warden, player, classicRazorbillWaveIndex, 0.58);
         }
         updateClassicSeamShards(player);
     }
@@ -55292,9 +55735,11 @@ public class BirdGame3 {
                 scaleBossRushBird(enemy, 0.62, 0.92, 1.08);
                 enemy.setUltimateEnabled(false);
             }
+            applyClassicOpponentBalancePass(classicEncounter, enemy);
             classicTeams[slot] = 2;
             classicCpuLevels[slot] = resolvedClassicFighterCpuLevel(fighter, classicEncounter);
-            scores[slot] = 1;
+            scores[slot] = !defenseWave && authoredClassicRoundIndex(classicEncounter) == 1
+                    && classicTurkeyWaveIndex == 1 ? 2 : 1;
 
             double spawnCenter;
             if (defenseWave) {
@@ -55475,10 +55920,10 @@ public class BirdGame3 {
     private void updateDevourerScale(Bird devourer) {
         if (devourer == null) return;
         double difficultyPower = 1.0 + (classicDifficulty - CLASSIC_STARTING_DIFFICULTY) * 0.015;
-        double size = classicDevourerFinalPhaseActive ? 1.46 : 1.72 + classicDevourerMeals * 0.11;
-        double power = (classicDevourerFinalPhaseActive ? 1.24 : 1.15 + classicDevourerMeals * 0.025)
+        double size = classicDevourerFinalPhaseActive ? 1.26 : 1.30 + classicDevourerMeals * 0.07;
+        double power = (classicDevourerFinalPhaseActive ? 0.94 : 0.84 + classicDevourerMeals * 0.025)
                 * difficultyPower;
-        double speed = classicDevourerFinalPhaseActive ? 1.16 : 0.94;
+        double speed = classicDevourerFinalPhaseActive ? 1.06 : 0.94;
         double health = devourer.health;
         devourer.setBaseMultipliers(size, power, speed);
         devourer.health = health;
@@ -55756,8 +56201,8 @@ public class BirdGame3 {
         }
         double health = hunter.health;
         double difficultyPower = 1.0 + (classicDifficulty - CLASSIC_STARTING_DIFFICULTY) * 0.015;
-        hunter.setBaseMultipliers(1.62 + classicRoosterHunterCaptures * 0.08,
-                (1.12 + classicRoosterHunterCaptures * 0.04) * difficultyPower,
+        hunter.setBaseMultipliers(1.02 + classicRoosterHunterCaptures * 0.05,
+                (0.46 + classicRoosterHunterCaptures * 0.03) * difficultyPower,
                 0.94 + classicRoosterHunterCaptures * 0.025);
         hunter.health = health;
     }
@@ -55895,6 +56340,7 @@ public class BirdGame3 {
         if (stocks <= 2 && !classicBroodbreakerCapturePhaseActive) {
             classicBroodbreakerCapturePhaseActive = true;
             classicBroodbreakerCaptureCountdown = 90;
+            boss.setTrailerSmashDamagePercent(55.0);
             addToKillFeed("SHADOW CAPTURE: use BROOD RECALL before the command ring closes!");
         }
         if (classicBroodbreakerCapturePhaseActive && !classicBroodbreakerCaptureResolved) {
@@ -55910,6 +56356,7 @@ public class BirdGame3 {
 
         if (stocks <= 1 && !classicBroodbreakerFinalPhaseActive) {
             classicBroodbreakerFinalPhaseActive = true;
+            boss.setTrailerSmashDamagePercent(58.0);
             classicDawnBells.clear();
             classicDawnBells.add(new ClassicDawnBell(1_520, GROUND_Y - 760));
             classicDawnBells.add(new ClassicDawnBell(3_000, GROUND_Y - 1_140));
@@ -55971,11 +56418,11 @@ public class BirdGame3 {
         int shadowCages = 0;
         for (ClassicBroodCage cage : classicRoosterCages) if (cage.shadow) shadowCages++;
         double difficultyPower = 1.0 + (classicDifficulty - CLASSIC_STARTING_DIFFICULTY) * 0.015;
-        double size = classicBroodbreakerEclipseBroken ? 1.45
-                : (classicBroodbreakerFinalPhaseActive ? 1.82 : 1.68 + shadowCages * 0.08);
-        double power = (classicBroodbreakerFinalPhaseActive && !classicBroodbreakerEclipseBroken ? 1.22 : 1.16)
+        double size = classicBroodbreakerEclipseBroken ? 1.16
+                : (classicBroodbreakerFinalPhaseActive ? 1.28 : 1.18 + shadowCages * 0.06);
+        double power = (classicBroodbreakerFinalPhaseActive && !classicBroodbreakerEclipseBroken ? 0.66 : 0.56)
                 * difficultyPower;
-        double speed = classicBroodbreakerFinalPhaseActive ? 1.10 : 1.02;
+        double speed = classicBroodbreakerFinalPhaseActive ? 1.02 : 0.98;
         double health = boss.health;
         boss.setBaseMultipliers(size, power, speed);
         boss.health = health;
@@ -62004,18 +62451,77 @@ public class BirdGame3 {
         if (!classicModeActive || classicEncounter == null) {
             return;
         }
+        int authoredRoundIndex = authoredClassicRoundIndex(classicEncounter);
         if (classicSelectedBird == BirdType.PENGUIN
                 && classicEncounter.style != ClassicEncounterStyle.ICE_ARCHITECT) {
             // The Iceworks route is built around holding and rebuilding a
-            // position. Two stocks keep its 2-on-1 and wave battles from ending
-            // before that mechanic can matter; the three-life finale mirrors
-            // The Last Sun's full stock structure.
-            scores[0] = classicEncounter.style == ClassicEncounterStyle.LAST_SUN_BOSS ? 3 : 2;
+            // position. Two stocks keep its uneven battles from ending before
+            // that mechanic can matter, while the single giant duel stays a
+            // clean one-stock test and the finale uses all three lives.
+            scores[0] = classicEncounter.style == ClassicEncounterStyle.GIANT ? 1
+                    : classicEncounter.style == ClassicEncounterStyle.LAST_SUN_BOSS ? 3 : 2;
         }
         if (classicSelectedBird == BirdType.ROADRUNNER
                 && classicRoundIndex == 0
                 && classicEncounter.style == ClassicEncounterStyle.MINIATURE_FLOCK) {
             scores[0] = 2;
+        }
+        if (classicSelectedBird == BirdType.PIGEON) {
+            scores[0] = switch (authoredRoundIndex) {
+                case 2, 3 -> 2;
+                case 7 -> 3;
+                default -> scores[0];
+            };
+        }
+        if (classicSelectedBird == BirdType.EAGLE) {
+            scores[0] = switch (authoredRoundIndex) {
+                case 3 -> 2;
+                case 7 -> 3;
+                default -> scores[0];
+            };
+        }
+        if (classicSelectedBird == BirdType.FALCON) {
+            scores[0] = switch (authoredRoundIndex) {
+                case 3, 5 -> 2;
+                case 7 -> 3;
+                default -> scores[0];
+            };
+        }
+        if (classicSelectedBird == BirdType.PHOENIX) {
+            scores[0] = switch (authoredRoundIndex) {
+                case 0, 1, 3, 4, 5 -> 2;
+                case 7 -> 3;
+                default -> scores[0];
+            };
+        }
+        if (classicSelectedBird == BirdType.HUMMINGBIRD) {
+            scores[0] = switch (authoredRoundIndex) {
+                case 1, 2, 3, 4 -> 2;
+                case 7 -> 3;
+                default -> scores[0];
+            };
+        }
+        if (classicSelectedBird == BirdType.TURKEY) {
+            scores[0] = switch (authoredRoundIndex) {
+                case 0 -> 3;
+                case 1, 2, 4, 5 -> 2;
+                case 7 -> 3;
+                default -> scores[0];
+            };
+        }
+        if (classicSelectedBird == BirdType.ROOSTER) {
+            scores[0] = switch (authoredRoundIndex) {
+                case 0, 1, 2, 3, 5 -> 2;
+                case 4, 7 -> 3;
+                default -> scores[0];
+            };
+        }
+        if (classicSelectedBird == BirdType.ROADRUNNER) {
+            scores[0] = switch (authoredRoundIndex) {
+                case 0, 1 -> 2;
+                case 3, 7 -> 3;
+                default -> scores[0];
+            };
         }
         if (classicSelectedBird == BirdType.SHOEBILL
                 && (classicEncounter.style == ClassicEncounterStyle.GIANT
@@ -62048,8 +62554,12 @@ public class BirdGame3 {
         }
         if (classicSelectedBird == BirdType.RAZORBILL
                 && classicEncounter.style != ClassicEncounterStyle.BETWEEN_LINES) {
-            scores[0] = classicEncounter.style == ClassicEncounterStyle.SEAMREAVER_BOSS
-                    || classicEncounter.style == ClassicEncounterStyle.SEAM_WARDEN_GAUNTLET ? 3 : 2;
+            scores[0] = switch (classicRoundIndex) {
+                case 2, 4 -> 2;
+                case 6 -> 3;
+                case 7 -> 3;
+                default -> 1;
+            };
         }
         if (classicSelectedBird == BirdType.GRINCHHAWK) {
             scores[0] = switch (classicRoundIndex) {
@@ -62087,14 +62597,16 @@ public class BirdGame3 {
         }
         if (classicSelectedBird == BirdType.HEISENBIRD) {
             scores[0] = switch (classicRoundIndex) {
-                case 0, 2, 4 -> 2;
+                case 0, 4 -> 2;
+                case 2 -> 1;
                 case 5, 7 -> 3;
                 default -> scores[0];
             };
         }
         if (classicSelectedBird == BirdType.TITMOUSE) {
             scores[0] = switch (classicRoundIndex) {
-                case 1, 4 -> 3;
+                case 1 -> 1;
+                case 4 -> 3;
                 case 2, 3, 7 -> 2;
                 case 0, 5 -> 1;
                 default -> scores[0];
@@ -62122,8 +62634,8 @@ public class BirdGame3 {
         }
         if (classicSelectedBird == BirdType.RAVEN) {
             scores[0] = switch (classicRoundIndex) {
-                case 0, 1, 2, 6 -> 1;
-                case 3, 5 -> 2;
+                case 0, 1, 2, 3, 6 -> 1;
+                case 5 -> 2;
                 case 7 -> 3;
                 default -> scores[0];
             };
@@ -62155,11 +62667,15 @@ public class BirdGame3 {
         }
         int enemyStocks = switch (classicEncounter.style) {
             case STORM_TYRANT_BOSS, PHOENIX_REBIRTH, BLIGHTWING_BOSS, ICEWORKS_MIRROR -> 2;
-            case NULL_ROC_BOSS, LONG_WINTER_BOSS, DEVOURER_BOSS, BROODBREAKER_BOSS,
-                    STILL_KING_BOSS, LAST_SUN_BOSS, HOARDMASTER_BOSS, RAVEN_LAST_DAWN_BOSS,
+            case NULL_ROC_BOSS, STILL_KING_BOSS -> 2;
+            case LONG_WINTER_BOSS, DEVOURER_BOSS, BROODBREAKER_BOSS,
+                    LAST_SUN_BOSS, HOARDMASTER_BOSS, RAVEN_LAST_DAWN_BOSS,
                     GOOSE_BORDER_KING_BOSS, KIWI_ZENITH_BOSS -> 3;
             default -> 0;
         };
+        if (classicSelectedBird == BirdType.ROADRUNNER && authoredRoundIndex == 3) {
+            enemyStocks = 2;
+        }
         if (enemyStocks <= 0) return;
         for (Bird bird : players) {
             if (bird != null && getEffectiveTeam(bird.playerIndex) == 2) {
@@ -62780,12 +63296,32 @@ public class BirdGame3 {
         if (nullRoc == null) return;
         int stocks = matchScoreForPlayer(nullRoc.playerIndex);
 
+        // Null Roc can hover far from ordinary horizontal launch routes. Once
+        // Falcon has genuinely broken a phase's shell, send that stock through
+        // the nearest side blast zone. This turns accumulated damage into a
+        // visible phase break without granting Falcon a route-only attack.
+        if (nullRoc.smashDamagePercent() >= 300.0) {
+            Bird falcon = players[0];
+            double direction = falcon == null || nullRoc.bodyCenterX() >= falcon.bodyCenterX() ? 1.0 : -1.0;
+            nullRoc.vx = direction * Math.max(52.0, Math.abs(nullRoc.vx));
+            nullRoc.vy = Math.min(nullRoc.vy, -6.0);
+            nullRoc.stunTime = Math.max(nullRoc.stunTime, 36.0);
+        }
+
         if (stocks <= 2) {
             if (!classicNullRocAscentPhaseActive) {
                 classicNullRocAscentPhaseActive = true;
+                nullRoc.setTrailerSmashDamagePercent(125.0);
                 windVents.add(new WindVent(1880, GROUND_Y - 1180, 300));
                 windVents.add(new WindVent(3830, GROUND_Y - 1260, 300));
                 addToKillFeed("NULL ROC: the hunt climbs into the shattered Crown's upper winds.");
+            }
+            // Stock loss and respawn complete after the phase edge is seen.
+            // Reapply the authored launch percent until the fresh phase has it;
+            // otherwise respawn silently resets the boss to 0% and makes all
+            // later stocks much harder than the opening one.
+            if (nullRoc.smashDamagePercent() < 125.0) {
+                nullRoc.setTrailerSmashDamagePercent(125.0);
             }
             nullRoc.speedMultiplier = Math.max(nullRoc.speedMultiplier, nullRoc.baseSpeedMultiplier * 1.04);
         }
@@ -62793,8 +63329,12 @@ public class BirdGame3 {
         if (stocks <= 1) {
             if (!classicNullRocFinalPhaseActive) {
                 classicNullRocFinalPhaseActive = true;
+                nullRoc.setTrailerSmashDamagePercent(132.0);
                 addToKillFeed("CORNERED PREY: Null Roc attacks faster, but every special keeps its cooldown.");
                 redFlashAlpha = Math.max(redFlashAlpha, 0.20);
+            }
+            if (nullRoc.smashDamagePercent() < 132.0) {
+                nullRoc.setTrailerSmashDamagePercent(132.0);
             }
             nullRoc.powerMultiplier = Math.max(nullRoc.powerMultiplier, nullRoc.basePowerMultiplier * 1.08);
             nullRoc.speedMultiplier = Math.max(nullRoc.speedMultiplier, nullRoc.baseSpeedMultiplier * 1.08);
@@ -62815,6 +63355,15 @@ public class BirdGame3 {
     private boolean isNullRockCampaign() {
         return campaignModeActive && currentCampaignMission != null
                 && currentCampaignMission.arenaVariant() == StoryCampaign.ArenaVariant.NULL_ROCK;
+    }
+
+    boolean permitsNullRockVoidRecovery(Bird bird) {
+        // Null Rock's story boss keeps its signature refusal of the void. The
+        // Falcon route's Null Roc is a separate two-stock hunt on a vertical
+        // arena, where bottom launch must count or the encounter has no
+        // reliable completion path.
+        return bird != null && !(classicModeActive && classicEncounter != null
+                && classicEncounter.style == ClassicEncounterStyle.NULL_ROC_BOSS);
     }
 
     private boolean isNullRockDuelPhase() {

@@ -141,9 +141,9 @@ class CharlesClassicRouteTest {
         assertFalse(game.isAI[boss.playerIndex]);
         assertFalse(boss.hasUltimate());
         assertTrue(game.isClassicStaminaBoss(boss));
-        assertEquals(BirdGame3.HOLLOW_MAESTRO_BASE_HEALTH, boss.health, 0.0001);
+        assertEquals(BirdGame3.HOLLOW_MAESTRO_BASE_HEALTH * 1.05, boss.health, 0.0001);
         assertEquals(boss.health, boss.getMaxHealth(), 0.0001);
-        assertEquals(1.72, boss.sizeMultiplier, 0.0001);
+        assertEquals(1.72 * 1.05, boss.sizeMultiplier, 0.0001);
         assertEquals("music-charles-maestro.mp3", invoke(game, "gameplayMusicFile", new Class<?>[0]));
 
         String source = Files.readString(Path.of("src/main/java/com/example/birdgame3/BirdGame3.java"));

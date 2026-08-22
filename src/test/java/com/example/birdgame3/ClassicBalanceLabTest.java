@@ -84,6 +84,22 @@ class ClassicBalanceLabTest {
     }
 
     @Test
+    void sixtyFourMatchReportsTreatFortyFiveWinsAsStatisticalTargetEdge() {
+        ClassicBalanceLab.Config config = new ClassicBalanceLab.Config(
+                new BirdGame3.BirdType[]{BirdGame3.BirdType.ROADRUNNER},
+                64, 4L * 60 * 60, 91L, 5.0, 5, false);
+        ClassicBalanceLab.EncounterSummary summary = new ClassicBalanceLab.EncounterSummary(
+                BirdGame3.BirdType.ROADRUNNER, 3, "The Roadblock",
+                BirdGame3.ClassicEncounterStyle.GIANT, "Titan Dock", false,
+                64, 45, 19, 0, 45.0 / 64.0, 60.0 * 80.0, 120.0);
+        ClassicBalanceLab.Report report = new ClassicBalanceLab.Report(config, List.of(), List.of(summary));
+
+        assertTrue(report.markdown().contains("| 70.3% |"));
+        assertTrue(report.markdown().contains("| Target band |"));
+        assertTrue(ClassicBalanceLab.TARGET_CLEAR_RATE_MAX < 46.0 / 64.0);
+    }
+
+    @Test
     void authoredBossTimerOutlivesAShortGeneralAuditCapAndStillDecidesTheMatch() {
         ClassicBalanceLab.EncounterOutcome outcome = ClassicBalanceLab.playEncounter(
                 freshGame(), BirdGame3.BirdType.VULTURE, 7,

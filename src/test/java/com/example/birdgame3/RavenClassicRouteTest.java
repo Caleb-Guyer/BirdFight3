@@ -86,6 +86,18 @@ class RavenClassicRouteTest {
     }
 
     @Test
+    void oracleDuelUsesOneRavenStockAndAReadableSingleStockGiant() {
+        BirdGame3 game = prepared(3, 0xDA7250L, 0xDA7251L);
+        Bird oracle = game.players[1];
+
+        assertEquals(1, game.scores[0]);
+        assertEquals(1, game.scores[1]);
+        assertEquals(BirdType.OPIUMBIRD, oracle.type);
+        assertTrue(oracle.baseSizeMultiplier > 0.9);
+        assertTrue(oracle.basePowerMultiplier < 0.75);
+    }
+
+    @Test
     void lastDawnIsAThreeStockActualPhoenixBossWithReadableRealKit() {
         BirdGame3 game = prepared(7, 0xDA7300L, 0xDA7301L);
         Bird boss = game.players[1];

@@ -131,10 +131,10 @@ class HummingbirdClassicRouteTest {
         invoke(game, "applyClassicEncounterStockOverrides", new Class<?>[0]);
 
         assertTrue(game.classicUsesSmashRules());
-        assertEquals(1, game.scores[0]);
+        assertEquals(3, game.scores[0]);
         assertEquals(2, game.scores[1]);
         assertEquals(3, game.windVents.size());
-        assertEquals(1.55, game.players[1].sizeMultiplier, 0.0001);
+        assertEquals(1.55 * 0.94, game.players[1].sizeMultiplier, 0.0001);
         assertEquals(BirdGame3.BLIGHTWING_RAVEN_SKIN, game.players[1].appliedSkinKey);
         assertFalse(game.players[1].hasUltimate());
     }

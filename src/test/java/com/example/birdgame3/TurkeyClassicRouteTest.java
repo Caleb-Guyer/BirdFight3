@@ -69,6 +69,32 @@ class TurkeyClassicRouteTest {
     }
 
     @Test
+    void openingGauntletUsesThreePlayerStocksWithoutPreDamagingItsWaves() throws Exception {
+        BirdGame3 game = preparedGame();
+        ClassicEncounter opening = route(game).getFirst();
+        prepareEncounter(game, opening);
+        invoke(game, "applyClassicEncounterStockOverrides", new Class<?>[0]);
+
+        assertEquals(3, game.scores[0]);
+        assertEquals(0.0, game.players[1].smashDamagePercent(), 0.0001);
+    }
+
+    @Test
+    void swiftTakeFinishesWithATwoStockHummingbirdWave() throws Exception {
+        BirdGame3 game = preparedGame();
+        ClassicEncounter swiftTake = route(game).get(1);
+        prepareEncounter(game, swiftTake);
+
+        game.scores[1] = 0;
+        assertTrue(game.holdClassicTurkeyEncounterOpen());
+        invoke(game, "completeTurkeyFeastChoice", new Class<?>[]{boolean.class}, false);
+
+        assertEquals(BirdType.HUMMINGBIRD, game.players[1].type);
+        assertEquals(2, game.scores[1]);
+        assertFalse(game.players[1].hasUltimate());
+    }
+
+    @Test
     void clearingAWaveOpensFeastChoiceAndFamineSpawnsTheNextWave() throws Exception {
         BirdGame3 game = preparedGame();
         ClassicEncounter first = route(game).getFirst();
@@ -121,7 +147,7 @@ class TurkeyClassicRouteTest {
 
         assertEquals(3, game.scores[1]);
         assertFalse(game.players[1].hasUltimate());
-        assertEquals(1.72, game.players[1].sizeMultiplier, 0.0001);
+        assertEquals(1.72 * 0.76, game.players[1].sizeMultiplier, 0.0001);
         int openingPlatforms = game.platforms.size();
 
         game.scores[1] = 2;
@@ -132,7 +158,7 @@ class TurkeyClassicRouteTest {
         game.applyTurkeyClassicRuntimeEffects();
         assertTrue((boolean) getField(game, "classicDevourerFinalPhaseActive"));
         assertEquals(openingPlatforms - 2, game.platforms.size());
-        assertEquals(1.46, game.players[1].sizeMultiplier, 0.0001);
+        assertEquals(1.26, game.players[1].sizeMultiplier, 0.0001);
     }
 
     @Test

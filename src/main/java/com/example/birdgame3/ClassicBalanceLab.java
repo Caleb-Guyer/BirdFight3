@@ -21,6 +21,11 @@ import java.util.prefs.Preferences;
  */
 final class ClassicBalanceLab {
 
+    // A 64-match audit advances in 1.5625-point steps. Treat 45/64 (70.3%) as
+    // the upper edge of the target band instead of presenting one seed result
+    // above 44/64 as a balance verdict.
+    static final double TARGET_CLEAR_RATE_MAX = 0.71;
+
     record Config(BirdType[] birds, int matchesPerEncounter, long maxTicksPerMatch,
                   long baseSeed, double difficulty, int playerCpuLevel,
                   boolean includeObjectiveRounds) {
@@ -104,8 +109,8 @@ final class ClassicBalanceLab {
             }
 
             sb.append("\n## How to use this report\n\n");
-            sb.append("Combat rounds below 40% deserve review; 40–70% is the initial target band; ")
-                    .append("results above 70% may be too easy. Compare this report with the ordinary roster ")
+            sb.append("Combat rounds below 40% deserve review; 40–71% is the initial target band; ")
+                    .append("results above 71% may be too easy. Compare this report with the ordinary roster ")
                     .append("audit: weakness in both points to the fighter, while weakness only here points to ")
                     .append("the authored Classic encounter. Objective rounds measure AI routing as much as balance.\n");
             return sb.toString();
@@ -118,7 +123,7 @@ final class ClassicBalanceLab {
                 return "Likely AI routing failure";
             }
             if (summary.clearRate() < 0.40) return "Too hard / weak matchup";
-            if (summary.clearRate() <= 0.70) return "Target band";
+            if (summary.clearRate() <= TARGET_CLEAR_RATE_MAX) return "Target band";
             return "Possibly too easy";
         }
 

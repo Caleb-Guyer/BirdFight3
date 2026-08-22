@@ -98,17 +98,18 @@ class PhoenixClassicRouteTest {
         initializeStocks(game);
         invoke(game, "applyClassicEncounterStockOverrides", new Class<?>[0]);
         assertTrue(game.classicUsesSmashRules());
-        assertEquals(1, game.scores[0]);
+        assertEquals(2, game.scores[0]);
         assertEquals(2, game.scores[1]);
         assertTrue(game.players[1].isAshenSovereignSkin);
 
         ClassicEncounter winter = route.get(7);
+        setField(game, "classicRoundIndex", 7);
         game.classicEncounter = winter;
         invoke(game, "setupClassicEncounterRoster", new Class<?>[]{ClassicEncounter.class}, winter);
         initializeStocks(game);
         invoke(game, "applyClassicEncounterStockOverrides", new Class<?>[0]);
         assertTrue(game.classicUsesSmashRules());
-        assertEquals(1, game.scores[0]);
+        assertEquals(3, game.scores[0]);
         assertEquals(3, game.scores[1]);
         assertFalse(game.players[1].hasUltimate());
         assertEquals(BirdGame3.WINTER_KING_GRINCHHAWK_SKIN, game.players[1].appliedSkinKey);

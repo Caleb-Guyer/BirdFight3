@@ -85,7 +85,7 @@ class RazorbillClassicRouteTest {
         assertFalse(boss.hasUltimate());
         assertEquals(3, game.scores[0]);
         assertEquals(1, game.scores[boss.playerIndex]);
-        assertEquals(BirdGame3.SEAMREAVER_BASE_HEALTH, boss.health, 0.0001);
+        assertEquals(BirdGame3.SEAMREAVER_BASE_HEALTH * 0.50, boss.health, 0.0001);
         assertEquals("music-razorbill-seamreaver.mp3",
                 invoke(game, "gameplayMusicFile", new Class<?>[0]));
 

@@ -138,9 +138,10 @@ class PigeonClassicRouteTest {
 
         Bird boss = game.players[1];
         assertTrue(boss.isNullRockForm());
-        assertEquals(520.0, boss.health, 0.001);
-        assertEquals(520.0, boss.getMaxHealth(), 0.001);
-        assertEquals(3.0, boss.sizeMultiplier, 0.001);
+        assertEquals(130.0, boss.health, 0.001);
+        assertEquals(130.0, boss.getMaxHealth(), 0.001);
+        assertEquals(1.8, boss.sizeMultiplier, 0.001);
+        assertEquals(92.0, boss.smashDamagePercent(), 0.001);
         assertTrue(boss.basePowerMultiplier < game.nullRockTrueFormPowerMultiplier(),
                 "solo Classic should not inherit the coalition finale's full power tuning");
     }

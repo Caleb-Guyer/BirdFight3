@@ -92,7 +92,7 @@ class TitmouseClassicRouteTest {
         assertNotNull(boss);
         assertTrue(game.isClassicStaminaBoss(boss));
         assertFalse(game.isAI[boss.playerIndex]);
-        assertEquals(BirdGame3.OLD_OWL_BASE_HEALTH, boss.health, 0.001);
+        assertEquals(BirdGame3.OLD_OWL_BASE_HEALTH * 0.82, boss.health, 0.001);
         assertEquals(BirdGame3.OLD_OWL_GUARDED_DAMAGE_SCALE,
                 game.classicStaminaBossIncomingDamageScale(boss), 0.0001);
 

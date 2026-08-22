@@ -130,6 +130,17 @@ class RoadrunnerClassicRouteTest {
     }
 
     @Test
+    void roadblockIsAThreeStockVersusTwoStockGiantRaid() throws Exception {
+        BirdGame3 game = preparedGame();
+        prepareEncounter(game, route(game).get(3));
+        invoke(game, "applyClassicEncounterStockOverrides", new Class<?>[0]);
+
+        assertEquals(3, game.scores[0]);
+        assertEquals(2, game.scores[1]);
+        assertEquals(BirdType.PELICAN, game.players[1].type);
+    }
+
+    @Test
     void canyonFinishAwardsTheSeventhBoltAndARank() throws Exception {
         BirdGame3 game = preparedGame();
         game.headlessHarnessMode = true;
@@ -226,8 +237,8 @@ class RoadrunnerClassicRouteTest {
         invoke(game, "applyClassicEncounterStockOverrides", new Class<?>[0]);
         Bird boss = game.players[1];
 
-        assertEquals(3, game.scores[1]);
-        assertEquals(1.78, boss.sizeMultiplier, 0.0001);
+        assertEquals(2, game.scores[1]);
+        assertEquals(1.78 * 0.70, boss.sizeMultiplier, 0.0001);
         assertFalse(boss.hasUltimate());
         assertEquals("NO FINISH LINE",
                 invoke(game, "classicRouteTitle", new Class<?>[]{BirdType.class}, BirdType.ROADRUNNER));

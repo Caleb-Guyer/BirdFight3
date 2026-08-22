@@ -59,6 +59,23 @@ class HeisenbirdClassicRouteTest {
     }
 
     @Test
+    void counterfeitBalanceAppliesToEveryDynamicallySpawnedBatch() {
+        BirdGame3 game = prepared(4, 0x483100L, 0x483101L);
+        Bird firstBatch = firstEnemy(game);
+        assertNotNull(firstBatch);
+        double calibratedSize = firstBatch.baseSizeMultiplier;
+
+        firstBatch.health = 0.0;
+        game.scores[firstBatch.playerIndex] = 0;
+        assertTrue(game.holdClassicHeisenbirdEncounterOpen());
+
+        Bird secondBatch = firstEnemy(game);
+        assertNotNull(secondBatch);
+        assertEquals(calibratedSize, secondBatch.baseSizeMultiplier, 0.0001);
+        assertFalse(secondBatch.hasUltimate());
+    }
+
+    @Test
     void ordinaryRoundsDoNotShowMeaninglessResetFooter() throws Exception {
         BirdGame3 game = prepared(0, 0x484001L, 0x484002L);
         @SuppressWarnings("unchecked")
@@ -106,7 +123,7 @@ class HeisenbirdClassicRouteTest {
         assertNotNull(boss);
         assertTrue(game.isClassicStaminaBoss(boss));
         assertFalse(game.isAI[boss.playerIndex]);
-        assertEquals(BirdGame3.BLUE_SKY_ENGINE_BASE_HEALTH, boss.health, 0.001);
+        assertEquals(BirdGame3.BLUE_SKY_ENGINE_BASE_HEALTH * 0.72, boss.health, 0.001);
         assertEquals(BirdGame3.BLUE_SKY_ENGINE_CLOSED_DAMAGE_SCALE,
                 game.classicStaminaBossIncomingDamageScale(boss), 0.0001);
 

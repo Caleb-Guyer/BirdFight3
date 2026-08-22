@@ -182,7 +182,7 @@ class RoosterClassicRouteTest {
 
         assertEquals(3, game.scores[1]);
         assertFalse(boss.hasUltimate());
-        assertEquals(1.68, boss.sizeMultiplier, 0.0001);
+        assertEquals(1.68 * 0.82, boss.sizeMultiplier, 0.0001);
 
         game.scores[1] = 2;
         game.applyRoosterClassicRuntimeEffects();
@@ -198,7 +198,7 @@ class RoosterClassicRouteTest {
                 (List<BirdGame3.ClassicDawnBell>) getField(game, "classicDawnBells");
         assertEquals(3, bells.size());
         assertTrue((boolean) getField(game, "classicBroodbreakerFinalPhaseActive"));
-        assertEquals(1.82, boss.sizeMultiplier, 0.0001);
+        assertEquals(1.28, boss.sizeMultiplier, 0.0001);
 
         ChickMinion chick = game.chickMinions.stream().filter(candidate -> candidate.owner == player).findFirst().orElseThrow();
         for (BirdGame3.ClassicDawnBell bell : bells) {
@@ -208,7 +208,7 @@ class RoosterClassicRouteTest {
             game.applyRoosterClassicRuntimeEffects();
         }
         assertTrue((boolean) getField(game, "classicBroodbreakerEclipseBroken"));
-        assertEquals(1.45, boss.sizeMultiplier, 0.0001);
+        assertEquals(1.16, boss.sizeMultiplier, 0.0001);
     }
 
     @Test

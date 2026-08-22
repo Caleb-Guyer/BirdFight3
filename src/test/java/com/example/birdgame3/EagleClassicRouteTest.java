@@ -77,12 +77,12 @@ class EagleClassicRouteTest {
         assertTrue(game.classicUsesSmashRules());
         assertEquals(1, game.smashStartingStocks());
         assertFalse(game.players[1].hasUltimate());
-        assertTrue(game.players[1].sizeMultiplier >= 1.6);
+        assertTrue(game.players[1].sizeMultiplier >= 1.3);
 
         game.scores[0] = game.smashStartingStocks();
         game.scores[1] = game.smashStartingStocks();
         invoke(game, "applyClassicEncounterStockOverrides", new Class<?>[0]);
-        assertEquals(1, game.scores[0]);
+        assertEquals(3, game.scores[0]);
         assertEquals(2, game.scores[1]);
     }
 
