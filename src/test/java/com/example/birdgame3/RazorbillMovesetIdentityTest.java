@@ -13,14 +13,14 @@ class RazorbillMovesetIdentityTest {
         BirdGame3 game = new BirdGame3();
         Bird razorbill = groundedBird(game, BirdGame3.BirdType.RAZORBILL, 0, 320.0);
         Bird charles = groundedBird(game, BirdGame3.BirdType.MOCKINGBIRD, 1, 320.0);
-        Bird grinchHawk = groundedBird(game, BirdGame3.BirdType.GRINCHHAWK, 2, 320.0);
+        Bird vulture = groundedBird(game, BirdGame3.BirdType.VULTURE, 2, 320.0);
 
         int distinctFromCharles = 0;
         int distinctFromSharedProfile = 0;
         for (Object variant : normalAttackVariantClass().getEnumConstants()) {
             Object profile = invoke(razorbill, "normalAttackProfile", variant);
             if (!profile.equals(invoke(charles, "normalAttackProfile", variant))) distinctFromCharles++;
-            if (!profile.equals(invoke(grinchHawk, "normalAttackProfile", variant))) distinctFromSharedProfile++;
+            if (!profile.equals(invoke(vulture, "normalAttackProfile", variant))) distinctFromSharedProfile++;
             String moveName = (String) invoke(razorbill, "normalAttackTelemetryName", variant);
             assertTrue(moveName.startsWith("Razorbill "));
             assertFalse(moveName.contains("Normal Attack"));
@@ -96,13 +96,13 @@ class RazorbillMovesetIdentityTest {
     void razorbillNormalsFavorLongNarrowCutsWithoutReplacingBladeStorm() throws Exception {
         BirdGame3 game = new BirdGame3();
         Bird razorbill = groundedBird(game, BirdGame3.BirdType.RAZORBILL, 0, 320.0);
-        Bird grinchHawk = groundedBird(game, BirdGame3.BirdType.GRINCHHAWK, 1, 320.0);
+        Bird vulture = groundedBird(game, BirdGame3.BirdType.VULTURE, 1, 320.0);
         Object sideTilt = enumConstant("com.example.birdgame3.Bird$NormalAttackVariant", "SIDE_TILT");
         Object forwardAir = enumConstant("com.example.birdgame3.Bird$NormalAttackVariant", "FORWARD_AIR");
         Object sideSmash = enumConstant("com.example.birdgame3.Bird$NormalAttackVariant", "SIDE_SMASH");
         Object dashAttack = enumConstant("com.example.birdgame3.Bird$NormalAttackVariant", "DASH_ATTACK");
         Object razorbillTilt = invoke(razorbill, "normalAttackProfile", sideTilt);
-        Object sharedTilt = invoke(grinchHawk, "normalAttackProfile", sideTilt);
+        Object sharedTilt = invoke(vulture, "normalAttackProfile", sideTilt);
         Object razorbillFair = invoke(razorbill, "normalAttackProfile", forwardAir);
         Object razorbillSmash = invoke(razorbill, "normalAttackProfile", sideSmash);
         Object razorbillDash = invoke(razorbill, "normalAttackProfile", dashAttack);
