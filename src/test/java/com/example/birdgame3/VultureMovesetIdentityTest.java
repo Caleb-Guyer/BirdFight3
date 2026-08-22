@@ -13,7 +13,7 @@ class VultureMovesetIdentityTest {
         BirdGame3 game = new BirdGame3();
         Bird vulture = groundedBird(game, BirdGame3.BirdType.VULTURE, 0, 320.0);
         Bird grinchHawk = groundedBird(game, BirdGame3.BirdType.GRINCHHAWK, 1, 320.0);
-        Bird opiumBird = groundedBird(game, BirdGame3.BirdType.OPIUMBIRD, 2, 320.0);
+        Bird opiumBird = groundedBird(game, BirdGame3.BirdType.TITMOUSE, 2, 320.0);
 
         int distinctFromGrinchHawk = 0;
         int distinctFromSharedProfile = 0;
@@ -96,7 +96,7 @@ class VultureMovesetIdentityTest {
     void vultureNormalsFavorBroadCoverageAndCommittedFinishers() throws Exception {
         BirdGame3 game = new BirdGame3();
         Bird vulture = groundedBird(game, BirdGame3.BirdType.VULTURE, 0, 320.0);
-        Bird opiumBird = groundedBird(game, BirdGame3.BirdType.OPIUMBIRD, 1, 320.0);
+        Bird opiumBird = groundedBird(game, BirdGame3.BirdType.TITMOUSE, 1, 320.0);
         Object neutralAir = enumConstant("com.example.birdgame3.Bird$NormalAttackVariant", "NEUTRAL_AIR");
         Object sideSmash = enumConstant("com.example.birdgame3.Bird$NormalAttackVariant", "SIDE_SMASH");
         Object downAir = enumConstant("com.example.birdgame3.Bird$NormalAttackVariant", "DOWN_AIR");

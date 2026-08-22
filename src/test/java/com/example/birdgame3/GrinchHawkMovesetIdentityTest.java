@@ -13,7 +13,7 @@ class GrinchHawkMovesetIdentityTest {
         BirdGame3 game = new BirdGame3();
         Bird grinchHawk = groundedBird(game, BirdGame3.BirdType.GRINCHHAWK, 0, 320.0);
         Bird razorbill = groundedBird(game, BirdGame3.BirdType.RAZORBILL, 1, 320.0);
-        Bird opiumBird = groundedBird(game, BirdGame3.BirdType.OPIUMBIRD, 2, 320.0);
+        Bird opiumBird = groundedBird(game, BirdGame3.BirdType.TITMOUSE, 2, 320.0);
 
         int distinctFromRazorbill = 0;
         int distinctFromSharedProfile = 0;
@@ -96,7 +96,7 @@ class GrinchHawkMovesetIdentityTest {
     void grinchHawkKitRewardsFastSetupsAndABackwardFinisher() throws Exception {
         BirdGame3 game = new BirdGame3();
         Bird grinchHawk = groundedBird(game, BirdGame3.BirdType.GRINCHHAWK, 0, 320.0);
-        Bird opiumBird = groundedBird(game, BirdGame3.BirdType.OPIUMBIRD, 1, 320.0);
+        Bird opiumBird = groundedBird(game, BirdGame3.BirdType.TITMOUSE, 1, 320.0);
         Object downTilt = enumConstant("com.example.birdgame3.Bird$NormalAttackVariant", "DOWN_TILT");
         Object backAir = enumConstant("com.example.birdgame3.Bird$NormalAttackVariant", "BACK_AIR");
         Object dashAttack = enumConstant("com.example.birdgame3.Bird$NormalAttackVariant", "DASH_ATTACK");

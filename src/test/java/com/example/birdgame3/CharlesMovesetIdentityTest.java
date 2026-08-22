@@ -13,7 +13,7 @@ class CharlesMovesetIdentityTest {
         BirdGame3 game = new BirdGame3();
         Bird charles = groundedBird(game, BirdGame3.BirdType.MOCKINGBIRD, 0, 320.0);
         Bird shoebill = groundedBird(game, BirdGame3.BirdType.SHOEBILL, 1, 320.0);
-        Bird opiumBird = groundedBird(game, BirdGame3.BirdType.OPIUMBIRD, 2, 320.0);
+        Bird opiumBird = groundedBird(game, BirdGame3.BirdType.TITMOUSE, 2, 320.0);
 
         int distinctFromShoebill = 0;
         int distinctFromSharedProfile = 0;

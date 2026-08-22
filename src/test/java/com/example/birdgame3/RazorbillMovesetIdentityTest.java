@@ -13,7 +13,7 @@ class RazorbillMovesetIdentityTest {
         BirdGame3 game = new BirdGame3();
         Bird razorbill = groundedBird(game, BirdGame3.BirdType.RAZORBILL, 0, 320.0);
         Bird charles = groundedBird(game, BirdGame3.BirdType.MOCKINGBIRD, 1, 320.0);
-        Bird opiumBird = groundedBird(game, BirdGame3.BirdType.OPIUMBIRD, 2, 320.0);
+        Bird opiumBird = groundedBird(game, BirdGame3.BirdType.TITMOUSE, 2, 320.0);
 
         int distinctFromCharles = 0;
         int distinctFromSharedProfile = 0;
@@ -96,7 +96,7 @@ class RazorbillMovesetIdentityTest {
     void razorbillNormalsFavorLongNarrowCutsWithoutReplacingBladeStorm() throws Exception {
         BirdGame3 game = new BirdGame3();
         Bird razorbill = groundedBird(game, BirdGame3.BirdType.RAZORBILL, 0, 320.0);
-        Bird opiumBird = groundedBird(game, BirdGame3.BirdType.OPIUMBIRD, 1, 320.0);
+        Bird opiumBird = groundedBird(game, BirdGame3.BirdType.TITMOUSE, 1, 320.0);
         Object sideTilt = enumConstant("com.example.birdgame3.Bird$NormalAttackVariant", "SIDE_TILT");
         Object forwardAir = enumConstant("com.example.birdgame3.Bird$NormalAttackVariant", "FORWARD_AIR");
         Object sideSmash = enumConstant("com.example.birdgame3.Bird$NormalAttackVariant", "SIDE_SMASH");

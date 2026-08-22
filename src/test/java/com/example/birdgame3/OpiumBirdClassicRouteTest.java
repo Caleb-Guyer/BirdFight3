@@ -28,6 +28,10 @@ class OpiumBirdClassicRouteTest {
                 route.stream().map(encounter -> encounter.map).toList());
         assertEquals(ClassicEncounterStyle.OPIUM_FORECAST_GAUNTLET, route.get(2).style);
         assertEquals(ClassicEncounterStyle.OPIUM_FORECAST_GAUNTLET, route.get(5).style);
+        assertEquals(5, route.get(0).cpuLevel,
+                "The opening speed team must demand real spacing from the completed normal kit.");
+        assertEquals(5, route.get(5).cpuLevel,
+                "The dead-end mirrors should test adaptation without a reaction-speed advantage.");
         assertEquals(ClassicEncounterStyle.OPIUM_LUCID_DASH, route.get(6).style);
         assertEquals(ClassicEncounterStyle.OPIUM_STILL_KING_BOSS, route.get(7).style);
         assertTrue(route.getLast().bossFight);
@@ -37,7 +41,7 @@ class OpiumBirdClassicRouteTest {
 
     @Test
     void everyEnemyIsUltlessAndForecastGauntletsAdvanceAsSeparateWaves() throws Exception {
-        assertEquals(3, prepared(0, 0x0F0101L, 0x0F0102L).scores[0]);
+        assertEquals(2, prepared(0, 0x0F0101L, 0x0F0102L).scores[0]);
         assertEquals(2, prepared(1, 0x0F0103L, 0x0F0104L).scores[0]);
         assertEquals(2, prepared(2, 0x0F0105L, 0x0F0106L).scores[0]);
         assertEquals(2, prepared(3, 0x0F0107L, 0x0F0108L).scores[0]);
@@ -67,6 +71,23 @@ class OpiumBirdClassicRouteTest {
                 }
             }
         }
+    }
+
+    @Test
+    void deadEndWavesUseTheRouteSpecificReadableScale() throws Exception {
+        BirdGame3 game = prepared(5, 0x0F0113L, 0x0F0114L);
+        Bird first = firstEnemy(game);
+        assertNotNull(first);
+        assertTrue(first.sizeMultiplier < 0.86,
+                "The first dead end must be smaller than the ordinary forecast-gauntlet scale.");
+
+        first.health = 0.0;
+        game.scores[first.playerIndex] = 0;
+        assertTrue(game.holdClassicOpiumBirdEncounterOpen());
+        Bird second = firstEnemy(game);
+        assertNotNull(second);
+        assertTrue(second.sizeMultiplier <= BirdGame3.OPIUM_DEAD_END_SIZE_SCALE,
+                "Subsequent dead ends must preserve the same readable route-specific ceiling.");
     }
 
     @Test

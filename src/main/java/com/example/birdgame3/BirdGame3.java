@@ -1376,6 +1376,11 @@ public class BirdGame3 {
         playManagedSfxVaried(swingClip, 0.54 + charge * 0.24, 0.80 - charge * 0.08, 0.04);
     }
 
+    void playOpiumBirdAttackWhoosh(double chargeRatio) {
+        double charge = Math.clamp(chargeRatio, 0.0, 1.0);
+        playManagedSfxVaried(swingClip, 0.43 + charge * 0.20, 1.08 - charge * 0.10, 0.045);
+    }
+
     void playPigeonFeatherBurstSfx(boolean ultimate) {
         playManagedSfxVaried(swingClip, ultimate ? 0.72 : 0.56, ultimate ? 1.42 : 1.58, 0.035);
     }
@@ -5274,6 +5279,9 @@ public class BirdGame3 {
     private int classicDebtEngineDamageWindow = 0;
     private double classicDebtEngineCloseDamage = 0.0;
     static final double OPIUM_STILL_KING_BASE_HEALTH = 320.0;
+    static final double OPIUM_DEAD_END_SIZE_SCALE = 0.84;
+    static final double OPIUM_DEAD_END_POWER_SCALE = 0.76;
+    static final double OPIUM_DEAD_END_SPEED_SCALE = 1.00;
     static final double[] OPIUM_FORECAST_FLIGHT_X = {1_260.0, 2_180.0, 3_820.0, 4_740.0, 3_000.0};
     static final double[] OPIUM_FORECAST_FLIGHT_Y = {
             GROUND_Y - 780.0, GROUND_Y - 1_130.0, GROUND_Y - 1_130.0,
@@ -47339,9 +47347,9 @@ public class BirdGame3 {
                 MapType.GLASSWIND_CAUSEWAY, MapVariant.STANDARD, MatchMutator.NONE,
                 ClassicTwist.FORECAST_SHADOWS, ClassicEncounterStyle.STANDARD, 112 * 60,
                 new ClassicFighter[0], new ClassicFighter[]{
-                classicFighter(BirdType.FALCON, "Forecast: Falcon", 54, 0.52, 1.04),
-                classicFighter(BirdType.HUMMINGBIRD, "Forecast: Hummingbird", 50, 0.50, 1.06)}, false);
-        ahead.cpuLevel = 3;
+                classicFighter(BirdType.FALCON, "Forecast: Falcon", 60, 0.57, 1.04),
+                classicFighter(BirdType.HUMMINGBIRD, "Forecast: Hummingbird", 56, 0.55, 1.06)}, false);
+        ahead.cpuLevel = 5;
         run.add(ahead);
 
         ClassicEncounter manufactured = new ClassicEncounter(
@@ -47403,7 +47411,7 @@ public class BirdGame3 {
                         new ClassicFighter[]{firstDeadEnd},
                         new ClassicFighter[]{classicFighter(BirdType.RAZORBILL, "Dead End II: Total Severance", 102, 0.84, 1.02)},
                         new ClassicFighter[]{classicFighter(BirdType.GRINCHHAWK, "Dead End III: Fearful Isolation", 108, 0.86, 0.98)});
-        deadEnds.cpuLevel = 6;
+        deadEnds.cpuLevel = 5;
         run.add(deadEnds);
 
         ClassicEncounter waking = new ClassicEncounter(
@@ -50251,7 +50259,12 @@ public class BirdGame3 {
                 bird.setUltimateEnabled(false);
                 isAI[bird.playerIndex] = false;
             } else if (encounter.style == ClassicEncounterStyle.OPIUM_FORECAST_GAUNTLET) {
-                scaleBossRushBird(bird, 0.86, 0.80, 1.02);
+                if (classicRoundIndex == 5) {
+                    scaleBossRushBird(bird, OPIUM_DEAD_END_SIZE_SCALE,
+                            OPIUM_DEAD_END_POWER_SCALE, OPIUM_DEAD_END_SPEED_SCALE);
+                } else {
+                    scaleBossRushBird(bird, 0.86, 0.80, 1.02);
+                }
                 bird.setUltimateEnabled(false);
             } else if (encounter.style == ClassicEncounterStyle.OPIUM_STILL_KING_BOSS) {
                 bird.health = Math.max(1.0, OPIUM_STILL_KING_BASE_HEALTH * enemyHealthScale);
@@ -54009,7 +54022,12 @@ public class BirdGame3 {
                     fighter.health * (1.0 + difficultyDelta * 0.045),
                     fighter.powerMult * (1.0 + difficultyDelta * 0.015), fighter.speedMult, true);
             enemy.setUltimateEnabled(false);
-            scaleBossRushBird(enemy, 0.86, 0.80, 1.02);
+            if (classicRoundIndex == 5) {
+                scaleBossRushBird(enemy, OPIUM_DEAD_END_SIZE_SCALE,
+                        OPIUM_DEAD_END_POWER_SCALE, OPIUM_DEAD_END_SPEED_SCALE);
+            } else {
+                scaleBossRushBird(enemy, 0.86, 0.80, 1.02);
+            }
             classicTeams[slot] = 2;
             classicCpuLevels[slot] = resolvedClassicFighterCpuLevel(fighter, classicEncounter);
             scores[slot] = 1;
@@ -62623,7 +62641,7 @@ public class BirdGame3 {
                 // Opium Bird's opening forecasts are deliberately 2-on-1 or
                 // multi-phase learning fights. A second stock keeps those
                 // matchups readable without changing ordinary fighter data.
-                case 0 -> 3;
+                case 0 -> 2;
                 case 1, 2, 3 -> 2;
                 // Eleven Dead Ends is three full-strength isolated duels. It
                 // resets damage between visions but never forgives a KO.

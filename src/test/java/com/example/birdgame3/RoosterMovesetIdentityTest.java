@@ -13,7 +13,7 @@ class RoosterMovesetIdentityTest {
         BirdGame3 game = new BirdGame3();
         Bird rooster = groundedBird(game, BirdGame3.BirdType.ROOSTER, 0, 320.0);
         Bird turkey = groundedBird(game, BirdGame3.BirdType.TURKEY, 1, 320.0);
-        Bird opiumBird = groundedBird(game, BirdGame3.BirdType.OPIUMBIRD, 2, 320.0);
+        Bird opiumBird = groundedBird(game, BirdGame3.BirdType.TITMOUSE, 2, 320.0);
 
         int distinctFromTurkey = 0;
         int distinctFromSharedProfile = 0;
@@ -74,7 +74,7 @@ class RoosterMovesetIdentityTest {
         BirdGame3 game = new BirdGame3();
         Bird rooster = groundedBird(game, BirdGame3.BirdType.ROOSTER, 0, 320.0);
         Bird turkey = groundedBird(game, BirdGame3.BirdType.TURKEY, 1, 320.0);
-        Bird opiumBird = groundedBird(game, BirdGame3.BirdType.OPIUMBIRD, 2, 320.0);
+        Bird opiumBird = groundedBird(game, BirdGame3.BirdType.TITMOUSE, 2, 320.0);
         Object sideTilt = enumConstant("com.example.birdgame3.Bird$NormalAttackVariant", "SIDE_TILT");
 
         invoke(rooster, "performAttack", 0, sideTilt);
