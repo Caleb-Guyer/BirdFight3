@@ -1386,6 +1386,11 @@ public class BirdGame3 {
         playManagedSfxVaried(swingClip, 0.46 + charge * 0.22, 1.20 - charge * 0.12, 0.035);
     }
 
+    void playRavenAttackWhoosh(double chargeRatio) {
+        double charge = Math.clamp(chargeRatio, 0.0, 1.0);
+        playManagedSfxVaried(swingClip, 0.44 + charge * 0.22, 0.92 - charge * 0.09, 0.035);
+    }
+
     void playPigeonFeatherBurstSfx(boolean ultimate) {
         playManagedSfxVaried(swingClip, ultimate ? 0.72 : 0.56, ultimate ? 1.42 : 1.58, 0.035);
     }
@@ -65366,6 +65371,10 @@ public class BirdGame3 {
 
     void recordNormalMoveImpact(Bird bird, String moveName, int damage, boolean didHit) {
         recordTelemetryMoveImpact(bird, moveName, damage, didHit);
+    }
+
+    List<GameplayTelemetry.MoveSnapshot> topTelemetryMovesForBird(BirdType birdType, int limit) {
+        return gameplayTelemetry.topMovesForBird(birdType, limit);
     }
 
     void recordMoveKo(Bird attacker, Bird victim, String moveName) {

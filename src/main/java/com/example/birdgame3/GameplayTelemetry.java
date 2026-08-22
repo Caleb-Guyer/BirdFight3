@@ -51,6 +51,19 @@ final class GameplayTelemetry {
         return topMoves(moves, limit);
     }
 
+    List<MoveSnapshot> topMovesForBird(BirdGame3.BirdType birdType, int limit) {
+        if (birdType == null || limit <= 0) {
+            return List.of();
+        }
+        Map<MoveKey, MoveStats> filtered = new LinkedHashMap<>();
+        for (Map.Entry<MoveKey, MoveStats> entry : moves.entrySet()) {
+            if (entry.getKey().birdType() == birdType) {
+                filtered.put(entry.getKey(), entry.getValue());
+            }
+        }
+        return topMoves(filtered, limit);
+    }
+
     List<MoveSnapshot> currentMatchTopMoves(int limit) {
         return topMoves(currentMatchMoves, limit);
     }

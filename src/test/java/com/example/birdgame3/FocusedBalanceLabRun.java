@@ -83,6 +83,14 @@ class FocusedBalanceLabRun {
             report.append(String.format(Locale.ROOT, "| %s | %d | %d | %d | %.1f%% |%n",
                     entry.getKey().name, result.wins, result.losses, result.draws, matchupRate * 100.0));
         }
+        report.append("\n## Focus fighter move telemetry\n\n")
+                .append("| Move | Map | Uses | Hits | Damage | KOs | Self-KOs |\n")
+                .append("|---|---|---:|---:|---:|---:|---:|\n");
+        for (GameplayTelemetry.MoveSnapshot move : game.topTelemetryMovesForBird(focus, 16)) {
+            report.append(String.format(Locale.ROOT, "| %s | %s | %d | %d | %d | %d | %d |%n",
+                    move.moveName(), move.map(), move.uses(), move.hits(), move.damage(),
+                    move.kos(), move.selfKos()));
+        }
 
         Path output = Path.of("audit", "focused-balance-report.md");
         Files.createDirectories(output.getParent());

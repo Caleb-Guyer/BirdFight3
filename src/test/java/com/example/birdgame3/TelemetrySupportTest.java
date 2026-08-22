@@ -70,6 +70,25 @@ class TelemetrySupportTest {
     }
 
     @Test
+    void gameplayTelemetryCanIsolateOneFightersMovesForBalanceDiagnostics() {
+        GameplayTelemetry telemetry = new GameplayTelemetry();
+        telemetry.recordImpact(BirdGame3.BirdType.RAVEN, "Raven Black Quill", true,
+                "FIGHT", BirdGame3.MapType.BATTLEFIELD, 21, true);
+        telemetry.recordImpact(BirdGame3.BirdType.PIGEON, "Pigeon Peck", true,
+                "FIGHT", BirdGame3.MapType.BATTLEFIELD, 200, true);
+
+        List<GameplayTelemetry.MoveSnapshot> rows =
+                telemetry.topMovesForBird(BirdGame3.BirdType.RAVEN, 8);
+
+        assertEquals(1, rows.size());
+        assertEquals("Raven", rows.getFirst().birdName());
+        assertEquals("Raven Black Quill", rows.getFirst().moveName());
+        assertEquals(21, rows.getFirst().damage());
+        assertTrue(telemetry.topMovesForBird(null, 8).isEmpty());
+        assertTrue(telemetry.topMovesForBird(BirdGame3.BirdType.RAVEN, 0).isEmpty());
+    }
+
+    @Test
     void gameplayTelemetryBuildsCurrentMatchBirdRows() {
         GameplayTelemetry telemetry = new GameplayTelemetry();
 
