@@ -50779,7 +50779,7 @@ public class BirdGame3 {
             return;
         }
         if (encounter.style == ClassicEncounterStyle.TITMOUSE_MEMORY_CACHE) {
-            positionClassicBirdOnSurface(players[0], 620.0, LAST_ICE_MAIN_Y, true);
+            positionClassicBirdOnSurface(players[0], 620.0, LAST_ICE_MAIN_Y + 155.0, true);
             return;
         }
         if (encounter.style == ClassicEncounterStyle.TITMOUSE_OLD_OWL_BOSS) {
@@ -50809,7 +50809,10 @@ public class BirdGame3 {
             return;
         }
         if (encounter.style == ClassicEncounterStyle.RIPPLE_HUNT) {
-            positionClassicBirdOnSurface(players[0], 820.0, STILLWATER_MAIN_Y, true);
+            // The west root shelf sits below the central root bridge. Spawning
+            // at its x-coordinate but using the bridge height left Shoebill
+            // suspended over water for the opening frame.
+            positionClassicBirdOnSurface(players[0], 820.0, STILLWATER_MAIN_Y + 145.0, true);
             double[] targetX = {1_650.0, 3_000.0, 4_350.0};
             double[] targetY = {STILLWATER_MAIN_Y - 350.0, STILLWATER_MAIN_Y - 620.0,
                     STILLWATER_MAIN_Y - 350.0};
@@ -50829,14 +50832,14 @@ public class BirdGame3 {
             return;
         }
         if (encounter.style == ClassicEncounterStyle.PERFECT_PITCH) {
-            positionClassicBirdOnSurface(players[0], 1_080.0, GROUND_Y - 230.0, true);
+            positionClassicBirdOnSurface(players[0], 1_080.0, battlefieldIslandY, true);
             return;
         }
         if (encounter.style == ClassicEncounterStyle.HOLLOW_MAESTRO_BOSS) {
-            positionClassicBirdOnSurface(players[0], 1_620.0, GROUND_Y - 320.0, true);
+            positionClassicBirdOnSurface(players[0], 1_620.0, battlefieldIslandY, true);
             for (int slot = 1; slot < activePlayers; slot++) {
                 if (players[slot] != null) {
-                    positionClassicBirdOnSurface(players[slot], 4_320.0, GROUND_Y - 320.0, false);
+                    positionClassicBirdOnSurface(players[slot], 4_320.0, battlefieldIslandY, false);
                 }
             }
             return;
@@ -50887,12 +50890,7 @@ public class BirdGame3 {
         if (encounter.style == ClassicEncounterStyle.DAWN_MUSTER) {
             Bird player = players[0];
             if (player != null) {
-                player.x = 760.0 - player.bodyWidth() * 0.5;
-                player.y = GROUND_Y - 520.0 - player.bodyHeight();
-                player.prevX = player.x;
-                player.prevY = player.y;
-                player.vx = 0.0;
-                player.vy = 0.0;
+                positionClassicBirdOnSurface(player, 760.0, GROUND_Y - 430.0, true);
             }
             return;
         }
@@ -54538,7 +54536,7 @@ public class BirdGame3 {
 
     private void updateClassicTitmouseMemoryCourse(Bird player) {
         if (player.bodyCenterY() > GROUND_Y + 180.0) {
-            positionClassicBirdOnSurface(player, 620.0, LAST_ICE_MAIN_Y, true);
+            positionClassicBirdOnSurface(player, 620.0, LAST_ICE_MAIN_Y + 155.0, true);
             player.heal(12.0);
         }
         int collected = 0;
@@ -71655,19 +71653,14 @@ public class BirdGame3 {
         tempestRunBossEnraged = false;
         resetTrackedCameraBounds();
         resetBossRushEncounterState();
+        clearClassicEncounterTransientCollections();
         classicPhoenixRebirthPhaseActive = false;
         classicNullRocAscentPhaseActive = false;
         classicNullRocFinalPhaseActive = false;
         classicLongWinterBlizzardPhaseActive = false;
         classicLongWinterFinalPhaseActive = false;
         classicPhoenixRelayCollapseStage = 0;
-        if (classicClosedHeartbloomPetal != null && !platforms.contains(classicClosedHeartbloomPetal)) {
-            platforms.add(classicClosedHeartbloomPetal);
-        }
-        classicClosedHeartbloomPetal = null;
         classicHeartbloomClosureIndex = -1;
-        classicNectarRings.clear();
-        classicBlightPollen.clear();
         classicNectarRingIndex = 0;
         classicHummingbirdDashCompleted = false;
         classicHeartbloomPollenHitCooldown = 0;
@@ -71703,6 +71696,74 @@ public class BirdGame3 {
         classicBroodbreakerEclipseBroken = false;
         Arrays.fill(signalPowerLineHitCooldowns, 0);
         Arrays.fill(stormglassArcHitCooldowns, 0);
+    }
+
+    /**
+     * Drops every encounter-owned Classic object before another match is
+     * prepared. Route setup methods also initialize their own state, but this
+     * shared boundary prevents projectiles, objective markers, and temporary
+     * platforms from unrelated routes remaining reachable for the lifetime of
+     * a long Classic session.
+     */
+    private void clearClassicEncounterTransientCollections() {
+        if (classicClosedHeartbloomPetal != null && !platforms.contains(classicClosedHeartbloomPetal)) {
+            platforms.add(classicClosedHeartbloomPetal);
+        }
+        classicClosedHeartbloomPetal = null;
+
+        for (ClassicIceworkAnchor anchor : classicPenguinIceworks) {
+            if (anchor.platform != null) platforms.remove(anchor.platform);
+        }
+        classicNectarRings.clear();
+        classicBlightPollen.clear();
+        classicHeartbloomPetals.clear();
+        classicRoosterCages.clear();
+        classicDawnBells.clear();
+        classicPenguinIceworks.clear();
+        classicPenguinSnowballs.clear();
+        classicLastIceMeltPlatforms.clear();
+        classicPitchBells.clear();
+        classicMaestroNotes.clear();
+        classicPitchSequence = new int[0];
+        classicRiftAnchors.clear();
+        classicSeamShards.clear();
+        classicVaultSeals.clear();
+        classicBellkeeperProjectiles.clear();
+        classicSalvageLocks.clear();
+        classicDebtProjectiles.clear();
+        classicOpiumLucidFragments.clear();
+        classicOpiumCertaintySeals.clear();
+        classicOpiumForecastProjectiles.clear();
+        classicHeisenRegulators.clear();
+        classicBlueSkyProjectiles.clear();
+        classicTitmouseMemoryCaches.clear();
+        classicOldOwlProjectiles.clear();
+    }
+
+    int classicTransientObjectCount() {
+        return classicNectarRings.size()
+                + classicBlightPollen.size()
+                + classicHeartbloomPetals.size()
+                + classicRoosterCages.size()
+                + classicDawnBells.size()
+                + classicPenguinIceworks.size()
+                + classicPenguinSnowballs.size()
+                + classicLastIceMeltPlatforms.size()
+                + classicPitchBells.size()
+                + classicMaestroNotes.size()
+                + classicRiftAnchors.size()
+                + classicSeamShards.size()
+                + classicVaultSeals.size()
+                + classicBellkeeperProjectiles.size()
+                + classicSalvageLocks.size()
+                + classicDebtProjectiles.size()
+                + classicOpiumLucidFragments.size()
+                + classicOpiumCertaintySeals.size()
+                + classicOpiumForecastProjectiles.size()
+                + classicHeisenRegulators.size()
+                + classicBlueSkyProjectiles.size()
+                + classicTitmouseMemoryCaches.size()
+                + classicOldOwlProjectiles.size();
     }
 
     private void resetSuddenDeathState() {
