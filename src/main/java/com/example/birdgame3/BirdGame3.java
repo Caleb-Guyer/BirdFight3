@@ -1406,6 +1406,11 @@ public class BirdGame3 {
         playManagedSfxVaried(swingClip, 0.44 + charge * 0.18, 1.50 - charge * 0.16, 0.055);
     }
 
+    void playBatAttackWhoosh(double chargeRatio) {
+        double charge = Math.clamp(chargeRatio, 0.0, 1.0);
+        playManagedSfxVaried(swingClip, 0.46 + charge * 0.20, 1.34 - charge * 0.16, 0.055);
+    }
+
     void playPigeonFeatherBurstSfx(boolean ultimate) {
         playManagedSfxVaried(swingClip, ultimate ? 0.72 : 0.56, ultimate ? 1.42 : 1.58, 0.035);
     }
@@ -47676,9 +47681,9 @@ public class BirdGame3 {
                 MapType.CAVE, MapVariant.STANDARD, MatchMutator.NONE,
                 ClassicTwist.SHADOW_CACHE, ClassicEncounterStyle.MINIATURE_FLOCK, 105 * 60,
                 new ClassicFighter[0], new ClassicFighter[]{
-                classicFighter(BirdType.TITMOUSE, "Cave Scout I", 52, 0.48, 1.06),
-                classicFighter(BirdType.TITMOUSE, "Cave Scout II", 52, 0.48, 1.06),
-                classicFighter(BirdType.TITMOUSE, "Cave Scout III", 52, 0.48, 1.06)}, false);
+                classicFighter(BirdType.TITMOUSE, "Cave Scout I", 55, 0.50, 1.06),
+                classicFighter(BirdType.TITMOUSE, "Cave Scout II", 55, 0.50, 1.06),
+                classicFighter(BirdType.TITMOUSE, "Cave Scout III", 55, 0.50, 1.06)}, false);
         firstEcho.cpuLevel = 3;
         run.add(firstEcho);
 
@@ -47746,7 +47751,7 @@ public class BirdGame3 {
                 MapType.MIDNIGHT_WORKSHOP, MapVariant.BELLKEEPER_VAULT, MatchMutator.NONE,
                 ClassicTwist.RAGE_RITUAL, ClassicEncounterStyle.STANDARD, 130 * 60,
                 new ClassicFighter[0], new ClassicFighter[]{
-                classicFighter(BirdType.BAT, "Elite: Resonance Sovereign", 172, 1.10, 1.08,
+                classicFighter(BirdType.BAT, "Elite: Resonance Sovereign", 164, 1.06, 1.06,
                         RESONANCE_BAT_SKIN)}, true);
         sovereign.cpuLevel = 7;
         run.add(sovereign);
