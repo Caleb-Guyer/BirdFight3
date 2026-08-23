@@ -3803,7 +3803,7 @@ class BirdStateTest {
     }
 
     @Test
-    void shieldStartupParryStunsAttackerWithoutConsumingShield() throws Exception {
+    void shieldReleaseParryStunsAttackerWithoutConsumingShield() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;
 
@@ -3816,8 +3816,15 @@ class BirdStateTest {
         game.players[1] = defender;
 
         game.setLocalActionsForKey(game.blockKeyForPlayer(1), true);
-        defender.update(1.0);
+        for (int i = 0; i < 5; i++) {
+            defender.update(1.0);
+        }
         double shieldBefore = getPrivateDouble(defender, "shieldHealth");
+        game.setLocalActionsForKey(game.blockKeyForPlayer(1), false);
+        defender.update(1.0);
+
+        assertTrue(getPrivateInt(defender, "parryWindowFrames") > 0,
+                "Releasing shield should open a brief perfect-shield window.");
         invokePrivateVoid(attacker, "attack");
 
         assertTrue(attacker.stunTime >= 20.0);
@@ -3910,7 +3917,7 @@ class BirdStateTest {
     }
 
     @Test
-    void holdingShieldShrinksItsVisualEvenWithoutTakingDamage() throws Exception {
+    void holdingShieldDrainsDurabilityAndShrinksItsVisual() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 1;
 
@@ -3924,8 +3931,61 @@ class BirdStateTest {
         }
 
         assertTrue(defender.isBlocking);
-        assertEquals(60.0, getPrivateDouble(defender, "shieldHealth"), 0.0001);
+        assertTrue(getPrivateDouble(defender, "shieldHealth") < 50.0,
+                "A shield held for three seconds should visibly lose durability.");
         assertTrue(getPrivateDouble(defender, "shieldHoldVisual") > 0.9);
+    }
+
+    @Test
+    void shieldWaitsOneSecondBeforeRegenerating() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird defender = new Bird(190.0, BirdGame3.BirdType.EAGLE, 0, game);
+        defender.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = defender;
+
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), true);
+        for (int i = 0; i < 10; i++) {
+            defender.update(1.0);
+        }
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), false);
+        defender.update(1.0);
+        double releasedHealth = getPrivateDouble(defender, "shieldHealth");
+
+        for (int i = 0; i < 58; i++) {
+            defender.update(1.0);
+        }
+        assertEquals(releasedHealth, getPrivateDouble(defender, "shieldHealth"), 0.0001,
+                "Shield health must not refill during the regeneration lockout.");
+
+        defender.update(1.0);
+        assertTrue(getPrivateDouble(defender, "shieldHealth") > releasedHealth,
+                "Shield regeneration should resume when the one-second lockout expires.");
+    }
+
+    @Test
+    void criticallySmallShieldCanExposeDefenderToSideHit() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird attacker = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird defender = new Bird(190.0, BirdGame3.BirdType.EAGLE, 1, game);
+        attacker.y = BirdGame3.GROUND_Y - 80.0;
+        defender.y = BirdGame3.GROUND_Y - 80.0;
+        attacker.facingRight = true;
+        game.players[0] = attacker;
+        game.players[1] = defender;
+        setPrivateDouble(defender, "shieldHealth", 12.0);
+
+        game.setLocalActionsForKey(game.blockKeyForPlayer(1), true);
+        for (int i = 0; i < 4; i++) {
+            defender.update(1.0);
+        }
+        invokePrivateVoid(attacker, "attack");
+
+        assertTrue(defender.health < Bird.STARTING_HEALTH,
+                "A critically shrunken shield should leave the bird's outer hurtbox exposed.");
     }
 
     @Test
@@ -4078,6 +4138,44 @@ class BirdStateTest {
 
         assertEquals("NONE", getPrivateObject(bird, "dodgeType").toString());
         assertTrue(getPrivateBoolean(bird, "airDodgeAvailable"));
+    }
+
+    @Test
+    void directionalAirDodgeSupportsDiagonalBurst() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird bird = new Bird(190.0, BirdGame3.BirdType.EAGLE, 0, game);
+        bird.y = BirdGame3.GROUND_Y - 260.0;
+        game.players[0] = bird;
+
+        invokePrivateVoid(bird, "startAirDodge", new Class<?>[]{int.class, int.class}, 1, -1);
+
+        assertEquals("AIR", getPrivateObject(bird, "dodgeType").toString());
+        assertEquals(1, getPrivateInt(bird, "dodgeDirection"));
+        assertEquals(-1, getPrivateInt(bird, "dodgeVerticalDirection"));
+        assertTrue(bird.vx > 5.0);
+        assertTrue(bird.vy < -5.0);
+        assertTrue(bird.debugUniversalActionLabel().contains("[1,-1]"));
+    }
+
+    @Test
+    void landingDuringAirDodgeAppliesRecoveryLag() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird bird = new Bird(190.0, BirdGame3.BirdType.EAGLE, 0, game);
+        bird.y = BirdGame3.GROUND_Y - 100.0;
+        game.players[0] = bird;
+        invokePrivateVoid(bird, "startAirDodge", new Class<?>[]{int.class, int.class}, 0, 1);
+
+        for (int i = 0; i < 5 && !bird.isOnGround(); i++) {
+            bird.update(1.0);
+        }
+
+        assertTrue(bird.isOnGround());
+        assertTrue(getPrivateInt(bird, "landingLagTimer") > 0,
+                "Landing out of an air dodge should create a punishable recovery window.");
     }
 
     @Test
@@ -9141,6 +9239,13 @@ class BirdStateTest {
         if ("attack".equals(methodName) && target instanceof Bird bird) {
             advanceAuthoredAttackToFirstActiveFrame(bird);
         }
+    }
+
+    private static void invokePrivateVoid(Object target, String methodName,
+                                          Class<?>[] parameterTypes, Object... args) throws Exception {
+        Method method = target.getClass().getDeclaredMethod(methodName, parameterTypes);
+        method.setAccessible(true);
+        method.invoke(target, args);
     }
 
     private static Object invokePrivateObjectMethod(Object target, String methodName) throws Exception {
