@@ -76,6 +76,19 @@ class GooseClassicRouteTest {
     }
 
     @Test
+    void giantFormationBreakersRemainSeriousRealFighterChecks() {
+        for (int round : List.of(2, 4)) {
+            BirdGame3 game = prepared(round, 0xF17180L + round, 0xF17190L + round);
+            Bird giant = game.players[game.activePlayers - 1];
+
+            assertNotNull(giant);
+            assertEquals(1.62, giant.baseSizeMultiplier, 0.001);
+            assertTrue(giant.basePowerMultiplier >= 0.62);
+            assertTrue(giant.hasUltimate());
+        }
+    }
+
+    @Test
     void migrationBeaconsAreUltlessReachableAndCompleteSafely() {
         BirdGame3 game = prepared(5, 0xF17200L, 0xF17201L);
         for (int slot = 1; slot < game.activePlayers; slot++) {

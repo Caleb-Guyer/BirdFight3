@@ -122,16 +122,16 @@ class NormalAttackTimelineTest {
 
     @Test
     void nonMigratedBirdsKeepLegacyImmediateResolutionUntilAuthored() throws Exception {
-        BirdGame3 game = twoBirdGame(BirdGame3.BirdType.GOOSE, BirdGame3.BirdType.PIGEON,
+        BirdGame3 game = twoBirdGame(BirdGame3.BirdType.TITMOUSE, BirdGame3.BirdType.PIGEON,
                 320.0, 382.0);
-        Bird goose = game.players[0];
+        Bird titmouse = game.players[0];
         Bird target = game.players[1];
         double startingHealth = target.health;
 
-        performAttack(goose, "NEUTRAL");
+        performAttack(titmouse, "NEUTRAL");
 
         assertTrue(target.health < startingHealth);
-        assertFalse(goose.debugNormalAttackTimelineActive());
+        assertFalse(titmouse.debugNormalAttackTimelineActive());
     }
 
     @Test
@@ -478,6 +478,46 @@ class NormalAttackTimelineTest {
         assertTrue(heisenGame.players[0].debugNormalAttackTotalFrames()
                         > ravenGame.players[0].debugNormalAttackTotalFrames(),
                 "Heisenbird's apparatus swing should outlast Raven's exact omen cut.");
+    }
+
+    @Test
+    void groundedSpecialistsHaveDistinctCompleteFrameData() throws Exception {
+        String[] variants = {
+                "NEUTRAL", "SIDE_TILT", "UP_TILT", "DOWN_TILT",
+                "SIDE_SMASH", "UP_SMASH", "DOWN_SMASH",
+                "NEUTRAL_AIR", "FORWARD_AIR", "BACK_AIR", "UP_AIR", "DOWN_AIR",
+                "DASH_ATTACK", "LEDGE_ATTACK", "GETUP_ATTACK"
+        };
+        int[][] gooseFrames = {
+                {2, 6, 4}, {3, 7, 6}, {3, 7, 5}, {2, 7, 6},
+                {6, 7, 9}, {6, 8, 8}, {6, 9, 8},
+                {2, 9, 5}, {3, 7, 7}, {3, 6, 8}, {2, 8, 6}, {4, 7, 8},
+                {3, 8, 8}, {3, 7, 7}, {3, 8, 7}
+        };
+        int[][] kiwiFrames = {
+                {1, 4, 4}, {2, 5, 6}, {2, 6, 5}, {1, 5, 5},
+                {5, 5, 9}, {5, 6, 8}, {5, 7, 8},
+                {1, 7, 4}, {2, 5, 6}, {2, 4, 7}, {1, 6, 5}, {3, 5, 8},
+                {2, 6, 6}, {2, 5, 6}, {2, 6, 6}
+        };
+
+        assertAuthoredMoveList(BirdGame3.BirdType.GOOSE, variants, gooseFrames);
+        assertAuthoredMoveList(BirdGame3.BirdType.KIWI, variants, kiwiFrames);
+    }
+
+    @Test
+    void gooseClaimsAirspaceLongerWhileKiwiRecoversFromAQuickProbe() throws Exception {
+        BirdGame3 gooseGame = twoBirdGame(BirdGame3.BirdType.GOOSE, BirdGame3.BirdType.PIGEON,
+                320.0, 700.0);
+        BirdGame3 kiwiGame = twoBirdGame(BirdGame3.BirdType.KIWI, BirdGame3.BirdType.PIGEON,
+                320.0, 700.0);
+
+        performAttack(gooseGame.players[0], "NEUTRAL_AIR");
+        performAttack(kiwiGame.players[0], "NEUTRAL");
+        assertTrue(gooseGame.players[0].debugNormalAttackActiveFrames()
+                        > kiwiGame.players[0].debugNormalAttackActiveFrames());
+        assertTrue(gooseGame.players[0].debugNormalAttackTotalFrames()
+                        > kiwiGame.players[0].debugNormalAttackTotalFrames());
     }
 
     @Test

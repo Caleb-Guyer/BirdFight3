@@ -50127,6 +50127,11 @@ public class BirdGame3 {
                 // walls. Their authored power and real kits stay intact, but
                 // the smaller silhouettes launch reliably in the 2-v-2.
                 scaleBossRushBird(bird, 0.90, 1.00, 1.00);
+            } else if (classicSelectedBird == BirdType.KIWI && classicRoundIndex == 4) {
+                // Titan Dock is Kiwi's late-route formation test. Slightly
+                // firmer boarders keep Pelican's cover valuable after Kiwi's
+                // compact normals gain real startup and recovery windows.
+                scaleBossRushBird(bird, 1.02, 1.06, 1.00);
             } else if (encounter.style == ClassicEncounterStyle.MINIATURE_FLOCK) {
                 if (classicSelectedBird == BirdType.SHOEBILL) {
                     scaleBossRushBird(bird, 0.61, 0.93, 1.05);
@@ -50143,6 +50148,11 @@ public class BirdGame3 {
                     scaleBossRushBird(bird, 1.48, 0.80, 0.92);
                 } else if (classicSelectedBird == BirdType.RAVEN) {
                     scaleBossRushBird(bird, 1.46, 0.90, 0.92);
+                } else if (classicSelectedBird == BirdType.GOOSE) {
+                    // Both Goose giants are formation-breaking centerpieces.
+                    // Keep their real kits, but make contesting the enormous
+                    // body more serious than the generic early-route giant.
+                    scaleBossRushBird(bird, 1.62, 1.08, 0.96);
                 } else if (classicSelectedBird == BirdType.GRINCHHAWK) {
                     // Cold Storage is an early-route giant lesson. Preserve the
                     // silhouette without stacking giant size, armor, and full
@@ -50374,7 +50384,7 @@ public class BirdGame3 {
                 // kit, but Kiwi must be able to launch it without flight-only
                 // route powers or an inflated damage race.
                 bird.health = Math.max(1.0, 170.0 * enemyHealthScale);
-                bird.setBaseMultipliers(1.10, 0.75 * enemyPowerScale, 0.94);
+                bird.setBaseMultipliers(1.16, 0.75 * enemyPowerScale, 0.94);
                 bird.setUltimateEnabled(false);
             } else if (encounter.style == ClassicEncounterStyle.HOARDMASTER_BOSS) {
                 bird.health = Math.max(1.0, 190.0 * enemyHealthScale);

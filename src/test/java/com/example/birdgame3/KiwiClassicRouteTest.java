@@ -82,6 +82,18 @@ class KiwiClassicRouteTest {
     }
 
     @Test
+    void titanDockBoardersKeepLateRouteFormationPressure() {
+        BirdGame3 game = prepared(4, 0xF18180L, 0xF18181L);
+
+        for (int slot = 2; slot < game.activePlayers; slot++) {
+            Bird boarder = game.players[slot];
+            assertNotNull(boarder);
+            assertEquals(1.02, boarder.baseSizeMultiplier, 0.001);
+            assertTrue(boarder.basePowerMultiplier >= 0.65);
+        }
+    }
+
+    @Test
     void buriedMarkersStayOnTheGroundAndCompleteSafely() {
         BirdGame3 game = prepared(5, 0xF18200L, 0xF18201L);
         assertEquals(BirdGame3.GROUND_Y, game.players[0].bodyBottomY(), 0.001);
@@ -112,7 +124,8 @@ class KiwiClassicRouteTest {
         assertEquals(BirdType.EAGLE, boss.type);
         assertEquals(3, game.scores[0]);
         assertEquals(3, game.scores[1]);
-        assertEquals(1.10, boss.baseSizeMultiplier, 0.001);
+        assertEquals(1.16, boss.baseSizeMultiplier, 0.001);
+        assertEquals(0.75, boss.basePowerMultiplier, 0.001);
         assertEquals(170.0, boss.health, 0.001);
         assertFalse(boss.hasUltimate());
         assertTrue(game.isAI[1]);
