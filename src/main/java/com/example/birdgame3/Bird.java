@@ -3720,7 +3720,9 @@ public class Bird {
                 || type == BirdGame3.BirdType.EAGLE
                 || type == BirdGame3.BirdType.FALCON
                 || type == BirdGame3.BirdType.PHOENIX
-                || type == BirdGame3.BirdType.HUMMINGBIRD;
+                || type == BirdGame3.BirdType.HUMMINGBIRD
+                || type == BirdGame3.BirdType.TURKEY
+                || type == BirdGame3.BirdType.ROOSTER;
     }
 
     private NormalAttackTimeline normalAttackTimeline(NormalAttackVariant variant) {
@@ -3738,6 +3740,12 @@ public class Bird {
         }
         if (type == BirdGame3.BirdType.HUMMINGBIRD) {
             return hummingbirdNormalAttackTimeline(variant);
+        }
+        if (type == BirdGame3.BirdType.TURKEY) {
+            return turkeyNormalAttackTimeline(variant);
+        }
+        if (type == BirdGame3.BirdType.ROOSTER) {
+            return roosterNormalAttackTimeline(variant);
         }
         NormalAttackProfile profile = normalAttackProfile(variant);
         return noSweetSpotTimeline(0, 1, Math.max(0, profile.animationFrames() - 1), 0, 0);
@@ -3884,6 +3892,66 @@ public class Bird {
                     0.78, 1.07, 1.11, 0.97, 0.94);
             case LEDGE_ATTACK -> noSweetSpotTimeline(2, 3, 5, 0, 0);
             case GETUP_ATTACK -> noSweetSpotTimeline(2, 4, 5, 0, 0);
+        };
+    }
+
+    /**
+     * Turkey commits its weight to broad body and tail attacks. The generous
+     * active windows make the large arcs reliable, while long whiff recovery
+     * prevents its high-damage normals from becoming safe pressure.
+     */
+    private NormalAttackTimeline turkeyNormalAttackTimeline(NormalAttackVariant variant) {
+        return switch (variant) {
+            case NEUTRAL -> noSweetSpotTimeline(1, 5, 2, 0, 0);
+            case SIDE_TILT -> noSweetSpotTimeline(1, 6, 4, 0, 0);
+            case UP_TILT -> noSweetSpotTimeline(1, 7, 3, 0, 0);
+            case DOWN_TILT -> noSweetSpotTimeline(1, 6, 4, 0, 0);
+            case SIDE_SMASH -> sweetSpotTimeline(3, 6, 7, 0, 0,
+                    0.66, 1.06, 1.10, 0.99, 0.97);
+            case UP_SMASH -> noSweetSpotTimeline(3, 7, 6, 0, 0);
+            case DOWN_SMASH -> noSweetSpotTimeline(3, 8, 6, 0, 0);
+            case NEUTRAL_AIR -> noSweetSpotTimeline(1, 9, 3, 1, 2);
+            case FORWARD_AIR -> noSweetSpotTimeline(2, 6, 5, 2, 2);
+            case BACK_AIR -> sweetSpotTimeline(2, 6, 6, 2, 2,
+                    0.64, 1.07, 1.11, 0.98, 0.96);
+            case UP_AIR -> noSweetSpotTimeline(2, 7, 4, 2, 2);
+            case DOWN_AIR -> sweetSpotTimeline(3, 6, 6, 3, 2,
+                    0.68, 1.07, 1.12, 0.98, 0.95);
+            case DASH_ATTACK -> noSweetSpotTimeline(1, 7, 6, 0, 0);
+            case LEDGE_ATTACK -> noSweetSpotTimeline(2, 6, 5, 0, 0);
+            case GETUP_ATTACK -> noSweetSpotTimeline(2, 7, 6, 0, 0);
+        };
+    }
+
+    /**
+     * Rooster is a scrappy close-range leader: its pecks and spur kicks arrive
+     * quickly, but their compact reach means the best payoff stays at the tip.
+     */
+    private NormalAttackTimeline roosterNormalAttackTimeline(NormalAttackVariant variant) {
+        return switch (variant) {
+            case NEUTRAL -> sweetSpotTimeline(1, 4, 1, 0, 0,
+                    0.62, 1.04, 1.07, 0.99, 0.97);
+            case SIDE_TILT -> sweetSpotTimeline(1, 4, 3, 0, 0,
+                    0.68, 1.06, 1.10, 0.98, 0.95);
+            case UP_TILT -> noSweetSpotTimeline(1, 5, 2, 0, 0);
+            case DOWN_TILT -> sweetSpotTimeline(1, 4, 3, 0, 0,
+                    0.66, 1.05, 1.08, 0.98, 0.96);
+            case SIDE_SMASH -> sweetSpotTimeline(2, 4, 8, 0, 0,
+                    0.72, 1.08, 1.13, 0.97, 0.93);
+            case UP_SMASH -> noSweetSpotTimeline(2, 5, 8, 0, 0);
+            case DOWN_SMASH -> noSweetSpotTimeline(2, 6, 8, 0, 0);
+            case NEUTRAL_AIR -> noSweetSpotTimeline(1, 7, 2, 1, 1);
+            case FORWARD_AIR -> sweetSpotTimeline(1, 5, 5, 1, 2,
+                    0.68, 1.06, 1.10, 0.98, 0.95);
+            case BACK_AIR -> sweetSpotTimeline(1, 5, 5, 1, 2,
+                    0.66, 1.07, 1.11, 0.97, 0.94);
+            case UP_AIR -> noSweetSpotTimeline(1, 6, 3, 1, 2);
+            case DOWN_AIR -> sweetSpotTimeline(2, 5, 6, 2, 2,
+                    0.70, 1.07, 1.12, 0.97, 0.94);
+            case DASH_ATTACK -> sweetSpotTimeline(1, 5, 5, 0, 0,
+                    0.70, 1.06, 1.10, 0.98, 0.95);
+            case LEDGE_ATTACK -> noSweetSpotTimeline(1, 4, 6, 0, 0);
+            case GETUP_ATTACK -> noSweetSpotTimeline(1, 5, 6, 0, 0);
         };
     }
 

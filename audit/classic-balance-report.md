@@ -50,7 +50,7 @@
 | 2 | Cold Front | Combat | Frostbite Fjord | 29-35-0 | 45.3% | 104.2s | 149 | Target band |
 | 3 | Volatile Mixture | Combat | Ashfall Cathedral | 23-41-0 | 35.9% | 81.2s | 66 | Too hard / weak matchup |
 | 4 | The Deluge | Combat | Titan Dock | 39-25-0 | 60.9% | 106.0s | 128 | Target band |
-| 5 | False Suns | Combat | Desert | 22-42-0 | 34.4% | 65.2s | 220 | Too hard / weak matchup |
+| 5 | False Suns | Combat | Desert | 38-26-0 | 59.4% | 62.3s | 233 | Target band |
 | 6 | Ashen Reflection | Combat | Ashfall Rebirth | 40-24-0 | 62.5% | 134.2s | 96 | Target band |
 | 7 | Bonus: Rebirth Relay | Objective | Ashfall Cathedral | — | — | — | — | Not scored |
 | 8 | The Long Winter | Combat | Frozen Caldera | 44-20-0 | 68.8% | 171.9s | 244 | Target band |
@@ -59,7 +59,7 @@
 | Round | Encounter | Kind | Map | W-L-D | Clear rate | Avg time | Damage dealt | Read |
 |---:|---|---|---|---:|---:|---:|---:|---|
 | 1 | First Flutter | Combat | Forest | 24-40-0 | 37.5% | 32.2s | 92 | Too hard / weak matchup |
-| 2 | Too Big to Miss | Combat | Vibrant Jungle | 43-21-0 | 67.2% | 77.5s | 43 | Target band |
+| 2 | Too Big to Miss | Combat | Vibrant Jungle | 42-22-0 | 65.6% | 80.8s | 44 | Target band |
 | 3 | Night Garden | Combat | Cave | 27-37-0 | 42.2% | 98.2s | 234 | Target band |
 | 4 | Tailwind Team | Combat | Rooftop Relay | 28-36-0 | 43.8% | 48.2s | 112 | Target band |
 | 5 | Poison in the Pollen | Combat | Carrion Throne | 25-39-0 | 39.1% | 37.2s | 126 | Too hard / weak matchup |
@@ -70,26 +70,26 @@
 
 | Round | Encounter | Kind | Map | W-L-D | Clear rate | Avg time | Damage dealt | Read |
 |---:|---|---|---|---:|---:|---:|---:|---|
-| 1 | First at the Table | Combat | Forest | 21-43-0 | 32.8% | 128.9s | 207 | Too hard / weak matchup |
-| 2 | The Swift Take | Combat | Rooftop Relay | 43-21-0 | 67.2% | 55.9s | 106 | Target band |
-| 3 | Poisoned Course | Combat | Cave | 45-19-0 | 70.3% | 95.6s | 201 | Target band |
-| 4 | Open Season | Combat | Tempest Summit | 27-37-0 | 42.2% | 28.6s | 36 | Target band |
-| 5 | Carving Blades | Combat | Prison | 43-21-0 | 67.2% | 112.2s | 161 | Target band |
-| 6 | False Dawn | Combat | Ashfall Rebirth | 36-28-0 | 56.3% | 96.7s | 172 | Target band |
+| 1 | First at the Table | Combat | Forest | 21-43-0 | 32.8% | 129.9s | 203 | Too hard / weak matchup |
+| 2 | The Swift Take | Combat | Rooftop Relay | 45-19-0 | 70.3% | 55.7s | 100 | Target band |
+| 3 | Poisoned Course | Combat | Cave | 38-26-0 | 59.4% | 99.9s | 199 | Target band |
+| 4 | Open Season | Combat | Tempest Summit | 22-42-0 | 34.4% | 29.3s | 35 | Too hard / weak matchup |
+| 5 | Carving Blades | Combat | Prison | 40-24-0 | 62.5% | 112.3s | 149 | Target band |
+| 6 | False Dawn | Combat | Ashfall Rebirth | 39-25-0 | 60.9% | 98.2s | 163 | Target band |
 | 7 | Bonus: Defend the Harvest | Objective | Harvest Tribunal | — | — | — | — | Not scored |
-| 8 | The Great Hunger | Combat | Harvest Tribunal | 19-45-0 | 29.7% | 145.2s | 397 | Too hard / weak matchup |
+| 8 | The Great Hunger | Combat | Harvest Tribunal | 16-48-0 | 25.0% | 146.6s | 370 | Too hard / weak matchup |
 ## Rooster
 
 | Round | Encounter | Kind | Map | W-L-D | Clear rate | Avg time | Damage dealt | Read |
 |---:|---|---|---|---:|---:|---:|---:|---|
-| 1 | The First Call | Combat | Forest | 45-19-0 | 70.3% | 88.8s | 218 | Target band |
-| 2 | Two Kinds of Leadership | Combat | Harvest Tribunal | 48-16-0 | 75.0% | 74.0s | 77 | Possibly too easy |
-| 3 | Hold Formation | Combat | Dock | 35-29-0 | 54.7% | 82.0s | 94 | Target band |
-| 4 | The Cagekeepers | Combat | Prison | 45-19-0 | 70.3% | 91.3s | 119 | Target band |
-| 5 | One Hunter, Five Targets | Combat | Carrion Throne | 34-30-0 | 53.1% | 92.9s | 167 | Target band |
-| 6 | The Last Night | Combat | Parliament Rooftops | 29-35-0 | 45.3% | 49.1s | 67 | Target band |
+| 1 | The First Call | Combat | Forest | 40-24-0 | 62.5% | 88.8s | 214 | Target band |
+| 2 | Two Kinds of Leadership | Combat | Harvest Tribunal | 46-18-0 | 71.9% | 85.2s | 87 | Possibly too easy |
+| 3 | Hold Formation | Combat | Dock | 36-28-0 | 56.3% | 81.2s | 92 | Target band |
+| 4 | The Cagekeepers | Combat | Prison | 41-23-0 | 64.1% | 95.9s | 118 | Target band |
+| 5 | One Hunter, Five Targets | Combat | Carrion Throne | 29-35-0 | 45.3% | 106.4s | 196 | Target band |
+| 6 | The Last Night | Combat | Parliament Rooftops | 24-40-0 | 37.5% | 47.7s | 59 | Too hard / weak matchup |
 | 7 | Bonus: The Great Muster | Objective | Dawnwatch Bastion | — | — | — | — | Not scored |
-| 8 | The Broodbreaker | Combat | Dawnwatch Bastion | 43-21-0 | 67.2% | 142.7s | 111 | Target band |
+| 8 | The Broodbreaker | Combat | Dawnwatch Bastion | 46-18-0 | 71.9% | 153.7s | 104 | Possibly too easy |
 ## Roadrunner
 
 | Round | Encounter | Kind | Map | W-L-D | Clear rate | Avg time | Damage dealt | Read |
@@ -109,7 +109,7 @@
 | 1 | Cold Water | Combat | Frostbite Fjord | 31-33-0 | 48.4% | 94.6s | 290 | Target band |
 | 2 | Heat Rises | Combat | City | 41-23-0 | 64.1% | 72.0s | 195 | Target band |
 | 3 | The Icebreaker | Combat | Titan Dock | 24-40-0 | 37.5% | 87.6s | 86 | Too hard / weak matchup |
-| 4 | Fire at the Fjord | Combat | Frozen Caldera | 27-37-0 | 42.2% | 99.3s | 251 | Target band |
+| 4 | Fire at the Fjord | Combat | Frozen Caldera | 36-28-0 | 56.3% | 98.9s | 262 | Target band |
 | 5 | The Cold King | Combat | Prison | 35-29-0 | 54.7% | 130.9s | 265 | Target band |
 | 6 | Hold the Gate | Combat | Beacon Crown | 34-30-0 | 53.1% | 81.2s | 165 | Target band |
 | 7 | Bonus: Ice Architect | Objective | Last Ice Shelf | — | — | — | — | Not scored |
@@ -157,7 +157,7 @@
 | 1 | The First Package | Combat | Parliament Rooftops | 41-23-0 | 64.1% | 26.6s | 97 | Target band |
 | 2 | Cold Storage | Combat | Last Ice Shelf | 38-26-0 | 59.4% | 79.9s | 155 | Target band |
 | 3 | Express Delivery | Combat | Midnight Workshop | 25-39-0 | 39.1% | 68.9s | 197 | Too hard / weak matchup |
-| 4 | The Good List | Combat | Harvest Tribunal | 22-42-0 | 34.4% | 87.6s | 385 | Too hard / weak matchup |
+| 4 | The Good List | Combat | Harvest Tribunal | 20-44-0 | 31.3% | 87.7s | 395 | Too hard / weak matchup |
 | 5 | Thieves' Honor | Combat | Silent Amphitheater | 23-41-0 | 35.9% | 98.8s | 297 | Too hard / weak matchup |
 | 6 | The King's Ransom | Combat | Dawnwatch Bastion | 40-24-0 | 62.5% | 129.7s | 508 | Target band |
 | 7 | Bonus: The Quiet Vault | Objective | Gift Vault | — | — | — | — | Not scored |
@@ -181,8 +181,8 @@
 | 1 | One Step Ahead | Combat | Glasswind Causeway | 23-41-0 | 35.9% | 83.9s | 160 | Too hard / weak matchup |
 | 2 | Manufactured Future | Combat | Midnight Workshop | 36-28-0 | 56.3% | 76.5s | 258 | Target band |
 | 3 | Sleep Comes in Waves | Combat | Oneiric Observatory | 44-20-0 | 68.8% | 143.4s | 430 | Target band |
-| 4 | The Future Burns | Combat | Frozen Caldera | 38-26-0 | 59.4% | 95.5s | 212 | Target band |
-| 5 | The Future Obeys | Combat | Parliament Rooftops | 32-32-0 | 50.0% | 39.8s | 83 | Target band |
+| 4 | The Future Burns | Combat | Frozen Caldera | 38-26-0 | 59.4% | 93.6s | 203 | Target band |
+| 5 | The Future Obeys | Combat | Parliament Rooftops | 30-34-0 | 46.9% | 41.4s | 89 | Target band |
 | 6 | Eleven Dead Ends | Combat | Worldseam | 29-35-0 | 45.3% | 159.8s | 203 | Target band |
 | 7 | Bonus: Wake Before the Bell | Objective | Waking Chamber | — | — | — | — | Not scored |
 | 8 | The Still Future | Combat | Redline Canyon | 41-23-0 | 64.1% | 204.4s | 0 | Target band |
@@ -195,7 +195,7 @@
 | 3 | Raise the Alarm | Combat | Heartbloom Sanctuary | 34-30-0 | 53.1% | 106.3s | 187 | Target band |
 | 4 | Every Voice Different | Combat | Stillwater Marsh | 32-32-0 | 50.0% | 158.9s | 534 | Target band |
 | 5 | No Place to Hide | Combat | Cave | 34-30-0 | 53.1% | 135.9s | 373 | Target band |
-| 6 | All Wings Answer | Combat | Dawnwatch Bastion | 38-26-0 | 59.4% | 94.7s | 120 | Target band |
+| 6 | All Wings Answer | Combat | Dawnwatch Bastion | 36-28-0 | 56.3% | 91.7s | 109 | Target band |
 | 7 | Bonus: Where I Left Everything | Objective | Last Ice Shelf | — | — | — | — | Not scored |
 | 8 | The Last Hush | Combat | Silent Amphitheater | 41-23-0 | 64.1% | 159.1s | 352 | Target band |
 ## Bat
@@ -229,7 +229,7 @@
 | 1 | Raw Materials | Combat | Carrion Exchange | 43-21-0 | 67.2% | 83.8s | 343 | Target band |
 | 2 | The Original Formula | Combat | Oneiric Observatory | 41-23-0 | 64.1% | 49.7s | 123 | Target band |
 | 3 | Stress Test | Combat | Frozen Caldera | 31-33-0 | 48.4% | 101.3s | 352 | Target band |
-| 4 | Market Pressure | Combat | Parliament Rooftops | 47-17-0 | 73.4% | 54.4s | 126 | Possibly too easy |
+| 4 | Market Pressure | Combat | Parliament Rooftops | 39-25-0 | 60.9% | 45.6s | 109 | Target band |
 | 5 | Counterfeit Product | Combat | Silent Amphitheater | 37-27-0 | 57.8% | 140.6s | 429 | Target band |
 | 6 | Hostile Takeover | Combat | Beacon Crown | 47-17-0 | 73.4% | 101.8s | 287 | Possibly too easy |
 | 7 | Bonus: Final Calibration | Objective | Stormglass Refinery | — | — | — | — | Not scored |
@@ -264,7 +264,7 @@
 |---:|---|---|---|---:|---:|---:|---:|---|
 | 1 | The Smallest Footprint | Combat | Heartbloom Sanctuary | 29-35-0 | 45.3% | 69.4s | 174 | Target band |
 | 2 | Roots Know the Way | Combat | Stillwater Marsh | 49-15-0 | 76.6% | 61.4s | 153 | Possibly too easy |
-| 3 | The Weight Above | Combat | Harvest Tribunal | 27-37-0 | 42.2% | 71.6s | 178 | Target band |
+| 3 | The Weight Above | Combat | Harvest Tribunal | 42-22-0 | 65.6% | 78.6s | 202 | Target band |
 | 4 | No Wings Required | Combat | Redline Canyon | 44-20-0 | 68.8% | 69.0s | 197 | Target band |
 | 5 | The Foundation Holds | Combat | Titan Dock | 31-33-0 | 48.4% | 120.4s | 106 | Target band |
 | 6 | Bonus: Buried Markers | Objective | Forest | — | — | — | — | Not scored |

@@ -122,16 +122,16 @@ class NormalAttackTimelineTest {
 
     @Test
     void nonMigratedBirdsKeepLegacyImmediateResolutionUntilAuthored() throws Exception {
-        BirdGame3 game = twoBirdGame(BirdGame3.BirdType.TURKEY, BirdGame3.BirdType.PIGEON,
+        BirdGame3 game = twoBirdGame(BirdGame3.BirdType.ROADRUNNER, BirdGame3.BirdType.PIGEON,
                 320.0, 382.0);
-        Bird turkey = game.players[0];
+        Bird roadrunner = game.players[0];
         Bird target = game.players[1];
         double startingHealth = target.health;
 
-        performAttack(turkey, "NEUTRAL");
+        performAttack(roadrunner, "NEUTRAL");
 
         assertTrue(target.health < startingHealth);
-        assertFalse(turkey.debugNormalAttackTimelineActive());
+        assertFalse(roadrunner.debugNormalAttackTimelineActive());
     }
 
     @Test
@@ -227,6 +227,50 @@ class NormalAttackTimelineTest {
         assertEquals(afterFirstFlameContact, target.health, 0.0001,
                 "Phoenix's lingering flame arc remains a single hit per target.");
         assertEquals("ACTIVE", phoenix.debugNormalAttackPhaseLabel());
+    }
+
+    @Test
+    void groundedHeavyweightsHaveDistinctCompleteFrameData() throws Exception {
+        String[] variants = {
+                "NEUTRAL", "SIDE_TILT", "UP_TILT", "DOWN_TILT",
+                "SIDE_SMASH", "UP_SMASH", "DOWN_SMASH",
+                "NEUTRAL_AIR", "FORWARD_AIR", "BACK_AIR", "UP_AIR", "DOWN_AIR",
+                "DASH_ATTACK", "LEDGE_ATTACK", "GETUP_ATTACK"
+        };
+        int[][] turkeyFrames = {
+                {1, 5, 2}, {1, 6, 4}, {1, 7, 3}, {1, 6, 4},
+                {3, 6, 7}, {3, 7, 6}, {3, 8, 6},
+                {1, 9, 3}, {2, 6, 5}, {2, 6, 6}, {2, 7, 4}, {3, 6, 6},
+                {1, 7, 6}, {2, 6, 5}, {2, 7, 6}
+        };
+        int[][] roosterFrames = {
+                {1, 4, 1}, {1, 4, 3}, {1, 5, 2}, {1, 4, 3},
+                {2, 4, 8}, {2, 5, 8}, {2, 6, 8},
+                {1, 7, 2}, {1, 5, 5}, {1, 5, 5}, {1, 6, 3}, {2, 5, 6},
+                {1, 5, 5}, {1, 4, 6}, {1, 5, 6}
+        };
+
+        assertAuthoredMoveList(BirdGame3.BirdType.TURKEY, variants, turkeyFrames);
+        assertAuthoredMoveList(BirdGame3.BirdType.ROOSTER, variants, roosterFrames);
+    }
+
+    @Test
+    void turkeyCommitsLongerThanRoosterOnComparableHeavyAttacks() throws Exception {
+        BirdGame3 turkeyGame = twoBirdGame(BirdGame3.BirdType.TURKEY, BirdGame3.BirdType.PIGEON,
+                320.0, 700.0);
+        BirdGame3 roosterGame = twoBirdGame(BirdGame3.BirdType.ROOSTER, BirdGame3.BirdType.PIGEON,
+                320.0, 700.0);
+
+        performAttack(turkeyGame.players[0], "SIDE_SMASH");
+        performAttack(roosterGame.players[0], "SIDE_SMASH");
+
+        assertTrue(turkeyGame.players[0].debugNormalAttackTotalFrames()
+                        > roosterGame.players[0].debugNormalAttackTotalFrames(),
+                "Turkey's weight should cost more total commitment than Rooster's spur strike.");
+        advanceTimer(roosterGame.players[0], 3);
+        advanceTimer(turkeyGame.players[0], 3);
+        assertEquals("ACTIVE", roosterGame.players[0].debugNormalAttackPhaseLabel());
+        assertEquals("STARTUP", turkeyGame.players[0].debugNormalAttackPhaseLabel());
     }
 
     @Test
