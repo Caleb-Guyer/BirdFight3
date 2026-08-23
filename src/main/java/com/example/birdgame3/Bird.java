@@ -1784,10 +1784,15 @@ public class Bird {
     private static final int THROW_UP_DAMAGE = 7;
     private static final int THROW_DOWN_DAMAGE = 6;
     private static final int SHIELD_PARRY_WINDOW_FRAMES = 3;
-    private static final int SHIELD_PARRY_ATTACKER_STUN_FRAMES = 28;
+    // A perfect shield should grant a precise frame advantage, not a second
+    // long stun that guarantees a punish regardless of the blocked move.
+    private static final int SHIELD_PARRY_ATTACKER_STUN_FRAMES = 3;
     private static final int SHIELD_PARRY_RELEASE_FRAMES = 5;
-    private static final int SHIELD_PARRY_HITSTOP_FRAMES = 5;
+    private static final int SHIELD_PARRY_HITSTOP_FRAMES = 4;
     private static final double SHIELD_PUSHBACK_SCALE = 0.16;
+    private static final double SHIELD_ATTACKER_RECOIL_SCALE = 0.42;
+    private static final double SHIELD_ATTACKER_RECOIL_MAX_SPEED = 5.5;
+    private static final double SHIELD_DEFENDER_SLIDE_MAX_SPEED = 11.0;
     private static final int SHIELD_STUN_BASE_FRAMES = 6;
     private static final double SHIELD_STUN_DAMAGE_SCALE = 0.30;
     private static final double SHIELD_STUN_LOW_HEALTH_BONUS = 5.0;
@@ -6155,7 +6160,14 @@ public class Bird {
         }
         if (Math.abs(push) > 0.001) {
             double durabilityPushScale = 1.0 + (1.0 - durabilityBeforeHit) * 0.55;
-            vx += push * durabilityPushScale;
+            vx = Math.clamp(vx + push * durabilityPushScale,
+                    -SHIELD_DEFENDER_SLIDE_MAX_SPEED, SHIELD_DEFENDER_SLIDE_MAX_SPEED);
+            if (attacker != null && attacker != this) {
+                double recoil = Math.min(SHIELD_ATTACKER_RECOIL_MAX_SPEED,
+                        Math.abs(push) * SHIELD_ATTACKER_RECOIL_SCALE);
+                attacker.vx = Math.clamp(attacker.vx - Math.copySign(recoil, push),
+                        -SHIELD_ATTACKER_RECOIL_MAX_SPEED, SHIELD_ATTACKER_RECOIL_MAX_SPEED);
+            }
         }
 
         shieldHoldVisual = Math.min(1.0, shieldHoldVisual + 0.08);
@@ -6163,7 +6175,7 @@ public class Bird {
         if (attacker != null && attacker.type == BirdGame3.BirdType.PIGEON) {
             game.playPigeonBlockedAttackSfx(scaledDamage, false);
         }
-        game.hitstopFrames = Math.max(game.hitstopFrames, (int) Math.min(8, 2 + scaledDamage / 7.0));
+        game.hitstopFrames = Math.max(game.hitstopFrames, (int) Math.min(4, 1 + scaledDamage / 10.0));
         // Raise shake to the block-impact level (capped at 8) without ever
         // lowering stronger existing shake. Math.clamp(v, current, 8) threw
         // IllegalArgumentException whenever current shake exceeded 8.
@@ -16917,8 +16929,13 @@ public class Bird {
     private void updateShieldState(boolean stunned, boolean airborne, boolean defensiveBlockHeld,
                                    boolean rawBlockHeld, boolean inDockWater, double gameSpeed) {
         boolean wantsShield = defensiveBlockHeld && !airborne && !inDockWater;
+        // Releasing during shield stun queues a normal drop after the lock
+        // expires. It must not erase the remaining pressure or manufacture a
+        // delayed perfect-shield window.
+        boolean shieldStunLock = isBlocking && shieldStunFrames > 0
+                && shieldHealth > 0.0 && health > 0.0;
         boolean justPressed = defensiveBlockHeld && !blockHeldLastFrame;
-        boolean canShield = wantsShield
+        boolean canShield = shieldStunLock || (wantsShield
                 && !stunned
                 && !normalAttackTimelineActive
                 && !(type == BirdGame3.BirdType.PIGEON && PigeonSpecials.active(this))
@@ -16929,7 +16946,7 @@ public class Bird {
                 && !isDodging()
                 && landingLagTimer <= 0
                 && jumpSquatTimer <= 0
-                && knockdownTimer <= 0;
+                && knockdownTimer <= 0);
 
         if (canShield) {
             if (justPressed) {

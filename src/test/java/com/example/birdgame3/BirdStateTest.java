@@ -4213,10 +4213,95 @@ class BirdStateTest {
                 "Releasing shield should open a brief perfect-shield window.");
         invokePrivateVoid(attacker, "attack");
 
-        assertTrue(attacker.stunTime >= 20.0);
+        assertTrue(attacker.stunTime > 0.0 && attacker.stunTime <= 4.0,
+                "A perfect shield should create a small timing advantage, not a free long stun.");
         assertEquals(Bird.STARTING_HEALTH, defender.health, 0.0001);
         assertEquals(shieldBefore, getPrivateDouble(defender, "shieldHealth"), 0.0001);
         assertFalse(defender.isBlocking);
+    }
+
+    @Test
+    void releasingShieldDuringShieldStunQueuesDropWithoutCreatingParry() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird attacker = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird defender = new Bird(190.0, BirdGame3.BirdType.EAGLE, 1, game);
+        attacker.y = defender.y = BirdGame3.GROUND_Y - 80.0;
+        attacker.facingRight = true;
+        game.players[0] = attacker;
+        game.players[1] = defender;
+
+        game.setLocalActionsForKey(game.blockKeyForPlayer(1), true);
+        for (int i = 0; i < 3; i++) defender.update(1.0);
+        invokePrivateVoid(attacker, "attack");
+        int stunAfterHit = getPrivateInt(defender, "shieldStunFrames");
+        assertTrue(stunAfterHit > 1);
+
+        game.setLocalActionsForKey(game.blockKeyForPlayer(1), false);
+        defender.update(1.0);
+
+        assertTrue(defender.isBlocking,
+                "Letting go during shield stun must not erase the defender's pressure lock.");
+        assertEquals(0, getPrivateInt(defender, "parryWindowFrames"));
+
+        for (int i = 0; i < stunAfterHit + 2 && defender.isBlocking; i++) {
+            defender.update(1.0);
+        }
+        assertFalse(defender.isBlocking);
+        assertEquals(0, getPrivateInt(defender, "parryWindowFrames"),
+                "An early release during shield stun must resolve as a normal drop, not a delayed parry.");
+    }
+
+    @Test
+    void blockedAttackPushesAttackerAndDefenderApart() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird attacker = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird defender = new Bird(190.0, BirdGame3.BirdType.EAGLE, 1, game);
+        attacker.y = defender.y = BirdGame3.GROUND_Y - 80.0;
+        attacker.facingRight = true;
+        game.players[0] = attacker;
+        game.players[1] = defender;
+
+        game.setLocalActionsForKey(game.blockKeyForPlayer(1), true);
+        for (int i = 0; i < 3; i++) defender.update(1.0);
+        invokePrivateVoid(attacker, "attack");
+
+        assertTrue(attacker.vx < 0.0, "Shield contact should recoil the attacker away from the defender.");
+        assertTrue(defender.vx > 0.0, "Shield contact should slide the defender in the launch direction.");
+        assertTrue(Math.abs(attacker.vx) <= 5.5 && Math.abs(defender.vx) <= 11.0,
+                "Shield pushback must remain capped under large attacks and multihits.");
+    }
+
+    @Test
+    void perfectShieldWindowExpiresAfterThreeSimulationTicks() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird attacker = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird defender = new Bird(190.0, BirdGame3.BirdType.EAGLE, 1, game);
+        attacker.y = defender.y = BirdGame3.GROUND_Y - 80.0;
+        attacker.facingRight = true;
+        game.players[0] = attacker;
+        game.players[1] = defender;
+
+        game.setLocalActionsForKey(game.blockKeyForPlayer(1), true);
+        defender.update(1.0);
+        game.setLocalActionsForKey(game.blockKeyForPlayer(1), false);
+        defender.update(1.0);
+        assertEquals(3, getPrivateInt(defender, "parryWindowFrames"));
+
+        defender.update(1.0);
+        defender.update(1.0);
+        defender.update(1.0);
+        assertEquals(0, getPrivateInt(defender, "parryWindowFrames"));
+
+        invokePrivateVoid(attacker, "attack");
+        assertTrue(defender.health < Bird.STARTING_HEALTH,
+                "A hit after the exact three-tick window must resolve normally.");
+        assertEquals(0.0, attacker.stunTime, 0.0001);
     }
 
     @Test
@@ -7150,6 +7235,9 @@ class BirdStateTest {
         game.setLocalActionsForKey(blockKey, false);
         game.setLocalActionsForKey(specialKey, false);
         penguin.update(1.0);
+        for (int i = 0; i < 30 && penguin.isBlocking; i++) {
+            penguin.update(1.0);
+        }
 
         KeyCode rightKey = game.rightKeyForPlayer(0);
         game.setLocalActionsForKey(rightKey, true);
