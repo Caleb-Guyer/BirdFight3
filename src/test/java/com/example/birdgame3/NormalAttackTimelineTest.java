@@ -23,12 +23,12 @@ class NormalAttackTimelineTest {
 
         assertTrue(pigeon.debugNormalAttackTimelineActive());
         assertEquals(0, pigeon.debugNormalAttackFrame());
-        assertEquals(7, pigeon.debugNormalAttackTotalFrames());
+        assertEquals(6, pigeon.debugNormalAttackTotalFrames());
         assertEquals("STARTUP", pigeon.debugNormalAttackPhaseLabel());
         assertEquals(startingHealth, target.health, 0.0001,
                 "Starting a Pigeon attack must not resolve damage on the input tick.");
 
-        advanceTimer(pigeon, 2);
+        advanceTimer(pigeon, 1);
         assertEquals(startingHealth, target.health, 0.0001);
         assertEquals("STARTUP", pigeon.debugNormalAttackPhaseLabel());
         assertFalse(pigeon.debugAttackBoxActive());
@@ -61,11 +61,11 @@ class NormalAttackTimelineTest {
         advanceTimer(pigeon, 7);
 
         assertEquals("RECOVERY", pigeon.debugNormalAttackPhaseLabel());
-        assertEquals(3, pigeon.debugNormalAttackRemainingFrames());
+        assertEquals(2, pigeon.debugNormalAttackRemainingFrames());
         assertTrue(pigeon.attackAnimationTimer > 0);
         assertFalse(pigeon.debugNormalAttackConnected());
 
-        advanceTimer(pigeon, 3);
+        advanceTimer(pigeon, 2);
         assertFalse(pigeon.debugNormalAttackTimelineActive());
         assertEquals(0, pigeon.attackAnimationTimer);
         assertTrue(pigeon.attackCooldown > 0);
@@ -113,7 +113,7 @@ class NormalAttackTimelineTest {
         BirdGame3 activeGame = airborneTwoBirdGame();
         Bird active = activeGame.players[0];
         performAttack(active, "NEUTRAL_AIR");
-        advanceTimer(active, 4);
+        advanceTimer(active, 3);
         assertEquals("ACTIVE", active.debugNormalAttackPhaseLabel());
         invoke(active, "resolveAerialLandingRecovery");
         assertEquals(6, intField(active, "landingLagTimer"));
@@ -636,7 +636,7 @@ class NormalAttackTimelineTest {
         }
 
         performAttack(pigeon, "NEUTRAL");
-        advanceTimer(pigeon, 3);
+        advanceTimer(pigeon, 2);
 
         assertEquals(Bird.STARTING_HEALTH, defender.health, 0.0001);
         assertTrue(booleanField(game, "trainingShieldAdvantageAvailable"));

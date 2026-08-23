@@ -45866,7 +45866,7 @@ public class BirdGame3 {
                 105 * 60,
                 new ClassicFighter[0],
                 new ClassicFighter[]{
-                        classicFighter(BirdType.PIGEON, "Elite: Beacon Pigeon", 178, 1.16, 1.10, BEACON_PIGEON_SKIN)
+                        classicFighter(BirdType.PIGEON, "Elite: Beacon Pigeon", 170, 1.12, 1.06, BEACON_PIGEON_SKIN)
                 },
                 true
         );

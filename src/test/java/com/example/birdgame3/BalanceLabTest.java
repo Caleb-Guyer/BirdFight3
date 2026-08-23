@@ -10,6 +10,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BalanceLabTest {
 
+    @Test
+    void everyMainStageHasADistinctAuditName() throws Exception {
+        java.lang.reflect.Method mapName = BalanceLab.Report.class.getDeclaredMethod(
+                "mapName", BirdGame3.MapType.class);
+        mapName.setAccessible(true);
+        java.util.Set<String> names = new java.util.HashSet<>();
+        for (BirdGame3.MapType map : BirdGame3.MapType.values()) {
+            String name = (String) mapName.invoke(null, map);
+            assertTrue(names.add(name), () -> "Duplicate balance-audit stage label: " + name);
+            assertTrue(!name.isBlank(), map.name());
+        }
+    }
+
     private static BirdGame3 freshGame() {
         return new BirdGame3(Preferences.userRoot().node("/birdfight3-tests/balance-lab/" + UUID.randomUUID()));
     }

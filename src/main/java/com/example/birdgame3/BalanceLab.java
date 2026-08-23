@@ -157,6 +157,7 @@ final class BalanceLab {
 
         private static String mapName(MapType map) {
             return switch (map) {
+                case FOREST -> "Big Forest";
                 case CITY -> "Pigeon's Rooftops";
                 case SKYCLIFFS -> "Sky Cliffs";
                 case VIBRANT_JUNGLE -> "Vibrant Jungle";
@@ -168,7 +169,15 @@ final class BalanceLab {
                 case FROSTBITE_FJORD -> "Frostbite Fjord";
                 case ASHFALL_CATHEDRAL -> "Ashfall Cathedral";
                 case PRISON -> "Crownlock Prison";
-                default -> "Big Forest";
+                case RESONANCE_HALL -> "Resonance Hall";
+                case SIGNAL_SPIRE -> "Signal Spire";
+                case SILENT_AMPHITHEATER -> "Silent Amphitheater";
+                case GLASSWIND_CAUSEWAY -> "Glasswind Causeway";
+                case WORLDSEAM -> "Worldseam";
+                case MIDNIGHT_WORKSHOP -> "Midnight Workshop";
+                case CARRION_EXCHANGE -> "Carrion Exchange";
+                case ONEIRIC_OBSERVATORY -> "Oneiric Observatory";
+                case STORMGLASS_REFINERY -> "Stormglass Refinery";
             };
         }
 

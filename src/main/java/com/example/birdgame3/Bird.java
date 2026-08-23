@@ -3713,9 +3713,9 @@ public class Bird {
     }
 
     private boolean usesAuthoredNormalAttackTimeline() {
-        // The shared engine is intentionally rolled out bird-by-bird so an
-        // authored migration cannot silently change the accepted balance of
-        // fighters that still use their legacy instant strike.
+        // All playable birds resolve normals through this deterministic path.
+        // Keeping the roster list explicit makes a newly appended fighter fail
+        // the roster-wide regression until its frame data is authored.
         return type == BirdGame3.BirdType.PIGEON
                 || type == BirdGame3.BirdType.EAGLE
                 || type == BirdGame3.BirdType.FALCON
@@ -3813,26 +3813,26 @@ public class Bird {
 
     private NormalAttackTimeline pigeonNormalAttackTimeline(NormalAttackVariant variant) {
         return switch (variant) {
-            case NEUTRAL -> sweetSpotTimeline(2, 2, 3, 0, 0,
+            case NEUTRAL -> sweetSpotTimeline(1, 3, 2, 0, 0,
                     0.58, 1.06, 1.08, 0.96, 0.94);
-            case SIDE_TILT -> noSweetSpotTimeline(4, 2, 4, 0, 0);
-            case UP_TILT -> noSweetSpotTimeline(4, 3, 3, 0, 0);
-            case DOWN_TILT -> noSweetSpotTimeline(3, 2, 4, 0, 0);
+            case SIDE_TILT -> noSweetSpotTimeline(2, 4, 3, 0, 0);
+            case UP_TILT -> noSweetSpotTimeline(3, 4, 3, 0, 0);
+            case DOWN_TILT -> noSweetSpotTimeline(2, 3, 3, 0, 0);
             case SIDE_SMASH -> sweetSpotTimeline(8, 2, 5, 0, 0,
                     0.66, 1.06, 1.10, 0.96, 1.0);
             case UP_SMASH -> noSweetSpotTimeline(7, 3, 5, 0, 0);
             case DOWN_SMASH -> noSweetSpotTimeline(7, 4, 5, 0, 0);
-            case NEUTRAL_AIR -> noSweetSpotTimeline(3, 5, 4, 3, 2);
-            case FORWARD_AIR -> sweetSpotTimeline(5, 3, 5, 5, 2,
+            case NEUTRAL_AIR -> noSweetSpotTimeline(2, 7, 3, 2, 2);
+            case FORWARD_AIR -> sweetSpotTimeline(3, 5, 4, 3, 2,
                     0.64, 1.05, 1.08, 0.97, 0.95);
-            case BACK_AIR -> sweetSpotTimeline(4, 3, 6, 4, 2,
+            case BACK_AIR -> sweetSpotTimeline(3, 5, 5, 3, 2,
                     0.62, 1.05, 1.08, 0.97, 0.95);
-            case UP_AIR -> noSweetSpotTimeline(4, 4, 4, 4, 2);
-            case DOWN_AIR -> sweetSpotTimeline(6, 3, 5, 6, 2,
+            case UP_AIR -> noSweetSpotTimeline(2, 6, 3, 2, 2);
+            case DOWN_AIR -> sweetSpotTimeline(4, 5, 5, 4, 2,
                     0.66, 1.06, 1.10, 0.96, 0.94);
-            case DASH_ATTACK -> noSweetSpotTimeline(5, 3, 5, 0, 0);
-            case LEDGE_ATTACK -> noSweetSpotTimeline(4, 3, 5, 0, 0);
-            case GETUP_ATTACK -> noSweetSpotTimeline(6, 3, 5, 0, 0);
+            case DASH_ATTACK -> noSweetSpotTimeline(3, 5, 4, 0, 0);
+            case LEDGE_ATTACK -> noSweetSpotTimeline(3, 4, 4, 0, 0);
+            case GETUP_ATTACK -> noSweetSpotTimeline(4, 5, 4, 0, 0);
         };
     }
 
@@ -10223,6 +10223,12 @@ public class Bird {
             double attackChance = (aiCommitFrames > 0 ? 0.88 : 0.72)
                     * (0.38 + 0.52 * skill)
                     * (0.86 + ownKit.pressure() * 0.22);
+            if (type == BirdGame3.BirdType.PIGEON) {
+                // Pigeon is the responsive starter: once it has closed into
+                // peck range, prefer its quick authored normals over repeatedly
+                // spending the decision on the low-damage traversal burst.
+                attackChance *= 1.25;
+            }
             if (cpuLevel <= 1) attackChance *= 0.04;
             else if (cpuLevel == 2) attackChance *= 0.35;
             double attackRange = Math.max(132.0, Math.min(230.0,
@@ -12883,7 +12889,7 @@ public class Bird {
         return switch (type) {
             case PIGEON -> {
                 if (!onGround && targetAbove && !pigeonUpSpecialUsed) yield DirectionalSpecialInput.UP;
-                if (dist > 88.0 && dist < 315.0 && Math.abs(dy) < 155.0) yield DirectionalSpecialInput.SIDE;
+                if (dist > 155.0 && dist < 315.0 && Math.abs(dy) < 155.0) yield DirectionalSpecialInput.SIDE;
                 yield DirectionalSpecialInput.NEUTRAL;
             }
             case EAGLE, FALCON -> {

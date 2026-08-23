@@ -64,6 +64,9 @@ class PigeonClassicRouteTest {
         assertEquals(BirdType.PELICAN, route.get(2).enemies[0].type());
         assertEquals(BirdType.GOOSE, route.get(4).enemies[0].type());
         assertEquals(BirdType.PIGEON, route.get(5).enemies[0].type());
+        assertEquals(170.0, route.get(5).enemies[0].health(), 0.0001);
+        assertEquals(1.12, route.get(5).enemies[0].powerMult(), 0.0001);
+        assertEquals(1.06, route.get(5).enemies[0].speedMult(), 0.0001);
         assertEquals(BirdType.VULTURE, route.get(7).enemies[0].type());
         assertTrue(route.get(7).enemies[0].title().contains("Null Rock"));
         assertTrue(route.get(7).bossFight);
