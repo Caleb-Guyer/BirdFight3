@@ -13816,6 +13816,14 @@ public class BirdGame3 {
         emitCombatImpact(attacker, target, x, y, launchX, launchY, damage, finisher, moveName, false);
     }
 
+    void emitAttackClank(Bird first, Bird second, double x, double y, double strength) {
+        double direction = first != null && second != null
+                ? Math.copySign(1.0, second.bodyCenterX() - first.bodyCenterX()) : 1.0;
+        double impactStrength = Math.clamp(7.0 + strength * 0.45, 8.0, 15.0);
+        emitCombatImpact(null, null, x, y, direction, -0.22,
+                impactStrength, false, "Attack Clank", true);
+    }
+
     private void emitCombatImpact(Bird attacker, Bird target, double x, double y,
                                   double launchX, double launchY, double damage,
                                   boolean finisher, String moveName, boolean allowHitstop) {
@@ -64791,6 +64799,7 @@ public class BirdGame3 {
             h = h * 1099511628211L + b.deterministicGrabStateHash();
             h = h * 1099511628211L + b.deterministicLedgeStateHash();
             h = h * 1099511628211L + b.deterministicHitReactionStateHash();
+            h = h * 1099511628211L + b.deterministicStaleMoveStateHash();
             for (boolean hit : b.mockingbirdMicHit) {
                 h = h * 1099511628211L + (hit ? 1 : 0);
             }
@@ -65480,6 +65489,7 @@ public class BirdGame3 {
     void recordSpecialMoveUse(Bird bird, Bird.DirectionalSpecialInput input, boolean ultimate) {
         if (bird == null) return;
         String moveName = specialTelemetryMoveName(bird, input, ultimate);
+        bird.beginMoveForStaling(moveName);
         setLastTelemetryMoveName(bird.playerIndex, moveName);
         if (bird.playerIndex >= 0 && bird.playerIndex < lastSpecialTelemetryMoveNames.length) {
             lastSpecialTelemetryMoveNames[bird.playerIndex] = moveName;
@@ -65489,6 +65499,7 @@ public class BirdGame3 {
 
     void recordUltimateMoveUse(Bird bird, String moveName) {
         if (bird == null) return;
+        bird.beginMoveForStaling(moveName);
         setLastTelemetryMoveName(bird.playerIndex, moveName);
         if (bird.playerIndex >= 0 && bird.playerIndex < lastSpecialTelemetryMoveNames.length) {
             lastSpecialTelemetryMoveNames[bird.playerIndex] = moveName;
@@ -65497,6 +65508,7 @@ public class BirdGame3 {
     }
 
     void recordNormalMoveUse(Bird bird, String moveName) {
+        if (bird != null) bird.beginMoveForStaling(moveName);
         recordTelemetryMoveUse(bird, moveName);
     }
 
@@ -67610,7 +67622,7 @@ public class BirdGame3 {
         double panelX = 22;
         double panelY = 220;
         double panelW = 720;
-        double panelH = 492;
+        double panelH = 538;
         Bird trainingPlayer = players != null && players.length > 0 ? players[0] : null;
 
         g.save();
@@ -67721,15 +67733,17 @@ public class BirdGame3 {
             g.fillText("CONTROL " + trainingPlayer.debugGrabLedgeTelemetryLabel(), leftX, universalY + 92);
             g.fillText("IMPACT  " + trainingPlayer.debugHitReactionTelemetryLabel(), leftX, universalY + 113);
             g.fillText("LAUNCH  " + trainingPlayer.debugLaunchTelemetryLabel(), leftX, universalY + 134);
+            g.fillText("STALE   " + trainingPlayer.debugStaleMoveTelemetryLabel(), leftX, universalY + 155);
+            g.fillText("CLASH   " + trainingPlayer.debugAttackInteractionTelemetryLabel(), leftX, universalY + 176);
 
-            drawTrainingGauge(g, leftX, universalY + 145, 260, 8,
+            drawTrainingGauge(g, leftX, universalY + 189, 260, 8,
                     trainingPlayer.debugShieldDurabilityRatio(), Color.web("#64D8FF"));
             int invulnerabilityFrames = trainingPlayer.debugCombatInvulnerabilityFrames();
-            drawTrainingGauge(g, leftX + 280, universalY + 145, 260, 8,
+            drawTrainingGauge(g, leftX + 280, universalY + 189, 260, 8,
                     Math.clamp(invulnerabilityFrames / 120.0, 0.0, 1.0), Color.web("#FFE082"));
             g.setFill(Color.web("#90A4AE"));
-            g.fillText("SHIELD", leftX, universalY + 166);
-            g.fillText("INVULNERABILITY", leftX + 280, universalY + 166);
+            g.fillText("SHIELD", leftX, universalY + 210);
+            g.fillText("INVULNERABILITY", leftX + 280, universalY + 210);
         }
 
         g.setFill(Color.web("#FFE082"));

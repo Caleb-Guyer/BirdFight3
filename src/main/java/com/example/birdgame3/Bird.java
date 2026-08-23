@@ -1368,6 +1368,24 @@ public class Bird {
     private double lastSdiX = 0.0;
     private double lastSdiY = 0.0;
     private TechResult lastTechResult = TechResult.NONE;
+    static final int STALE_MOVE_QUEUE_SIZE = 9;
+    private static final double[] STALE_MOVE_WEIGHTS = {
+            0.090, 0.085, 0.075, 0.065, 0.055, 0.045, 0.035, 0.025, 0.015
+    };
+    private static final double NORMAL_ATTACK_PRIORITY_DAMAGE_GAP = 3.0;
+    private static final int ATTACK_INTERACTION_TELEMETRY_FRAMES = 45;
+    private static final int ATTACK_CLANK_RECOVERY_FRAMES = 9;
+    private final long[] staleMoveQueue = new long[STALE_MOVE_QUEUE_SIZE];
+    private final String[] staleMoveQueueNames = new String[STALE_MOVE_QUEUE_SIZE];
+    private int staleMoveCount = 0;
+    private long currentMoveStaleHash = 0L;
+    private long currentMoveStaleSerial = 0L;
+    private long lastCommittedStaleSerial = Long.MIN_VALUE;
+    private double currentMoveStaleMultiplier = 1.0;
+    private String currentStaleMoveName = "READY";
+    private double pendingMoveKnockbackMultiplier = 1.0;
+    private int attackInteractionTimer = 0;
+    private NormalAttackInteractionResult lastAttackInteraction = NormalAttackInteractionResult.NONE;
     private boolean leftHeldLastFrame = false;
     private boolean rightHeldLastFrame = false;
     private int grabCooldown = 0;
@@ -2497,6 +2515,14 @@ public class Bird {
         MISSED_GROUND,
         MISSED_WALL,
         MISSED_CEILING
+    }
+
+    private enum NormalAttackInteractionResult {
+        NONE,
+        CLANK,
+        PRIORITY_WIN,
+        PRIORITY_LOSS,
+        TRADE
     }
 
     enum VisualAuditOpiumAction {
@@ -5370,8 +5396,10 @@ public class Bird {
         NormalAttackProfile profile = normalAttackProfile(variant);
         double batAmbushScale = consumeBatAmbushNormalScale(variant);
         double chargeRatio = attackChargeRatio(chargeFrames);
+        double staleMoveMultiplier = activeStaleMoveMultiplier(moveName);
         double knockbackScale = profile.knockbackMultiplier()
-                * attackKnockbackBalanceMultiplier(variant);
+                * attackKnockbackBalanceMultiplier(variant)
+                * (0.75 + staleMoveMultiplier * 0.25);
         double environmentKnockbackScale = knockbackScale
                 * (1.0 + CHARGED_ATTACK_KNOCKBACK_BONUS * chargeRatio * chargeRatio);
         double range = profile.horizontalReach() * sizeMultiplier;
@@ -5388,7 +5416,8 @@ public class Bird {
         int dmg = (int) Math.round(normalAttackPowerStat() * powerMultiplier
                 * profile.damageMultiplier()
                 * batAmbushScale
-                * (1.0 + CHARGED_ATTACK_DAMAGE_BONUS * chargeRatio));
+                * (1.0 + CHARGED_ATTACK_DAMAGE_BONUS * chargeRatio)
+                * staleMoveMultiplier);
         for (Bird other : game.players) {
             if (other == null || other == this || other.health <= 0) continue;
             if (!canDamageTarget(other)) continue;
@@ -5397,6 +5426,14 @@ public class Bird {
             if (overlapsAttackArea(other.bodyCenterX(), other.bodyCenterY(),
                     other.combatHalfWidth(), other.combatHalfHeight(),
                     attackCenterX, attackCenterY, range, verticalRange)) {
+                if (timeline != null) {
+                    NormalAttackInteractionResult interaction = resolveNormalAttackInteraction(
+                            other, variant, attackEnvelope, dmg, moveName);
+                    if (interaction == NormalAttackInteractionResult.CLANK
+                            || interaction == NormalAttackInteractionResult.PRIORITY_LOSS) {
+                        break;
+                    }
+                }
                 double spotDamageMultiplier = 1.0;
                 double spotKnockbackMultiplier = 1.0;
                 if (timeline != null) {
@@ -5439,6 +5476,123 @@ public class Bird {
         attackGrinchhawkPresents(attackCenterX, attackCenterY, range, verticalRange);
         game.damageFrostbiteSnowbanks(this, attackCenterX, attackCenterY, range, verticalRange, dmg);
         return profile;
+    }
+
+    private NormalAttackInteractionResult resolveNormalAttackInteraction(
+            Bird other, NormalAttackVariant variant, VisualCombatEnvelope attackEnvelope,
+            int estimatedDamage, String moveName) {
+        if (other == null || !other.normalAttackTimelineActive
+                || other.currentNormalAttackPhase() != NormalAttackPhase.ACTIVE) {
+            return NormalAttackInteractionResult.NONE;
+        }
+        NormalAttackTimeline otherTimeline = other.activeNormalAttackTimeline();
+        if (!other.normalAttackCanHitTarget(this, otherTimeline)) {
+            return NormalAttackInteractionResult.NONE;
+        }
+        VisualCombatEnvelope otherEnvelope = other.debugActiveNormalAttackEnvelope();
+        if (otherEnvelope == null || !attackEnvelopesOverlap(attackEnvelope, otherEnvelope)) {
+            return NormalAttackInteractionResult.NONE;
+        }
+
+        boolean aerialInteraction = isAerialNormalAttackVariant(variant)
+                || other.isAerialNormalAttackVariant(other.activeAttackVariant);
+        if (aerialInteraction) {
+            if (!other.overlapsAttackArea(bodyCenterX(), bodyCenterY(), combatHalfWidth(), combatHalfHeight(),
+                    otherEnvelope.attackCenterX(), otherEnvelope.attackCenterY(),
+                    otherEnvelope.attackHalfWidth(), otherEnvelope.attackHalfHeight())) {
+                return NormalAttackInteractionResult.NONE;
+            }
+            other.resolveActiveNormalAttackTradeAgainst(this);
+            setAttackInteraction(NormalAttackInteractionResult.TRADE);
+            other.setAttackInteraction(NormalAttackInteractionResult.TRADE);
+            game.emitAttackClank(this, other,
+                    (attackEnvelope.attackCenterX() + otherEnvelope.attackCenterX()) * 0.5,
+                    (attackEnvelope.attackCenterY() + otherEnvelope.attackCenterY()) * 0.5,
+                    Math.max(estimatedDamage, other.activeNormalAttackInteractionStrength()));
+            return NormalAttackInteractionResult.TRADE;
+        }
+
+        double ourStrength = Math.max(1.0, estimatedDamage);
+        double theirStrength = other.activeNormalAttackInteractionStrength();
+        double delta = ourStrength - theirStrength;
+        double clashX = (attackEnvelope.attackCenterX() + otherEnvelope.attackCenterX()) * 0.5;
+        double clashY = (attackEnvelope.attackCenterY() + otherEnvelope.attackCenterY()) * 0.5;
+        game.emitAttackClank(this, other, clashX, clashY, Math.max(ourStrength, theirStrength));
+        if (Math.abs(delta) < NORMAL_ATTACK_PRIORITY_DAMAGE_GAP) {
+            cancelNormalAttackForClank();
+            other.cancelNormalAttackForClank();
+            setAttackInteraction(NormalAttackInteractionResult.CLANK);
+            other.setAttackInteraction(NormalAttackInteractionResult.CLANK);
+            return NormalAttackInteractionResult.CLANK;
+        }
+        if (delta > 0.0) {
+            other.cancelNormalAttackForClank();
+            setAttackInteraction(NormalAttackInteractionResult.PRIORITY_WIN);
+            other.setAttackInteraction(NormalAttackInteractionResult.PRIORITY_LOSS);
+            return NormalAttackInteractionResult.PRIORITY_WIN;
+        }
+        cancelNormalAttackForClank();
+        setAttackInteraction(NormalAttackInteractionResult.PRIORITY_LOSS);
+        other.setAttackInteraction(NormalAttackInteractionResult.PRIORITY_WIN);
+        return NormalAttackInteractionResult.PRIORITY_LOSS;
+    }
+
+    private static boolean attackEnvelopesOverlap(VisualCombatEnvelope first,
+                                                   VisualCombatEnvelope second) {
+        return Math.abs(first.attackCenterX() - second.attackCenterX())
+                <= first.attackHalfWidth() + second.attackHalfWidth()
+                && Math.abs(first.attackCenterY() - second.attackCenterY())
+                <= first.attackHalfHeight() + second.attackHalfHeight();
+    }
+
+    private double activeNormalAttackInteractionStrength() {
+        NormalAttackProfile profile = normalAttackProfile(activeAttackVariant);
+        double chargeRatio = attackChargeRatio(normalAttackTimelineChargeFrames);
+        return Math.max(1.0, normalAttackPowerStat() * powerMultiplier
+                * profile.damageMultiplier()
+                * (1.0 + CHARGED_ATTACK_DAMAGE_BONUS * chargeRatio)
+                * activeStaleMoveMultiplier(normalAttackTelemetryName(activeAttackVariant)));
+    }
+
+    private void resolveActiveNormalAttackTradeAgainst(Bird target) {
+        if (target == null || !normalAttackTimelineActive
+                || currentNormalAttackPhase() != NormalAttackPhase.ACTIVE) return;
+        NormalAttackTimeline timeline = activeNormalAttackTimeline();
+        if (!normalAttackCanHitTarget(target, timeline)) return;
+        NormalAttackProfile profile = normalAttackProfile(activeAttackVariant);
+        VisualCombatEnvelope envelope = debugActiveNormalAttackEnvelope();
+        if (envelope == null) return;
+        double chargeRatio = attackChargeRatio(normalAttackTimelineChargeFrames);
+        double staleMultiplier = activeStaleMoveMultiplier(normalAttackTelemetryName(activeAttackVariant));
+        double knockbackScale = profile.knockbackMultiplier()
+                * attackKnockbackBalanceMultiplier(activeAttackVariant)
+                * (0.75 + staleMultiplier * 0.25);
+        double horizontalDirection = launchDirectionFromAttackCenter(target.bodyCenterX(), envelope.attackCenterX());
+        double chargeLaunchRamp = chargedAttackLaunchRamp(chargeRatio, target);
+        double verticalScale = profile.verticalLaunchScaleFor(target.bodyCenterY(), envelope.attackCenterY())
+                * (1.0 + CHARGED_ATTACK_VERTICAL_BONUS * chargeRatio * chargeLaunchRamp);
+        double targetKnockbackScale = knockbackScale
+                * (1.0 + CHARGED_ATTACK_KNOCKBACK_BONUS * chargeRatio * chargeRatio * chargeLaunchRamp);
+        int damage = Math.max(1, (int) Math.round(normalAttackPowerStat() * powerMultiplier
+                * profile.damageMultiplier()
+                * (1.0 + CHARGED_ATTACK_DAMAGE_BONUS * chargeRatio)
+                * staleMultiplier));
+        markNormalAttackTargetHit(target);
+        normalAttackConnected = true;
+        processBirdAttack(target, damage, targetKnockbackScale, verticalScale,
+                profile.horizontalLaunchScale(), horizontalDirection,
+                normalAttackTelemetryName(activeAttackVariant), activeAttackVariant);
+    }
+
+    private void cancelNormalAttackForClank() {
+        cancelNormalAttackTimeline(true);
+        attackCooldown = Math.max(attackCooldown, ATTACK_CLANK_RECOVERY_FRAMES);
+        vx *= 0.72;
+    }
+
+    private void setAttackInteraction(NormalAttackInteractionResult result) {
+        lastAttackInteraction = result == null ? NormalAttackInteractionResult.NONE : result;
+        attackInteractionTimer = ATTACK_INTERACTION_TELEMETRY_FRAMES;
     }
 
     private boolean normalAttackCanHitTarget(Bird target, NormalAttackTimeline timeline) {
@@ -5737,6 +5891,7 @@ public class Bird {
         }
         ShieldHitResult shieldHit = other.resolveShieldHit(this, scaledDamage, shieldPushback);
         if (shieldHit.blocked()) {
+            commitMoveForStaling(moveName);
             return;
         }
         if (other.tryShoebillStatueCounter(this, scaledDamage)) {
@@ -5760,6 +5915,7 @@ public class Bird {
 
         game.damageDealt[playerIndex] += (int) dealtDamage;
         if (dealtDamage > 0) {
+            commitMoveForStaling(moveName);
             game.recordNormalMoveImpact(this, moveName, (int) Math.round(dealtDamage), true);
         }
         boolean isKill = !game.usesSmashCombatRules() && other.health <= 0 && oldHealth > 0;
@@ -6322,7 +6478,7 @@ public class Bird {
         // hide the victim-side link while the shared damage pipeline runs, then
         // restore the same deterministic hold if the victim survives.
         target.grabbedBy = null;
-        double dealtDamage = applyUnshieldedDamageTo(target, rawDamage);
+        double dealtDamage = applyUnshieldedDamageTo(target, rawDamage, moveName);
         if (grabbedTarget == target && target.health > 0) {
             target.grabbedBy = this;
         }
@@ -6444,7 +6600,7 @@ public class Bird {
         game.recordNormalMoveUse(this, moveName);
 
         double oldHealth = target.health;
-        double dealtDamage = applyUnshieldedDamageTo(target, profile.damage());
+        double dealtDamage = applyUnshieldedDamageTo(target, profile.damage(), moveName);
         target.vx += profile.launchX();
         target.vy = Math.min(target.vy, profile.launchY());
         if (target.health > 0) {
@@ -15429,6 +15585,8 @@ public class Bird {
         knockdownTimer = Math.max(0, (int)(knockdownTimer - gameSpeed));
         tumbleTimer = Math.max(0, (int) (tumbleTimer - gameSpeed));
         meteorTimer = Math.max(0, (int) (meteorTimer - gameSpeed));
+        attackInteractionTimer = Math.max(0, (int) (attackInteractionTimer - gameSpeed));
+        if (attackInteractionTimer == 0) lastAttackInteraction = NormalAttackInteractionResult.NONE;
         dodgeCooldown = Math.max(0, (int)(dodgeCooldown - gameSpeed));
         dodgeTimer = Math.max(0, (int)(dodgeTimer - gameSpeed));
         dodgeInvulnerabilityTimer = Math.max(0, (int)(dodgeInvulnerabilityTimer - gameSpeed));
@@ -17836,6 +17994,7 @@ public class Bird {
         recentSmashAttackerFrames = 0;
         pendingSmashLaunchScale = 1.0;
         pendingDamageScaledHitDamage = 0.0;
+        pendingMoveKnockbackMultiplier = 1.0;
         activateRespawnNest(spawnX, spawnY);
     }
 
@@ -18072,6 +18231,7 @@ public class Bird {
         phoenixRebornActive = false;
         health = STARTING_HEALTH;
         resetSmashCombatState();
+        resetStaleMoveQueue();
         vx = 0;
         vy = 0;
         stunTime = 0;
@@ -18495,6 +18655,120 @@ public class Bird {
         return h;
     }
 
+    void beginMoveForStaling(String moveName) {
+        currentStaleMoveName = moveName == null || moveName.isBlank() ? "UNKNOWN MOVE" : moveName;
+        currentMoveStaleHash = stableMoveHash(currentStaleMoveName);
+        currentMoveStaleSerial++;
+        currentMoveStaleMultiplier = staleMoveMultiplierForHash(currentMoveStaleHash);
+    }
+
+    private static long stableMoveHash(String moveName) {
+        String normalized = moveName == null ? "" : moveName.trim().toUpperCase(Locale.ROOT);
+        long hash = 0xcbf29ce484222325L;
+        for (int i = 0; i < normalized.length(); i++) {
+            hash ^= normalized.charAt(i);
+            hash *= 0x100000001b3L;
+        }
+        return hash;
+    }
+
+    private double staleMoveMultiplierForHash(long moveHash) {
+        if (!game.usesDamageScaledKnockback() || moveHash == 0L) return 1.0;
+        double penalty = 0.0;
+        for (int i = 0; i < staleMoveCount; i++) {
+            if (staleMoveQueue[i] == moveHash) {
+                penalty += STALE_MOVE_WEIGHTS[i];
+            }
+        }
+        return Math.max(0.55, 1.0 - penalty);
+    }
+
+    private double activeStaleMoveMultiplier(String moveName) {
+        long requestedHash = stableMoveHash(moveName);
+        if (requestedHash == currentMoveStaleHash && currentMoveStaleSerial > 0L) {
+            return currentMoveStaleMultiplier;
+        }
+        return staleMoveMultiplierForHash(requestedHash);
+    }
+
+    private void commitMoveForStaling(String moveName) {
+        if (!game.usesDamageScaledKnockback()) return;
+        long moveHash = stableMoveHash(moveName);
+        if (moveHash != currentMoveStaleHash || currentMoveStaleSerial <= 0L) {
+            beginMoveForStaling(moveName);
+            moveHash = currentMoveStaleHash;
+        }
+        if (lastCommittedStaleSerial == currentMoveStaleSerial) return;
+        int copyLength = Math.min(staleMoveCount, STALE_MOVE_QUEUE_SIZE - 1);
+        if (copyLength > 0) {
+            System.arraycopy(staleMoveQueue, 0, staleMoveQueue, 1, copyLength);
+            System.arraycopy(staleMoveQueueNames, 0, staleMoveQueueNames, 1, copyLength);
+        }
+        staleMoveQueue[0] = moveHash;
+        staleMoveQueueNames[0] = currentStaleMoveName;
+        staleMoveCount = Math.min(STALE_MOVE_QUEUE_SIZE, staleMoveCount + 1);
+        lastCommittedStaleSerial = currentMoveStaleSerial;
+    }
+
+    private void resetStaleMoveQueue() {
+        Arrays.fill(staleMoveQueue, 0L);
+        Arrays.fill(staleMoveQueueNames, null);
+        staleMoveCount = 0;
+        currentMoveStaleHash = 0L;
+        currentMoveStaleSerial = 0L;
+        lastCommittedStaleSerial = Long.MIN_VALUE;
+        currentMoveStaleMultiplier = 1.0;
+        currentStaleMoveName = "READY";
+        pendingMoveKnockbackMultiplier = 1.0;
+    }
+
+    String debugStaleMoveTelemetryLabel() {
+        StringBuilder queue = new StringBuilder();
+        int shown = Math.min(3, staleMoveCount);
+        for (int i = 0; i < shown; i++) {
+            if (i > 0) queue.append(" > ");
+            String name = staleMoveQueueNames[i];
+            queue.append(name == null || name.isBlank()
+                    ? Long.toHexString(staleMoveQueue[i]) : staleMoveShortLabel(name, 12));
+        }
+        if (shown == 0) queue.append("EMPTY");
+        return String.format(Locale.ROOT, "%s x%.2f | QUEUE %s",
+                staleMoveShortLabel(currentStaleMoveName, 20), currentMoveStaleMultiplier, queue);
+    }
+
+    private static String staleMoveShortLabel(String moveName, int maxChars) {
+        if (moveName == null || moveName.isBlank()) return "UNKNOWN";
+        if (moveName.length() <= maxChars) return moveName;
+        return moveName.substring(0, Math.max(1, maxChars - 1)) + "…";
+    }
+
+    int debugStaleMoveCount() {
+        return staleMoveCount;
+    }
+
+    double debugCurrentStaleMoveMultiplier() {
+        return currentMoveStaleMultiplier;
+    }
+
+    String debugAttackInteractionTelemetryLabel() {
+        return attackInteractionTimer > 0
+                ? lastAttackInteraction.name() + " | VISIBLE " + attackInteractionTimer + "f"
+                : "READY | GROUND CLANK / AERIAL TRADE";
+    }
+
+    long deterministicStaleMoveStateHash() {
+        long h = staleMoveCount;
+        h = h * 31 + currentMoveStaleHash;
+        h = h * 31 + currentMoveStaleSerial;
+        h = h * 31 + lastCommittedStaleSerial;
+        h = h * 31 + Double.doubleToLongBits(currentMoveStaleMultiplier);
+        h = h * 31 + Double.doubleToLongBits(pendingMoveKnockbackMultiplier);
+        h = h * 31 + attackInteractionTimer;
+        h = h * 31 + lastAttackInteraction.ordinal();
+        for (long moveHash : staleMoveQueue) h = h * 31 + moveHash;
+        return h;
+    }
+
     private double applyScaledDamageTo(Bird target, double scaledDamage) {
         if (target == null || scaledDamage <= 0 || target.health <= 0) return 0;
         scaledDamage = target.adjustDamageForPenguinSnowFort(this, scaledDamage);
@@ -18523,9 +18797,27 @@ public class Bird {
         return dealtDamage;
     }
 
+    private double applyUnshieldedDamageTo(Bird target, double rawDamage, String moveName) {
+        double staleMultiplier = activeStaleMoveMultiplier(moveName);
+        double dealtDamage = applyScaledDamageTo(target,
+                scaledDamageAgainst(target, rawDamage * staleMultiplier));
+        if (dealtDamage > 0) {
+            target.beginSizeKnockbackScaling(this);
+            target.pendingMoveKnockbackMultiplier = Math.min(target.pendingMoveKnockbackMultiplier,
+                    0.75 + staleMultiplier * 0.25);
+            commitMoveForStaling(moveName);
+        }
+        return dealtDamage;
+    }
+
     double applyDamageTo(Bird target, double rawDamage) {
+        return applyDamageTo(target, rawDamage, null);
+    }
+
+    private double applyDamageTo(Bird target, double rawDamage, String moveName) {
         if (target == null || rawDamage <= 0 || target.health <= 0) return 0;
-        double scaledDamage = scaledDamageAgainst(target, rawDamage);
+        double staleMultiplier = moveName == null ? 1.0 : activeStaleMoveMultiplier(moveName);
+        double scaledDamage = scaledDamageAgainst(target, rawDamage * staleMultiplier);
         if (target.tryRazorbillCounter(this, scaledDamage)) {
             return 0;
         }
@@ -18537,12 +18829,18 @@ public class Bird {
         }
         ShieldHitResult shieldHit = target.resolveShieldHit(this, scaledDamage, 0.0);
         if (shieldHit.blocked()) {
+            if (moveName != null) commitMoveForStaling(moveName);
             return 0;
         }
         scaledDamage += target.consumeHeisenBrittleBonusFrom(this);
         double dealtDamage = applyScaledDamageTo(target, scaledDamage);
         if (dealtDamage > 0) {
             target.beginSizeKnockbackScaling(this);
+            if (moveName != null) {
+                target.pendingMoveKnockbackMultiplier = Math.min(target.pendingMoveKnockbackMultiplier,
+                        0.75 + staleMultiplier * 0.25);
+                commitMoveForStaling(moveName);
+            }
         }
         return dealtDamage;
     }
@@ -18559,15 +18857,15 @@ public class Bird {
         if (target == null || rawDamage <= 0) {
             return 0;
         }
+        String impactMoveName = game.lastTelemetryMoveName(playerIndex, type.name + " Special");
         double oldHealth = target.health;
-        int dealt = (int) applyDamageTo(target, rawDamage);
+        int dealt = (int) applyDamageTo(target, rawDamage, impactMoveName);
         if (dealt <= 0) {
             return 0;
         }
         game.damageDealt[playerIndex] += dealt;
         game.recordSpecialImpact(playerIndex, dealt, true);
         confirmSpecialHit(dealt, specialHitConfirmAccent());
-        String impactMoveName = game.lastTelemetryMoveName(playerIndex, type.name + " Special");
         boolean isKill = target.health <= 0 && oldHealth > 0;
         if (emitImpact) {
             game.emitCombatImpact(this, target, target.bodyCenterX(), target.bodyCenterY(),
@@ -20699,6 +20997,16 @@ public class Bird {
         state.lastSdiX = lastSdiX;
         state.lastSdiY = lastSdiY;
         state.lastTechResultOrdinal = lastTechResult.ordinal();
+        System.arraycopy(staleMoveQueue, 0, state.staleMoveQueue, 0, staleMoveQueue.length);
+        state.staleMoveCount = staleMoveCount;
+        state.currentMoveStaleHash = currentMoveStaleHash;
+        state.currentMoveStaleSerial = currentMoveStaleSerial;
+        state.lastCommittedStaleSerial = lastCommittedStaleSerial;
+        state.currentMoveStaleMultiplier = currentMoveStaleMultiplier;
+        state.currentStaleMoveName = currentStaleMoveName;
+        state.pendingMoveKnockbackMultiplier = pendingMoveKnockbackMultiplier;
+        state.attackInteractionTimer = attackInteractionTimer;
+        state.lastAttackInteractionOrdinal = lastAttackInteraction.ordinal();
         state.speedMultiplier = speedMultiplier;
         state.powerMultiplier = powerMultiplier;
         state.sizeMultiplier = sizeMultiplier;
@@ -21583,6 +21891,21 @@ public class Bird {
         this.lastTechResult = state.lastTechResultOrdinal >= 0
                 && state.lastTechResultOrdinal < techResults.length
                 ? techResults[state.lastTechResultOrdinal] : TechResult.NONE;
+        System.arraycopy(state.staleMoveQueue, 0, this.staleMoveQueue, 0, this.staleMoveQueue.length);
+        Arrays.fill(this.staleMoveQueueNames, null);
+        this.staleMoveCount = Math.clamp(state.staleMoveCount, 0, STALE_MOVE_QUEUE_SIZE);
+        this.currentMoveStaleHash = state.currentMoveStaleHash;
+        this.currentMoveStaleSerial = Math.max(0L, state.currentMoveStaleSerial);
+        this.lastCommittedStaleSerial = state.lastCommittedStaleSerial;
+        this.currentMoveStaleMultiplier = Math.clamp(state.currentMoveStaleMultiplier, 0.55, 1.0);
+        this.currentStaleMoveName = state.currentStaleMoveName == null ? "READY" : state.currentStaleMoveName;
+        this.pendingMoveKnockbackMultiplier = Math.clamp(state.pendingMoveKnockbackMultiplier, 0.55, 1.0);
+        this.attackInteractionTimer = Math.max(0, state.attackInteractionTimer);
+        NormalAttackInteractionResult[] interactionResults = NormalAttackInteractionResult.values();
+        this.lastAttackInteraction = state.lastAttackInteractionOrdinal >= 0
+                && state.lastAttackInteractionOrdinal < interactionResults.length
+                ? interactionResults[state.lastAttackInteractionOrdinal]
+                : NormalAttackInteractionResult.NONE;
         this.attackHeldLastFrame = false;
         this.jumpHeldLastFrame = false;
         this.specialHeldLastFrame = false;
@@ -22225,6 +22548,12 @@ public class Bird {
 
     private void applyPendingSmashLaunch() {
         applyPendingSizeKnockbackScaling();
+        double moveKnockbackMultiplier = pendingMoveKnockbackMultiplier;
+        pendingMoveKnockbackMultiplier = 1.0;
+        if (game.usesDamageScaledKnockback() && moveKnockbackMultiplier < 0.9999) {
+            vx *= moveKnockbackMultiplier;
+            vy *= moveKnockbackMultiplier;
+        }
         if (!game.usesDamageScaledKnockback() || pendingSmashLaunchScale <= 1.0001) {
             return;
         }
@@ -22245,6 +22574,7 @@ public class Bird {
         lastTechResult = TechResult.NONE;
         pendingSmashLaunchScale = 1.0;
         pendingDamageScaledHitDamage = 0.0;
+        pendingMoveKnockbackMultiplier = 1.0;
     }
 
     private void applyDamageScaledLaunchHitstun() {
@@ -22431,6 +22761,7 @@ public class Bird {
         recentSmashAttackerFrames = 0;
         pendingSmashLaunchScale = 1.0;
         pendingDamageScaledHitDamage = 0.0;
+        pendingMoveKnockbackMultiplier = 1.0;
         techBufferTimer = 0;
         knockdownTimer = 0;
         tumbleTimer = 0;
@@ -22441,6 +22772,8 @@ public class Bird {
         lastSdiX = 0.0;
         lastSdiY = 0.0;
         lastTechResult = TechResult.NONE;
+        attackInteractionTimer = 0;
+        lastAttackInteraction = NormalAttackInteractionResult.NONE;
         fastFallActive = false;
         platformDropTimer = 0;
         platformDropSurfaceY = Double.NaN;

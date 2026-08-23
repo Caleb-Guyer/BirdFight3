@@ -3793,6 +3793,195 @@ class BirdStateTest {
     }
 
     @Test
+    void repeatedMoveUseStalesDamageAndLaunchDeterministically() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+        setPrivateBoolean(game);
+        Bird attacker = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird target = new Bird(300.0, BirdGame3.BirdType.EAGLE, 1, game);
+        game.players[0] = attacker;
+        game.players[1] = target;
+
+        int firstDamage = 0;
+        int lastDamage = 0;
+        double firstLaunch = 0.0;
+        double lastLaunch = 0.0;
+        for (int use = 0; use < Bird.STALE_MOVE_QUEUE_SIZE + 1; use++) {
+            target.health = Bird.STARTING_HEALTH;
+            setPrivateDouble(target, "smashDamage", 0.0);
+            target.vx = 0.0;
+            target.vy = 0.0;
+            game.recordUltimateMoveUse(attacker, "Regression Repeater");
+            int dealt = attacker.applyTrackedSpecialDamage(target, 20);
+            target.vx += 20.0;
+            target.vy -= 8.0;
+            invokePrivateVoid(target, "applyPendingSmashLaunch");
+            if (use == 0) {
+                firstDamage = dealt;
+                firstLaunch = Math.hypot(target.vx, target.vy);
+            }
+            if (use == Bird.STALE_MOVE_QUEUE_SIZE) {
+                lastDamage = dealt;
+                lastLaunch = Math.hypot(target.vx, target.vy);
+            }
+        }
+
+        assertEquals(Bird.STALE_MOVE_QUEUE_SIZE, attacker.debugStaleMoveCount());
+        assertTrue(lastDamage < firstDamage,
+                "Nine repeated successful uses should meaningfully stale damage.");
+        assertTrue(lastLaunch < firstLaunch,
+                "Staling should also reduce launch so repeated finishers lose KO power.");
+        assertEquals(0.55, attacker.debugCurrentStaleMoveMultiplier(), 0.0001);
+        assertTrue(attacker.debugStaleMoveTelemetryLabel().contains("x0.55"));
+    }
+
+    @Test
+    void oneMoveUseCommitsOnlyOnceAcrossMultipleTargetsAndShieldContact() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 3;
+        setPrivateBoolean(game);
+        Bird attacker = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird first = new Bird(300.0, BirdGame3.BirdType.EAGLE, 1, game);
+        Bird second = new Bird(500.0, BirdGame3.BirdType.FALCON, 2, game);
+        game.players[0] = attacker;
+        game.players[1] = first;
+        game.players[2] = second;
+
+        game.recordUltimateMoveUse(attacker, "Wide Regression Sweep");
+        assertTrue(attacker.applyTrackedSpecialDamage(first, 10) > 0);
+        assertTrue(attacker.applyTrackedSpecialDamage(second, 10) > 0);
+        assertEquals(1, attacker.debugStaleMoveCount(),
+                "A multi-target hit must occupy one stale slot, not one slot per victim.");
+
+        second.health = Bird.STARTING_HEALTH;
+        second.isBlocking = true;
+        setPrivateDouble(second, "shieldHealth", 60.0);
+        game.recordUltimateMoveUse(attacker, "Shield Regression Sweep");
+        assertEquals(0, attacker.applyTrackedSpecialDamage(second, 10));
+        assertEquals(2, attacker.debugStaleMoveCount(),
+                "Connecting with a shield should commit the move to the stale queue.");
+    }
+
+    @Test
+    void whiffsDoNotStaleAndVariedMovesRefreshOldEntries() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+        setPrivateBoolean(game);
+        Bird attacker = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird target = new Bird(300.0, BirdGame3.BirdType.EAGLE, 1, game);
+        game.players[0] = attacker;
+        game.players[1] = target;
+
+        game.recordUltimateMoveUse(attacker, "Whiffed Move");
+        assertEquals(0, attacker.debugStaleMoveCount());
+
+        game.recordUltimateMoveUse(attacker, "Primary Move");
+        assertTrue(attacker.applyTrackedSpecialDamage(target, 10) > 0);
+        for (int i = 0; i < Bird.STALE_MOVE_QUEUE_SIZE; i++) {
+            target.health = Bird.STARTING_HEALTH;
+            game.recordUltimateMoveUse(attacker, "Varied Move " + i);
+            assertTrue(attacker.applyTrackedSpecialDamage(target, 10) > 0);
+        }
+        game.recordUltimateMoveUse(attacker, "Primary Move");
+
+        assertEquals(1.0, attacker.debugCurrentStaleMoveMultiplier(), 0.0001,
+                "Using the rest of the kit should naturally refresh an old move out of the queue.");
+    }
+
+    @Test
+    void equalGroundedAttackBoxesClankWithoutDealingDamage() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+        setPrivateBoolean(game);
+        Bird first = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird second = new Bird(1200.0, BirdGame3.BirdType.PIGEON, 1, game);
+        first.y = BirdGame3.GROUND_Y - first.bodyHeight();
+        second.y = BirdGame3.GROUND_Y - second.bodyHeight();
+        first.facingRight = true;
+        second.facingRight = false;
+        game.players[0] = first;
+        game.players[1] = second;
+        invokePrivateVoid(first, "attack");
+        invokePrivateVoid(second, "attack");
+
+        first.x = 300.0;
+        second.x = 375.0;
+        double firstHealth = first.health;
+        double secondHealth = second.health;
+        invokePrivateVoid(first, "advanceNormalAttackTimeline");
+
+        assertEquals(firstHealth, first.health, 0.0001);
+        assertEquals(secondHealth, second.health, 0.0001);
+        assertFalse(first.debugNormalAttackTimelineActive());
+        assertFalse(second.debugNormalAttackTimelineActive());
+        assertTrue(first.debugAttackInteractionTelemetryLabel().contains("CLANK"));
+        assertTrue(second.debugAttackInteractionTelemetryLabel().contains("CLANK"));
+    }
+
+    @Test
+    void strongerGroundedAttackWinsPriorityAndCancelsTheWeakerBox() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+        setPrivateBoolean(game);
+        Bird strong = new Bird(100.0, BirdGame3.BirdType.PELICAN, 0, game);
+        Bird weak = new Bird(1200.0, BirdGame3.BirdType.HUMMINGBIRD, 1, game);
+        strong.y = BirdGame3.GROUND_Y - strong.bodyHeight();
+        weak.y = BirdGame3.GROUND_Y - weak.bodyHeight();
+        strong.facingRight = true;
+        weak.facingRight = false;
+        game.players[0] = strong;
+        game.players[1] = weak;
+        invokePrivateVoid(strong, "attack");
+        invokePrivateVoid(weak, "attack");
+
+        strong.x = 300.0;
+        weak.x = 375.0;
+        double strongDamage = strong.smashDamagePercent();
+        double weakDamage = weak.smashDamagePercent();
+        invokePrivateVoid(strong, "advanceNormalAttackTimeline");
+
+        assertEquals(strongDamage, strong.smashDamagePercent(), 0.0001);
+        assertTrue(weak.smashDamagePercent() > weakDamage,
+                strong.debugAttackInteractionTelemetryLabel() + " / "
+                        + weak.debugAttackInteractionTelemetryLabel());
+        assertFalse(weak.debugNormalAttackTimelineActive());
+        assertTrue(strong.debugAttackInteractionTelemetryLabel().contains("PRIORITY_WIN"));
+        assertTrue(weak.debugAttackInteractionTelemetryLabel().contains("PRIORITY_LOSS"));
+    }
+
+    @Test
+    void overlappingAerialAttacksTradeAndDamageBothFighters() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+        setPrivateBoolean(game);
+        Bird first = new Bird(100.0, BirdGame3.BirdType.EAGLE, 0, game);
+        Bird second = new Bird(1200.0, BirdGame3.BirdType.FALCON, 1, game);
+        first.y = BirdGame3.GROUND_Y - 360.0;
+        second.y = BirdGame3.GROUND_Y - 360.0;
+        first.facingRight = true;
+        second.facingRight = false;
+        game.players[0] = first;
+        game.players[1] = second;
+        invokePrivateVoid(first, "attack");
+        invokePrivateVoid(second, "attack");
+
+        first.x = 300.0;
+        second.x = 375.0;
+        double firstDamage = first.smashDamagePercent();
+        double secondDamage = second.smashDamagePercent();
+        invokePrivateVoid(first, "advanceNormalAttackTimeline");
+
+        assertTrue(first.smashDamagePercent() > firstDamage,
+                "The defender's live aerial box should connect in a trade: "
+                + first.debugAttackInteractionTelemetryLabel() + " / "
+                        + second.debugAttackInteractionTelemetryLabel());
+        assertTrue(second.smashDamagePercent() > secondDamage,
+                "The initiating aerial should also connect in a trade.");
+        assertTrue(first.debugAttackInteractionTelemetryLabel().contains("TRADE"));
+        assertTrue(second.debugAttackInteractionTelemetryLabel().contains("TRADE"));
+    }
+
+    @Test
     void knockbackTuningBoostsNonSmashNormalsAndTonesDownSmashes() throws Exception {
         BirdGame3 game = new BirdGame3();
         Bird bird = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, game);
