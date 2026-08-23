@@ -823,6 +823,8 @@ public class BirdGame3 {
         JUMP("Jump"),
         BLOCK_AFTER_HIT("Block After Hit"),
         MASH_ATTACK("Mash Attack"),
+        SURVIVAL_DI("Survival DI"),
+        AUTO_TECH("Auto Tech"),
         RECOVER_TO_STAGE("Recover To Stage");
 
         final String label;
@@ -62410,6 +62412,7 @@ public class BirdGame3 {
     private void driveTrainingDummy(Bird dummy, Bird focus) {
         if (dummy == null) return;
         Arrays.fill(aiActionPressed[trainingDummyIndex], false);
+        dummy.configureTrainingLaunchDefense(false, false);
 
         if (dummy.health <= 0) return;
         if (focus != null && focus.health > 0) {
@@ -62436,6 +62439,8 @@ public class BirdGame3 {
                 }
             }
             case MASH_ATTACK -> driveTrainingDummyMash(dummy, focus);
+            case SURVIVAL_DI -> dummy.configureTrainingLaunchDefense(true, false);
+            case AUTO_TECH -> dummy.configureTrainingLaunchDefense(false, true);
         }
     }
 

@@ -1370,6 +1370,8 @@ public class Bird {
     private TechResult lastTechResult = TechResult.NONE;
     private ProjectedKoZone lastProjectedKoZone = ProjectedKoZone.SAFE;
     private int lastProjectedKoFrames = 0;
+    private boolean trainingAutoSurvivalDi = false;
+    private boolean trainingAutoTech = false;
     static final int STALE_MOVE_QUEUE_SIZE = 9;
     private static final double[] STALE_MOVE_WEIGHTS = {
             0.090, 0.085, 0.075, 0.065, 0.055, 0.045, 0.035, 0.025, 0.015
@@ -10235,18 +10237,23 @@ public class Bird {
         if (aiDefenseCooldown > 0) aiDefenseCooldown--;
 
         clearAIInputs();
+        int cpuLevel = game.getCpuLevel(playerIndex);
+        double currentDurability = aiDurabilityHealth();
+        if (applyAILaunchSurvivalInputs(cpuLevel)) {
+            aiBlockHoldFrames = 0;
+            aiLastHealth = currentDurability;
+            return;
+        }
         if (aiBlockHoldFrames > 0) {
             game.setAiControlKey(playerIndex, blockKey(), true);
             aiBlockHoldFrames--;
-            aiLastHealth = aiDurabilityHealth();
+            aiLastHealth = currentDurability;
             return;
         }
 
-        int cpuLevel = game.getCpuLevel(playerIndex);
         double rawSkill = Math.clamp((cpuLevel - 1) / 8.0, 0.0, 1.0);
         double skill = Math.pow(rawSkill, 2.1);
         double error = Math.min(1.0, 1.05 - skill);
-        double currentDurability = aiDurabilityHealth();
         if (cpuLevel <= 1) {
             skill = 0.0;
             error = 1.0;
@@ -10675,6 +10682,147 @@ public class Bird {
         }
 
         aiLastHealth = currentDurability;
+    }
+
+    /**
+     * Gives launched CPUs a readable, level-scaled defensive response. This is
+     * deliberately evaluated before target pursuit so hitstun cannot inherit a
+     * coincidental chase direction. Levels 1-2 receive no automatic DI, levels
+     * 3-4 only drift toward safety, and levels 5+ rotate launch toward the main
+     * stage. Tech attempts begin at level 5 and still require a fresh Block edge.
+     */
+    private boolean applyAILaunchSurvivalInputs(int cpuLevel) {
+        boolean pendingLaunch = game.usesDamageScaledKnockback() && pendingSmashLaunchScale > 1.0001;
+        if ((!pendingLaunch && stunTime <= 0.0) || cpuLevel <= 2 || health <= 0.0) {
+            return false;
+        }
+
+        int techLookahead = cpuLevel >= 8 ? 6 : cpuLevel >= 6 ? 4 : 3;
+        if (cpuLevel >= 5 && willTouchTechSurfaceWithin(techLookahead)) {
+            setAILaunchHorizontalInput(safeStageCenterX() - bodyCenterX());
+            if (techBufferTimer <= 0) {
+                // If Block was being used as downward DI, release it for one
+                // fixed tick so the following press is a real tech input edge.
+                if (!blockHeldLastFrame) {
+                    game.setAiControlKey(playerIndex, blockKey(), true);
+                }
+            }
+            return true;
+        }
+
+        double launchSpeed = Math.hypot(vx, vy);
+        if (launchSpeed <= 0.001) {
+            setAILaunchHorizontalInput(safeStageCenterX() - bodyCenterX());
+            return true;
+        }
+
+        if (cpuLevel <= 4) {
+            setAILaunchHorizontalInput(safeStageCenterX() - bodyCenterX());
+            return true;
+        }
+
+        double safeDx = safeStageCenterX() - bodyCenterX();
+        double safeDy = safeStageSurfaceY() - bodyCenterY();
+        double safeMagnitude = Math.hypot(safeDx, safeDy);
+        if (safeMagnitude <= 0.001) {
+            safeDy = 1.0;
+            safeMagnitude = 1.0;
+        }
+        safeDx /= safeMagnitude;
+        safeDy /= safeMagnitude;
+
+        double dirX = vx / launchSpeed;
+        double dirY = vy / launchSpeed;
+        double rotationTowardSafety = Math.signum(dirX * safeDy - dirY * safeDx);
+        if (rotationTowardSafety == 0.0) {
+            rotationTowardSafety = 1.0;
+        }
+        double inputX = -dirY * rotationTowardSafety;
+        double inputY = dirX * rotationTowardSafety;
+        double axisThreshold = cpuLevel >= 7 ? 0.18 : 0.52;
+        if (inputX < -axisThreshold) game.setAiControlKey(playerIndex, leftKey(), true);
+        if (inputX > axisThreshold) game.setAiControlKey(playerIndex, rightKey(), true);
+        if (inputY < -axisThreshold) game.setAiControlKey(playerIndex, jumpKey(), true);
+        if (inputY > axisThreshold) game.setAiControlKey(playerIndex, blockKey(), true);
+        return true;
+    }
+
+    private void setAILaunchHorizontalInput(double directionToSafety) {
+        if (directionToSafety < -1.0) {
+            game.setAiControlKey(playerIndex, leftKey(), true);
+        } else if (directionToSafety > 1.0) {
+            game.setAiControlKey(playerIndex, rightKey(), true);
+        }
+    }
+
+    private double safeStageCenterX() {
+        Platform mainStage = findAIMainStagePlatform();
+        if (mainStage != null) {
+            return mainStage.x + mainStage.w * 0.5;
+        }
+        return game.battlefieldSpawnCenterX();
+    }
+
+    private double safeStageSurfaceY() {
+        Platform mainStage = findAIMainStagePlatform();
+        if (mainStage != null) {
+            return mainStage.y - bodyHeight() * 0.5;
+        }
+        return BirdGame3.GROUND_Y - bodyHeight() * 0.5;
+    }
+
+    private boolean willTouchTechSurfaceWithin(int frames) {
+        double predictedX = x;
+        double predictedY = y;
+        double predictedVx = vx;
+        double predictedVy = vy;
+        int horizon = Math.clamp(frames, 1, TECH_INPUT_BUFFER_FRAMES - 1);
+        for (int frame = 0; frame < horizon; frame++) {
+            double currentLeft = predictedX;
+            double currentRight = predictedX + bodyWidth();
+            double currentTop = predictedY;
+            double currentBottom = predictedY + bodyHeight();
+            double nextX = predictedX + predictedVx;
+            double nextY = predictedY + predictedVy;
+            double nextLeft = nextX;
+            double nextRight = nextX + bodyWidth();
+            double nextTop = nextY;
+            double nextBottom = nextY + bodyHeight();
+
+            if (predictedVy >= GROUND_TECH_MIN_IMPACT_SPEED
+                    && hasSolidGroundFloorUnderBody()
+                    && currentBottom <= BirdGame3.GROUND_Y + 8.0
+                    && nextBottom >= BirdGame3.GROUND_Y - 4.0) {
+                return true;
+            }
+            for (Platform platform : game.platforms) {
+                if (predictedVy >= GROUND_TECH_MIN_IMPACT_SPEED
+                        && currentBottom <= platform.y + 8.0
+                        && nextBottom >= platform.y - 4.0
+                        && nextRight > platform.x && nextLeft < platform.x + platform.w) {
+                    return true;
+                }
+                if (Math.abs(predictedVx) >= WALL_TECH_MIN_IMPACT_SPEED && isTechableWallSurface(platform)
+                        && nextBottom > platform.y && nextTop < platform.y + platform.h
+                        && ((predictedVx > 0.0 && currentRight <= platform.x + 4.0 && nextRight >= platform.x)
+                        || (predictedVx < 0.0 && currentLeft >= platform.x + platform.w - 4.0
+                        && nextLeft <= platform.x + platform.w))) {
+                    return true;
+                }
+                double underside = platform.y + platform.h;
+                if (predictedVy <= -CEILING_TECH_MIN_IMPACT_SPEED && isTechableCeilingSurface(platform)
+                        && currentTop >= underside - 4.0 && nextTop <= underside
+                        && nextRight > platform.x && nextLeft < platform.x + platform.w) {
+                    return true;
+                }
+            }
+
+            predictedX = nextX;
+            predictedY = nextY;
+            predictedVy += BirdGame3.GRAVITY;
+            predictedVx *= DAMAGE_SCALED_AIR_LAUNCH_DRAG;
+        }
+        return false;
     }
 
     private void applyAIGrabEscapeInputs() {
@@ -14653,6 +14801,9 @@ public class Bird {
         // === OPIUM / HEISENBIRD ===
         handleOpiumBirdEffects(gameSpeed);
 
+        if (game.isTrainingDummy(this) && trainingAutoTech) {
+            applyTrainingAutoTechInput();
+        }
         boolean stunned = stunTime > 0;
         boolean airborne = !isOnGround();
         boolean leftHeld = leftPressed();
@@ -22744,6 +22895,12 @@ public class Bird {
             inputY += 1.0;
         }
 
+        if (game.isTrainingDummy(this) && trainingAutoSurvivalDi) {
+            double[] trainingInput = idealSurvivalDiInput(launchSpeed);
+            inputX = trainingInput[0];
+            inputY = trainingInput[1];
+        }
+
         if (inputX == 0.0 && inputY == 0.0) {
             return 0.0;
         }
@@ -22781,6 +22938,15 @@ public class Bird {
         double inputY = 0.0;
         if (jumpPressed() && !jumpHeldLastFrame) inputY -= 1.0;
         if (blockPressed() && !blockHeldLastFrame) inputY += 1.0;
+        if (game.isTrainingDummy(this) && trainingAutoSurvivalDi) {
+            double safeDx = safeStageCenterX() - bodyCenterX();
+            double safeDy = safeStageSurfaceY() - bodyCenterY();
+            double safeMagnitude = Math.hypot(safeDx, safeDy);
+            if (safeMagnitude > 0.001) {
+                inputX = safeDx / safeMagnitude;
+                inputY = safeDy / safeMagnitude;
+            }
+        }
         if (inputX == 0.0 && inputY == 0.0) {
             return;
         }
@@ -22795,6 +22961,38 @@ public class Bird {
         y += offsetY;
         lastSdiX = offsetX;
         lastSdiY = offsetY;
+    }
+
+    private double[] idealSurvivalDiInput(double launchSpeed) {
+        double safeDx = safeStageCenterX() - bodyCenterX();
+        double safeDy = safeStageSurfaceY() - bodyCenterY();
+        double safeMagnitude = Math.hypot(safeDx, safeDy);
+        if (safeMagnitude <= 0.001) {
+            safeDy = 1.0;
+            safeMagnitude = 1.0;
+        }
+        safeDx /= safeMagnitude;
+        safeDy /= safeMagnitude;
+        double dirX = vx / launchSpeed;
+        double dirY = vy / launchSpeed;
+        double rotationTowardSafety = Math.signum(dirX * safeDy - dirY * safeDx);
+        if (rotationTowardSafety == 0.0) rotationTowardSafety = 1.0;
+        return new double[]{-dirY * rotationTowardSafety, dirX * rotationTowardSafety};
+    }
+
+    void configureTrainingLaunchDefense(boolean survivalDi, boolean autoTech) {
+        trainingAutoSurvivalDi = survivalDi;
+        trainingAutoTech = autoTech;
+    }
+
+    private void applyTrainingAutoTechInput() {
+        game.setAiControlKey(playerIndex, blockKey(), false);
+        if (!isInLaunchTumble() || !willTouchTechSurfaceWithin(6) || techBufferTimer > 0) {
+            return;
+        }
+        if (!blockHeldLastFrame) {
+            game.setAiControlKey(playerIndex, blockKey(), true);
+        }
     }
 
     private boolean canApplySdiOffset(double offsetX, double offsetY) {

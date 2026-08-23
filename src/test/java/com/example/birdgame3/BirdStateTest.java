@@ -10403,6 +10403,166 @@ class BirdStateTest {
     }
 
     @Test
+    void cpuLaunchSurvivalScalesFromNoAssistToIntentionalDi() throws Exception {
+        BirdGame3 lowGame = new BirdGame3();
+        lowGame.activePlayers = 1;
+        setPrivateBoolean(lowGame);
+        Bird lowCpu = new Bird(BirdGame3.WORLD_WIDTH - 500.0,
+                BirdGame3.BirdType.PIGEON, 0, lowGame);
+        lowCpu.y = BirdGame3.GROUND_Y - 500.0;
+        lowCpu.vx = 22.0;
+        lowCpu.vy = 0.0;
+        lowCpu.stunTime = 18.0;
+        lowGame.players[0] = lowCpu;
+        lowGame.isAI[0] = true;
+        ((int[]) getPrivateObject(lowGame, "cpuLevels"))[0] = 2;
+
+        invokePrivateVoid(lowCpu, "aiControl");
+
+        assertFalse(lowGame.isLeftPressed(0));
+        assertFalse(lowGame.isRightPressed(0));
+        assertFalse(lowGame.isJumpPressed(0));
+        assertFalse(lowGame.isBlockPressed(0),
+                "Low-level CPUs should not receive hidden launch survival assistance.");
+
+        BirdGame3 highGame = new BirdGame3();
+        highGame.activePlayers = 1;
+        setPrivateBoolean(highGame);
+        Bird highCpu = new Bird(BirdGame3.WORLD_WIDTH - 500.0,
+                BirdGame3.BirdType.PIGEON, 0, highGame);
+        highCpu.y = BirdGame3.GROUND_Y - 500.0;
+        highCpu.vx = 22.0;
+        highCpu.vy = 0.0;
+        highCpu.stunTime = 18.0;
+        highGame.players[0] = highCpu;
+        highGame.isAI[0] = true;
+        ((int[]) getPrivateObject(highGame, "cpuLevels"))[0] = 9;
+
+        invokePrivateVoid(highCpu, "aiControl");
+
+        assertTrue(highGame.isBlockPressed(0),
+                "A high-level CPU should angle a horizontal launch toward the stage surface.");
+        assertFalse(highGame.isSpecialPressed(0));
+        assertFalse(highGame.isAttackPressed(0));
+    }
+
+    @Test
+    void highLevelCpuBuffersGroundTechAndLowLevelCpuMissesIt() throws Exception {
+        BirdGame3 highGame = new BirdGame3();
+        highGame.activePlayers = 1;
+        setPrivateBoolean(highGame);
+        Bird highCpu = new Bird(320.0, BirdGame3.BirdType.EAGLE, 0, highGame);
+        highCpu.y = BirdGame3.GROUND_Y - highCpu.bodyHeight() - 8.0;
+        highCpu.vy = 14.0;
+        highCpu.stunTime = 12.0;
+        setPrivateInt(highCpu, "tumbleTimer", 30);
+        highGame.players[0] = highCpu;
+        highGame.isAI[0] = true;
+        ((int[]) getPrivateObject(highGame, "cpuLevels"))[0] = 9;
+
+        highCpu.update(1.0);
+
+        assertTrue(highCpu.debugHitReactionTelemetryLabel().contains("GROUND"),
+                "A high-level CPU should intentionally buffer the imminent landing tech.");
+        assertFalse(highCpu.debugHitReactionTelemetryLabel().contains("MISSED"));
+
+        BirdGame3 lowGame = new BirdGame3();
+        lowGame.activePlayers = 1;
+        setPrivateBoolean(lowGame);
+        Bird lowCpu = new Bird(320.0, BirdGame3.BirdType.EAGLE, 0, lowGame);
+        lowCpu.y = BirdGame3.GROUND_Y - lowCpu.bodyHeight() - 8.0;
+        lowCpu.vy = 14.0;
+        lowCpu.stunTime = 12.0;
+        setPrivateInt(lowCpu, "tumbleTimer", 30);
+        lowGame.players[0] = lowCpu;
+        lowGame.isAI[0] = true;
+        ((int[]) getPrivateObject(lowGame, "cpuLevels"))[0] = 2;
+
+        lowCpu.update(1.0);
+
+        assertTrue(lowCpu.debugHitReactionTelemetryLabel().contains("MISSED_GROUND"),
+                "Low-level CPUs should retain punishable missed-tech states.");
+    }
+
+    @Test
+    void cpuReleasesHeldDownDiBeforeCreatingATechInputEdge() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        setPrivateBoolean(game);
+        Bird cpu = new Bird(320.0, BirdGame3.BirdType.EAGLE, 0, game);
+        cpu.y = BirdGame3.GROUND_Y - cpu.bodyHeight() - 30.0;
+        cpu.vy = 10.0;
+        cpu.stunTime = 12.0;
+        setPrivateInt(cpu, "tumbleTimer", 30);
+        setPrivateObject(cpu, "blockHeldLastFrame", true);
+        game.players[0] = cpu;
+        game.isAI[0] = true;
+        ((int[]) getPrivateObject(game, "cpuLevels"))[0] = 9;
+
+        invokePrivateVoid(cpu, "aiControl");
+        assertFalse(game.isBlockPressed(0),
+                "Held down-DI must be released before it can become a valid tech press.");
+
+        setPrivateObject(cpu, "blockHeldLastFrame", false);
+        invokePrivateVoid(cpu, "aiControl");
+        assertTrue(game.isBlockPressed(0),
+                "The next deterministic tick should create the fresh Block edge.");
+    }
+
+    @Test
+    void trainingSurvivalDiPresetAppliesWithoutShieldOrMovementInputs() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.trainingModeActive = true;
+        game.activePlayers = 2;
+        setPrivateBoolean(game);
+        Bird player = new Bird(600.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird dummy = new Bird(BirdGame3.WORLD_WIDTH - 620.0,
+                BirdGame3.BirdType.EAGLE, 1, game);
+        dummy.y = BirdGame3.GROUND_Y - 460.0;
+        dummy.vx = 18.0;
+        dummy.vy = 0.0;
+        dummy.stunTime = 16.0;
+        dummy.configureTrainingLaunchDefense(true, false);
+        game.players[0] = player;
+        game.players[1] = dummy;
+        setPrivateDouble(dummy, "pendingSmashLaunchScale", 1.5);
+        setPrivateDouble(dummy, "pendingDamageScaledHitDamage", 12.0);
+        double startX = dummy.x;
+
+        invokePrivateVoid(dummy, "applyPendingSmashLaunch");
+
+        assertTrue(Math.abs(getPrivateDouble(dummy, "lastDirectionalInfluenceDegrees")) > 1.0);
+        assertTrue(dummy.x < startX,
+                "The preset should SDI an outward hit back toward the playable stage.");
+        assertFalse(game.isBlockPressed(1),
+                "Training-only DI must not raise a shield and change whether the tested hit connects.");
+        assertFalse(game.isLeftPressed(1),
+                "Training-only DI must not walk the dummy before the tested hit.");
+    }
+
+    @Test
+    void trainingAutoTechPresetProducesARealBufferedTech() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.trainingModeActive = true;
+        game.activePlayers = 2;
+        setPrivateBoolean(game);
+        Bird player = new Bird(600.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird dummy = new Bird(900.0, BirdGame3.BirdType.EAGLE, 1, game);
+        dummy.y = BirdGame3.GROUND_Y - dummy.bodyHeight() - 8.0;
+        dummy.vy = 14.0;
+        dummy.stunTime = 12.0;
+        setPrivateInt(dummy, "tumbleTimer", 30);
+        dummy.configureTrainingLaunchDefense(false, true);
+        game.players[0] = player;
+        game.players[1] = dummy;
+
+        dummy.update(1.0);
+
+        assertTrue(dummy.debugHitReactionTelemetryLabel().contains("TECH GROUND"));
+        assertFalse(dummy.debugHitReactionTelemetryLabel().contains("MISSED"));
+    }
+
+    @Test
     void campaignLaunchPercentUsesAuthoredStartingHealth() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.campaignModeActive = true;
