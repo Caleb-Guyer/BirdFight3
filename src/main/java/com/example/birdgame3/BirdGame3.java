@@ -50122,7 +50122,12 @@ public class BirdGame3 {
                     bird.baseSpeedMultiplier
             );
 
-            if (encounter.style == ClassicEncounterStyle.MINIATURE_FLOCK) {
+            if (classicSelectedBird == BirdType.RAVEN && classicRoundIndex == 1) {
+                // The enforcers are a paired interruption, not two full-size
+                // walls. Their authored power and real kits stay intact, but
+                // the smaller silhouettes launch reliably in the 2-v-2.
+                scaleBossRushBird(bird, 0.90, 1.00, 1.00);
+            } else if (encounter.style == ClassicEncounterStyle.MINIATURE_FLOCK) {
                 if (classicSelectedBird == BirdType.SHOEBILL) {
                     scaleBossRushBird(bird, 0.61, 0.93, 1.05);
                 } else {

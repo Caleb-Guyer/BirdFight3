@@ -52,6 +52,20 @@ class RavenClassicRouteTest {
     }
 
     @Test
+    void murderOfTwoKeepsRealKitsButMakesThePairedEnforcersLaunchable() {
+        BirdGame3 game = prepared(1, 0xDA7110L, 0xDA7111L);
+
+        assertEquals(1, game.scores[0]);
+        assertEquals(1, game.scores[1]);
+        for (int slot = 2; slot < game.activePlayers; slot++) {
+            Bird enforcer = game.players[slot];
+            assertNotNull(enforcer);
+            assertEquals(0.90, enforcer.baseSizeMultiplier, 0.001);
+            assertTrue(enforcer.hasUltimate());
+        }
+    }
+
+    @Test
     void foretoldFatesStartLaunchableAndCannotLayerUltimates() {
         BirdGame3 game = prepared(2, 0xDA7100L, 0xDA7101L);
 

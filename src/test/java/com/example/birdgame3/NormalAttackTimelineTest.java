@@ -122,16 +122,16 @@ class NormalAttackTimelineTest {
 
     @Test
     void nonMigratedBirdsKeepLegacyImmediateResolutionUntilAuthored() throws Exception {
-        BirdGame3 game = twoBirdGame(BirdGame3.BirdType.HEISENBIRD, BirdGame3.BirdType.PIGEON,
+        BirdGame3 game = twoBirdGame(BirdGame3.BirdType.GOOSE, BirdGame3.BirdType.PIGEON,
                 320.0, 382.0);
-        Bird heisenbird = game.players[0];
+        Bird goose = game.players[0];
         Bird target = game.players[1];
         double startingHealth = target.health;
 
-        performAttack(heisenbird, "NEUTRAL");
+        performAttack(goose, "NEUTRAL");
 
         assertTrue(target.health < startingHealth);
-        assertFalse(heisenbird.debugNormalAttackTimelineActive());
+        assertFalse(goose.debugNormalAttackTimelineActive());
     }
 
     @Test
@@ -439,6 +439,45 @@ class NormalAttackTimelineTest {
 
         assertEquals("STARTUP", vultureGame.players[0].debugNormalAttackPhaseLabel());
         assertEquals("ACTIVE", opiumGame.players[0].debugNormalAttackPhaseLabel());
+    }
+
+    @Test
+    void calculatedRivalsHaveDistinctCompleteFrameData() throws Exception {
+        String[] variants = {
+                "NEUTRAL", "SIDE_TILT", "UP_TILT", "DOWN_TILT",
+                "SIDE_SMASH", "UP_SMASH", "DOWN_SMASH",
+                "NEUTRAL_AIR", "FORWARD_AIR", "BACK_AIR", "UP_AIR", "DOWN_AIR",
+                "DASH_ATTACK", "LEDGE_ATTACK", "GETUP_ATTACK"
+        };
+        int[][] heisenbirdFrames = {
+                {1, 5, 3}, {2, 6, 5}, {2, 6, 5}, {1, 6, 5},
+                {5, 6, 8}, {5, 7, 7}, {5, 8, 7},
+                {1, 8, 4}, {2, 6, 6}, {2, 6, 6}, {1, 7, 5}, {3, 6, 7},
+                {1, 7, 6}, {2, 6, 6}, {2, 7, 6}
+        };
+        int[][] ravenFrames = {
+                {1, 4, 3}, {2, 4, 5}, {2, 5, 4}, {1, 4, 5},
+                {5, 4, 8}, {5, 5, 7}, {5, 6, 7},
+                {1, 7, 3}, {2, 4, 6}, {2, 4, 6}, {1, 6, 4}, {3, 4, 7},
+                {1, 5, 6}, {2, 4, 6}, {2, 5, 6}
+        };
+
+        assertAuthoredMoveList(BirdGame3.BirdType.HEISENBIRD, variants, heisenbirdFrames);
+        assertAuthoredMoveList(BirdGame3.BirdType.RAVEN, variants, ravenFrames);
+    }
+
+    @Test
+    void ravenFinishesItsOmenBeforeHeisenbirdsApparatusStops() throws Exception {
+        BirdGame3 heisenGame = twoBirdGame(BirdGame3.BirdType.HEISENBIRD, BirdGame3.BirdType.PIGEON,
+                320.0, 700.0);
+        BirdGame3 ravenGame = twoBirdGame(BirdGame3.BirdType.RAVEN, BirdGame3.BirdType.PIGEON,
+                320.0, 700.0);
+
+        performAttack(heisenGame.players[0], "SIDE_TILT");
+        performAttack(ravenGame.players[0], "SIDE_TILT");
+        assertTrue(heisenGame.players[0].debugNormalAttackTotalFrames()
+                        > ravenGame.players[0].debugNormalAttackTotalFrames(),
+                "Heisenbird's apparatus swing should outlast Raven's exact omen cut.");
     }
 
     @Test

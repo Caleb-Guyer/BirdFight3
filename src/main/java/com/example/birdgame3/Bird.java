@@ -3730,7 +3730,9 @@ public class Bird {
                 || type == BirdGame3.BirdType.RAZORBILL
                 || type == BirdGame3.BirdType.GRINCHHAWK
                 || type == BirdGame3.BirdType.VULTURE
-                || type == BirdGame3.BirdType.OPIUMBIRD;
+                || type == BirdGame3.BirdType.OPIUMBIRD
+                || type == BirdGame3.BirdType.HEISENBIRD
+                || type == BirdGame3.BirdType.RAVEN;
     }
 
     private NormalAttackTimeline normalAttackTimeline(NormalAttackVariant variant) {
@@ -3778,6 +3780,12 @@ public class Bird {
         }
         if (type == BirdGame3.BirdType.OPIUMBIRD) {
             return opiumBirdNormalAttackTimeline(variant);
+        }
+        if (type == BirdGame3.BirdType.HEISENBIRD) {
+            return heisenbirdNormalAttackTimeline(variant);
+        }
+        if (type == BirdGame3.BirdType.RAVEN) {
+            return ravenNormalAttackTimeline(variant);
         }
         NormalAttackProfile profile = normalAttackProfile(variant);
         return noSweetSpotTimeline(0, 1, Math.max(0, profile.animationFrames() - 1), 0, 0);
@@ -4219,6 +4227,64 @@ public class Bird {
             case DASH_ATTACK -> noSweetSpotTimeline(1, 8, 6, 0, 0);
             case LEDGE_ATTACK -> noSweetSpotTimeline(1, 7, 6, 0, 0);
             case GETUP_ATTACK -> noSweetSpotTimeline(2, 8, 6, 0, 0);
+        };
+    }
+
+    /** Heisenbird's apparatus-driven strikes are measured, stable arcs. */
+    private NormalAttackTimeline heisenbirdNormalAttackTimeline(NormalAttackVariant variant) {
+        return switch (variant) {
+            case NEUTRAL -> noSweetSpotTimeline(1, 5, 3, 0, 0);
+            case SIDE_TILT -> sweetSpotTimeline(2, 6, 5, 0, 0,
+                    0.66, 1.05, 1.09, 0.98, 0.95);
+            case UP_TILT -> noSweetSpotTimeline(2, 6, 5, 0, 0);
+            case DOWN_TILT -> noSweetSpotTimeline(1, 6, 5, 0, 0);
+            case SIDE_SMASH -> sweetSpotTimeline(5, 6, 8, 0, 0,
+                    0.70, 1.08, 1.13, 0.96, 0.92);
+            case UP_SMASH -> noSweetSpotTimeline(5, 7, 7, 0, 0);
+            case DOWN_SMASH -> noSweetSpotTimeline(5, 8, 7, 0, 0);
+            case NEUTRAL_AIR -> noSweetSpotTimeline(1, 8, 4, 1, 2);
+            case FORWARD_AIR -> sweetSpotTimeline(2, 6, 6, 2, 2,
+                    0.68, 1.06, 1.10, 0.98, 0.94);
+            case BACK_AIR -> sweetSpotTimeline(2, 6, 6, 2, 2,
+                    0.66, 1.07, 1.11, 0.97, 0.93);
+            case UP_AIR -> noSweetSpotTimeline(1, 7, 5, 1, 2);
+            case DOWN_AIR -> sweetSpotTimeline(3, 6, 7, 3, 2,
+                    0.70, 1.08, 1.13, 0.96, 0.91);
+            case DASH_ATTACK -> noSweetSpotTimeline(1, 7, 6, 0, 0);
+            case LEDGE_ATTACK -> noSweetSpotTimeline(2, 6, 6, 0, 0);
+            case GETUP_ATTACK -> noSweetSpotTimeline(2, 7, 6, 0, 0);
+        };
+    }
+
+    /**
+     * Raven's omen cuts arrive quickly but do not linger. Precise outer-edge
+     * contact is rewarded while missed reads leave a clear recovery window.
+     */
+    private NormalAttackTimeline ravenNormalAttackTimeline(NormalAttackVariant variant) {
+        return switch (variant) {
+            case NEUTRAL -> sweetSpotTimeline(1, 4, 3, 0, 0,
+                    0.68, 1.05, 1.08, 0.98, 0.95);
+            case SIDE_TILT -> sweetSpotTimeline(2, 4, 5, 0, 0,
+                    0.74, 1.07, 1.11, 0.97, 0.93);
+            case UP_TILT -> noSweetSpotTimeline(2, 5, 4, 0, 0);
+            case DOWN_TILT -> sweetSpotTimeline(1, 4, 5, 0, 0,
+                    0.72, 1.06, 1.09, 0.98, 0.94);
+            case SIDE_SMASH -> sweetSpotTimeline(5, 4, 8, 0, 0,
+                    0.78, 1.09, 1.14, 0.95, 0.90);
+            case UP_SMASH -> noSweetSpotTimeline(5, 5, 7, 0, 0);
+            case DOWN_SMASH -> noSweetSpotTimeline(5, 6, 7, 0, 0);
+            case NEUTRAL_AIR -> noSweetSpotTimeline(1, 7, 3, 1, 2);
+            case FORWARD_AIR -> sweetSpotTimeline(2, 4, 6, 2, 2,
+                    0.76, 1.08, 1.12, 0.96, 0.91);
+            case BACK_AIR -> sweetSpotTimeline(2, 4, 6, 2, 2,
+                    0.74, 1.08, 1.12, 0.96, 0.92);
+            case UP_AIR -> noSweetSpotTimeline(1, 6, 4, 1, 2);
+            case DOWN_AIR -> sweetSpotTimeline(3, 4, 7, 3, 2,
+                    0.78, 1.09, 1.14, 0.95, 0.90);
+            case DASH_ATTACK -> sweetSpotTimeline(1, 5, 6, 0, 0,
+                    0.78, 1.08, 1.13, 0.96, 0.91);
+            case LEDGE_ATTACK -> noSweetSpotTimeline(2, 4, 6, 0, 0);
+            case GETUP_ATTACK -> noSweetSpotTimeline(2, 5, 6, 0, 0);
         };
     }
 
