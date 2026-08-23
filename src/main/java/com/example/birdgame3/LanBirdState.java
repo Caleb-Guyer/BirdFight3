@@ -23,6 +23,12 @@ class LanBirdState {
     int pendingGroundAttackVariantOrdinal;
     int chargingAttackVariantOrdinal;
     int activeAttackVariantOrdinal;
+    boolean normalAttackTimelineActive;
+    int normalAttackTimelineFrame;
+    int normalAttackTimelineChargeFrames;
+    boolean normalAttackEnvironmentResolved;
+    boolean normalAttackConnected;
+    int[] normalAttackLastHitFrame = {-1, -1, -1, -1};
     boolean aerialAttackActive;
     int aerialAttackTotalFrames;
     int activeAerialLandingLagFrames;
@@ -720,6 +726,12 @@ class LanBirdState {
         out.writeInt(pendingGroundAttackVariantOrdinal);
         out.writeInt(chargingAttackVariantOrdinal);
         out.writeInt(activeAttackVariantOrdinal);
+        out.writeBoolean(normalAttackTimelineActive);
+        out.writeInt(normalAttackTimelineFrame);
+        out.writeInt(normalAttackTimelineChargeFrames);
+        out.writeBoolean(normalAttackEnvironmentResolved);
+        out.writeBoolean(normalAttackConnected);
+        for (int frame : normalAttackLastHitFrame) out.writeInt(frame);
         out.writeBoolean(aerialAttackActive);
         out.writeInt(aerialAttackTotalFrames);
         out.writeInt(activeAerialLandingLagFrames);
@@ -1495,6 +1507,14 @@ class LanBirdState {
         state.pendingGroundAttackVariantOrdinal = in.readInt();
         state.chargingAttackVariantOrdinal = in.readInt();
         state.activeAttackVariantOrdinal = in.readInt();
+        state.normalAttackTimelineActive = in.readBoolean();
+        state.normalAttackTimelineFrame = in.readInt();
+        state.normalAttackTimelineChargeFrames = in.readInt();
+        state.normalAttackEnvironmentResolved = in.readBoolean();
+        state.normalAttackConnected = in.readBoolean();
+        for (int i = 0; i < state.normalAttackLastHitFrame.length; i++) {
+            state.normalAttackLastHitFrame[i] = in.readInt();
+        }
         state.aerialAttackActive = in.readBoolean();
         state.aerialAttackTotalFrames = in.readInt();
         state.activeAerialLandingLagFrames = in.readInt();

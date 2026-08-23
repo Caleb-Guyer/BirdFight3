@@ -323,6 +323,54 @@ public class Bird {
         }
     }
 
+    private enum NormalAttackPhase {
+        NONE,
+        STARTUP,
+        ACTIVE,
+        RECOVERY
+    }
+
+    /**
+     * Fixed-tick frame data for a normal attack. A value of zero for
+     * {@code rehitIntervalFrames} means that each target may be hit only once
+     * for the entire move. Positive values opt a future authored move into
+     * deterministic multi-hit behavior without introducing a second timer.
+     */
+    private record NormalAttackTimeline(
+            int startupFrames,
+            int activeFrames,
+            int recoveryFrames,
+            int rehitIntervalFrames,
+            int autoCancelStartupFrames,
+            int autoCancelLateFrames,
+            double sweetSpotStartRatio,
+            double sweetDamageMultiplier,
+            double sweetKnockbackMultiplier,
+            double sourDamageMultiplier,
+            double sourKnockbackMultiplier
+    ) {
+        int activeStartFrame() {
+            return startupFrames + 1;
+        }
+
+        int activeEndFrame() {
+            return startupFrames + activeFrames;
+        }
+
+        int totalFrames() {
+            return startupFrames + activeFrames + recoveryFrames;
+        }
+
+        NormalAttackTimeline withAdditionalRecovery(int frames) {
+            if (frames <= 0) return this;
+            return new NormalAttackTimeline(
+                    startupFrames, activeFrames, recoveryFrames + frames, rehitIntervalFrames,
+                    autoCancelStartupFrames, autoCancelLateFrames,
+                    sweetSpotStartRatio, sweetDamageMultiplier, sweetKnockbackMultiplier,
+                    sourDamageMultiplier, sourKnockbackMultiplier);
+        }
+    }
+
     record VisualFeatureCircle(double centerX, double centerY, double radius) {
     }
 
@@ -615,6 +663,12 @@ public class Bird {
     private NormalAttackVariant pendingGroundAttackVariant = NormalAttackVariant.NEUTRAL;
     private NormalAttackVariant chargingAttackVariant = NormalAttackVariant.NEUTRAL;
     private NormalAttackVariant activeAttackVariant = NormalAttackVariant.NEUTRAL;
+    private boolean normalAttackTimelineActive = false;
+    private int normalAttackTimelineFrame = 0;
+    private int normalAttackTimelineChargeFrames = 0;
+    private boolean normalAttackEnvironmentResolved = false;
+    private boolean normalAttackConnected = false;
+    private final int[] normalAttackLastHitFrame = {-1, -1, -1, -1};
     private boolean attackHeldLastFrame = false;
     private boolean specialHeldLastFrame = false;
     private boolean aerialAttackActive = false;
@@ -2706,6 +2760,7 @@ public class Bird {
             return;
         }
         interruptGrabStateOnHit();
+        cancelNormalAttackTimeline(true);
         clearAerialAttackState();
         stunTime = Math.max(stunTime, frames);
     }
@@ -3657,6 +3712,63 @@ public class Bird {
         };
     }
 
+    private boolean usesAuthoredNormalAttackTimeline() {
+        // The shared engine is intentionally rolled out bird-by-bird so an
+        // authored migration cannot silently change the accepted balance of
+        // fighters that still use their legacy instant strike.
+        return type == BirdGame3.BirdType.PIGEON;
+    }
+
+    private NormalAttackTimeline normalAttackTimeline(NormalAttackVariant variant) {
+        if (type == BirdGame3.BirdType.PIGEON) {
+            return pigeonNormalAttackTimeline(variant);
+        }
+        NormalAttackProfile profile = normalAttackProfile(variant);
+        return noSweetSpotTimeline(0, 1, Math.max(0, profile.animationFrames() - 1), 0, 0);
+    }
+
+    private NormalAttackTimeline pigeonNormalAttackTimeline(NormalAttackVariant variant) {
+        return switch (variant) {
+            case NEUTRAL -> sweetSpotTimeline(2, 2, 3, 0, 0,
+                    0.58, 1.06, 1.08, 0.96, 0.94);
+            case SIDE_TILT -> noSweetSpotTimeline(4, 2, 4, 0, 0);
+            case UP_TILT -> noSweetSpotTimeline(4, 3, 3, 0, 0);
+            case DOWN_TILT -> noSweetSpotTimeline(3, 2, 4, 0, 0);
+            case SIDE_SMASH -> sweetSpotTimeline(8, 2, 5, 0, 0,
+                    0.66, 1.06, 1.10, 0.96, 1.0);
+            case UP_SMASH -> noSweetSpotTimeline(7, 3, 5, 0, 0);
+            case DOWN_SMASH -> noSweetSpotTimeline(7, 4, 5, 0, 0);
+            case NEUTRAL_AIR -> noSweetSpotTimeline(3, 5, 4, 3, 2);
+            case FORWARD_AIR -> sweetSpotTimeline(5, 3, 5, 5, 2,
+                    0.64, 1.05, 1.08, 0.97, 0.95);
+            case BACK_AIR -> sweetSpotTimeline(4, 3, 6, 4, 2,
+                    0.62, 1.05, 1.08, 0.97, 0.95);
+            case UP_AIR -> noSweetSpotTimeline(4, 4, 4, 4, 2);
+            case DOWN_AIR -> sweetSpotTimeline(6, 3, 5, 6, 2,
+                    0.66, 1.06, 1.10, 0.96, 0.94);
+            case DASH_ATTACK -> noSweetSpotTimeline(5, 3, 5, 0, 0);
+            case LEDGE_ATTACK -> noSweetSpotTimeline(4, 3, 5, 0, 0);
+            case GETUP_ATTACK -> noSweetSpotTimeline(6, 3, 5, 0, 0);
+        };
+    }
+
+    private NormalAttackTimeline noSweetSpotTimeline(
+            int startup, int active, int recovery, int autoCancelStartup, int autoCancelLate) {
+        return new NormalAttackTimeline(
+                startup, active, recovery, 0, autoCancelStartup, autoCancelLate,
+                Double.POSITIVE_INFINITY, 1.0, 1.0, 1.0, 1.0);
+    }
+
+    private NormalAttackTimeline sweetSpotTimeline(
+            int startup, int active, int recovery, int autoCancelStartup, int autoCancelLate,
+            double sweetSpotStartRatio, double sweetDamageMultiplier, double sweetKnockbackMultiplier,
+            double sourDamageMultiplier, double sourKnockbackMultiplier) {
+        return new NormalAttackTimeline(
+                startup, active, recovery, 0, autoCancelStartup, autoCancelLate,
+                sweetSpotStartRatio, sweetDamageMultiplier, sweetKnockbackMultiplier,
+                sourDamageMultiplier, sourKnockbackMultiplier);
+    }
+
     private NormalAttackProfile eagleNormalAttackProfile(NormalAttackVariant variant, double facingDir) {
         return switch (variant) {
             case NEUTRAL -> new NormalAttackProfile(116.0, 84.0, facingDir * 22.0, -3.0,
@@ -4416,6 +4528,11 @@ public class Bird {
     }
 
     private NormalAttackProfile attack(int chargeFrames, NormalAttackVariant variant, String moveName) {
+        return attack(chargeFrames, variant, moveName, null, true);
+    }
+
+    private NormalAttackProfile attack(int chargeFrames, NormalAttackVariant variant, String moveName,
+                                       NormalAttackTimeline timeline, boolean resolveEnvironment) {
         if (health <= 0) return normalAttackProfile(variant);
         NormalAttackProfile profile = normalAttackProfile(variant);
         double batAmbushScale = consumeBatAmbushNormalScale(variant);
@@ -4442,19 +4559,42 @@ public class Bird {
         for (Bird other : game.players) {
             if (other == null || other == this || other.health <= 0) continue;
             if (!canDamageTarget(other)) continue;
+            if (timeline != null && !normalAttackCanHitTarget(other, timeline)) continue;
 
             if (overlapsAttackArea(other.bodyCenterX(), other.bodyCenterY(),
                     other.combatHalfWidth(), other.combatHalfHeight(),
                     attackCenterX, attackCenterY, range, verticalRange)) {
+                double spotDamageMultiplier = 1.0;
+                double spotKnockbackMultiplier = 1.0;
+                if (timeline != null) {
+                    boolean sweetSpot = normalAttackHitsSweetSpot(
+                            variant, timeline, other, attackCenterX, attackCenterY, range, verticalRange);
+                    spotDamageMultiplier = sweetSpot
+                            ? timeline.sweetDamageMultiplier() : timeline.sourDamageMultiplier();
+                    spotKnockbackMultiplier = sweetSpot
+                            ? timeline.sweetKnockbackMultiplier() : timeline.sourKnockbackMultiplier();
+                    markNormalAttackTargetHit(other);
+                    normalAttackConnected = true;
+                }
                 double horizontalDirection = launchDirectionFromAttackCenter(other.bodyCenterX(), attackCenterX);
                 double chargeLaunchRamp = chargedAttackLaunchRamp(chargeRatio, other);
                 double verticalScale = profile.verticalLaunchScaleFor(other.bodyCenterY(), attackCenterY)
-                        * (1.0 + CHARGED_ATTACK_VERTICAL_BONUS * chargeRatio * chargeLaunchRamp);
+                        * (1.0 + CHARGED_ATTACK_VERTICAL_BONUS * chargeRatio * chargeLaunchRamp)
+                        * spotKnockbackMultiplier;
                 double targetKnockbackScale = knockbackScale
-                        * (1.0 + CHARGED_ATTACK_KNOCKBACK_BONUS * chargeRatio * chargeRatio * chargeLaunchRamp);
-                processBirdAttack(other, dmg, targetKnockbackScale, verticalScale,
+                        * (1.0 + CHARGED_ATTACK_KNOCKBACK_BONUS * chargeRatio * chargeRatio * chargeLaunchRamp)
+                        * spotKnockbackMultiplier;
+                int targetDamage = Math.max(1, (int) Math.round(dmg * spotDamageMultiplier));
+                processBirdAttack(other, targetDamage, targetKnockbackScale, verticalScale,
                         profile.horizontalLaunchScale(), horizontalDirection, moveName, variant);
+                if (timeline != null && !normalAttackTimelineActive) {
+                    break;
+                }
             }
+        }
+
+        if (!resolveEnvironment) {
+            return profile;
         }
 
         // === LOUNGE CAN BE HIT ===
@@ -4466,6 +4606,39 @@ public class Bird {
         attackGrinchhawkPresents(attackCenterX, attackCenterY, range, verticalRange);
         game.damageFrostbiteSnowbanks(this, attackCenterX, attackCenterY, range, verticalRange, dmg);
         return profile;
+    }
+
+    private boolean normalAttackCanHitTarget(Bird target, NormalAttackTimeline timeline) {
+        if (target == null || target.playerIndex < 0 || target.playerIndex >= normalAttackLastHitFrame.length) {
+            return false;
+        }
+        int lastHitFrame = normalAttackLastHitFrame[target.playerIndex];
+        if (lastHitFrame < 0) return true;
+        return timeline.rehitIntervalFrames() > 0
+                && normalAttackTimelineFrame - lastHitFrame >= timeline.rehitIntervalFrames();
+    }
+
+    private void markNormalAttackTargetHit(Bird target) {
+        if (target == null || target.playerIndex < 0 || target.playerIndex >= normalAttackLastHitFrame.length) {
+            return;
+        }
+        normalAttackLastHitFrame[target.playerIndex] = normalAttackTimelineFrame;
+    }
+
+    private boolean normalAttackHitsSweetSpot(
+            NormalAttackVariant variant, NormalAttackTimeline timeline, Bird target,
+            double attackCenterX, double attackCenterY, double range, double verticalRange) {
+        if (!Double.isFinite(timeline.sweetSpotStartRatio())) {
+            return false;
+        }
+        double horizontalRatio = Math.abs(target.bodyCenterX() - attackCenterX) / Math.max(1.0, range);
+        double verticalRatio = Math.abs(target.bodyCenterY() - attackCenterY) / Math.max(1.0, verticalRange);
+        double reachRatio = switch (variant) {
+            case UP_TILT, UP_SMASH, UP_AIR, DOWN_TILT, DOWN_AIR -> verticalRatio;
+            case NEUTRAL_AIR, DOWN_SMASH, GETUP_ATTACK -> Math.max(horizontalRatio, verticalRatio);
+            default -> horizontalRatio;
+        };
+        return reachRatio >= timeline.sweetSpotStartRatio();
     }
 
     private double chargedAttackLaunchRamp(double chargeRatio, Bird target) {
@@ -4814,6 +4987,7 @@ public class Bird {
         return health > 0
                 && !isBlocking
                 && !isDodging()
+                && !normalAttackTimelineActive
                 && !(type == BirdGame3.BirdType.PIGEON && PigeonSpecials.active(this))
                 && !(type == BirdGame3.BirdType.PHOENIX && PhoenixSpecials.active(this))
                 && !(type == BirdGame3.BirdType.TURKEY && turkeySpecialActive())
@@ -4924,7 +5098,7 @@ public class Bird {
             } else {
                 game.addToKillFeed(shortName() + " PARRIED the hit!");
             }
-            game.recordTrainingShieldHit(this);
+            game.recordTrainingShieldHit(this, attacker, true);
             return ShieldHitResult.PARRIED;
         }
 
@@ -4959,7 +5133,7 @@ public class Bird {
         // lowering stronger existing shake. Math.clamp(v, current, 8) threw
         // IllegalArgumentException whenever current shake exceeded 8.
         game.shakeIntensity = Math.max(game.shakeIntensity, Math.min(8.0, 2.0 + scaledDamage * 0.12));
-        game.recordTrainingShieldHit(this);
+        game.recordTrainingShieldHit(this, attacker, false);
 
         if (shieldHealth <= 0.0) {
             breakShield(attacker, push);
@@ -5811,6 +5985,7 @@ public class Bird {
     }
 
     private void beginAttackCharge(NormalAttackVariant variant) {
+        cancelNormalAttackTimeline(false);
         pendingGroundAttackFrames = 0;
         pendingGroundAttackVariant = NormalAttackVariant.NEUTRAL;
         attackChargeFrames = 1;
@@ -5845,6 +6020,72 @@ public class Bird {
         }
     }
 
+    private NormalAttackTimeline activeNormalAttackTimeline() {
+        NormalAttackTimeline timeline = normalAttackTimeline(activeAttackVariant);
+        int chargedRecovery = (int) Math.round(attackChargeRatio(normalAttackTimelineChargeFrames) * 10.0);
+        return timeline.withAdditionalRecovery(chargedRecovery);
+    }
+
+    private void beginNormalAttackTimeline(int chargeFrames, NormalAttackVariant variant) {
+        normalAttackTimelineActive = true;
+        normalAttackTimelineFrame = 0;
+        normalAttackTimelineChargeFrames = Math.max(0, chargeFrames);
+        normalAttackEnvironmentResolved = false;
+        normalAttackConnected = false;
+        Arrays.fill(normalAttackLastHitFrame, -1);
+        activeAttackVariant = variant;
+    }
+
+    private void cancelNormalAttackTimeline(boolean interruptAnimation) {
+        normalAttackTimelineActive = false;
+        normalAttackTimelineFrame = 0;
+        normalAttackTimelineChargeFrames = 0;
+        normalAttackEnvironmentResolved = false;
+        normalAttackConnected = false;
+        Arrays.fill(normalAttackLastHitFrame, -1);
+        if (interruptAnimation) {
+            attackAnimationTimer = 0;
+            aerialAttackActive = false;
+            aerialAttackTotalFrames = 0;
+            activeAerialLandingLagFrames = AERIAL_LANDING_LAG_FRAMES;
+            activeAttackVariant = NormalAttackVariant.NEUTRAL;
+        }
+    }
+
+    private NormalAttackPhase currentNormalAttackPhase() {
+        if (!normalAttackTimelineActive) return NormalAttackPhase.NONE;
+        NormalAttackTimeline timeline = activeNormalAttackTimeline();
+        if (normalAttackTimelineFrame <= timeline.startupFrames()) {
+            return NormalAttackPhase.STARTUP;
+        }
+        if (normalAttackTimelineFrame <= timeline.activeEndFrame()) {
+            return NormalAttackPhase.ACTIVE;
+        }
+        return NormalAttackPhase.RECOVERY;
+    }
+
+    private void advanceNormalAttackTimeline() {
+        if (!normalAttackTimelineActive) return;
+        if (health <= 0.0 || stunTime > 0.0 || grabbedBy != null || grabbedTarget != null
+                || isDodging() || isBlocking || ledgeHanging || onVine || isGrappling) {
+            cancelNormalAttackTimeline(true);
+            return;
+        }
+
+        NormalAttackTimeline timeline = activeNormalAttackTimeline();
+        normalAttackTimelineFrame = Math.min(timeline.totalFrames(), normalAttackTimelineFrame + 1);
+        if (normalAttackTimelineFrame >= timeline.activeStartFrame()
+                && normalAttackTimelineFrame <= timeline.activeEndFrame()) {
+            boolean resolveEnvironment = !normalAttackEnvironmentResolved;
+            attack(normalAttackTimelineChargeFrames, activeAttackVariant,
+                    normalAttackTelemetryName(activeAttackVariant), timeline, resolveEnvironment);
+            normalAttackEnvironmentResolved = true;
+        }
+        if (normalAttackTimelineFrame >= timeline.totalFrames()) {
+            normalAttackTimelineActive = false;
+        }
+    }
+
     private void performAttack(int chargeFrames) {
         NormalAttackVariant variant = chargeFrames > 0 ? chargingAttackVariant : selectNormalAttackVariant(isOnGround());
         performAttack(chargeFrames, variant);
@@ -5853,7 +6094,10 @@ public class Bird {
     private void performAttack(int chargeFrames, NormalAttackVariant variant) {
         String moveName = normalAttackTelemetryName(variant);
         game.recordNormalMoveUse(this, moveName);
-        NormalAttackProfile profile = attack(chargeFrames, variant, moveName);
+        boolean authoredTimeline = usesAuthoredNormalAttackTimeline();
+        NormalAttackProfile profile = authoredTimeline
+                ? normalAttackProfile(variant)
+                : attack(chargeFrames, variant, moveName);
         double chargeRatio = attackChargeRatio(chargeFrames);
         game.recordTrainingAttack(this, chargeFrames);
         if (type == BirdGame3.BirdType.PIGEON) {
@@ -5908,8 +6152,13 @@ public class Bird {
             double dashCarry = Math.max(10.0, type.speed * speedMultiplier * 1.55);
             vx = (facingRight ? 1.0 : -1.0) * dashCarry;
         }
+        NormalAttackTimeline timeline = authoredTimeline
+                ? normalAttackTimeline(variant).withAdditionalRecovery((int) Math.round(chargeRatio * 10.0))
+                : null;
         attackCooldown = scaledAttackCooldown(profile.cooldownFrames()) + (int) Math.round(chargeRatio * 18.0);
-        attackAnimationTimer = profile.animationFrames() + (int) Math.round(chargeRatio * 10.0);
+        attackAnimationTimer = timeline != null
+                ? timeline.totalFrames()
+                : profile.animationFrames() + (int) Math.round(chargeRatio * 10.0);
         if (!isOnGround()) {
             aerialAttackActive = true;
             aerialAttackTotalFrames = attackAnimationTimer;
@@ -5924,6 +6173,11 @@ public class Bird {
         // clearAerialAttackState intentionally clears stale landing state and
         // resets the old visual variant, so assign this move after that cleanup.
         activeAttackVariant = variant;
+        if (authoredTimeline) {
+            beginNormalAttackTimeline(chargeFrames, variant);
+        } else {
+            cancelNormalAttackTimeline(false);
+        }
         cancelAttackCharge();
     }
 
@@ -13620,6 +13874,12 @@ public class Bird {
     }
 
     private void updateTimers(double gameSpeed) {
+        // One authored combat frame advances per fixed simulation tick. This
+        // deliberately ignores render rate and wall-clock time; hitstop skips
+        // Bird.update entirely, so attacks freeze and resume deterministically.
+        if (gameSpeed > 0.0) {
+            advanceNormalAttackTimeline();
+        }
         speedTimer = Math.max(0, (int)(speedTimer - gameSpeed));
         rageTimer = Math.max(0, (int)(rageTimer - gameSpeed));
         shrinkTimer = Math.max(0, (int)(shrinkTimer - gameSpeed));
@@ -14758,6 +15018,7 @@ public class Bird {
         aerialAttackTotalFrames = 0;
         activeAerialLandingLagFrames = AERIAL_LANDING_LAG_FRAMES;
         activeAttackVariant = NormalAttackVariant.NEUTRAL;
+        cancelNormalAttackTimeline(false);
     }
 
     private int aerialAttackElapsedFrames() {
@@ -14767,6 +15028,11 @@ public class Bird {
     private boolean aerialAttackAutoCancelsOnLanding() {
         if (!aerialAttackActive) {
             return true;
+        }
+        if (normalAttackTimelineActive) {
+            NormalAttackTimeline timeline = activeNormalAttackTimeline();
+            return normalAttackTimelineFrame <= timeline.autoCancelStartupFrames()
+                    || normalAttackTimelineFrame > timeline.totalFrames() - timeline.autoCancelLateFrames();
         }
         return aerialAttackElapsedFrames() <= AERIAL_AUTO_CANCEL_STARTUP_FRAMES
                 || attackAnimationTimer <= AERIAL_AUTO_CANCEL_LATE_FRAMES;
@@ -15097,6 +15363,7 @@ public class Bird {
         boolean justPressed = blockHeld && !blockHeldLastFrame;
         boolean canShield = wantsShield
                 && !stunned
+                && !normalAttackTimelineActive
                 && !(type == BirdGame3.BirdType.PIGEON && PigeonSpecials.active(this))
                 && !(isRaptor() && RaptorSpecials.active(this))
                 && !(type == BirdGame3.BirdType.RAZORBILL && razorbillSpecialActive())
@@ -15975,6 +16242,19 @@ public class Bird {
                 vx = 0.0;
                 return;
             }
+            if (normalAttackTimelineActive) {
+                // Preserve existing momentum (especially dash attack carry),
+                // but do not let directional input erase startup/recovery
+                // commitment. Air attacks retain gentle drift.
+                if (airborne) {
+                    vx *= 0.985;
+                } else if (activeAttackVariant == NormalAttackVariant.DASH_ATTACK) {
+                    vx *= 0.96;
+                } else {
+                    vx *= currentNormalAttackPhase() == NormalAttackPhase.ACTIVE ? 0.86 : 0.78;
+                }
+                return;
+            }
 
             double targetVx = 0;
             double airFric = airborne ? 0.90 : 0.75;
@@ -16656,6 +16936,9 @@ public class Bird {
     }
 
     boolean debugAttackBoxActive() {
+        if (usesAuthoredNormalAttackTimeline()) {
+            return currentNormalAttackPhase() == NormalAttackPhase.ACTIVE;
+        }
         return attackAnimationTimer > 0;
     }
 
@@ -16676,6 +16959,8 @@ public class Bird {
     }
 
     private double debugAttackCenterX() {
+        VisualCombatEnvelope envelope = debugActiveNormalAttackEnvelope();
+        if (envelope != null) return envelope.attackCenterX();
         double centerX = bodyCenterX();
         if (isNullRockForm()) {
             centerX += (facingRight ? 1.0 : -1.0) * combatHalfWidth() * 0.88;
@@ -16684,6 +16969,8 @@ public class Bird {
     }
 
     private double debugAttackCenterY() {
+        VisualCombatEnvelope envelope = debugActiveNormalAttackEnvelope();
+        if (envelope != null) return envelope.attackCenterY();
         double centerY = bodyCenterY();
         if (isNullRockForm()) {
             centerY -= combatHalfHeight() * 0.08;
@@ -16692,6 +16979,8 @@ public class Bird {
     }
 
     private double debugAttackHalfWidth() {
+        VisualCombatEnvelope envelope = debugActiveNormalAttackEnvelope();
+        if (envelope != null) return envelope.attackHalfWidth();
         double range = 120 * sizeMultiplier;
         if (isNullRockForm()) {
             range *= 0.86;
@@ -16700,11 +16989,73 @@ public class Bird {
     }
 
     private double debugAttackHalfHeight() {
+        VisualCombatEnvelope envelope = debugActiveNormalAttackEnvelope();
+        if (envelope != null) return envelope.attackHalfHeight();
         double verticalRange = 100 * sizeMultiplier;
         if (isNullRockForm()) {
             verticalRange *= 0.88;
         }
         return verticalRange;
+    }
+
+    private VisualCombatEnvelope debugActiveNormalAttackEnvelope() {
+        if (!normalAttackTimelineActive) return null;
+        NormalAttackProfile profile = normalAttackProfile(activeAttackVariant);
+        double chargeRatio = attackChargeRatio(normalAttackTimelineChargeFrames);
+        double range = profile.horizontalReach() * sizeMultiplier * (1.0 + chargeRatio * 0.16);
+        double verticalRange = profile.verticalReach() * sizeMultiplier * (1.0 + chargeRatio * 0.12);
+        return normalAttackEnvelope(profile, range, verticalRange);
+    }
+
+    boolean debugNormalAttackTimelineActive() {
+        return normalAttackTimelineActive;
+    }
+
+    int debugNormalAttackFrame() {
+        return normalAttackTimelineFrame;
+    }
+
+    int debugNormalAttackTotalFrames() {
+        return normalAttackTimelineActive ? activeNormalAttackTimeline().totalFrames() : 0;
+    }
+
+    int debugNormalAttackStartupFrames() {
+        return normalAttackTimelineActive ? activeNormalAttackTimeline().startupFrames() : 0;
+    }
+
+    int debugNormalAttackActiveFrames() {
+        return normalAttackTimelineActive ? activeNormalAttackTimeline().activeFrames() : 0;
+    }
+
+    int debugNormalAttackRecoveryFrames() {
+        return normalAttackTimelineActive ? activeNormalAttackTimeline().recoveryFrames() : 0;
+    }
+
+    int debugNormalAttackRemainingFrames() {
+        return normalAttackTimelineActive
+                ? Math.max(0, activeNormalAttackTimeline().totalFrames() - normalAttackTimelineFrame)
+                : 0;
+    }
+
+    int debugNormalAttackCooldownFrames() {
+        return Math.max(0, attackCooldown);
+    }
+
+    String debugNormalAttackPhaseLabel() {
+        return currentNormalAttackPhase().name();
+    }
+
+    String debugNormalAttackMoveName() {
+        return normalAttackTimelineActive ? normalAttackTelemetryName(activeAttackVariant) : "READY";
+    }
+
+    boolean debugNormalAttackConnected() {
+        return normalAttackConnected;
+    }
+
+    double debugNormalAttackSweetSpotStartRatio() {
+        if (!normalAttackTimelineActive) return Double.POSITIVE_INFINITY;
+        return activeNormalAttackTimeline().sweetSpotStartRatio();
     }
 
     private double applyScaledDamageTo(Bird target, double scaledDamage) {
@@ -18553,6 +18904,13 @@ public class Bird {
         state.pendingGroundAttackVariantOrdinal = pendingGroundAttackVariant.ordinal();
         state.chargingAttackVariantOrdinal = chargingAttackVariant.ordinal();
         state.activeAttackVariantOrdinal = activeAttackVariant.ordinal();
+        state.normalAttackTimelineActive = normalAttackTimelineActive;
+        state.normalAttackTimelineFrame = normalAttackTimelineFrame;
+        state.normalAttackTimelineChargeFrames = normalAttackTimelineChargeFrames;
+        state.normalAttackEnvironmentResolved = normalAttackEnvironmentResolved;
+        state.normalAttackConnected = normalAttackConnected;
+        System.arraycopy(normalAttackLastHitFrame, 0, state.normalAttackLastHitFrame, 0,
+                Math.min(normalAttackLastHitFrame.length, state.normalAttackLastHitFrame.length));
         state.aerialAttackActive = aerialAttackActive;
         state.aerialAttackTotalFrames = aerialAttackTotalFrames;
         state.activeAerialLandingLagFrames = activeAerialLandingLagFrames;
@@ -19310,6 +19668,17 @@ public class Bird {
             this.activeAttackVariant = attackVariants[state.activeAttackVariantOrdinal];
         } else {
             this.activeAttackVariant = NormalAttackVariant.NEUTRAL;
+        }
+        this.normalAttackTimelineActive = state.normalAttackTimelineActive && usesAuthoredNormalAttackTimeline();
+        this.normalAttackTimelineChargeFrames = Math.max(0, state.normalAttackTimelineChargeFrames);
+        int restoredTimelineTotal = normalAttackTimelineActive ? activeNormalAttackTimeline().totalFrames() : 0;
+        this.normalAttackTimelineFrame = Math.clamp(state.normalAttackTimelineFrame, 0, restoredTimelineTotal);
+        this.normalAttackEnvironmentResolved = normalAttackTimelineActive && state.normalAttackEnvironmentResolved;
+        this.normalAttackConnected = normalAttackTimelineActive && state.normalAttackConnected;
+        Arrays.fill(this.normalAttackLastHitFrame, -1);
+        if (normalAttackTimelineActive && state.normalAttackLastHitFrame != null) {
+            System.arraycopy(state.normalAttackLastHitFrame, 0, this.normalAttackLastHitFrame, 0,
+                    Math.min(this.normalAttackLastHitFrame.length, state.normalAttackLastHitFrame.length));
         }
         this.aerialAttackActive = state.aerialAttackActive;
         this.aerialAttackTotalFrames = state.aerialAttackTotalFrames;
@@ -22619,6 +22988,29 @@ public class Bird {
         }
         if (isChargingAttack()) {
             return 0.18 + 0.82 * attackChargeRatio(attackChargeFrames);
+        }
+        if (normalAttackTimelineActive) {
+            NormalAttackTimeline timeline = activeNormalAttackTimeline();
+            return switch (currentNormalAttackPhase()) {
+                case STARTUP -> {
+                    double progress = timeline.startupFrames() <= 0 ? 1.0
+                            : normalAttackTimelineFrame / (double) timeline.startupFrames();
+                    yield 0.12 + 0.62 * Math.clamp(progress, 0.0, 1.0);
+                }
+                case ACTIVE -> {
+                    int activeFrame = normalAttackTimelineFrame - timeline.activeStartFrame();
+                    double progress = timeline.activeFrames() <= 1 ? 0.5
+                            : activeFrame / (double) (timeline.activeFrames() - 1);
+                    yield 0.90 + 0.10 * Math.sin(Math.clamp(progress, 0.0, 1.0) * Math.PI);
+                }
+                case RECOVERY -> {
+                    int recoveryFrame = normalAttackTimelineFrame - timeline.activeEndFrame();
+                    double progress = timeline.recoveryFrames() <= 0 ? 1.0
+                            : recoveryFrame / (double) timeline.recoveryFrames();
+                    yield 0.88 * (1.0 - Math.clamp(progress, 0.0, 1.0));
+                }
+                case NONE -> 0.0;
+            };
         }
         if (attackAnimationTimer > 0) {
             double timerPhase = 0.5 + 0.5 * Math.sin(attackAnimationTimer * 0.72);

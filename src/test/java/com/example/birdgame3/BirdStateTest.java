@@ -3163,7 +3163,8 @@ class BirdStateTest {
         double chargedKnockback = attackKnockbackAfterHoldingForFrames(36);
 
         assertTrue(chargedKnockback > tapKnockback * 2.2,
-                "Charged smash attacks should launch much harder than a quick side tilt.");
+                () -> "Charged smash attacks should launch much harder than a quick side tilt"
+                        + " (tap=" + tapKnockback + ", charged=" + chargedKnockback + ").");
     }
 
     @Test
@@ -3360,6 +3361,7 @@ class BirdStateTest {
 
         game.setLocalActionsForKey(game.attackKeyForPlayer(0), false);
         attacker.update(1.0);
+        advanceAuthoredAttackToFirstActiveFrame(attacker);
 
         assertTrue(target.health < startingHealth, "Quickly releasing attack + block should perform the grounded down tilt.");
         assertTrue(target.vx > 0.0);
@@ -3392,6 +3394,7 @@ class BirdStateTest {
 
         game.setLocalActionsForKey(game.attackKeyForPlayer(0), false);
         attacker.update(1.0);
+        advanceAuthoredAttackToFirstActiveFrame(attacker);
 
         assertTrue(target.health < startingHealth, "Releasing after the hold should perform the down smash.");
         assertTrue(target.vx > 0.0);
@@ -3415,6 +3418,7 @@ class BirdStateTest {
         game.setLocalActionsForKey(game.attackKeyForPlayer(0), true);
 
         attacker.update(1.0);
+        advanceAuthoredAttackToFirstActiveFrame(attacker);
 
         assertTrue(target.vx < 0.0, "Holding back in the air should create a back air that launches behind the bird.");
         assertTrue(target.health < Bird.STARTING_HEALTH);
@@ -9131,6 +9135,9 @@ class BirdStateTest {
         }
         method.setAccessible(true);
         method.invoke(target, args);
+        if ("attack".equals(methodName) && target instanceof Bird bird) {
+            advanceAuthoredAttackToFirstActiveFrame(bird);
+        }
     }
 
     private static Object invokePrivateObjectMethod(Object target, String methodName) throws Exception {
@@ -9206,6 +9213,7 @@ class BirdStateTest {
         }
         game.setLocalActionsForKey(attackKey, false);
         attacker.update(1.0);
+        advanceAuthoredAttackToFirstActiveFrame(attacker);
         return target.vx;
     }
 
@@ -9246,6 +9254,16 @@ class BirdStateTest {
         Method performAttack = Bird.class.getDeclaredMethod("performAttack", int.class, variantClass);
         performAttack.setAccessible(true);
         performAttack.invoke(attacker, 60, enumConstant(variantClass, variantName));
+        advanceAuthoredAttackToFirstActiveFrame(attacker);
+    }
+
+    private static void advanceAuthoredAttackToFirstActiveFrame(Bird attacker) {
+        int safetyFrames = 30;
+        while (attacker.debugNormalAttackTimelineActive()
+                && !attacker.debugAttackBoxActive()
+                && safetyFrames-- > 0) {
+            attacker.update(1.0);
+        }
     }
 
     private static void advanceLaunchedBird(Bird target, int frames) {

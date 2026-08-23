@@ -4868,6 +4868,9 @@ public class BirdGame3 {
     private double trainingComboDamage = 0.0;
     private double trainingSessionDamage = 0.0;
     private double trainingLastHitDamage = 0.0;
+    private boolean trainingShieldAdvantageAvailable = false;
+    private boolean trainingLastShieldParry = false;
+    private int trainingLastShieldAdvantageFrames = 0;
     private boolean trainingAcademyMoveLeftSeen = false;
     private boolean trainingAcademyMoveRightSeen = false;
     private boolean trainingAcademyJumpSeen = false;
@@ -21409,6 +21412,17 @@ public class BirdGame3 {
                     b.debugAttackBoxWidth(),
                     b.debugAttackBoxHeight()
             );
+            double sweetRatio = b.debugNormalAttackSweetSpotStartRatio();
+            if (Double.isFinite(sweetRatio)) {
+                double innerW = b.debugAttackBoxWidth() * sweetRatio;
+                double innerH = b.debugAttackBoxHeight() * sweetRatio;
+                double innerX = b.debugAttackBoxLeft() + (b.debugAttackBoxWidth() - innerW) * 0.5;
+                double innerY = b.debugAttackBoxTop() + (b.debugAttackBoxHeight() - innerH) * 0.5;
+                g.setStroke(Color.web("#FFD54F").deriveColor(0, 1, 1, 0.92));
+                g.setLineDashes(9.0 / Math.max(0.25, zoom), 6.0 / Math.max(0.25, zoom));
+                g.strokeRect(innerX, innerY, innerW, innerH);
+                g.setLineDashes();
+            }
         }
     }
 
@@ -60795,6 +60809,9 @@ public class BirdGame3 {
         resetTrainingComboState();
         trainingSessionDamage = 0.0;
         trainingLastHitDamage = 0.0;
+        trainingShieldAdvantageAvailable = false;
+        trainingLastShieldParry = false;
+        trainingLastShieldAdvantageFrames = 0;
         clearTrainingAcademyRuntimeState();
         applyTrainingAcademyPreset();
     }
@@ -61196,9 +61213,22 @@ public class BirdGame3 {
         trainingAcademyDashSeen = true;
     }
 
-    void recordTrainingShieldHit(Bird defender) {
-        if (!trainingModeActive || defender == null || defender.playerIndex != 0) return;
-        trainingAcademyShieldHitSeen = true;
+    void recordTrainingShieldHit(Bird defender, Bird attacker, boolean parried) {
+        if (!trainingModeActive || defender == null) return;
+        if (defender.playerIndex == 0) {
+            trainingAcademyShieldHitSeen = true;
+        }
+        if (attacker == null || attacker.playerIndex != 0 || !isTrainingDummy(defender)) {
+            return;
+        }
+        trainingShieldAdvantageAvailable = true;
+        trainingLastShieldParry = parried;
+        if (parried) {
+            trainingLastShieldAdvantageFrames = -(int) Math.ceil(attacker.stunTime);
+        } else {
+            trainingLastShieldAdvantageFrames = defender.shieldStunFrames
+                    - attacker.debugNormalAttackRemainingFrames();
+        }
     }
 
     void recordTrainingGrab(Bird attacker) {
@@ -62087,6 +62117,9 @@ public class BirdGame3 {
         trainingDummyBlockFrames = 0;
         trainingFrameAdvanceRequests = 0;
         trainingLastHitDamage = 0.0;
+        trainingShieldAdvantageAvailable = false;
+        trainingLastShieldParry = false;
+        trainingLastShieldAdvantageFrames = 0;
         resetTrainingComboState();
         lastPowerUpSpawnTime = simTick;
     }
@@ -67475,8 +67508,9 @@ public class BirdGame3 {
 
         double panelX = 22;
         double panelY = 220;
-        double panelW = 382;
-        double panelH = 214;
+        double panelW = 560;
+        double panelH = 282;
+        Bird trainingPlayer = players != null && players.length > 0 ? players[0] : null;
 
         g.save();
         g.setFill(Color.web("#08151D", 0.86));
@@ -67494,7 +67528,7 @@ public class BirdGame3 {
         g.setFill(Color.web("#EDF7F8"));
         g.setFont(Font.font("Consolas", 13));
         double leftX = panelX + 14;
-        double rightX = panelX + 202;
+        double rightX = panelX + 300;
         double rowY = panelY + 61;
         double rowGap = 23;
         String comboText = trainingComboHits > 0
@@ -67516,6 +67550,51 @@ public class BirdGame3 {
         g.fillText("SLOMO  " + (trainingSlowMotionEnabled ? "ON" : "OFF"), rightX, rowY);
         rowY += rowGap;
         g.fillText("FREEZE " + (trainingFrameAdvancePause ? "ON" : "OFF"), rightX, rowY);
+
+        double framePanelY = panelY + 164;
+        g.setStroke(Color.web("#80DEEA", 0.34));
+        g.setLineWidth(1.0);
+        g.strokeLine(panelX + 14, framePanelY - 10, panelX + panelW - 14, framePanelY - 10);
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, 13));
+        if (trainingPlayer != null && trainingPlayer.debugNormalAttackTimelineActive()) {
+            String phase = trainingPlayer.debugNormalAttackPhaseLabel();
+            Color phaseColor = switch (phase) {
+                case "ACTIVE" -> Color.web("#FF6B6B");
+                case "RECOVERY" -> Color.web("#FFD166");
+                default -> Color.web("#72E6F2");
+            };
+            g.setFill(Color.web("#EDF7F8"));
+            g.fillText("MOVE   " + trainingPlayer.debugNormalAttackMoveName(), leftX, framePanelY + 9);
+            g.setFill(phaseColor);
+            g.fillText("PHASE  " + phase + "  "
+                            + trainingPlayer.debugNormalAttackFrame() + "/"
+                            + trainingPlayer.debugNormalAttackTotalFrames(),
+                    leftX, framePanelY + 31);
+            g.setFill(Color.web("#CFD8DC"));
+            g.fillText("DATA   " + trainingPlayer.debugNormalAttackStartupFrames() + " startup  |  "
+                            + trainingPlayer.debugNormalAttackActiveFrames() + " active  |  "
+                            + trainingPlayer.debugNormalAttackRecoveryFrames() + " recovery",
+                    leftX, framePanelY + 53);
+            g.setFill(trainingPlayer.debugNormalAttackConnected()
+                    ? Color.web("#A5D6A7") : Color.web("#B0BEC5"));
+            g.fillText(trainingPlayer.debugNormalAttackConnected() ? "CONTACT" : "NO CONTACT YET",
+                    rightX, framePanelY + 31);
+        } else if (trainingPlayer != null && trainingPlayer.debugNormalAttackCooldownFrames() > 0) {
+            g.setFill(Color.web("#FFD166"));
+            g.fillText("REATTACK  " + trainingPlayer.debugNormalAttackCooldownFrames()
+                    + "f — MOVEMENT READY", leftX, framePanelY + 31);
+        } else {
+            g.setFill(Color.web("#90A4AE"));
+            g.fillText("FRAME DATA  READY — ATTACK TO INSPECT", leftX, framePanelY + 31);
+        }
+        if (trainingShieldAdvantageAvailable) {
+            String sign = trainingLastShieldAdvantageFrames > 0 ? "+" : "";
+            g.setFill(trainingLastShieldAdvantageFrames >= 0
+                    ? Color.web("#A5D6A7") : Color.web("#FFAB91"));
+            g.fillText((trainingLastShieldParry ? "PARRY" : "ON SHIELD") + "  "
+                            + sign + trainingLastShieldAdvantageFrames + "f",
+                    rightX, framePanelY + 53);
+        }
 
         g.setFill(Color.web("#FFE082"));
         g.setFont(Font.font("Consolas", 11));
