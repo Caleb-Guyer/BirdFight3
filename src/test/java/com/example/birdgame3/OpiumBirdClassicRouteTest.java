@@ -77,6 +77,8 @@ class OpiumBirdClassicRouteTest {
                 assertEquals(wave < 2, game.holdClassicOpiumBirdEncounterOpen());
                 if (round == 5 && wave < 2) {
                     assertEquals(0.0, (double) get(game.players[0], "smashDamage"), 0.001);
+                    assertEquals(2, game.scores[0],
+                            "Clearing the first dead end should award one foresight reserve");
                 }
             }
         }
@@ -84,6 +86,12 @@ class OpiumBirdClassicRouteTest {
 
     @Test
     void deadEndWavesUseTheRouteSpecificReadableScale() throws Exception {
+        ClassicEncounter deadEnds = route(new BirdGame3()).get(5);
+        assertEquals(96.0, deadEnds.waves[0][0].health(), 0.0001);
+        assertEquals(102.0, deadEnds.waves[1][0].health(), 0.0001);
+        assertEquals(108.0, deadEnds.waves[2][0].health(), 0.0001);
+        assertEquals(0.76, BirdGame3.OPIUM_DEAD_END_POWER_SCALE, 0.0001);
+
         BirdGame3 game = prepared(5, 0x0F0113L, 0x0F0114L);
         Bird first = firstEnemy(game);
         assertNotNull(first);

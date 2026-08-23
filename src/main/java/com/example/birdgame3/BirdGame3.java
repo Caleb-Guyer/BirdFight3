@@ -54068,7 +54068,13 @@ public class BirdGame3 {
                 || classicOpiumWaveIndex + 1 >= classicEncounter.waves.length) return false;
         classicOpiumWaveIndex++;
         Bird player = players[0];
-        if (player != null) player.heal(classicRoundIndex == 5 ? 1_000.0 : 14.0);
+        if (player != null) {
+            player.heal(classicRoundIndex == 5 ? 1_000.0 : 14.0);
+            if (classicRoundIndex == 5 && classicOpiumWaveIndex == 1) {
+                scores[0] = Math.max(scores[0], 2);
+                addToKillFeed("FORESIGHT RESERVE EARNED: one rejected future remains.");
+            }
+        }
         spawnOpiumClassicWave(classicEncounter.waves[classicOpiumWaveIndex]);
         return true;
     }
@@ -62736,8 +62742,9 @@ public class BirdGame3 {
                 // matchups readable without changing ordinary fighter data.
                 case 0 -> 2;
                 case 1, 2, 3 -> 2;
-                // Eleven Dead Ends is three full-strength isolated duels. It
-                // resets damage between visions but never forgives a KO.
+                // Eleven Dead Ends opens as a one-stock precision duel. Its
+                // route-specific wave controller awards a foresight reserve
+                // only after the first vision is cleared.
                 case 5 -> 1;
                 case 7 -> 3;
                 default -> scores[0];
@@ -66212,6 +66219,36 @@ public class BirdGame3 {
         // accept a near match here; otherwise the CPU's old widest-platform
         // fallback is safer than binding recovery to unrelated geometry.
         return closestError <= 12.0 ? closest : null;
+    }
+
+    Platform authoredAiMainStagePlatform(double worldCenterX) {
+        if (selectedMap == MapType.WORLDSEAM && battlefieldIslandW > 0.0) {
+            // Worldseam deliberately has two equal main landmasses separated by
+            // the central rift. Treating the first (left) platform as the only
+            // mainland made grounded CPUs on the right repeatedly recover toward
+            // the rift. Resolve the floor nearest the fighter instead; entering a
+            // gate naturally transfers recovery ownership to the opposite side.
+            Platform nearestLandmass = null;
+            double nearestDistance = Double.POSITIVE_INFINITY;
+            for (Platform platform : platforms) {
+                if (Math.abs(platform.y - battlefieldIslandY) > 0.5 || platform.w < 1_000.0) {
+                    continue;
+                }
+                double distance = worldCenterX < platform.x
+                        ? platform.x - worldCenterX
+                        : (worldCenterX > platform.x + platform.w
+                        ? worldCenterX - (platform.x + platform.w)
+                        : 0.0);
+                if (distance < nearestDistance) {
+                    nearestDistance = distance;
+                    nearestLandmass = platform;
+                }
+            }
+            if (nearestLandmass != null) {
+                return nearestLandmass;
+            }
+        }
+        return authoredAiMainStagePlatform();
     }
 
     private double battlefieldBoundsMargin() {

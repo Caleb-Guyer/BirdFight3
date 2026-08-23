@@ -12152,7 +12152,7 @@ public class Bird {
     }
 
     private Platform findAIMainStagePlatform() {
-        Platform authoredMainStage = game.authoredAiMainStagePlatform();
+        Platform authoredMainStage = game.authoredAiMainStagePlatform(bodyCenterX());
         if (authoredMainStage != null && !isBoundaryPlatform(authoredMainStage)) {
             return authoredMainStage;
         }
