@@ -34762,6 +34762,11 @@ public class BirdGame3 {
             isAI[i] = false;
             b.applyLanState(bs);
         }
+        for (int i = 0; i < LAN_MAX_PLAYERS; i++) {
+            if (players[i] != null && state.birds[i] != null) {
+                players[i].resolveLanGrabLinks(state.birds[i], players);
+            }
+        }
 
         syncLanPowerUps(state.powerUps);
         syncLanNectarNodes(state.nectarNodes);
@@ -64746,6 +64751,7 @@ public class BirdGame3 {
             h = h * 1099511628211L + b.mockingbirdMicChargeFrames;
             h = h * 1099511628211L + b.mockingbirdMicSwingTimer;
             h = h * 1099511628211L + b.mockingbirdMicDirection;
+            h = h * 1099511628211L + b.deterministicGrabStateHash();
             for (boolean hit : b.mockingbirdMicHit) {
                 h = h * 1099511628211L + (hit ? 1 : 0);
             }

@@ -1363,10 +1363,12 @@ public class Bird {
     private boolean rightHeldLastFrame = false;
     private int grabCooldown = 0;
     private boolean grabHeldLastFrame = false;
+    private int grabStartupTimer = 0;
     private Bird grabbedTarget = null;
     private Bird grabbedBy = null;
     private int grabHoldTimer = 0;
     private int grabThrowLockTimer = 0;
+    private int grabEscapeProgress = 0;
 
     // === VINE SWINGING ===
     SwingingVine attachedVine = null;
@@ -1723,8 +1725,12 @@ public class Bird {
     private static final int GRAB_WHIFF_COOLDOWN_FRAMES = 20;
     private static final int GRAB_RELEASE_COOLDOWN_FRAMES = 14;
     private static final int GRAB_THROW_COOLDOWN_FRAMES = 22;
+    private static final int GRAB_STARTUP_FRAMES = 4;
     private static final int GRAB_HOLD_FRAMES = 38;
+    private static final int GRAB_MAX_HOLD_FRAMES = 92;
     private static final int GRAB_THROW_LOCK_FRAMES = 8;
+    private static final int GRAB_MASH_ESCAPE_REDUCTION = 4;
+    private static final double GRAB_ESCAPE_PUSH_SPEED = 4.8;
     private static final double GRAB_FORWARD_REACH = 76.0;
     private static final double GRAB_BACK_REACH = 24.0;
     private static final double GRAB_VERTICAL_REACH = 44.0;
@@ -5969,7 +5975,23 @@ public class Bird {
 
     private boolean handleGrabInput(boolean airborne) {
         boolean held = grabPressed();
-        boolean grabLocked = false;
+        if (grabStartupTimer > 0) {
+            if (airborne || stunTime > 0.0 || isBlocking || grabbedBy != null || grabbedTarget != null) {
+                grabStartupTimer = 0;
+                grabCooldown = Math.max(grabCooldown, GRAB_RELEASE_COOLDOWN_FRAMES);
+                grabHeldLastFrame = held;
+                return false;
+            }
+
+            grabStartupTimer--;
+            vx *= 0.55;
+            if (grabStartupTimer == 0 && !attemptGrab()) {
+                grabCooldown = Math.max(grabCooldown, GRAB_WHIFF_COOLDOWN_FRAMES);
+                attackAnimationTimer = Math.max(attackAnimationTimer, 5);
+            }
+            grabHeldLastFrame = held;
+            return true;
+        }
 
         if (held && !grabHeldLastFrame
                 && !airborne
@@ -5978,16 +6000,15 @@ public class Bird {
                 && attackCooldown <= 0
                 && !isBlocking) {
             cancelAttackCharge();
-            grabLocked = true;
-            if (!attemptGrab()) {
-                grabCooldown = Math.max(grabCooldown, GRAB_WHIFF_COOLDOWN_FRAMES);
-                attackAnimationTimer = Math.max(attackAnimationTimer, 5);
-                vx *= 0.55;
-            }
+            grabStartupTimer = GRAB_STARTUP_FRAMES;
+            attackAnimationTimer = Math.max(attackAnimationTimer, GRAB_STARTUP_FRAMES + 3);
+            vx *= 0.55;
+            grabHeldLastFrame = held;
+            return true;
         }
 
         grabHeldLastFrame = held;
-        return grabLocked;
+        return false;
     }
 
     private boolean attemptGrab() {
@@ -6044,8 +6065,14 @@ public class Bird {
         target.releaseGrabState(false);
         grabbedTarget = target;
         target.grabbedBy = this;
-        grabHoldTimer = GRAB_HOLD_FRAMES;
+        int damageExtension = game.usesSmashCombatRules()
+                ? (int) Math.round(target.smashDamagePercent() * 0.20)
+                : (int) Math.round(Math.max(0.0, STARTING_HEALTH - target.health) * 0.12);
+        grabHoldTimer = Math.clamp(GRAB_HOLD_FRAMES + damageExtension,
+                GRAB_HOLD_FRAMES, GRAB_MAX_HOLD_FRAMES);
         grabThrowLockTimer = GRAB_THROW_LOCK_FRAMES;
+        grabEscapeProgress = 0;
+        grabStartupTimer = 0;
         isBlocking = false;
         parryWindowFrames = 0;
         shieldStunFrames = 0;
@@ -6080,8 +6107,28 @@ public class Bird {
         parryWindowFrames = 0;
         shieldStunFrames = 0;
         cancelAttackCharge();
-        attackHeldLastFrame = attackPressed();
+        int mashInputs = grabMashInputCount();
+        if (mashInputs > 0) {
+            int reduction = GRAB_MASH_ESCAPE_REDUCTION * Math.min(2, mashInputs);
+            holder.grabHoldTimer = Math.max(0, holder.grabHoldTimer - reduction);
+            holder.grabEscapeProgress += reduction;
+            if (holder.grabHoldTimer <= 0) {
+                holder.releaseGrabbedTargetAfterEscape(this);
+            }
+        }
         return true;
+    }
+
+    private int grabMashInputCount() {
+        int count = 0;
+        if (attackPressed() && !attackHeldLastFrame) count++;
+        if (jumpPressed() && !jumpHeldLastFrame) count++;
+        if (specialPressed() && !specialHeldLastFrame) count++;
+        if (blockPressed() && !blockHeldLastFrame) count++;
+        if (grabPressed() && !grabHeldLastFrame) count++;
+        if (leftPressed() && !leftHeldLastFrame) count++;
+        if (rightPressed() && !rightHeldLastFrame) count++;
+        return count;
     }
 
     private boolean handleHoldingGrabState(boolean stunned, boolean inDockWater) {
@@ -6102,11 +6149,6 @@ public class Bird {
         shieldStunFrames = 0;
         vx *= 0.45;
         vy = Math.max(0.0, vy);
-        if (leftPressed() && !rightPressed()) {
-            facingRight = false;
-        } else if (rightPressed() && !leftPressed()) {
-            facingRight = true;
-        }
 
         syncGrabbedTargetPosition();
         if (grabThrowLockTimer > 0) {
@@ -6121,7 +6163,7 @@ public class Bird {
         if (!pummeled && direction != GrabThrowDirection.NONE && grabThrowLockTimer <= 0) {
             performThrow(direction);
         } else if (!pummeled && grabHoldTimer <= 0) {
-            performThrow(GrabThrowDirection.FORWARD);
+            releaseGrabbedTargetAfterEscape(target);
         }
         attackHeldLastFrame = attackHeld;
         return true;
@@ -6722,6 +6764,25 @@ public class Bird {
         }
     }
 
+    private void releaseGrabbedTargetAfterEscape(Bird target) {
+        if (target == null || grabbedTarget != target || target.grabbedBy != this) {
+            releaseGrabState(true);
+            return;
+        }
+        double away = target.bodyCenterX() >= bodyCenterX() ? 1.0 : -1.0;
+        clearGrabLink(target);
+        grabHoldTimer = 0;
+        grabThrowLockTimer = 0;
+        grabEscapeProgress = 0;
+        grabCooldown = Math.max(grabCooldown, GRAB_RELEASE_COOLDOWN_FRAMES);
+        target.grabCooldown = Math.max(target.grabCooldown, GRAB_RELEASE_COOLDOWN_FRAMES);
+        target.blockCooldown = Math.max(target.blockCooldown, 5);
+        target.vx = away * GRAB_ESCAPE_PUSH_SPEED;
+        target.vy = Math.min(target.vy, -1.8);
+        target.x += away * 4.0;
+        game.addToKillFeed(target.shortName() + " escaped " + shortName() + "'s grab!");
+    }
+
     private void releaseGrabState(boolean applyCooldown) {
         Bird target = grabbedTarget;
         if (target != null) {
@@ -6745,6 +6806,8 @@ public class Bird {
         }
         grabHoldTimer = 0;
         grabThrowLockTimer = 0;
+        grabEscapeProgress = 0;
+        grabStartupTimer = 0;
     }
 
     private void interruptGrabStateOnHit() {
@@ -9928,6 +9991,16 @@ public class Bird {
                 return;
             }
         }
+        if (grabbedBy != null) {
+            applyAIGrabEscapeInputs();
+            aiLastHealth = currentDurability;
+            return;
+        }
+        if (grabbedTarget != null) {
+            applyAIGrabFollowupInputs(grabbedTarget, cpuLevel, skill);
+            aiLastHealth = currentDurability;
+            return;
+        }
         if (maintainAIHeldSpecialInputs()) {
             aiLastHealth = currentDurability;
             return;
@@ -10306,11 +10379,14 @@ public class Bird {
             else if (cpuLevel == 2) attackChance *= 0.35;
             double attackRange = Math.max(132.0, Math.min(230.0,
                     idealRange * (0.82 + ownKit.pressure() * 0.14)));
-            boolean choseNormalAttack = attackCooldown <= 0
+            boolean choseGrab = shouldAIUseGrab(target, targetDist, onGround, cpuLevel, skill);
+            boolean choseNormalAttack = !choseGrab && attackCooldown <= 0
                     && targetDist < attackRange
                     && Math.abs(targetY + targetVy * 2.0 - y) < 115
                     && random.nextDouble() < attackChance;
-            if (choseNormalAttack) {
+            if (choseGrab) {
+                game.setAiControlKey(playerIndex, grabKey(), true);
+            } else if (choseNormalAttack) {
                 game.setAiControlKey(playerIndex, attackKey(), true);
             } else if (aiSpecialCooldown <= 0
                     && shouldUseSpecialAI(target, targetDist, onGround, lowHealth)
@@ -10335,6 +10411,71 @@ public class Bird {
         }
 
         aiLastHealth = currentDurability;
+    }
+
+    private void applyAIGrabEscapeInputs() {
+        int phase = Math.floorMod(grabbedBy.grabHoldTimer + playerIndex, 7);
+        switch (phase) {
+            case 0 -> game.setAiControlKey(playerIndex, attackKey(), true);
+            case 1 -> game.setAiControlKey(playerIndex, jumpKey(), true);
+            case 2 -> game.setAiControlKey(playerIndex, specialKey(), true);
+            case 3 -> game.setAiControlKey(playerIndex, grabKey(), true);
+            case 4 -> game.setAiControlKey(playerIndex, blockKey(), true);
+            case 5 -> game.setAiControlKey(playerIndex, leftKey(), true);
+            default -> game.setAiControlKey(playerIndex, rightKey(), true);
+        }
+    }
+
+    private void applyAIGrabFollowupInputs(Bird target, int cpuLevel, double skill) {
+        if (target == null || target.grabbedBy != this || grabThrowLockTimer > 0) {
+            return;
+        }
+        double targetDamage = game.usesSmashCombatRules()
+                ? target.smashDamagePercent()
+                : Math.max(0.0, STARTING_HEALTH - target.health);
+        int pummelSpacing = Math.max(8, 16 - Math.max(1, cpuLevel));
+        boolean safePummel = grabHoldTimer > 16
+                && targetDamage < 80.0
+                && grabHoldTimer % pummelSpacing == 0
+                && skill >= 0.18;
+        if (safePummel) {
+            game.setAiControlKey(playerIndex, attackKey(), true);
+            return;
+        }
+
+        GrabThrowDirection direction;
+        if (targetDamage < 32.0) {
+            direction = Math.floorMod(playerIndex + (int) Math.round(targetDamage), 2) == 0
+                    ? GrabThrowDirection.DOWN : GrabThrowDirection.UP;
+        } else {
+            double centerX = BirdGame3.WORLD_WIDTH / 2.0;
+            boolean facingTowardNearestBlastZone = facingRight == (bodyCenterX() >= centerX);
+            direction = facingTowardNearestBlastZone ? GrabThrowDirection.FORWARD : GrabThrowDirection.BACK;
+        }
+        applyAIThrowDirectionInput(direction);
+    }
+
+    private void applyAIThrowDirectionInput(GrabThrowDirection direction) {
+        switch (direction) {
+            case UP -> game.setAiControlKey(playerIndex, jumpKey(), true);
+            case DOWN -> game.setAiControlKey(playerIndex, blockKey(), true);
+            case BACK -> game.setAiControlKey(playerIndex, facingRight ? leftKey() : rightKey(), true);
+            case FORWARD, NONE -> game.setAiControlKey(playerIndex, facingRight ? rightKey() : leftKey(), true);
+        }
+    }
+
+    private boolean shouldAIUseGrab(Bird target, double targetDist, boolean onGround, int cpuLevel, double skill) {
+        if (target == null || !onGround || !target.isOnGround() || grabCooldown > 0 || grabStartupTimer > 0) {
+            return false;
+        }
+        if (targetDist > GRAB_FORWARD_REACH + target.combatHalfWidth() + 20.0
+                || Math.abs(target.bodyCenterY() - bodyCenterY()) > GRAB_VERTICAL_REACH) {
+            return false;
+        }
+        if (target.isBlocking) {
+            return cpuLevel >= 3;
+        }
+        return cpuLevel >= 6 && skill >= 0.35 && random.nextDouble() < 0.22 + skill * 0.18;
     }
 
     private int adjustRoadrunnerAINavigationDirection(int moveDir, double goalX, boolean verticalPlan) {
@@ -17947,6 +18088,15 @@ public class Bird {
     }
 
     String debugUniversalActionLabel() {
+        if (grabbedBy != null) {
+            return "GRABBED " + Math.max(0, grabbedBy.grabHoldTimer) + "f | MASH "
+                    + Math.max(0, grabbedBy.grabEscapeProgress);
+        }
+        if (grabbedTarget != null) {
+            return "GRAB HOLD " + Math.max(0, grabHoldTimer) + "f | THROW LOCK "
+                    + Math.max(0, grabThrowLockTimer) + "f";
+        }
+        if (grabStartupTimer > 0) return "GRAB STARTUP " + grabStartupTimer + "f";
         if (ledgeHanging) return "LEDGE HANG";
         if (platformDropTimer > 0) return "PLATFORM DROP " + platformDropTimer + "f";
         if (fastFallActive) return "FAST FALL";
@@ -17969,6 +18119,17 @@ public class Bird {
         return shieldRegenDelayFrames > 0
                 ? baseState + " | SHIELD REGEN " + shieldRegenDelayFrames + "f"
                 : baseState;
+    }
+
+    long deterministicGrabStateHash() {
+        long h = grabCooldown;
+        h = h * 31 + grabStartupTimer;
+        h = h * 31 + grabHoldTimer;
+        h = h * 31 + grabThrowLockTimer;
+        h = h * 31 + grabEscapeProgress;
+        h = h * 31 + (grabbedTarget != null ? grabbedTarget.playerIndex + 1 : 0);
+        h = h * 31 + (grabbedBy != null ? grabbedBy.playerIndex + 1 : 0);
+        return h;
     }
 
     private double applyScaledDamageTo(Bird target, double scaledDamage) {
@@ -20131,6 +20292,13 @@ public class Bird {
         state.parryWindowFrames = parryWindowFrames;
         state.shieldHoldVisual = shieldHoldVisual;
         state.shieldRegenDelayFrames = shieldRegenDelayFrames;
+        state.grabCooldown = grabCooldown;
+        state.grabStartupTimer = grabStartupTimer;
+        state.grabbedTargetPlayerIndex = grabbedTarget != null ? grabbedTarget.playerIndex : -1;
+        state.grabbedByPlayerIndex = grabbedBy != null ? grabbedBy.playerIndex : -1;
+        state.grabHoldTimer = grabHoldTimer;
+        state.grabThrowLockTimer = grabThrowLockTimer;
+        state.grabEscapeProgress = grabEscapeProgress;
         state.dodgeTypeOrdinal = dodgeType.ordinal();
         state.dodgeTimer = dodgeTimer;
         state.dodgeInvulnerabilityTimer = dodgeInvulnerabilityTimer;
@@ -20980,6 +21148,13 @@ public class Bird {
         this.parryWindowFrames = state.parryWindowFrames;
         this.shieldHoldVisual = state.shieldHoldVisual;
         this.shieldRegenDelayFrames = state.shieldRegenDelayFrames;
+        this.grabCooldown = Math.max(0, state.grabCooldown);
+        this.grabStartupTimer = Math.max(0, state.grabStartupTimer);
+        this.grabbedTarget = null;
+        this.grabbedBy = null;
+        this.grabHoldTimer = Math.max(0, state.grabHoldTimer);
+        this.grabThrowLockTimer = Math.max(0, state.grabThrowLockTimer);
+        this.grabEscapeProgress = Math.max(0, state.grabEscapeProgress);
         DodgeType[] dodgeTypes = DodgeType.values();
         if (state.dodgeTypeOrdinal >= 0 && state.dodgeTypeOrdinal < dodgeTypes.length) {
             this.dodgeType = dodgeTypes[state.dodgeTypeOrdinal];
@@ -21530,6 +21705,24 @@ public class Bird {
         }
         this.titmouseMobbingNodeIndex = Math.clamp(this.titmouseMobbingNodeIndex, 0, nodeCount);
         updateDisplayPose(1.0);
+    }
+
+    void resolveLanGrabLinks(LanBirdState state, Bird[] roster) {
+        if (state == null || roster == null) {
+            grabbedTarget = null;
+            grabbedBy = null;
+            return;
+        }
+        grabbedTarget = lanBirdAt(roster, state.grabbedTargetPlayerIndex);
+        grabbedBy = lanBirdAt(roster, state.grabbedByPlayerIndex);
+        if (grabbedTarget == this) grabbedTarget = null;
+        if (grabbedBy == this) grabbedBy = null;
+        if (grabbedTarget != null) grabbedTarget.grabbedBy = this;
+        if (grabbedBy != null) grabbedBy.grabbedTarget = this;
+    }
+
+    private static Bird lanBirdAt(Bird[] roster, int index) {
+        return index >= 0 && index < roster.length ? roster[index] : null;
     }
 
     private void copyRaptorEggState(LanBirdState state) {

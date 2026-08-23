@@ -3853,7 +3853,11 @@ class BirdStateTest {
 
         game.setLocalActionsForKey(game.grabKeyForPlayer(0), true);
         attacker.update(1.0);
+        assertNull(getPrivateObject(attacker, "grabbedTarget"),
+                "A grab should have readable startup instead of capturing on the input frame.");
+        assertTrue(attacker.debugUniversalActionLabel().startsWith("GRAB STARTUP"));
         game.setLocalActionsForKey(game.grabKeyForPlayer(0), false);
+        for (int i = 0; i < 4; i++) attacker.update(1.0);
 
         assertSame(defender, getPrivateObject(attacker, "grabbedTarget"));
         assertSame(attacker, getPrivateObject(defender, "grabbedBy"));
@@ -3877,6 +3881,7 @@ class BirdStateTest {
         game.setLocalActionsForKey(game.grabKeyForPlayer(0), true);
         attacker.update(1.0);
         game.setLocalActionsForKey(game.grabKeyForPlayer(0), false);
+        for (int i = 0; i < 4; i++) attacker.update(1.0);
 
         double startingHealth = defender.health;
         game.setLocalActionsForKey(game.jumpKeyForPlayer(0), true);
@@ -3908,12 +3913,129 @@ class BirdStateTest {
         game.setLocalActionsForKey(game.grabKeyForPlayer(0), true);
         attacker.update(1.0);
         game.setLocalActionsForKey(game.grabKeyForPlayer(0), false);
+        for (int i = 0; i < 4; i++) attacker.update(1.0);
 
         attacker.health = 0.0;
         attacker.update(1.0);
 
         assertNull(getPrivateObject(attacker, "grabbedTarget"));
         assertNull(getPrivateObject(defender, "grabbedBy"));
+    }
+
+    @Test
+    void grabbedTargetCanMashOutInsteadOfBeingAutoThrown() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+        Bird holder = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird target = new Bird(170.0, BirdGame3.BirdType.EAGLE, 1, game);
+        holder.y = target.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = holder;
+        game.players[1] = target;
+        invokePrivateVoid(holder, "beginGrabOn", new Class<?>[]{Bird.class}, target);
+
+        double startingHealth = target.health;
+        for (int i = 0; i < 12 && getPrivateObject(target, "grabbedBy") != null; i++) {
+            var previousKey = i % 2 == 0 ? game.jumpKeyForPlayer(1) : game.attackKeyForPlayer(1);
+            var currentKey = i % 2 == 0 ? game.attackKeyForPlayer(1) : game.jumpKeyForPlayer(1);
+            game.setLocalActionsForKey(previousKey, false);
+            game.setLocalActionsForKey(currentKey, true);
+            target.update(1.0);
+        }
+
+        assertNull(getPrivateObject(holder, "grabbedTarget"));
+        assertNull(getPrivateObject(target, "grabbedBy"));
+        assertEquals(startingHealth, target.health, 0.0001,
+                "Escaping a grab should not secretly apply a throw or pummel.");
+        assertTrue(Math.abs(target.vx) > 0.0, "An escape should create readable separation.");
+    }
+
+    @Test
+    void highDamageTargetsHaveLongerGrabEscapeWindows() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        setPrivateBoolean(game);
+        game.activePlayers = 2;
+        Bird holder = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird target = new Bird(170.0, BirdGame3.BirdType.EAGLE, 1, game);
+        holder.y = target.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = holder;
+        game.players[1] = target;
+        setPrivateDouble(target, "smashDamage", 100.0);
+
+        invokePrivateVoid(holder, "beginGrabOn", new Class<?>[]{Bird.class}, target);
+
+        assertEquals(58, getPrivateInt(holder, "grabHoldTimer"));
+        assertEquals("GRAB HOLD 58f | THROW LOCK 8f", holder.debugUniversalActionLabel());
+        assertTrue(target.debugUniversalActionLabel().startsWith("GRABBED 58f | MASH"));
+    }
+
+    @Test
+    void holdingAwayPerformsARealBackThrowWithoutTurningTheHolder() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+        Bird holder = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird target = new Bird(170.0, BirdGame3.BirdType.EAGLE, 1, game);
+        holder.y = target.y = BirdGame3.GROUND_Y - 80.0;
+        holder.facingRight = true;
+        game.players[0] = holder;
+        game.players[1] = target;
+        invokePrivateVoid(holder, "beginGrabOn", new Class<?>[]{Bird.class}, target);
+        setPrivateInt(holder, "grabThrowLockTimer", 0);
+        game.setLocalActionsForKey(game.leftKeyForPlayer(0), true);
+
+        Method hold = Bird.class.getDeclaredMethod("handleHoldingGrabState", boolean.class, boolean.class);
+        hold.setAccessible(true);
+        assertTrue((boolean) hold.invoke(holder, false, false));
+
+        assertTrue(holder.facingRight, "Choosing back throw must not silently reverse the holder first.");
+        assertTrue(target.vx < 0.0, "A right-facing bird's back throw should launch left.");
+        assertNull(getPrivateObject(holder, "grabbedTarget"));
+    }
+
+    @Test
+    void lanSnapshotsRestoreActiveGrabLinksAndTimers() throws Exception {
+        BirdGame3 sourceGame = new BirdGame3();
+        sourceGame.activePlayers = 2;
+        Bird sourceHolder = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, sourceGame);
+        Bird sourceTarget = new Bird(170.0, BirdGame3.BirdType.EAGLE, 1, sourceGame);
+        sourceHolder.y = sourceTarget.y = BirdGame3.GROUND_Y - 80.0;
+        sourceGame.players[0] = sourceHolder;
+        sourceGame.players[1] = sourceTarget;
+        invokePrivateVoid(sourceHolder, "beginGrabOn", new Class<?>[]{Bird.class}, sourceTarget);
+        setPrivateInt(sourceHolder, "grabHoldTimer", 29);
+        setPrivateInt(sourceHolder, "grabEscapeProgress", 8);
+        LanBirdState holderState = sourceHolder.toLanState();
+        LanBirdState targetState = sourceTarget.toLanState();
+
+        BirdGame3 remoteGame = new BirdGame3();
+        Bird remoteHolder = new Bird(0.0, BirdGame3.BirdType.PIGEON, 0, remoteGame);
+        Bird remoteTarget = new Bird(0.0, BirdGame3.BirdType.EAGLE, 1, remoteGame);
+        remoteGame.players[0] = remoteHolder;
+        remoteGame.players[1] = remoteTarget;
+        remoteHolder.applyLanState(holderState);
+        remoteTarget.applyLanState(targetState);
+        remoteHolder.resolveLanGrabLinks(holderState, remoteGame.players);
+        remoteTarget.resolveLanGrabLinks(targetState, remoteGame.players);
+
+        assertSame(remoteTarget, getPrivateObject(remoteHolder, "grabbedTarget"));
+        assertSame(remoteHolder, getPrivateObject(remoteTarget, "grabbedBy"));
+        assertEquals(29, getPrivateInt(remoteHolder, "grabHoldTimer"));
+        assertEquals(8, getPrivateInt(remoteHolder, "grabEscapeProgress"));
+        assertEquals(sourceHolder.deterministicGrabStateHash(), remoteHolder.deterministicGrabStateHash());
+    }
+
+    @Test
+    void highLevelCpuPrioritizesGrabAgainstNearbyShield() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        Bird cpu = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird target = new Bird(170.0, BirdGame3.BirdType.EAGLE, 1, game);
+        cpu.y = target.y = BirdGame3.GROUND_Y - 80.0;
+        target.isBlocking = true;
+        Method decision = Bird.class.getDeclaredMethod("shouldAIUseGrab",
+                Bird.class, double.class, boolean.class, int.class, double.class);
+        decision.setAccessible(true);
+
+        assertTrue((boolean) decision.invoke(cpu, target, 70.0, true, 7, 0.7));
+        assertFalse((boolean) decision.invoke(cpu, target, 70.0, true, 2, 0.05));
     }
 
     @Test

@@ -109,6 +109,13 @@ class LanProtocolTest {
         state.dodgeCooldown = 6;
         state.dodgeDirection = -1;
         state.airDodgeAvailable = false;
+        state.grabCooldown = 19;
+        state.grabStartupTimer = 3;
+        state.grabbedTargetPlayerIndex = 2;
+        state.grabbedByPlayerIndex = -1;
+        state.grabHoldTimer = 47;
+        state.grabThrowLockTimer = 6;
+        state.grabEscapeProgress = 12;
         state.activeAerialLandingLagFrames = 12;
         state.mockingbirdLoungeReuseTimer = 47;
         state.mockingbirdMicCharging = true;
@@ -439,6 +446,13 @@ class LanProtocolTest {
         assertEquals(6, decoded.dodgeCooldown);
         assertEquals(-1, decoded.dodgeDirection);
         assertFalse(decoded.airDodgeAvailable);
+        assertEquals(19, decoded.grabCooldown);
+        assertEquals(3, decoded.grabStartupTimer);
+        assertEquals(2, decoded.grabbedTargetPlayerIndex);
+        assertEquals(-1, decoded.grabbedByPlayerIndex);
+        assertEquals(47, decoded.grabHoldTimer);
+        assertEquals(6, decoded.grabThrowLockTimer);
+        assertEquals(12, decoded.grabEscapeProgress);
         assertEquals(12, decoded.activeAerialLandingLagFrames);
         assertEquals(47, decoded.mockingbirdLoungeReuseTimer);
         assertTrue(decoded.mockingbirdMicCharging);
