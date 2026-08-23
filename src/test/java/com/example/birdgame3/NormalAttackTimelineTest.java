@@ -122,16 +122,16 @@ class NormalAttackTimelineTest {
 
     @Test
     void nonMigratedBirdsKeepLegacyImmediateResolutionUntilAuthored() throws Exception {
-        BirdGame3 game = twoBirdGame(BirdGame3.BirdType.ROADRUNNER, BirdGame3.BirdType.PIGEON,
+        BirdGame3 game = twoBirdGame(BirdGame3.BirdType.SHOEBILL, BirdGame3.BirdType.PIGEON,
                 320.0, 382.0);
-        Bird roadrunner = game.players[0];
+        Bird shoebill = game.players[0];
         Bird target = game.players[1];
         double startingHealth = target.health;
 
-        performAttack(roadrunner, "NEUTRAL");
+        performAttack(shoebill, "NEUTRAL");
 
         assertTrue(target.health < startingHealth);
-        assertFalse(roadrunner.debugNormalAttackTimelineActive());
+        assertFalse(shoebill.debugNormalAttackTimelineActive());
     }
 
     @Test
@@ -271,6 +271,50 @@ class NormalAttackTimelineTest {
         advanceTimer(turkeyGame.players[0], 3);
         assertEquals("ACTIVE", roosterGame.players[0].debugNormalAttackPhaseLabel());
         assertEquals("STARTUP", turkeyGame.players[0].debugNormalAttackPhaseLabel());
+    }
+
+    @Test
+    void mobilityExtremesHaveDistinctCompleteFrameData() throws Exception {
+        String[] variants = {
+                "NEUTRAL", "SIDE_TILT", "UP_TILT", "DOWN_TILT",
+                "SIDE_SMASH", "UP_SMASH", "DOWN_SMASH",
+                "NEUTRAL_AIR", "FORWARD_AIR", "BACK_AIR", "UP_AIR", "DOWN_AIR",
+                "DASH_ATTACK", "LEDGE_ATTACK", "GETUP_ATTACK"
+        };
+        int[][] roadrunnerFrames = {
+                {1, 3, 2}, {1, 4, 2}, {1, 4, 3}, {1, 4, 2},
+                {3, 4, 6}, {3, 5, 5}, {3, 6, 5},
+                {1, 6, 2}, {1, 4, 4}, {1, 4, 4}, {1, 5, 3}, {2, 4, 5},
+                {1, 5, 3}, {1, 4, 4}, {1, 5, 4}
+        };
+        int[][] penguinFrames = {
+                {1, 6, 2}, {1, 7, 3}, {1, 7, 3}, {1, 7, 3},
+                {3, 7, 7}, {3, 8, 7}, {3, 9, 7},
+                {1, 9, 3}, {2, 7, 5}, {2, 7, 5}, {1, 8, 4}, {3, 7, 6},
+                {1, 9, 4}, {1, 7, 5}, {2, 8, 5}
+        };
+
+        assertAuthoredMoveList(BirdGame3.BirdType.ROADRUNNER, variants, roadrunnerFrames);
+        assertAuthoredMoveList(BirdGame3.BirdType.PENGUIN, variants, penguinFrames);
+    }
+
+    @Test
+    void roadrunnerDashAttackStartsBeforePenguinsLongSlideEnds() throws Exception {
+        BirdGame3 roadrunnerGame = twoBirdGame(BirdGame3.BirdType.ROADRUNNER, BirdGame3.BirdType.PIGEON,
+                320.0, 700.0);
+        BirdGame3 penguinGame = twoBirdGame(BirdGame3.BirdType.PENGUIN, BirdGame3.BirdType.PIGEON,
+                320.0, 700.0);
+
+        performAttack(roadrunnerGame.players[0], "DASH_ATTACK");
+        performAttack(penguinGame.players[0], "DASH_ATTACK");
+        advanceTimer(roadrunnerGame.players[0], 2);
+        advanceTimer(penguinGame.players[0], 2);
+
+        assertEquals("ACTIVE", roadrunnerGame.players[0].debugNormalAttackPhaseLabel());
+        assertEquals("ACTIVE", penguinGame.players[0].debugNormalAttackPhaseLabel());
+        assertTrue(penguinGame.players[0].debugNormalAttackTotalFrames()
+                        > roadrunnerGame.players[0].debugNormalAttackTotalFrames(),
+                "Penguin's slide should linger longer than Roadrunner's burst.");
     }
 
     @Test
