@@ -122,16 +122,16 @@ class NormalAttackTimelineTest {
 
     @Test
     void nonMigratedBirdsKeepLegacyImmediateResolutionUntilAuthored() throws Exception {
-        BirdGame3 game = twoBirdGame(BirdGame3.BirdType.VULTURE, BirdGame3.BirdType.PIGEON,
+        BirdGame3 game = twoBirdGame(BirdGame3.BirdType.HEISENBIRD, BirdGame3.BirdType.PIGEON,
                 320.0, 382.0);
-        Bird vulture = game.players[0];
+        Bird heisenbird = game.players[0];
         Bird target = game.players[1];
         double startingHealth = target.health;
 
-        performAttack(vulture, "NEUTRAL");
+        performAttack(heisenbird, "NEUTRAL");
 
         assertTrue(target.health < startingHealth);
-        assertFalse(vulture.debugNormalAttackTimelineActive());
+        assertFalse(heisenbird.debugNormalAttackTimelineActive());
     }
 
     @Test
@@ -398,6 +398,47 @@ class NormalAttackTimelineTest {
         assertTrue(grinchGame.players[0].debugNormalAttackTotalFrames()
                         > razorbillGame.players[0].debugNormalAttackTotalFrames(),
                 "Grinch-Hawk's broad feint should last longer than Razorbill's exact cut.");
+    }
+
+    @Test
+    void lingeringZonersHaveDistinctCompleteFrameData() throws Exception {
+        String[] variants = {
+                "NEUTRAL", "SIDE_TILT", "UP_TILT", "DOWN_TILT",
+                "SIDE_SMASH", "UP_SMASH", "DOWN_SMASH",
+                "NEUTRAL_AIR", "FORWARD_AIR", "BACK_AIR", "UP_AIR", "DOWN_AIR",
+                "DASH_ATTACK", "LEDGE_ATTACK", "GETUP_ATTACK"
+        };
+        int[][] vultureFrames = {
+                {1, 6, 2}, {2, 7, 4}, {2, 7, 4}, {1, 7, 4},
+                {4, 7, 8}, {4, 8, 7}, {4, 9, 7},
+                {1, 10, 3}, {2, 7, 6}, {2, 7, 6}, {1, 9, 4}, {3, 7, 7},
+                {1, 8, 6}, {2, 7, 6}, {2, 8, 6}
+        };
+        int[][] opiumFrames = {
+                {1, 7, 2}, {1, 7, 4}, {1, 8, 3}, {1, 7, 4},
+                {3, 7, 8}, {3, 8, 7}, {3, 9, 7},
+                {1, 10, 3}, {2, 7, 6}, {2, 7, 6}, {1, 9, 4}, {3, 7, 7},
+                {1, 8, 6}, {1, 7, 6}, {2, 8, 6}
+        };
+
+        assertAuthoredMoveList(BirdGame3.BirdType.VULTURE, variants, vultureFrames);
+        assertAuthoredMoveList(BirdGame3.BirdType.OPIUMBIRD, variants, opiumFrames);
+    }
+
+    @Test
+    void opiumBirdStartsItsHazeBeforeVulturesHeavySweep() throws Exception {
+        BirdGame3 vultureGame = twoBirdGame(BirdGame3.BirdType.VULTURE, BirdGame3.BirdType.PIGEON,
+                320.0, 700.0);
+        BirdGame3 opiumGame = twoBirdGame(BirdGame3.BirdType.OPIUMBIRD, BirdGame3.BirdType.PIGEON,
+                320.0, 700.0);
+
+        performAttack(vultureGame.players[0], "SIDE_SMASH");
+        performAttack(opiumGame.players[0], "SIDE_SMASH");
+        advanceTimer(vultureGame.players[0], 4);
+        advanceTimer(opiumGame.players[0], 4);
+
+        assertEquals("STARTUP", vultureGame.players[0].debugNormalAttackPhaseLabel());
+        assertEquals("ACTIVE", opiumGame.players[0].debugNormalAttackPhaseLabel());
     }
 
     @Test

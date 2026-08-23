@@ -3728,7 +3728,9 @@ public class Bird {
                 || type == BirdGame3.BirdType.SHOEBILL
                 || type == BirdGame3.BirdType.MOCKINGBIRD
                 || type == BirdGame3.BirdType.RAZORBILL
-                || type == BirdGame3.BirdType.GRINCHHAWK;
+                || type == BirdGame3.BirdType.GRINCHHAWK
+                || type == BirdGame3.BirdType.VULTURE
+                || type == BirdGame3.BirdType.OPIUMBIRD;
     }
 
     private NormalAttackTimeline normalAttackTimeline(NormalAttackVariant variant) {
@@ -3770,6 +3772,12 @@ public class Bird {
         }
         if (type == BirdGame3.BirdType.GRINCHHAWK) {
             return grinchHawkNormalAttackTimeline(variant);
+        }
+        if (type == BirdGame3.BirdType.VULTURE) {
+            return vultureNormalAttackTimeline(variant);
+        }
+        if (type == BirdGame3.BirdType.OPIUMBIRD) {
+            return opiumBirdNormalAttackTimeline(variant);
         }
         NormalAttackProfile profile = normalAttackProfile(variant);
         return noSweetSpotTimeline(0, 1, Math.max(0, profile.animationFrames() - 1), 0, 0);
@@ -4156,6 +4164,61 @@ public class Bird {
                     0.72, 1.06, 1.10, 0.98, 0.94);
             case LEDGE_ATTACK -> noSweetSpotTimeline(2, 5, 6, 0, 0);
             case GETUP_ATTACK -> noSweetSpotTimeline(2, 6, 6, 0, 0);
+        };
+    }
+
+    /** Vulture commits its weight to broad, persistent wing and beak sweeps. */
+    private NormalAttackTimeline vultureNormalAttackTimeline(NormalAttackVariant variant) {
+        return switch (variant) {
+            case NEUTRAL -> noSweetSpotTimeline(1, 6, 2, 0, 0);
+            case SIDE_TILT -> sweetSpotTimeline(2, 7, 4, 0, 0,
+                    0.66, 1.06, 1.10, 0.98, 0.95);
+            case UP_TILT -> noSweetSpotTimeline(2, 7, 4, 0, 0);
+            case DOWN_TILT -> noSweetSpotTimeline(1, 7, 4, 0, 0);
+            case SIDE_SMASH -> sweetSpotTimeline(4, 7, 8, 0, 0,
+                    0.70, 1.08, 1.13, 0.96, 0.92);
+            case UP_SMASH -> noSweetSpotTimeline(4, 8, 7, 0, 0);
+            case DOWN_SMASH -> noSweetSpotTimeline(4, 9, 7, 0, 0);
+            case NEUTRAL_AIR -> noSweetSpotTimeline(1, 10, 3, 1, 2);
+            case FORWARD_AIR -> sweetSpotTimeline(2, 7, 6, 2, 2,
+                    0.68, 1.07, 1.11, 0.97, 0.93);
+            case BACK_AIR -> sweetSpotTimeline(2, 7, 6, 2, 2,
+                    0.66, 1.07, 1.11, 0.97, 0.94);
+            case UP_AIR -> noSweetSpotTimeline(1, 9, 4, 1, 2);
+            case DOWN_AIR -> sweetSpotTimeline(3, 7, 7, 3, 2,
+                    0.70, 1.08, 1.13, 0.96, 0.91);
+            case DASH_ATTACK -> sweetSpotTimeline(1, 8, 6, 0, 0,
+                    0.70, 1.06, 1.10, 0.98, 0.94);
+            case LEDGE_ATTACK -> noSweetSpotTimeline(2, 7, 6, 0, 0);
+            case GETUP_ATTACK -> noSweetSpotTimeline(2, 8, 6, 0, 0);
+        };
+    }
+
+    /**
+     * Opium Bird's normals bloom into hazy active windows. They cover time
+     * better than space, so the startup stays responsive while recovery makes
+     * repeated missed visions contestable.
+     */
+    private NormalAttackTimeline opiumBirdNormalAttackTimeline(NormalAttackVariant variant) {
+        return switch (variant) {
+            case NEUTRAL -> noSweetSpotTimeline(1, 7, 2, 0, 0);
+            case SIDE_TILT -> noSweetSpotTimeline(1, 7, 4, 0, 0);
+            case UP_TILT -> noSweetSpotTimeline(1, 8, 3, 0, 0);
+            case DOWN_TILT -> noSweetSpotTimeline(1, 7, 4, 0, 0);
+            case SIDE_SMASH -> sweetSpotTimeline(3, 7, 8, 0, 0,
+                    0.64, 1.06, 1.10, 0.99, 0.96);
+            case UP_SMASH -> noSweetSpotTimeline(3, 8, 7, 0, 0);
+            case DOWN_SMASH -> noSweetSpotTimeline(3, 9, 7, 0, 0);
+            case NEUTRAL_AIR -> noSweetSpotTimeline(1, 10, 3, 1, 2);
+            case FORWARD_AIR -> noSweetSpotTimeline(2, 7, 6, 2, 2);
+            case BACK_AIR -> sweetSpotTimeline(2, 7, 6, 2, 2,
+                    0.62, 1.05, 1.09, 0.99, 0.96);
+            case UP_AIR -> noSweetSpotTimeline(1, 9, 4, 1, 2);
+            case DOWN_AIR -> sweetSpotTimeline(3, 7, 7, 3, 2,
+                    0.66, 1.06, 1.11, 0.98, 0.94);
+            case DASH_ATTACK -> noSweetSpotTimeline(1, 8, 6, 0, 0);
+            case LEDGE_ATTACK -> noSweetSpotTimeline(1, 7, 6, 0, 0);
+            case GETUP_ATTACK -> noSweetSpotTimeline(2, 8, 6, 0, 0);
         };
     }
 

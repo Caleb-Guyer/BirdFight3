@@ -14,6 +14,15 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class OpiumBirdClassicRouteTest {
     @Test
+    void manufacturedFutureUsesCompetentButFairOpposition() throws Exception {
+        ClassicEncounter manufactured = route(new BirdGame3()).get(1);
+
+        assertEquals(4, manufactured.cpuLevel);
+        assertEquals(2, manufactured.enemies.length);
+        assertEquals(74.0, manufactured.enemies[0].health(), 0.0001);
+        assertEquals(70.0, manufactured.enemies[1].health(), 0.0001);
+    }
+    @Test
     void twelfthFutureIsAnEightEncounterSelfContainedRoute() throws Exception {
         List<ClassicEncounter> route = route(new BirdGame3());
 

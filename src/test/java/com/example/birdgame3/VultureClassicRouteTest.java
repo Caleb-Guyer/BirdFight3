@@ -16,6 +16,16 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class VultureClassicRouteTest {
     @Test
+    void titanDockRaidKeepsItsGiantThreatWithoutBecomingARouteWall() throws Exception {
+        ClassicEncounter tide = route(new BirdGame3()).get(3);
+
+        assertEquals(2, tide.enemies.length);
+        assertEquals(124.0, tide.enemies[0].health(), 0.0001);
+        assertEquals(0.68, tide.enemies[0].powerMult(), 0.0001);
+        assertEquals(64.0, tide.enemies[1].health(), 0.0001);
+        assertEquals(0.58, tide.enemies[1].powerMult(), 0.0001);
+    }
+    @Test
     void vultureHasEightSelfContainedEncountersInNothingGoesToWaste() throws Exception {
         List<ClassicEncounter> route = route(new BirdGame3());
 

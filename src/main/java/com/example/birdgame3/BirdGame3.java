@@ -47333,8 +47333,8 @@ public class BirdGame3 {
                 MapType.DOCK, MapVariant.TITAN_DOCK, MatchMutator.NONE,
                 ClassicTwist.AFTERMATH, ClassicEncounterStyle.GIANT, 125 * 60,
                 new ClassicFighter[0], new ClassicFighter[]{
-                        classicFighter(BirdType.PELICAN, "Giant: Wreck Pelican", 130, 0.70, 0.90),
-                        classicFighter(BirdType.GOOSE, "Tide Guard Goose", 68, 0.60, 0.98)}, false);
+                        classicFighter(BirdType.PELICAN, "Giant: Wreck Pelican", 124, 0.68, 0.90),
+                        classicFighter(BirdType.GOOSE, "Tide Guard Goose", 64, 0.58, 0.98)}, false);
         tide.cpuLevel = 5;
         run.add(tide);
 
@@ -47407,9 +47407,9 @@ public class BirdGame3 {
                 MapType.MIDNIGHT_WORKSHOP, MapVariant.STANDARD, MatchMutator.NONE,
                 ClassicTwist.FORECAST_SHADOWS, ClassicEncounterStyle.STANDARD, 118 * 60,
                 new ClassicFighter[0], new ClassicFighter[]{
-                classicFighter(BirdType.HEISENBIRD, "Manufactured Seer: Heisenbird", 68, 0.60, 0.98),
-                classicFighter(BirdType.OPIUMBIRD, "Hollow Oracle", 64, 0.58, 1.00)}, false);
-        manufactured.cpuLevel = 3;
+                classicFighter(BirdType.HEISENBIRD, "Manufactured Seer: Heisenbird", 74, 0.64, 0.98),
+                classicFighter(BirdType.OPIUMBIRD, "Hollow Oracle", 70, 0.62, 1.00)}, false);
+        manufactured.cpuLevel = 4;
         run.add(manufactured);
 
         ClassicFighter firstNightmare = classicFighter(BirdType.BAT, "Nightmare I: The Closed Eye", 108, 0.90, 1.02);
