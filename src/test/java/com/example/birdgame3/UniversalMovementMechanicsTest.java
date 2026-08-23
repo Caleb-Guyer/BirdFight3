@@ -152,6 +152,30 @@ class UniversalMovementMechanicsTest {
         assertTrue(bird.vx > 0.0, "One frame of drift must not erase aerial attack commitment.");
     }
 
+    @Test
+    void simultaneousJumpAndAttackProducesNeutralShortHopAerial() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        Bird bird = new Bird(380.0, BirdGame3.BirdType.EAGLE, 0, game);
+        bird.y = BirdGame3.GROUND_Y - bird.bodyHeight();
+        game.players[0] = bird;
+
+        game.setLocalActionsForKey(game.jumpKeyForPlayer(0), true);
+        game.setLocalActionsForKey(game.attackKeyForPlayer(0), true);
+        for (int frame = 0; frame < 4; frame++) {
+            bird.update(1.0);
+        }
+
+        assertFalse(bird.isOnGround());
+        assertEquals("NEUTRAL_AIR", getObject(bird, "activeAttackVariant").toString(),
+                "Jump itself must not accidentally select up-air for the shortcut.");
+        assertTrue(getBoolean(bird, "normalAttackTimelineActive"));
+        assertTrue(bird.vy > -BirdGame3.BirdType.EAGLE.jumpHeight,
+                "The shortcut must use short-hop launch height.");
+        assertFalse(getBoolean(bird, "shortHopAerialQueued"),
+                "The queued aerial must be consumed exactly once at takeoff.");
+    }
+
     private static void invokeHorizontalMovement(Bird bird, boolean stunned, boolean airborne,
                                                  boolean jumpHeld, boolean jumpJustPressed,
                                                  double gameSpeed) throws Exception {
@@ -171,6 +195,12 @@ class UniversalMovementMechanicsTest {
         Field field = target.getClass().getDeclaredField(fieldName);
         field.setAccessible(true);
         return field.getBoolean(target);
+    }
+
+    private static Object getObject(Object target, String fieldName) throws Exception {
+        Field field = target.getClass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        return field.get(target);
     }
 
     private static void setBoolean(Object target, String fieldName, boolean value) throws Exception {

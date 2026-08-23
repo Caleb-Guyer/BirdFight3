@@ -678,6 +678,8 @@ public class Bird {
     public boolean canDoubleJump = true;
     private int jumpSquatTimer = 0;
     private boolean shortHopQueued = false;
+    private boolean shortHopAerialQueued = false;
+    private NormalAttackVariant shortHopAerialVariant = NormalAttackVariant.NEUTRAL_AIR;
     private boolean jumpHeldLastFrame = false;
     private boolean fastFallActive = false;
     private int platformDropTimer = 0;
@@ -16850,6 +16852,8 @@ public class Bird {
     private void clearJumpSquat() {
         jumpSquatTimer = 0;
         shortHopQueued = false;
+        shortHopAerialQueued = false;
+        shortHopAerialVariant = NormalAttackVariant.NEUTRAL_AIR;
     }
 
     private void clearAerialAttackState() {
@@ -17248,6 +17252,8 @@ public class Bird {
 
     private void launchGroundJump() {
         double jumpScale = shortHopQueued ? SHORT_HOP_MULTIPLIER : 1.0;
+        boolean launchQueuedAerial = shortHopAerialQueued;
+        NormalAttackVariant queuedAerialVariant = shortHopAerialVariant;
         if (type == BirdGame3.BirdType.PELICAN) {
             jumpScale *= 1.0 - pelicanEffectiveCargo() * 0.11;
         }
@@ -17265,6 +17271,43 @@ public class Bird {
         vy = -type.jumpHeight * jumpScale;
         game.playSwingSfx();
         recordJumpHeightAchievements();
+        if (launchQueuedAerial && attackCooldown <= 0 && !normalAttackTimelineActive) {
+            performAttack(0, queuedAerialVariant);
+            attackHeldLastFrame = true;
+        }
+    }
+
+    private NormalAttackVariant selectShortHopAerialVariant() {
+        if (game.isAttackDownPressed(playerIndex)) {
+            return NormalAttackVariant.DOWN_AIR;
+        }
+        boolean leftHeld = leftPressed();
+        boolean rightHeld = rightPressed();
+        if (leftHeld != rightHeld) {
+            boolean towardFacing = rightHeld == facingRight;
+            return towardFacing ? NormalAttackVariant.FORWARD_AIR : NormalAttackVariant.BACK_AIR;
+        }
+        if (game.isAttackUpPressed(playerIndex)) {
+            return NormalAttackVariant.UP_AIR;
+        }
+        return NormalAttackVariant.NEUTRAL_AIR;
+    }
+
+    private boolean tryQueueShortHopAerial(boolean airborne, boolean jumpJustPressed) {
+        boolean attackJustPressed = attackPressed() && !attackHeldLastFrame;
+        if (airborne || !jumpJustPressed || !attackJustPressed || attackCooldown > 0
+                || isBlocking || isDodging() || landingLagTimer > 0 || knockdownTimer > 0
+                || normalAttackTimelineActive || isChargingAttack() || isGroundAttackPending()) {
+            return false;
+        }
+        startGroundJumpSquat();
+        shortHopQueued = true;
+        shortHopAerialQueued = true;
+        shortHopAerialVariant = selectShortHopAerialVariant();
+        attackHeldLastFrame = true;
+        attackBufferFrames = 0;
+        jumpBufferFrames = 0;
+        return true;
     }
 
     private void advanceGroundJumpSquat(boolean jumpHeld, double gameSpeed) {
@@ -18293,6 +18336,7 @@ public class Bird {
                 vx *= 0.76;
                 return;
             }
+            tryQueueShortHopAerial(airborne, jumpJustPressed);
         if ((type == BirdGame3.BirdType.PIGEON && PigeonSpecials.active(this))
                     || (isRaptor() && RaptorSpecials.active(this))
                     || (type == BirdGame3.BirdType.SHOEBILL && shoebillSpecialActive())
@@ -19470,6 +19514,53 @@ public class Bird {
         long h = aiVoidRecoveryLockFrames;
         h = h * 31 + aiEdgeGuardCommitFrames;
         h = h * 31 + aiEdgeGuardCooldown;
+        return h;
+    }
+
+    long deterministicMovementStateHash() {
+        long h = Double.doubleToLongBits(vx);
+        h = h * 31 + Double.doubleToLongBits(vy);
+        h = h * 31 + Double.doubleToLongBits(smashDamage);
+        h = h * 31 + Double.doubleToLongBits(stunTime);
+        h = h * 31 + attackCooldown;
+        h = h * 31 + attackAnimationTimer;
+        h = h * 31 + attackChargeFrames;
+        h = h * 31 + pendingGroundAttackFrames;
+        h = h * 31 + pendingGroundAttackVariant.ordinal();
+        h = h * 31 + chargingAttackVariant.ordinal();
+        h = h * 31 + activeAttackVariant.ordinal();
+        h = h * 31 + (normalAttackTimelineActive ? 1 : 0);
+        h = h * 31 + normalAttackTimelineFrame;
+        h = h * 31 + normalAttackTimelineChargeFrames;
+        h = h * 31 + (normalAttackEnvironmentResolved ? 1 : 0);
+        h = h * 31 + (normalAttackConnected ? 1 : 0);
+        for (int lastHitFrame : normalAttackLastHitFrame) h = h * 31 + lastHitFrame;
+        h = h * 31 + (aerialAttackActive ? 1 : 0);
+        h = h * 31 + aerialAttackTotalFrames;
+        h = h * 31 + activeAerialLandingLagFrames;
+        h = h * 31 + landingLagTimer;
+        h = h * 31 + jumpSquatTimer;
+        h = h * 31 + (shortHopQueued ? 1 : 0);
+        h = h * 31 + (shortHopAerialQueued ? 1 : 0);
+        h = h * 31 + shortHopAerialVariant.ordinal();
+        h = h * 31 + (fastFallActive ? 1 : 0);
+        h = h * 31 + platformDropTimer;
+        h = h * 31 + Double.doubleToLongBits(platformDropSurfaceY);
+        h = h * 31 + jumpBufferFrames;
+        h = h * 31 + coyoteFrames;
+        h = h * 31 + attackBufferFrames;
+        h = h * 31 + Double.doubleToLongBits(cooldownRecoveryCarry);
+        h = h * 31 + dashCooldown;
+        h = h * 31 + dashTimer;
+        h = h * 31 + lastTapDir;
+        h = h * 31 + lastTapTick;
+        h = h * 31 + (attackHeldLastFrame ? 1 : 0);
+        h = h * 31 + (specialHeldLastFrame ? 1 : 0);
+        h = h * 31 + (jumpHeldLastFrame ? 1 : 0);
+        h = h * 31 + (blockHeldLastFrame ? 1 : 0);
+        h = h * 31 + (grabHeldLastFrame ? 1 : 0);
+        h = h * 31 + (leftHeldLastFrame ? 1 : 0);
+        h = h * 31 + (rightHeldLastFrame ? 1 : 0);
         return h;
     }
 
@@ -21540,13 +21631,26 @@ public class Bird {
         state.canDoubleJump = canDoubleJump;
         state.jumpSquatTimer = jumpSquatTimer;
         state.shortHopQueued = shortHopQueued;
+        state.shortHopAerialQueued = shortHopAerialQueued;
+        state.shortHopAerialVariantOrdinal = shortHopAerialVariant.ordinal();
         state.fastFallActive = fastFallActive;
         state.platformDropTimer = platformDropTimer;
         state.platformDropSurfaceY = platformDropSurfaceY;
+        state.jumpBufferFrames = jumpBufferFrames;
+        state.coyoteFrames = coyoteFrames;
+        state.attackBufferFrames = attackBufferFrames;
+        state.cooldownRecoveryCarry = cooldownRecoveryCarry;
         state.dashCooldown = dashCooldown;
         state.dashTimer = dashTimer;
         state.lastTapDir = lastTapDir;
         state.lastTapTick = lastTapTick;
+        state.attackHeldLastFrame = attackHeldLastFrame;
+        state.specialHeldLastFrame = specialHeldLastFrame;
+        state.jumpHeldLastFrame = jumpHeldLastFrame;
+        state.blockHeldLastFrame = blockHeldLastFrame;
+        state.grabHeldLastFrame = grabHeldLastFrame;
+        state.leftHeldLastFrame = leftHeldLastFrame;
+        state.rightHeldLastFrame = rightHeldLastFrame;
         state.loungeActive = loungeActive;
         state.isCitySkin = isCitySkin;
         state.isNoirSkin = isNoirSkin;
@@ -22373,15 +22477,30 @@ public class Bird {
         this.canDoubleJump = state.canDoubleJump;
         this.jumpSquatTimer = state.jumpSquatTimer;
         this.shortHopQueued = state.shortHopQueued;
+        this.shortHopAerialQueued = state.shortHopAerialQueued;
+        this.shortHopAerialVariant = state.shortHopAerialVariantOrdinal >= 0
+                && state.shortHopAerialVariantOrdinal < attackVariants.length
+                ? attackVariants[state.shortHopAerialVariantOrdinal] : NormalAttackVariant.NEUTRAL_AIR;
         this.fastFallActive = state.fastFallActive;
         this.platformDropTimer = Math.max(0, state.platformDropTimer);
         this.platformDropSurfaceY = platformDropTimer > 0 && Double.isFinite(state.platformDropSurfaceY)
                 ? state.platformDropSurfaceY
                 : Double.NaN;
+        this.jumpBufferFrames = Math.max(0, state.jumpBufferFrames);
+        this.coyoteFrames = Math.max(0, state.coyoteFrames);
+        this.attackBufferFrames = Math.max(0, state.attackBufferFrames);
+        this.cooldownRecoveryCarry = Math.max(0.0, state.cooldownRecoveryCarry);
         this.dashCooldown = Math.max(0, state.dashCooldown);
         this.dashTimer = Math.max(0, state.dashTimer);
         this.lastTapDir = Integer.compare(state.lastTapDir, 0);
         this.lastTapTick = state.lastTapTick;
+        this.attackHeldLastFrame = state.attackHeldLastFrame;
+        this.specialHeldLastFrame = state.specialHeldLastFrame;
+        this.jumpHeldLastFrame = state.jumpHeldLastFrame;
+        this.blockHeldLastFrame = state.blockHeldLastFrame;
+        this.grabHeldLastFrame = state.grabHeldLastFrame;
+        this.leftHeldLastFrame = state.leftHeldLastFrame;
+        this.rightHeldLastFrame = state.rightHeldLastFrame;
         this.loungeActive = state.loungeActive;
         this.isCitySkin = state.isCitySkin;
         this.isNoirSkin = state.isNoirSkin;
@@ -22835,16 +22954,6 @@ public class Bird {
                 && state.lastAttackInteractionOrdinal < interactionResults.length
                 ? interactionResults[state.lastAttackInteractionOrdinal]
                 : NormalAttackInteractionResult.NONE;
-        this.attackHeldLastFrame = false;
-        this.jumpHeldLastFrame = false;
-        this.specialHeldLastFrame = false;
-        this.jumpBufferFrames = 0;
-        this.coyoteFrames = 0;
-        this.attackBufferFrames = 0;
-        this.blockHeldLastFrame = false;
-        this.grabHeldLastFrame = false;
-        this.leftHeldLastFrame = false;
-        this.rightHeldLastFrame = false;
         this.speedMultiplier = state.speedMultiplier;
         this.powerMultiplier = state.powerMultiplier;
         this.sizeMultiplier = state.sizeMultiplier;

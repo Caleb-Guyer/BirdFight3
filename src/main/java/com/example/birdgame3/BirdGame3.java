@@ -65009,6 +65009,7 @@ public class BirdGame3 {
             h = h * 1099511628211L + b.deterministicGrabStateHash();
             h = h * 1099511628211L + b.deterministicLedgeStateHash();
             h = h * 1099511628211L + b.deterministicRecoveryStateHash();
+            h = h * 1099511628211L + b.deterministicMovementStateHash();
             h = h * 1099511628211L + b.deterministicDefenseStateHash();
             h = h * 1099511628211L + b.deterministicHitReactionStateHash();
             h = h * 1099511628211L + b.deterministicStaleMoveStateHash();
