@@ -146,42 +146,44 @@ under KO slow-mo.
 
 AI-vs-AI results — treat as "where to look," not verdicts (the AI can't pilot
 technical kits like Razorbill/Charles):
-- The post hit/launch-system audit completed 19,404 matches across 21 maps with
-  8 draws/timeouts. Results range from Tufted Titmouse at 34.3% to Raven at
-  74.3%; the 40.0-point spread is slightly narrower than the preceding
-  77.3%-to-36.3% audit. Combined with the owner's hands-on fighter passes, the
-  roster remains an accepted playable baseline, though not a claim of
-  tournament-perfect balance.
+- The post defense/ledge/recovery audit completed 19,404 matches across 21 maps
+  with 7 draws/timeouts. Results range from Tufted Titmouse at 28.5% to Raven
+  at 71.9%; the 43.4-point spread is wider than the preceding 40.0-point audit.
+  The new systems reduced Raven's former 74.3% lead while materially improving
+  recovery-dependent Falcon, Phoenix, and Vulture results. Combined with the
+  owner's hands-on fighter passes, the roster remains an accepted playable
+  baseline, though not a claim of tournament-perfect balance.
 - Titmouse's campaign-era 1.45 dealt / 0.68 taken preset produced an 84.6%
   outlier. Restoring 1.10 dealt / 0.92 taken while preserving its 1.40 cooldown
   and 1.25 ultimate cadence brought the earlier full audit to 64.0%. Exact old
   shipped presets migrate in memory; any customized value preserves the whole
   preset. The new stale-move system exposes the CPU's repetitive Titmouse plan
-  and its latest result is 34.3%; treat that as an AI/human-playtest lead before
+  and its latest result is 28.5%; treat that as an AI/human-playtest lead before
   applying another global stat buff.
-- Goose scored 50.3% in the latest full audit; its honk launch-hierarchy focused
+- Goose scored 48.0% in the latest full audit; its honk launch-hierarchy focused
   run previously scored 51.2%. Honk has charge commitment, sharp distance falloff,
   velocity caps, and shared damage-scaled launch; legacy whole-kit penalties
   were eased to 0.68 dealt / 1.35 taken / 0.70 cooldown / 0.62 ultimate.
 - Roadrunner's obsolete 4 power / 0.78 dealt / 1.45 taken / 0.65 cooldown /
   0.50 ultimate preset contradicted its momentum payoff. After owner feedback
   that the first pass was still weak, it moved to 7 / 1.00 / 1.08 / 1.05 / 1.00;
-  its full-audit result is now 47.0% without becoming a roster outlier. Its
+  its full-audit result is now 43.5% without becoming a roster outlier. Its
   Classic Round 1 rose from 12.5% to 67.2% by becoming a three-wave miniature
   gauntlet with checkpoint repairs and a second opening stock. Aggressive CPU
   navigation changes previously made it worse, so keep AI stage-routing separate.
-- Phoenix's normal-attack correction now scores 47.8% in the full audit. Bat's
-  eased legacy penalties score 45.9%; its strong map variance remains a useful
-  owner-playtest target rather than an automatic tuning order.
+- Phoenix's normal-attack correction and recovery pass now score 57.7% in the
+  full audit. Bat's eased legacy penalties score 46.1%; its strong map variance
+  remains a useful owner-playtest target rather than an automatic tuning order.
 - Vulture's owned crow damage/launch already inherit his outgoing multiplier.
   Its focused pass eased obsolete whole-kit penalties to 0.84 dealt / 1.26 taken /
   0.84 cooldown / 0.78 ultimate, raising its focused result from 25.7% to 45.4%
-  and its latest full-audit result is 44.4%; the owner approved the feel pass.
+  and its latest full-audit result is 47.9%; the owner approved the feel pass.
 - The all-route Classic audit completed 9,856 attempts: 111 of 154 scored combat
-  encounters landed in the target band, 15 were possibly easy, 28 were flagged
+  encounters landed in the target band, 17 were possibly easy, 26 were flagged
   hard/weak-matchup, and objective rounds remained excluded. These are AI pilot
   leads, especially for technical kits and unique bosses, not automatic tuning
-  orders; every route completed without a harness hang.
+  orders; every route completed without a harness hang. Razorbill's Worldseam
+  final boss recovered from a routing regression to a 54.7% completion rate.
 - Global multipliers do NOT fix structural outliers.
 
 ## Working with the owner
@@ -196,11 +198,11 @@ technical kits like Razorbill/Charles):
 
 ## Open threads
 
-1. Competitive balance polish — Raven remains AI-high, while Rooster/Turkey are
-   the lower end. Roadrunner is now 45.8% in the full audit; its stronger fighter
-   pass and rebalanced Classic opening await owner playtesting. The Classic lab
-   flags Roadrunner Round 3 as a likely AI-routing failure and the independently
-   tested final boss as too hard; verify those with human play before tuning.
+1. Competitive balance polish — Raven remains AI-high at 71.9%, while Titmouse
+   (28.5%) and Pelican (37.4%) are the main AI-low human-playtest leads.
+   Roadrunner is 43.5% in the full audit. Pelican's 7.1% Worldseam result and
+   Titmouse's repetitive CPU plan should be verified by human play before any
+   global tuning; neither produced a harness hang or structural test failure.
 2. Real sprite art — pipeline complete and waiting; owner draws.
 3. Rollback, matchmaking, and relay infrastructure — direct internet lockstep
    now exists, but no-setup play through CGNAT still needs a hosted relay and
