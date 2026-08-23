@@ -1136,6 +1136,7 @@ public class BirdGame3 {
     private double redFlashAlpha = 0.0;  // red tint for normal big hits
     private int flashTimer = 0;          // frames remaining for flash
     private final UIFactory uiFactory = new UIFactory(this::playButtonClick, this::applyNoEllipsis, this::fitMainMenuButtonSingleLine);
+    private final FrontEndMatchFlow frontEndMatchFlow = new FrontEndMatchFlow();
     private Runnable stageSelectReturn = null;
     private Consumer<StageChoice> stageSelectHandler = null;
     private Consumer<StageRandomPool> stageSelectRandomHandler = null;
@@ -4346,6 +4347,7 @@ public class BirdGame3 {
         state.ambientEffectsEnabled = ambientEffectsEnabled;
         state.fpsCap = fpsCap;
         state.lastSeenUpdateSplashKey = lastSeenUpdateSplashKey;
+        state.versusRulesPresetName = frontEndMatchFlow.rulesPreset().name();
         return state;
     }
 
@@ -4368,6 +4370,7 @@ public class BirdGame3 {
         ambientEffectsEnabled = resolved.ambientEffectsEnabled;
         fpsCap = sanitizeFpsCap(resolved.fpsCap);
         lastSeenUpdateSplashKey = resolved.lastSeenUpdateSplashKey == null ? "" : resolved.lastSeenUpdateSplashKey;
+        frontEndMatchFlow.restoreRulesPreset(resolved.versusRulesPresetName);
     }
 
     private boolean isReservedBindingKey(KeyCode code) {
@@ -24967,9 +24970,9 @@ public class BirdGame3 {
             loadSounds();
             appendStartLog("loadSounds done");
             startWiimoteMenuTimer();
-            appendStartLog("before showMenu");
-            showMenu(stage);
-            appendStartLog("after showMenu");
+            appendStartLog("before showTitleScreen");
+            showTitleScreen(stage);
+            appendStartLog("after showTitleScreen");
             prepareStageForInitialShow(stage);
             appendStartLog("prepared initial stage size");
             appendStartLog("before stage.show");
@@ -25059,6 +25062,274 @@ public class BirdGame3 {
         }, "InputInit");
         inputInitThread.setDaemon(true);
         return inputInitThread;
+    }
+
+    private void showTitleScreen(Stage stage) {
+        frontEndMatchFlow.showTitle();
+        playMenuMusic();
+
+        StackPane root = new StackPane();
+        root.getProperties().put("noAutoScale", true);
+        root.setStyle("-fx-background-color: #020305;");
+
+        AnchorPane frame = new AnchorPane();
+        frame.setId("uiFrame");
+        lockRegionSize(frame, 1600, 950);
+        frame.setStyle("-fx-background-color: linear-gradient(to bottom right, #05070B 0%, #111722 54%, #050507 100%);");
+
+        Region redSlash = new Region();
+        lockRegionSize(redSlash, 1060, 360);
+        redSlash.relocate(-190, 170);
+        redSlash.setRotate(-10);
+        redSlash.setStyle("-fx-background-color: linear-gradient(to right, rgba(214,40,40,0.86), rgba(139,0,0,0.12));"
+                + "-fx-background-radius: 34;");
+        Region blueSlash = new Region();
+        lockRegionSize(blueSlash, 1040, 260);
+        blueSlash.relocate(730, 280);
+        blueSlash.setRotate(-10);
+        blueSlash.setStyle("-fx-background-color: linear-gradient(to left, rgba(30,136,229,0.68), rgba(13,71,161,0.05));"
+                + "-fx-background-radius: 34;");
+
+        Label eyebrow = new Label("THE PLATFORM FIGHTER WITH WINGS");
+        eyebrow.setFont(Font.font("Consolas", FontWeight.BOLD, 22));
+        eyebrow.setTextFill(Color.web("#FFE082"));
+        applyNoEllipsis(eyebrow);
+
+        Label title = new Label("BIRD FIGHT");
+        title.setFont(Font.font("Arial Black", 116));
+        title.setTextFill(Color.WHITE);
+        title.setEffect(new DropShadow(22, Color.rgb(0, 0, 0, 0.70)));
+        applyNoEllipsis(title);
+
+        Label three = new Label("3");
+        three.setFont(Font.font("Arial Black", 190));
+        three.setTextFill(Color.web("#FFD54F"));
+        three.setRotate(-7);
+        three.setEffect(new DropShadow(26, Color.rgb(0, 0, 0, 0.72)));
+        applyNoEllipsis(three);
+
+        HBox logo = new HBox(24, title, three);
+        logo.setAlignment(Pos.CENTER_LEFT);
+        VBox logoBlock = new VBox(-10, eyebrow, logo);
+        logoBlock.setAlignment(Pos.CENTER_LEFT);
+        AnchorPane.setLeftAnchor(logoBlock, 94.0);
+        AnchorPane.setTopAnchor(logoBlock, 245.0);
+
+        GameSaveRepository.SaveProfile profile = saveRepository.activeProfile();
+        Label profileLine = new Label("PROFILE  " + profile.name().toUpperCase(Locale.ROOT)
+                + "     BIRD COINS  " + birdCoinBalanceText());
+        profileLine.setFont(Font.font("Consolas", FontWeight.BOLD, 20));
+        profileLine.setTextFill(Color.web("#CFD8DC"));
+        applyNoEllipsis(profileLine);
+        AnchorPane.setLeftAnchor(profileLine, 102.0);
+        AnchorPane.setTopAnchor(profileLine, 608.0);
+
+        Button startButton = uiFactory.action("PRESS START", 520, 104, 34, "#D62828", 26,
+                () -> showMenu(stage));
+        startButton.setAccessibleText("Start Bird Fight 3");
+        startButton.setStyle("-fx-background-color: linear-gradient(to right, #D62828, #8B0000);"
+                + "-fx-text-fill: white; -fx-font-family: 'Arial Black'; -fx-font-size: 34px;"
+                + "-fx-background-radius: 18; -fx-border-color: #FFE082; -fx-border-width: 4;"
+                + "-fx-border-radius: 18; -fx-cursor: hand;");
+        AnchorPane.setLeftAnchor(startButton, 94.0);
+        AnchorPane.setBottomAnchor(startButton, 126.0);
+
+        Label prompt = new Label("ENTER / A  START     ESC  EXIT     F11  FULLSCREEN");
+        prompt.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
+        prompt.setTextFill(Color.web("#90A4AE"));
+        applyNoEllipsis(prompt);
+        AnchorPane.setLeftAnchor(prompt, 102.0);
+        AnchorPane.setBottomAnchor(prompt, 72.0);
+
+        Label versionMark = new Label("BIRD FIGHT 3");
+        versionMark.setFont(Font.font("Arial Black", 24));
+        versionMark.setTextFill(Color.web("#FFFFFF", 0.22));
+        applyNoEllipsis(versionMark);
+        AnchorPane.setRightAnchor(versionMark, 58.0);
+        AnchorPane.setBottomAnchor(versionMark, 52.0);
+
+        frame.getChildren().addAll(redSlash, blueSlash, logoBlock, profileLine, startButton, prompt, versionMark);
+        root.getChildren().add(frame);
+
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        bindEscape(scene, () -> confirmExitGame(stage));
+        bindFixedFrameScale(scene, frame, 0.0);
+        setScenePreservingFullscreen(stage, scene);
+        javafx.application.Platform.runLater(() -> {
+            startButton.requestFocus();
+            setConsoleHighlightActive(true, scene);
+        });
+    }
+
+    private void showVersusRules(Stage stage) {
+        frontEndMatchFlow.beginVersus();
+        playMenuMusic();
+
+        StackPane root = new StackPane();
+        root.getProperties().put("noAutoScale", true);
+        root.setStyle("-fx-background-color: #05070B;");
+
+        BorderPane frame = new BorderPane();
+        frame.setId("uiFrame");
+        lockRegionSize(frame, 1600, 950);
+        frame.setStyle("-fx-background-color: linear-gradient(to bottom, #080B11 0%, #151B26 100%);");
+
+        Label progress = new Label(frontEndMatchFlow.progressLabel());
+        progress.setFont(Font.font("Consolas", FontWeight.BOLD, 21));
+        progress.setTextFill(Color.web("#FFE082"));
+        applyNoEllipsis(progress);
+        Label heading = new Label("CHOOSE THE RULES");
+        heading.setFont(Font.font("Arial Black", 52));
+        heading.setTextFill(Color.WHITE);
+        applyNoEllipsis(heading);
+        Label subtitle = new Label("Your selection is remembered for the next local battle.");
+        subtitle.setFont(Font.font("Consolas", 20));
+        subtitle.setTextFill(Color.web("#B0BEC5"));
+        applyNoEllipsis(subtitle);
+        VBox header = new VBox(8, progress, heading, subtitle);
+        header.setPadding(new Insets(46, 62, 30, 62));
+        header.setStyle("-fx-background-color: linear-gradient(to right, #B71C1C 0%, #5A0A12 45%, #0A0D13 100%);"
+                + "-fx-border-color: transparent transparent rgba(255,255,255,0.16) transparent; -fx-border-width: 0 0 3 0;");
+        frame.setTop(header);
+
+        List<Button> presetButtons = new ArrayList<>();
+        for (VersusRulesPreset preset : VersusRulesPreset.values()) {
+            presetButtons.add(buildVersusRuleCard(preset));
+        }
+        refreshVersusRuleCards(presetButtons);
+        HBox cards = new HBox(28);
+        cards.setAlignment(Pos.CENTER);
+        cards.getChildren().addAll(presetButtons);
+
+        Label savedLabel = new Label("SAVED RULESET");
+        savedLabel.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
+        savedLabel.setTextFill(Color.web("#80CBC4"));
+        Label savedValue = new Label(frontEndMatchFlow.rulesPreset().title);
+        savedValue.setFont(Font.font("Arial Black", 30));
+        savedValue.setTextFill(Color.WHITE);
+        Label savedSummary = new Label(frontEndMatchFlow.rulesPreset().summary);
+        savedSummary.setFont(Font.font("Consolas", 18));
+        savedSummary.setTextFill(Color.web("#CFD8DC"));
+        savedSummary.setWrapText(true);
+        savedSummary.setMaxWidth(1240);
+        VBox currentRules = new VBox(5, savedLabel, savedValue, savedSummary);
+        currentRules.setPadding(new Insets(16, 24, 16, 24));
+        currentRules.setStyle("-fx-background-color: rgba(0,0,0,0.38); -fx-background-radius: 14;"
+                + "-fx-border-color: rgba(255,255,255,0.12); -fx-border-radius: 14; -fx-border-width: 2;");
+
+        for (Button button : presetButtons) {
+            button.setOnAction(e -> {
+                playButtonClick();
+                VersusRulesPreset preset = (VersusRulesPreset) button.getProperties().get("versusPreset");
+                frontEndMatchFlow.selectRulesPreset(preset);
+                savedValue.setText(preset.title);
+                savedSummary.setText(preset.summary);
+                refreshVersusRuleCards(presetButtons);
+            });
+        }
+
+        VBox center = new VBox(32, cards, currentRules);
+        center.setAlignment(Pos.CENTER);
+        center.setPadding(new Insets(36, 52, 30, 52));
+        frame.setCenter(center);
+
+        Button backButton = uiFactory.action("BACK", 280, 82, 28, "#8B1E24", 20, () -> {
+            frontEndMatchFlow.back();
+            showMenu(stage);
+        });
+        Button continueButton = uiFactory.action("CHOOSE FIGHTERS", 430, 82, 28, "#00A84F", 20, () -> {
+            applyVersusRulesPreset();
+            saveAchievements();
+            frontEndMatchFlow.confirmRules();
+            showFightSetup(stage);
+        });
+        Region footerSpacer = new Region();
+        HBox.setHgrow(footerSpacer, Priority.ALWAYS);
+        HBox footer = new HBox(24, backButton, footerSpacer, continueButton);
+        footer.setAlignment(Pos.CENTER);
+        footer.setPadding(new Insets(24, 54, 34, 54));
+        footer.setStyle("-fx-background-color: rgba(3,5,8,0.96); -fx-border-color: rgba(255,255,255,0.10) transparent transparent transparent; -fx-border-width: 3 0 0 0;");
+        frame.setBottom(footer);
+
+        root.getChildren().add(frame);
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        bindEscape(scene, backButton::fire);
+        bindFixedFrameScale(scene, frame, 0.0);
+        setScenePreservingFullscreen(stage, scene);
+        javafx.application.Platform.runLater(() -> {
+            presetButtons.stream()
+                    .filter(button -> button.getProperties().get("versusPreset") == frontEndMatchFlow.rulesPreset())
+                    .findFirst().orElse(continueButton).requestFocus();
+            setConsoleHighlightActive(true, scene);
+        });
+    }
+
+    private Button buildVersusRuleCard(VersusRulesPreset preset) {
+        Label eyebrow = new Label(preset.eyebrow);
+        eyebrow.setFont(Font.font("Consolas", FontWeight.BOLD, 16));
+        eyebrow.setTextFill(Color.web(preset.accent));
+        eyebrow.setWrapText(true);
+        eyebrow.setMaxWidth(390);
+        Label title = new Label(preset.title);
+        title.setFont(Font.font("Arial Black", 31));
+        title.setTextFill(Color.WHITE);
+        title.setWrapText(true);
+        title.setMaxWidth(390);
+        Label summary = new Label(preset.summary);
+        summary.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
+        summary.setTextFill(Color.web("#CFD8DC"));
+        summary.setWrapText(true);
+        summary.setMaxWidth(390);
+        Region spacer = new Region();
+        VBox.setVgrow(spacer, Priority.ALWAYS);
+        Label selectHint = new Label("SELECT RULESET");
+        selectHint.setFont(Font.font("Consolas", FontWeight.BOLD, 16));
+        selectHint.setTextFill(Color.web("#90A4AE"));
+        VBox graphic = new VBox(12, eyebrow, title, summary, spacer, selectHint);
+        graphic.setAlignment(Pos.TOP_LEFT);
+        graphic.setPadding(new Insets(30));
+        lockRegionSize(graphic, 430, 310);
+        graphic.setMouseTransparent(true);
+
+        Button button = new Button();
+        button.setGraphic(graphic);
+        button.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+        button.setPadding(Insets.EMPTY);
+        lockRegionSize(button, 430, 310);
+        button.setCursor(Cursor.HAND);
+        button.setAccessibleText(preset.title + ". " + preset.summary);
+        button.getProperties().put("versusPreset", preset);
+        button.getProperties().put("skipConsoleHighlight", Boolean.TRUE);
+        return button;
+    }
+
+    private void refreshVersusRuleCards(List<Button> buttons) {
+        for (Button button : buttons) {
+            VersusRulesPreset preset = (VersusRulesPreset) button.getProperties().get("versusPreset");
+            boolean selected = preset == frontEndMatchFlow.rulesPreset();
+            button.setStyle("-fx-background-color: " + (selected
+                    ? "linear-gradient(to bottom right, #27364A, #111821)"
+                    : "linear-gradient(to bottom right, #161C26, #090C11)") + ";"
+                    + "-fx-background-radius: 20; -fx-border-radius: 20;"
+                    + "-fx-border-color: " + (selected ? preset.accent : "rgba(255,255,255,0.16)") + ";"
+                    + "-fx-border-width: " + (selected ? "5" : "3") + "; -fx-padding: 0;");
+        }
+    }
+
+    private void applyVersusRulesPreset() {
+        VersusRulesPreset preset = frontEndMatchFlow.rulesPreset();
+        competitionModeEnabled = preset.competitionMode;
+        mutatorModeEnabled = preset.mutatorMode;
+        if (!competitionModeEnabled) {
+            competitionSeriesActive = false;
+            competitionRoundNumber = 1;
+            Arrays.fill(competitionRoundWins, 0);
+            Arrays.fill(competitionTeamWins, 0);
+        }
     }
 
     private void showMenu(Stage stage) {
@@ -27012,6 +27283,7 @@ public class BirdGame3 {
     }
 
     private void showHub(Stage stage) {
+        frontEndMatchFlow.showHub();
         playMenuMusic();
         GameSaveRepository.SaveProfile activeProfile = saveRepository.activeProfile();
         StackPane root = new StackPane();
@@ -27073,7 +27345,7 @@ public class BirdGame3 {
                 "VERSUS BATTLES", "FIGHT",
                 hubLeftWidth, hubFightHeight, 82, new Insets(18, 220, 24, 34),
                 Pos.CENTER_LEFT, hubIconFight(), 3.2, 0.16,
-                38, 0, 0, 0, () -> showFightSetup(stage));
+                38, 0, 0, 0, () -> showVersusRules(stage));
         registerHubInteractiveNode(fightNode, hubButtons, helpTitle, helpBody,
                 buildUltimateHubStyle("#D62828", "#8B0000", "#FFD7C2", 38, 0, 0, 0, false),
                 buildUltimateHubStyle("#D62828", "#8B0000", "#FFF8E1", 38, 0, 0, 0, true),
@@ -27212,7 +27484,8 @@ public class BirdGame3 {
         addSceneEventFilter(scene, KeyEvent.KEY_PRESSED, e -> {
             if (e.getCode() == KeyCode.ESCAPE) {
                 playButtonClick();
-                confirmExitGame(stage);
+                frontEndMatchFlow.back();
+                showTitleScreen(stage);
                 e.consume();
             }
         });
@@ -29170,6 +29443,8 @@ public class BirdGame3 {
     }
 
     private void showFightSetup(Stage stage) {
+        frontEndMatchFlow.showFighters();
+        applyVersusRulesPreset();
         playMenuMusic();
         activePlayers = Math.clamp(activePlayers, 2, 4);
         resetWiimoteSelectorHeldState();
@@ -29190,14 +29465,17 @@ public class BirdGame3 {
         content.setStyle("-fx-background-color: linear-gradient(to bottom, #06070A, #0D1017 34%, #171B22 100%);");
         root.getChildren().add(content);
 
-        Button back = uiFactory.action("BACK", 156, 56, 22, "#B5121B", 16, () -> showMenu(stage));
+        Button back = uiFactory.action("BACK", 156, 56, 22, "#B5121B", 16, () -> {
+            frontEndMatchFlow.back();
+            showVersusRules(stage);
+        });
         back.setStyle("-fx-background-color: linear-gradient(to bottom, #D61D28, #981019); "
                 + "-fx-text-fill: white; -fx-font-family: 'Arial Black'; -fx-font-size: 17px; "
                 + "-fx-font-weight: bold; -fx-background-radius: 18; -fx-border-color: black; "
                 + "-fx-border-width: 3; -fx-border-radius: 18;");
         applyNoEllipsis(back);
 
-        Label title = new Label("LOCAL BATTLE");
+        Label title = new Label("SELECT FIGHTERS");
         title.setFont(Font.font("Arial Black", FontWeight.BOLD, 34));
         title.setTextFill(Color.web("#111111"));
         StackPane titleBanner = new StackPane(title);
@@ -29416,10 +29694,14 @@ public class BirdGame3 {
         Runnable[] syncTeamButtons = new Runnable[4];
 
         Runnable startBattle = () -> {
-            stageSelectReturn = () -> showFightSetup(stage);
+            frontEndMatchFlow.confirmFighters(true);
+            stageSelectReturn = () -> {
+                frontEndMatchFlow.showFighters();
+                showFightSetup(stage);
+            };
             showStageSelect(stage);
         };
-        Label readyText = new Label("FLY INTO BATTLE!");
+        Label readyText = new Label("READY TO FIGHT!");
         readyText.setFont(Font.font("Arial Black", FontWeight.BOLD, 18));
         readyText.setTextFill(Color.web("#08090B"));
         readyText.setMouseTransparent(true);
@@ -36981,7 +37263,7 @@ public class BirdGame3 {
         if (stage == null || !shouldShowLatestUpdateSplash()) {
             return;
         }
-        showUpdateSplash(stage, 0, true, () -> showMenu(stage));
+        showUpdateSplash(stage, 0, true, () -> showTitleScreen(stage));
     }
 
     private void markUpdateSplashSeen(UpdateSplash splash) {
@@ -44357,6 +44639,9 @@ public class BirdGame3 {
                 Arrays.fill(competitionTeamWins, 0);
                 competitionRoundNumber = 1;
             }
+            frontEndMatchFlow.selectRulesPreset(mutatorModeEnabled
+                    ? VersusRulesPreset.CHAOS
+                    : (competitionModeEnabled ? VersusRulesPreset.COMPETITIVE : VersusRulesPreset.STANDARD));
             refreshSettingsToggleButton(mutatorToggle, "MUTATOR MODE", mutatorModeEnabled);
             refreshSettingsToggleButton(compToggle, "COMPETITION MODE", competitionModeEnabled);
             saveAchievements();
@@ -44372,6 +44657,9 @@ public class BirdGame3 {
                 Arrays.fill(competitionTeamWins, 0);
                 competitionRoundNumber = 1;
             }
+            frontEndMatchFlow.selectRulesPreset(competitionModeEnabled
+                    ? VersusRulesPreset.COMPETITIVE
+                    : (mutatorModeEnabled ? VersusRulesPreset.CHAOS : VersusRulesPreset.STANDARD));
             refreshSettingsToggleButton(mutatorToggle, "MUTATOR MODE", mutatorModeEnabled);
             refreshSettingsToggleButton(compToggle, "COMPETITION MODE", competitionModeEnabled);
             saveAchievements();
@@ -48707,11 +48995,16 @@ public class BirdGame3 {
         titleBanner.setStyle("-fx-background-color: linear-gradient(to bottom, #FFE45C, #F8C528); "
                 + "-fx-background-radius: 12; -fx-border-color: black; -fx-border-width: 4; -fx-border-radius: 12;");
 
-        Label coins = new Label("BIRD COINS  " + birdCoinBalanceText());
-        coins.setFont(Font.font("Arial Black", 19));
-        coins.setTextFill(Color.web("#FFF8D6"));
-        StackPane coinsChip = new StackPane(coins);
-        coinsChip.setPadding(new Insets(10, 18, 10, 18));
+        Label ruleName = new Label(frontEndMatchFlow.rulesPreset().title);
+        ruleName.setFont(Font.font("Arial Black", 14));
+        ruleName.setTextFill(Color.web("#FFF8D6"));
+        Label coins = new Label("COINS  " + birdCoinBalanceText());
+        coins.setFont(Font.font("Consolas", FontWeight.BOLD, 13));
+        coins.setTextFill(Color.web("#CFD8DC"));
+        VBox rulesAndCoins = new VBox(1, ruleName, coins);
+        rulesAndCoins.setAlignment(Pos.CENTER);
+        StackPane coinsChip = new StackPane(rulesAndCoins);
+        coinsChip.setPadding(new Insets(6, 16, 6, 16));
         coinsChip.setStyle("-fx-background-color: rgba(255,193,7,0.22); -fx-background-radius: 24; "
                 + "-fx-border-color: rgba(255,245,157,0.65); -fx-border-width: 2; -fx-border-radius: 24;");
 
@@ -60219,6 +60512,7 @@ public class BirdGame3 {
     }
 
     private void showStageSelect(Stage stage) {
+        boolean localVersusFlow = frontEndMatchFlow.screen() == FrontEndMatchFlow.Screen.STAGES;
         playMenuMusic();
         BorderPane root = new BorderPane();
         root.setPadding(new Insets(
@@ -60249,7 +60543,9 @@ public class BirdGame3 {
         title.setEffect(new DropShadow(14, Color.web("#FF1744", 0.48)));
         applyNoEllipsis(title);
 
-        Label subtitle = new Label("ALL ARENAS  •  MAIN + VARIANTS");
+        Label subtitle = new Label(localVersusFlow
+                ? frontEndMatchFlow.progressLabel()
+                : "ALL ARENAS  •  MAIN + VARIANTS");
         subtitle.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
         subtitle.setTextFill(Color.web("#90A4AE"));
         applyNoEllipsis(subtitle);
@@ -60263,10 +60559,17 @@ public class BirdGame3 {
                     + " > " + StageSelectLayout.capacity());
         }
         StackPane countChip = buildMenuChip(stages.size() + " STAGES", "#29131A", "#FF8A80");
+        StackPane rulesChip = localVersusFlow
+                ? buildMenuChip(frontEndMatchFlow.rulesPreset().title, "#102331", frontEndMatchFlow.rulesPreset().accent)
+                : null;
 
         Region headerSpacer = new Region();
         HBox.setHgrow(headerSpacer, Priority.ALWAYS);
-        HBox topBar = new HBox(20, backArrow, heading, headerSpacer, countChip);
+        HBox topBar = new HBox(20, backArrow, heading, headerSpacer);
+        if (rulesChip != null) {
+            topBar.getChildren().add(rulesChip);
+        }
+        topBar.getChildren().add(countChip);
         topBar.setAlignment(Pos.CENTER_LEFT);
         topBar.setMinHeight(StageSelectLayout.TOP_BAR_HEIGHT);
         topBar.setPrefHeight(StageSelectLayout.TOP_BAR_HEIGHT);
@@ -60738,7 +61041,132 @@ public class BirdGame3 {
         Arrays.fill(competitionRoundWins, 0);
         Arrays.fill(competitionTeamWins, 0);
         competitionRoundNumber = 1;
-        startMatch(stage);
+        frontEndMatchFlow.showLoading();
+        showVersusLoading(stage, choice, standardFightRandomMapPool);
+    }
+
+    private void showVersusLoading(Stage stage, StageChoice choice, StageRandomPool randomPool) {
+        StackPane root = new StackPane();
+        root.getProperties().put("noAutoScale", true);
+        root.setStyle("-fx-background-color: #020305;");
+
+        AnchorPane frame = new AnchorPane();
+        frame.setId("uiFrame");
+        lockRegionSize(frame, 1600, 950);
+        frame.setStyle("-fx-background-color: linear-gradient(to bottom right, #080B12, #171E2B 58%, #310912);");
+
+        Region slash = new Region();
+        lockRegionSize(slash, 1920, 310);
+        slash.relocate(-150, 320);
+        slash.setRotate(-6);
+        slash.setStyle("-fx-background-color: linear-gradient(to right, rgba(198,24,46,0.96), rgba(255,179,0,0.72));");
+
+        Label ready = new Label("READY TO FIGHT!");
+        ready.setFont(Font.font("Impact", FontWeight.BOLD, 86));
+        ready.setTextFill(Color.WHITE);
+        ready.setEffect(new DropShadow(18, Color.rgb(0, 0, 0, 0.70)));
+        applyNoEllipsis(ready);
+        AnchorPane.setLeftAnchor(ready, 64.0);
+        AnchorPane.setTopAnchor(ready, 70.0);
+
+        Label rules = new Label(frontEndMatchFlow.rulesPreset().title + "   •   "
+                + frontEndMatchFlow.rulesPreset().summary);
+        rules.setFont(Font.font("Consolas", FontWeight.BOLD, 19));
+        rules.setTextFill(Color.web("#FFE082"));
+        applyNoEllipsis(rules);
+        AnchorPane.setLeftAnchor(rules, 70.0);
+        AnchorPane.setTopAnchor(rules, 175.0);
+
+        Canvas stagePreview = new Canvas(570, 330);
+        if (randomPool != null && randomPool != StageRandomPool.NONE) {
+            StagePreviewRenderer.drawRandom(stagePreview);
+        } else {
+            StagePreviewRenderer.draw(stagePreview, choice);
+        }
+        StackPane previewFrame = new StackPane(stagePreview);
+        previewFrame.setPadding(new Insets(8));
+        previewFrame.setStyle("-fx-background-color: #070A0F; -fx-background-radius: 18;"
+                + "-fx-border-color: #FFE082; -fx-border-width: 5; -fx-border-radius: 18;");
+        previewFrame.setEffect(new DropShadow(24, Color.rgb(0, 0, 0, 0.62)));
+        AnchorPane.setRightAnchor(previewFrame, 70.0);
+        AnchorPane.setTopAnchor(previewFrame, 260.0);
+
+        String stageName = randomPool != null && randomPool != StageRandomPool.NONE
+                ? "RANDOM STAGE"
+                : stageDisplayName(choice.map(), choice.variant()).toUpperCase(Locale.ROOT);
+        Label stageLabel = new Label(stageName);
+        stageLabel.setFont(Font.font("Arial Black", 30));
+        stageLabel.setTextFill(Color.WHITE);
+        stageLabel.setMaxWidth(570);
+        stageLabel.setWrapText(true);
+        stageLabel.setTextAlignment(TextAlignment.CENTER);
+        stageLabel.setAlignment(Pos.CENTER);
+        applyNoEllipsis(stageLabel);
+        AnchorPane.setRightAnchor(stageLabel, 70.0);
+        AnchorPane.setTopAnchor(stageLabel, 620.0);
+
+        HBox fighters = new HBox(18);
+        fighters.setAlignment(Pos.CENTER_LEFT);
+        for (int i = 0; i < activePlayers; i++) {
+            boolean randomPick = fightSetupSelection.isRandomSelected(i);
+            BirdType type = fightSetupSelection.selectedBird(i);
+            Canvas portrait = new Canvas(160, 160);
+            drawRosterSprite(portrait, type, fightSetupSelection.selectedSkinKey(i), randomPick);
+            Label playerLabel = new Label("P" + (i + 1));
+            playerLabel.setFont(Font.font("Arial Black", 18));
+            playerLabel.setTextFill(Color.web(i == 0 ? "#FFD54F" : "#FFFFFF"));
+            Label birdLabel = new Label(randomPick || type == null
+                    ? "RANDOM"
+                    : type.name().replace('_', ' '));
+            birdLabel.setFont(Font.font("Consolas", FontWeight.BOLD, 14));
+            birdLabel.setTextFill(Color.web("#CFD8DC"));
+            birdLabel.setMaxWidth(170);
+            birdLabel.setWrapText(true);
+            VBox fighterCard = new VBox(4, playerLabel, portrait, birdLabel);
+            fighterCard.setAlignment(Pos.CENTER);
+            fighterCard.setPadding(new Insets(12));
+            fighterCard.setStyle("-fx-background-color: rgba(0,0,0,0.58); -fx-background-radius: 16;"
+                    + "-fx-border-color: rgba(255,255,255,0.20); -fx-border-width: 2; -fx-border-radius: 16;");
+            fighters.getChildren().add(fighterCard);
+        }
+        AnchorPane.setLeftAnchor(fighters, 68.0);
+        AnchorPane.setTopAnchor(fighters, 300.0);
+
+        Label loadingHint = new Label("LOADING BATTLE  •  ENTER / A TO SKIP");
+        loadingHint.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
+        loadingHint.setTextFill(Color.web("#B0BEC5"));
+        applyNoEllipsis(loadingHint);
+        AnchorPane.setLeftAnchor(loadingHint, 70.0);
+        AnchorPane.setBottomAnchor(loadingHint, 64.0);
+
+        frame.getChildren().addAll(slash, ready, rules, fighters, previewFrame, stageLabel, loadingHint);
+        root.getChildren().add(frame);
+
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        bindFixedFrameScale(scene, frame, 0.0);
+        setScenePreservingFullscreen(stage, scene);
+
+        boolean[] launched = new boolean[1];
+        Runnable launch = () -> {
+            if (launched[0]) return;
+            launched[0] = true;
+            frontEndMatchFlow.beginBattle();
+            startMatch(stage);
+        };
+        PauseTransition pause = new PauseTransition(Duration.millis(760));
+        pause.setOnFinished(e -> launch.run());
+        addSceneEventFilter(scene, KeyEvent.KEY_PRESSED, e -> {
+            if (e.getCode() == KeyCode.ENTER || e.getCode() == KeyCode.SPACE) {
+                pause.stop();
+                launch.run();
+                e.consume();
+            } else if (e.getCode() == KeyCode.ESCAPE) {
+                e.consume();
+            }
+        });
+        pause.play();
     }
 
     private void beginTrainingMatchOnMap(Stage stage, MapType map) {
@@ -70476,19 +70904,24 @@ public class BirdGame3 {
         // full-window scaling path as gameplay. The generic menu wrapper adds
         // a 28px safe-area margin and letterboxes fixed-ratio content.
         makeSceneResponsive(scene);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
         if (lanModeActive) {
-            setupKeyboardNavigation(scene);
-            applyConsoleHighlight(scene);
             if (lanIsHost && !buttons.getChildren().isEmpty()
                     && buttons.getChildren().getFirst() instanceof Button backLobby) {
                 bindEscape(scene, backLobby);
             }
+        } else if (buttons.getProperties().get("summaryEscapeButton") instanceof Button escapeButton) {
+            bindEscape(scene, escapeButton);
         }
         Scene installedScene = setScenePreservingFullscreen(stage, scene);
         sceneRef[0] = installedScene;
         matchSummaryBackgroundTimer = backgroundTimer;
         backgroundTimer.start();
         playCinematicResultsIntro(slashPlate, poseNode, titleBlock, resultsPanel, buttons);
+        if (!buttons.getChildren().isEmpty() && buttons.getChildren().getFirst() instanceof Button firstButton) {
+            javafx.application.Platform.runLater(firstButton::requestFocus);
+        }
     }
 
     Canvas prepareMatchSummaryBackgroundCanvas() {
@@ -72087,29 +72520,60 @@ public class BirdGame3 {
             });
             buttons.getChildren().addAll(bracket, exit);
         } else {
-            Button rematch = button("REMATCH", "#FF1744");
+            frontEndMatchFlow.showResults();
+            buttons.setSpacing(18);
+            double actionWidth = lastMatchReplay == null ? 292.0 : 245.0;
+            Button rematch = button("REMATCH", "#FF1744", actionWidth);
             rematch.setOnAction(e -> {
                 resetMatchStats();
                 competitionSeriesActive = false;
                 Arrays.fill(competitionRoundWins, 0);
                 Arrays.fill(competitionTeamWins, 0);
                 competitionRoundNumber = 1;
+                frontEndMatchFlow.beginBattle();
                 startMatch(stage);
             });
-            Button menu = button("BACK TO HUB", "#D32F2F");
+
+            Button fighters = button("FIGHTERS", "#7B1FA2", actionWidth);
+            fighters.setOnAction(e -> {
+                resetMatchStats();
+                frontEndMatchFlow.showFighters();
+                showFightSetup(stage);
+            });
+
+            Button stages = button("STAGE", "#00838F", actionWidth);
+            stages.setOnAction(e -> {
+                resetMatchStats();
+                frontEndMatchFlow.showStages();
+                stageSelectReturn = () -> {
+                    frontEndMatchFlow.showFighters();
+                    showFightSetup(stage);
+                };
+                showStageSelect(stage);
+            });
+
+            Button rules = button("RULES", "#EF6C00", actionWidth);
+            rules.setOnAction(e -> {
+                resetMatchStats();
+                showVersusRules(stage);
+            });
+
+            Button menu = button("HUB", "#D32F2F", actionWidth);
             menu.setOnAction(e -> {
                 resetMatchStats();
+                frontEndMatchFlow.back();
                 showMenu(stage);
             });
+            buttons.getProperties().put("summaryEscapeButton", menu);
             if (lastMatchReplay != null) {
-                Button watchReplay = button("WATCH REPLAY", "#1565C0");
+                Button watchReplay = button("REPLAY", "#1565C0", actionWidth);
                 watchReplay.setOnAction(e -> {
                     resetMatchStats();
                     startReplayPlayback(stage);
                 });
-                buttons.getChildren().addAll(rematch, watchReplay, menu);
+                buttons.getChildren().addAll(rematch, fighters, stages, rules, watchReplay, menu);
             } else {
-                buttons.getChildren().addAll(rematch, menu);
+                buttons.getChildren().addAll(rematch, fighters, stages, rules, menu);
             }
         }
         return buttons;

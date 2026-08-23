@@ -57,4 +57,20 @@ class BirdGame3GlobalSettingsStateTest {
 
         assertEquals("REBIRTH_UPDATE", prefs.get("last_seen_update_splash", ""));
     }
+
+    @Test
+    void loadAndSaveRoundTripsVersusRulesPreset() {
+        prefs.put("versus_rules_preset", "competitive");
+
+        BirdGame3GlobalSettingsState state = BirdGame3GlobalSettingsState.load(prefs, new String[0], 0);
+        assertEquals(VersusRulesPreset.COMPETITIVE.name(), state.versusRulesPresetName);
+
+        state.versusRulesPresetName = VersusRulesPreset.CHAOS.name();
+        state.saveTo(prefs, new String[0]);
+        assertEquals(VersusRulesPreset.CHAOS.name(), prefs.get("versus_rules_preset", ""));
+
+        prefs.put("versus_rules_preset", "deleted-preset");
+        state = BirdGame3GlobalSettingsState.load(prefs, new String[0], 0);
+        assertEquals(VersusRulesPreset.STANDARD.name(), state.versusRulesPresetName);
+    }
 }

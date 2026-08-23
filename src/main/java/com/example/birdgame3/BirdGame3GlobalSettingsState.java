@@ -16,6 +16,7 @@ final class BirdGame3GlobalSettingsState {
     private static final String KEY_AMBIENT_FX = "setting_ambient_fx";
     private static final String KEY_FPS_CAP = "setting_fps_cap";
     private static final String KEY_LAST_SEEN_UPDATE_SPLASH = "last_seen_update_splash";
+    private static final String KEY_VERSUS_RULES_PRESET = "versus_rules_preset";
     private static final String WIIMOTE_MODE_PREFIX = "setting_wiimote_mode_p";
 
     String[][] controlBindingNames = new String[0][];
@@ -33,6 +34,7 @@ final class BirdGame3GlobalSettingsState {
     boolean ambientEffectsEnabled = true;
     int fpsCap = 60;
     String lastSeenUpdateSplashKey = "";
+    String versusRulesPresetName = VersusRulesPreset.STANDARD.name();
 
     static BirdGame3GlobalSettingsState load(Preferences prefs, String[] controlActionPrefKeys, int playerCount) {
         BirdGame3GlobalSettingsState state = new BirdGame3GlobalSettingsState();
@@ -71,6 +73,8 @@ final class BirdGame3GlobalSettingsState {
         state.ambientEffectsEnabled = prefs.getBoolean(KEY_AMBIENT_FX, true);
         state.fpsCap = FrameRateLimiter.sanitizeFpsCap(prefs.getInt(KEY_FPS_CAP, 60));
         state.lastSeenUpdateSplashKey = prefs.get(KEY_LAST_SEEN_UPDATE_SPLASH, "");
+        state.versusRulesPresetName = VersusRulesPreset.fromPreference(
+                prefs.get(KEY_VERSUS_RULES_PRESET, VersusRulesPreset.STANDARD.name())).name();
         return state;
     }
 
@@ -113,6 +117,8 @@ final class BirdGame3GlobalSettingsState {
         prefs.putBoolean(KEY_AMBIENT_FX, ambientEffectsEnabled);
         prefs.putInt(KEY_FPS_CAP, FrameRateLimiter.sanitizeFpsCap(fpsCap));
         prefs.put(KEY_LAST_SEEN_UPDATE_SPLASH, nullToEmpty(lastSeenUpdateSplashKey));
+        prefs.put(KEY_VERSUS_RULES_PRESET,
+                VersusRulesPreset.fromPreference(versusRulesPresetName).name());
     }
 
     private static String controlPrefKey(int playerIdx, String actionPrefKey) {
