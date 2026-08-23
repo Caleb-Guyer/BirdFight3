@@ -3734,7 +3734,9 @@ public class Bird {
                 || type == BirdGame3.BirdType.HEISENBIRD
                 || type == BirdGame3.BirdType.RAVEN
                 || type == BirdGame3.BirdType.GOOSE
-                || type == BirdGame3.BirdType.KIWI;
+                || type == BirdGame3.BirdType.KIWI
+                || type == BirdGame3.BirdType.TITMOUSE
+                || type == BirdGame3.BirdType.BAT;
     }
 
     private NormalAttackTimeline normalAttackTimeline(NormalAttackVariant variant) {
@@ -3794,6 +3796,12 @@ public class Bird {
         }
         if (type == BirdGame3.BirdType.KIWI) {
             return kiwiNormalAttackTimeline(variant);
+        }
+        if (type == BirdGame3.BirdType.TITMOUSE) {
+            return titmouseNormalAttackTimeline(variant);
+        }
+        if (type == BirdGame3.BirdType.BAT) {
+            return batNormalAttackTimeline(variant);
         }
         NormalAttackProfile profile = normalAttackProfile(variant);
         return noSweetSpotTimeline(0, 1, Math.max(0, profile.animationFrames() - 1), 0, 0);
@@ -4352,6 +4360,70 @@ public class Bird {
                     0.80, 1.09, 1.14, 0.95, 0.90);
             case LEDGE_ATTACK -> noSweetSpotTimeline(2, 5, 6, 0, 0);
             case GETUP_ATTACK -> noSweetSpotTimeline(2, 6, 6, 0, 0);
+        };
+    }
+
+    /**
+     * Titmouse fights in compact bursts. Its small body reaches active frames
+     * almost immediately, but the narrow hitboxes retract quickly enough that
+     * a missed scramble still gives the opponent a real punish window.
+     */
+    private NormalAttackTimeline titmouseNormalAttackTimeline(NormalAttackVariant variant) {
+        return switch (variant) {
+            case NEUTRAL -> sweetSpotTimeline(1, 3, 2, 0, 0,
+                    0.72, 1.04, 1.07, 0.99, 0.96);
+            case SIDE_TILT -> sweetSpotTimeline(1, 4, 3, 0, 0,
+                    0.76, 1.06, 1.10, 0.98, 0.94);
+            case UP_TILT -> noSweetSpotTimeline(1, 5, 2, 0, 0);
+            case DOWN_TILT -> sweetSpotTimeline(1, 3, 4, 0, 0,
+                    0.74, 1.05, 1.08, 0.98, 0.95);
+            case SIDE_SMASH -> sweetSpotTimeline(3, 4, 8, 0, 0,
+                    0.80, 1.08, 1.13, 0.96, 0.91);
+            case UP_SMASH -> noSweetSpotTimeline(3, 5, 7, 0, 0);
+            case DOWN_SMASH -> noSweetSpotTimeline(3, 6, 7, 0, 0);
+            case NEUTRAL_AIR -> noSweetSpotTimeline(1, 7, 2, 1, 1);
+            case FORWARD_AIR -> sweetSpotTimeline(1, 4, 5, 1, 2,
+                    0.78, 1.07, 1.11, 0.97, 0.93);
+            case BACK_AIR -> sweetSpotTimeline(1, 4, 5, 1, 2,
+                    0.76, 1.08, 1.12, 0.96, 0.92);
+            case UP_AIR -> noSweetSpotTimeline(1, 6, 3, 1, 1);
+            case DOWN_AIR -> sweetSpotTimeline(2, 4, 7, 2, 2,
+                    0.80, 1.09, 1.14, 0.95, 0.90);
+            case DASH_ATTACK -> sweetSpotTimeline(1, 5, 5, 0, 0,
+                    0.80, 1.07, 1.12, 0.96, 0.92);
+            case LEDGE_ATTACK -> noSweetSpotTimeline(1, 4, 5, 0, 0);
+            case GETUP_ATTACK -> noSweetSpotTimeline(1, 5, 5, 0, 0);
+        };
+    }
+
+    /**
+     * Bat's wing attacks are authored around aerial control: broad active
+     * windows cover a flight path, while its heavier grounded commitments
+     * remain telegraphed and unsafe when thrown out without a read.
+     */
+    private NormalAttackTimeline batNormalAttackTimeline(NormalAttackVariant variant) {
+        return switch (variant) {
+            case NEUTRAL -> noSweetSpotTimeline(1, 4, 2, 0, 0);
+            case SIDE_TILT -> sweetSpotTimeline(2, 4, 3, 0, 0,
+                    0.70, 1.05, 1.09, 0.98, 0.95);
+            case UP_TILT -> noSweetSpotTimeline(2, 5, 3, 0, 0);
+            case DOWN_TILT -> noSweetSpotTimeline(1, 4, 3, 0, 0);
+            case SIDE_SMASH -> sweetSpotTimeline(4, 5, 7, 0, 0,
+                    0.74, 1.08, 1.14, 0.96, 0.91);
+            case UP_SMASH -> noSweetSpotTimeline(4, 6, 6, 0, 0);
+            case DOWN_SMASH -> noSweetSpotTimeline(4, 7, 6, 0, 0);
+            case NEUTRAL_AIR -> noSweetSpotTimeline(1, 8, 2, 1, 1);
+            case FORWARD_AIR -> sweetSpotTimeline(2, 6, 4, 2, 2,
+                    0.72, 1.07, 1.12, 0.97, 0.93);
+            case BACK_AIR -> sweetSpotTimeline(1, 5, 5, 1, 2,
+                    0.76, 1.09, 1.14, 0.95, 0.90);
+            case UP_AIR -> noSweetSpotTimeline(1, 7, 3, 1, 1);
+            case DOWN_AIR -> sweetSpotTimeline(3, 6, 6, 3, 2,
+                    0.76, 1.09, 1.15, 0.95, 0.89);
+            case DASH_ATTACK -> sweetSpotTimeline(1, 6, 5, 0, 0,
+                    0.72, 1.07, 1.12, 0.97, 0.92);
+            case LEDGE_ATTACK -> noSweetSpotTimeline(2, 5, 5, 0, 0);
+            case GETUP_ATTACK -> noSweetSpotTimeline(2, 6, 5, 0, 0);
         };
     }
 

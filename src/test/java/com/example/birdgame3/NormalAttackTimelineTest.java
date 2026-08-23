@@ -122,16 +122,16 @@ class NormalAttackTimelineTest {
 
     @Test
     void nonMigratedBirdsKeepLegacyImmediateResolutionUntilAuthored() throws Exception {
-        BirdGame3 game = twoBirdGame(BirdGame3.BirdType.TITMOUSE, BirdGame3.BirdType.PIGEON,
+        BirdGame3 game = twoBirdGame(BirdGame3.BirdType.PELICAN, BirdGame3.BirdType.PIGEON,
                 320.0, 382.0);
-        Bird titmouse = game.players[0];
+        Bird pelican = game.players[0];
         Bird target = game.players[1];
         double startingHealth = target.health;
 
-        performAttack(titmouse, "NEUTRAL");
+        performAttack(pelican, "NEUTRAL");
 
         assertTrue(target.health < startingHealth);
-        assertFalse(titmouse.debugNormalAttackTimelineActive());
+        assertFalse(pelican.debugNormalAttackTimelineActive());
     }
 
     @Test
@@ -518,6 +518,53 @@ class NormalAttackTimelineTest {
                         > kiwiGame.players[0].debugNormalAttackActiveFrames());
         assertTrue(gooseGame.players[0].debugNormalAttackTotalFrames()
                         > kiwiGame.players[0].debugNormalAttackTotalFrames());
+    }
+
+    @Test
+    void smallAerialistsHaveDistinctCompleteFrameData() throws Exception {
+        String[] variants = {
+                "NEUTRAL", "SIDE_TILT", "UP_TILT", "DOWN_TILT",
+                "SIDE_SMASH", "UP_SMASH", "DOWN_SMASH",
+                "NEUTRAL_AIR", "FORWARD_AIR", "BACK_AIR", "UP_AIR", "DOWN_AIR",
+                "DASH_ATTACK", "LEDGE_ATTACK", "GETUP_ATTACK"
+        };
+        int[][] titmouseFrames = {
+                {1, 3, 2}, {1, 4, 3}, {1, 5, 2}, {1, 3, 4},
+                {3, 4, 8}, {3, 5, 7}, {3, 6, 7},
+                {1, 7, 2}, {1, 4, 5}, {1, 4, 5}, {1, 6, 3}, {2, 4, 7},
+                {1, 5, 5}, {1, 4, 5}, {1, 5, 5}
+        };
+        int[][] batFrames = {
+                {1, 4, 2}, {2, 4, 3}, {2, 5, 3}, {1, 4, 3},
+                {4, 5, 7}, {4, 6, 6}, {4, 7, 6},
+                {1, 8, 2}, {2, 6, 4}, {1, 5, 5}, {1, 7, 3}, {3, 6, 6},
+                {1, 6, 5}, {2, 5, 5}, {2, 6, 5}
+        };
+
+        assertAuthoredMoveList(BirdGame3.BirdType.TITMOUSE, variants, titmouseFrames);
+        assertAuthoredMoveList(BirdGame3.BirdType.BAT, variants, batFrames);
+    }
+
+    @Test
+    void batOwnsLongerAerialWindowsWhileTitmouseScramblesFasterOnTheGround() throws Exception {
+        BirdGame3 batGame = twoBirdGame(BirdGame3.BirdType.BAT, BirdGame3.BirdType.PIGEON,
+                320.0, 700.0);
+        BirdGame3 titmouseGame = twoBirdGame(BirdGame3.BirdType.TITMOUSE, BirdGame3.BirdType.PIGEON,
+                320.0, 700.0);
+
+        performAttack(batGame.players[0], "FORWARD_AIR");
+        performAttack(titmouseGame.players[0], "FORWARD_AIR");
+        assertTrue(batGame.players[0].debugNormalAttackActiveFrames()
+                        > titmouseGame.players[0].debugNormalAttackActiveFrames());
+
+        BirdGame3 groundedBat = twoBirdGame(BirdGame3.BirdType.BAT, BirdGame3.BirdType.PIGEON,
+                320.0, 700.0);
+        BirdGame3 groundedTitmouse = twoBirdGame(BirdGame3.BirdType.TITMOUSE, BirdGame3.BirdType.PIGEON,
+                320.0, 700.0);
+        performAttack(groundedBat.players[0], "SIDE_TILT");
+        performAttack(groundedTitmouse.players[0], "SIDE_TILT");
+        assertTrue(groundedTitmouse.players[0].debugNormalAttackTotalFrames()
+                        < groundedBat.players[0].debugNormalAttackTotalFrames());
     }
 
     @Test

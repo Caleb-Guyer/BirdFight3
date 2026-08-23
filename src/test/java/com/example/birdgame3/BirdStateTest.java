@@ -7497,6 +7497,7 @@ class BirdStateTest {
         game.setLocalActionsForKey(game.rightKeyForPlayer(0), true);
         game.setLocalActionsForKey(game.attackKeyForPlayer(0), true);
         bat.update(1.0);
+        advanceAuthoredAttackToFirstActiveFrame(bat);
 
         return Bird.STARTING_HEALTH - target.health;
     }

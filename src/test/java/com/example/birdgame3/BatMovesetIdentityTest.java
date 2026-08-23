@@ -116,6 +116,10 @@ class BatMovesetIdentityTest {
         assertEquals(23, bat.batWingcutReuseTimer);
         assertEquals(29, bat.batSilentReuseTimer);
         assertEquals(31, getInt(bat, "batRehangCooldownTimer"));
+        assertEquals(41, getInt(bat, "batAmbushWindowTimer"),
+                "Startup must not spend Bat's ambush bonus before the wing arc becomes active.");
+        invoke(bat, "updateTimers", 1.0);
+        invoke(bat, "updateTimers", 1.0);
         assertEquals(0, getInt(bat, "batAmbushWindowTimer"));
         assertEquals(0, bat.batEchoTimer);
         assertEquals(0, bat.batWingcutTimer);
