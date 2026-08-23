@@ -64790,6 +64790,7 @@ public class BirdGame3 {
             h = h * 1099511628211L + b.mockingbirdMicDirection;
             h = h * 1099511628211L + b.deterministicGrabStateHash();
             h = h * 1099511628211L + b.deterministicLedgeStateHash();
+            h = h * 1099511628211L + b.deterministicHitReactionStateHash();
             for (boolean hit : b.mockingbirdMicHit) {
                 h = h * 1099511628211L + (hit ? 1 : 0);
             }
@@ -67609,7 +67610,7 @@ public class BirdGame3 {
         double panelX = 22;
         double panelY = 220;
         double panelW = 720;
-        double panelH = 450;
+        double panelH = 492;
         Bird trainingPlayer = players != null && players.length > 0 ? players[0] : null;
 
         g.save();
@@ -67718,15 +67719,17 @@ public class BirdGame3 {
             g.fillText("MOVE    " + trainingPlayer.debugMovementTelemetryLabel(), leftX, universalY + 50);
             g.fillText("DEFENSE " + trainingPlayer.debugDefenseTelemetryLabel(), leftX, universalY + 71);
             g.fillText("CONTROL " + trainingPlayer.debugGrabLedgeTelemetryLabel(), leftX, universalY + 92);
+            g.fillText("IMPACT  " + trainingPlayer.debugHitReactionTelemetryLabel(), leftX, universalY + 113);
+            g.fillText("LAUNCH  " + trainingPlayer.debugLaunchTelemetryLabel(), leftX, universalY + 134);
 
-            drawTrainingGauge(g, leftX, universalY + 102, 260, 8,
+            drawTrainingGauge(g, leftX, universalY + 145, 260, 8,
                     trainingPlayer.debugShieldDurabilityRatio(), Color.web("#64D8FF"));
             int invulnerabilityFrames = trainingPlayer.debugCombatInvulnerabilityFrames();
-            drawTrainingGauge(g, leftX + 280, universalY + 102, 260, 8,
+            drawTrainingGauge(g, leftX + 280, universalY + 145, 260, 8,
                     Math.clamp(invulnerabilityFrames / 120.0, 0.0, 1.0), Color.web("#FFE082"));
             g.setFill(Color.web("#90A4AE"));
-            g.fillText("SHIELD", leftX, universalY + 123);
-            g.fillText("INVULNERABILITY", leftX + 280, universalY + 123);
+            g.fillText("SHIELD", leftX, universalY + 166);
+            g.fillText("INVULNERABILITY", leftX + 280, universalY + 166);
         }
 
         g.setFill(Color.web("#FFE082"));

@@ -3682,6 +3682,117 @@ class BirdStateTest {
     }
 
     @Test
+    void launchCreatesPersistentTumbleAndTrainingTelemetry() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+        setPrivateBoolean(game);
+
+        Bird attacker = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird target = new Bird(190.0, BirdGame3.BirdType.EAGLE, 1, game);
+        game.players[0] = attacker;
+        game.players[1] = target;
+        target.vx = 18.0;
+        target.vy = -9.0;
+        setPrivateDouble(target, "pendingSmashLaunchScale", 1.8);
+        setPrivateDouble(target, "pendingDamageScaledHitDamage", 12.0);
+
+        invokePrivateVoid(target, "applyPendingSmashLaunch");
+
+        assertTrue(target.debugInLaunchTumble());
+        assertTrue(getPrivateInt(target, "tumbleTimer") > target.stunTime,
+                "Launch tumble should outlast forced hitstun so aerial recovery has a readable window.");
+        assertTrue(target.debugHitReactionTelemetryLabel().contains("TUMBLE"));
+        assertTrue(target.debugLaunchTelemetryLabel().contains("ANGLE"));
+    }
+
+    @Test
+    void smashDirectionalDisplacementUsesFreshInputEdgesOnly() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        setPrivateBoolean(game);
+        Bird target = new Bird(300.0, BirdGame3.BirdType.EAGLE, 0, game);
+        target.y = BirdGame3.GROUND_Y - 260.0;
+        game.players[0] = target;
+        game.setLocalActionsForKey(game.rightKeyForPlayer(0), true);
+
+        target.vx = 12.0;
+        target.vy = -6.0;
+        setPrivateDouble(target, "pendingSmashLaunchScale", 1.4);
+        setPrivateDouble(target, "pendingDamageScaledHitDamage", 8.0);
+        double startX = target.x;
+        invokePrivateVoid(target, "applyPendingSmashLaunch");
+        double afterFreshEdge = target.x;
+
+        assertEquals(startX + 7.0, afterFreshEdge, 0.0001);
+        assertTrue(target.debugLaunchTelemetryLabel().contains("+7.0"));
+
+        setPrivateObject(target, "rightHeldLastFrame", true);
+        target.vx = 12.0;
+        target.vy = -6.0;
+        setPrivateDouble(target, "pendingSmashLaunchScale", 1.4);
+        setPrivateDouble(target, "pendingDamageScaledHitDamage", 8.0);
+        invokePrivateVoid(target, "applyPendingSmashLaunch");
+
+        assertEquals(afterFreshEdge, target.x, 0.0001,
+                "Holding a direction must not repeat SDI without a new deterministic input edge.");
+    }
+
+    @Test
+    void actionableTumbleCanStillTechAHardLanding() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        setPrivateBoolean(game);
+        Bird bird = new Bird(190.0, BirdGame3.BirdType.EAGLE, 0, game);
+        bird.y = BirdGame3.GROUND_Y - 96.0;
+        bird.vy = 18.0;
+        bird.stunTime = 0.0;
+        setPrivateInt(bird, "tumbleTimer", 30);
+        game.players[0] = bird;
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), true);
+
+        for (int frame = 0; frame < 3 && !bird.isOnGround(); frame++) {
+            bird.update(1.0);
+        }
+
+        assertTrue(bird.isOnGround());
+        assertEquals(0, getPrivateInt(bird, "tumbleTimer"));
+        assertEquals("SPOT", getPrivateObject(bird, "dodgeType").toString());
+        assertTrue(bird.debugHitReactionTelemetryLabel().contains("GROUND"));
+    }
+
+    @Test
+    void ceilingImpactsSupportTechsAndMeteorLaunchesAreReported() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        setPrivateBoolean(game);
+        Platform ceiling = new Platform(100.0, 180.0, 420.0, 60.0);
+        game.platforms.add(ceiling);
+        Bird bird = new Bird(240.0, BirdGame3.BirdType.EAGLE, 0, game);
+        game.players[0] = bird;
+
+        bird.y = 225.0;
+        bird.vx = 5.0;
+        bird.vy = -15.0;
+        setPrivateInt(bird, "tumbleTimer", 40);
+        setPrivateInt(bird, "techBufferTimer", 6);
+        invokePrivateVoid(bird, "handleCeilingTechCollision",
+                new Class<?>[]{double.class, double.class}, 240.0, 255.0);
+
+        assertEquals(ceiling.y + ceiling.h, bird.y, 0.0001);
+        assertEquals(0.0, bird.vy, 0.0001);
+        assertTrue(bird.debugHitReactionTelemetryLabel().contains("CEILING"));
+
+        bird.vx = 3.0;
+        bird.vy = 12.0;
+        setPrivateDouble(bird, "pendingSmashLaunchScale", 1.5);
+        setPrivateDouble(bird, "pendingDamageScaledHitDamage", 10.0);
+        invokePrivateVoid(bird, "applyPendingSmashLaunch");
+
+        assertTrue(bird.debugMeteorStateActive());
+        assertTrue(bird.debugHitReactionTelemetryLabel().contains("METEOR"));
+    }
+
+    @Test
     void knockbackTuningBoostsNonSmashNormalsAndTonesDownSmashes() throws Exception {
         BirdGame3 game = new BirdGame3();
         Bird bird = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, game);

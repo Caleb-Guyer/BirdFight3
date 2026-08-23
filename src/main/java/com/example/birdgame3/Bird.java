@@ -1360,6 +1360,14 @@ public class Bird {
     private boolean blockHeldLastFrame = false;
     private int techBufferTimer = 0;
     int knockdownTimer = 0;
+    private int tumbleTimer = 0;
+    private int meteorTimer = 0;
+    private double lastLaunchSpeed = 0.0;
+    private double lastLaunchAngleDegrees = 0.0;
+    private double lastDirectionalInfluenceDegrees = 0.0;
+    private double lastSdiX = 0.0;
+    private double lastSdiY = 0.0;
+    private TechResult lastTechResult = TechResult.NONE;
     private boolean leftHeldLastFrame = false;
     private boolean rightHeldLastFrame = false;
     private int grabCooldown = 0;
@@ -1691,15 +1699,21 @@ public class Bird {
     private static final double SMASH_VERTICAL_LAUNCH_SCALE = 1.0;
     private static final double SMASH_MIN_UPWARD_LAUNCH_SCALE = 2.8;
     private static final double SMASH_DI_MAX_ANGLE_RADIANS = Math.toRadians(18.0);
+    private static final double SMASH_SDI_DISTANCE = 7.0;
     private static final double DAMAGE_SCALED_AIR_LAUNCH_DRAG = 0.98;
     private static final double DAMAGE_SCALED_GROUND_LAUNCH_DRAG = 0.94;
     private static final double DAMAGE_SCALED_HITSTUN_DAMAGE_THRESHOLD = 3.5;
     private static final double DAMAGE_SCALED_HITSTUN_MIN_LAUNCH_SPEED = 7.0;
     private static final double DAMAGE_SCALED_HITSTUN_BASE_FRAMES = 3.0;
-    private static final double DAMAGE_SCALED_HITSTUN_SPEED_SCALE = 0.14;
-    private static final double DAMAGE_SCALED_HITSTUN_PERCENT_SCALE = 0.18;
+    private static final double DAMAGE_SCALED_HITSTUN_SPEED_SCALE = 0.18;
+    private static final double DAMAGE_SCALED_HITSTUN_PERCENT_SCALE = 0.24;
     private static final double DAMAGE_SCALED_HITSTUN_MIN_FRAMES = 6.0;
-    private static final double DAMAGE_SCALED_HITSTUN_MAX_FRAMES = 18.0;
+    private static final double DAMAGE_SCALED_HITSTUN_MAX_FRAMES = 34.0;
+    private static final double TUMBLE_MIN_LAUNCH_SPEED = 13.5;
+    private static final int TUMBLE_MIN_FRAMES = 28;
+    private static final int TUMBLE_RECOVERY_EXTRA_FRAMES = 42;
+    private static final double METEOR_MIN_DOWNWARD_SPEED = 10.0;
+    private static final int METEOR_STATE_FRAMES = 42;
     private static final double LEDGE_GRAB_HORIZONTAL_REACH = 34.0;
     private static final double LEDGE_GRAB_VERTICAL_ABOVE = 18.0;
     private static final double LEDGE_GRAB_VERTICAL_BELOW = 46.0;
@@ -1770,6 +1784,7 @@ public class Bird {
     private static final int TECH_INPUT_BUFFER_FRAMES = 10;
     private static final double GROUND_TECH_MIN_IMPACT_SPEED = 7.0;
     private static final double WALL_TECH_MIN_IMPACT_SPEED = 6.5;
+    private static final double CEILING_TECH_MIN_IMPACT_SPEED = 6.5;
     private static final int TECH_INVULNERABILITY_FRAMES = 12;
     private static final int MISSED_TECH_KNOCKDOWN_FRAMES = 34;
     private static final double WALL_BOUNCE_SPEED_SCALE = 0.55;
@@ -2471,6 +2486,17 @@ public class Bird {
         ATTACK,
         HIT,
         KO
+    }
+
+    private enum TechResult {
+        NONE,
+        GROUND,
+        GROUND_ROLL,
+        WALL,
+        CEILING,
+        MISSED_GROUND,
+        MISSED_WALL,
+        MISSED_CEILING
     }
 
     enum VisualAuditOpiumAction {
@@ -3260,6 +3286,7 @@ public class Bird {
             if (wasAirborne) {
                 if (!resolveGroundTechOrKnockdown(impactVy)) {
                     resolveAerialLandingRecovery();
+                    clearLaunchTumbleOnSafeLanding();
                 }
             }
 
@@ -14002,7 +14029,7 @@ public class Bird {
         if (game.isMatchIntroLocked()) {
             return BirdAnimationState.IDLE;
         }
-        if (stunTime > 0.0 || knockdownTimer > 0) {
+        if (stunTime > 0.0 || tumbleTimer > 0 || knockdownTimer > 0) {
             return BirdAnimationState.HITSTUN;
         }
         if (isDodging()) {
@@ -14576,8 +14603,12 @@ public class Bird {
         if (jumpSquatTimer > 0 && (stunned || airborne || inDockWater || grabbedBy != null || ledgeHanging || batHanging || onVine || isGrappling)) {
             clearJumpSquat();
         }
-        if (blockJustPressed && stunTime > 0.0) {
+        if (blockJustPressed && (stunTime > 0.0 || isInLaunchTumble())) {
             techBufferTimer = TECH_INPUT_BUFFER_FRAMES;
+        }
+        if (!stunned && isInLaunchTumble()
+                && (attackPressed() || specialHeld || grabJustPressed || jumpJustPressed)) {
+            clearActionableLaunchTumble();
         }
 
         if (stunned) {
@@ -14626,7 +14657,8 @@ public class Bird {
             return;
         }
 
-        handleDodgeInput(stunned, airborne, inDockWater, blockJustPressed, grabJustPressed,
+        boolean reserveBufferedTech = shouldReserveBufferedTechInput();
+        handleDodgeInput(stunned || reserveBufferedTech, airborne, inDockWater, blockJustPressed, grabJustPressed,
                 leftHeld, rightHeld, jumpHeld, directionalDownHeld, leftJustPressed, rightJustPressed);
         updateShieldState(stunned, airborne, defensiveBlockHeld, blockHeld, inDockWater, gameSpeed);
         if (isDodging()) {
@@ -15395,6 +15427,8 @@ public class Bird {
         shieldRegenDelayFrames = Math.max(0, (int) (shieldRegenDelayFrames - gameSpeed));
         techBufferTimer = Math.max(0, (int)(techBufferTimer - gameSpeed));
         knockdownTimer = Math.max(0, (int)(knockdownTimer - gameSpeed));
+        tumbleTimer = Math.max(0, (int) (tumbleTimer - gameSpeed));
+        meteorTimer = Math.max(0, (int) (meteorTimer - gameSpeed));
         dodgeCooldown = Math.max(0, (int)(dodgeCooldown - gameSpeed));
         dodgeTimer = Math.max(0, (int)(dodgeTimer - gameSpeed));
         dodgeInvulnerabilityTimer = Math.max(0, (int)(dodgeInvulnerabilityTimer - gameSpeed));
@@ -15496,7 +15530,7 @@ public class Bird {
         if (game.isMatchIntroLocked()) {
             return BirdAnimationState.IDLE;
         }
-        if (stunTime > 0.0 || knockdownTimer > 0) {
+        if (stunTime > 0.0 || tumbleTimer > 0 || knockdownTimer > 0) {
             return BirdAnimationState.HITSTUN;
         }
         if (isDodging()) {
@@ -16092,6 +16126,16 @@ public class Bird {
         knockdownTimer = 0;
     }
 
+    private void clearLaunchTumbleOnSafeLanding() {
+        tumbleTimer = 0;
+        meteorTimer = 0;
+    }
+
+    private void clearActionableLaunchTumble() {
+        tumbleTimer = 0;
+        meteorTimer = 0;
+    }
+
     private boolean handleGroundedGetupAttack(boolean stunned, boolean airborne) {
         boolean attackHeld = attackPressed();
         if (stunned || airborne || knockdownTimer <= 0 || attackCooldown > 0
@@ -16122,13 +16166,17 @@ public class Bird {
         clearTechBuffer();
         knockdownTimer = MISSED_TECH_KNOCKDOWN_FRAMES;
         stunTime = 0.0;
+        tumbleTimer = 0;
+        meteorTimer = 0;
+        lastTechResult = TechResult.MISSED_GROUND;
         clearActiveDodge();
         vx *= 0.18;
         vy = 0.0;
     }
 
     private boolean resolveGroundTechOrKnockdown(double impactVy) {
-        if (!game.usesDamageScaledKnockback() || stunTime <= 0.0 || impactVy < GROUND_TECH_MIN_IMPACT_SPEED) {
+        if (!game.usesDamageScaledKnockback() || !isInLaunchTumble()
+                || impactVy < GROUND_TECH_MIN_IMPACT_SPEED) {
             return false;
         }
 
@@ -16138,10 +16186,14 @@ public class Bird {
         if (techBufferTimer > 0) {
             clearTechBuffer();
             stunTime = 0.0;
+            tumbleTimer = 0;
+            meteorTimer = 0;
             if (techDir == 0) {
                 startSpotDodge();
+                lastTechResult = TechResult.GROUND;
             } else {
                 startRoll(techDir);
+                lastTechResult = TechResult.GROUND_ROLL;
             }
         } else {
             enterMissedTechKnockdown();
@@ -16174,6 +16226,9 @@ public class Bird {
         if (techBufferTimer > 0) {
             clearTechBuffer();
             stunTime = 0.0;
+            tumbleTimer = 0;
+            meteorTimer = 0;
+            lastTechResult = TechResult.WALL;
             clearActiveDodge();
             dodgeInvulnerabilityTimer = Math.max(dodgeInvulnerabilityTimer, TECH_INVULNERABILITY_FRAMES);
             dodgeCooldown = Math.max(dodgeCooldown, DODGE_COOLDOWN_FRAMES / 2);
@@ -16181,13 +16236,15 @@ public class Bird {
             vy = Math.min(vy * 0.35, 1.4);
         } else {
             clearTechBuffer();
+            lastTechResult = TechResult.MISSED_WALL;
             vx = Math.abs(vx) * WALL_BOUNCE_SPEED_SCALE * bounceDir;
             vy *= WALL_BOUNCE_VERTICAL_DAMPING;
         }
     }
 
     private void handleWallTechCollision(double prevX, double prevY) {
-        if (!game.usesDamageScaledKnockback() || stunTime <= 0.0 || Math.abs(vx) < WALL_TECH_MIN_IMPACT_SPEED) {
+        if (!game.usesDamageScaledKnockback() || !isInLaunchTumble()
+                || Math.abs(vx) < WALL_TECH_MIN_IMPACT_SPEED) {
             return;
         }
 
@@ -16229,6 +16286,103 @@ public class Bird {
             isBlocking = false;
             parryWindowFrames = 0;
             blockCooldown = Math.max(blockCooldown, SHIELD_DROP_COOLDOWN_FRAMES);
+        }
+    }
+
+    private boolean isInLaunchTumble() {
+        return tumbleTimer > 0 || stunTime > 0.0;
+    }
+
+    private boolean shouldReserveBufferedTechInput() {
+        if (techBufferTimer <= 0 || !isInLaunchTumble()) return false;
+
+        double predictedLeft = x + vx;
+        double predictedRight = predictedLeft + bodyWidth();
+        double predictedTop = y + vy;
+        double predictedBottom = predictedTop + bodyHeight();
+        double currentLeft = x;
+        double currentRight = x + bodyWidth();
+        double currentTop = y;
+        double currentBottom = bodyBottomY();
+
+        if (vy >= GROUND_TECH_MIN_IMPACT_SPEED
+                && hasSolidGroundFloorUnderBody()
+                && currentBottom <= BirdGame3.GROUND_Y + 8.0
+                && predictedBottom >= BirdGame3.GROUND_Y - 4.0) {
+            return true;
+        }
+        for (Platform platform : game.platforms) {
+            if (vy >= GROUND_TECH_MIN_IMPACT_SPEED
+                    && currentBottom <= platform.y + 8.0
+                    && predictedBottom >= platform.y - 4.0
+                    && predictedRight > platform.x && predictedLeft < platform.x + platform.w) {
+                return true;
+            }
+            if (Math.abs(vx) >= WALL_TECH_MIN_IMPACT_SPEED && isTechableWallSurface(platform)
+                    && predictedBottom > platform.y && predictedTop < platform.y + platform.h
+                    && ((vx > 0.0 && currentRight <= platform.x + 4.0 && predictedRight >= platform.x)
+                    || (vx < 0.0 && currentLeft >= platform.x + platform.w - 4.0
+                    && predictedLeft <= platform.x + platform.w))) {
+                return true;
+            }
+            double underside = platform.y + platform.h;
+            if (vy <= -CEILING_TECH_MIN_IMPACT_SPEED && isTechableCeilingSurface(platform)
+                    && currentTop >= underside - 4.0 && predictedTop <= underside
+                    && predictedRight > platform.x && predictedLeft < platform.x + platform.w) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isTechableCeilingSurface(Platform platform) {
+        if (platform == null) return false;
+        boolean caveCeiling = game.selectedMap == MapType.CAVE
+                && platform.y <= 1.0
+                && platform.h >= 50.0
+                && platform.w >= BirdGame3.WORLD_WIDTH - 10.0;
+        if (caveCeiling) return true;
+        if (isBoundaryPlatform(platform)) return false;
+        return platform.h >= 50.0 && platform.w >= bodyWidth() * 0.75;
+    }
+
+    private void handleCeilingTechCollision(double prevX, double prevY) {
+        if (!game.usesDamageScaledKnockback() || !isInLaunchTumble()
+                || vy > -CEILING_TECH_MIN_IMPACT_SPEED) {
+            return;
+        }
+
+        double previousTop = prevY;
+        double currentTop = y;
+        double currentLeft = x;
+        double currentRight = x + bodyWidth();
+        for (Platform platform : game.platforms) {
+            if (!isTechableCeilingSurface(platform)) continue;
+            double underside = platform.y + platform.h;
+            if (previousTop < underside || currentTop > underside) continue;
+            if (currentRight <= platform.x || currentLeft >= platform.x + platform.w) continue;
+
+            y = underside;
+            clearLandingTechCombatState();
+            clearKnockdownState();
+            if (techBufferTimer > 0) {
+                clearTechBuffer();
+                stunTime = 0.0;
+                tumbleTimer = 0;
+                meteorTimer = 0;
+                lastTechResult = TechResult.CEILING;
+                clearActiveDodge();
+                dodgeInvulnerabilityTimer = Math.max(dodgeInvulnerabilityTimer, TECH_INVULNERABILITY_FRAMES);
+                dodgeCooldown = Math.max(dodgeCooldown, DODGE_COOLDOWN_FRAMES / 2);
+                vy = 0.0;
+                vx *= 0.72;
+            } else {
+                clearTechBuffer();
+                lastTechResult = TechResult.MISSED_CEILING;
+                vy = Math.abs(vy) * WALL_BOUNCE_SPEED_SCALE;
+                vx *= WALL_BOUNCE_VERTICAL_DAMPING;
+            }
+            return;
         }
     }
 
@@ -17927,6 +18081,14 @@ public class Bird {
         landingLagTimer = 0;
         techBufferTimer = 0;
         knockdownTimer = 0;
+        tumbleTimer = 0;
+        meteorTimer = 0;
+        lastLaunchSpeed = 0.0;
+        lastLaunchAngleDegrees = 0.0;
+        lastDirectionalInfluenceDegrees = 0.0;
+        lastSdiX = 0.0;
+        lastSdiY = 0.0;
+        lastTechResult = TechResult.NONE;
         specialCooldown = 0;
         specialMaxCooldown = 0;
         canDoubleJump = true;
@@ -18259,6 +18421,27 @@ public class Bird {
         return "GRAB " + grab + " | LEDGE " + ledge;
     }
 
+    String debugHitReactionTelemetryLabel() {
+        return "HITSTUN " + Math.max(0, (int) Math.ceil(stunTime)) + "f | TUMBLE "
+                + Math.max(0, tumbleTimer) + "f | METEOR " + Math.max(0, meteorTimer)
+                + "f | TECH " + lastTechResult.name();
+    }
+
+    String debugLaunchTelemetryLabel() {
+        return String.format(Locale.ROOT,
+                "SPEED %.1f | ANGLE %.0f° | DI %+.1f° | SDI [%+.1f,%+.1f] | BUFFER %df",
+                lastLaunchSpeed, lastLaunchAngleDegrees, lastDirectionalInfluenceDegrees,
+                lastSdiX, lastSdiY, techBufferTimer);
+    }
+
+    boolean debugInLaunchTumble() {
+        return isInLaunchTumble();
+    }
+
+    boolean debugMeteorStateActive() {
+        return meteorTimer > 0;
+    }
+
     boolean debugLedgeHanging() {
         return ledgeHanging;
     }
@@ -18295,6 +18478,20 @@ public class Bird {
         h = h * 31 + ledgeInvulnerabilityTimer;
         h = h * 31 + ledgeHangFrames;
         h = h * 31 + ledgeGrabCountWithoutLanding;
+        return h;
+    }
+
+    long deterministicHitReactionStateHash() {
+        long h = tumbleTimer;
+        h = h * 31 + meteorTimer;
+        h = h * 31 + techBufferTimer;
+        h = h * 31 + knockdownTimer;
+        h = h * 31 + lastTechResult.ordinal();
+        h = h * 31 + Double.doubleToLongBits(lastLaunchSpeed);
+        h = h * 31 + Double.doubleToLongBits(lastLaunchAngleDegrees);
+        h = h * 31 + Double.doubleToLongBits(lastDirectionalInfluenceDegrees);
+        h = h * 31 + Double.doubleToLongBits(lastSdiX);
+        h = h * 31 + Double.doubleToLongBits(lastSdiY);
         return h;
     }
 
@@ -19479,6 +19676,7 @@ public class Bird {
             return;
         }
 
+        handleCeilingTechCollision(prevX, prevY);
         if (applyCameraTopBoundaryPressure(gameSpeed, trainingDummy)) {
             if (smashRules) {
                 handleSmashBlastZoneKo(trainingDummy, islandBounds, leftBound, rightBound,
@@ -19624,6 +19822,7 @@ public class Bird {
             if (wasAirborne) {
                 if (!resolveGroundTechOrKnockdown(impactVy)) {
                     resolveAerialLandingRecovery();
+                    clearLaunchTumbleOnSafeLanding();
                 }
             }
         }
@@ -19907,6 +20106,14 @@ public class Bird {
         rightHeldLastFrame = false;
         techBufferTimer = 0;
         knockdownTimer = 0;
+        tumbleTimer = 0;
+        meteorTimer = 0;
+        lastLaunchSpeed = 0.0;
+        lastLaunchAngleDegrees = 0.0;
+        lastDirectionalInfluenceDegrees = 0.0;
+        lastSdiX = 0.0;
+        lastSdiY = 0.0;
+        lastTechResult = TechResult.NONE;
         grabCooldown = 0;
         grabHeldLastFrame = false;
         stunTime = 0;
@@ -20484,6 +20691,14 @@ public class Bird {
         state.airDodgeAvailable = airDodgeAvailable;
         state.techBufferTimer = techBufferTimer;
         state.knockdownTimer = knockdownTimer;
+        state.tumbleTimer = tumbleTimer;
+        state.meteorTimer = meteorTimer;
+        state.lastLaunchSpeed = lastLaunchSpeed;
+        state.lastLaunchAngleDegrees = lastLaunchAngleDegrees;
+        state.lastDirectionalInfluenceDegrees = lastDirectionalInfluenceDegrees;
+        state.lastSdiX = lastSdiX;
+        state.lastSdiY = lastSdiY;
+        state.lastTechResultOrdinal = lastTechResult.ordinal();
         state.speedMultiplier = speedMultiplier;
         state.powerMultiplier = powerMultiplier;
         state.sizeMultiplier = sizeMultiplier;
@@ -21357,6 +21572,17 @@ public class Bird {
         this.airDodgeAvailable = state.airDodgeAvailable;
         this.techBufferTimer = state.techBufferTimer;
         this.knockdownTimer = state.knockdownTimer;
+        this.tumbleTimer = Math.max(0, state.tumbleTimer);
+        this.meteorTimer = Math.max(0, state.meteorTimer);
+        this.lastLaunchSpeed = Math.max(0.0, state.lastLaunchSpeed);
+        this.lastLaunchAngleDegrees = state.lastLaunchAngleDegrees;
+        this.lastDirectionalInfluenceDegrees = state.lastDirectionalInfluenceDegrees;
+        this.lastSdiX = state.lastSdiX;
+        this.lastSdiY = state.lastSdiY;
+        TechResult[] techResults = TechResult.values();
+        this.lastTechResult = state.lastTechResultOrdinal >= 0
+                && state.lastTechResultOrdinal < techResults.length
+                ? techResults[state.lastTechResultOrdinal] : TechResult.NONE;
         this.attackHeldLastFrame = false;
         this.jumpHeldLastFrame = false;
         this.specialHeldLastFrame = false;
@@ -22002,6 +22228,7 @@ public class Bird {
         if (!game.usesDamageScaledKnockback() || pendingSmashLaunchScale <= 1.0001) {
             return;
         }
+        applySmashDirectionalDisplacement();
         double launchScale = pendingSmashLaunchScale;
         vx *= launchScale * SMASH_HORIZONTAL_LAUNCH_SCALE;
         vy *= launchScale * SMASH_VERTICAL_LAUNCH_SCALE;
@@ -22011,8 +22238,11 @@ public class Bird {
                 vy = -minimumUpwardLaunch;
             }
         }
-        applySmashDirectionalInfluence();
+        lastDirectionalInfluenceDegrees = applySmashDirectionalInfluence();
         applyDamageScaledLaunchHitstun();
+        lastLaunchSpeed = Math.hypot(vx, vy);
+        lastLaunchAngleDegrees = Math.toDegrees(Math.atan2(-vy, vx));
+        lastTechResult = TechResult.NONE;
         pendingSmashLaunchScale = 1.0;
         pendingDamageScaledHitDamage = 0.0;
     }
@@ -22027,14 +22257,22 @@ public class Bird {
         double launchHitstun = DAMAGE_SCALED_HITSTUN_BASE_FRAMES
                 + launchSpeed * DAMAGE_SCALED_HITSTUN_SPEED_SCALE
                 + Math.sqrt(percent) * DAMAGE_SCALED_HITSTUN_PERCENT_SCALE;
-        applyStun(Math.clamp(launchHitstun,
-                DAMAGE_SCALED_HITSTUN_MIN_FRAMES, DAMAGE_SCALED_HITSTUN_MAX_FRAMES));
+        double resolvedHitstun = Math.clamp(launchHitstun,
+                DAMAGE_SCALED_HITSTUN_MIN_FRAMES, DAMAGE_SCALED_HITSTUN_MAX_FRAMES);
+        applyStun(resolvedHitstun);
+        if (launchSpeed >= TUMBLE_MIN_LAUNCH_SPEED) {
+            tumbleTimer = Math.max(tumbleTimer,
+                    Math.max(TUMBLE_MIN_FRAMES, (int) Math.ceil(resolvedHitstun) + TUMBLE_RECOVERY_EXTRA_FRAMES));
+        }
+        if (vy >= METEOR_MIN_DOWNWARD_SPEED) {
+            meteorTimer = Math.max(meteorTimer, METEOR_STATE_FRAMES);
+        }
     }
 
-    private void applySmashDirectionalInfluence() {
+    private double applySmashDirectionalInfluence() {
         double launchSpeed = Math.hypot(vx, vy);
         if (launchSpeed <= 0.001) {
-            return;
+            return 0.0;
         }
 
         double inputX = 0.0;
@@ -22054,7 +22292,7 @@ public class Bird {
         }
 
         if (inputX == 0.0 && inputY == 0.0) {
-            return;
+            return 0.0;
         }
 
         double inputMagnitude = Math.hypot(inputX, inputY);
@@ -22066,7 +22304,7 @@ public class Bird {
         double perpendicularX = -dirY;
         double diAmount = Math.clamp(inputX * perpendicularX + inputY * dirX, -1.0, 1.0);
         if (Math.abs(diAmount) <= 0.001) {
-            return;
+            return 0.0;
         }
 
         double diAngle = diAmount * SMASH_DI_MAX_ANGLE_RADIANS;
@@ -22076,6 +22314,48 @@ public class Bird {
         double adjustedY = dirX * sin + dirY * cos;
         vx = adjustedX * launchSpeed;
         vy = adjustedY * launchSpeed;
+        return Math.toDegrees(diAngle);
+    }
+
+    private void applySmashDirectionalDisplacement() {
+        lastSdiX = 0.0;
+        lastSdiY = 0.0;
+
+        double inputX = 0.0;
+        if (leftPressed() && !leftHeldLastFrame) inputX -= 1.0;
+        if (rightPressed() && !rightHeldLastFrame) inputX += 1.0;
+
+        double inputY = 0.0;
+        if (jumpPressed() && !jumpHeldLastFrame) inputY -= 1.0;
+        if (blockPressed() && !blockHeldLastFrame) inputY += 1.0;
+        if (inputX == 0.0 && inputY == 0.0) {
+            return;
+        }
+
+        double magnitude = Math.hypot(inputX, inputY);
+        double offsetX = inputX / magnitude * SMASH_SDI_DISTANCE;
+        double offsetY = inputY / magnitude * SMASH_SDI_DISTANCE;
+        if (!canApplySdiOffset(offsetX, offsetY)) {
+            return;
+        }
+        x += offsetX;
+        y += offsetY;
+        lastSdiX = offsetX;
+        lastSdiY = offsetY;
+    }
+
+    private boolean canApplySdiOffset(double offsetX, double offsetY) {
+        double nextLeft = x + offsetX;
+        double nextTop = y + offsetY;
+        double nextRight = nextLeft + bodyWidth();
+        double nextBottom = nextTop + bodyHeight();
+        for (Platform platform : game.platforms) {
+            if (nextRight > platform.x && nextLeft < platform.x + platform.w
+                    && nextBottom > platform.y && nextTop < platform.y + platform.h) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private void handleSmashBlastZoneKo(boolean trainingDummy, boolean islandBounds, double leftBound, double rightBound,
@@ -22153,6 +22433,14 @@ public class Bird {
         pendingDamageScaledHitDamage = 0.0;
         techBufferTimer = 0;
         knockdownTimer = 0;
+        tumbleTimer = 0;
+        meteorTimer = 0;
+        lastLaunchSpeed = 0.0;
+        lastLaunchAngleDegrees = 0.0;
+        lastDirectionalInfluenceDegrees = 0.0;
+        lastSdiX = 0.0;
+        lastSdiY = 0.0;
+        lastTechResult = TechResult.NONE;
         fastFallActive = false;
         platformDropTimer = 0;
         platformDropSurfaceY = Double.NaN;
@@ -24277,7 +24565,8 @@ public class Bird {
         if (isDodging()) {
             return VISUAL_POSE_DODGE_BLEND_PER_FRAME;
         }
-        if (health <= 0 || stunTime > 0.0 || knockdownTimer > 0 || jumpSquatTimer > 0 || landingLagTimer > 0
+        if (health <= 0 || stunTime > 0.0 || tumbleTimer > 0 || knockdownTimer > 0
+                || jumpSquatTimer > 0 || landingLagTimer > 0
                 || isBlocking || shieldStunFrames > 0 || parryWindowFrames > 0
                 || isChargingAttack() || attackAnimationTimer > 0 || aerialAttackActive
                 || pigeonSpecialPoseActive() || phoenixSpecialPoseActive() || raptorSpecialPoseActive()
