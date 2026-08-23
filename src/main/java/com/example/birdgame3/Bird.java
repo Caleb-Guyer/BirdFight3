@@ -3718,7 +3718,9 @@ public class Bird {
         // fighters that still use their legacy instant strike.
         return type == BirdGame3.BirdType.PIGEON
                 || type == BirdGame3.BirdType.EAGLE
-                || type == BirdGame3.BirdType.FALCON;
+                || type == BirdGame3.BirdType.FALCON
+                || type == BirdGame3.BirdType.PHOENIX
+                || type == BirdGame3.BirdType.HUMMINGBIRD;
     }
 
     private NormalAttackTimeline normalAttackTimeline(NormalAttackVariant variant) {
@@ -3730,6 +3732,12 @@ public class Bird {
         }
         if (type == BirdGame3.BirdType.FALCON) {
             return falconNormalAttackTimeline(variant);
+        }
+        if (type == BirdGame3.BirdType.PHOENIX) {
+            return phoenixNormalAttackTimeline(variant);
+        }
+        if (type == BirdGame3.BirdType.HUMMINGBIRD) {
+            return hummingbirdNormalAttackTimeline(variant);
         }
         NormalAttackProfile profile = normalAttackProfile(variant);
         return noSweetSpotTimeline(0, 1, Math.max(0, profile.animationFrames() - 1), 0, 0);
@@ -3822,6 +3830,60 @@ public class Bird {
                     0.72, 1.06, 1.10, 0.98, 0.96);
             case LEDGE_ATTACK -> noSweetSpotTimeline(2, 4, 4, 0, 0);
             case GETUP_ATTACK -> noSweetSpotTimeline(3, 4, 4, 0, 0);
+        };
+    }
+
+    /** Phoenix paints broad flame arcs that remain dangerous for several ticks. */
+    private NormalAttackTimeline phoenixNormalAttackTimeline(NormalAttackVariant variant) {
+        return switch (variant) {
+            case NEUTRAL -> noSweetSpotTimeline(1, 5, 2, 0, 0);
+            case SIDE_TILT -> noSweetSpotTimeline(1, 5, 4, 0, 0);
+            case UP_TILT -> noSweetSpotTimeline(1, 5, 4, 0, 0);
+            case DOWN_TILT -> noSweetSpotTimeline(1, 5, 4, 0, 0);
+            case SIDE_SMASH -> sweetSpotTimeline(4, 5, 7, 0, 0,
+                    0.66, 1.06, 1.10, 0.99, 0.98);
+            case UP_SMASH -> noSweetSpotTimeline(4, 6, 6, 0, 0);
+            case DOWN_SMASH -> noSweetSpotTimeline(4, 7, 6, 0, 0);
+            case NEUTRAL_AIR -> noSweetSpotTimeline(1, 8, 3, 1, 2);
+            case FORWARD_AIR -> sweetSpotTimeline(2, 6, 5, 2, 2,
+                    0.64, 1.05, 1.09, 0.99, 0.97);
+            case BACK_AIR -> sweetSpotTimeline(2, 6, 5, 2, 2,
+                    0.62, 1.06, 1.09, 0.99, 0.97);
+            case UP_AIR -> noSweetSpotTimeline(1, 8, 3, 1, 2);
+            case DOWN_AIR -> sweetSpotTimeline(3, 6, 5, 3, 2,
+                    0.68, 1.07, 1.11, 0.98, 0.96);
+            case DASH_ATTACK -> noSweetSpotTimeline(1, 6, 6, 0, 0);
+            case LEDGE_ATTACK -> noSweetSpotTimeline(2, 5, 6, 0, 0);
+            case GETUP_ATTACK -> noSweetSpotTimeline(2, 6, 7, 0, 0);
+        };
+    }
+
+    /** Hummingbird's needle-like normals start quickly and reward precise tips. */
+    private NormalAttackTimeline hummingbirdNormalAttackTimeline(NormalAttackVariant variant) {
+        return switch (variant) {
+            case NEUTRAL -> sweetSpotTimeline(1, 2, 3, 0, 0,
+                    0.70, 1.05, 1.08, 0.98, 0.96);
+            case SIDE_TILT -> sweetSpotTimeline(1, 3, 4, 0, 0,
+                    0.74, 1.07, 1.10, 0.97, 0.95);
+            case UP_TILT -> noSweetSpotTimeline(1, 3, 4, 0, 0);
+            case DOWN_TILT -> sweetSpotTimeline(1, 2, 4, 0, 0,
+                    0.72, 1.05, 1.08, 0.98, 0.96);
+            case SIDE_SMASH -> sweetSpotTimeline(4, 3, 6, 0, 0,
+                    0.78, 1.08, 1.13, 0.96, 0.93);
+            case UP_SMASH -> noSweetSpotTimeline(4, 4, 5, 0, 0);
+            case DOWN_SMASH -> noSweetSpotTimeline(4, 5, 5, 0, 0);
+            case NEUTRAL_AIR -> noSweetSpotTimeline(1, 5, 3, 1, 2);
+            case FORWARD_AIR -> sweetSpotTimeline(2, 3, 5, 2, 2,
+                    0.78, 1.08, 1.12, 0.96, 0.93);
+            case BACK_AIR -> sweetSpotTimeline(2, 3, 5, 2, 2,
+                    0.74, 1.07, 1.11, 0.97, 0.94);
+            case UP_AIR -> noSweetSpotTimeline(1, 4, 4, 1, 2);
+            case DOWN_AIR -> sweetSpotTimeline(3, 3, 5, 3, 2,
+                    0.76, 1.08, 1.12, 0.96, 0.93);
+            case DASH_ATTACK -> sweetSpotTimeline(1, 3, 6, 0, 0,
+                    0.78, 1.07, 1.11, 0.97, 0.94);
+            case LEDGE_ATTACK -> noSweetSpotTimeline(2, 3, 5, 0, 0);
+            case GETUP_ATTACK -> noSweetSpotTimeline(2, 4, 5, 0, 0);
         };
     }
 

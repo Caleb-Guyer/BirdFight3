@@ -122,16 +122,16 @@ class NormalAttackTimelineTest {
 
     @Test
     void nonMigratedBirdsKeepLegacyImmediateResolutionUntilAuthored() throws Exception {
-        BirdGame3 game = twoBirdGame(BirdGame3.BirdType.PHOENIX, BirdGame3.BirdType.PIGEON,
+        BirdGame3 game = twoBirdGame(BirdGame3.BirdType.TURKEY, BirdGame3.BirdType.PIGEON,
                 320.0, 382.0);
-        Bird phoenix = game.players[0];
+        Bird turkey = game.players[0];
         Bird target = game.players[1];
         double startingHealth = target.health;
 
-        performAttack(phoenix, "NEUTRAL");
+        performAttack(turkey, "NEUTRAL");
 
         assertTrue(target.health < startingHealth);
-        assertFalse(phoenix.debugNormalAttackTimelineActive());
+        assertFalse(turkey.debugNormalAttackTimelineActive());
     }
 
     @Test
@@ -183,6 +183,50 @@ class NormalAttackTimelineTest {
                 "Eagle's heavier smash must remain telegraphed after Falcon is already active.");
         advanceTimer(eagle, 3);
         assertTrue(eagleTarget.health < eagleStartingHealth);
+    }
+
+    @Test
+    void aerialSpecialistsHaveDistinctCompleteFrameData() throws Exception {
+        String[] variants = {
+                "NEUTRAL", "SIDE_TILT", "UP_TILT", "DOWN_TILT",
+                "SIDE_SMASH", "UP_SMASH", "DOWN_SMASH",
+                "NEUTRAL_AIR", "FORWARD_AIR", "BACK_AIR", "UP_AIR", "DOWN_AIR",
+                "DASH_ATTACK", "LEDGE_ATTACK", "GETUP_ATTACK"
+        };
+        int[][] phoenixFrames = {
+                {1, 5, 2}, {1, 5, 4}, {1, 5, 4}, {1, 5, 4},
+                {4, 5, 7}, {4, 6, 6}, {4, 7, 6},
+                {1, 8, 3}, {2, 6, 5}, {2, 6, 5}, {1, 8, 3}, {3, 6, 5},
+                {1, 6, 6}, {2, 5, 6}, {2, 6, 7}
+        };
+        int[][] hummingbirdFrames = {
+                {1, 2, 3}, {1, 3, 4}, {1, 3, 4}, {1, 2, 4},
+                {4, 3, 6}, {4, 4, 5}, {4, 5, 5},
+                {1, 5, 3}, {2, 3, 5}, {2, 3, 5}, {1, 4, 4}, {3, 3, 5},
+                {1, 3, 6}, {2, 3, 5}, {2, 4, 5}
+        };
+
+        assertAuthoredMoveList(BirdGame3.BirdType.PHOENIX, variants, phoenixFrames);
+        assertAuthoredMoveList(BirdGame3.BirdType.HUMMINGBIRD, variants, hummingbirdFrames);
+    }
+
+    @Test
+    void phoenixNeutralAirLingersWithoutRepeatedlyHittingOneTarget() throws Exception {
+        BirdGame3 game = twoBirdGame(BirdGame3.BirdType.PHOENIX, BirdGame3.BirdType.PIGEON,
+                320.0, 382.0);
+        Bird phoenix = game.players[0];
+        Bird target = game.players[1];
+        double startingHealth = target.health;
+
+        performAttack(phoenix, "NEUTRAL_AIR");
+        advanceTimer(phoenix, 3);
+        assertEquals("ACTIVE", phoenix.debugNormalAttackPhaseLabel());
+        assertTrue(target.health < startingHealth);
+        double afterFirstFlameContact = target.health;
+        advanceTimer(phoenix, 6);
+        assertEquals(afterFirstFlameContact, target.health, 0.0001,
+                "Phoenix's lingering flame arc remains a single hit per target.");
+        assertEquals("ACTIVE", phoenix.debugNormalAttackPhaseLabel());
     }
 
     @Test
