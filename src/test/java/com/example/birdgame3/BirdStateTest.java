@@ -5562,7 +5562,8 @@ class BirdStateTest {
         bird.update(1.0);
         game.setLocalActionsForKey(game.attackKeyForPlayer(0), false);
 
-        for (int i = 0; i < 9; i++) {
+        while (bird.debugNormalAttackTimelineActive()
+                && bird.debugNormalAttackFrame() <= bird.debugNormalAttackTotalFrames() - 2) {
             bird.y = BirdGame3.GROUND_Y - 320.0;
             bird.vy = 0.0;
             bird.update(1.0);
@@ -6672,6 +6673,7 @@ class BirdStateTest {
 
         int healthBefore = getPrivateInt(fort, "health");
         invokePrivateIntVoid(attacker);
+        advanceAuthoredAttackToFirstActiveFrame(attacker);
         int healthAfter = getPrivateInt(fort, "health");
 
         assertTrue(healthAfter < healthBefore, "Enemy attacks should damage the Snow Fort.");

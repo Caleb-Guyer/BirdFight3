@@ -122,16 +122,67 @@ class NormalAttackTimelineTest {
 
     @Test
     void nonMigratedBirdsKeepLegacyImmediateResolutionUntilAuthored() throws Exception {
-        BirdGame3 game = twoBirdGame(BirdGame3.BirdType.EAGLE, BirdGame3.BirdType.PIGEON,
+        BirdGame3 game = twoBirdGame(BirdGame3.BirdType.PHOENIX, BirdGame3.BirdType.PIGEON,
                 320.0, 382.0);
-        Bird eagle = game.players[0];
+        Bird phoenix = game.players[0];
         Bird target = game.players[1];
         double startingHealth = target.health;
 
-        performAttack(eagle, "NEUTRAL");
+        performAttack(phoenix, "NEUTRAL");
 
         assertTrue(target.health < startingHealth);
-        assertFalse(eagle.debugNormalAttackTimelineActive());
+        assertFalse(phoenix.debugNormalAttackTimelineActive());
+    }
+
+    @Test
+    void everyRaptorNormalHasCompleteAuthoredFrameData() throws Exception {
+        String[] variants = {
+                "NEUTRAL", "SIDE_TILT", "UP_TILT", "DOWN_TILT",
+                "SIDE_SMASH", "UP_SMASH", "DOWN_SMASH",
+                "NEUTRAL_AIR", "FORWARD_AIR", "BACK_AIR", "UP_AIR", "DOWN_AIR",
+                "DASH_ATTACK", "LEDGE_ATTACK", "GETUP_ATTACK"
+        };
+        int[][] eagleFrames = {
+                {2, 3, 3}, {3, 3, 5}, {3, 4, 4}, {2, 3, 7},
+                {7, 3, 7}, {7, 4, 6}, {7, 5, 6},
+                {2, 7, 3}, {4, 4, 7}, {3, 4, 8}, {3, 5, 6}, {5, 4, 7},
+                {3, 4, 8}, {3, 4, 7}, {4, 4, 8}
+        };
+        int[][] falconFrames = {
+                {1, 3, 3}, {2, 3, 4}, {2, 4, 3}, {1, 3, 4},
+                {4, 3, 6}, {4, 4, 5}, {4, 5, 5},
+                {1, 6, 3}, {2, 4, 5}, {2, 4, 5}, {2, 5, 3}, {3, 4, 5},
+                {1, 4, 6}, {2, 4, 4}, {3, 4, 4}
+        };
+
+        assertAuthoredMoveList(BirdGame3.BirdType.EAGLE, variants, eagleFrames);
+        assertAuthoredMoveList(BirdGame3.BirdType.FALCON, variants, falconFrames);
+    }
+
+    @Test
+    void falconSideSmashStrikesEarlierThanEaglesWithoutSkippingStartup() throws Exception {
+        BirdGame3 falconGame = twoBirdGame(BirdGame3.BirdType.FALCON, BirdGame3.BirdType.PIGEON,
+                320.0, 470.0);
+        Bird falcon = falconGame.players[0];
+        Bird falconTarget = falconGame.players[1];
+        double falconStartingHealth = falconTarget.health;
+        performAttack(falcon, "SIDE_SMASH");
+        advanceTimer(falcon, 4);
+        assertEquals(falconStartingHealth, falconTarget.health, 0.0001);
+        advanceTimer(falcon, 1);
+        assertTrue(falconTarget.health < falconStartingHealth);
+
+        BirdGame3 eagleGame = twoBirdGame(BirdGame3.BirdType.EAGLE, BirdGame3.BirdType.PIGEON,
+                320.0, 470.0);
+        Bird eagle = eagleGame.players[0];
+        Bird eagleTarget = eagleGame.players[1];
+        double eagleStartingHealth = eagleTarget.health;
+        performAttack(eagle, "SIDE_SMASH");
+        advanceTimer(eagle, 5);
+        assertEquals(eagleStartingHealth, eagleTarget.health, 0.0001,
+                "Eagle's heavier smash must remain telegraphed after Falcon is already active.");
+        advanceTimer(eagle, 3);
+        assertTrue(eagleTarget.health < eagleStartingHealth);
     }
 
     @Test
@@ -222,6 +273,26 @@ class NormalAttackTimelineTest {
         performAttack(pigeon, "SIDE_SMASH");
         advanceTimer(pigeon, 9);
         return new AttackOutcome(startingHealth - target.health, target.vx);
+    }
+
+    private static void assertAuthoredMoveList(BirdGame3.BirdType type, String[] variants,
+                                               int[][] expectedFrames) throws Exception {
+        assertEquals(variants.length, expectedFrames.length);
+        for (int index = 0; index < variants.length; index++) {
+            BirdGame3 game = twoBirdGame(type, BirdGame3.BirdType.PIGEON, 320.0, 1_400.0);
+            Bird bird = game.players[0];
+            performAttack(bird, variants[index]);
+
+            assertTrue(bird.debugNormalAttackTimelineActive(), type + " " + variants[index]);
+            assertEquals(expectedFrames[index][0], bird.debugNormalAttackStartupFrames(),
+                    type + " " + variants[index] + " startup");
+            assertEquals(expectedFrames[index][1], bird.debugNormalAttackActiveFrames(),
+                    type + " " + variants[index] + " active");
+            assertEquals(expectedFrames[index][2], bird.debugNormalAttackRecoveryFrames(),
+                    type + " " + variants[index] + " recovery");
+            assertEquals(expectedFrames[index][0] + expectedFrames[index][1] + expectedFrames[index][2],
+                    bird.debugNormalAttackTotalFrames(), type + " " + variants[index] + " total");
+        }
     }
 
     private static BirdGame3 airborneTwoBirdGame() {

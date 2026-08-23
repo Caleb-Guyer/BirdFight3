@@ -3716,12 +3716,20 @@ public class Bird {
         // The shared engine is intentionally rolled out bird-by-bird so an
         // authored migration cannot silently change the accepted balance of
         // fighters that still use their legacy instant strike.
-        return type == BirdGame3.BirdType.PIGEON;
+        return type == BirdGame3.BirdType.PIGEON
+                || type == BirdGame3.BirdType.EAGLE
+                || type == BirdGame3.BirdType.FALCON;
     }
 
     private NormalAttackTimeline normalAttackTimeline(NormalAttackVariant variant) {
         if (type == BirdGame3.BirdType.PIGEON) {
             return pigeonNormalAttackTimeline(variant);
+        }
+        if (type == BirdGame3.BirdType.EAGLE) {
+            return eagleNormalAttackTimeline(variant);
+        }
+        if (type == BirdGame3.BirdType.FALCON) {
+            return falconNormalAttackTimeline(variant);
         }
         NormalAttackProfile profile = normalAttackProfile(variant);
         return noSweetSpotTimeline(0, 1, Math.max(0, profile.animationFrames() - 1), 0, 0);
@@ -3749,6 +3757,71 @@ public class Bird {
             case DASH_ATTACK -> noSweetSpotTimeline(5, 3, 5, 0, 0);
             case LEDGE_ATTACK -> noSweetSpotTimeline(4, 3, 5, 0, 0);
             case GETUP_ATTACK -> noSweetSpotTimeline(6, 3, 5, 0, 0);
+        };
+    }
+
+    /**
+     * Eagle commits to broad, deliberate talon arcs. Its active windows are
+     * forgiving, but the slower startup gives opponents a readable warning and
+     * its recovery makes a missed royal swing meaningfully punishable.
+     */
+    private NormalAttackTimeline eagleNormalAttackTimeline(NormalAttackVariant variant) {
+        return switch (variant) {
+            case NEUTRAL -> sweetSpotTimeline(2, 3, 3, 0, 0,
+                    0.58, 1.05, 1.08, 0.98, 0.96);
+            case SIDE_TILT -> sweetSpotTimeline(3, 3, 5, 0, 0,
+                    0.62, 1.05, 1.08, 0.98, 0.96);
+            case UP_TILT -> noSweetSpotTimeline(3, 4, 4, 0, 0);
+            case DOWN_TILT -> noSweetSpotTimeline(2, 3, 7, 0, 0);
+            case SIDE_SMASH -> sweetSpotTimeline(7, 3, 7, 0, 0,
+                    0.68, 1.07, 1.11, 0.98, 0.96);
+            case UP_SMASH -> noSweetSpotTimeline(7, 4, 6, 0, 0);
+            case DOWN_SMASH -> noSweetSpotTimeline(7, 5, 6, 0, 0);
+            case NEUTRAL_AIR -> noSweetSpotTimeline(2, 7, 3, 2, 2);
+            case FORWARD_AIR -> sweetSpotTimeline(4, 4, 7, 4, 2,
+                    0.64, 1.06, 1.10, 0.98, 0.96);
+            case BACK_AIR -> sweetSpotTimeline(3, 4, 8, 3, 2,
+                    0.62, 1.06, 1.09, 0.98, 0.96);
+            case UP_AIR -> noSweetSpotTimeline(3, 5, 6, 3, 2);
+            case DOWN_AIR -> sweetSpotTimeline(5, 4, 7, 5, 2,
+                    0.68, 1.08, 1.12, 0.97, 0.95);
+            case DASH_ATTACK -> sweetSpotTimeline(3, 4, 8, 0, 0,
+                    0.66, 1.05, 1.08, 0.98, 0.96);
+            case LEDGE_ATTACK -> noSweetSpotTimeline(3, 4, 7, 0, 0);
+            case GETUP_ATTACK -> noSweetSpotTimeline(4, 4, 8, 0, 0);
+        };
+    }
+
+    /**
+     * Falcon reaches its hit frames sooner and recovers sooner than Eagle, but
+     * more of its payoff lives at the precise leading edge of the attack box.
+     * The totals intentionally retain Falcon's accepted legacy repeat cadence.
+     */
+    private NormalAttackTimeline falconNormalAttackTimeline(NormalAttackVariant variant) {
+        return switch (variant) {
+            case NEUTRAL -> sweetSpotTimeline(1, 3, 3, 0, 0,
+                    0.62, 1.05, 1.07, 0.98, 0.96);
+            case SIDE_TILT -> sweetSpotTimeline(2, 3, 4, 0, 0,
+                    0.68, 1.06, 1.09, 0.98, 0.96);
+            case UP_TILT -> noSweetSpotTimeline(2, 4, 3, 0, 0);
+            case DOWN_TILT -> sweetSpotTimeline(1, 3, 4, 0, 0,
+                    0.68, 1.05, 1.07, 0.98, 0.96);
+            case SIDE_SMASH -> sweetSpotTimeline(4, 3, 6, 0, 0,
+                    0.72, 1.08, 1.12, 0.97, 0.95);
+            case UP_SMASH -> noSweetSpotTimeline(4, 4, 5, 0, 0);
+            case DOWN_SMASH -> noSweetSpotTimeline(4, 5, 5, 0, 0);
+            case NEUTRAL_AIR -> noSweetSpotTimeline(1, 6, 3, 1, 2);
+            case FORWARD_AIR -> sweetSpotTimeline(2, 4, 5, 2, 2,
+                    0.72, 1.07, 1.11, 0.97, 0.95);
+            case BACK_AIR -> sweetSpotTimeline(2, 4, 5, 2, 2,
+                    0.68, 1.07, 1.10, 0.97, 0.95);
+            case UP_AIR -> noSweetSpotTimeline(2, 5, 3, 2, 2);
+            case DOWN_AIR -> sweetSpotTimeline(3, 4, 5, 3, 2,
+                    0.72, 1.08, 1.12, 0.97, 0.95);
+            case DASH_ATTACK -> sweetSpotTimeline(1, 4, 6, 0, 0,
+                    0.72, 1.06, 1.10, 0.98, 0.96);
+            case LEDGE_ATTACK -> noSweetSpotTimeline(2, 4, 4, 0, 0);
+            case GETUP_ATTACK -> noSweetSpotTimeline(3, 4, 4, 0, 0);
         };
     }
 
