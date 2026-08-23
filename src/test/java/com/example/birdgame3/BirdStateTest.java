@@ -7686,6 +7686,167 @@ class BirdStateTest {
     }
 
     @Test
+    void highLevelCpuStartsBoundedEdgeGuardButLowLevelCpuStaysOnstage() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+        game.selectedMap = BirdGame3.MapType.BATTLEFIELD;
+        double islandX = 2400.0;
+        double islandY = BirdGame3.GROUND_Y - 80.0;
+        Platform main = new Platform(islandX, islandY, 1200.0, 70.0);
+        game.platforms.add(main);
+
+        Bird falcon = new Bird(islandX + 70.0, BirdGame3.BirdType.FALCON, 0, game);
+        falcon.y = islandY - falcon.bodyHeight();
+        Bird target = new Bird(islandX - 125.0, BirdGame3.BirdType.PIGEON, 1, game);
+        target.y = islandY + 10.0;
+        game.players[0] = falcon;
+        game.players[1] = target;
+        game.isAI[0] = true;
+        int[] levels = (int[]) getPrivateObject(game, "cpuLevels");
+        levels[0] = 8;
+
+        falcon.update(1.0);
+
+        assertTrue(getPrivateInt(falcon, "aiEdgeGuardCommitFrames") > 0,
+                "A high-level mobile CPU should deliberately contest a nearby offstage opponent.");
+        assertTrue(game.isLeftPressed(0));
+        assertTrue(game.isJumpPressed(0), "The edgeguard must begin with an authored jump from the stage lip.");
+
+        BirdGame3 lowGame = new BirdGame3();
+        lowGame.activePlayers = 2;
+        lowGame.selectedMap = BirdGame3.MapType.BATTLEFIELD;
+        Platform lowMain = new Platform(islandX, islandY, 1200.0, 70.0);
+        lowGame.platforms.add(lowMain);
+        Bird lowFalcon = new Bird(islandX + 70.0, BirdGame3.BirdType.FALCON, 0, lowGame);
+        lowFalcon.y = islandY - lowFalcon.bodyHeight();
+        Bird lowTarget = new Bird(islandX - 125.0, BirdGame3.BirdType.PIGEON, 1, lowGame);
+        lowTarget.y = islandY + 10.0;
+        lowGame.players[0] = lowFalcon;
+        lowGame.players[1] = lowTarget;
+        lowGame.isAI[0] = true;
+        ((int[]) getPrivateObject(lowGame, "cpuLevels"))[0] = 3;
+
+        lowFalcon.update(1.0);
+
+        assertEquals(0, getPrivateInt(lowFalcon, "aiEdgeGuardCommitFrames"),
+                "Low-level CPUs should not gain deliberate offstage edgeguard behavior.");
+    }
+
+    @Test
+    void edgeGuardAbortsIntoRecoveryBeforeResourcesRunOut() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+        game.selectedMap = BirdGame3.MapType.BATTLEFIELD;
+        double islandX = 2400.0;
+        double islandY = BirdGame3.GROUND_Y - 80.0;
+        Platform main = new Platform(islandX, islandY, 1200.0, 70.0);
+        game.platforms.add(main);
+
+        Bird falcon = new Bird(islandX - 260.0, BirdGame3.BirdType.FALCON, 0, game);
+        falcon.y = islandY + 130.0;
+        falcon.canDoubleJump = false;
+        falcon.raptorUpSpecialUsed = true;
+        Bird target = new Bird(islandX - 230.0, BirdGame3.BirdType.PIGEON, 1, game);
+        target.y = islandY + 30.0;
+        game.players[0] = falcon;
+        game.players[1] = target;
+        game.isAI[0] = true;
+        setPrivateInt(falcon, "aiEdgeGuardCommitFrames", 30);
+
+        Method edgeGuard = Bird.class.getDeclaredMethod("applyAIEdgeGuardInputs",
+                Bird.class, boolean.class, Platform.class, int.class);
+        edgeGuard.setAccessible(true);
+        assertTrue((boolean) edgeGuard.invoke(falcon, target, false, null, 9));
+
+        assertEquals(0, getPrivateInt(falcon, "aiEdgeGuardCommitFrames"));
+        assertTrue(getPrivateInt(falcon, "aiEdgeGuardCooldown") >= 120);
+        assertTrue(game.isRightPressed(0), "An unsafe edgeguard must immediately steer back toward stage.");
+    }
+
+    @Test
+    void midLevelCpuThreatensFreshLedgeCatchWithoutJumpingIntoVoid() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+        game.selectedMap = BirdGame3.MapType.BATTLEFIELD;
+        double islandX = 2400.0;
+        double islandY = BirdGame3.GROUND_Y - 80.0;
+        Platform main = new Platform(islandX, islandY, 1200.0, 70.0);
+        game.platforms.add(main);
+
+        Bird guard = new Bird(islandX + 52.0, BirdGame3.BirdType.TURKEY, 0, game);
+        guard.y = islandY - guard.bodyHeight();
+        Bird target = new Bird(islandX - 80.0, BirdGame3.BirdType.PIGEON, 1, game);
+        game.players[0] = guard;
+        game.players[1] = target;
+        game.isAI[0] = true;
+        invokePrivateVoid(target, "beginLedgeHang",
+                new Class<?>[]{Platform.class, boolean.class}, main, false);
+
+        Method edgeGuard = Bird.class.getDeclaredMethod("applyAIEdgeGuardInputs",
+                Bird.class, boolean.class, Platform.class, int.class);
+        edgeGuard.setAccessible(true);
+        assertTrue((boolean) edgeGuard.invoke(guard, target, true, main, 4));
+
+        assertEquals(0, getPrivateInt(guard, "aiEdgeGuardCommitFrames"));
+        assertTrue(game.isAttackPressed(0), "Fresh two-frame vulnerability should be challenged from onstage.");
+        assertFalse(game.isJumpPressed(0), "A mid-level ledge trap should never become an offstage jump.");
+    }
+
+    @Test
+    void everyDedicatedAirRecoveryIsRecognizedByCpuRouting() throws Exception {
+        for (BirdGame3.BirdType type : new BirdGame3.BirdType[]{
+                BirdGame3.BirdType.FALCON,
+                BirdGame3.BirdType.PHOENIX,
+                BirdGame3.BirdType.VULTURE,
+                BirdGame3.BirdType.PELICAN
+        }) {
+            BirdGame3 game = new BirdGame3();
+            game.activePlayers = 1;
+            game.selectedMap = BirdGame3.MapType.BATTLEFIELD;
+            double islandX = 2400.0;
+            double islandY = BirdGame3.GROUND_Y - 80.0;
+            game.platforms.add(new Platform(islandX, islandY, 1200.0, 70.0));
+            Bird bird = new Bird(islandX - 180.0, type, 0, game);
+            bird.y = islandY + 145.0;
+            bird.vx = -2.5;
+            bird.vy = 4.0;
+            bird.canDoubleJump = false;
+            game.players[0] = bird;
+            game.isAI[0] = true;
+
+            assertTrue(bird.applyTrainingRecoveryInputs(), type + " should enter deterministic void recovery.");
+            assertTrue(game.isRightPressed(0), type + " should steer toward the main island.");
+            assertTrue(game.isJumpPressed(0), type + " should aim its recovery special upward.");
+            assertTrue(game.isSpecialPressed(0), type + " should use its dedicated up-special recovery.");
+            assertTrue(bird.debugNeedsRecoveryRoute());
+            assertTrue(bird.debugRecoveryTelemetryLabel().contains("RETURN"));
+        }
+    }
+
+    @Test
+    void lanSnapshotsPreserveDeterministicRecoveryCommitment() throws Exception {
+        BirdGame3 sourceGame = new BirdGame3();
+        sourceGame.activePlayers = 1;
+        Bird source = new Bird(100.0, BirdGame3.BirdType.FALCON, 0, sourceGame);
+        sourceGame.players[0] = source;
+        setPrivateInt(source, "aiVoidRecoveryLockFrames", 24);
+        setPrivateInt(source, "aiEdgeGuardCommitFrames", 41);
+        setPrivateInt(source, "aiEdgeGuardCooldown", 83);
+
+        LanBirdState snapshot = source.toLanState();
+        BirdGame3 remoteGame = new BirdGame3();
+        remoteGame.activePlayers = 1;
+        Bird remote = new Bird(100.0, BirdGame3.BirdType.FALCON, 0, remoteGame);
+        remoteGame.players[0] = remote;
+        remote.applyLanState(snapshot);
+
+        assertEquals(24, getPrivateInt(remote, "aiVoidRecoveryLockFrames"));
+        assertEquals(41, getPrivateInt(remote, "aiEdgeGuardCommitFrames"));
+        assertEquals(83, getPrivateInt(remote, "aiEdgeGuardCooldown"));
+        assertEquals(source.deterministicRecoveryStateHash(), remote.deterministicRecoveryStateHash());
+    }
+
+    @Test
     void mockingbirdAiUsesForestLiftWhenTrappedBelowResonanceHallStage() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;

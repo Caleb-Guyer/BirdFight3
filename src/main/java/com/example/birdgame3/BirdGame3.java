@@ -21580,6 +21580,18 @@ public class BirdGame3 {
                 g.strokeLine(anchorX, anchorY - marker * 1.35, anchorX, anchorY + marker * 1.35);
             }
 
+            if (b.debugNeedsRecoveryRoute()) {
+                double targetX = b.debugRecoveryTargetX();
+                double targetY = b.debugRecoveryTargetY();
+                double marker = 13.0 / Math.max(0.25, zoom);
+                g.setStroke(Color.web("#69F0AE", 0.92));
+                g.setLineWidth(3.0 / Math.max(0.25, zoom));
+                g.setLineDashes(11.0 / Math.max(0.25, zoom), 6.0 / Math.max(0.25, zoom));
+                g.strokeLine(b.bodyCenterX(), b.bodyCenterY(), targetX, targetY);
+                g.setLineDashes();
+                g.strokeOval(targetX - marker, targetY - marker, marker * 2.0, marker * 2.0);
+            }
+
             Bird grabPartner = b.debugGrabPartner();
             if (grabPartner != null && b.playerIndex < grabPartner.playerIndex) {
                 g.setStroke(Color.web("#FFAB40", 0.96));
@@ -64996,6 +65008,7 @@ public class BirdGame3 {
             h = h * 1099511628211L + b.mockingbirdMicDirection;
             h = h * 1099511628211L + b.deterministicGrabStateHash();
             h = h * 1099511628211L + b.deterministicLedgeStateHash();
+            h = h * 1099511628211L + b.deterministicRecoveryStateHash();
             h = h * 1099511628211L + b.deterministicDefenseStateHash();
             h = h * 1099511628211L + b.deterministicHitReactionStateHash();
             h = h * 1099511628211L + b.deterministicStaleMoveStateHash();
@@ -67939,15 +67952,16 @@ public class BirdGame3 {
             g.setFill(Color.web("#CFD8DC"));
             g.fillText("STALE   " + trainingPlayer.debugStaleMoveTelemetryLabel(), leftX, universalY + 176);
             g.fillText("CLASH   " + trainingPlayer.debugAttackInteractionTelemetryLabel(), leftX, universalY + 197);
+            g.fillText("RECOVER " + trainingPlayer.debugRecoveryTelemetryLabel(), leftX, universalY + 218);
 
-            drawTrainingGauge(g, leftX, universalY + 210, 260, 8,
+            drawTrainingGauge(g, leftX, universalY + 231, 260, 8,
                     trainingPlayer.debugShieldDurabilityRatio(), Color.web("#64D8FF"));
             int invulnerabilityFrames = trainingPlayer.debugCombatInvulnerabilityFrames();
-            drawTrainingGauge(g, leftX + 280, universalY + 210, 260, 8,
+            drawTrainingGauge(g, leftX + 280, universalY + 231, 260, 8,
                     Math.clamp(invulnerabilityFrames / 120.0, 0.0, 1.0), Color.web("#FFE082"));
             g.setFill(Color.web("#90A4AE"));
-            g.fillText("SHIELD", leftX, universalY + 231);
-            g.fillText("INVULNERABILITY", leftX + 280, universalY + 231);
+            g.fillText("SHIELD", leftX, universalY + 252);
+            g.fillText("INVULNERABILITY", leftX + 280, universalY + 252);
         }
 
         g.setFill(Color.web("#FFE082"));

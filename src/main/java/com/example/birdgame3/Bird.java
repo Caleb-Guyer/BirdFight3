@@ -10089,6 +10089,8 @@ public class Bird {
     private int aiDropCommitFrames = 0;
     private int aiDropCommitDir = 0;
     private int aiVoidRecoveryLockFrames = 0;
+    private int aiEdgeGuardCommitFrames = 0;
+    private int aiEdgeGuardCooldown = 0;
     private int aiTargetLockFrames = 0;
     private int aiLockedTargetIndex = -1;
     private int aiPerceptionTimer = 0;
@@ -10350,6 +10352,8 @@ public class Bird {
         if (aiPowerCommitFrames > 0) aiPowerCommitFrames--;
         if (aiDropCommitFrames > 0) aiDropCommitFrames--;
         if (aiVoidRecoveryLockFrames > 0) aiVoidRecoveryLockFrames--;
+        if (aiEdgeGuardCommitFrames > 0) aiEdgeGuardCommitFrames--;
+        if (aiEdgeGuardCooldown > 0) aiEdgeGuardCooldown--;
         if (aiTargetLockFrames > 0) aiTargetLockFrames--;
         if (aiPerceptionTimer > 0) aiPerceptionTimer--;
         if (aiOffenseDecisionCooldown > 0) aiOffenseDecisionCooldown--;
@@ -10426,6 +10430,10 @@ public class Bird {
         double targetVy = target != null ? aiPerceivedTargetVy : 0.0;
         double targetDist = target != null ? Math.hypot(targetX - x, targetY - y) : Double.MAX_VALUE;
         if (applyBatAIHangRelease(target, targetDist)) {
+            aiLastHealth = currentDurability;
+            return;
+        }
+        if (applyAIEdgeGuardInputs(target, onGround, standing, cpuLevel)) {
             aiLastHealth = currentDurability;
             return;
         }
@@ -13152,8 +13160,189 @@ public class Bird {
                     || horizontalRatio > 0.48
                     || (movingAway && offstageDistance > 14.0)
                     || (vy > 4.0 && depth > 16.0);
-            default -> false;
+            default -> {
+                AIKitProfile profile = aiOwnKit();
+                double horizontalThreshold = Math.clamp(0.68 - profile.recovery() * 0.20, 0.48, 0.60);
+                double depthThreshold = Math.clamp(0.72 - profile.recovery() * 0.18, 0.54, 0.63);
+                yield horizontalRatio > horizontalThreshold
+                        || depthRatio > depthThreshold
+                        || (movingAway && offstageDistance > Math.max(18.0,
+                        aiVoidHorizontalAllowance(mainStage) * 0.13))
+                        || (vy > 3.8 && depth > Math.max(20.0,
+                        aiVoidDepthAllowance(mainStage) * 0.18));
+            }
         };
+    }
+
+    private boolean isBirdOffMainStage(Bird bird, Platform mainStage) {
+        if (bird == null || mainStage == null) return false;
+        double centerX = bird.bodyCenterX();
+        double bottomY = bird.bodyBottomY();
+        return centerX < mainStage.x
+                || centerX > mainStage.x + mainStage.w
+                || bottomY > mainStage.y + 12.0;
+    }
+
+    private int aiOffstageSide(Bird bird, Platform mainStage) {
+        double centerX = bird.bodyCenterX();
+        if (centerX < mainStage.x) return -1;
+        if (centerX > mainStage.x + mainStage.w) return 1;
+        return centerX < mainStage.x + mainStage.w / 2.0 ? -1 : 1;
+    }
+
+    private boolean aiHasRecoveryResource() {
+        if (canDoubleJump) return true;
+        if (currentFlyUpForce() > 0.0
+                && (!hasLimitedFlight() || limitedFlightFuel > LIMITED_FLIGHT_MAX * 0.25)) {
+            return true;
+        }
+        return switch (type) {
+            case PIGEON -> !pigeonUpSpecialUsed;
+            case EAGLE, FALCON -> !raptorUpSpecialUsed;
+            case PHOENIX -> !phoenixSpiralUsed;
+            case TURKEY -> !turkeyPanicFlapUsed;
+            case ROOSTER -> !roosterUpSpecialUsed && ownedRoosterChickCount() > 0;
+            case ROADRUNNER -> !roadrunnerDustDevilUsed;
+            case PENGUIN -> !penguinUpSpecialUsed;
+            case SHOEBILL -> !shoebillUpSpecialUsed;
+            case MOCKINGBIRD -> !mockingbirdUpSpecialUsed;
+            case RAZORBILL -> !razorbillUpSpecialUsed;
+            case GRINCHHAWK -> !grinchUpSpecialUsed;
+            case VULTURE -> !vultureUpSpecialUsed;
+            case OPIUMBIRD, HEISENBIRD -> !opiumUpSpecialUsed;
+            case TITMOUSE -> !titmouseVaultUsed;
+            case BAT -> !batMoonriseUsed;
+            case PELICAN -> !pelicanUpSpecialUsed;
+            case RAVEN -> !ravenLiftUsed;
+            case GOOSE -> !gooseLiftUsed;
+            case KIWI -> !kiwiSpringUsed;
+            case HUMMINGBIRD -> false;
+        };
+    }
+
+    private boolean shouldAIStartEdgeGuard(Bird target, boolean onGround, Platform standing,
+                                           Platform mainStage, int cpuLevel) {
+        if (cpuLevel < 6 || aiEdgeGuardCooldown > 0 || target == null
+                || target.ledgeHanging || !onGround || standing != mainStage
+                || aiDurabilityForDecision() < 38.0 || !aiHasRecoveryResource()) {
+            return false;
+        }
+        AIKitProfile own = aiOwnKit();
+        if (own.recovery() < 0.58 || (own.airControl() < 0.42 && own.pressure() < 0.72)) {
+            return false;
+        }
+        double targetOut = target.bodyCenterX() < mainStage.x
+                ? mainStage.x - target.bodyCenterX()
+                : Math.max(0.0, target.bodyCenterX() - (mainStage.x + mainStage.w));
+        double targetDepth = Math.max(0.0, target.bodyBottomY() - mainStage.y);
+        double maxOut = Math.min(230.0, Math.max(105.0, aiVoidHorizontalAllowance(mainStage) * 0.72));
+        double maxDepth = Math.min(220.0, Math.max(95.0, aiVoidDepthAllowance(mainStage) * 0.62));
+        return isBirdOffMainStage(target, mainStage) && targetOut <= maxOut && targetDepth <= maxDepth;
+    }
+
+    /**
+     * Gives capable high-level CPUs a short, recoverable offstage commitment. All
+     * CPUs can still ledge-trap from safety; only level 6+ CPUs with resources
+     * leave the island, and they abort well before their normal recovery budget.
+     */
+    private boolean applyAIEdgeGuardInputs(Bird target, boolean onGround, Platform standing, int cpuLevel) {
+        if (!isVoidMap() || target == null) {
+            aiEdgeGuardCommitFrames = 0;
+            return false;
+        }
+        Platform mainStage = findAIMainStagePlatform();
+        if (mainStage == null) {
+            aiEdgeGuardCommitFrames = 0;
+            return false;
+        }
+
+        boolean targetAtMainLedge = target.ledgeHanging && target.ledgePlatform == mainStage;
+        if (targetAtMainLedge && cpuLevel >= 4 && onGround && standing == mainStage) {
+            aiEdgeGuardCommitFrames = 0;
+            int side = target.ledgeGrabOnRightSide ? 1 : -1;
+            double halfWidth = 40.0 * sizeMultiplier;
+            double trapX = side < 0
+                    ? mainStage.x + 92.0 - halfWidth
+                    : mainStage.x + mainStage.w - 92.0 - halfWidth;
+            double delta = trapX - x;
+            if (Math.abs(delta) > 24.0) {
+                boolean moveLeft = delta < 0.0;
+                game.setAiControlKey(playerIndex, moveLeft ? leftKey() : rightKey(), true);
+                facingRight = !moveLeft;
+            } else {
+                facingRight = target.bodyCenterX() >= bodyCenterX();
+                boolean punishableOption = target.debugLedgeTwoFrameVulnerabilityFrames() > 0
+                        || target.ledgeOptionType != LedgeOptionType.NONE
+                        || target.ledgeInvulnerabilityTimer <= 0;
+                if (punishableOption && attackCooldown <= 0) {
+                    game.setAiControlKey(playerIndex, attackKey(), true);
+                }
+            }
+            return true;
+        }
+
+        boolean targetOffstage = isBirdOffMainStage(target, mainStage);
+        if (!targetOffstage) {
+            if (aiEdgeGuardCommitFrames > 0) {
+                aiEdgeGuardCommitFrames = 0;
+                aiEdgeGuardCooldown = Math.max(aiEdgeGuardCooldown, 75);
+            }
+            return false;
+        }
+        if (aiEdgeGuardCommitFrames <= 0
+                && shouldAIStartEdgeGuard(target, onGround, standing, mainStage, cpuLevel)) {
+            aiEdgeGuardCommitFrames = Math.min(81, 54 + Math.max(0, cpuLevel - 6) * 9);
+        }
+        if (aiEdgeGuardCommitFrames <= 0) return false;
+
+        double centerX = bodyCenterX();
+        double bottomY = bodyBottomY();
+        double stageOut = centerX < mainStage.x ? mainStage.x - centerX
+                : Math.max(0.0, centerX - (mainStage.x + mainStage.w));
+        double stageDepth = Math.max(0.0, bottomY - mainStage.y);
+        double horizontalAllowance = aiVoidHorizontalAllowance(mainStage);
+        double depthAllowance = aiVoidDepthAllowance(mainStage);
+        boolean unsafe = !aiHasRecoveryResource()
+                || stageOut > horizontalAllowance * 0.72
+                || stageDepth > depthAllowance * 0.70
+                || aiEdgeGuardCommitFrames <= 9;
+        if (unsafe) {
+            aiEdgeGuardCommitFrames = 0;
+            aiEdgeGuardCooldown = Math.max(aiEdgeGuardCooldown, 120);
+            return applyAIVoidRecoveryInputs(onGround, standing);
+        }
+
+        int side = aiOffstageSide(target, mainStage);
+        if (onGround) {
+            double edgeX = side < 0 ? mainStage.x : mainStage.x + mainStage.w;
+            double distanceToEdge = Math.abs(centerX - edgeX);
+            game.setAiControlKey(playerIndex, side < 0 ? leftKey() : rightKey(), true);
+            facingRight = side > 0;
+            if (distanceToEdge < 118.0 && aiJumpCooldown <= 0) {
+                game.setAiControlKey(playerIndex, jumpKey(), true);
+                aiJumpCooldown = 10;
+            }
+            return true;
+        }
+
+        double pursuitLimit = Math.min(185.0, horizontalAllowance * 0.58);
+        double interceptX = Math.clamp(target.bodyCenterX(),
+                mainStage.x - pursuitLimit, mainStage.x + mainStage.w + pursuitLimit);
+        double delta = interceptX - centerX;
+        if (Math.abs(delta) > 18.0) {
+            boolean moveLeft = delta < 0.0;
+            game.setAiControlKey(playerIndex, moveLeft ? leftKey() : rightKey(), true);
+            facingRight = !moveLeft;
+        }
+        if (bodyCenterY() > target.bodyCenterY() + 70.0 || (vy > 3.0 && stageDepth > 18.0)) {
+            game.setAiControlKey(playerIndex, jumpKey(), true);
+        }
+        double targetDistance = Math.hypot(target.bodyCenterX() - centerX,
+                target.bodyCenterY() - bodyCenterY());
+        if (targetDistance < 175.0 && attackCooldown <= 0) {
+            game.setAiControlKey(playerIndex, attackKey(), true);
+        }
+        return true;
     }
 
     private boolean shouldContestTargetFromVoidPlatform(Bird target, boolean onGround, Platform standing, double targetDist) {
@@ -13249,8 +13438,14 @@ public class Bird {
                     && (depth > 96.0 || (offstage && (offstageDistance > 16.0 || movingAway || vy > 2.0)));
             case GOOSE -> !gooseLiftUsed
                     && (depth > 105.0 || (offstage && (offstageDistance > 18.0 || movingAway || vy > 2.2)));
-            case EAGLE -> !raptorUpSpecialUsed
+            case EAGLE, FALCON -> !raptorUpSpecialUsed
                     && (depth > 108.0 || (offstage && (offstageDistance > 20.0 || movingAway || vy > 2.4)));
+            case PHOENIX -> !phoenixSpiralUsed
+                    && (depth > 102.0 || (offstage && (offstageDistance > 18.0 || movingAway || vy > 2.2)));
+            case VULTURE -> !vultureUpSpecialUsed
+                    && (depth > 104.0 || (offstage && (offstageDistance > 18.0 || movingAway || vy > 2.2)));
+            case PELICAN -> !pelicanUpSpecialUsed
+                    && (depth > 102.0 || (offstage && (offstageDistance > 18.0 || movingAway || vy > 2.2)));
             case RAVEN -> !ravenLiftUsed
                     && (depth > 112.0 || (offstage && (offstageDistance > 20.0 || movingAway || vy > 2.4)));
             case KIWI -> !kiwiSpringUsed
@@ -13328,6 +13523,10 @@ public class Bird {
                     || type == BirdGame3.BirdType.BAT
                     || type == BirdGame3.BirdType.GOOSE
                     || type == BirdGame3.BirdType.EAGLE
+                    || type == BirdGame3.BirdType.FALCON
+                    || type == BirdGame3.BirdType.PHOENIX
+                    || type == BirdGame3.BirdType.VULTURE
+                    || type == BirdGame3.BirdType.PELICAN
                     || type == BirdGame3.BirdType.RAVEN
                     || isOpiumEchoPair()) {
                 game.setAiControlKey(playerIndex, jumpKey(), true);
@@ -18940,6 +19139,49 @@ public class Bird {
         return "GRAB " + grab + " | LEDGE " + ledge;
     }
 
+    boolean debugNeedsRecoveryRoute() {
+        if (!isVoidMap()) return false;
+        Platform mainStage = findAIMainStagePlatform();
+        return mainStage != null
+                && !isAIMainlandRecovered(isOnGround(), findCurrentSupportPlatform(), mainStage);
+    }
+
+    double debugRecoveryTargetX() {
+        Platform standing = findCurrentSupportPlatform();
+        return aiRecoveryGoalX(standing) + 40.0 * sizeMultiplier;
+    }
+
+    double debugRecoveryTargetY() {
+        Platform mainStage = findAIMainStagePlatform();
+        return mainStage != null ? mainStage.y - 40.0 * sizeMultiplier : bodyCenterY();
+    }
+
+    String debugRecoveryTelemetryLabel() {
+        Platform mainStage = findAIMainStagePlatform();
+        if (!isVoidMap() || mainStage == null) return "NO BLAST-ZONE ROUTE";
+        if (ledgeHanging) {
+            return "LEDGE SECURED | TWO FRAME " + debugLedgeTwoFrameVulnerabilityFrames()
+                    + "f | REGRAB " + ledgeGrabCountWithoutLanding;
+        }
+        boolean mainland = isAIMainlandRecovered(isOnGround(), findCurrentSupportPlatform(), mainStage);
+        if (mainland) {
+            String guard = aiEdgeGuardCommitFrames > 0
+                    ? " | EDGE GUARD " + aiEdgeGuardCommitFrames + "f" : "";
+            return "ON STAGE | JUMP " + (canDoubleJump ? "READY" : "SPENT") + guard;
+        }
+        double centerX = bodyCenterX();
+        double out = centerX < mainStage.x ? mainStage.x - centerX
+                : Math.max(0.0, centerX - (mainStage.x + mainStage.w));
+        double depth = Math.max(0.0, bodyBottomY() - mainStage.y);
+        String side = aiOffstageSide(this, mainStage) < 0 ? "LEFT" : "RIGHT";
+        String commitment = aiEdgeGuardCommitFrames > 0
+                ? " | GUARD " + aiEdgeGuardCommitFrames + "f" : "";
+        return String.format(Locale.ROOT,
+                "RETURN %s | OUT %.0f | DEPTH %.0f | JUMP %s | RESOURCE %s%s",
+                side, out, depth, canDoubleJump ? "READY" : "SPENT",
+                aiHasRecoveryResource() ? "READY" : "SPENT", commitment);
+    }
+
     int debugLedgeTwoFrameVulnerabilityFrames() {
         if (!ledgeHanging || ledgeInvulnerabilityTimer <= 0 || ledgeInvulnerabilityStartTick <= game.simTick) {
             return 0;
@@ -19024,6 +19266,13 @@ public class Bird {
         h = h * 31 + ledgeOptionType.ordinal();
         h = h * 31 + ledgeOptionTimer;
         h = h * 31 + ledgeOptionTotalFrames;
+        return h;
+    }
+
+    long deterministicRecoveryStateHash() {
+        long h = aiVoidRecoveryLockFrames;
+        h = h * 31 + aiEdgeGuardCommitFrames;
+        h = h * 31 + aiEdgeGuardCooldown;
         return h;
     }
 
@@ -21011,6 +21260,9 @@ public class Bird {
         ledgeOptionType = LedgeOptionType.NONE;
         ledgeOptionTimer = 0;
         ledgeOptionTotalFrames = 0;
+        aiVoidRecoveryLockFrames = 0;
+        aiEdgeGuardCommitFrames = 0;
+        aiEdgeGuardCooldown = 0;
         respawnNestPlatform = null;
         respawnInvulnerabilityTimer = 0;
         respawnReturnTimer = 0;
@@ -21372,6 +21624,9 @@ public class Bird {
         state.ledgeOptionTypeOrdinal = ledgeOptionType.ordinal();
         state.ledgeOptionTimer = ledgeOptionTimer;
         state.ledgeOptionTotalFrames = ledgeOptionTotalFrames;
+        state.aiVoidRecoveryLockFrames = aiVoidRecoveryLockFrames;
+        state.aiEdgeGuardCommitFrames = aiEdgeGuardCommitFrames;
+        state.aiEdgeGuardCooldown = aiEdgeGuardCooldown;
         state.ledgePlatformActive = ledgeHanging && ledgePlatform != null;
         if (state.ledgePlatformActive) {
             state.ledgePlatformX = ledgePlatform.x;
@@ -22265,6 +22520,9 @@ public class Bird {
                 : LedgeOptionType.NONE;
         this.ledgeOptionTimer = Math.max(0, state.ledgeOptionTimer);
         this.ledgeOptionTotalFrames = Math.max(this.ledgeOptionTimer, state.ledgeOptionTotalFrames);
+        this.aiVoidRecoveryLockFrames = Math.max(0, state.aiVoidRecoveryLockFrames);
+        this.aiEdgeGuardCommitFrames = Math.max(0, state.aiEdgeGuardCommitFrames);
+        this.aiEdgeGuardCooldown = Math.max(0, state.aiEdgeGuardCooldown);
         this.ledgePlatform = null;
         if (state.ledgeHanging && state.ledgePlatformActive) {
             for (Platform candidate : game.platforms) {

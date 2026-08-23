@@ -319,6 +319,9 @@ class LanBirdState {
     int ledgeOptionTypeOrdinal;
     int ledgeOptionTimer;
     int ledgeOptionTotalFrames;
+    int aiVoidRecoveryLockFrames;
+    int aiEdgeGuardCommitFrames;
+    int aiEdgeGuardCooldown;
     boolean ledgePlatformActive;
     double ledgePlatformX;
     double ledgePlatformY;
@@ -1102,6 +1105,9 @@ class LanBirdState {
         out.writeInt(ledgeOptionTypeOrdinal);
         out.writeInt(ledgeOptionTimer);
         out.writeInt(ledgeOptionTotalFrames);
+        out.writeInt(aiVoidRecoveryLockFrames);
+        out.writeInt(aiEdgeGuardCommitFrames);
+        out.writeInt(aiEdgeGuardCooldown);
         out.writeBoolean(ledgePlatformActive);
         out.writeDouble(ledgePlatformX);
         out.writeDouble(ledgePlatformY);
@@ -1941,6 +1947,9 @@ class LanBirdState {
         state.ledgeOptionTypeOrdinal = in.readInt();
         state.ledgeOptionTimer = in.readInt();
         state.ledgeOptionTotalFrames = in.readInt();
+        state.aiVoidRecoveryLockFrames = in.readInt();
+        state.aiEdgeGuardCommitFrames = in.readInt();
+        state.aiEdgeGuardCooldown = in.readInt();
         state.ledgePlatformActive = in.readBoolean();
         state.ledgePlatformX = in.readDouble();
         state.ledgePlatformY = in.readDouble();

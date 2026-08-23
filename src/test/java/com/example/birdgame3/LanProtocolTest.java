@@ -129,6 +129,9 @@ class LanProtocolTest {
         state.ledgeOptionTypeOrdinal = 2;
         state.ledgeOptionTimer = 5;
         state.ledgeOptionTotalFrames = 9;
+        state.aiVoidRecoveryLockFrames = 24;
+        state.aiEdgeGuardCommitFrames = 41;
+        state.aiEdgeGuardCooldown = 83;
         state.ledgePlatformActive = true;
         state.ledgePlatformX = 123.5;
         state.ledgePlatformY = 456.5;
@@ -484,6 +487,9 @@ class LanProtocolTest {
         assertEquals(2, decoded.ledgeOptionTypeOrdinal);
         assertEquals(5, decoded.ledgeOptionTimer);
         assertEquals(9, decoded.ledgeOptionTotalFrames);
+        assertEquals(24, decoded.aiVoidRecoveryLockFrames);
+        assertEquals(41, decoded.aiEdgeGuardCommitFrames);
+        assertEquals(83, decoded.aiEdgeGuardCooldown);
         assertTrue(decoded.ledgePlatformActive);
         assertEquals(123.5, decoded.ledgePlatformX);
         assertEquals(456.5, decoded.ledgePlatformY);
