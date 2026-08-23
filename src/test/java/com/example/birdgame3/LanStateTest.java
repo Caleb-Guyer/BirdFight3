@@ -44,6 +44,13 @@ class LanStateTest {
         bird.isCitySkin = true;
         bird.jumpSquatTimer = 2;
         bird.shortHopQueued = true;
+        bird.fastFallActive = true;
+        bird.platformDropTimer = 9;
+        bird.platformDropSurfaceY = 412.5;
+        bird.dashCooldown = 6;
+        bird.dashTimer = 10;
+        bird.lastTapDir = -1;
+        bird.lastTapTick = 8_765L;
         bird.isBlocking = true;
         bird.blockCooldown = 11;
         bird.shieldHealth = 37.5;
@@ -351,6 +358,13 @@ class LanStateTest {
         assertTrue(decoded.birds[0].isCitySkin);
         assertEquals(2, decoded.birds[0].jumpSquatTimer);
         assertTrue(decoded.birds[0].shortHopQueued);
+        assertTrue(decoded.birds[0].fastFallActive);
+        assertEquals(9, decoded.birds[0].platformDropTimer);
+        assertEquals(412.5, decoded.birds[0].platformDropSurfaceY);
+        assertEquals(6, decoded.birds[0].dashCooldown);
+        assertEquals(10, decoded.birds[0].dashTimer);
+        assertEquals(-1, decoded.birds[0].lastTapDir);
+        assertEquals(8_765L, decoded.birds[0].lastTapTick);
         assertTrue(decoded.birds[0].isBlocking);
         assertEquals(11, decoded.birds[0].blockCooldown);
         assertEquals(37.5, decoded.birds[0].shieldHealth);

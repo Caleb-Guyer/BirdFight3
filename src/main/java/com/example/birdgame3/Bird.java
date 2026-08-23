@@ -679,6 +679,9 @@ public class Bird {
     private int jumpSquatTimer = 0;
     private boolean shortHopQueued = false;
     private boolean jumpHeldLastFrame = false;
+    private boolean fastFallActive = false;
+    private int platformDropTimer = 0;
+    private double platformDropSurfaceY = Double.NaN;
 
     // Input-feel windows (60 Hz sim ticks): late/early presses still count.
     private static final int JUMP_BUFFER_FRAMES = 7;   // ~117 ms before landing
@@ -1519,6 +1522,9 @@ public class Bird {
     private static final double FAST_FALL_ACCEL = 1.6;
     private static final double FAST_FALL_MAX = 22.0;
     private static final double FAST_FALL_UPDRAFT_ACCEL = 0.35;
+    private static final double FAST_FALL_APEX_THRESHOLD = -0.35;
+    private static final int PLATFORM_DROP_FRAMES = 18;
+    private static final double PLATFORM_DROP_START_SPEED = 3.2;
     private static final double DOWN_WIND_DAMPING = 0.85;
     private static final double DOCK_WATER_GRAVITY_SCALE = 0.08;
     private static final double DOCK_WATER_BUOYANCY = 0.92;
@@ -2881,6 +2887,21 @@ public class Bird {
         return Math.max(game.battlefieldVoidFloorY(), visibleVoidFloorY);
     }
 
+    private boolean ignoresPlatformForActiveDrop(Platform platform) {
+        return platform != null
+                && platformDropTimer > 0
+                && Double.isFinite(platformDropSurfaceY)
+                && Math.abs(platform.y - platformDropSurfaceY) <= 1.0;
+    }
+
+    private boolean canDropThroughPlatform(Platform platform) {
+        if (platform == null || isBoundaryPlatform(platform)) {
+            return false;
+        }
+        Platform mainStage = findAIMainStagePlatform();
+        return platform != mainStage;
+    }
+
     public boolean isOnGround() {
         if (game.isCampaignCaveEscapePhysicsActiveFor(this)) {
             double floor = game.campaignCaveEscapeFloorAt(bodyCenterX());
@@ -2899,6 +2920,7 @@ public class Bird {
             return true;
         }
         for (Platform p : game.platforms) {
+            if (ignoresPlatformForActiveDrop(p)) continue;
             boolean isCaveCeiling = game.selectedMap == MapType.CAVE &&
                     p.y <= 1 && p.h >= 60 && p.w >= BirdGame3.WORLD_WIDTH - 10;
             if (isCaveCeiling) continue;
@@ -3145,6 +3167,7 @@ public class Bird {
         boolean downHeld = stunTime <= 0 && blockPressed();
 
         for (Platform p : game.platforms) {
+            if (ignoresPlatformForActiveDrop(p)) continue;
             boolean isCaveCeiling = game.selectedMap == MapType.CAVE &&
                     p.y <= 1 && p.h >= 60 && p.w >= BirdGame3.WORLD_WIDTH - 10;
 
@@ -3207,6 +3230,9 @@ public class Bird {
         if (hit) {
             y = newY;
             if (vy > 0) vy = 0;
+            fastFallActive = false;
+            platformDropTimer = 0;
+            platformDropSurfaceY = Double.NaN;
             canDoubleJump = true;
             refreshAirDodge();
             if (wasAirborne) {
@@ -3245,6 +3271,9 @@ public class Bird {
         attackAnimationTimer = 0;
         clearAerialAttackState();
         landingLagTimer = 0;
+        fastFallActive = false;
+        platformDropTimer = 0;
+        platformDropSurfaceY = Double.NaN;
         canDoubleJump = true;
         refreshAirDodge();
         snapToLedge();
@@ -9628,6 +9657,9 @@ public class Bird {
     private int dashTimer = 0;
     private int lastTapDir = 0;
     private long lastTapTick = Long.MIN_VALUE / 2; // sim-tick of last tap; sentinel = "no tap yet"
+    private static final long DASH_TAP_WINDOW_TICKS = 18L;
+    private static final int DASH_FRAMES = 12;
+    private static final int DASH_REINPUT_COOLDOWN_FRAMES = 8;
 
     private static AIKitProfile aiKitProfile(BirdGame3.BirdType birdType) {
         return switch (birdType) {
@@ -14194,7 +14226,8 @@ public class Bird {
         boolean grabJustPressed = grabHeld && !grabHeldLastFrame;
         boolean leftJustPressed = leftHeld && !leftHeldLastFrame;
         boolean rightJustPressed = rightHeld && !rightHeldLastFrame;
-        boolean downHeld = !stunned && blockHeld;
+        boolean directionalDownHeld = game.isAttackDownPressed(playerIndex);
+        boolean downHeld = !stunned && (blockHeld || directionalDownHeld);
         boolean inDockWater = isInDockWater();
         boolean inWindNow = isInWindVent(x, y);
         boolean inUpdraft = inWindNow || thermalTimer > 0;
@@ -14203,6 +14236,19 @@ public class Bird {
         boolean reserveBlockForAttack = !stunned && shouldReserveBlockForAttack(airborne);
         boolean defensiveBlockHeld = blockHeld && !reserveBlockForAttack && !reserveBlockForSpecial;
         boolean blockJustPressed = defensiveBlockHeld && !blockHeldLastFrame;
+
+        boolean startedPlatformDrop = tryStartPlatformDrop(stunned, airborne, jumpJustPressed,
+                downHeld, inDockWater);
+        if (startedPlatformDrop) {
+            airborne = true;
+            jumpJustPressed = false;
+            jumpBufferFrames = 0;
+            downHeld = false;
+            defensiveBlockHeld = false;
+            blockJustPressed = false;
+        } else if (!airborne) {
+            fastFallActive = false;
+        }
 
         if (type == BirdGame3.BirdType.PIGEON && (isOnGround() || ledgeHanging || batHanging || onVine || inDockWater)) {
             pigeonUpSpecialUsed = false;
@@ -14334,6 +14380,18 @@ public class Bird {
         updateShieldState(stunned, airborne, defensiveBlockHeld, inDockWater, gameSpeed);
         if (isDodging()) {
             downHeld = false;
+            fastFallActive = false;
+        } else if (airborne
+                && downHeld
+                && vy >= FAST_FALL_APEX_THRESHOLD
+                && !inDockWater
+                && !stunned
+                && !onVine
+                && !batHanging
+                && !ledgeHanging
+                && !isGrappling
+                && (!blockJustPressed || directionalDownHeld)) {
+            fastFallActive = true;
         }
 
         // === GRAVITY ===
@@ -14345,7 +14403,7 @@ public class Bird {
             gravityScale *= DOCK_WATER_GRAVITY_SCALE;
         }
         vy += BirdGame3.GRAVITY * gravityScale * gameSpeed;
-        if (airborne && downHeld && !inDockWater) {
+        if (airborne && fastFallActive && !inDockWater) {
             double accel = inUpdraft ? FAST_FALL_UPDRAFT_ACCEL : FAST_FALL_ACCEL;
             vy += accel * gameSpeed;
             if (!inUpdraft && vy > FAST_FALL_MAX) vy = FAST_FALL_MAX;
@@ -14595,6 +14653,12 @@ public class Bird {
         // Bird.update entirely, so attacks freeze and resume deterministically.
         if (gameSpeed > 0.0) {
             advanceNormalAttackTimeline();
+        }
+        if (platformDropTimer > 0) {
+            platformDropTimer = Math.max(0, (int) (platformDropTimer - gameSpeed));
+            if (platformDropTimer == 0) {
+                platformDropSurfaceY = Double.NaN;
+            }
         }
         speedTimer = Math.max(0, (int)(speedTimer - gameSpeed));
         rageTimer = Math.max(0, (int)(rageTimer - gameSpeed));
@@ -15913,6 +15977,36 @@ public class Bird {
             parryWindowFrames = 0;
             blockCooldown = Math.max(blockCooldown, SHIELD_DROP_COOLDOWN_FRAMES);
         }
+    }
+
+    private boolean tryStartPlatformDrop(boolean stunned, boolean airborne, boolean jumpJustPressed,
+                                         boolean downHeld, boolean inDockWater) {
+        if (stunned || airborne || !jumpJustPressed || !downHeld || inDockWater
+                || health <= 0.0 || attackAnimationTimer > 0 || normalAttackTimelineActive
+                || landingLagTimer > 0 || knockdownTimer > 0 || isDodging()
+                || grabbedBy != null || grabbedTarget != null || onVine || batHanging
+                || ledgeHanging || isGrappling) {
+            return false;
+        }
+
+        Platform support = findCurrentSupportPlatform();
+        if (!canDropThroughPlatform(support)) {
+            return false;
+        }
+
+        platformDropTimer = PLATFORM_DROP_FRAMES;
+        platformDropSurfaceY = support.y;
+        fastFallActive = false;
+        clearJumpSquat();
+        jumpBufferFrames = 0;
+        coyoteFrames = 0;
+        dashTimer = 0;
+        isBlocking = false;
+        parryWindowFrames = 0;
+        shieldHoldVisual = 0.0;
+        y = Math.max(y, support.y - bodyHeight()) + Math.max(3.0, bodyHeight() * 0.06);
+        vy = Math.max(vy, PLATFORM_DROP_START_SPEED);
+        return true;
     }
 
     private void recordJumpHeightAchievements() {
@@ -17363,13 +17457,22 @@ public class Bird {
     public void registerDashTap(int dir) {
         if (dir == 0) return;
         game.recordReplayDashTap(playerIndex, dir);
-        if (dashCooldown > 0) return;
         if (!isOnGround()) return;
+
+        if (dashTimer > 0 && dir != lastTapDir) {
+            lastTapDir = dir;
+            dashTimer = DASH_FRAMES;
+            dashCooldown = DASH_REINPUT_COOLDOWN_FRAMES;
+            lastTapTick = Long.MIN_VALUE / 2;
+            game.recordTrainingDash(this);
+            return;
+        }
+        if (dashCooldown > 0) return;
+
         long now = game.simTick;
-        long window = 18L; // 300 ms at 60 Hz sim ticks
-        if (dir == lastTapDir && (now - lastTapTick) <= window) {
-            dashTimer = 12;
-            dashCooldown = 20;
+        if (dir == lastTapDir && (now - lastTapTick) <= DASH_TAP_WINDOW_TICKS) {
+            dashTimer = DASH_FRAMES;
+            dashCooldown = DASH_REINPUT_COOLDOWN_FRAMES;
             game.recordTrainingDash(this);
             lastTapTick = Long.MIN_VALUE / 2;
         } else {
@@ -17772,6 +17875,18 @@ public class Bird {
     double debugNormalAttackSweetSpotStartRatio() {
         if (!normalAttackTimelineActive) return Double.POSITIVE_INFINITY;
         return activeNormalAttackTimeline().sweetSpotStartRatio();
+    }
+
+    String debugUniversalActionLabel() {
+        if (ledgeHanging) return "LEDGE HANG";
+        if (platformDropTimer > 0) return "PLATFORM DROP " + platformDropTimer + "f";
+        if (fastFallActive) return "FAST FALL";
+        if (dodgeType != DodgeType.NONE) return dodgeType.name() + " DODGE " + dodgeTimer + "f";
+        if (isBlocking) return "SHIELD " + (int) Math.round(shieldHealth) + "/" + (int) SHIELD_MAX_HEALTH;
+        if (jumpSquatTimer > 0) return "JUMP SQUAT " + jumpSquatTimer + "f";
+        if (dashTimer > 0) return "DASH " + dashTimer + "f";
+        if (landingLagTimer > 0) return "LANDING LAG " + landingLagTimer + "f";
+        return isOnGround() ? "GROUNDED" : "AIRBORNE";
     }
 
     private double applyScaledDamageTo(Bird target, double scaledDamage) {
@@ -19634,6 +19749,13 @@ public class Bird {
         state.canDoubleJump = canDoubleJump;
         state.jumpSquatTimer = jumpSquatTimer;
         state.shortHopQueued = shortHopQueued;
+        state.fastFallActive = fastFallActive;
+        state.platformDropTimer = platformDropTimer;
+        state.platformDropSurfaceY = platformDropSurfaceY;
+        state.dashCooldown = dashCooldown;
+        state.dashTimer = dashTimer;
+        state.lastTapDir = lastTapDir;
+        state.lastTapTick = lastTapTick;
         state.loungeActive = loungeActive;
         state.isCitySkin = isCitySkin;
         state.isNoirSkin = isNoirSkin;
@@ -20405,6 +20527,15 @@ public class Bird {
         this.canDoubleJump = state.canDoubleJump;
         this.jumpSquatTimer = state.jumpSquatTimer;
         this.shortHopQueued = state.shortHopQueued;
+        this.fastFallActive = state.fastFallActive;
+        this.platformDropTimer = Math.max(0, state.platformDropTimer);
+        this.platformDropSurfaceY = platformDropTimer > 0 && Double.isFinite(state.platformDropSurfaceY)
+                ? state.platformDropSurfaceY
+                : Double.NaN;
+        this.dashCooldown = Math.max(0, state.dashCooldown);
+        this.dashTimer = Math.max(0, state.dashTimer);
+        this.lastTapDir = Integer.compare(state.lastTapDir, 0);
+        this.lastTapTick = state.lastTapTick;
         this.loungeActive = state.loungeActive;
         this.isCitySkin = state.isCitySkin;
         this.isNoirSkin = state.isNoirSkin;
@@ -21554,6 +21685,13 @@ public class Bird {
         pendingDamageScaledHitDamage = 0.0;
         techBufferTimer = 0;
         knockdownTimer = 0;
+        fastFallActive = false;
+        platformDropTimer = 0;
+        platformDropSurfaceY = Double.NaN;
+        dashCooldown = 0;
+        dashTimer = 0;
+        lastTapDir = 0;
+        lastTapTick = Long.MIN_VALUE / 2;
     }
 
     private double aiDurabilityHealth() {

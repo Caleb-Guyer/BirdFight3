@@ -67651,6 +67651,11 @@ public class BirdGame3 {
                             + sign + trainingLastShieldAdvantageFrames + "f",
                     rightX, framePanelY + 53);
         }
+        if (trainingPlayer != null) {
+            g.setFill(Color.web("#B2EBF2"));
+            g.setFont(Font.font("Consolas", FontWeight.BOLD, 12));
+            g.fillText("STATE  " + trainingPlayer.debugUniversalActionLabel(), rightX, framePanelY + 9);
+        }
 
         g.setFill(Color.web("#FFE082"));
         g.setFont(Font.font("Consolas", 11));
