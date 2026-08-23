@@ -50388,7 +50388,11 @@ public class BirdGame3 {
                 bird.setUltimateEnabled(false);
             } else if (encounter.style == ClassicEncounterStyle.HOARDMASTER_BOSS) {
                 bird.health = Math.max(1.0, 190.0 * enemyHealthScale);
-                bird.setBaseMultipliers(1.38, 0.88 * enemyPowerScale, 1.00);
+                // Pelican still faces a three-stock real Vulture, but the boss
+                // must remain launchable after Pelican's long normals gain
+                // honest startup and recovery. Keep the durable 190-health
+                // phases while easing giant resistance and damage pressure.
+                bird.setBaseMultipliers(1.31, 0.84 * enemyPowerScale, 1.00);
                 // Vulture's real crow kit is the boss pattern; only the screen-
                 // filling ultimate is removed so every attack remains readable.
                 bird.setUltimateEnabled(false);

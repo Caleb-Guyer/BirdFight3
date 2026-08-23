@@ -3736,7 +3736,8 @@ public class Bird {
                 || type == BirdGame3.BirdType.GOOSE
                 || type == BirdGame3.BirdType.KIWI
                 || type == BirdGame3.BirdType.TITMOUSE
-                || type == BirdGame3.BirdType.BAT;
+                || type == BirdGame3.BirdType.BAT
+                || type == BirdGame3.BirdType.PELICAN;
     }
 
     private NormalAttackTimeline normalAttackTimeline(NormalAttackVariant variant) {
@@ -3802,6 +3803,9 @@ public class Bird {
         }
         if (type == BirdGame3.BirdType.BAT) {
             return batNormalAttackTimeline(variant);
+        }
+        if (type == BirdGame3.BirdType.PELICAN) {
+            return pelicanNormalAttackTimeline(variant);
         }
         NormalAttackProfile profile = normalAttackProfile(variant);
         return noSweetSpotTimeline(0, 1, Math.max(0, profile.animationFrames() - 1), 0, 0);
@@ -4424,6 +4428,37 @@ public class Bird {
                     0.72, 1.07, 1.12, 0.97, 0.92);
             case LEDGE_ATTACK -> noSweetSpotTimeline(2, 5, 5, 0, 0);
             case GETUP_ATTACK -> noSweetSpotTimeline(2, 6, 5, 0, 0);
+        };
+    }
+
+    /**
+     * Pelican uses its full pouch and wingspan as a deliberate heavyweight.
+     * Long active windows make the large visual arcs reliable, while pronounced
+     * startup and recovery keep that reach honest on shield and on a whiff.
+     */
+    private NormalAttackTimeline pelicanNormalAttackTimeline(NormalAttackVariant variant) {
+        return switch (variant) {
+            case NEUTRAL -> noSweetSpotTimeline(2, 5, 4, 0, 0);
+            case SIDE_TILT -> sweetSpotTimeline(3, 6, 6, 0, 0,
+                    0.68, 1.06, 1.10, 0.98, 0.94);
+            case UP_TILT -> noSweetSpotTimeline(3, 7, 5, 0, 0);
+            case DOWN_TILT -> noSweetSpotTimeline(2, 6, 6, 0, 0);
+            case SIDE_SMASH -> sweetSpotTimeline(7, 6, 10, 0, 0,
+                    0.74, 1.10, 1.16, 0.94, 0.88);
+            case UP_SMASH -> noSweetSpotTimeline(7, 7, 9, 0, 0);
+            case DOWN_SMASH -> noSweetSpotTimeline(7, 8, 9, 0, 0);
+            case NEUTRAL_AIR -> noSweetSpotTimeline(2, 9, 5, 2, 3);
+            case FORWARD_AIR -> sweetSpotTimeline(4, 6, 8, 4, 3,
+                    0.72, 1.09, 1.14, 0.95, 0.90);
+            case BACK_AIR -> sweetSpotTimeline(3, 6, 8, 3, 3,
+                    0.70, 1.09, 1.14, 0.95, 0.90);
+            case UP_AIR -> noSweetSpotTimeline(3, 8, 6, 3, 3);
+            case DOWN_AIR -> sweetSpotTimeline(5, 6, 9, 5, 3,
+                    0.74, 1.10, 1.16, 0.94, 0.88);
+            case DASH_ATTACK -> sweetSpotTimeline(3, 8, 8, 0, 0,
+                    0.72, 1.08, 1.13, 0.96, 0.91);
+            case LEDGE_ATTACK -> noSweetSpotTimeline(3, 6, 8, 0, 0);
+            case GETUP_ATTACK -> noSweetSpotTimeline(4, 7, 8, 0, 0);
         };
     }
 

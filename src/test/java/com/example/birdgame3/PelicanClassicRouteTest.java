@@ -93,7 +93,8 @@ class PelicanClassicRouteTest {
         assertEquals(BirdType.VULTURE, boss.type);
         assertEquals(3, game.scores[1]);
         assertEquals(3, game.scores[0]);
-        assertEquals(1.38, boss.baseSizeMultiplier, 0.001);
+        assertEquals(1.31, boss.baseSizeMultiplier, 0.001);
+        assertEquals(0.84, boss.basePowerMultiplier, 0.001);
         assertEquals(190.0, boss.health, 0.001);
         assertFalse(boss.hasUltimate());
         assertTrue(game.isAI[1]);

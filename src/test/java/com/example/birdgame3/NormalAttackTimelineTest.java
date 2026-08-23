@@ -121,17 +121,16 @@ class NormalAttackTimelineTest {
     }
 
     @Test
-    void nonMigratedBirdsKeepLegacyImmediateResolutionUntilAuthored() throws Exception {
-        BirdGame3 game = twoBirdGame(BirdGame3.BirdType.PELICAN, BirdGame3.BirdType.PIGEON,
-                320.0, 382.0);
-        Bird pelican = game.players[0];
-        Bird target = game.players[1];
-        double startingHealth = target.health;
+    void everyPlayableBirdUsesTheDeterministicAuthoredTimelineEngine() throws Exception {
+        for (BirdGame3.BirdType type : BirdGame3.BirdType.values()) {
+            BirdGame3 game = twoBirdGame(type, BirdGame3.BirdType.PIGEON, 320.0, 1_400.0);
+            Bird bird = game.players[0];
+            assertTrue((boolean) invoke(bird, "usesAuthoredNormalAttackTimeline"), type.name());
 
-        performAttack(pelican, "NEUTRAL");
-
-        assertTrue(target.health < startingHealth);
-        assertFalse(pelican.debugNormalAttackTimelineActive());
+            performAttack(bird, "NEUTRAL");
+            assertTrue(bird.debugNormalAttackTimelineActive(), type.name());
+            assertEquals("STARTUP", bird.debugNormalAttackPhaseLabel(), type.name());
+        }
     }
 
     @Test
@@ -565,6 +564,39 @@ class NormalAttackTimelineTest {
         performAttack(groundedTitmouse.players[0], "SIDE_TILT");
         assertTrue(groundedTitmouse.players[0].debugNormalAttackTotalFrames()
                         < groundedBat.players[0].debugNormalAttackTotalFrames());
+    }
+
+    @Test
+    void pelicanHasCompleteHeavyweightFrameData() throws Exception {
+        String[] variants = {
+                "NEUTRAL", "SIDE_TILT", "UP_TILT", "DOWN_TILT",
+                "SIDE_SMASH", "UP_SMASH", "DOWN_SMASH",
+                "NEUTRAL_AIR", "FORWARD_AIR", "BACK_AIR", "UP_AIR", "DOWN_AIR",
+                "DASH_ATTACK", "LEDGE_ATTACK", "GETUP_ATTACK"
+        };
+        int[][] pelicanFrames = {
+                {2, 5, 4}, {3, 6, 6}, {3, 7, 5}, {2, 6, 6},
+                {7, 6, 10}, {7, 7, 9}, {7, 8, 9},
+                {2, 9, 5}, {4, 6, 8}, {3, 6, 8}, {3, 8, 6}, {5, 6, 9},
+                {3, 8, 8}, {3, 6, 8}, {4, 7, 8}
+        };
+
+        assertAuthoredMoveList(BirdGame3.BirdType.PELICAN, variants, pelicanFrames);
+    }
+
+    @Test
+    void pelicansLongReachCarriesHeavyweightCommitment() throws Exception {
+        BirdGame3 pelicanGame = twoBirdGame(BirdGame3.BirdType.PELICAN, BirdGame3.BirdType.PIGEON,
+                320.0, 700.0);
+        BirdGame3 batGame = twoBirdGame(BirdGame3.BirdType.BAT, BirdGame3.BirdType.PIGEON,
+                320.0, 700.0);
+
+        performAttack(pelicanGame.players[0], "SIDE_SMASH");
+        performAttack(batGame.players[0], "SIDE_SMASH");
+        assertTrue(pelicanGame.players[0].debugNormalAttackStartupFrames()
+                        > batGame.players[0].debugNormalAttackStartupFrames());
+        assertTrue(pelicanGame.players[0].debugNormalAttackRecoveryFrames()
+                        > batGame.players[0].debugNormalAttackRecoveryFrames());
     }
 
     @Test
