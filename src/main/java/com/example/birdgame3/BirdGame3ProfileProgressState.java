@@ -152,6 +152,7 @@ final class BirdGame3ProfileProgressState {
     int[] typeWins = new int[BirdGame3.BirdType.values().length];
     int[] typeDamage = new int[BirdGame3.BirdType.values().length];
     int[] typeElims = new int[BirdGame3.BirdType.values().length];
+    long[] typePlayFrames = new long[BirdGame3.BirdType.values().length];
     int tournamentChampionshipsWon = 0;
 
     static BirdGame3ProfileProgressState load(Preferences prefs, Schema schema) {
@@ -606,6 +607,7 @@ final class BirdGame3ProfileProgressState {
             state.typeWins[idx] = prefs.getInt("balance_wins_" + type.name(), 0);
             state.typeDamage[idx] = prefs.getInt("balance_damage_" + type.name(), 0);
             state.typeElims[idx] = prefs.getInt("balance_elims_" + type.name(), 0);
+            state.typePlayFrames[idx] = Math.max(0L, prefs.getLong("record_play_frames_" + type.name(), 0L));
         }
     }
 
@@ -616,6 +618,8 @@ final class BirdGame3ProfileProgressState {
             prefs.putInt("balance_wins_" + type.name(), typeWins[idx]);
             prefs.putInt("balance_damage_" + type.name(), typeDamage[idx]);
             prefs.putInt("balance_elims_" + type.name(), typeElims[idx]);
+            prefs.putLong("record_play_frames_" + type.name(),
+                    idx < typePlayFrames.length ? Math.max(0L, typePlayFrames[idx]) : 0L);
         }
     }
 

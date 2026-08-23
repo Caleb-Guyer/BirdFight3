@@ -415,6 +415,7 @@ public class BirdGame3 {
     boolean matchHistoryRecorded = false;
     private final Deque<UnlockCard> pendingUnlockCards = new ArrayDeque<>();
     private final List<MatchHistoryEntry> matchHistory = new ArrayList<>();
+    private boolean vaultSubpageActive = false;
     private final Map<String, WritableImage> fightHudPortraitCache = new HashMap<>();
     private List<Rectangle2D> currentFightHudOcclusionRects = List.of();
 
@@ -496,6 +497,7 @@ public class BirdGame3 {
     private final int[] typeWins = new int[BirdType.values().length];
     private final int[] typeDamage = new int[BirdType.values().length];
     private final int[] typeElims = new int[BirdType.values().length];
+    private final long[] typePlayFrames = new long[BirdType.values().length];
     private final GameplayTelemetry gameplayTelemetry = new GameplayTelemetry();
     private final FramePerformanceTelemetry framePerformance = new FramePerformanceTelemetry();
     private final String[] lastTelemetryMoveNames = new String[MAX_COMBATANTS];
@@ -761,6 +763,17 @@ public class BirdGame3 {
     }
 
     private enum BirdBookCategory { ITEMS, POWERUPS, BIRDS, SKINS, MAPS }
+
+    private enum VaultDestination {
+        ACHIEVEMENTS,
+        FEATHERPEDIA,
+        CLASSIC_ENDINGS,
+        STORY_MOVIES,
+        MATCH_HISTORY,
+        REPLAYS,
+        SOUNDTRACK,
+        SHOP
+    }
 
     private enum PausePanel {
         MOVES("MOVE LIST"),
@@ -1190,6 +1203,40 @@ public class BirdGame3 {
     private record UpdateSplash(String key, String title, String subtitle, String season,
                                 String summary, String accentColor, List<String> highlights) {
     }
+
+    private record VaultTrack(String title, String file, String use) {
+    }
+
+    private static final List<VaultTrack> VAULT_TRACKS = List.of(
+            new VaultTrack("Central Hub", "music-menu.mp3", "Menus and route intermissions"),
+            new VaultTrack("Verdant Arena", "music-forest.mp3", "Forest stages"),
+            new VaultTrack("Neon Skyline", "music-city.mp3", "City stages"),
+            new VaultTrack("Above the Clouds", "music-skycliffs.mp3", "Sky Cliffs stages"),
+            new VaultTrack("Wild Canopy", "music-jungle.mp3", "Jungle stages"),
+            new VaultTrack("Burning Expanse", "music-desert.mp3", "Desert stages"),
+            new VaultTrack("Echoes Below", "music-cave.mp3", "Cave stages"),
+            new VaultTrack("Final Destination", "music-battlefield.mp3", "Battlefield stages"),
+            new VaultTrack("Iron Harbor", "music-dock.mp3", "Dock stages"),
+            new VaultTrack("Frozen Current", "music-frostbite.mp3", "Frostbite Fjord"),
+            new VaultTrack("Ashfall Rite", "music-ashfall.mp3", "Ashfall Cathedral"),
+            new VaultTrack("Crownlock", "music-prison.mp3", "Prison stages"),
+            new VaultTrack("The Boss Approaches", "music-boss.mp3", "Boss encounters"),
+            new VaultTrack("The Null Rock", "music-null-rock.mp3", "Null Rock battles"),
+            new VaultTrack("Classic Advance", "music-escape.mp3", "Classic encounter transitions"),
+            new VaultTrack("Resonance Hall", "music-charles-hall.mp3", "Charles route"),
+            new VaultTrack("Signal Spire", "music-charles-spire.mp3", "Charles route"),
+            new VaultTrack("Hollow Maestro", "music-charles-maestro.mp3", "Charles final boss"),
+            new VaultTrack("Glasswind", "music-razorbill-glasswind.mp3", "Razorbill route"),
+            new VaultTrack("The Worldseam", "music-razorbill-worldseam.mp3", "Razorbill route"),
+            new VaultTrack("Seamreaver", "music-razorbill-seamreaver.mp3", "Razorbill final boss"),
+            new VaultTrack("Midnight Workshop", "music-grinch-workshop.mp3", "Grinch-Hawk route"),
+            new VaultTrack("Bellkeeper", "music-grinch-bellkeeper.mp3", "Grinch-Hawk final boss"),
+            new VaultTrack("Carrion Exchange", "music-vulture-exchange.mp3", "Vulture route"),
+            new VaultTrack("Debt Engine", "music-vulture-debt-engine.mp3", "Vulture final boss"),
+            new VaultTrack("Opening Chronicle", "music-prologue.mp3", "Story prologues"),
+            new VaultTrack("Closing Chronicle", "music-credits.mp3", "Story epilogues and credits"),
+            new VaultTrack("Victory", "music-victory.mp3", "Match results")
+    );
 
     private static final List<UpdateSplash> UPDATE_SPLASHES = List.of(
             new UpdateSplash(
@@ -25526,6 +25573,7 @@ public class BirdGame3 {
     }
 
     private void showMenu(Stage stage) {
+        vaultSubpageActive = false;
         campaignModeActive = false;
         currentCampaignMission = null;
         campaignMissionController = null;
@@ -27351,6 +27399,35 @@ public class BirdGame3 {
         return pane;
     }
 
+    private Node hubIconVault(boolean claimable) {
+        Pane pane = hubIconPane();
+        Rectangle cabinet = new Rectangle(9, 13, 38, 34);
+        cabinet.setArcWidth(7);
+        cabinet.setArcHeight(7);
+        cabinet.setFill(Color.web("#263238"));
+        cabinet.setStroke(Color.web("#FFD54F"));
+        cabinet.setStrokeWidth(3);
+        Line shelf = new Line(12, 31, 44, 31);
+        shelf.setStroke(Color.web("#90A4AE"));
+        shelf.setStrokeWidth(2);
+        Circle medal = new Circle(20, 23, 6, Color.web("#FFD54F"));
+        Polygon feather = new Polygon(31, 40, 38, 18, 43, 19, 37, 40, 34, 34);
+        feather.setFill(Color.web("#80DEEA"));
+        pane.getChildren().addAll(cabinet, shelf, medal, feather);
+        if (claimable) {
+            Circle badge = new Circle(45, 13, 10, Color.web("#FF5252"));
+            badge.setStroke(Color.web("#FFF8E1"));
+            badge.setStrokeWidth(2);
+            Text mark = new Text("!");
+            mark.setFont(Font.font("Arial Black", FontWeight.BOLD, 15));
+            mark.setFill(Color.WHITE);
+            mark.setX(41.3);
+            mark.setY(18.0);
+            pane.getChildren().addAll(badge, mark);
+        }
+        return pane;
+    }
+
     private Node hubIconFeatherpedia() {
         Pane pane = hubIconPane();
         Rectangle cover = new Rectangle(10, 12, 36, 32);
@@ -27475,6 +27552,434 @@ public class BirdGame3 {
         return strip;
     }
 
+    private void showVault(Stage stage) {
+        campaignModeActive = false;
+        storyModeActive = false;
+        adventureModeActive = false;
+        classicModeActive = false;
+        classicEncounter = null;
+        playMenuMusic();
+        vaultSubpageActive = false;
+
+        StackPane root = new StackPane();
+        root.getProperties().put("noAutoScale", true);
+        root.setStyle("-fx-background-color: linear-gradient(to bottom right, #03060B 0%, #101A28 52%, #05070C 100%);");
+
+        BorderPane frame = new BorderPane();
+        frame.setId("uiFrame");
+        lockRegionSize(frame, 1600, 950);
+        frame.setPadding(new Insets(18, 28, 22, 28));
+        root.getChildren().add(frame);
+
+        Button back = uiFactory.action("BACK TO HUB", 250, 68, 24, "#B5121B", 18, () -> showMenu(stage));
+        StackPane title = buildMenuTitleBanner("THE VAULT", 420, 72, 34);
+        StackPane profile = buildMenuChip(
+                saveRepository.activeProfile().name().toUpperCase(Locale.ROOT), "#1565C0", "#90CAF9");
+        StackPane coins = buildMenuChip("BIRD COINS  " + birdCoinBalanceText(), "#5D4037", "#FFE082");
+        HBox topRight = new HBox(12, profile, coins);
+        topRight.setAlignment(Pos.CENTER_RIGHT);
+        StackPane topStrip = buildMenuTopStrip(back, title, topRight);
+
+        List<VaultFighterProgress> fighters = vaultFighterProgress();
+        int unlockedBirds = (int) fighters.stream().filter(VaultFighterProgress::fighterUnlocked).count();
+        int earnedBadges = (int) fighters.stream().filter(VaultFighterProgress::routeBadgeEarned).count();
+        int ownedSkins = fighters.stream().mapToInt(VaultFighterProgress::skinsOwned).sum();
+        int totalSkins = fighters.stream().mapToInt(VaultFighterProgress::skinsTotal).sum();
+        int unlockedMaps = (int) birdBookMaps().stream().filter(entry -> isMapUnlocked(entry.map)).count();
+        int totalMaps = birdBookMaps().size();
+        int unlockedAchievements = 0;
+        for (int i = 0; i < ACHIEVEMENT_COUNT; i++) {
+            if (isAchievementUnlocked(i)) unlockedAchievements++;
+        }
+
+        HBox collectionSummary = new HBox(12,
+                buildVaultSummaryChip("FIGHTERS", unlockedBirds + " / " + fighters.size(), "#64B5F6"),
+                buildVaultSummaryChip("SKINS", ownedSkins + " / " + totalSkins, "#CE93D8"),
+                buildVaultSummaryChip("MAPS", unlockedMaps + " / " + totalMaps, "#80CBC4"),
+                buildVaultSummaryChip("ROUTE BADGES", earnedBadges + " / " + fighters.size(), "#FFD54F"),
+                buildVaultSummaryChip("ACHIEVEMENTS", unlockedAchievements + " / " + ACHIEVEMENT_COUNT, "#FFAB91")
+        );
+        collectionSummary.setAlignment(Pos.CENTER);
+        collectionSummary.setPadding(new Insets(12, 0, 14, 0));
+        VBox header = new VBox(0, topStrip, collectionSummary);
+        frame.setTop(header);
+
+        Label fighterHeading = new Label("FIGHTER RECORDS");
+        fighterHeading.setFont(Font.font("Arial Black", 28));
+        fighterHeading.setTextFill(Color.web("#E3F2FD"));
+        Label fighterHint = new Label("Earned progress stays separate from developer entitlement. Select an unlocked bird to open its Classic route.");
+        fighterHint.setFont(Font.font("Consolas", 16));
+        fighterHint.setTextFill(Color.web("#90A4AE"));
+        fighterHint.setWrapText(true);
+        fighterHint.setMaxWidth(930);
+
+        FlowPane fighterGrid = new FlowPane(16, 16);
+        fighterGrid.setAlignment(Pos.TOP_CENTER);
+        fighterGrid.setPrefWrapLength(950);
+        fighterGrid.setPadding(new Insets(4, 8, 16, 8));
+        for (VaultFighterProgress progress : fighters) {
+            fighterGrid.getChildren().add(buildVaultFighterCard(stage, progress));
+        }
+        ScrollPane fighterScroll = new ScrollPane(fighterGrid);
+        fighterScroll.setFitToWidth(true);
+        fighterScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        fighterScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        fighterScroll.setPannable(true);
+        fighterScroll.setStyle("-fx-background: transparent; -fx-background-color: transparent; -fx-border-color: transparent;");
+        installTransparentScrollViewport(fighterScroll);
+        VBox fighterPanel = new VBox(5, fighterHeading, fighterHint, fighterScroll);
+        fighterPanel.setPadding(new Insets(18));
+        fighterPanel.setPrefSize(1000, 720);
+        fighterPanel.setMaxSize(1000, 720);
+        fighterPanel.setStyle(MenuTheme.panelStyle("#35566F", 24));
+        VBox.setVgrow(fighterScroll, Priority.ALWAYS);
+
+        Label libraryHeading = new Label("LIBRARY & PROGRESS");
+        libraryHeading.setFont(Font.font("Arial Black", 25));
+        libraryHeading.setTextFill(Color.web("#FFE082"));
+        GridPane libraryGrid = new GridPane();
+        libraryGrid.setHgap(12);
+        libraryGrid.setVgap(12);
+        libraryGrid.setAlignment(Pos.TOP_CENTER);
+
+        List<ReplayStore.SavedReplay> savedReplays = ReplayStore.listAll();
+        Button achievements = buildVaultDestinationCard(
+                "ACHIEVEMENTS", hasClaimableAchievementRewards()
+                        ? countAllClaimableAchievementRewards() + " REWARDS READY"
+                        : unlockedAchievements + " COMPLETED",
+                "#F9A825", () -> openVaultDestination(stage, VaultDestination.ACHIEVEMENTS));
+        Button featherpedia = buildVaultDestinationCard(
+                "FEATHERPEDIA", unlockedBirds + " BIRDS  •  " + unlockedMaps + " MAPS",
+                "#5E35B1", () -> openVaultDestination(stage, VaultDestination.FEATHERPEDIA));
+        Button endings = buildVaultDestinationCard(
+                "CLASSIC ENDINGS", earnedBadges + " BADGES EARNED",
+                "#AD1457", () -> openVaultDestination(stage, VaultDestination.CLASSIC_ENDINGS));
+        Button movies = buildVaultDestinationCard(
+                "STORY MOVIES", "THE STILL SKY ARCHIVE",
+                "#00897B", () -> openVaultDestination(stage, VaultDestination.STORY_MOVIES));
+        Button history = buildVaultDestinationCard(
+                "MATCH RECORDS", matchHistory.size() + " RECENT MATCHES",
+                "#1565C0", () -> openVaultDestination(stage, VaultDestination.MATCH_HISTORY));
+        Button replays = buildVaultDestinationCard(
+                "REPLAYS", savedReplays.size() + " SAVED",
+                "#6A1B9A", () -> openVaultDestination(stage, VaultDestination.REPLAYS));
+        Button soundtrack = buildVaultDestinationCard(
+                "SOUND & CREDITS", VAULT_TRACKS.size() + " MUSIC TRACKS",
+                "#EF6C00", () -> openVaultDestination(stage, VaultDestination.SOUNDTRACK));
+        Button shop = buildVaultDestinationCard(
+                "BIRD COIN SHOP", birdCoinBalanceText() + " COINS",
+                "#C2185B", () -> openVaultDestination(stage, VaultDestination.SHOP));
+        Button[] destinations = {achievements, featherpedia, endings, movies, history, replays, soundtrack, shop};
+        for (int i = 0; i < destinations.length; i++) {
+            libraryGrid.add(destinations[i], i % 2, i / 2);
+        }
+
+        Label libraryHint = new Label("Everything collected, earned, watched, recorded, and purchased lives here.");
+        libraryHint.setFont(Font.font("Consolas", 15));
+        libraryHint.setTextFill(Color.web("#90A4AE"));
+        libraryHint.setWrapText(true);
+        libraryHint.setTextAlignment(TextAlignment.CENTER);
+        libraryHint.setMaxWidth(480);
+        VBox libraryPanel = new VBox(12, libraryHeading, libraryGrid, libraryHint);
+        libraryPanel.setAlignment(Pos.TOP_CENTER);
+        libraryPanel.setPadding(new Insets(18, 14, 18, 14));
+        libraryPanel.setPrefSize(516, 720);
+        libraryPanel.setMaxSize(516, 720);
+        libraryPanel.setStyle(MenuTheme.panelStyle("#7C6322", 24));
+
+        HBox body = new HBox(18, fighterPanel, libraryPanel);
+        body.setAlignment(Pos.TOP_CENTER);
+        BorderPane.setMargin(body, new Insets(0, 0, 0, 0));
+        frame.setCenter(body);
+
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, back);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        bindFixedFrameScale(scene, frame, 0.0);
+        setScenePreservingFullscreen(stage, scene);
+        javafx.application.Platform.runLater(() -> {
+            Node first = fighterGrid.getChildren().isEmpty() ? achievements : fighterGrid.getChildren().getFirst();
+            first.requestFocus();
+        });
+    }
+
+    private StackPane buildVaultSummaryChip(String label, String value, String accent) {
+        Label caption = new Label(label);
+        caption.setFont(Font.font("Consolas", FontWeight.BOLD, 14));
+        caption.setTextFill(Color.web("#B0BEC5"));
+        Label amount = new Label(value);
+        amount.setFont(Font.font("Arial Black", 24));
+        amount.setTextFill(Color.web(accent));
+        VBox text = new VBox(0, caption, amount);
+        text.setAlignment(Pos.CENTER);
+        StackPane chip = new StackPane(text);
+        lockRegionSize(chip, 276, 66);
+        chip.setStyle("-fx-background-color: rgba(5,10,16,0.88); -fx-background-radius: 16;"
+                + "-fx-border-color: " + accent + "; -fx-border-width: 2; -fx-border-radius: 16;");
+        return chip;
+    }
+
+    private Button buildVaultFighterCard(Stage stage, VaultFighterProgress progress) {
+        Node portrait = progress.fighterUnlocked()
+                ? buildRosterSelectionIcon(progress.bird(), false, 80, false)
+                : buildLockedTileIcon(Color.web("#607D8B"));
+        portrait.setOpacity(progress.fighterUnlocked() ? 1.0 : 0.36);
+
+        Label name = new Label(progress.bird().name.toUpperCase(Locale.ROOT));
+        name.setFont(Font.font("Arial Black", 19));
+        name.setTextFill(progress.fighterUnlocked() ? Color.WHITE : Color.web("#78909C"));
+        name.setWrapText(true);
+        name.setMaxWidth(185);
+        Label access = new Label(progress.fighterUnlocked() ? "FIGHTER UNLOCKED" : "LOCKED FIGHTER");
+        access.setFont(Font.font("Consolas", FontWeight.BOLD, 12));
+        access.setTextFill(Color.web(progress.fighterUnlocked() ? "#80CBC4" : "#EF9A9A"));
+        VBox identity = new VBox(2, name, access);
+        identity.setAlignment(Pos.CENTER_LEFT);
+        HBox top = new HBox(10, portrait, identity);
+        top.setAlignment(Pos.CENTER_LEFT);
+
+        String badgeText = progress.routeBadgeEarned() ? "★ CLASSIC" : "☆ CLASSIC";
+        Label badge = vaultFighterTag(badgeText, progress.routeBadgeEarned() ? "#FFD54F" : "#546E7A");
+        Label drill = vaultFighterTag(progress.academyDrillComplete() ? "✓ ACADEMY" : "— ACADEMY",
+                progress.academyDrillComplete() ? "#80CBC4" : "#546E7A");
+        Label skins = vaultFighterTag("SKINS " + progress.skinsOwned() + "/" + progress.skinsTotal(), "#CE93D8");
+        HBox tags = new HBox(7, badge, drill, skins);
+        tags.setAlignment(Pos.CENTER_LEFT);
+
+        Label record = new Label("BATTLES " + progress.appearances()
+                + "   WINS " + progress.wins()
+                + "   RATE " + progress.winRateText()
+                + "   TIME " + progress.arenaTimeText());
+        record.setFont(Font.font("Consolas", FontWeight.BOLD, 12));
+        record.setTextFill(Color.web("#CFD8DC"));
+        Label totals = new Label("TOTAL DMG " + progress.damage() + "   KOs " + progress.knockouts()
+                + (progress.endingAvailable() ? "   ENDING AVAILABLE" : ""));
+        totals.setFont(Font.font("Consolas", 12));
+        totals.setTextFill(Color.web(progress.endingAvailable() ? "#FFE082" : "#90A4AE"));
+        VBox graphic = new VBox(8, top, tags, record, totals);
+        graphic.setAlignment(Pos.TOP_LEFT);
+        graphic.setPadding(new Insets(12));
+
+        Button card = new Button();
+        card.setGraphic(graphic);
+        card.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+        card.setAlignment(Pos.TOP_LEFT);
+        lockRegionSize(card, 300, 184);
+        String border = progress.routeBadgeEarned() ? "#FFD54F" : (progress.fighterUnlocked() ? "#4FC3F7" : "#455A64");
+        card.setStyle("-fx-background-color: linear-gradient(to bottom right, rgba(28,39,53,0.96), rgba(5,9,14,0.98));"
+                + "-fx-background-radius: 18; -fx-border-color: " + border + "; -fx-border-width: 3;"
+                + "-fx-border-radius: 18; -fx-cursor: hand;");
+        card.setDisable(!progress.fighterUnlocked());
+        card.setAccessibleText(progress.bird().name + " Vault record. "
+                + (progress.routeBadgeEarned() ? "Classic badge earned." : "Classic badge not earned."));
+        card.setOnAction(event -> {
+            playButtonClick();
+            classicSelectedBird = progress.bird();
+            showClassicBirdSelect(stage);
+        });
+        return card;
+    }
+
+    private Label vaultFighterTag(String text, String color) {
+        Label tag = new Label(text);
+        tag.setFont(Font.font("Consolas", FontWeight.BOLD, 11));
+        tag.setTextFill(Color.web(color));
+        tag.setPadding(new Insets(3, 6, 3, 6));
+        tag.setStyle("-fx-background-color: rgba(0,0,0,0.55); -fx-background-radius: 8;"
+                + "-fx-border-color: " + color + "; -fx-border-width: 1; -fx-border-radius: 8;");
+        return tag;
+    }
+
+    private Button buildVaultDestinationCard(String title, String status, String color, Runnable action) {
+        Label heading = new Label(title);
+        heading.setFont(Font.font("Arial Black", 17));
+        heading.setTextFill(Color.WHITE);
+        heading.setWrapText(true);
+        heading.setTextAlignment(TextAlignment.CENTER);
+        Label detail = new Label(status);
+        detail.setFont(Font.font("Consolas", FontWeight.BOLD, 12));
+        detail.setTextFill(Color.web("#ECEFF1"));
+        detail.setWrapText(true);
+        detail.setTextAlignment(TextAlignment.CENTER);
+        VBox graphic = new VBox(5, heading, detail);
+        graphic.setAlignment(Pos.CENTER);
+        Button card = new Button();
+        card.setGraphic(graphic);
+        card.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+        lockRegionSize(card, 232, 132);
+        card.setStyle("-fx-background-color: linear-gradient(to bottom, " + color + ", #090C12);"
+                + "-fx-background-radius: 17; -fx-border-color: rgba(255,255,255,0.34);"
+                + "-fx-border-width: 3; -fx-border-radius: 17; -fx-cursor: hand;");
+        card.setOnAction(event -> {
+            playButtonClick();
+            action.run();
+        });
+        return card;
+    }
+
+    private List<VaultFighterProgress> vaultFighterProgress() {
+        List<SkinEntry> skins = birdBookSkins();
+        List<VaultFighterProgress> result = new ArrayList<>();
+        for (BirdType type : characterSelectBirdOrder()) {
+            int skinsTotal = 0;
+            int skinsOwned = 0;
+            for (SkinEntry skin : skins) {
+                if (skin.bird != type) continue;
+                skinsTotal++;
+                if (isSkinUnlocked(skin.key, type)) skinsOwned++;
+            }
+            int index = type.ordinal();
+            result.add(new VaultFighterProgress(
+                    type,
+                    isBirdUnlocked(type),
+                    isClassicCompleted(type),
+                    isClassicEndingUnlocked(type),
+                    index < trainingAcademyDrillCompleted.length && trainingAcademyDrillCompleted[index],
+                    skinsOwned,
+                    skinsTotal,
+                    typePicks[index],
+                    typeWins[index],
+                    typeDamage[index],
+                    typeElims[index],
+                    typePlayFrames[index]
+            ));
+        }
+        return result;
+    }
+
+    private int countAllClaimableAchievementRewards() {
+        int count = 0;
+        for (int i = 0; i < ACHIEVEMENT_COUNT; i++) {
+            if (isAchievementRewardClaimable(i)) count++;
+        }
+        return count;
+    }
+
+    private void openVaultDestination(Stage stage, VaultDestination destination) {
+        if (destination == null) return;
+        switch (destination) {
+            case SOUNDTRACK -> showVaultSoundtrack(stage);
+            default -> {
+                vaultSubpageActive = true;
+                switch (destination) {
+                    case ACHIEVEMENTS -> showAchievements(stage);
+                    case FEATHERPEDIA -> showBirdBook(stage);
+                    case CLASSIC_ENDINGS -> showClassicEndingGallery(stage);
+                    case STORY_MOVIES -> showCampaignGallery(stage);
+                    case MATCH_HISTORY -> showMatchHistory(stage);
+                    case REPLAYS -> showReplayBrowser(stage);
+                    case SHOP -> showShop(stage);
+                    case SOUNDTRACK -> throw new IllegalStateException("Soundtrack handled above");
+                }
+            }
+        }
+    }
+
+    private void returnFromVaultSubpage(Stage stage, Runnable fallback) {
+        if (vaultSubpageActive) {
+            vaultSubpageActive = false;
+            showVault(stage);
+        } else if (fallback != null) {
+            fallback.run();
+        }
+    }
+
+    private void showVaultSoundtrack(Stage stage) {
+        playMenuMusic();
+        StackPane root = new StackPane();
+        root.getProperties().put("noAutoScale", true);
+        root.setStyle("-fx-background-color: linear-gradient(to bottom, #05070C, #171125 55%, #06070B 100%);");
+        BorderPane frame = new BorderPane();
+        frame.setId("uiFrame");
+        lockRegionSize(frame, 1600, 950);
+        frame.setPadding(new Insets(20, 34, 24, 34));
+        root.getChildren().add(frame);
+
+        Button back = uiFactory.action("BACK TO VAULT", 280, 70, 23, "#B5121B", 18, () -> showVault(stage));
+        StackPane title = buildMenuTitleBanner("SOUND & CREDITS", 570, 72, 31);
+        Button stop = uiFactory.action("MENU THEME", 250, 64, 20, "#455A64", 16, this::playMenuMusic);
+        StackPane header = buildMenuTopStrip(back, title, stop);
+        frame.setTop(header);
+        BorderPane.setMargin(header, new Insets(0, 0, 16, 0));
+
+        FlowPane tracks = new FlowPane(14, 14);
+        tracks.setAlignment(Pos.TOP_CENTER);
+        tracks.setPrefWrapLength(1400);
+        tracks.setPadding(new Insets(12));
+        for (VaultTrack track : VAULT_TRACKS) {
+            tracks.getChildren().add(buildVaultTrackButton(track));
+        }
+        ScrollPane scroll = new ScrollPane(tracks);
+        scroll.setFitToWidth(true);
+        scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        scroll.setPannable(true);
+        scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent; -fx-border-color: transparent;");
+        installTransparentScrollViewport(scroll);
+        StackPane trackShell = new StackPane(scroll);
+        trackShell.setPadding(new Insets(10));
+        trackShell.setStyle(MenuTheme.panelStyle("#7E57C2", 24));
+        frame.setCenter(trackShell);
+
+        Label creditsTitle = new Label("AUDIO CREDITS");
+        creditsTitle.setFont(Font.font("Arial Black", 20));
+        creditsTitle.setTextFill(Color.web("#FFE082"));
+        Label credits = new Label("All music is public domain from FreePD, distributed through the Internet Archive mirror "
+                + "allfreepdmusicbykuronekony4n. Sound effects are original procedural synthesizer recordings. "
+                + "Complete per-track attribution is preserved in CREDITS-AUDIO.md.");
+        credits.setFont(Font.font("Consolas", 15));
+        credits.setTextFill(Color.web("#CFD8DC"));
+        credits.setWrapText(true);
+        credits.setMaxWidth(1370);
+        VBox creditPanel = new VBox(4, creditsTitle, credits);
+        creditPanel.setPadding(new Insets(12, 20, 12, 20));
+        creditPanel.setStyle(MenuTheme.panelStyle("#FFB74D", 18));
+        frame.setBottom(creditPanel);
+        BorderPane.setMargin(creditPanel, new Insets(14, 0, 0, 0));
+
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, back);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        bindFixedFrameScale(scene, frame, 0.0);
+        setScenePreservingFullscreen(stage, scene);
+        javafx.application.Platform.runLater(() -> {
+            if (tracks.getChildren().isEmpty()) back.requestFocus();
+            else tracks.getChildren().getFirst().requestFocus();
+        });
+    }
+
+    private Button buildVaultTrackButton(VaultTrack track) {
+        Label title = new Label(track.title().toUpperCase(Locale.ROOT));
+        title.setFont(Font.font("Arial Black", 17));
+        title.setTextFill(Color.web("#FFF8E1"));
+        Label use = new Label(track.use());
+        use.setFont(Font.font("Consolas", 13));
+        use.setTextFill(Color.web("#B0BEC5"));
+        VBox labels = new VBox(2, title, use);
+        labels.setAlignment(Pos.CENTER_LEFT);
+        Label play = new Label("▶ PLAY");
+        play.setFont(Font.font("Consolas", FontWeight.BOLD, 14));
+        play.setTextFill(Color.web("#FFE082"));
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        HBox graphic = new HBox(12, labels, spacer, play);
+        graphic.setAlignment(Pos.CENTER_LEFT);
+        graphic.setPadding(new Insets(10, 16, 10, 16));
+        Button button = new Button();
+        button.setGraphic(graphic);
+        button.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+        lockRegionSize(button, 690, 74);
+        button.setStyle("-fx-background-color: rgba(8,12,20,0.94); -fx-background-radius: 14;"
+                + "-fx-border-color: #7E57C2; -fx-border-width: 2; -fx-border-radius: 14; -fx-cursor: hand;");
+        button.setOnAction(event -> {
+            playButtonClick();
+            startOrContinueMusicTrack(track.file(), true);
+        });
+        button.setAccessibleText("Play " + track.title() + ", " + track.use());
+        return button;
+    }
+
     private void showHub(Stage stage) {
         frontEndMatchFlow.showHub();
         playMenuMusic();
@@ -27597,24 +28102,11 @@ public class BirdGame3 {
         AnchorPane.setLeftAnchor(lanNode, hubRightLeft);
 
         boolean claimableRewards = hasClaimableAchievementRewards();
-        Button historyBtn = buildUltimateHubRailButton("HISTORY", 112, hubIconHistory(), () -> showMatchHistory(stage));
-        registerHubInteractiveNode(historyBtn, hubButtons, helpTitle, helpBody,
-                buildUltimateHubStyle("#101214", "#050607", "#6FCF97", 24, false),
-                buildUltimateHubStyle("#101214", "#050607", "#E8FFF1", 24, true),
-                "MATCH HISTORY", "Review recent winners, match rules, and coin payouts.", selectorPointer, medallion);
-
-        Button bookBtn = buildUltimateHubRailButton("FEATHERPEDIA", 112, hubIconFeatherpedia(), () -> showBirdBook(stage));
-        registerHubInteractiveNode(bookBtn, hubButtons, helpTitle, helpBody,
-                buildUltimateHubStyle("#101214", "#050607", "#D1C4E9", 24, false),
-                buildUltimateHubStyle("#101214", "#050607", "#F2EBFF", 24, true),
-                "FEATHERPEDIA", "Browse birds, stats, abilities, origins, and unlock hints.", selectorPointer, medallion);
-
-        Button achievementsBtn = buildUltimateHubRailButton("ACHIEVEMENTS", 112, hubIconAchievements(claimableRewards),
-                () -> showAchievements(stage));
-        registerHubInteractiveNode(achievementsBtn, hubButtons, helpTitle, helpBody,
+        Button vaultBtn = buildUltimateHubRailButton("VAULT", 160, hubIconVault(claimableRewards), () -> showVault(stage));
+        registerHubInteractiveNode(vaultBtn, hubButtons, helpTitle, helpBody,
                 buildUltimateHubStyle("#101214", "#050607", "#FFD54F", 24, false),
                 buildUltimateHubStyle("#101214", "#050607", "#FFF8E1", 24, true),
-                "ACHIEVEMENTS", "Track progress, unlock rewards, and claim extra Bird Coins.", selectorPointer, medallion);
+                "THE VAULT", "Browse fighter records, collections, achievements, galleries, replays, music, and the Bird Coin shop.", selectorPointer, medallion);
 
         Button settingsBtn = buildUltimateHubRailButton("SETTINGS", 112, hubIconSettings(), () -> {
             settingsReturn = () -> showMenu(stage);
@@ -27639,7 +28131,7 @@ public class BirdGame3 {
 
         Region railSpacer = new Region();
         VBox.setVgrow(railSpacer, Priority.ALWAYS);
-        VBox railButtons = new VBox(12, historyBtn, bookBtn, achievementsBtn, settingsBtn, profilesBtn, railSpacer, exitBtn);
+        VBox railButtons = new VBox(14, vaultBtn, settingsBtn, profilesBtn, railSpacer, exitBtn);
         railButtons.setAlignment(Pos.TOP_CENTER);
 
         StackPane railShell = new StackPane(railButtons);
@@ -37035,7 +37527,9 @@ public class BirdGame3 {
         root.setPadding(new Insets(26, 40, 26, 40));
         root.setStyle(MenuTheme.pageBackground());
 
-        Button back = uiFactory.action("BACK TO HUB", 360, 90, 34, "#D32F2F", 22, () -> showMenu(stage));
+        Button back = uiFactory.action(vaultSubpageActive ? "BACK TO VAULT" : "BACK TO HUB",
+                360, 90, 30, "#D32F2F", 22,
+                () -> returnFromVaultSubpage(stage, () -> showMenu(stage)));
         StackPane title = buildMenuTitleBanner("SHOP", 320, 72, 34);
         StackPane coins = buildMenuChip("BIRD COINS  " + birdCoinBalanceText(), "#FFC107", "#FFF59D");
         StackPane top = buildMenuTopStrip(back, title, coins);
@@ -37571,7 +38065,9 @@ public class BirdGame3 {
         root.setPadding(new Insets(26, 40, 26, 40));
         root.setStyle(MenuTheme.pageBackground());
 
-        Button back = uiFactory.action("BACK TO HUB", 360, 90, 34, "#D32F2F", 22, () -> showMenu(stage));
+        Button back = uiFactory.action(vaultSubpageActive ? "BACK TO VAULT" : "BACK TO HUB",
+                360, 90, 30, "#D32F2F", 22,
+                () -> returnFromVaultSubpage(stage, () -> showMenu(stage)));
         StackPane title = buildMenuTitleBanner("FEATHERPEDIA", 520, 74, 34);
         StackPane activeTabChip = buildMenuChip(category.name(), "#4FC3F7", "#B3E5FC");
         Button trailerButton = uiFactory.action("WATCH UPDATE TRAILER", 340, 68, 18, "#FB8C00", 18,
@@ -42982,8 +43478,9 @@ public class BirdGame3 {
             sceneButton.setDisable(!seen);
             grid.getChildren().add(sceneButton);
         }
-        Button back = uiFactory.action("BACK TO STORY", 330, 70, 20, "#455A64", 18,
-                () -> showCampaignHub(stage));
+        Button back = uiFactory.action(vaultSubpageActive ? "BACK TO VAULT" : "BACK TO STORY",
+                330, 70, 20, "#455A64", 18,
+                () -> returnFromVaultSubpage(stage, () -> showCampaignHub(stage)));
         ScrollPane galleryScroll = new ScrollPane(grid);
         galleryScroll.setFitToWidth(true);
         galleryScroll.setPannable(true);
@@ -49598,8 +50095,9 @@ public class BirdGame3 {
         content.setPadding(new Insets(18, 28, 24, 28));
         root.getChildren().add(content);
 
-        Button back = uiFactory.action("BACK", 170, 60, 22, "#B5121B", 16,
-                () -> showClassicBirdSelect(stage));
+        Button back = uiFactory.action(vaultSubpageActive ? "BACK TO VAULT" : "BACK",
+                vaultSubpageActive ? 250 : 170, 60, vaultSubpageActive ? 18 : 22, "#B5121B", 16,
+                () -> returnFromVaultSubpage(stage, () -> showClassicBirdSelect(stage)));
         Label title = new Label("CLASSIC ENDINGS");
         title.setFont(Font.font("Arial Black", FontWeight.BOLD, 42));
         title.setTextFill(Color.web("#FFE45C"));
@@ -73079,6 +73577,7 @@ public class BirdGame3 {
             typePicks[typeIdx]++;
             typeDamage[typeIdx] += Math.max(0, damageDealt[i]);
             typeElims[typeIdx] += Math.max(0, eliminations[i]);
+            typePlayFrames[typeIdx] += Math.max(0L, simTick);
         }
         if (winner != null) {
             typeWins[winner.type.ordinal()]++;
@@ -73486,6 +73985,7 @@ public class BirdGame3 {
         state.typeWins = Arrays.copyOf(typeWins, typeWins.length);
         state.typeDamage = Arrays.copyOf(typeDamage, typeDamage.length);
         state.typeElims = Arrays.copyOf(typeElims, typeElims.length);
+        state.typePlayFrames = Arrays.copyOf(typePlayFrames, typePlayFrames.length);
         state.tournamentChampionshipsWon = tournamentChampionshipsWon;
         return state;
     }
@@ -73732,6 +74232,7 @@ public class BirdGame3 {
         copyInto(resolved.typeWins, typeWins);
         copyInto(resolved.typeDamage, typeDamage);
         copyInto(resolved.typeElims, typeElims);
+        copyInto(resolved.typePlayFrames, typePlayFrames);
 
         // Developer access is a permanent entitlement, not a one-time snapshot.
         // Reapply it after every load so older developer profiles automatically
@@ -73909,7 +74410,9 @@ public class BirdGame3 {
         root.setPadding(new Insets(30, 40, 30, 40));
         root.setStyle(MenuTheme.pageBackground());
 
-        Button back = uiFactory.action("BACK TO HUB", 360, 100, 34, "#D32F2F", 22, () -> showMenu(stage));
+        Button back = uiFactory.action(vaultSubpageActive ? "BACK TO VAULT" : "BACK TO HUB",
+                360, 100, 30, "#D32F2F", 22,
+                () -> returnFromVaultSubpage(stage, () -> showMenu(stage)));
         StackPane title = buildMenuTitleBanner("MATCH HISTORY", 620, 74, 34);
         StackPane summaryChip = buildMenuChip("LAST " + MATCH_HISTORY_LIMIT + " MATCHES", "#4FC3F7", "#B3E5FC");
         Button replaysBtn = uiFactory.action("REPLAYS", 260, 74, 26, "#7B1FA2", 20, () -> showReplayBrowser(stage));
@@ -75468,7 +75971,9 @@ public class BirdGame3 {
         root.setPadding(new Insets(28, 36, 28, 36));
         root.setStyle(MenuTheme.pageBackground());
 
-        Button back = uiFactory.action("BACK TO HUB", 320, 84, 30, "#D32F2F", 22, () -> showMenu(stage));
+        Button back = uiFactory.action(vaultSubpageActive ? "BACK TO VAULT" : "BACK TO HUB",
+                320, 84, 27, "#D32F2F", 22,
+                () -> returnFromVaultSubpage(stage, () -> showMenu(stage)));
         StackPane title = buildMenuTitleBanner("ACHIEVEMENTS", 620, 74, 34);
 
         int unlockedCount = achievementProfile.unlockedCount();

@@ -13,6 +13,7 @@ import java.util.prefs.Preferences;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class BirdGame3ProfileProgressStateTest {
     private Preferences prefs;
@@ -99,6 +100,20 @@ class BirdGame3ProfileProgressStateTest {
         assertFalse(loaded.guidedTutorialCompleted);
         assertArrayEquals(state.guidedTutorialLessonCompleted, loaded.guidedTutorialLessonCompleted);
         assertTrue(loaded.trainingAcademyDrillCompleted[BirdGame3.BirdType.RAVEN.ordinal()]);
+    }
+
+    @Test
+    void savesAndLoadsPerBirdArenaTimeWithoutWallClockData() {
+        BirdGame3ProfileProgressState state = new BirdGame3ProfileProgressState();
+        state.typePlayFrames[BirdGame3.BirdType.PIGEON.ordinal()] = 54_321L;
+        state.typePlayFrames[BirdGame3.BirdType.RAVEN.ordinal()] = 98_765L;
+
+        state.saveTo(prefs, schema());
+        BirdGame3ProfileProgressState loaded = BirdGame3ProfileProgressState.load(prefs, schema());
+
+        assertEquals(54_321L, loaded.typePlayFrames[BirdGame3.BirdType.PIGEON.ordinal()]);
+        assertEquals(98_765L, loaded.typePlayFrames[BirdGame3.BirdType.RAVEN.ordinal()]);
+        assertEquals(0L, loaded.typePlayFrames[BirdGame3.BirdType.GOOSE.ordinal()]);
     }
 
     private static BirdGame3ProfileProgressState.Schema schema() {
