@@ -1405,6 +1405,8 @@ public class Bird {
     private int grabHoldTimer = 0;
     private int grabThrowLockTimer = 0;
     private int grabEscapeProgress = 0;
+    private int grabReleaseLockTimer = 0;
+    private int throwInvulnerabilityTimer = 0;
 
     // === VINE SWINGING ===
     SwingingVine attachedVine = null;
@@ -1780,6 +1782,10 @@ public class Bird {
     private static final int GRAB_THROW_LOCK_FRAMES = 8;
     private static final int GRAB_MASH_ESCAPE_REDUCTION = 4;
     private static final double GRAB_ESCAPE_PUSH_SPEED = 4.8;
+    private static final int GRAB_ESCAPE_REGRAB_LOCK_FRAMES = 30;
+    private static final int GRAB_THROW_REGRAB_LOCK_FRAMES = 20;
+    private static final int GRAB_INTERRUPTED_REGRAB_LOCK_FRAMES = 12;
+    private static final int THROW_INVULNERABILITY_FRAMES = 6;
     private static final double GRAB_FORWARD_REACH = 76.0;
     private static final double GRAB_BACK_REACH = 24.0;
     private static final double GRAB_VERTICAL_REACH = 44.0;
@@ -2701,6 +2707,7 @@ public class Bird {
 
     boolean isCombatInvulnerable() {
         return ledgeInvulnerabilityTimer > 0
+                || throwInvulnerabilityTimer > 0
                 || eagleSkySovereignActive
                 || falconTerminalVelocityActive
                 || phoenixRebirthNovaTimer > PHOENIX_REBIRTH_NOVA_RECOVERY_FRAMES
@@ -6315,6 +6322,7 @@ public class Bird {
         if (!canDamageTarget(other)) return false;
         if (grabbedTarget != null || grabbedBy != null) return false;
         if (other.grabbedBy != null || other.grabbedTarget != null) return false;
+        if (other.grabReleaseLockTimer > 0 || other.isCombatInvulnerable()) return false;
         if (!isOnGround() || !other.isOnGround()) return false;
         if (onVine || batHanging || ledgeHanging || isGrappling || isInDockWater()) return false;
         if (other.onVine || other.batHanging || other.ledgeHanging || other.isGrappling || other.isInDockWater()) return false;
@@ -6645,6 +6653,10 @@ public class Bird {
         target.vx += profile.launchX();
         target.vy = Math.min(target.vy, profile.launchY());
         if (target.health > 0) {
+            target.throwInvulnerabilityTimer = Math.max(
+                    target.throwInvulnerabilityTimer, THROW_INVULNERABILITY_FRAMES);
+            target.grabReleaseLockTimer = Math.max(
+                    target.grabReleaseLockTimer, GRAB_THROW_REGRAB_LOCK_FRAMES);
             target.applyStun(profile.stunFrames());
             target.applyPendingSmashLaunch();
         }
@@ -7067,6 +7079,8 @@ public class Bird {
         grabEscapeProgress = 0;
         grabCooldown = Math.max(grabCooldown, GRAB_RELEASE_COOLDOWN_FRAMES);
         target.grabCooldown = Math.max(target.grabCooldown, GRAB_RELEASE_COOLDOWN_FRAMES);
+        target.grabReleaseLockTimer = Math.max(
+                target.grabReleaseLockTimer, GRAB_ESCAPE_REGRAB_LOCK_FRAMES);
         target.blockCooldown = Math.max(target.blockCooldown, 5);
         target.vx = away * GRAB_ESCAPE_PUSH_SPEED;
         target.vy = Math.min(target.vy, -1.8);
@@ -7083,6 +7097,8 @@ public class Bird {
             }
             if (applyCooldown) {
                 grabCooldown = Math.max(grabCooldown, GRAB_RELEASE_COOLDOWN_FRAMES);
+                target.grabReleaseLockTimer = Math.max(
+                        target.grabReleaseLockTimer, GRAB_INTERRUPTED_REGRAB_LOCK_FRAMES);
             }
         }
         if (grabbedBy != null) {
@@ -7092,6 +7108,8 @@ public class Bird {
                 holder.grabbedTarget = null;
                 if (applyCooldown) {
                     holder.grabCooldown = Math.max(holder.grabCooldown, GRAB_RELEASE_COOLDOWN_FRAMES);
+                    grabReleaseLockTimer = Math.max(
+                            grabReleaseLockTimer, GRAB_INTERRUPTED_REGRAB_LOCK_FRAMES);
                 }
             }
         }
@@ -15658,6 +15676,12 @@ public class Bird {
         if (nullRockDownReuseTimer > 0) nullRockDownReuseTimer = Math.max(0, nullRockDownReuseTimer - cooldownTicks);
         if (attackCooldown > 0) attackCooldown = Math.max(0, attackCooldown - cooldownTicks);
         if (grabCooldown > 0) grabCooldown = (int)Math.max(0, grabCooldown - gameSpeed);
+        if (grabReleaseLockTimer > 0) {
+            grabReleaseLockTimer = (int) Math.max(0, grabReleaseLockTimer - gameSpeed);
+        }
+        if (throwInvulnerabilityTimer > 0) {
+            throwInvulnerabilityTimer = (int) Math.max(0, throwInvulnerabilityTimer - gameSpeed);
+        }
         if (landingLagTimer > 0) landingLagTimer = (int)Math.max(0, landingLagTimer - gameSpeed);
         if (!(eagleDiveActive && eagleDiveCountdown > 0 && !eagleAscentActive)) {
             diveTimer = Math.max(0, (int)(diveTimer - gameSpeed));
@@ -18715,6 +18739,10 @@ public class Bird {
                     + Math.max(0, grabThrowLockTimer) + "f";
         }
         if (grabStartupTimer > 0) return "GRAB STARTUP " + grabStartupTimer + "f";
+        if (throwInvulnerabilityTimer > 0) {
+            return "THROW PROTECTION " + throwInvulnerabilityTimer + "f | REGRAB LOCK "
+                    + grabReleaseLockTimer + "f";
+        }
         if (ledgeHanging) {
             return "LEDGE HANG " + ledgeHangFrames + "f | LOCK " + ledgeLockTimer
                     + "f | INV " + ledgeInvulnerabilityTimer + "f | GRAB "
@@ -18771,6 +18799,7 @@ public class Bird {
     int debugCombatInvulnerabilityFrames() {
         int frames = Math.max(ledgeInvulnerabilityTimer, dodgeInvulnerabilityTimer);
         frames = Math.max(frames, respawnInvulnerabilityTimer);
+        frames = Math.max(frames, throwInvulnerabilityTimer);
         if (hasNullRockInvulnerability()) {
             frames = Math.max(frames, nullRockInvincibilityTimer);
         }
@@ -18804,7 +18833,9 @@ public class Bird {
         } else if (grabbedTarget != null) {
             grab = "HOLD " + Math.max(0, grabHoldTimer) + "f / MASH " + Math.max(0, grabEscapeProgress);
         } else {
-            grab = grabCooldown > 0 ? "COOLDOWN " + grabCooldown + "f" : "READY";
+            grab = grabReleaseLockTimer > 0
+                    ? "RELEASE LOCK " + grabReleaseLockTimer + "f"
+                    : grabCooldown > 0 ? "COOLDOWN " + grabCooldown + "f" : "READY";
         }
         String ledge = ledgeHanging
                 ? "HANG " + ledgeHangFrames + "f / GRAB " + ledgeGrabCountWithoutLanding
@@ -18872,6 +18903,8 @@ public class Bird {
         h = h * 31 + grabHoldTimer;
         h = h * 31 + grabThrowLockTimer;
         h = h * 31 + grabEscapeProgress;
+        h = h * 31 + grabReleaseLockTimer;
+        h = h * 31 + throwInvulnerabilityTimer;
         h = h * 31 + (grabbedTarget != null ? grabbedTarget.playerIndex + 1 : 0);
         h = h * 31 + (grabbedBy != null ? grabbedBy.playerIndex + 1 : 0);
         return h;
@@ -20687,6 +20720,8 @@ public class Bird {
         lastProjectedKoFrames = 0;
         grabCooldown = 0;
         grabHeldLastFrame = false;
+        grabReleaseLockTimer = 0;
+        throwInvulnerabilityTimer = 0;
         stunTime = 0;
         attackAnimationTimer = 0;
         clearAerialAttackState();
@@ -21253,6 +21288,8 @@ public class Bird {
         state.grabHoldTimer = grabHoldTimer;
         state.grabThrowLockTimer = grabThrowLockTimer;
         state.grabEscapeProgress = grabEscapeProgress;
+        state.grabReleaseLockTimer = grabReleaseLockTimer;
+        state.throwInvulnerabilityTimer = throwInvulnerabilityTimer;
         state.dodgeTypeOrdinal = dodgeType.ordinal();
         state.dodgeTimer = dodgeTimer;
         state.dodgeTotalFrames = dodgeTotalFrames;
@@ -22146,6 +22183,8 @@ public class Bird {
         this.grabHoldTimer = Math.max(0, state.grabHoldTimer);
         this.grabThrowLockTimer = Math.max(0, state.grabThrowLockTimer);
         this.grabEscapeProgress = Math.max(0, state.grabEscapeProgress);
+        this.grabReleaseLockTimer = Math.max(0, state.grabReleaseLockTimer);
+        this.throwInvulnerabilityTimer = Math.max(0, state.throwInvulnerabilityTimer);
         DodgeType[] dodgeTypes = DodgeType.values();
         if (state.dodgeTypeOrdinal >= 0 && state.dodgeTypeOrdinal < dodgeTypes.length) {
             this.dodgeType = dodgeTypes[state.dodgeTypeOrdinal];

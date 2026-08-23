@@ -4418,6 +4418,80 @@ class BirdStateTest {
         assertEquals(startingHealth, target.health, 0.0001,
                 "Escaping a grab should not secretly apply a throw or pummel.");
         assertTrue(Math.abs(target.vx) > 0.0, "An escape should create readable separation.");
+        assertTrue(getPrivateInt(target, "grabReleaseLockTimer") > 0,
+                "Mash escape should prevent an immediate regrab loop.");
+    }
+
+    @Test
+    void grabCannotCatchTargetDuringDodgeInvulnerability() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+        Bird holder = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird target = new Bird(170.0, BirdGame3.BirdType.EAGLE, 1, game);
+        holder.y = target.y = BirdGame3.GROUND_Y - 80.0;
+        holder.facingRight = true;
+        game.players[0] = holder;
+        game.players[1] = target;
+
+        invokePrivateVoid(target, "startSpotDodge");
+        target.update(1.0);
+        target.update(1.0);
+        assertTrue(target.isCombatInvulnerable());
+
+        assertFalse(invokePrivateBoolean(holder, "attemptGrab"),
+                "Grabs beat shields, but must not catch an intangible dodge.");
+        assertNull(getPrivateObject(holder, "grabbedTarget"));
+    }
+
+    @Test
+    void throwGrantsBriefProtectionAndLongerRegrabLock() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+        Bird holder = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird target = new Bird(170.0, BirdGame3.BirdType.EAGLE, 1, game);
+        holder.y = target.y = BirdGame3.GROUND_Y - 80.0;
+        holder.facingRight = true;
+        game.players[0] = holder;
+        game.players[1] = target;
+        invokePrivateVoid(holder, "beginGrabOn", new Class<?>[]{Bird.class}, target);
+        setPrivateInt(holder, "grabThrowLockTimer", 0);
+        game.setLocalActionsForKey(game.rightKeyForPlayer(0), true);
+
+        Method hold = Bird.class.getDeclaredMethod("handleHoldingGrabState", boolean.class, boolean.class);
+        hold.setAccessible(true);
+        assertTrue((boolean) hold.invoke(holder, false, false));
+
+        assertEquals(6, getPrivateInt(target, "throwInvulnerabilityTimer"));
+        assertEquals(20, getPrivateInt(target, "grabReleaseLockTimer"));
+        assertTrue(target.isCombatInvulnerable());
+        assertTrue(target.debugUniversalActionLabel().startsWith("THROW PROTECTION"));
+        double postThrowHealth = target.health;
+        assertEquals(0.0, target.receiveExternalDamage(12.0), 0.0001,
+                "Overlapping multiplayer hitboxes must not hit on the release frame.");
+
+        for (int i = 0; i < 6; i++) target.update(1.0);
+        assertFalse(target.isCombatInvulnerable());
+        assertTrue(getPrivateInt(target, "grabReleaseLockTimer") > 0,
+                "Regrab protection should outlast the brief throw intangibility.");
+        assertTrue(target.receiveExternalDamage(12.0) > 0.0);
+        assertTrue(target.health < postThrowHealth);
+    }
+
+    @Test
+    void lanSnapshotsRestoreThrowProtectionAndRegrabSafety() throws Exception {
+        BirdGame3 sourceGame = new BirdGame3();
+        Bird source = new Bird(190.0, BirdGame3.BirdType.EAGLE, 0, sourceGame);
+        setPrivateInt(source, "throwInvulnerabilityTimer", 4);
+        setPrivateInt(source, "grabReleaseLockTimer", 17);
+        LanBirdState state = source.toLanState();
+
+        BirdGame3 remoteGame = new BirdGame3();
+        Bird remote = new Bird(0.0, BirdGame3.BirdType.EAGLE, 0, remoteGame);
+        remote.applyLanState(state);
+
+        assertEquals(4, getPrivateInt(remote, "throwInvulnerabilityTimer"));
+        assertEquals(17, getPrivateInt(remote, "grabReleaseLockTimer"));
+        assertEquals(source.deterministicGrabStateHash(), remote.deterministicGrabStateHash());
     }
 
     @Test

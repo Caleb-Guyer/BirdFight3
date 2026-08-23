@@ -341,6 +341,8 @@ class LanBirdState {
     int grabHoldTimer;
     int grabThrowLockTimer;
     int grabEscapeProgress;
+    int grabReleaseLockTimer;
+    int throwInvulnerabilityTimer;
     int dodgeTypeOrdinal;
     int dodgeTimer;
     int dodgeTotalFrames;
@@ -1118,6 +1120,8 @@ class LanBirdState {
         out.writeInt(grabHoldTimer);
         out.writeInt(grabThrowLockTimer);
         out.writeInt(grabEscapeProgress);
+        out.writeInt(grabReleaseLockTimer);
+        out.writeInt(throwInvulnerabilityTimer);
         out.writeInt(dodgeTypeOrdinal);
         out.writeInt(dodgeTimer);
         out.writeInt(dodgeTotalFrames);
@@ -1951,6 +1955,8 @@ class LanBirdState {
         state.grabHoldTimer = in.readInt();
         state.grabThrowLockTimer = in.readInt();
         state.grabEscapeProgress = in.readInt();
+        state.grabReleaseLockTimer = in.readInt();
+        state.throwInvulnerabilityTimer = in.readInt();
         state.dodgeTypeOrdinal = in.readInt();
         state.dodgeTimer = in.readInt();
         state.dodgeTotalFrames = in.readInt();
