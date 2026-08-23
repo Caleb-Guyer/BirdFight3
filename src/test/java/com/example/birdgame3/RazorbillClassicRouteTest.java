@@ -128,6 +128,35 @@ class RazorbillClassicRouteTest {
     }
 
     @Test
+    void worldseamTransitUsesOnlyTheHardRecoveryBoundary() throws Exception {
+        BirdGame3 game = prepared(7, 0x5E_AA19L, 0x5E_AA1AL);
+        Bird player = game.players[0];
+        Platform leftMainland = game.authoredAiMainStagePlatform(2_800.0);
+        assertNotNull(leftMainland);
+
+        player.x = leftMainland.x + leftMainland.w - player.bodyWidth() + 72.0;
+        player.y = leftMainland.y - player.bodyHeight() + 8.0;
+        player.vx = 4.0;
+        player.vy = 1.0;
+
+        Method caution = Bird.class.getDeclaredMethod(
+                "isAIVoidRecoveryCaution", boolean.class, Platform.class);
+        caution.setAccessible(true);
+        Method urgent = Bird.class.getDeclaredMethod(
+                "isAIVoidRecoveryUrgent", boolean.class, Platform.class);
+        urgent.setAccessible(true);
+
+        assertFalse((boolean) caution.invoke(player, false, null),
+                "Razorbill must be allowed to pursue a flying Worldseam construct past the nearest lip.");
+        assertFalse((boolean) urgent.invoke(player, false, null),
+                "The shallow transit lane is still inside Razorbill's authored recovery budget.");
+
+        player.y = leftMainland.y + 360.0;
+        assertTrue((boolean) urgent.invoke(player, false, null),
+                "Worldseam's exception must never suppress the hard emergency recovery boundary.");
+    }
+
+    @Test
     void routeNeverChangesRazorbillsOrdinaryFighterKit() {
         BirdGame3 game = prepared(7, 0x5E_AA0BL, 0x5E_AA0CL);
         Bird player = game.players[0];

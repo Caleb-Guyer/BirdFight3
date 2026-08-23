@@ -13161,6 +13161,16 @@ public class Bird {
                     || (movingAway && offstageDistance > 14.0)
                     || (vy > 4.0 && depth > 16.0);
             default -> {
+                // Worldseam has two authored mainlands joined by paired gates and
+                // a narrow central transit lane. Its flying constructs routinely
+                // draw opponents just beyond the nearest island lip; treating
+                // that lane like an ordinary battlefield blast-zone approach
+                // makes CPUs abandon every attack and recover forever. Keep the
+                // hard (urgent) recovery boundary below, but do not apply the
+                // generic early-return threshold in this split-stage arena.
+                if (game.selectedMap == MapType.WORLDSEAM) {
+                    yield false;
+                }
                 AIKitProfile profile = aiOwnKit();
                 double horizontalThreshold = Math.clamp(0.68 - profile.recovery() * 0.20, 0.48, 0.60);
                 double depthThreshold = Math.clamp(0.72 - profile.recovery() * 0.18, 0.54, 0.63);
