@@ -4,6 +4,7 @@ import javafx.scene.input.KeyCode;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -119,6 +120,45 @@ class UniversalMovementMechanicsTest {
         assertEquals(-1, getInt(bird, "lastTapDir"));
         assertEquals(12, getInt(bird, "dashTimer"));
         assertEquals("DASH 12f", bird.debugUniversalActionLabel());
+    }
+
+    @Test
+    void aerialAttackRetainsLimitedDirectionalDrift() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        Bird bird = new Bird(380.0, BirdGame3.BirdType.EAGLE, 0, game);
+        bird.y = BirdGame3.GROUND_Y - 360.0;
+        game.players[0] = bird;
+        setBoolean(bird, "normalAttackTimelineActive", true);
+
+        game.setLocalActionsForKey(game.rightKeyForPlayer(0), true);
+        invokeHorizontalMovement(bird, false, true, false, false, 1.0);
+
+        assertTrue(bird.vx > 0.0, "An aerial must still accept gentle directional drift during its timeline.");
+        double firstFrameDrift = bird.vx;
+        for (int frame = 0; frame < 120; frame++) {
+            invokeHorizontalMovement(bird, false, true, false, false, 1.0);
+        }
+
+        assertTrue(bird.vx > firstFrameDrift);
+        assertTrue(bird.vx < BirdGame3.BirdType.EAGLE.speed,
+                "Attack drift must remain slower than unrestricted aerial movement.");
+
+        game.setLocalActionsForKey(game.rightKeyForPlayer(0), false);
+        game.setLocalActionsForKey(game.leftKeyForPlayer(0), true);
+        double beforeReverse = bird.vx;
+        invokeHorizontalMovement(bird, false, true, false, false, 1.0);
+        assertTrue(bird.vx < beforeReverse, "Opposite input must influence an aerial without instantly reversing it.");
+        assertTrue(bird.vx > 0.0, "One frame of drift must not erase aerial attack commitment.");
+    }
+
+    private static void invokeHorizontalMovement(Bird bird, boolean stunned, boolean airborne,
+                                                 boolean jumpHeld, boolean jumpJustPressed,
+                                                 double gameSpeed) throws Exception {
+        Method method = Bird.class.getDeclaredMethod("handleHorizontalMovement",
+                boolean.class, boolean.class, boolean.class, boolean.class, double.class);
+        method.setAccessible(true);
+        method.invoke(bird, stunned, airborne, jumpHeld, jumpJustPressed, gameSpeed);
     }
 
     private static int getInt(Object target, String fieldName) throws Exception {

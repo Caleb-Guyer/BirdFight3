@@ -1832,6 +1832,8 @@ public class Bird {
     private static final int AERIAL_LANDING_LAG_FRAMES = 7;
     private static final int AERIAL_AUTO_CANCEL_STARTUP_FRAMES = 2;
     private static final int AERIAL_AUTO_CANCEL_LATE_FRAMES = 3;
+    private static final double AERIAL_ATTACK_DRIFT_ACCEL = 0.12;
+    private static final double AERIAL_ATTACK_DRIFT_SPEED_SCALE = 0.82;
     private static final int TECH_INPUT_BUFFER_FRAMES = 10;
     private static final double GROUND_TECH_MIN_IMPACT_SPEED = 7.0;
     private static final double WALL_TECH_MIN_IMPACT_SPEED = 6.5;
@@ -18183,9 +18185,26 @@ public class Bird {
             if (normalAttackTimelineActive) {
                 // Preserve existing momentum (especially dash attack carry),
                 // but do not let directional input erase startup/recovery
-                // commitment. Air attacks retain gentle drift.
+                // commitment. Air attacks retain deliberate but limited drift,
+                // matching the fighter's ordinary air-speed identity without
+                // allowing a late input to erase the attack's commitment.
                 if (airborne) {
-                    vx *= 0.985;
+                    double inputDirection = rightPressed() == leftPressed()
+                            ? 0.0
+                            : rightPressed() ? 1.0 : -1.0;
+                    double driftSpeed = type.speed * speedMultiplier * AERIAL_ATTACK_DRIFT_SPEED_SCALE;
+                    if (inputDirection == 0.0) {
+                        vx *= 0.985;
+                    } else {
+                        double desiredVx = inputDirection * driftSpeed;
+                        double adjustment = Math.clamp(desiredVx - vx,
+                                -AERIAL_ATTACK_DRIFT_ACCEL, AERIAL_ATTACK_DRIFT_ACCEL);
+                        vx += adjustment * gameSpeed;
+                        double overspeed = Math.abs(vx) - driftSpeed;
+                        if (overspeed > 0.0 && Math.signum(vx) == inputDirection) {
+                            vx -= inputDirection * Math.min(overspeed, AERIAL_ATTACK_DRIFT_ACCEL * 0.35 * gameSpeed);
+                        }
+                    }
                 } else if (activeAttackVariant == NormalAttackVariant.DASH_ATTACK) {
                     vx *= 0.96;
                 } else {
