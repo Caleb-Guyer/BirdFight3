@@ -61,7 +61,8 @@ class GrinchHawkClassicRouteTest {
     @Test
     void goodListIsThreeSeparateUltlessGuardWaves() {
         BirdGame3 game = prepared(3, 0x6A1110L, 0x6A1111L);
-        assertEquals(1, game.scores[0], "A target-band wave job should keep the standard one-stock pressure.");
+        assertEquals(2, game.scores[0],
+                "A three-wave guard job needs a repair stock without altering normal fighter durability.");
         for (int wave = 0; wave < 3; wave++) {
             Bird enemy = firstEnemy(game);
             assertNotNull(enemy);
@@ -70,6 +71,23 @@ class GrinchHawkClassicRouteTest {
             game.scores[enemy.playerIndex] = 0;
             assertEquals(wave < 2, game.holdClassicGrinchHawkEncounterOpen());
         }
+    }
+
+    @Test
+    void hardestMidrouteJobsUseFairPressureInsteadOfOvertunedStats() throws Exception {
+        List<ClassicEncounter> route = route(new BirdGame3());
+        ClassicEncounter goodList = route.get(3);
+        ClassicEncounter honor = route.get(4);
+
+        assertEquals(5, goodList.cpuLevel);
+        assertEquals(List.of(88.0, 92.0, 96.0),
+                java.util.Arrays.stream(goodList.waves)
+                        .map(wave -> wave[0].health())
+                        .toList());
+        assertEquals(5, honor.cpuLevel);
+        assertEquals(2, honor.enemies.length);
+        assertTrue(java.util.Arrays.stream(honor.enemies).allMatch(enemy -> enemy.health() <= 102.0));
+        assertTrue(java.util.Arrays.stream(honor.enemies).allMatch(enemy -> enemy.powerMult() <= 0.84));
     }
 
     @Test

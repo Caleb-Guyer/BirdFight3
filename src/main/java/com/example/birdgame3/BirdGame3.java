@@ -47249,9 +47249,9 @@ public class BirdGame3 {
                 ClassicTwist.MIDNIGHT_HEIST, ClassicEncounterStyle.STANDARD, 125 * 60,
                 new ClassicFighter[0],
                 new ClassicFighter[]{
-                        classicFighter(BirdType.RAVEN, "Master Thief: Raven", 108, 0.88, 1.03),
-                        classicFighter(BirdType.VULTURE, "Master Thief: Vulture", 114, 0.90, 0.99)}, false);
-        honor.cpuLevel = 6;
+                        classicFighter(BirdType.RAVEN, "Master Thief: Raven", 98, 0.82, 1.03),
+                        classicFighter(BirdType.VULTURE, "Master Thief: Vulture", 102, 0.84, 0.99)}, false);
+        honor.cpuLevel = 5;
         run.add(honor);
 
         ClassicEncounter ransom = new ClassicEncounter(
@@ -62692,7 +62692,7 @@ public class BirdGame3 {
         }
         if (classicSelectedBird == BirdType.GRINCHHAWK) {
             scores[0] = switch (classicRoundIndex) {
-                case 1, 2, 4 -> 2;
+                case 1, 2, 3, 4 -> 2;
                 case 5, 7 -> 3;
                 default -> scores[0];
             };
