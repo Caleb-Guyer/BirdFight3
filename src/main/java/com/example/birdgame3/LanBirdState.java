@@ -358,6 +358,8 @@ class LanBirdState {
     double lastSdiX;
     double lastSdiY;
     int lastTechResultOrdinal;
+    int lastProjectedKoZoneOrdinal;
+    int lastProjectedKoFrames;
     long[] staleMoveQueue = new long[Bird.STALE_MOVE_QUEUE_SIZE];
     int staleMoveCount;
     long currentMoveStaleHash;
@@ -1128,6 +1130,8 @@ class LanBirdState {
         out.writeDouble(lastSdiX);
         out.writeDouble(lastSdiY);
         out.writeInt(lastTechResultOrdinal);
+        out.writeInt(lastProjectedKoZoneOrdinal);
+        out.writeInt(lastProjectedKoFrames);
         for (long moveHash : staleMoveQueue) out.writeLong(moveHash);
         out.writeInt(staleMoveCount);
         out.writeLong(currentMoveStaleHash);
@@ -1954,6 +1958,8 @@ class LanBirdState {
         state.lastSdiX = in.readDouble();
         state.lastSdiY = in.readDouble();
         state.lastTechResultOrdinal = in.readInt();
+        state.lastProjectedKoZoneOrdinal = in.readInt();
+        state.lastProjectedKoFrames = in.readInt();
         for (int i = 0; i < state.staleMoveQueue.length; i++) state.staleMoveQueue[i] = in.readLong();
         state.staleMoveCount = in.readInt();
         state.currentMoveStaleHash = in.readLong();

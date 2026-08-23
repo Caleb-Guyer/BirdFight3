@@ -1368,6 +1368,8 @@ public class Bird {
     private double lastSdiX = 0.0;
     private double lastSdiY = 0.0;
     private TechResult lastTechResult = TechResult.NONE;
+    private ProjectedKoZone lastProjectedKoZone = ProjectedKoZone.SAFE;
+    private int lastProjectedKoFrames = 0;
     static final int STALE_MOVE_QUEUE_SIZE = 9;
     private static final double[] STALE_MOVE_WEIGHTS = {
             0.090, 0.085, 0.075, 0.065, 0.055, 0.045, 0.035, 0.025, 0.015
@@ -1732,6 +1734,10 @@ public class Bird {
     private static final int TUMBLE_RECOVERY_EXTRA_FRAMES = 42;
     private static final double METEOR_MIN_DOWNWARD_SPEED = 10.0;
     private static final int METEOR_STATE_FRAMES = 42;
+    private static final double PROJECTED_KO_MIN_LAUNCH_SPEED = 19.0;
+    private static final int PROJECTED_KO_MIN_HORIZON_FRAMES = 12;
+    private static final int PROJECTED_KO_MAX_HORIZON_FRAMES = 90;
+    private static final int PROJECTED_KO_ACTIONABLE_GRACE_FRAMES = 8;
     private static final double LEDGE_GRAB_HORIZONTAL_REACH = 34.0;
     private static final double LEDGE_GRAB_VERTICAL_ABOVE = 18.0;
     private static final double LEDGE_GRAB_VERTICAL_BELOW = 46.0;
@@ -2515,6 +2521,14 @@ public class Bird {
         MISSED_GROUND,
         MISSED_WALL,
         MISSED_CEILING
+    }
+
+    private enum ProjectedKoZone {
+        SAFE,
+        LEFT,
+        RIGHT,
+        TOP,
+        BOTTOM
     }
 
     private enum NormalAttackInteractionResult {
@@ -18249,6 +18263,8 @@ public class Bird {
         lastSdiX = 0.0;
         lastSdiY = 0.0;
         lastTechResult = TechResult.NONE;
+        lastProjectedKoZone = ProjectedKoZone.SAFE;
+        lastProjectedKoFrames = 0;
         specialCooldown = 0;
         specialMaxCooldown = 0;
         canDoubleJump = true;
@@ -18594,6 +18610,20 @@ public class Bird {
                 lastSdiX, lastSdiY, techBufferTimer);
     }
 
+    String debugProjectedKoTelemetryLabel() {
+        return lastProjectedKoZone == ProjectedKoZone.SAFE
+                ? "SAFE / RECOVERABLE"
+                : lastProjectedKoZone.name() + " BLAST ZONE IN ~" + lastProjectedKoFrames + "f";
+    }
+
+    boolean debugProjectedLaunchKo() {
+        return lastProjectedKoZone != ProjectedKoZone.SAFE;
+    }
+
+    int debugProjectedKoFrames() {
+        return lastProjectedKoFrames;
+    }
+
     boolean debugInLaunchTumble() {
         return isInLaunchTumble();
     }
@@ -18652,6 +18682,8 @@ public class Bird {
         h = h * 31 + Double.doubleToLongBits(lastDirectionalInfluenceDegrees);
         h = h * 31 + Double.doubleToLongBits(lastSdiX);
         h = h * 31 + Double.doubleToLongBits(lastSdiY);
+        h = h * 31 + lastProjectedKoZone.ordinal();
+        h = h * 31 + lastProjectedKoFrames;
         return h;
     }
 
@@ -20412,6 +20444,8 @@ public class Bird {
         lastSdiX = 0.0;
         lastSdiY = 0.0;
         lastTechResult = TechResult.NONE;
+        lastProjectedKoZone = ProjectedKoZone.SAFE;
+        lastProjectedKoFrames = 0;
         grabCooldown = 0;
         grabHeldLastFrame = false;
         stunTime = 0;
@@ -20997,6 +21031,8 @@ public class Bird {
         state.lastSdiX = lastSdiX;
         state.lastSdiY = lastSdiY;
         state.lastTechResultOrdinal = lastTechResult.ordinal();
+        state.lastProjectedKoZoneOrdinal = lastProjectedKoZone.ordinal();
+        state.lastProjectedKoFrames = lastProjectedKoFrames;
         System.arraycopy(staleMoveQueue, 0, state.staleMoveQueue, 0, staleMoveQueue.length);
         state.staleMoveCount = staleMoveCount;
         state.currentMoveStaleHash = currentMoveStaleHash;
@@ -21891,6 +21927,11 @@ public class Bird {
         this.lastTechResult = state.lastTechResultOrdinal >= 0
                 && state.lastTechResultOrdinal < techResults.length
                 ? techResults[state.lastTechResultOrdinal] : TechResult.NONE;
+        ProjectedKoZone[] projectedKoZones = ProjectedKoZone.values();
+        this.lastProjectedKoZone = state.lastProjectedKoZoneOrdinal >= 0
+                && state.lastProjectedKoZoneOrdinal < projectedKoZones.length
+                ? projectedKoZones[state.lastProjectedKoZoneOrdinal] : ProjectedKoZone.SAFE;
+        this.lastProjectedKoFrames = Math.max(0, state.lastProjectedKoFrames);
         System.arraycopy(state.staleMoveQueue, 0, this.staleMoveQueue, 0, this.staleMoveQueue.length);
         Arrays.fill(this.staleMoveQueueNames, null);
         this.staleMoveCount = Math.clamp(state.staleMoveCount, 0, STALE_MOVE_QUEUE_SIZE);
@@ -22572,9 +22613,91 @@ public class Bird {
         lastLaunchSpeed = Math.hypot(vx, vy);
         lastLaunchAngleDegrees = Math.toDegrees(Math.atan2(-vy, vx));
         lastTechResult = TechResult.NONE;
+        updateProjectedKoPrediction();
         pendingSmashLaunchScale = 1.0;
         pendingDamageScaledHitDamage = 0.0;
         pendingMoveKnockbackMultiplier = 1.0;
+    }
+
+    private void updateProjectedKoPrediction() {
+        lastProjectedKoZone = ProjectedKoZone.SAFE;
+        lastProjectedKoFrames = 0;
+        if (!game.usesDamageScaledKnockback() || health <= 0.0
+                || lastLaunchSpeed < PROJECTED_KO_MIN_LAUNCH_SPEED) {
+            return;
+        }
+
+        int horizon = Math.clamp((int) Math.ceil(stunTime) + PROJECTED_KO_ACTIONABLE_GRACE_FRAMES,
+                PROJECTED_KO_MIN_HORIZON_FRAMES, PROJECTED_KO_MAX_HORIZON_FRAMES);
+        double predictedX = x;
+        double predictedY = y;
+        double predictedVx = vx;
+        double predictedVy = vy;
+        double leftBlast = usesIslandBounds() ? game.battlefieldLeftBound() - 300.0 : -300.0;
+        double rightBlast = usesIslandBounds() ? game.battlefieldRightBound() + 300.0
+                : BirdGame3.WORLD_WIDTH + 300.0;
+        double bottomBlast = BirdGame3.WORLD_HEIGHT + 300.0;
+        boolean implicitFloor = game.hasImplicitGroundFloorForCurrentArena();
+
+        for (int frame = 1; frame <= horizon; frame++) {
+            double previousBottom = predictedY + bodyHeight();
+            predictedX += predictedVx;
+            predictedY += predictedVy;
+
+            if (predictedX < leftBlast) {
+                setProjectedKoPrediction(ProjectedKoZone.LEFT, frame);
+                return;
+            }
+            if (predictedX > rightBlast) {
+                setProjectedKoPrediction(ProjectedKoZone.RIGHT, frame);
+                return;
+            }
+            if (predictedY < SMASH_TOP_BLAST_Y) {
+                setProjectedKoPrediction(ProjectedKoZone.TOP, frame);
+                return;
+            }
+            if (predictedY > bottomBlast) {
+                setProjectedKoPrediction(ProjectedKoZone.BOTTOM, frame);
+                return;
+            }
+
+            double nextBottom = predictedY + bodyHeight();
+            if (predictedVy >= 0.0 && launchPredictionTouchesLandingSurface(
+                    predictedX, previousBottom, nextBottom, implicitFloor)) {
+                return;
+            }
+
+            predictedVy += BirdGame3.GRAVITY;
+            predictedVx *= DAMAGE_SCALED_AIR_LAUNCH_DRAG;
+        }
+    }
+
+    private boolean launchPredictionTouchesLandingSurface(double predictedX,
+                                                           double previousBottom,
+                                                           double nextBottom,
+                                                           boolean implicitFloor) {
+        double predictedRight = predictedX + bodyWidth();
+        if (implicitFloor && previousBottom <= BirdGame3.GROUND_Y + 2.0
+                && nextBottom >= BirdGame3.GROUND_Y) {
+            return true;
+        }
+        for (Platform platform : game.platforms) {
+            if (platform == null || predictedRight <= platform.x || predictedX >= platform.x + platform.w) {
+                continue;
+            }
+            if (previousBottom <= platform.y + 2.0 && nextBottom >= platform.y) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void setProjectedKoPrediction(ProjectedKoZone zone, int frames) {
+        lastProjectedKoZone = zone == null ? ProjectedKoZone.SAFE : zone;
+        lastProjectedKoFrames = Math.max(0, frames);
+        if (lastProjectedKoZone != ProjectedKoZone.SAFE) {
+            game.emitProjectedKoImpact(this, lastProjectedKoZone.name(), lastProjectedKoFrames);
+        }
     }
 
     private void applyDamageScaledLaunchHitstun() {
@@ -22772,6 +22895,8 @@ public class Bird {
         lastSdiX = 0.0;
         lastSdiY = 0.0;
         lastTechResult = TechResult.NONE;
+        lastProjectedKoZone = ProjectedKoZone.SAFE;
+        lastProjectedKoFrames = 0;
         attackInteractionTimer = 0;
         lastAttackInteraction = NormalAttackInteractionResult.NONE;
         fastFallActive = false;

@@ -986,6 +986,9 @@ public class BirdGame3 {
     private static final int BLAST_ZONE_KO_EFFECT_CAP = 16;
     private static final int COMBAT_IMPACT_EFFECT_FRAMES = 30;
     private static final int COMBAT_IMPACT_EFFECT_CAP = 96;
+    private static final int LAUNCH_TRAIL_EFFECT_FRAMES = 18;
+    private static final int LAUNCH_TRAIL_EFFECT_CAP = 120;
+    private static final double LAUNCH_TRAIL_MIN_SPEED = 15.0;
 
     private enum BlastZoneSide {
         LEFT,
@@ -1047,6 +1050,30 @@ public class BirdGame3 {
         }
     }
     private final List<CombatImpactEffect> combatImpactEffects = new ArrayList<>();
+
+    private static final class LaunchTrailEffect {
+        final double startX;
+        final double startY;
+        final double endX;
+        final double endY;
+        final double width;
+        final Color accent;
+        final int maxLife;
+        int life;
+
+        LaunchTrailEffect(double startX, double startY, double endX, double endY,
+                          double width, Color accent) {
+            this.startX = startX;
+            this.startY = startY;
+            this.endX = endX;
+            this.endY = endY;
+            this.width = Math.max(3.0, width);
+            this.accent = accent == null ? Color.WHITE : accent;
+            this.maxLife = LAUNCH_TRAIL_EFFECT_FRAMES;
+            this.life = this.maxLife;
+        }
+    }
+    private final List<LaunchTrailEffect> launchTrailEffects = new ArrayList<>();
 
     // === CITY WIND BURSTS ===
     List<WindVent> windVents = new ArrayList<>();
@@ -11696,6 +11723,7 @@ public class BirdGame3 {
                             players[i].update(1.0);
                         }
                     }
+                    recordLaunchTrailSegmentsFixed();
                     playerUpdateNs += System.nanoTime() - playerUpdateStart;
                     long worldUpdateStart = System.nanoTime();
                     applyMatchModeRuntimeEffects();
@@ -11715,6 +11743,7 @@ public class BirdGame3 {
                 long effectsUpdateStart = System.nanoTime();
                 updateParticlesFixed();
                 updateCombatImpactEffectsFixed();
+                updateLaunchTrailEffectsFixed();
                 updateBlastZoneKoEffectsFixed();
                 trimTransientEffectOverflow();
                 effectsUpdateNs += System.nanoTime() - effectsUpdateStart;
@@ -11745,6 +11774,7 @@ public class BirdGame3 {
         }
         if (!particleEffectsEnabled && !combatImpactEffects.isEmpty()) {
             combatImpactEffects.clear();
+            launchTrailEffects.clear();
         }
     }
 
@@ -12048,6 +12078,9 @@ public class BirdGame3 {
         }
         if (combatImpactEffects.size() > COMBAT_IMPACT_EFFECT_CAP) {
             combatImpactEffects.subList(0, combatImpactEffects.size() - COMBAT_IMPACT_EFFECT_CAP).clear();
+        }
+        if (launchTrailEffects.size() > LAUNCH_TRAIL_EFFECT_CAP) {
+            launchTrailEffects.subList(0, launchTrailEffects.size() - LAUNCH_TRAIL_EFFECT_CAP).clear();
         }
         int crowCap = activeCrowMinionCap();
         long protectedCrows = crowMinions.stream().filter(CrowMinion::isOverflowProtected).count();
@@ -13780,6 +13813,47 @@ public class BirdGame3 {
         }
     }
 
+    private void updateLaunchTrailEffectsFixed() {
+        for (Iterator<LaunchTrailEffect> it = launchTrailEffects.iterator(); it.hasNext(); ) {
+            LaunchTrailEffect effect = it.next();
+            effect.life--;
+            if (effect.life <= 0) {
+                it.remove();
+            }
+        }
+    }
+
+    private void recordLaunchTrailSegmentsFixed() {
+        if (!particleEffectsEnabled || headlessHarnessMode || !usesDamageScaledKnockback()) {
+            return;
+        }
+        for (int i = 0; i < activePlayers; i++) {
+            Bird bird = players[i];
+            if (bird == null || bird.health <= 0.0 || !bird.debugInLaunchTumble()) {
+                continue;
+            }
+            double speed = Math.hypot(bird.vx, bird.vy);
+            if (speed < LAUNCH_TRAIL_MIN_SPEED) {
+                continue;
+            }
+            double endX = bird.bodyCenterX();
+            double endY = bird.bodyCenterY();
+            double trailScale = Math.clamp(0.72 + speed / 85.0, 0.82, 1.42);
+            Color accent = bird.type == null ? Color.WHITE : bird.type.color;
+            launchTrailEffects.add(new LaunchTrailEffect(
+                    endX - bird.vx * trailScale,
+                    endY - bird.vy * trailScale,
+                    endX,
+                    endY,
+                    (5.0 + speed * 0.16) * Math.max(0.72, bird.sizeMultiplier),
+                    accent));
+        }
+        if (launchTrailEffects.size() > LAUNCH_TRAIL_EFFECT_CAP) {
+            launchTrailEffects.subList(0,
+                    launchTrailEffects.size() - LAUNCH_TRAIL_EFFECT_CAP).clear();
+        }
+    }
+
     private void updateBlastZoneKoEffectsFixed() {
         for (Iterator<BlastZoneKoEffect> it = blastZoneKoEffects.iterator(); it.hasNext(); ) {
             BlastZoneKoEffect effect = it.next();
@@ -13822,6 +13896,45 @@ public class BirdGame3 {
         double impactStrength = Math.clamp(7.0 + strength * 0.45, 8.0, 15.0);
         emitCombatImpact(null, null, x, y, direction, -0.22,
                 impactStrength, false, "Attack Clank", true);
+    }
+
+    void emitProjectedKoImpact(Bird target, String zone, int predictedFrames) {
+        if (target == null || !usesDamageScaledKnockback()) {
+            return;
+        }
+        double speed = Math.hypot(target.vx, target.vy);
+        double x = target.bodyCenterX();
+        double y = target.bodyCenterY();
+        double scale = Math.clamp(1.12 + speed / 62.0, 1.25, 2.0);
+        combatImpactEffects.add(new CombatImpactEffect(
+                x, y, target.vx, target.vy,
+                Color.web("#FF1744"), Color.web("#FFF5F5"),
+                32.0 + speed * 0.28, scale, true, 34));
+        if (combatImpactEffects.size() > COMBAT_IMPACT_EFFECT_CAP) {
+            combatImpactEffects.subList(0,
+                    combatImpactEffects.size() - COMBAT_IMPACT_EFFECT_CAP).clear();
+        }
+
+        if (particleEffectsEnabled) {
+            int count = scaledParticleBurstCount(26);
+            double baseAngle = Math.atan2(target.vy, target.vx);
+            for (int i = 0; i < count; i++) {
+                double angle = baseAngle + (nextParticleRandom() - 0.5) * 1.35;
+                double burstSpeed = 5.0 + nextParticleRandom() * 12.0;
+                Color color = (i & 1) == 0 ? Color.WHITE : Color.web("#FF1744");
+                particles.add(new Particle(x, y,
+                        Math.cos(angle) * burstSpeed,
+                        Math.sin(angle) * burstSpeed,
+                        color.deriveColor(0, 1, 1, 0.92)));
+            }
+        }
+
+        // This upgrades the impact presentation without stacking another freeze
+        // on top of the hit's ordinary hitstop.
+        hitstopFrames = Math.min(25, Math.max(hitstopFrames, 14));
+        shakeIntensity = Math.max(shakeIntensity, 20.0);
+        playHitSound(38.0 + speed * 0.35);
+        triggerFlash(Math.clamp(0.68 + speed / 160.0, 0.72, 0.92), false);
     }
 
     private void emitCombatImpact(Bird attacker, Bird target, double x, double y,
@@ -13909,6 +14022,30 @@ public class BirdGame3 {
             return vx < 0 ? BlastZoneSide.LEFT : BlastZoneSide.RIGHT;
         }
         return vy < 0 ? BlastZoneSide.TOP : BlastZoneSide.BOTTOM;
+    }
+
+    private void drawLaunchTrailEffects(GraphicsContext g) {
+        if (!particleEffectsEnabled || launchTrailEffects.isEmpty()) {
+            return;
+        }
+        g.save();
+        g.setLineCap(StrokeLineCap.ROUND);
+        for (LaunchTrailEffect effect : launchTrailEffects) {
+            double lifeRatio = effect.life / (double) effect.maxLife;
+            double alpha = lifeRatio * lifeRatio;
+            if (alpha <= 0.01) {
+                continue;
+            }
+            double tailX = effect.startX - (effect.endX - effect.startX) * (1.0 - lifeRatio) * 0.32;
+            double tailY = effect.startY - (effect.endY - effect.startY) * (1.0 - lifeRatio) * 0.32;
+            g.setStroke(effect.accent.deriveColor(0, 0.82, 1.18, 0.16 * alpha));
+            g.setLineWidth(effect.width * 2.4 * lifeRatio);
+            g.strokeLine(tailX, tailY, effect.endX, effect.endY);
+            g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.58 * alpha));
+            g.setLineWidth(Math.max(1.2, effect.width * 0.46 * lifeRatio));
+            g.strokeLine(tailX, tailY, effect.endX, effect.endY);
+        }
+        g.restore();
     }
 
     private void drawCombatImpactEffects(GraphicsContext g) {
@@ -14279,6 +14416,8 @@ public class BirdGame3 {
             }
             drawMockingbirdShadowMinion(g, shadow);
         }
+
+        drawLaunchTrailEffects(g);
 
         for (Bird b : players) {
             if (b != null && b.health > 0) {
@@ -21449,6 +21588,8 @@ public class BirdGame3 {
                 g.setLineDashes();
             }
 
+            drawTrainingLaunchVector(g, b);
+
             if (!b.debugAttackBoxActive()) continue;
             g.setStroke(Color.web("#FF5252").deriveColor(0, 1, 1, 0.94));
             g.strokeRect(
@@ -21468,6 +21609,49 @@ public class BirdGame3 {
                 g.strokeRect(innerX, innerY, innerW, innerH);
                 g.setLineDashes();
             }
+        }
+    }
+
+    private void drawTrainingLaunchVector(GraphicsContext g, Bird bird) {
+        if (bird == null || !bird.debugInLaunchTumble()) {
+            return;
+        }
+        double speed = Math.hypot(bird.vx, bird.vy);
+        if (speed < 4.0) {
+            return;
+        }
+        double dirX = bird.vx / speed;
+        double dirY = bird.vy / speed;
+        double length = Math.clamp(speed * 6.0, 48.0, 320.0);
+        double startX = bird.bodyCenterX();
+        double startY = bird.bodyCenterY();
+        double endX = startX + dirX * length;
+        double endY = startY + dirY * length;
+        double pixel = 1.0 / Math.max(0.25, zoom);
+        Color color = bird.debugProjectedLaunchKo() ? Color.web("#FF5252") : Color.web("#69F0AE");
+
+        g.setStroke(color.deriveColor(0, 1, 1, 0.94));
+        g.setLineWidth(4.0 * pixel);
+        g.strokeLine(startX, startY, endX, endY);
+        double tangentX = -dirY;
+        double tangentY = dirX;
+        double arrowLength = 18.0 * pixel;
+        double arrowWidth = 9.0 * pixel;
+        g.strokeLine(endX, endY,
+                endX - dirX * arrowLength + tangentX * arrowWidth,
+                endY - dirY * arrowLength + tangentY * arrowWidth);
+        g.strokeLine(endX, endY,
+                endX - dirX * arrowLength - tangentX * arrowWidth,
+                endY - dirY * arrowLength - tangentY * arrowWidth);
+
+        if (bird.debugProjectedLaunchKo()) {
+            g.setLineDashes(10.0 * pixel, 7.0 * pixel);
+            g.setStroke(Color.web("#FF1744", 0.56));
+            g.setLineWidth(2.2 * pixel);
+            g.strokeLine(endX, endY,
+                    endX + dirX * length * 0.72,
+                    endY + dirY * length * 0.72);
+            g.setLineDashes();
         }
     }
 
@@ -37152,6 +37336,7 @@ public class BirdGame3 {
         List<Particle> savedParticles = new ArrayList<>(particles);
         List<BlastZoneKoEffect> savedBlastZoneKoEffects = new ArrayList<>(blastZoneKoEffects);
         List<CombatImpactEffect> savedCombatImpactEffects = new ArrayList<>(combatImpactEffects);
+        List<LaunchTrailEffect> savedLaunchTrailEffects = new ArrayList<>(launchTrailEffects);
         List<CrowMinion> savedCrowMinions = new ArrayList<>(crowMinions);
         List<PiranhaHazard> savedPiranhaHazards = new ArrayList<>(piranhaHazards);
         List<ChickMinion> savedChickMinions = new ArrayList<>(chickMinions);
@@ -37199,6 +37384,7 @@ public class BirdGame3 {
         particles.clear();
         blastZoneKoEffects.clear();
         combatImpactEffects.clear();
+        launchTrailEffects.clear();
         crowMinions.clear();
         piranhaHazards.clear();
         chickMinions.clear();
@@ -37276,6 +37462,7 @@ public class BirdGame3 {
             particles.clear();
             blastZoneKoEffects.clear();
             combatImpactEffects.clear();
+            launchTrailEffects.clear();
             crowMinions.clear();
             piranhaHazards.clear();
             chickMinions.clear();
@@ -37367,6 +37554,8 @@ public class BirdGame3 {
             blastZoneKoEffects.addAll(savedBlastZoneKoEffects);
             combatImpactEffects.clear();
             combatImpactEffects.addAll(savedCombatImpactEffects);
+            launchTrailEffects.clear();
+            launchTrailEffects.addAll(savedLaunchTrailEffects);
             crowMinions.clear();
             crowMinions.addAll(savedCrowMinions);
             piranhaHazards.clear();
@@ -38249,6 +38438,7 @@ public class BirdGame3 {
         particles.clear();
         blastZoneKoEffects.clear();
         combatImpactEffects.clear();
+        launchTrailEffects.clear();
         powerUps.clear();
         shakeIntensity = 0.0;
         hitstopFrames = 0;
@@ -38425,6 +38615,7 @@ public class BirdGame3 {
             particles.clear();
             blastZoneKoEffects.clear();
             combatImpactEffects.clear();
+            launchTrailEffects.clear();
         }
 
         int simulationSteps = 0;
@@ -39734,6 +39925,7 @@ public class BirdGame3 {
         particles.clear();
         blastZoneKoEffects.clear();
         combatImpactEffects.clear();
+        launchTrailEffects.clear();
         crowMinions.clear();
         piranhaHazards.clear();
         chickMinions.clear();
@@ -62169,6 +62361,7 @@ public class BirdGame3 {
         particles.clear();
         blastZoneKoEffects.clear();
         combatImpactEffects.clear();
+        launchTrailEffects.clear();
         powerUps.clear();
         setupTrainingRoster();
         positionBattlefieldSpawns();
@@ -66632,6 +66825,7 @@ public class BirdGame3 {
         particles.clear();
         blastZoneKoEffects.clear();
         combatImpactEffects.clear();
+        launchTrailEffects.clear();
         powerUps.clear();
         dockWaterX = 0;
         dockWaterY = 0;
@@ -67622,7 +67816,7 @@ public class BirdGame3 {
         double panelX = 22;
         double panelY = 220;
         double panelW = 720;
-        double panelH = 538;
+        double panelH = 568;
         Bird trainingPlayer = players != null && players.length > 0 ? players[0] : null;
 
         g.save();
@@ -67733,17 +67927,21 @@ public class BirdGame3 {
             g.fillText("CONTROL " + trainingPlayer.debugGrabLedgeTelemetryLabel(), leftX, universalY + 92);
             g.fillText("IMPACT  " + trainingPlayer.debugHitReactionTelemetryLabel(), leftX, universalY + 113);
             g.fillText("LAUNCH  " + trainingPlayer.debugLaunchTelemetryLabel(), leftX, universalY + 134);
-            g.fillText("STALE   " + trainingPlayer.debugStaleMoveTelemetryLabel(), leftX, universalY + 155);
-            g.fillText("CLASH   " + trainingPlayer.debugAttackInteractionTelemetryLabel(), leftX, universalY + 176);
+            g.setFill(trainingPlayer.debugProjectedLaunchKo()
+                    ? Color.web("#FF6B6B") : Color.web("#A5D6A7"));
+            g.fillText("THREAT  " + trainingPlayer.debugProjectedKoTelemetryLabel(), leftX, universalY + 155);
+            g.setFill(Color.web("#CFD8DC"));
+            g.fillText("STALE   " + trainingPlayer.debugStaleMoveTelemetryLabel(), leftX, universalY + 176);
+            g.fillText("CLASH   " + trainingPlayer.debugAttackInteractionTelemetryLabel(), leftX, universalY + 197);
 
-            drawTrainingGauge(g, leftX, universalY + 189, 260, 8,
+            drawTrainingGauge(g, leftX, universalY + 210, 260, 8,
                     trainingPlayer.debugShieldDurabilityRatio(), Color.web("#64D8FF"));
             int invulnerabilityFrames = trainingPlayer.debugCombatInvulnerabilityFrames();
-            drawTrainingGauge(g, leftX + 280, universalY + 189, 260, 8,
+            drawTrainingGauge(g, leftX + 280, universalY + 210, 260, 8,
                     Math.clamp(invulnerabilityFrames / 120.0, 0.0, 1.0), Color.web("#FFE082"));
             g.setFill(Color.web("#90A4AE"));
-            g.fillText("SHIELD", leftX, universalY + 210);
-            g.fillText("INVULNERABILITY", leftX + 280, universalY + 210);
+            g.fillText("SHIELD", leftX, universalY + 231);
+            g.fillText("INVULNERABILITY", leftX + 280, universalY + 231);
         }
 
         g.setFill(Color.web("#FFE082"));

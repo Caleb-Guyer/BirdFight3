@@ -3473,6 +3473,92 @@ class BirdStateTest {
     }
 
     @Test
+    void launchPredictionFlagsAnUnavoidableSideBlastTrajectory() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        setPrivateBoolean(game);
+        Bird bird = new Bird(BirdGame3.WORLD_WIDTH + 235.0,
+                BirdGame3.BirdType.PIGEON, 0, game);
+        bird.y = BirdGame3.GROUND_Y - 520.0;
+        bird.vx = 31.0;
+        bird.vy = -3.0;
+        bird.stunTime = 28.0;
+        game.players[0] = bird;
+        setPrivateDouble(bird, "pendingSmashLaunchScale", 2.0);
+        setPrivateDouble(bird, "pendingDamageScaledHitDamage", 18.0);
+
+        invokePrivateVoid(bird, "applyPendingSmashLaunch");
+
+        assertTrue(bird.debugProjectedLaunchKo());
+        assertTrue(bird.debugProjectedKoTelemetryLabel().contains("RIGHT BLAST ZONE"));
+        assertTrue(bird.debugProjectedKoFrames() <= 3);
+    }
+
+    @Test
+    void launchPredictionDoesNotCallARecoverableCenterStageHitADeath() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        setPrivateBoolean(game);
+        Bird bird = new Bird(BirdGame3.WORLD_WIDTH * 0.5,
+                BirdGame3.BirdType.PIGEON, 0, game);
+        bird.y = BirdGame3.GROUND_Y - 420.0;
+        bird.vx = 7.0;
+        bird.vy = -3.0;
+        bird.stunTime = 18.0;
+        game.players[0] = bird;
+        setPrivateDouble(bird, "pendingSmashLaunchScale", 1.6);
+        setPrivateDouble(bird, "pendingDamageScaledHitDamage", 10.0);
+
+        invokePrivateVoid(bird, "applyPendingSmashLaunch");
+
+        assertFalse(bird.debugProjectedLaunchKo());
+        assertEquals("SAFE / RECOVERABLE", bird.debugProjectedKoTelemetryLabel());
+    }
+
+    @Test
+    void launchPredictionStopsAtARealLandingSurface() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        setPrivateBoolean(game);
+        Bird bird = new Bird(BirdGame3.WORLD_WIDTH * 0.5,
+                BirdGame3.BirdType.PIGEON, 0, game);
+        bird.y = BirdGame3.GROUND_Y - bird.bodyHeight() - 4.0;
+        bird.vx = 28.0;
+        bird.vy = 5.0;
+        bird.stunTime = 30.0;
+        game.players[0] = bird;
+        setPrivateDouble(bird, "pendingSmashLaunchScale", 1.5);
+        setPrivateDouble(bird, "pendingDamageScaledHitDamage", 14.0);
+
+        invokePrivateVoid(bird, "applyPendingSmashLaunch");
+
+        assertTrue(Math.hypot(bird.vx, bird.vy) > 19.0);
+        assertFalse(bird.debugProjectedLaunchKo(),
+                "A landing on the authored ground should terminate the fatal-trajectory estimate.");
+    }
+
+    @Test
+    void launchTrailsAppearOnlyForFastTumbleAndExpireOnFixedTicks() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        setPrivateBoolean(game);
+        Bird bird = new Bird(900.0, BirdGame3.BirdType.EAGLE, 0, game);
+        bird.y = BirdGame3.GROUND_Y - 500.0;
+        bird.vx = 26.0;
+        bird.vy = -9.0;
+        game.players[0] = bird;
+        setPrivateInt(bird, "tumbleTimer", 30);
+
+        invokePrivateVoid(game, "recordLaunchTrailSegmentsFixed");
+        assertEquals(1, getPrivateCollectionSize(game, "launchTrailEffects"));
+
+        for (int i = 0; i < 18; i++) {
+            invokePrivateVoid(game, "updateLaunchTrailEffectsFixed");
+        }
+        assertEquals(0, getPrivateCollectionSize(game, "launchTrailEffects"));
+    }
+
+    @Test
     void highPercentUpTiltCanLaunchVertically() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;
@@ -10087,6 +10173,13 @@ class BirdStateTest {
         Field field = target.getClass().getDeclaredField(fieldName);
         field.setAccessible(true);
         field.setInt(target, value);
+    }
+
+    private static int getPrivateCollectionSize(Object target, String fieldName) throws Exception {
+        Field field = target.getClass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        Object value = field.get(target);
+        return value instanceof java.util.Collection<?> collection ? collection.size() : -1;
     }
 
     private static void setPrivateBoolean(Object target) throws Exception {

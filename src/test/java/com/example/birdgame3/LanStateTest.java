@@ -75,6 +75,8 @@ class LanStateTest {
         bird.lastSdiX = 5.25;
         bird.lastSdiY = -4.75;
         bird.lastTechResultOrdinal = 4;
+        bird.lastProjectedKoZoneOrdinal = 2;
+        bird.lastProjectedKoFrames = 13;
         bird.staleMoveQueue[0] = 0x1122334455667788L;
         bird.staleMoveQueue[1] = 0x8877665544332211L;
         bird.staleMoveCount = 2;
@@ -416,6 +418,8 @@ class LanStateTest {
         assertEquals(5.25, decoded.birds[0].lastSdiX);
         assertEquals(-4.75, decoded.birds[0].lastSdiY);
         assertEquals(4, decoded.birds[0].lastTechResultOrdinal);
+        assertEquals(2, decoded.birds[0].lastProjectedKoZoneOrdinal);
+        assertEquals(13, decoded.birds[0].lastProjectedKoFrames);
         assertEquals(0x1122334455667788L, decoded.birds[0].staleMoveQueue[0]);
         assertEquals(0x8877665544332211L, decoded.birds[0].staleMoveQueue[1]);
         assertEquals(2, decoded.birds[0].staleMoveCount);
