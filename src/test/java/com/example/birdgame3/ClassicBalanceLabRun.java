@@ -35,7 +35,8 @@ class ClassicBalanceLabRun {
                 line -> System.out.println("[classic-balance] " + line));
         double seconds = (System.nanoTime() - start) / 1e9;
 
-        Path out = Path.of("audit", "classic-balance-report.md");
+        Path out = Path.of(System.getProperty(
+                "classicReportPath", "audit/classic-balance-report.md"));
         Files.createDirectories(out.getParent());
         Files.writeString(out, report.markdown());
         System.out.printf(Locale.ROOT, "[classic-balance] %d matches in %.1f s -> %s%n",

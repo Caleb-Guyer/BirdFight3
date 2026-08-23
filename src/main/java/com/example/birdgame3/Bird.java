@@ -3724,7 +3724,9 @@ public class Bird {
                 || type == BirdGame3.BirdType.TURKEY
                 || type == BirdGame3.BirdType.ROOSTER
                 || type == BirdGame3.BirdType.ROADRUNNER
-                || type == BirdGame3.BirdType.PENGUIN;
+                || type == BirdGame3.BirdType.PENGUIN
+                || type == BirdGame3.BirdType.SHOEBILL
+                || type == BirdGame3.BirdType.MOCKINGBIRD;
     }
 
     private NormalAttackTimeline normalAttackTimeline(NormalAttackVariant variant) {
@@ -3754,6 +3756,12 @@ public class Bird {
         }
         if (type == BirdGame3.BirdType.PENGUIN) {
             return penguinNormalAttackTimeline(variant);
+        }
+        if (type == BirdGame3.BirdType.SHOEBILL) {
+            return shoebillNormalAttackTimeline(variant);
+        }
+        if (type == BirdGame3.BirdType.MOCKINGBIRD) {
+            return charlesNormalAttackTimeline(variant);
         }
         NormalAttackProfile profile = normalAttackProfile(variant);
         return noSweetSpotTimeline(0, 1, Math.max(0, profile.animationFrames() - 1), 0, 0);
@@ -4016,6 +4024,61 @@ public class Bird {
                     0.70, 1.06, 1.10, 0.98, 0.95);
             case LEDGE_ATTACK -> noSweetSpotTimeline(1, 7, 5, 0, 0);
             case GETUP_ATTACK -> noSweetSpotTimeline(2, 8, 5, 0, 0);
+        };
+    }
+
+    /** Shoebill's immense beak rewards deliberate spacing at the outer edge. */
+    private NormalAttackTimeline shoebillNormalAttackTimeline(NormalAttackVariant variant) {
+        return switch (variant) {
+            case NEUTRAL -> sweetSpotTimeline(1, 6, 2, 0, 0,
+                    0.66, 1.06, 1.10, 0.98, 0.95);
+            case SIDE_TILT -> sweetSpotTimeline(1, 7, 4, 0, 0,
+                    0.70, 1.08, 1.13, 0.97, 0.93);
+            case UP_TILT -> noSweetSpotTimeline(1, 7, 3, 0, 0);
+            case DOWN_TILT -> sweetSpotTimeline(1, 6, 4, 0, 0,
+                    0.68, 1.06, 1.10, 0.98, 0.95);
+            case SIDE_SMASH -> sweetSpotTimeline(3, 6, 8, 0, 0,
+                    0.74, 1.10, 1.16, 0.95, 0.90);
+            case UP_SMASH -> noSweetSpotTimeline(3, 7, 7, 0, 0);
+            case DOWN_SMASH -> noSweetSpotTimeline(3, 8, 7, 0, 0);
+            case NEUTRAL_AIR -> noSweetSpotTimeline(1, 8, 3, 1, 2);
+            case FORWARD_AIR -> sweetSpotTimeline(2, 7, 5, 2, 2,
+                    0.72, 1.08, 1.13, 0.96, 0.92);
+            case BACK_AIR -> sweetSpotTimeline(2, 6, 6, 2, 2,
+                    0.68, 1.07, 1.11, 0.97, 0.94);
+            case UP_AIR -> noSweetSpotTimeline(1, 8, 4, 1, 2);
+            case DOWN_AIR -> sweetSpotTimeline(3, 7, 6, 3, 2,
+                    0.72, 1.09, 1.14, 0.96, 0.91);
+            case DASH_ATTACK -> sweetSpotTimeline(1, 7, 5, 0, 0,
+                    0.72, 1.07, 1.12, 0.97, 0.93);
+            case LEDGE_ATTACK -> noSweetSpotTimeline(1, 7, 5, 0, 0);
+            case GETUP_ATTACK -> noSweetSpotTimeline(2, 7, 6, 0, 0);
+        };
+    }
+
+    /** Charles uses adaptable, flowing arcs rather than one dominant timing. */
+    private NormalAttackTimeline charlesNormalAttackTimeline(NormalAttackVariant variant) {
+        return switch (variant) {
+            case NEUTRAL -> noSweetSpotTimeline(1, 4, 2, 0, 0);
+            case SIDE_TILT -> sweetSpotTimeline(2, 5, 4, 0, 0,
+                    0.64, 1.05, 1.09, 0.98, 0.95);
+            case UP_TILT -> noSweetSpotTimeline(2, 5, 4, 0, 0);
+            case DOWN_TILT -> noSweetSpotTimeline(1, 5, 4, 0, 0);
+            case SIDE_SMASH -> sweetSpotTimeline(4, 5, 7, 0, 0,
+                    0.68, 1.07, 1.12, 0.97, 0.93);
+            case UP_SMASH -> noSweetSpotTimeline(4, 6, 6, 0, 0);
+            case DOWN_SMASH -> noSweetSpotTimeline(4, 7, 6, 0, 0);
+            case NEUTRAL_AIR -> noSweetSpotTimeline(1, 7, 3, 1, 2);
+            case FORWARD_AIR -> sweetSpotTimeline(2, 5, 5, 2, 2,
+                    0.66, 1.06, 1.10, 0.98, 0.94);
+            case BACK_AIR -> sweetSpotTimeline(2, 5, 5, 2, 2,
+                    0.64, 1.06, 1.10, 0.98, 0.94);
+            case UP_AIR -> noSweetSpotTimeline(1, 6, 4, 1, 2);
+            case DOWN_AIR -> sweetSpotTimeline(3, 5, 6, 3, 2,
+                    0.68, 1.07, 1.12, 0.97, 0.93);
+            case DASH_ATTACK -> noSweetSpotTimeline(1, 6, 5, 0, 0);
+            case LEDGE_ATTACK -> noSweetSpotTimeline(2, 5, 5, 0, 0);
+            case GETUP_ATTACK -> noSweetSpotTimeline(2, 6, 5, 0, 0);
         };
     }
 

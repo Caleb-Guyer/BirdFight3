@@ -122,16 +122,16 @@ class NormalAttackTimelineTest {
 
     @Test
     void nonMigratedBirdsKeepLegacyImmediateResolutionUntilAuthored() throws Exception {
-        BirdGame3 game = twoBirdGame(BirdGame3.BirdType.SHOEBILL, BirdGame3.BirdType.PIGEON,
+        BirdGame3 game = twoBirdGame(BirdGame3.BirdType.RAZORBILL, BirdGame3.BirdType.PIGEON,
                 320.0, 382.0);
-        Bird shoebill = game.players[0];
+        Bird razorbill = game.players[0];
         Bird target = game.players[1];
         double startingHealth = target.health;
 
-        performAttack(shoebill, "NEUTRAL");
+        performAttack(razorbill, "NEUTRAL");
 
         assertTrue(target.health < startingHealth);
-        assertFalse(shoebill.debugNormalAttackTimelineActive());
+        assertFalse(razorbill.debugNormalAttackTimelineActive());
     }
 
     @Test
@@ -315,6 +315,45 @@ class NormalAttackTimelineTest {
         assertTrue(penguinGame.players[0].debugNormalAttackTotalFrames()
                         > roadrunnerGame.players[0].debugNormalAttackTotalFrames(),
                 "Penguin's slide should linger longer than Roadrunner's burst.");
+    }
+
+    @Test
+    void technicalSpecialistsHaveDistinctCompleteFrameData() throws Exception {
+        String[] variants = {
+                "NEUTRAL", "SIDE_TILT", "UP_TILT", "DOWN_TILT",
+                "SIDE_SMASH", "UP_SMASH", "DOWN_SMASH",
+                "NEUTRAL_AIR", "FORWARD_AIR", "BACK_AIR", "UP_AIR", "DOWN_AIR",
+                "DASH_ATTACK", "LEDGE_ATTACK", "GETUP_ATTACK"
+        };
+        int[][] shoebillFrames = {
+                {1, 6, 2}, {1, 7, 4}, {1, 7, 3}, {1, 6, 4},
+                {3, 6, 8}, {3, 7, 7}, {3, 8, 7},
+                {1, 8, 3}, {2, 7, 5}, {2, 6, 6}, {1, 8, 4}, {3, 7, 6},
+                {1, 7, 5}, {1, 7, 5}, {2, 7, 6}
+        };
+        int[][] charlesFrames = {
+                {1, 4, 2}, {2, 5, 4}, {2, 5, 4}, {1, 5, 4},
+                {4, 5, 7}, {4, 6, 6}, {4, 7, 6},
+                {1, 7, 3}, {2, 5, 5}, {2, 5, 5}, {1, 6, 4}, {3, 5, 6},
+                {1, 6, 5}, {2, 5, 5}, {2, 6, 5}
+        };
+
+        assertAuthoredMoveList(BirdGame3.BirdType.SHOEBILL, variants, shoebillFrames);
+        assertAuthoredMoveList(BirdGame3.BirdType.MOCKINGBIRD, variants, charlesFrames);
+    }
+
+    @Test
+    void shoebillSideSmashCommitsLongerThanCharlesAdaptableSwing() throws Exception {
+        BirdGame3 shoebillGame = twoBirdGame(BirdGame3.BirdType.SHOEBILL, BirdGame3.BirdType.PIGEON,
+                320.0, 700.0);
+        BirdGame3 charlesGame = twoBirdGame(BirdGame3.BirdType.MOCKINGBIRD, BirdGame3.BirdType.PIGEON,
+                320.0, 700.0);
+
+        performAttack(shoebillGame.players[0], "SIDE_SMASH");
+        performAttack(charlesGame.players[0], "SIDE_SMASH");
+        assertTrue(shoebillGame.players[0].debugNormalAttackTotalFrames()
+                        > charlesGame.players[0].debugNormalAttackTotalFrames(),
+                "Shoebill's extended beak follow-through should outlast Charles's adaptable swing.");
     }
 
     @Test
