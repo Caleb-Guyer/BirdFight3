@@ -402,6 +402,8 @@ public class BirdGame3 {
     boolean matchEnded = false;  // prevents double-trigger
 
     private boolean isPaused = false;
+    private PausePanel pausePanel = PausePanel.MOVES;
+    private int pauseSelectedPlayerIndex = 0;
     private boolean debugHudEnabled = false;
     private boolean consoleHighlightActive = false;
     long matchStartNano = 0L;
@@ -759,6 +761,28 @@ public class BirdGame3 {
     }
 
     private enum BirdBookCategory { ITEMS, POWERUPS, BIRDS, SKINS, MAPS }
+
+    private enum PausePanel {
+        MOVES("MOVE LIST"),
+        CONTROLS("CONTROLS"),
+        OPTIONS("OPTIONS");
+
+        final String label;
+
+        PausePanel(String label) {
+            this.label = label;
+        }
+    }
+
+    private enum PauseExitDestination {
+        TRAINING_SETUP,
+        MAIN_HUB,
+        STORY_HUB,
+        LEGACY_STORIES,
+        ADVENTURE_HUB,
+        TOURNAMENT_BRACKET,
+        FIGHTER_SELECT
+    }
 
     private enum ControlAction {
         LEFT("Left", "left", LanProtocol.INPUT_LEFT, KeyCode.A, KeyCode.LEFT, KeyCode.F, KeyCode.J),
@@ -2746,7 +2770,12 @@ public class BirdGame3 {
 
         boolean backHeld = connected && state.menuBack();
         if (backHeld && !wiimoteMenuBackHeld && currentStage != null) {
-            togglePause(currentStage);
+            VBox menu = currentPauseMenu();
+            if (menu != null && Boolean.TRUE.equals(menu.getProperties().get("pauseConfirmation"))) {
+                rebuildPauseMenu(currentStage);
+            } else {
+                togglePause(currentStage);
+            }
             wiimoteMenuBackHeld = true;
             return true;
         }
@@ -68300,6 +68329,8 @@ public class BirdGame3 {
     void startMatch(Stage stage) {
         stopGameplayTimer();
         isPaused = false;
+        pausePanel = PausePanel.MOVES;
+        pauseSelectedPlayerIndex = 0;
         if (replayPlaybackActive && activeReplay != null) {
             currentMatchSeed = activeReplay.seed;
         } else {
@@ -75536,130 +75567,6 @@ public class BirdGame3 {
         return cleaned;
     }
 
-    private Node buildPauseSpecialMoveGuide() {
-        int count = Math.min(activePlayers, players.length);
-        FlowPane cards = new FlowPane(12, 10);
-        cards.setAlignment(Pos.CENTER);
-        cards.setPrefWrapLength(1320);
-
-        for (int i = 0; i < count; i++) {
-            Bird bird = players[i];
-            if (bird == null || bird.type == null) {
-                continue;
-            }
-            cards.getChildren().add(buildPauseSpecialMoveGuideCard(i, bird));
-        }
-
-        if (cards.getChildren().isEmpty()) {
-            return null;
-        }
-
-        Label title = new Label("SPECIAL MOVE GUIDE");
-        title.setFont(Font.font("Arial Black", 22));
-        title.setTextFill(Color.web("#FFF59D"));
-        title.setAlignment(Pos.CENTER);
-        title.setMaxWidth(Double.MAX_VALUE);
-        applyNoEllipsis(title);
-
-        Label hint = new Label("Press Special alone, with left/right, with up/jump, or with down/block.");
-        hint.setFont(Font.font("Consolas", 16));
-        hint.setTextFill(Color.web("#CFD8DC"));
-        hint.setAlignment(Pos.CENTER);
-        hint.setTextAlignment(TextAlignment.CENTER);
-        hint.setMaxWidth(Double.MAX_VALUE);
-        applyNoEllipsis(hint);
-
-        VBox guide = new VBox(8, title, hint, cards);
-        guide.setAlignment(Pos.CENTER);
-        guide.setMaxWidth(1360);
-        guide.setPadding(new Insets(14, 18, 16, 18));
-        guide.setStyle("-fx-background-color: rgba(7, 12, 18, 0.88); -fx-background-radius: 18; "
-                + "-fx-border-color: rgba(255, 245, 157, 0.34); -fx-border-width: 2; "
-                + "-fx-border-radius: 18;");
-        return guide;
-    }
-
-    private Node buildPauseSpecialMoveGuideCard(int playerIdx, Bird bird) {
-        Color accent = switch (playerIdx) {
-            case 0 -> Color.web("#F44336");
-            case 1 -> Color.web("#42A5F5");
-            case 2 -> Color.web("#FDD835");
-            default -> Color.web("#66BB6A");
-        };
-        String accentHex = toHex(accent);
-        String[][] moves = specialMoveGuideRows(bird.type);
-        double cardWidth = activePlayers >= 4 ? 306.0 : 330.0;
-
-        Label header = new Label("P" + (playerIdx + 1) + "  " + shortName(bird.name).toUpperCase(Locale.ROOT));
-        header.setFont(Font.font("Arial Black", activePlayers >= 4 ? 15 : 17));
-        header.setTextFill(playerIdx == 2 ? Color.web("#111111") : Color.WHITE);
-        header.setAlignment(Pos.CENTER);
-        header.setTextAlignment(TextAlignment.CENTER);
-        header.setMaxWidth(Double.MAX_VALUE);
-        StackPane headerBar = new StackPane(header);
-        headerBar.setPadding(new Insets(6, 10, 7, 10));
-        headerBar.setStyle("-fx-background-color: " + accentHex + "; -fx-background-radius: 12;");
-
-        GridPane moveGrid = new GridPane();
-        moveGrid.setHgap(8);
-        moveGrid.setVgap(6);
-        moveGrid.setAlignment(Pos.CENTER);
-        ColumnConstraints inputCol = new ColumnConstraints(74);
-        inputCol.setMinWidth(74);
-        inputCol.setMaxWidth(74);
-        ColumnConstraints moveCol = new ColumnConstraints(cardWidth - 118);
-        moveCol.setHgrow(Priority.ALWAYS);
-        moveGrid.getColumnConstraints().addAll(inputCol, moveCol);
-
-        for (int row = 0; row < moves.length; row++) {
-            Label input = new Label(moves[row][0]);
-            input.setFont(Font.font("Arial Black", 12));
-            input.setTextFill(accent.interpolate(Color.WHITE, 0.26));
-            input.setAlignment(Pos.CENTER_RIGHT);
-            input.setMaxWidth(Double.MAX_VALUE);
-            applyNoEllipsis(input);
-
-            Label move = new Label(moves[row][1]);
-            move.setFont(Font.font("Consolas", FontWeight.BOLD, activePlayers >= 4 ? 13 : 14));
-            move.setTextFill(Color.WHITE);
-            move.setWrapText(true);
-            move.setMaxWidth(cardWidth - 118);
-            fitWrappedLabelText(move, moves[row][1], cardWidth - 118, 34, 10);
-
-            moveGrid.add(input, 0, row);
-            moveGrid.add(move, 1, row);
-        }
-
-        Label note = new Label(specialMoveGuideNote(bird.type));
-        note.setFont(Font.font("Consolas", activePlayers >= 4 ? 11 : 12));
-        note.setTextFill(Color.web("#B0BEC5"));
-        note.setWrapText(true);
-        note.setTextAlignment(TextAlignment.CENTER);
-        note.setAlignment(Pos.CENTER);
-        note.setMaxWidth(cardWidth - 28);
-        fitWrappedLabelText(note, note.getText(), cardWidth - 28, 34, 9);
-
-        VBox card = new VBox(8, headerBar, moveGrid, note);
-        card.setAlignment(Pos.TOP_CENTER);
-        card.setPadding(new Insets(10));
-        card.setPrefWidth(cardWidth);
-        card.setMinWidth(cardWidth);
-        card.setMaxWidth(cardWidth);
-        card.setStyle("-fx-background-color: rgba(14, 19, 26, 0.94); -fx-background-radius: 16; "
-                + "-fx-border-color: " + accentHex + "; -fx-border-width: 2; -fx-border-radius: 16;");
-        return card;
-    }
-
-    private String[][] specialMoveGuideRows(BirdType type) {
-        String[] names = specialMoveNames(type);
-        return new String[][]{
-                {"Neutral", names[0]},
-                {"Side", names[1]},
-                {"Up", names[2]},
-                {"Down", names[3]}
-        };
-    }
-
     private String[] specialMoveNames(BirdType type) {
         if (type == null) {
             return new String[]{"-", "-", "-", "-"};
@@ -75718,6 +75625,617 @@ public class BirdGame3 {
             case PHOENIX -> "Snap Fire travels farther and fizzles harmlessly. Air Snap Fire angles down; air Faultfire can be held.";
             default -> "Directional input changes the special before startup.";
         };
+    }
+
+    private int resolvedPausePlayerIndex() {
+        if (pauseSelectedPlayerIndex >= 0
+                && pauseSelectedPlayerIndex < Math.min(activePlayers, players.length)
+                && players[pauseSelectedPlayerIndex] != null) {
+            return pauseSelectedPlayerIndex;
+        }
+        int count = Math.min(activePlayers, players.length);
+        for (int i = 0; i < count; i++) {
+            if (players[i] != null && !isAI[i]) {
+                pauseSelectedPlayerIndex = i;
+                return i;
+            }
+        }
+        for (int i = 0; i < count; i++) {
+            if (players[i] != null) {
+                pauseSelectedPlayerIndex = i;
+                return i;
+            }
+        }
+        pauseSelectedPlayerIndex = 0;
+        return 0;
+    }
+
+    private String pauseModeLabel() {
+        if (trainingModeActive) {
+            return trainingAcademyMode == TrainingAcademyMode.GUIDED_TUTORIAL
+                    ? "TRAINING ACADEMY"
+                    : "TRAINING";
+        }
+        if (dailyChallengeModeActive && classicModeActive) return "DAILY CHALLENGE";
+        if (ashfallTrialModeActive && classicModeActive) return "ASHFALL TRIAL";
+        if (bossRushModeActive && classicModeActive) return "BOSS RUSH";
+        if (classicModeActive) return "CLASSIC MODE";
+        if (campaignModeActive) return "THE STILL SKY";
+        if (storyModeActive) return "EPISODE";
+        if (adventureModeActive) return "ADVENTURE";
+        if (tournamentModeActive) return "TOURNAMENT";
+        if (competitionModeEnabled) return "COMPETITION";
+        return "VERSUS";
+    }
+
+    private String pauseContextLabel() {
+        if (classicModeActive && classicEncounter != null) {
+            return "ROUND " + (classicRoundIndex + 1) + "  /  " + classicEncounter.name.toUpperCase(Locale.ROOT);
+        }
+        if (campaignModeActive && currentCampaignMission != null) {
+            return currentCampaignMission.title().toUpperCase(Locale.ROOT);
+        }
+        if (adventureModeActive && currentAdventureBattle != null) {
+            return currentAdventureBattle.title.toUpperCase(Locale.ROOT);
+        }
+        return selectedMapVariant == MapVariant.STANDARD
+                ? mapDisplayName(selectedMap).toUpperCase(Locale.ROOT)
+                : selectedMapVariant.displayName.toUpperCase(Locale.ROOT);
+    }
+
+    private String pauseKeyboardBinding(int playerIdx, ControlAction action) {
+        KeyCode code = keyForPlayer(playerIdx, action);
+        if (code == null) return "UNBOUND";
+        String name = code.getName();
+        return name == null || name.isBlank() ? code.name() : name.toUpperCase(Locale.ROOT);
+    }
+
+    private String pauseControllerBinding(ControlAction action) {
+        return switch (action) {
+            case LEFT, RIGHT -> "LEFT STICK / D-PAD";
+            case JUMP -> "A";
+            case ATTACK -> "X";
+            case SPECIAL -> "B / RT";
+            case GRAB -> "RB";
+            case BLOCK -> "LB / LT";
+            case TAUNT_CYCLE -> "Y";
+            case TAUNT_EXECUTE -> "BACK";
+        };
+    }
+
+    private String pauseDirectionalSpecialBinding(int playerIdx, String direction) {
+        String special = pauseKeyboardBinding(playerIdx, ControlAction.SPECIAL);
+        return switch (direction) {
+            case "SIDE" -> pauseKeyboardBinding(playerIdx, ControlAction.LEFT) + " / "
+                    + pauseKeyboardBinding(playerIdx, ControlAction.RIGHT) + " + " + special;
+            case "UP" -> pauseKeyboardBinding(playerIdx, ControlAction.JUMP) + " + " + special;
+            case "DOWN" -> pauseKeyboardBinding(playerIdx, ControlAction.BLOCK) + " + " + special;
+            default -> special + " (NO DIRECTION)";
+        };
+    }
+
+    private String pauseControllerDirectionalSpecialBinding(String direction) {
+        return switch (direction) {
+            case "SIDE" -> "STICK LEFT / RIGHT + B";
+            case "UP" -> "STICK UP / A + B";
+            case "DOWN" -> "STICK DOWN / LB + B";
+            default -> "B (NO DIRECTION)";
+        };
+    }
+
+    private Button pauseTabButton(PausePanel panel, Stage stage) {
+        Button button = new Button(panel.label);
+        button.setPrefSize(245, 58);
+        button.setMinSize(245, 58);
+        button.setMaxSize(245, 58);
+        button.setFont(Font.font("Arial Black", 19));
+        boolean selected = pausePanel == panel;
+        button.setStyle("-fx-background-color: " + (selected ? "#F5C542" : "#182431") + ";"
+                + "-fx-text-fill: " + (selected ? "#080B10" : "#ECEFF1") + ";"
+                + "-fx-background-radius: 12; -fx-border-radius: 12;"
+                + "-fx-border-color: " + (selected ? "#FFF4A3" : "#40566B") + "; -fx-border-width: 2;");
+        button.setFocusTraversable(true);
+        button.setOnAction(event -> {
+            playButtonClick();
+            if (pausePanel != panel) {
+                pausePanel = panel;
+                rebuildPauseMenu(stage);
+            }
+        });
+        return button;
+    }
+
+    private Button pauseFighterButton(int playerIdx, Bird bird, Stage stage) {
+        String label = "P" + (playerIdx + 1) + "  " + shortName(bird.name).toUpperCase(Locale.ROOT);
+        if (isAI[playerIdx]) label += "  CPU";
+        Button button = new Button(label);
+        button.setPrefSize(260, 46);
+        button.setMinSize(220, 46);
+        button.setMaxSize(310, 46);
+        button.setFont(Font.font("Arial Black", 15));
+        boolean selected = playerIdx == resolvedPausePlayerIndex();
+        button.setStyle("-fx-background-color: " + (selected ? "#136D85" : "#111A24") + ";"
+                + "-fx-text-fill: white; -fx-background-radius: 12; -fx-border-radius: 12;"
+                + "-fx-border-color: " + (selected ? "#80DEEA" : "#37474F") + "; -fx-border-width: 2;");
+        button.setFocusTraversable(true);
+        button.setOnAction(event -> {
+            playButtonClick();
+            pauseSelectedPlayerIndex = playerIdx;
+            rebuildPauseMenu(stage);
+        });
+        return button;
+    }
+
+    private Node buildPauseFighterStrip(Stage stage) {
+        HBox fighters = new HBox(10);
+        fighters.setAlignment(Pos.CENTER);
+        int count = Math.min(activePlayers, players.length);
+        for (int i = 0; i < count; i++) {
+            if (players[i] != null) {
+                fighters.getChildren().add(pauseFighterButton(i, players[i], stage));
+            }
+        }
+        return fighters;
+    }
+
+    private Node buildPauseMoveListPanel() {
+        int playerIdx = resolvedPausePlayerIndex();
+        Bird bird = playerIdx >= 0 && playerIdx < players.length ? players[playerIdx] : null;
+        if (bird == null || bird.type == null) {
+            Label missing = new Label("FIGHTER INFORMATION UNAVAILABLE");
+            missing.setFont(Font.font("Arial Black", 28));
+            missing.setTextFill(Color.web("#CFD8DC"));
+            return missing;
+        }
+
+        FighterMoveGuide.Guide guide = FighterMoveGuide.forBird(bird.type);
+        Canvas portrait = new Canvas(250, 250);
+        drawRosterSprite(portrait, bird.type, skinKeyForBird(bird), false);
+
+        Label player = new Label("PLAYER " + (playerIdx + 1));
+        player.setFont(Font.font("Consolas", FontWeight.BOLD, 17));
+        player.setTextFill(Color.web("#80DEEA"));
+        Label name = new Label(shortName(bird.name).toUpperCase(Locale.ROOT));
+        name.setFont(Font.font("Arial Black", 34));
+        name.setTextFill(Color.WHITE);
+        name.setWrapText(true);
+        name.setTextAlignment(TextAlignment.CENTER);
+        name.setAlignment(Pos.CENTER);
+        name.setMaxWidth(310);
+        Label role = new Label(guide.role().toUpperCase(Locale.ROOT));
+        role.setFont(Font.font("Consolas", FontWeight.BOLD, 16));
+        role.setTextFill(Color.web("#FFE082"));
+        role.setWrapText(true);
+        role.setTextAlignment(TextAlignment.CENTER);
+        role.setAlignment(Pos.CENTER);
+        role.setMaxWidth(310);
+
+        Label mechanicTitle = new Label("CORE GAME PLAN");
+        mechanicTitle.setFont(Font.font("Arial Black", 17));
+        mechanicTitle.setTextFill(Color.web("#80DEEA"));
+        Label mechanic = new Label(guide.mechanic());
+        mechanic.setFont(Font.font("Consolas", FontWeight.BOLD, 15));
+        mechanic.setTextFill(Color.web("#ECEFF1"));
+        mechanic.setWrapText(true);
+        mechanic.setTextAlignment(TextAlignment.CENTER);
+        mechanic.setAlignment(Pos.CENTER);
+        mechanic.setMaxWidth(310);
+
+        VBox identity = new VBox(6, player, portrait, name, role, mechanicTitle, mechanic);
+        identity.setAlignment(Pos.TOP_CENTER);
+        identity.setPadding(new Insets(14, 18, 14, 18));
+        lockRegionSize(identity, 350, 570);
+        identity.setStyle("-fx-background-color: linear-gradient(to bottom, #142536, #09111A);"
+                + "-fx-background-radius: 18; -fx-border-color: #2D7893; -fx-border-width: 2; -fx-border-radius: 18;");
+
+        GridPane moves = new GridPane();
+        moves.setHgap(12);
+        moves.setVgap(12);
+        moves.setAlignment(Pos.TOP_CENTER);
+        List<FighterMoveGuide.Move> moveRows = guide.moves();
+        for (int i = 0; i < moveRows.size(); i++) {
+            FighterMoveGuide.Move move = moveRows.get(i);
+            moves.add(buildPauseMoveCard(playerIdx, move), i % 2, i / 2);
+        }
+
+        Label ultInput = new Label(pauseKeyboardBinding(playerIdx, ControlAction.SPECIAL)
+                + " / B  -  NO DIRECTION WHEN ULT IS READY");
+        ultInput.setFont(Font.font("Consolas", FontWeight.BOLD, 14));
+        ultInput.setTextFill(Color.web("#FFF59D"));
+        applyNoEllipsis(ultInput);
+        Label ultName = new Label(guide.ultimateName().toUpperCase(Locale.ROOT));
+        ultName.setFont(Font.font("Arial Black", 23));
+        ultName.setTextFill(Color.WHITE);
+        applyNoEllipsis(ultName);
+        Label ultDescription = new Label(guide.ultimateDescription());
+        ultDescription.setFont(Font.font("Consolas", FontWeight.BOLD, 14));
+        ultDescription.setTextFill(Color.web("#ECEFF1"));
+        ultDescription.setWrapText(true);
+        ultDescription.setMaxWidth(900);
+        VBox ultimate = new VBox(3, ultInput, ultName, ultDescription);
+        ultimate.setPadding(new Insets(12, 18, 12, 18));
+        ultimate.setMaxWidth(960);
+        ultimate.setStyle("-fx-background-color: linear-gradient(to right, #5E4705, #201905);"
+                + "-fx-background-radius: 14; -fx-border-color: #FFD54F; -fx-border-width: 2; -fx-border-radius: 14;");
+
+        VBox moveColumn = new VBox(12, moves, ultimate);
+        moveColumn.setAlignment(Pos.TOP_CENTER);
+        HBox content = new HBox(16, identity, moveColumn);
+        content.setAlignment(Pos.TOP_CENTER);
+        return content;
+    }
+
+    private Node buildPauseMoveCard(int playerIdx, FighterMoveGuide.Move move) {
+        Label direction = new Label(move.direction() + (move.recovery() ? "  /  RECOVERY" : " SPECIAL"));
+        direction.setFont(Font.font("Consolas", FontWeight.BOLD, 13));
+        direction.setTextFill(move.recovery() ? Color.web("#80DEEA") : Color.web("#FFCC80"));
+        Label name = new Label(move.name().toUpperCase(Locale.ROOT));
+        name.setFont(Font.font("Arial Black", 20));
+        name.setTextFill(Color.WHITE);
+        applyNoEllipsis(name);
+        Label keyboard = new Label("KEYBOARD  " + pauseDirectionalSpecialBinding(playerIdx, move.direction()));
+        keyboard.setFont(Font.font("Consolas", FontWeight.BOLD, 12));
+        keyboard.setTextFill(Color.web("#B0BEC5"));
+        applyNoEllipsis(keyboard);
+        Label controller = new Label("CONTROLLER  " + pauseControllerDirectionalSpecialBinding(move.direction()));
+        controller.setFont(Font.font("Consolas", FontWeight.BOLD, 12));
+        controller.setTextFill(Color.web("#90CAF9"));
+        applyNoEllipsis(controller);
+        Label description = new Label(move.description());
+        description.setFont(Font.font("Consolas", FontWeight.BOLD, 13));
+        description.setTextFill(Color.web("#ECEFF1"));
+        description.setWrapText(true);
+        description.setMaxWidth(430);
+        description.setMinHeight(40);
+
+        VBox card = new VBox(3, direction, name, keyboard, controller, description);
+        card.setAlignment(Pos.TOP_LEFT);
+        card.setPadding(new Insets(12, 15, 12, 15));
+        lockRegionSize(card, 455, 178);
+        card.setStyle("-fx-background-color: rgba(10,17,25,0.96); -fx-background-radius: 14;"
+                + "-fx-border-color: " + (move.recovery() ? "#247D95" : "#384B5D") + ";"
+                + "-fx-border-width: 2; -fx-border-radius: 14;");
+        return card;
+    }
+
+    private Node buildPauseControlsPanel() {
+        int playerIdx = resolvedPausePlayerIndex();
+        Bird bird = playerIdx >= 0 && playerIdx < players.length ? players[playerIdx] : null;
+        Label title = new Label("PLAYER " + (playerIdx + 1) + "  /  "
+                + (bird == null ? "FIGHTER" : shortName(bird.name).toUpperCase(Locale.ROOT)));
+        title.setFont(Font.font("Arial Black", 28));
+        title.setTextFill(Color.WHITE);
+
+        GridPane bindings = new GridPane();
+        bindings.setHgap(16);
+        bindings.setVgap(8);
+        bindings.setAlignment(Pos.CENTER);
+        String[] headers = {"ACTION", "YOUR KEY", "CONTROLLER"};
+        for (int col = 0; col < headers.length; col++) {
+            Label header = new Label(headers[col]);
+            header.setFont(Font.font("Consolas", FontWeight.BOLD, 15));
+            header.setTextFill(Color.web("#80DEEA"));
+            header.setMinWidth(col == 0 ? 260 : 300);
+            bindings.add(header, col, 0);
+        }
+        for (int row = 0; row < ControlAction.values().length; row++) {
+            ControlAction action = ControlAction.values()[row];
+            bindings.add(pauseControlCell(action.label.toUpperCase(Locale.ROOT), true), 0, row + 1);
+            bindings.add(pauseControlCell(pauseKeyboardBinding(playerIdx, action), false), 1, row + 1);
+            bindings.add(pauseControlCell(pauseControllerBinding(action), false), 2, row + 1);
+        }
+
+        Label techniquesTitle = new Label("DIRECTIONAL INPUTS");
+        techniquesTitle.setFont(Font.font("Arial Black", 19));
+        techniquesTitle.setTextFill(Color.web("#FFE082"));
+        Label techniques = new Label(
+                "Attack + direction changes normal attacks. Hold a grounded Attack to charge a smash.  "
+                        + "Special + direction selects one of four specials.  Block in air fast-falls.  "
+                        + "After a grab, hold a direction to choose the throw.  Double-tap a direction to dash.");
+        techniques.setFont(Font.font("Consolas", FontWeight.BOLD, 15));
+        techniques.setTextFill(Color.web("#ECEFF1"));
+        techniques.setWrapText(true);
+        techniques.setTextAlignment(TextAlignment.CENTER);
+        techniques.setAlignment(Pos.CENTER);
+        techniques.setMaxWidth(1180);
+        VBox techniquesBox = new VBox(5, techniquesTitle, techniques);
+        techniquesBox.setAlignment(Pos.CENTER);
+        techniquesBox.setPadding(new Insets(12, 18, 12, 18));
+        techniquesBox.setStyle("-fx-background-color: rgba(52,42,12,0.72); -fx-background-radius: 14;"
+                + "-fx-border-color: #8D6E28; -fx-border-width: 2; -fx-border-radius: 14;");
+
+        VBox panel = new VBox(14, title, bindings, techniquesBox);
+        panel.setAlignment(Pos.TOP_CENTER);
+        panel.setPadding(new Insets(16, 34, 16, 34));
+        return panel;
+    }
+
+    private Label pauseControlCell(String text, boolean action) {
+        Label label = new Label(text);
+        label.setFont(Font.font(action ? "Arial Black" : "Consolas", FontWeight.BOLD, action ? 15 : 16));
+        label.setTextFill(action ? Color.WHITE : Color.web("#CFD8DC"));
+        label.setAlignment(Pos.CENTER_LEFT);
+        label.setPadding(new Insets(7, 12, 7, 12));
+        label.setMinSize(action ? 260 : 300, 34);
+        label.setStyle("-fx-background-color: " + (action ? "#172533" : "#0C141D") + ";"
+                + "-fx-background-radius: 8; -fx-border-color: #263B4C; -fx-border-radius: 8;");
+        applyNoEllipsis(label);
+        return label;
+    }
+
+    private Node buildPauseOptionsPanel(Stage stage) {
+        Label title = new Label(trainingModeActive ? "TRAINING LAB" : "MATCH OPTIONS");
+        title.setFont(Font.font("Arial Black", 30));
+        title.setTextFill(Color.WHITE);
+
+        VBox panel = new VBox(14, title);
+        panel.setAlignment(Pos.TOP_CENTER);
+        panel.setPadding(new Insets(16, 32, 16, 32));
+
+        if (trainingModeActive) {
+            GridPane tools = new GridPane();
+            tools.setHgap(12);
+            tools.setVgap(12);
+            tools.setAlignment(Pos.CENTER);
+            Button dummy = pauseOptionButton(
+                    "DUMMY  " + trainingDummyBehavior.label.toUpperCase(Locale.ROOT),
+                    trainingAcademyMode == TrainingAcademyMode.NONE ? "#1565C0" : "#455A64",
+                    () -> {
+                        if (trainingAcademyMode != TrainingAcademyMode.NONE) {
+                            playErrorSound();
+                            return;
+                        }
+                        handleTrainingHotkey(KeyCode.F4);
+                        rebuildPauseMenu(stage);
+                    });
+            dummy.setDisable(trainingAcademyMode != TrainingAcademyMode.NONE);
+            Button reset = pauseOptionButton("RESET POSITIONS", "#00897B", () -> {
+                handleTrainingHotkey(KeyCode.F5);
+                rebuildPauseMenu(stage);
+            });
+            Button refill = pauseOptionButton("REFILL HEALTH + ULT", "#6A1B9A", () -> {
+                handleTrainingHotkey(KeyCode.F6);
+                rebuildPauseMenu(stage);
+            });
+            Button boxes = pauseOptionButton(
+                    "COMBAT BOXES  " + (trainingCombatOverlayEnabled ? "ON" : "OFF"),
+                    trainingCombatOverlayEnabled ? "#2E7D32" : "#37474F", () -> {
+                        handleTrainingHotkey(KeyCode.F7);
+                        rebuildPauseMenu(stage);
+                    });
+            Button speed = pauseOptionButton(
+                    "SLOW MOTION  " + (trainingSlowMotionEnabled ? "ON" : "OFF"),
+                    trainingSlowMotionEnabled ? "#EF6C00" : "#37474F", () -> {
+                        handleTrainingHotkey(KeyCode.F8);
+                        rebuildPauseMenu(stage);
+                    });
+            Button frame = pauseOptionButton(
+                    "FRAME ADVANCE  " + (trainingFrameAdvancePause ? "ON" : "OFF"),
+                    trainingFrameAdvancePause ? "#C62828" : "#37474F", () -> {
+                        handleTrainingHotkey(KeyCode.F9);
+                        rebuildPauseMenu(stage);
+                    });
+            tools.add(dummy, 0, 0);
+            tools.add(reset, 1, 0);
+            tools.add(refill, 2, 0);
+            tools.add(boxes, 0, 1);
+            tools.add(speed, 1, 1);
+            tools.add(frame, 2, 1);
+            panel.getChildren().add(tools);
+
+            Label trainingHint = new Label(trainingAcademyMode == TrainingAcademyMode.NONE
+                    ? "These controls apply immediately. Resume to continue from the updated lab state."
+                    : "Academy dummy behavior is locked to the lesson, but position, resources, and visual tools remain available.");
+            trainingHint.setFont(Font.font("Consolas", FontWeight.BOLD, 15));
+            trainingHint.setTextFill(Color.web("#CFD8DC"));
+            trainingHint.setWrapText(true);
+            trainingHint.setTextAlignment(TextAlignment.CENTER);
+            trainingHint.setAlignment(Pos.CENTER);
+            trainingHint.setMaxWidth(1040);
+            panel.getChildren().add(trainingHint);
+
+            Node academy = buildPauseAcademyControls(stage);
+            if (academy != null) {
+                panel.getChildren().add(academy);
+            }
+        } else {
+            Label body = new Label(pauseOptionsDescription());
+            body.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
+            body.setTextFill(Color.web("#ECEFF1"));
+            body.setWrapText(true);
+            body.setTextAlignment(TextAlignment.CENTER);
+            body.setAlignment(Pos.CENTER);
+            body.setMaxWidth(1080);
+
+            Label safety = new Label(classicModeActive
+                    ? "Forfeiting is treated as a loss and applies the normal Classic difficulty and continue rules."
+                    : "Restart and exit always require confirmation. No result, reward, or achievement is awarded for an abandoned match.");
+            safety.setFont(Font.font("Consolas", FontWeight.BOLD, 16));
+            safety.setTextFill(classicModeActive ? Color.web("#FFCC80") : Color.web("#B0BEC5"));
+            safety.setWrapText(true);
+            safety.setTextAlignment(TextAlignment.CENTER);
+            safety.setAlignment(Pos.CENTER);
+            safety.setMaxWidth(1080);
+            VBox info = new VBox(12, body, safety);
+            info.setAlignment(Pos.CENTER);
+            info.setPadding(new Insets(30, 38, 30, 38));
+            info.setMaxWidth(1160);
+            info.setStyle("-fx-background-color: rgba(10,20,29,0.92); -fx-background-radius: 18;"
+                    + "-fx-border-color: #344A5C; -fx-border-width: 2; -fx-border-radius: 18;");
+            panel.getChildren().add(info);
+        }
+        return panel;
+    }
+
+    private String pauseOptionsDescription() {
+        if (classicModeActive) return "This encounter is part of an active Classic route.";
+        if (campaignModeActive) return "Mission progress is committed only at its authored checkpoints and results screens.";
+        if (storyModeActive) return "This battle belongs to an active legacy episode.";
+        if (adventureModeActive) return "This battle belongs to the current Adventure chapter.";
+        if (tournamentModeActive) return "Tournament results are recorded only after a completed match.";
+        return "Change your decision without changing the match: resume, restart from the opening countdown, or return to fighter select.";
+    }
+
+    private Button pauseOptionButton(String text, String color, Runnable action) {
+        Button button = new Button(text);
+        button.setPrefSize(310, 62);
+        button.setMinSize(310, 62);
+        button.setMaxSize(310, 62);
+        button.setFont(Font.font("Arial Black", 17));
+        button.setWrapText(true);
+        button.setTextAlignment(TextAlignment.CENTER);
+        button.setStyle("-fx-background-color: " + color + "; -fx-text-fill: white;"
+                + "-fx-background-radius: 14; -fx-border-color: rgba(255,255,255,0.30);"
+                + "-fx-border-width: 2; -fx-border-radius: 14;");
+        button.setFocusTraversable(true);
+        button.setOnAction(event -> {
+            playButtonClick();
+            if (action != null) action.run();
+        });
+        return button;
+    }
+
+    private String pauseRestartLabel() {
+        if (trainingModeActive && trainingAcademyMode == TrainingAcademyMode.GUIDED_TUTORIAL) return "RESTART LESSON";
+        if (trainingModeActive) return "RESTART TRAINING";
+        if (classicModeActive) return "FORFEIT ENCOUNTER";
+        if (campaignModeActive) return "RESTART MISSION";
+        return "RESTART MATCH";
+    }
+
+    private String pauseExitLabel() {
+        if (trainingModeActive) return "EXIT TO TRAINING";
+        if (campaignModeActive) return "EXIT TO STORY";
+        if (storyModeActive) return "EXIT EPISODE";
+        if (adventureModeActive) return "EXIT TO ADVENTURE";
+        if (tournamentModeActive) return "EXIT TO BRACKET";
+        if (classicModeActive) return "ABANDON RUN";
+        return "EXIT TO FIGHTERS";
+    }
+
+    private PauseExitDestination pauseExitDestination() {
+        if (trainingModeActive) return PauseExitDestination.TRAINING_SETUP;
+        if (classicModeActive) return PauseExitDestination.MAIN_HUB;
+        if (campaignModeActive) return PauseExitDestination.STORY_HUB;
+        if (storyModeActive) return PauseExitDestination.LEGACY_STORIES;
+        if (adventureModeActive) return PauseExitDestination.ADVENTURE_HUB;
+        if (tournamentModeActive) return PauseExitDestination.TOURNAMENT_BRACKET;
+        return PauseExitDestination.FIGHTER_SELECT;
+    }
+
+    private String pauseRestartWarning() {
+        if (trainingModeActive && trainingAcademyMode == TrainingAcademyMode.GUIDED_TUTORIAL) {
+            return "Reset this lesson to its opening positions? Completed lesson progress is preserved.";
+        }
+        if (trainingModeActive) return "Reset fighters, damage, resources, and the current training session?";
+        if (classicModeActive) {
+            return "Forfeit this encounter? It counts as a loss and applies the normal difficulty and continue rules.";
+        }
+        if (campaignModeActive) return "Restart this mission from its authored opening checkpoint?";
+        return "Restart the match from the countdown? No result or reward will be recorded.";
+    }
+
+    private String pauseExitWarning() {
+        if (classicModeActive) return "Abandon the entire current Classic run and return to the hub?";
+        if (campaignModeActive) return "Leave this mission? Only previously reached story checkpoints remain saved.";
+        if (trainingModeActive) return "Leave the current training session? Academy and drill completion already earned remains saved.";
+        return "Leave this match? No result, reward, badge, or achievement will be awarded.";
+    }
+
+    private void confirmPauseRestart(Stage stage) {
+        showPauseConfirmation(stage, pauseRestartLabel(), pauseRestartWarning(), pauseRestartLabel(), () -> {
+            if (trainingModeActive && trainingAcademyMode == TrainingAcademyMode.GUIDED_TUTORIAL) {
+                restartGuidedTutorialLesson(stage);
+            } else {
+                restartCurrentMatch(stage);
+            }
+        });
+    }
+
+    private void confirmPauseExit(Stage stage) {
+        showPauseConfirmation(stage, pauseExitLabel(), pauseExitWarning(), pauseExitLabel(),
+                () -> exitPausedMatch(stage));
+    }
+
+    private void showPauseConfirmation(Stage stage, String titleText, String bodyText,
+                                       String confirmText, Runnable confirmedAction) {
+        VBox pauseMenu = currentPauseMenu();
+        if (stage == null || pauseMenu == null || !isPaused) return;
+
+        Label eyebrow = new Label("CONFIRM ACTION");
+        eyebrow.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
+        eyebrow.setTextFill(Color.web("#FFCC80"));
+        Label title = new Label(titleText);
+        title.setFont(Font.font("Arial Black", 42));
+        title.setTextFill(Color.WHITE);
+        title.setWrapText(true);
+        title.setTextAlignment(TextAlignment.CENTER);
+        title.setAlignment(Pos.CENTER);
+        title.setMaxWidth(900);
+        Label body = new Label(bodyText);
+        body.setFont(Font.font("Consolas", FontWeight.BOLD, 19));
+        body.setTextFill(Color.web("#CFD8DC"));
+        body.setWrapText(true);
+        body.setTextAlignment(TextAlignment.CENTER);
+        body.setAlignment(Pos.CENTER);
+        body.setMaxWidth(900);
+
+        Button cancel = pauseFooterButton("CANCEL", "#37474F", 300, () -> rebuildPauseMenu(stage));
+        Button confirm = pauseFooterButton(confirmText, "#C62828", 430, () -> {
+            if (confirmedAction != null) confirmedAction.run();
+        });
+        HBox actions = new HBox(20, cancel, confirm);
+        actions.setAlignment(Pos.CENTER);
+        VBox card = new VBox(14, eyebrow, title, body, actions);
+        card.setAlignment(Pos.CENTER);
+        card.setPadding(new Insets(46, 58, 46, 58));
+        lockRegionSize(card, 1120, 470);
+        card.setStyle("-fx-background-color: linear-gradient(to bottom, #18212C, #090D13);"
+                + "-fx-background-radius: 26; -fx-border-color: #FF8A65;"
+                + "-fx-border-width: 3; -fx-border-radius: 26;");
+
+        pauseMenu.getChildren().setAll(card);
+        pauseMenu.setAlignment(Pos.CENTER);
+        pauseMenu.getProperties().put("pauseConfirmation", Boolean.TRUE);
+        cancel.requestFocus();
+    }
+
+    private void exitPausedMatch(Stage stage) {
+        if (stage == null) return;
+        PauseExitDestination destination = pauseExitDestination();
+
+        closePauseMenuWithoutResuming();
+        stopGameplayTimer();
+        resetMatchStats();
+        switch (destination) {
+            case TRAINING_SETUP -> showTrainingSetup(stage);
+            case MAIN_HUB -> showMenu(stage);
+            case STORY_HUB -> showCampaignHub(stage);
+            case LEGACY_STORIES -> showLegacyStories(stage);
+            case ADVENTURE_HUB -> showAdventureHub(stage);
+            case TOURNAMENT_BRACKET -> showTournamentBracket(stage);
+            case FIGHTER_SELECT -> {
+                frontEndMatchFlow.showFighters();
+                showFightSetup(stage);
+            }
+        }
+    }
+
+    private Button pauseFooterButton(String text, String color, double width, Runnable action) {
+        Button button = new Button(text);
+        button.setPrefSize(width, 64);
+        button.setMinSize(width, 64);
+        button.setMaxSize(width, 64);
+        button.setFont(Font.font("Arial Black", 19));
+        button.setStyle("-fx-background-color: " + color + "; -fx-text-fill: white;"
+                + "-fx-background-radius: 15; -fx-border-color: rgba(255,255,255,0.32);"
+                + "-fx-border-width: 2; -fx-border-radius: 15;");
+        button.setFocusTraversable(true);
+        button.setOnAction(event -> {
+            playButtonClick();
+            if (action != null) action.run();
+        });
+        return button;
     }
 
     private Node buildPauseAcademyControls(Stage stage) {
@@ -75851,16 +76369,12 @@ public class BirdGame3 {
 
             timer.start();
             isPaused = false;
+            pausePanel = PausePanel.MOVES;
         } else {
-            // === PAUSE ===
             clearGameplayInputs();
             refreshXboxDisconnectMarker();
             List<Integer> disconnectedXboxPlayers = disconnectedAssignedXboxPlayers();
-            VBox pauseMenu = new VBox(20);
-            pauseMenu.setId("pauseMenu");
-            pauseMenu.setAlignment(Pos.CENTER);
-            pauseMenu.setPrefSize(WIDTH, HEIGHT);
-            pauseMenu.setStyle("-fx-background-color: rgba(0,0,0,0.7);");
+            VBox pauseMenu = buildInMatchPauseMenu(stage, disconnectedXboxPlayers);
             scene.setOnKeyPressed(e -> {
                 KeyCode code = e.getCode();
                 KeyCode navigation = switch (code) {
@@ -75887,138 +76401,136 @@ public class BirdGame3 {
                     e.consume();
                 }
                 if (code == KeyCode.ESCAPE) {
-                    togglePause(stage);
+                    if (Boolean.TRUE.equals(pauseMenu.getProperties().get("pauseConfirmation"))) {
+                        rebuildPauseMenu(stage);
+                    } else {
+                        togglePause(stage);
+                    }
                     e.consume();
                 }
             });
-
-            Label pauseLabel = new Label("PAUSED");
-            pauseLabel.setFont(Font.font("Arial Black", FontWeight.BOLD, 80));
-            pauseLabel.setTextFill(Color.WHITE);
-            if (!disconnectedXboxPlayers.isEmpty()) {
-                pauseLabel.setText("CONTROLLER DISCONNECTED");
-                pauseLabel.setFont(Font.font("Arial Black", FontWeight.BOLD, 66));
-            }
-
-            FlowPane glyphLegend = new FlowPane();
-            glyphLegend.setHgap(18);
-            glyphLegend.setVgap(8);
-            glyphLegend.setAlignment(Pos.CENTER);
-            glyphLegend.getChildren().addAll(
-                    controllerGlyphHint("A", "#2E7D32", "select"),
-                    controllerGlyphHint("START", "#F9A825", "pause or resume")
-            );
-
-            VBox disconnectBox = null;
-            if (!disconnectedXboxPlayers.isEmpty()) {
-                disconnectBox = new VBox(12);
-                disconnectBox.setAlignment(Pos.CENTER);
-                disconnectBox.setMaxWidth(760);
-                disconnectBox.setPadding(new Insets(18, 24, 18, 24));
-                disconnectBox.setStyle("-fx-background-color: rgba(135, 24, 24, 0.82); -fx-background-radius: 20; -fx-border-color: #FFCDD2; -fx-border-width: 2; -fx-border-radius: 20;");
-
-                Label disconnectLead = new Label("Reconnect the missing pad, or swap that player back to keyboard before resuming.");
-                disconnectLead.setFont(Font.font("Consolas", 20));
-                disconnectLead.setTextFill(Color.web("#FFEBEE"));
-                disconnectLead.setWrapText(true);
-                disconnectLead.setTextAlignment(TextAlignment.CENTER);
-                disconnectLead.setAlignment(Pos.CENTER);
-                disconnectLead.setMaxWidth(680);
-                applyNoEllipsis(disconnectLead);
-                disconnectBox.getChildren().add(disconnectLead);
-
-                for (int playerIdx : disconnectedXboxPlayers) {
-                    Label line = new Label(xboxDisconnectSummary(playerIdx));
-                    line.setFont(Font.font("Consolas", 18));
-                    line.setTextFill(Color.WHITE);
-                    line.setWrapText(true);
-                    line.setTextAlignment(TextAlignment.CENTER);
-                    line.setAlignment(Pos.CENTER);
-                    line.setMaxWidth(660);
-                    applyNoEllipsis(line);
-
-                    Button switchButton = new Button("Switch P" + (playerIdx + 1) + " to Keyboard");
-                    switchButton.setPrefSize(360, 56);
-                    switchButton.setFont(Font.font("Arial Black", 22));
-                    switchButton.setStyle("-fx-background-color: #1E88E5; -fx-text-fill: white; -fx-background-radius: 18;");
-                    switchButton.setFocusTraversable(true);
-                    switchButton.setOnAction(ev -> {
-                        playButtonClick();
-                        clearXboxAssignmentForPlayer(playerIdx);
-                        refreshXboxDisconnectMarker();
-                        rebuildPauseMenu(stage);
-                    });
-                    disconnectBox.getChildren().addAll(line, switchButton);
-                }
-            }
-
-            Button resumeButton = new Button("Resume");
-            resumeButton.setPrefSize(300, 60);
-            resumeButton.setFont(Font.font("Arial Black", 30));
-            resumeButton.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-background-radius: 20;");
-            resumeButton.setFocusTraversable(true);
-            resumeButton.setOnAction(ev -> {
-                refreshXboxDisconnectMarker();
-                if (hasDisconnectedAssignedXboxPlayers()) {
-                    playErrorSound();
-                    rebuildPauseMenu(stage);
-                    return;
-                }
-                playButtonClick();
-                togglePause(stage);
-            });
-
-            Button restartButton = new Button(classicModeActive ? "Forfeit Encounter" : "Restart");
-            restartButton.setPrefSize(classicModeActive ? 390 : 300, 60);
-            restartButton.setFont(Font.font("Arial Black", 30));
-            restartButton.setStyle("-fx-background-color: #FFC107; -fx-text-fill: white; -fx-background-radius: 20;");
-            restartButton.setFocusTraversable(true);
-            restartButton.setOnAction(ev -> {
-                refreshXboxDisconnectMarker();
-                if (hasDisconnectedAssignedXboxPlayers()) {
-                    playErrorSound();
-                    rebuildPauseMenu(stage);
-                    return;
-                }
-                playButtonClick();
-                restartButton.setDisable(true);
-                restartCurrentMatch(stage);
-            });
-
-            Button exitButton = new Button("Exit to Menu");
-            exitButton.setPrefSize(300, 60);
-            exitButton.setFont(Font.font("Arial Black", 30));
-            exitButton.setStyle("-fx-background-color: #F44336; -fx-text-fill: white; -fx-background-radius: 20;");
-            exitButton.setFocusTraversable(true);
-            exitButton.setOnAction(ev -> {
-                playButtonClick();
-                clearGameplayInputs();
-                isPaused = false;
-                if (timer != null) timer.stop();
-                resetMatchStats();
-                showMenu(stage);
-            });
-
-            pauseMenu.getChildren().addAll(pauseLabel, glyphLegend);
-            if (disconnectBox != null) {
-                pauseMenu.getChildren().add(disconnectBox);
-            }
-            Node academyControls = buildPauseAcademyControls(stage);
-            if (academyControls != null) {
-                pauseMenu.getChildren().add(academyControls);
-            }
-            Node specialGuide = buildPauseSpecialMoveGuide();
-            if (specialGuide != null) {
-                pauseMenu.getChildren().add(specialGuide);
-            }
-            pauseMenu.getChildren().addAll(resumeButton, restartButton, exitButton);
             gameRoot.getChildren().add(pauseMenu);
-            resumeButton.requestFocus();
+            Button resumeButton = (Button) pauseMenu.getProperties().get("pauseResumeButton");
+            if (resumeButton != null) resumeButton.requestFocus();
             applyConsoleHighlight(scene);
 
             timer.stop();
             isPaused = true;
         }
+    }
+
+    private VBox buildInMatchPauseMenu(Stage stage, List<Integer> disconnectedXboxPlayers) {
+        VBox pauseMenu = new VBox();
+        pauseMenu.setId("pauseMenu");
+        pauseMenu.setAlignment(Pos.CENTER);
+        pauseMenu.setPrefSize(WIDTH, HEIGHT);
+        pauseMenu.setStyle("-fx-background-color: rgba(1,4,8,0.88);");
+
+        BorderPane shell = new BorderPane();
+        lockRegionSize(shell, 1600, 950);
+        shell.setStyle("-fx-background-color: linear-gradient(to bottom right, #101925, #05080D);"
+                + "-fx-background-radius: 24; -fx-border-color: #40566B;"
+                + "-fx-border-width: 3; -fx-border-radius: 24;");
+
+        Label pause = new Label(disconnectedXboxPlayers.isEmpty() ? "PAUSED" : "CONTROLLER DISCONNECTED");
+        pause.setFont(Font.font("Arial Black", disconnectedXboxPlayers.isEmpty() ? 42 : 34));
+        pause.setTextFill(Color.WHITE);
+        applyNoEllipsis(pause);
+        Label mode = new Label(pauseModeLabel() + "  /  " + pauseContextLabel());
+        mode.setFont(Font.font("Consolas", FontWeight.BOLD, 17));
+        mode.setTextFill(Color.web("#80DEEA"));
+        applyNoEllipsis(mode);
+        VBox heading = new VBox(0, pause, mode);
+        heading.setAlignment(Pos.CENTER_LEFT);
+
+        FlowPane legend = new FlowPane(16, 6);
+        legend.setAlignment(Pos.CENTER_RIGHT);
+        legend.getChildren().addAll(
+                controllerGlyphHint("A", "#2E7D32", "select"),
+                controllerGlyphHint("B", "#B71C1C", "back"),
+                controllerGlyphHint("START", "#F9A825", "resume")
+        );
+        Region headerSpacer = new Region();
+        HBox.setHgrow(headerSpacer, Priority.ALWAYS);
+        HBox header = new HBox(20, heading, headerSpacer, legend);
+        header.setAlignment(Pos.CENTER_LEFT);
+        header.setPadding(new Insets(24, 34, 18, 34));
+        header.setStyle("-fx-background-color: linear-gradient(to right, #0F4D67, #101925 68%);"
+                + "-fx-background-radius: 22 22 0 0; -fx-border-color: transparent transparent #2A4355 transparent;"
+                + "-fx-border-width: 0 0 2 0;");
+        shell.setTop(header);
+
+        HBox tabs = new HBox(12,
+                pauseTabButton(PausePanel.MOVES, stage),
+                pauseTabButton(PausePanel.CONTROLS, stage),
+                pauseTabButton(PausePanel.OPTIONS, stage));
+        tabs.setAlignment(Pos.CENTER);
+
+        VBox center = new VBox(12);
+        center.setAlignment(Pos.TOP_CENTER);
+        center.setPadding(new Insets(14, 28, 12, 28));
+        center.getChildren().add(buildPauseFighterStrip(stage));
+        center.getChildren().add(tabs);
+        if (!disconnectedXboxPlayers.isEmpty()) {
+            center.getChildren().add(buildPauseDisconnectBanner(stage, disconnectedXboxPlayers));
+        }
+        StackPane body = new StackPane(switch (pausePanel) {
+            case MOVES -> buildPauseMoveListPanel();
+            case CONTROLS -> buildPauseControlsPanel();
+            case OPTIONS -> buildPauseOptionsPanel(stage);
+        });
+        lockRegionSize(body, 1510, disconnectedXboxPlayers.isEmpty() ? 590 : 490);
+        body.setAlignment(Pos.TOP_CENTER);
+        center.getChildren().add(body);
+        shell.setCenter(center);
+
+        Button resume = pauseFooterButton("RESUME", "#0B9B50", 300, () -> {
+            refreshXboxDisconnectMarker();
+            if (hasDisconnectedAssignedXboxPlayers()) {
+                playErrorSound();
+                rebuildPauseMenu(stage);
+            } else {
+                togglePause(stage);
+            }
+        });
+        Button restart = pauseFooterButton(pauseRestartLabel(), classicModeActive ? "#C77800" : "#B07016", 360,
+                () -> confirmPauseRestart(stage));
+        Button exit = pauseFooterButton(pauseExitLabel(), "#B71C2B", 360, () -> confirmPauseExit(stage));
+        HBox footer = new HBox(18, resume, restart, exit);
+        footer.setAlignment(Pos.CENTER);
+        footer.setPadding(new Insets(14, 28, 22, 28));
+        footer.setStyle("-fx-background-color: rgba(3,6,10,0.88);"
+                + "-fx-background-radius: 0 0 22 22; -fx-border-color: #263746 transparent transparent transparent;"
+                + "-fx-border-width: 2 0 0 0;");
+        shell.setBottom(footer);
+
+        pauseMenu.getChildren().add(shell);
+        pauseMenu.getProperties().put("pauseResumeButton", resume);
+        return pauseMenu;
+    }
+
+    private Node buildPauseDisconnectBanner(Stage stage, List<Integer> disconnectedXboxPlayers) {
+        Label lead = new Label("Reconnect the missing controller or return that player to keyboard before resuming.");
+        lead.setFont(Font.font("Consolas", FontWeight.BOLD, 15));
+        lead.setTextFill(Color.web("#FFEBEE"));
+        lead.setWrapText(true);
+        HBox banner = new HBox(12, lead);
+        banner.setAlignment(Pos.CENTER);
+        for (int playerIdx : disconnectedXboxPlayers) {
+            Button swap = pauseOptionButton("P" + (playerIdx + 1) + " TO KEYBOARD", "#1565C0", () -> {
+                clearXboxAssignmentForPlayer(playerIdx);
+                refreshXboxDisconnectMarker();
+                rebuildPauseMenu(stage);
+            });
+            swap.setPrefSize(250, 50);
+            swap.setMinSize(250, 50);
+            swap.setMaxSize(250, 50);
+            banner.getChildren().add(swap);
+        }
+        banner.setPadding(new Insets(8, 16, 8, 16));
+        banner.setStyle("-fx-background-color: rgba(135,24,24,0.82); -fx-background-radius: 12;"
+                + "-fx-border-color: #FFCDD2; -fx-border-width: 2; -fx-border-radius: 12;");
+        return banner;
     }
 
     private void rebuildPauseMenu(Stage stage) {
