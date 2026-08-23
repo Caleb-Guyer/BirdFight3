@@ -116,6 +116,8 @@ class LanProtocolTest {
         state.grabHoldTimer = 47;
         state.grabThrowLockTimer = 6;
         state.grabEscapeProgress = 12;
+        state.ledgeHangFrames = 73;
+        state.ledgeGrabCountWithoutLanding = 2;
         state.activeAerialLandingLagFrames = 12;
         state.mockingbirdLoungeReuseTimer = 47;
         state.mockingbirdMicCharging = true;
@@ -453,6 +455,8 @@ class LanProtocolTest {
         assertEquals(47, decoded.grabHoldTimer);
         assertEquals(6, decoded.grabThrowLockTimer);
         assertEquals(12, decoded.grabEscapeProgress);
+        assertEquals(73, decoded.ledgeHangFrames);
+        assertEquals(2, decoded.ledgeGrabCountWithoutLanding);
         assertEquals(12, decoded.activeAerialLandingLagFrames);
         assertEquals(47, decoded.mockingbirdLoungeReuseTimer);
         assertTrue(decoded.mockingbirdMicCharging);

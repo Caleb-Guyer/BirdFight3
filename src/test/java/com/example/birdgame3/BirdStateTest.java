@@ -7734,6 +7734,7 @@ class BirdStateTest {
         pigeon.y = mainIsland.y - 12.0;
         pigeon.vx = 12.0;
         pigeon.vy = 4.0;
+        pigeon.canDoubleJump = false;
         game.players[0] = pigeon;
 
         pigeon.update(1.0);
@@ -7741,12 +7742,13 @@ class BirdStateTest {
         assertTrue(getPrivateBoolean(pigeon, "ledgeHanging"));
         assertEquals(mainIsland, getPrivateObject(pigeon, "ledgePlatform"));
         assertTrue(pigeon.facingRight, "Bird should face back toward the stage while hanging.");
-        assertTrue(pigeon.canDoubleJump, "Ledge grab should refresh recovery resources.");
+        assertFalse(pigeon.canDoubleJump,
+                "Ledge grabs should not regenerate a midair jump that was already spent.");
         assertTrue(pigeon.y < mainIsland.y, "Bird should snap below the top lip instead of landing on the platform.");
     }
 
     @Test
-    void droppingFromLedgeAppliesRegrabLockout() throws Exception {
+    void rollingFromLedgeAppliesRegrabLockout() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 1;
         game.selectedMap = BirdGame3.MapType.BATTLEFIELD;
@@ -7768,7 +7770,9 @@ class BirdStateTest {
 
         assertFalse(getPrivateBoolean(pigeon, "ledgeHanging"));
         assertTrue(getPrivateInt(pigeon, "ledgeRegrabCooldownTimer") > 0,
-                "Dropping from ledge should prevent immediate regrab stalling.");
+                "Rolling from ledge should prevent immediate regrab stalling.");
+        assertTrue(pigeon.x > mainIsland.x,
+                "Shield from a left ledge should roll the bird safely onto the stage.");
 
         game.setLocalActionsForKey(game.blockKeyForPlayer(0), false);
         pigeon.x = mainIsland.x - 84.0;
@@ -7788,6 +7792,106 @@ class BirdStateTest {
         pigeon.update(1.0);
 
         assertTrue(getPrivateBoolean(pigeon, "ledgeHanging"));
+    }
+
+    @Test
+    void repeatedLedgeGrabsProgressivelyReduceInvulnerabilityUntilLanding() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        Platform mainIsland = new Platform(1000.0, BirdGame3.GROUND_Y - 220.0, 900.0, 70.0);
+        game.platforms.add(mainIsland);
+        Bird pigeon = new Bird(900.0, BirdGame3.BirdType.PIGEON, 0, game);
+        game.players[0] = pigeon;
+
+        invokePrivateVoid(pigeon, "beginLedgeHang",
+                new Class<?>[]{Platform.class, boolean.class}, mainIsland, false);
+        assertTrue(getPrivateInt(pigeon, "ledgeInvulnerabilityTimer") > 0);
+        invokePrivateVoid(pigeon, "dropFromLedge");
+        setPrivateInt(pigeon, "ledgeRegrabCooldownTimer", 0);
+        invokePrivateVoid(pigeon, "beginLedgeHang",
+                new Class<?>[]{Platform.class, boolean.class}, mainIsland, false);
+
+        assertEquals(2, getPrivateInt(pigeon, "ledgeGrabCountWithoutLanding"));
+        assertEquals(14, getPrivateInt(pigeon, "ledgeInvulnerabilityTimer"),
+                "The first regrab should receive only 80% of the initial intangibility.");
+        assertTrue(pigeon.debugUniversalActionLabel().contains("GRAB 2"));
+
+        invokePrivateVoid(pigeon, "dropFromLedge");
+        setPrivateInt(pigeon, "ledgeRegrabCooldownTimer", 0);
+        invokePrivateVoid(pigeon, "beginLedgeHang",
+                new Class<?>[]{Platform.class, boolean.class}, mainIsland, false);
+        assertEquals(9, getPrivateInt(pigeon, "ledgeInvulnerabilityTimer"));
+
+        invokePrivateVoid(pigeon, "dropFromLedge");
+        setPrivateInt(pigeon, "ledgeRegrabCooldownTimer", 0);
+        invokePrivateVoid(pigeon, "beginLedgeHang",
+                new Class<?>[]{Platform.class, boolean.class}, mainIsland, false);
+        assertEquals(0, getPrivateInt(pigeon, "ledgeInvulnerabilityTimer"),
+                "The third regrab and later should be fully punishable.");
+    }
+
+    @Test
+    void holdingAwayDropsFromLedge() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        Platform mainIsland = new Platform(1000.0, BirdGame3.GROUND_Y - 220.0, 900.0, 70.0);
+        game.platforms.add(mainIsland);
+        Bird pigeon = new Bird(900.0, BirdGame3.BirdType.PIGEON, 0, game);
+        game.players[0] = pigeon;
+        invokePrivateVoid(pigeon, "beginLedgeHang",
+                new Class<?>[]{Platform.class, boolean.class}, mainIsland, false);
+        setPrivateInt(pigeon, "ledgeLockTimer", 0);
+        game.setLocalActionsForKey(game.leftKeyForPlayer(0), true);
+
+        pigeon.update(1.0);
+
+        assertFalse(getPrivateBoolean(pigeon, "ledgeHanging"));
+        assertTrue(pigeon.vy > 0.0);
+        assertEquals(1, getPrivateInt(pigeon, "ledgeGrabCountWithoutLanding"),
+                "Dropping should preserve the regrab penalty until the bird lands.");
+    }
+
+    @Test
+    void occupiedLedgeIsTrumpedDeterministically() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+        Platform mainIsland = new Platform(1000.0, BirdGame3.GROUND_Y - 220.0, 900.0, 70.0);
+        game.platforms.add(mainIsland);
+        Bird first = new Bird(900.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird second = new Bird(900.0, BirdGame3.BirdType.EAGLE, 1, game);
+        game.players[0] = first;
+        game.players[1] = second;
+        invokePrivateVoid(first, "beginLedgeHang",
+                new Class<?>[]{Platform.class, boolean.class}, mainIsland, false);
+
+        invokePrivateVoid(second, "beginLedgeHang",
+                new Class<?>[]{Platform.class, boolean.class}, mainIsland, false);
+
+        assertFalse(getPrivateBoolean(first, "ledgeHanging"));
+        assertTrue(getPrivateInt(first, "ledgeRegrabCooldownTimer") >= 36);
+        assertEquals(0, getPrivateInt(first, "ledgeInvulnerabilityTimer"));
+        assertTrue(Math.abs(first.vx) > 0.0);
+        assertTrue(getPrivateBoolean(second, "ledgeHanging"));
+    }
+
+    @Test
+    void excessiveLedgeHangForcesADrop() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        Platform mainIsland = new Platform(1000.0, BirdGame3.GROUND_Y - 220.0, 900.0, 70.0);
+        game.platforms.add(mainIsland);
+        Bird pigeon = new Bird(900.0, BirdGame3.BirdType.PIGEON, 0, game);
+        game.players[0] = pigeon;
+        invokePrivateVoid(pigeon, "beginLedgeHang",
+                new Class<?>[]{Platform.class, boolean.class}, mainIsland, false);
+        setPrivateInt(pigeon, "ledgeLockTimer", 0);
+        setPrivateInt(pigeon, "ledgeHangFrames", 179);
+
+        pigeon.update(1.0);
+
+        assertFalse(getPrivateBoolean(pigeon, "ledgeHanging"));
+        assertTrue(getPrivateInt(pigeon, "ledgeRegrabCooldownTimer") > 0);
+        assertTrue(pigeon.vy > 0.0);
     }
 
     @Test
