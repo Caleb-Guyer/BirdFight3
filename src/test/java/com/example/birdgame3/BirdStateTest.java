@@ -7875,6 +7875,61 @@ class BirdStateTest {
     }
 
     @Test
+    void lanSnapshotsRestoreActiveLedgePlatformAndTimers() throws Exception {
+        BirdGame3 sourceGame = new BirdGame3();
+        sourceGame.activePlayers = 1;
+        Platform sourcePlatform = new Platform(1000.0, BirdGame3.GROUND_Y - 220.0, 900.0, 70.0);
+        sourceGame.platforms.add(sourcePlatform);
+        Bird source = new Bird(900.0, BirdGame3.BirdType.PIGEON, 0, sourceGame);
+        sourceGame.players[0] = source;
+        invokePrivateVoid(source, "beginLedgeHang",
+                new Class<?>[]{Platform.class, boolean.class}, sourcePlatform, false);
+        setPrivateInt(source, "ledgeHangFrames", 73);
+        setPrivateInt(source, "ledgeGrabCountWithoutLanding", 2);
+        LanBirdState snapshot = source.toLanState();
+
+        BirdGame3 remoteGame = new BirdGame3();
+        remoteGame.activePlayers = 1;
+        Platform remotePlatform = new Platform(1000.0, BirdGame3.GROUND_Y - 220.0, 900.0, 70.0);
+        remoteGame.platforms.add(remotePlatform);
+        Bird restored = new Bird(0.0, BirdGame3.BirdType.PIGEON, 0, remoteGame);
+        remoteGame.players[0] = restored;
+        restored.applyLanState(snapshot);
+
+        assertTrue(getPrivateBoolean(restored, "ledgeHanging"));
+        assertSame(remotePlatform, getPrivateObject(restored, "ledgePlatform"));
+        assertEquals(73, getPrivateInt(restored, "ledgeHangFrames"));
+        assertEquals(2, getPrivateInt(restored, "ledgeGrabCountWithoutLanding"));
+        assertEquals(source.deterministicLedgeStateHash(), restored.deterministicLedgeStateHash());
+
+        restored.update(1.0);
+        assertTrue(getPrivateBoolean(restored, "ledgeHanging"),
+                "A restored ledge hang must survive the next simulation frame.");
+    }
+
+    @Test
+    void trainingTelemetryReportsActionabilityDefenseMovementAndControlState() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        Bird pigeon = new Bird(500.0, BirdGame3.BirdType.PIGEON, 0, game);
+        pigeon.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = pigeon;
+
+        assertEquals(0, pigeon.debugUniversalActionableFrames());
+        assertEquals(1.0, pigeon.debugShieldDurabilityRatio(), 0.0001);
+        assertTrue(pigeon.debugMovementTelemetryLabel().contains("GROUND"));
+        assertTrue(pigeon.debugDefenseTelemetryLabel().contains("SHIELD 100%"));
+        assertTrue(pigeon.debugGrabLedgeTelemetryLabel().contains("GRAB READY"));
+
+        invokePrivateVoid(pigeon, "startSpotDodge");
+
+        assertTrue(pigeon.debugUniversalActionableFrames() > 0);
+        assertEquals(10, pigeon.debugCombatInvulnerabilityFrames());
+        assertTrue(pigeon.debugDefenseTelemetryLabel().contains("INV 10f"));
+        assertTrue(pigeon.debugUniversalActionLabel().startsWith("SPOT DODGE"));
+    }
+
+    @Test
     void excessiveLedgeHangForcesADrop() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 1;

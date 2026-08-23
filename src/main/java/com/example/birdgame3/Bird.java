@@ -18192,6 +18192,90 @@ public class Bird {
                 : baseState;
     }
 
+    int debugUniversalActionableFrames() {
+        int remaining = Math.max((int) Math.ceil(stunTime), knockdownTimer);
+        remaining = Math.max(remaining, shieldStunFrames);
+        remaining = Math.max(remaining, landingLagTimer);
+        remaining = Math.max(remaining, dodgeTimer);
+        remaining = Math.max(remaining, jumpSquatTimer);
+        remaining = Math.max(remaining, grabStartupTimer);
+        remaining = Math.max(remaining, grabThrowLockTimer);
+        if (grabbedBy != null) {
+            remaining = Math.max(remaining, grabbedBy.grabHoldTimer);
+        }
+        if (ledgeHanging) {
+            remaining = Math.max(remaining, ledgeLockTimer);
+        }
+        if (normalAttackTimelineActive) {
+            remaining = Math.max(remaining, debugNormalAttackRemainingFrames());
+        } else if (aerialAttackActive || attackAnimationTimer > 0) {
+            remaining = Math.max(remaining, attackAnimationTimer);
+        }
+        return Math.max(0, remaining);
+    }
+
+    int debugCombatInvulnerabilityFrames() {
+        int frames = Math.max(ledgeInvulnerabilityTimer, dodgeInvulnerabilityTimer);
+        frames = Math.max(frames, respawnInvulnerabilityTimer);
+        if (hasNullRockInvulnerability()) {
+            frames = Math.max(frames, nullRockInvincibilityTimer);
+        }
+        return isCombatInvulnerable() ? Math.max(1, frames) : 0;
+    }
+
+    double debugShieldDurabilityRatio() {
+        return shieldDurabilityRatio();
+    }
+
+    String debugDefenseTelemetryLabel() {
+        int shieldPercent = (int) Math.round(shieldDurabilityRatio() * 100.0);
+        String airDodge = isOnGround() || airDodgeAvailable ? "READY" : "SPENT";
+        return "SHIELD " + shieldPercent + "% | PARRY " + parryWindowFrames
+                + "f | INV " + debugCombatInvulnerabilityFrames() + "f | AIR DODGE " + airDodge;
+    }
+
+    String debugMovementTelemetryLabel() {
+        String surface = isOnGround() ? "GROUND" : "AIR";
+        String jump = canDoubleJump ? "READY" : "SPENT";
+        return String.format(Locale.ROOT,
+                "%s | VX %+.1f | VY %+.1f | JUMP %s | DASH %df | FAST FALL %s",
+                surface, vx, vy, jump, dashTimer, fastFallActive ? "ON" : "OFF");
+    }
+
+    String debugGrabLedgeTelemetryLabel() {
+        String grab;
+        if (grabbedBy != null) {
+            grab = "CAPTURED " + Math.max(0, grabbedBy.grabHoldTimer) + "f";
+        } else if (grabbedTarget != null) {
+            grab = "HOLD " + Math.max(0, grabHoldTimer) + "f / MASH " + Math.max(0, grabEscapeProgress);
+        } else {
+            grab = grabCooldown > 0 ? "COOLDOWN " + grabCooldown + "f" : "READY";
+        }
+        String ledge = ledgeHanging
+                ? "HANG " + ledgeHangFrames + "f / GRAB " + ledgeGrabCountWithoutLanding
+                : ledgeRegrabCooldownTimer > 0
+                ? "LOCK " + ledgeRegrabCooldownTimer + "f / GRAB " + ledgeGrabCountWithoutLanding
+                : "READY / GRAB " + ledgeGrabCountWithoutLanding;
+        return "GRAB " + grab + " | LEDGE " + ledge;
+    }
+
+    boolean debugLedgeHanging() {
+        return ledgeHanging;
+    }
+
+    double debugLedgeAnchorX() {
+        if (!ledgeHanging || ledgePlatform == null) return bodyCenterX();
+        return ledgeGrabOnRightSide ? ledgePlatform.x + ledgePlatform.w : ledgePlatform.x;
+    }
+
+    double debugLedgeAnchorY() {
+        return ledgeHanging && ledgePlatform != null ? ledgePlatform.y : bodyCenterY();
+    }
+
+    Bird debugGrabPartner() {
+        return grabbedTarget != null ? grabbedTarget : grabbedBy;
+    }
+
     long deterministicGrabStateHash() {
         long h = grabCooldown;
         h = h * 31 + grabStartupTimer;
@@ -20360,6 +20444,13 @@ public class Bird {
         state.ledgeInvulnerabilityTimer = ledgeInvulnerabilityTimer;
         state.ledgeHangFrames = ledgeHangFrames;
         state.ledgeGrabCountWithoutLanding = ledgeGrabCountWithoutLanding;
+        state.ledgePlatformActive = ledgeHanging && ledgePlatform != null;
+        if (state.ledgePlatformActive) {
+            state.ledgePlatformX = ledgePlatform.x;
+            state.ledgePlatformY = ledgePlatform.y;
+            state.ledgePlatformW = ledgePlatform.w;
+            state.ledgePlatformH = ledgePlatform.h;
+        }
         state.respawnInvulnerabilityTimer = respawnInvulnerabilityTimer;
         Platform respawnNest = activeRespawnNestPlatform();
         state.respawnNestActive = respawnNest != null;
@@ -21205,7 +21296,6 @@ public class Bird {
         } else {
             this.ravenDecoy = null;
         }
-        this.ledgeHanging = state.ledgeHanging;
         this.ledgeGrabOnRightSide = state.ledgeGrabOnRightSide;
         this.ledgeLockTimer = state.ledgeLockTimer;
         this.ledgeRegrabCooldownTimer = state.ledgeRegrabCooldownTimer;
@@ -21213,6 +21303,18 @@ public class Bird {
         this.ledgeHangFrames = Math.max(0, state.ledgeHangFrames);
         this.ledgeGrabCountWithoutLanding = Math.max(0, state.ledgeGrabCountWithoutLanding);
         this.ledgePlatform = null;
+        if (state.ledgeHanging && state.ledgePlatformActive) {
+            for (Platform candidate : game.platforms) {
+                if (Math.abs(candidate.x - state.ledgePlatformX) < 0.01
+                        && Math.abs(candidate.y - state.ledgePlatformY) < 0.01
+                        && Math.abs(candidate.w - state.ledgePlatformW) < 0.01
+                        && Math.abs(candidate.h - state.ledgePlatformH) < 0.01) {
+                    this.ledgePlatform = candidate;
+                    break;
+                }
+            }
+        }
+        this.ledgeHanging = state.ledgeHanging && this.ledgePlatform != null;
         this.respawnInvulnerabilityTimer = state.respawnInvulnerabilityTimer;
         this.respawnReturnTimer = 0;
         this.respawnNestLockTimer = 0;

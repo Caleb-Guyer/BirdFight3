@@ -315,6 +315,11 @@ class LanBirdState {
     int ledgeInvulnerabilityTimer;
     int ledgeHangFrames;
     int ledgeGrabCountWithoutLanding;
+    boolean ledgePlatformActive;
+    double ledgePlatformX;
+    double ledgePlatformY;
+    double ledgePlatformW;
+    double ledgePlatformH;
     boolean respawnNestActive;
     double respawnNestX;
     double respawnNestY;
@@ -1062,6 +1067,11 @@ class LanBirdState {
         out.writeInt(ledgeInvulnerabilityTimer);
         out.writeInt(ledgeHangFrames);
         out.writeInt(ledgeGrabCountWithoutLanding);
+        out.writeBoolean(ledgePlatformActive);
+        out.writeDouble(ledgePlatformX);
+        out.writeDouble(ledgePlatformY);
+        out.writeDouble(ledgePlatformW);
+        out.writeDouble(ledgePlatformH);
         out.writeBoolean(respawnNestActive);
         out.writeDouble(respawnNestX);
         out.writeDouble(respawnNestY);
@@ -1865,6 +1875,11 @@ class LanBirdState {
         state.ledgeInvulnerabilityTimer = in.readInt();
         state.ledgeHangFrames = in.readInt();
         state.ledgeGrabCountWithoutLanding = in.readInt();
+        state.ledgePlatformActive = in.readBoolean();
+        state.ledgePlatformX = in.readDouble();
+        state.ledgePlatformY = in.readDouble();
+        state.ledgePlatformW = in.readDouble();
+        state.ledgePlatformH = in.readDouble();
         state.respawnNestActive = in.readBoolean();
         state.respawnNestX = in.readDouble();
         state.respawnNestY = in.readDouble();

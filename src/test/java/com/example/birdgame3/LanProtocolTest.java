@@ -118,6 +118,11 @@ class LanProtocolTest {
         state.grabEscapeProgress = 12;
         state.ledgeHangFrames = 73;
         state.ledgeGrabCountWithoutLanding = 2;
+        state.ledgePlatformActive = true;
+        state.ledgePlatformX = 123.5;
+        state.ledgePlatformY = 456.5;
+        state.ledgePlatformW = 789.5;
+        state.ledgePlatformH = 42.5;
         state.activeAerialLandingLagFrames = 12;
         state.mockingbirdLoungeReuseTimer = 47;
         state.mockingbirdMicCharging = true;
@@ -457,6 +462,11 @@ class LanProtocolTest {
         assertEquals(12, decoded.grabEscapeProgress);
         assertEquals(73, decoded.ledgeHangFrames);
         assertEquals(2, decoded.ledgeGrabCountWithoutLanding);
+        assertTrue(decoded.ledgePlatformActive);
+        assertEquals(123.5, decoded.ledgePlatformX);
+        assertEquals(456.5, decoded.ledgePlatformY);
+        assertEquals(789.5, decoded.ledgePlatformW);
+        assertEquals(42.5, decoded.ledgePlatformH);
         assertEquals(12, decoded.activeAerialLandingLagFrames);
         assertEquals(47, decoded.mockingbirdLoungeReuseTimer);
         assertTrue(decoded.mockingbirdMicCharging);

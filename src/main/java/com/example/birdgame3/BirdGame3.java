@@ -21404,6 +21404,43 @@ public class BirdGame3 {
                     b.debugCombatHeight()
             );
 
+            int invulnerabilityFrames = b.debugCombatInvulnerabilityFrames();
+            if (invulnerabilityFrames > 0) {
+                double pad = 13.0 / Math.max(0.25, zoom);
+                g.setStroke(Color.web("#69F0FF", 0.96));
+                g.setLineDashes(8.0 / Math.max(0.25, zoom), 5.0 / Math.max(0.25, zoom));
+                g.strokeRoundRect(
+                        b.debugCombatLeft() - pad,
+                        b.debugCombatTop() - pad,
+                        b.debugCombatWidth() + pad * 2.0,
+                        b.debugCombatHeight() + pad * 2.0,
+                        pad,
+                        pad
+                );
+                g.setLineDashes();
+            }
+
+            if (b.debugLedgeHanging()) {
+                double anchorX = b.debugLedgeAnchorX();
+                double anchorY = b.debugLedgeAnchorY();
+                double marker = 16.0 / Math.max(0.25, zoom);
+                g.setStroke(Color.web("#FFE082", 0.96));
+                g.setLineWidth(3.0 / Math.max(0.25, zoom));
+                g.strokeOval(anchorX - marker, anchorY - marker, marker * 2.0, marker * 2.0);
+                g.strokeLine(anchorX - marker * 1.35, anchorY, anchorX + marker * 1.35, anchorY);
+                g.strokeLine(anchorX, anchorY - marker * 1.35, anchorX, anchorY + marker * 1.35);
+            }
+
+            Bird grabPartner = b.debugGrabPartner();
+            if (grabPartner != null && b.playerIndex < grabPartner.playerIndex) {
+                g.setStroke(Color.web("#FFAB40", 0.96));
+                g.setLineWidth(4.0 / Math.max(0.25, zoom));
+                g.setLineDashes(12.0 / Math.max(0.25, zoom), 5.0 / Math.max(0.25, zoom));
+                g.strokeLine(b.bodyCenterX(), b.bodyCenterY(),
+                        grabPartner.bodyCenterX(), grabPartner.bodyCenterY());
+                g.setLineDashes();
+            }
+
             if (!b.debugAttackBoxActive()) continue;
             g.setStroke(Color.web("#FF5252").deriveColor(0, 1, 1, 0.94));
             g.strokeRect(
@@ -67571,8 +67608,8 @@ public class BirdGame3 {
 
         double panelX = 22;
         double panelY = 220;
-        double panelW = 560;
-        double panelH = 282;
+        double panelW = 720;
+        double panelH = 450;
         Bird trainingPlayer = players != null && players.length > 0 ? players[0] : null;
 
         g.save();
@@ -67591,7 +67628,7 @@ public class BirdGame3 {
         g.setFill(Color.web("#EDF7F8"));
         g.setFont(Font.font("Consolas", 13));
         double leftX = panelX + 14;
-        double rightX = panelX + 300;
+        double rightX = panelX + 390;
         double rowY = panelY + 61;
         double rowGap = 23;
         String comboText = trainingComboHits > 0
@@ -67642,6 +67679,8 @@ public class BirdGame3 {
                     ? Color.web("#A5D6A7") : Color.web("#B0BEC5"));
             g.fillText(trainingPlayer.debugNormalAttackConnected() ? "CONTACT" : "NO CONTACT YET",
                     rightX, framePanelY + 31);
+            drawTrainingFrameTimeline(g, trainingPlayer,
+                    leftX, framePanelY + 62, panelW - 28, 10);
         } else if (trainingPlayer != null && trainingPlayer.debugNormalAttackCooldownFrames() > 0) {
             g.setFill(Color.web("#FFD166"));
             g.fillText("REATTACK  " + trainingPlayer.debugNormalAttackCooldownFrames()
@@ -67658,10 +67697,36 @@ public class BirdGame3 {
                             + sign + trainingLastShieldAdvantageFrames + "f",
                     rightX, framePanelY + 53);
         }
+
         if (trainingPlayer != null) {
+            double universalY = panelY + 260;
+            g.setStroke(Color.web("#80DEEA", 0.34));
+            g.setLineWidth(1.0);
+            g.strokeLine(panelX + 14, universalY - 10, panelX + panelW - 14, universalY - 10);
+
             g.setFill(Color.web("#B2EBF2"));
             g.setFont(Font.font("Consolas", FontWeight.BOLD, 12));
-            g.fillText("STATE  " + trainingPlayer.debugUniversalActionLabel(), rightX, framePanelY + 9);
+            g.fillText("STATE   " + trainingPlayer.debugUniversalActionLabel(), leftX, universalY + 8);
+
+            int actionableFrames = trainingPlayer.debugUniversalActionableFrames();
+            g.setFill(actionableFrames == 0 ? Color.web("#A5D6A7") : Color.web("#FFD166"));
+            g.fillText(actionableFrames == 0 ? "READY   ACTIONABLE NOW"
+                    : "READY   IN " + actionableFrames + "f", leftX, universalY + 29);
+
+            g.setFill(Color.web("#CFD8DC"));
+            g.setFont(Font.font("Consolas", 11));
+            g.fillText("MOVE    " + trainingPlayer.debugMovementTelemetryLabel(), leftX, universalY + 50);
+            g.fillText("DEFENSE " + trainingPlayer.debugDefenseTelemetryLabel(), leftX, universalY + 71);
+            g.fillText("CONTROL " + trainingPlayer.debugGrabLedgeTelemetryLabel(), leftX, universalY + 92);
+
+            drawTrainingGauge(g, leftX, universalY + 102, 260, 8,
+                    trainingPlayer.debugShieldDurabilityRatio(), Color.web("#64D8FF"));
+            int invulnerabilityFrames = trainingPlayer.debugCombatInvulnerabilityFrames();
+            drawTrainingGauge(g, leftX + 280, universalY + 102, 260, 8,
+                    Math.clamp(invulnerabilityFrames / 120.0, 0.0, 1.0), Color.web("#FFE082"));
+            g.setFill(Color.web("#90A4AE"));
+            g.fillText("SHIELD", leftX, universalY + 123);
+            g.fillText("INVULNERABILITY", leftX + 280, universalY + 123);
         }
 
         g.setFill(Color.web("#FFE082"));
@@ -67671,6 +67736,43 @@ public class BirdGame3 {
         g.fillText("F7 BOXES   F8 SLOMO   F9 FREEZE   F10 STEP", panelX + 14, tipsY + 17);
         g.restore();
         drawTrainingLiveSpecialOverlay(g);
+    }
+
+    private void drawTrainingFrameTimeline(GraphicsContext g, Bird bird,
+                                           double x, double y, double width, double height) {
+        int total = Math.max(1, bird.debugNormalAttackTotalFrames());
+        double startupW = width * bird.debugNormalAttackStartupFrames() / total;
+        double activeW = width * bird.debugNormalAttackActiveFrames() / total;
+        double recoveryW = Math.max(0.0, width - startupW - activeW);
+        g.setFill(Color.web("#23414D"));
+        g.fillRoundRect(x, y, width, height, height, height);
+        g.setFill(Color.web("#72E6F2"));
+        g.fillRect(x, y, startupW, height);
+        g.setFill(Color.web("#FF6B6B"));
+        g.fillRect(x + startupW, y, activeW, height);
+        g.setFill(Color.web("#FFD166"));
+        g.fillRect(x + startupW + activeW, y, recoveryW, height);
+        double cursorX = x + width * Math.clamp(bird.debugNormalAttackFrame() / (double) total, 0.0, 1.0);
+        g.setStroke(Color.WHITE);
+        g.setLineWidth(2.0);
+        g.strokeLine(cursorX, y - 3, cursorX, y + height + 3);
+        g.setStroke(Color.web("#B2EBF2", 0.75));
+        g.setLineWidth(1.0);
+        g.strokeRoundRect(x, y, width, height, height, height);
+    }
+
+    private void drawTrainingGauge(GraphicsContext g, double x, double y, double width,
+                                   double height, double ratio, Color fill) {
+        double clamped = Math.clamp(ratio, 0.0, 1.0);
+        g.setFill(Color.web("#10222B"));
+        g.fillRoundRect(x, y, width, height, height, height);
+        if (clamped > 0.0) {
+            g.setFill(fill);
+            g.fillRoundRect(x, y, Math.max(height, width * clamped), height, height, height);
+        }
+        g.setStroke(Color.web("#78909C", 0.85));
+        g.setLineWidth(1.0);
+        g.strokeRoundRect(x, y, width, height, height, height);
     }
 
     private void drawTrainingLiveSpecialOverlay(GraphicsContext g) {
