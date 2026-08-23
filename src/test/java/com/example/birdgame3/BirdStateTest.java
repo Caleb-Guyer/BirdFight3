@@ -8399,8 +8399,18 @@ class BirdStateTest {
         assertTrue(getPrivateBoolean(pigeon, "ledgeHanging"));
 
         setPrivateInt(pigeon, "ledgeLockTimer", 0);
+        game.simTick = 2;
         game.setLocalActionsForKey(game.blockKeyForPlayer(0), true);
         pigeon.update(1.0);
+
+        assertTrue(getPrivateBoolean(pigeon, "ledgeHanging"),
+                "A ledge roll should have readable startup before moving onto the stage.");
+        assertTrue(pigeon.debugUniversalActionLabel().contains("ROLL STARTUP"));
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), false);
+        for (int frame = 0; frame < 9; frame++) {
+            game.simTick++;
+            pigeon.update(1.0);
+        }
 
         assertFalse(getPrivateBoolean(pigeon, "ledgeHanging"));
         assertTrue(getPrivateInt(pigeon, "ledgeRegrabCooldownTimer") > 0,
@@ -8408,7 +8418,6 @@ class BirdStateTest {
         assertTrue(pigeon.x > mainIsland.x,
                 "Shield from a left ledge should roll the bird safely onto the stage.");
 
-        game.setLocalActionsForKey(game.blockKeyForPlayer(0), false);
         pigeon.x = mainIsland.x - 84.0;
         pigeon.y = mainIsland.y - 12.0;
         pigeon.vx = 12.0;
@@ -8440,6 +8449,15 @@ class BirdStateTest {
         invokePrivateVoid(pigeon, "beginLedgeHang",
                 new Class<?>[]{Platform.class, boolean.class}, mainIsland, false);
         assertTrue(getPrivateInt(pigeon, "ledgeInvulnerabilityTimer") > 0);
+        assertEquals(2, pigeon.debugLedgeTwoFrameVulnerabilityFrames());
+        assertFalse(pigeon.isCombatInvulnerable(),
+                "A fresh ledge catch must remain punishable for the universal two-frame window.");
+        game.simTick++;
+        assertEquals(1, pigeon.debugLedgeTwoFrameVulnerabilityFrames());
+        assertFalse(pigeon.isCombatInvulnerable());
+        game.simTick++;
+        assertEquals(0, pigeon.debugLedgeTwoFrameVulnerabilityFrames());
+        assertTrue(pigeon.isCombatInvulnerable());
         invokePrivateVoid(pigeon, "dropFromLedge");
         setPrivateInt(pigeon, "ledgeRegrabCooldownTimer", 0);
         invokePrivateVoid(pigeon, "beginLedgeHang",
@@ -8465,6 +8483,50 @@ class BirdStateTest {
     }
 
     @Test
+    void twoFrameHitInterruptsLedgeCatchBeforeIntangibility() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        Platform mainIsland = new Platform(1000.0, BirdGame3.GROUND_Y - 220.0, 900.0, 70.0);
+        game.platforms.add(mainIsland);
+        Bird pigeon = new Bird(900.0, BirdGame3.BirdType.PIGEON, 0, game);
+        game.players[0] = pigeon;
+        invokePrivateVoid(pigeon, "beginLedgeHang",
+                new Class<?>[]{Platform.class, boolean.class}, mainIsland, false);
+        double healthBefore = pigeon.health;
+
+        assertTrue(pigeon.receiveExternalDamage(7.0) > 0.0);
+
+        assertTrue(pigeon.health < healthBefore);
+        assertFalse(getPrivateBoolean(pigeon, "ledgeHanging"));
+        assertEquals(0, getPrivateInt(pigeon, "ledgeInvulnerabilityTimer"),
+                "A successful two-frame punish must not leave stale ledge intangibility behind.");
+        assertTrue(getPrivateInt(pigeon, "ledgeRegrabCooldownTimer") > 0);
+    }
+
+    @Test
+    void repeatedRegrabsRemainAvailableButLoseAllIntangibility() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        game.selectedMap = BirdGame3.MapType.BATTLEFIELD;
+        Platform mainIsland = new Platform(1000.0, BirdGame3.GROUND_Y - 220.0, 900.0, 70.0);
+        game.platforms.add(mainIsland);
+        Bird pigeon = new Bird(mainIsland.x - 84.0, BirdGame3.BirdType.PIGEON, 0, game);
+        pigeon.y = mainIsland.y - 12.0;
+        pigeon.vx = 12.0;
+        pigeon.vy = 4.0;
+        game.players[0] = pigeon;
+        setPrivateInt(pigeon, "ledgeGrabCountWithoutLanding", 6);
+
+        pigeon.update(1.0);
+
+        assertTrue(getPrivateBoolean(pigeon, "ledgeHanging"),
+                "Repeated regrabs should be punishable, not arbitrarily disabled after a fixed count.");
+        assertEquals(7, getPrivateInt(pigeon, "ledgeGrabCountWithoutLanding"));
+        assertEquals(0, getPrivateInt(pigeon, "ledgeInvulnerabilityTimer"));
+        assertFalse(pigeon.isCombatInvulnerable());
+    }
+
+    @Test
     void holdingAwayDropsFromLedge() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 1;
@@ -8475,8 +8537,15 @@ class BirdStateTest {
         invokePrivateVoid(pigeon, "beginLedgeHang",
                 new Class<?>[]{Platform.class, boolean.class}, mainIsland, false);
         setPrivateInt(pigeon, "ledgeLockTimer", 0);
+        game.simTick = 2;
         game.setLocalActionsForKey(game.leftKeyForPlayer(0), true);
 
+        pigeon.update(1.0);
+
+        assertTrue(getPrivateBoolean(pigeon, "ledgeHanging"));
+        assertTrue(pigeon.debugUniversalActionLabel().contains("DROP STARTUP"));
+        game.setLocalActionsForKey(game.leftKeyForPlayer(0), false);
+        pigeon.update(1.0);
         pigeon.update(1.0);
 
         assertFalse(getPrivateBoolean(pigeon, "ledgeHanging"));
@@ -8520,6 +8589,10 @@ class BirdStateTest {
                 new Class<?>[]{Platform.class, boolean.class}, sourcePlatform, false);
         setPrivateInt(source, "ledgeHangFrames", 73);
         setPrivateInt(source, "ledgeGrabCountWithoutLanding", 2);
+        Class<?> ledgeOptionClass = Class.forName("com.example.birdgame3.Bird$LedgeOptionType");
+        setPrivateObject(source, "ledgeOptionType", enumConstant(ledgeOptionClass, "ROLL"));
+        setPrivateInt(source, "ledgeOptionTimer", 5);
+        setPrivateInt(source, "ledgeOptionTotalFrames", 9);
         LanBirdState snapshot = source.toLanState();
 
         BirdGame3 remoteGame = new BirdGame3();
@@ -8534,6 +8607,9 @@ class BirdStateTest {
         assertSame(remotePlatform, getPrivateObject(restored, "ledgePlatform"));
         assertEquals(73, getPrivateInt(restored, "ledgeHangFrames"));
         assertEquals(2, getPrivateInt(restored, "ledgeGrabCountWithoutLanding"));
+        assertEquals("ROLL", ((Enum<?>) getPrivateObject(restored, "ledgeOptionType")).name());
+        assertEquals(5, getPrivateInt(restored, "ledgeOptionTimer"));
+        assertEquals(9, getPrivateInt(restored, "ledgeOptionTotalFrames"));
         assertEquals(source.deterministicLedgeStateHash(), restored.deterministicLedgeStateHash());
 
         restored.update(1.0);

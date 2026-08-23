@@ -1327,8 +1327,12 @@ public class Bird {
     private int ledgeLockTimer = 0;
     private int ledgeRegrabCooldownTimer = 0;
     private int ledgeInvulnerabilityTimer = 0;
+    private long ledgeInvulnerabilityStartTick = 0L;
     private int ledgeHangFrames = 0;
     private int ledgeGrabCountWithoutLanding = 0;
+    private LedgeOptionType ledgeOptionType = LedgeOptionType.NONE;
+    private int ledgeOptionTimer = 0;
+    private int ledgeOptionTotalFrames = 0;
     private Platform respawnNestPlatform = null;
     private int respawnInvulnerabilityTimer = 0;
     private int respawnReturnTimer = 0;
@@ -1755,10 +1759,15 @@ public class Bird {
     private static final int LEDGE_REGRAB_COOLDOWN_FRAMES = 24;
     private static final int LEDGE_TRUMP_REGRAB_COOLDOWN_FRAMES = 36;
     private static final int LEDGE_MAX_HANG_FRAMES = 180;
-    private static final int LEDGE_MAX_GRABS_WITHOUT_LANDING = 6;
     private static final int LEDGE_GRAB_INTANGIBILITY_FRAMES = 18;
     private static final int LEDGE_CLIMB_INTANGIBILITY_FRAMES = 8;
     private static final int LEDGE_ROLL_INTANGIBILITY_FRAMES = 14;
+    private static final int LEDGE_TWO_FRAME_VULNERABILITY_FRAMES = 2;
+    private static final int LEDGE_NEUTRAL_GETUP_STARTUP_FRAMES = 7;
+    private static final int LEDGE_ROLL_STARTUP_FRAMES = 9;
+    private static final int LEDGE_JUMP_STARTUP_FRAMES = 5;
+    private static final int LEDGE_DROP_STARTUP_FRAMES = 2;
+    private static final int LEDGE_ATTACK_STARTUP_FRAMES = 8;
     private static final double SMASH_RESPAWN_NEST_RISE = 140.0;
     private static final double SMASH_RESPAWN_NEST_MIN_WIDTH = 180.0;
     private static final double SMASH_RESPAWN_NEST_HEIGHT = 28.0;
@@ -2518,6 +2527,15 @@ public class Bird {
         AIR
     }
 
+    private enum LedgeOptionType {
+        NONE,
+        NEUTRAL_GETUP,
+        ROLL,
+        JUMP,
+        DROP,
+        ATTACK
+    }
+
     private enum BirdAnimationState {
         IDLE,
         FLAP,
@@ -2706,7 +2724,7 @@ public class Bird {
     }
 
     boolean isCombatInvulnerable() {
-        return ledgeInvulnerabilityTimer > 0
+        return (ledgeInvulnerabilityTimer > 0 && game.simTick >= ledgeInvulnerabilityStartTick)
                 || throwInvulnerabilityTimer > 0
                 || eagleSkySovereignActive
                 || falconTerminalVelocityActive
@@ -3389,6 +3407,10 @@ public class Bird {
         ledgeHangFrames = 0;
         ledgeGrabCountWithoutLanding++;
         ledgeInvulnerabilityTimer = scaledLedgeInvulnerability(LEDGE_GRAB_INTANGIBILITY_FRAMES);
+        ledgeInvulnerabilityStartTick = game.simTick + LEDGE_TWO_FRAME_VULNERABILITY_FRAMES;
+        ledgeOptionType = LedgeOptionType.NONE;
+        ledgeOptionTimer = 0;
+        ledgeOptionTotalFrames = 0;
         attackAnimationTimer = 0;
         clearAerialAttackState();
         landingLagTimer = 0;
@@ -3437,6 +3459,10 @@ public class Bird {
         ledgeGrabOnRightSide = false;
         ledgeLockTimer = 0;
         ledgeHangFrames = 0;
+        ledgeInvulnerabilityStartTick = 0L;
+        ledgeOptionType = LedgeOptionType.NONE;
+        ledgeOptionTimer = 0;
+        ledgeOptionTotalFrames = 0;
         if (regrabCooldownFrames > 0) {
             ledgeRegrabCooldownTimer = Math.max(ledgeRegrabCooldownTimer, regrabCooldownFrames);
         }
@@ -3499,6 +3525,52 @@ public class Bird {
         ledgeGrabCountWithoutLanding = 0;
     }
 
+    private int ledgeOptionStartupFrames(LedgeOptionType option) {
+        return switch (option) {
+            case NEUTRAL_GETUP -> LEDGE_NEUTRAL_GETUP_STARTUP_FRAMES;
+            case ROLL -> LEDGE_ROLL_STARTUP_FRAMES;
+            case JUMP -> LEDGE_JUMP_STARTUP_FRAMES;
+            case DROP -> LEDGE_DROP_STARTUP_FRAMES;
+            case ATTACK -> LEDGE_ATTACK_STARTUP_FRAMES;
+            case NONE -> 0;
+        };
+    }
+
+    private void queueLedgeOption(LedgeOptionType option) {
+        if (!ledgeHanging || option == null || option == LedgeOptionType.NONE
+                || ledgeOptionType != LedgeOptionType.NONE) {
+            return;
+        }
+        ledgeOptionType = option;
+        ledgeOptionTotalFrames = ledgeOptionStartupFrames(option);
+        ledgeOptionTimer = ledgeOptionTotalFrames;
+    }
+
+    private void resolveQueuedLedgeOption() {
+        LedgeOptionType option = ledgeOptionType;
+        ledgeOptionType = LedgeOptionType.NONE;
+        ledgeOptionTimer = 0;
+        ledgeOptionTotalFrames = 0;
+        switch (option) {
+            case NEUTRAL_GETUP -> climbFromLedge(false);
+            case ROLL -> climbFromLedge(true);
+            case JUMP -> {
+                jumpFromLedge();
+                game.playSwingSfx();
+            }
+            case DROP -> dropFromLedge();
+            case ATTACK -> {
+                int optionInvulnerability = scaledLedgeInvulnerability(8);
+                climbFromLedge(false);
+                performAttack(0, NormalAttackVariant.LEDGE_ATTACK);
+                ledgeInvulnerabilityTimer = Math.max(ledgeInvulnerabilityTimer, optionInvulnerability);
+            }
+            case NONE -> {
+                // A cancelled or restored NONE option has no resolution.
+            }
+        }
+    }
+
     private boolean handleLedgeHanging(boolean stunned) {
         if (!ledgeHanging) {
             return false;
@@ -3511,10 +3583,23 @@ public class Bird {
         snapToLedge();
         ledgeHangFrames++;
 
+        if (ledgeOptionType != LedgeOptionType.NONE) {
+            if (stunned) {
+                return true;
+            }
+            if (ledgeOptionTimer > 0) {
+                ledgeOptionTimer--;
+            }
+            if (ledgeOptionTimer <= 0) {
+                resolveQueuedLedgeOption();
+                return false;
+            }
+            return true;
+        }
+
         if (game.isAI[playerIndex]) {
             if (!stunned && ledgeLockTimer <= 0 && ledgeHangFrames >= 12) {
                 performAILedgeOption();
-                return false;
             }
             return true;
         }
@@ -3527,28 +3612,24 @@ public class Bird {
             return false;
         }
         if (jumpPressed()) {
-            jumpFromLedge();
-            game.playSwingSfx();
-            return false;
+            queueLedgeOption(LedgeOptionType.JUMP);
+            return true;
         }
         if ((attackPressed() || specialPressed() || grabPressed()) && attackCooldown <= 0) {
-            int optionInvulnerability = scaledLedgeInvulnerability(8);
-            climbFromLedge(false);
-            performAttack(0, NormalAttackVariant.LEDGE_ATTACK);
-            ledgeInvulnerabilityTimer = Math.max(ledgeInvulnerabilityTimer, optionInvulnerability);
-            return false;
+            queueLedgeOption(LedgeOptionType.ATTACK);
+            return true;
         }
         if (blockPressed()) {
-            climbFromLedge(true);
-            return false;
+            queueLedgeOption(LedgeOptionType.ROLL);
+            return true;
         }
         if (ledgeTowardStagePressed()) {
-            climbFromLedge(false);
-            return false;
+            queueLedgeOption(LedgeOptionType.NEUTRAL_GETUP);
+            return true;
         }
         if (ledgeAwayFromStagePressed()) {
-            dropFromLedge();
-            return false;
+            queueLedgeOption(LedgeOptionType.DROP);
+            return true;
         }
         return true;
     }
@@ -3558,8 +3639,7 @@ public class Bird {
         if (ledgeHanging || batHanging || onVine || isGrappling || inDockWater || health <= 0) {
             return false;
         }
-        if (ledgeRegrabCooldownTimer > 0 || vy < -10.0
-                || ledgeGrabCountWithoutLanding >= LEDGE_MAX_GRABS_WITHOUT_LANDING) {
+        if (ledgeRegrabCooldownTimer > 0 || vy < -10.0) {
             return false;
         }
 
@@ -6405,16 +6485,13 @@ public class Bird {
         Bird target = pickAITarget();
         double targetDistance = target != null ? combatDistanceTo(target) : Double.MAX_VALUE;
         if (target != null && targetDistance < 180.0 && attackCooldown <= 0) {
-            int optionInvulnerability = scaledLedgeInvulnerability(8);
-            climbFromLedge(false);
-            performAttack(0, NormalAttackVariant.LEDGE_ATTACK);
-            ledgeInvulnerabilityTimer = Math.max(ledgeInvulnerabilityTimer, optionInvulnerability);
+            queueLedgeOption(LedgeOptionType.ATTACK);
         } else if (game.usesSmashCombatRules() && smashDamagePercent() >= 90.0) {
-            climbFromLedge(true);
+            queueLedgeOption(LedgeOptionType.ROLL);
         } else if (target != null && target.bodyCenterY() < bodyCenterY() - 90.0) {
-            jumpFromLedge();
+            queueLedgeOption(LedgeOptionType.JUMP);
         } else {
-            climbFromLedge(false);
+            queueLedgeOption(LedgeOptionType.NEUTRAL_GETUP);
         }
     }
 
@@ -15895,7 +15972,9 @@ public class Bird {
         batRehangCooldownTimer = Math.max(0, (int)(batRehangCooldownTimer - gameSpeed));
         ledgeLockTimer = Math.max(0, (int)(ledgeLockTimer - gameSpeed));
         ledgeRegrabCooldownTimer = Math.max(0, (int)(ledgeRegrabCooldownTimer - gameSpeed));
-        ledgeInvulnerabilityTimer = Math.max(0, (int)(ledgeInvulnerabilityTimer - gameSpeed));
+        if (ledgeInvulnerabilityStartTick <= 0L || game.simTick > ledgeInvulnerabilityStartTick) {
+            ledgeInvulnerabilityTimer = Math.max(0, (int)(ledgeInvulnerabilityTimer - gameSpeed));
+        }
         if (isShrinkImmune()) {
             shrinkTimer = 0;
             if (sizeMultiplier < baseSizeMultiplier) {
@@ -18744,8 +18823,17 @@ public class Bird {
                     + grabReleaseLockTimer + "f";
         }
         if (ledgeHanging) {
+            int twoFrame = debugLedgeTwoFrameVulnerabilityFrames();
+            if (twoFrame > 0) {
+                return "LEDGE TWO FRAME " + twoFrame + "f | GRAB " + ledgeGrabCountWithoutLanding;
+            }
+            if (ledgeOptionType != LedgeOptionType.NONE) {
+                return "LEDGE " + ledgeOptionType.name().replace('_', ' ') + " STARTUP "
+                        + ledgeOptionTimer + "/" + ledgeOptionTotalFrames + "f | INV "
+                        + debugCombatInvulnerabilityFrames() + "f";
+            }
             return "LEDGE HANG " + ledgeHangFrames + "f | LOCK " + ledgeLockTimer
-                    + "f | INV " + ledgeInvulnerabilityTimer + "f | GRAB "
+                    + "f | INV " + debugCombatInvulnerabilityFrames() + "f | GRAB "
                     + ledgeGrabCountWithoutLanding;
         }
         if (platformDropTimer > 0) return "PLATFORM DROP " + platformDropTimer + "f";
@@ -18787,6 +18875,7 @@ public class Bird {
         }
         if (ledgeHanging) {
             remaining = Math.max(remaining, ledgeLockTimer);
+            remaining = Math.max(remaining, ledgeOptionTimer);
         }
         if (normalAttackTimelineActive) {
             remaining = Math.max(remaining, debugNormalAttackRemainingFrames());
@@ -18837,12 +18926,25 @@ public class Bird {
                     ? "RELEASE LOCK " + grabReleaseLockTimer + "f"
                     : grabCooldown > 0 ? "COOLDOWN " + grabCooldown + "f" : "READY";
         }
-        String ledge = ledgeHanging
+        int twoFrame = debugLedgeTwoFrameVulnerabilityFrames();
+        String ledge = ledgeHanging && twoFrame > 0
+                ? "TWO FRAME " + twoFrame + "f / GRAB " + ledgeGrabCountWithoutLanding
+                : ledgeHanging && ledgeOptionType != LedgeOptionType.NONE
+                ? ledgeOptionType.name().replace('_', ' ') + " " + ledgeOptionTimer + "f / GRAB "
+                + ledgeGrabCountWithoutLanding
+                : ledgeHanging
                 ? "HANG " + ledgeHangFrames + "f / GRAB " + ledgeGrabCountWithoutLanding
                 : ledgeRegrabCooldownTimer > 0
                 ? "LOCK " + ledgeRegrabCooldownTimer + "f / GRAB " + ledgeGrabCountWithoutLanding
                 : "READY / GRAB " + ledgeGrabCountWithoutLanding;
         return "GRAB " + grab + " | LEDGE " + ledge;
+    }
+
+    int debugLedgeTwoFrameVulnerabilityFrames() {
+        if (!ledgeHanging || ledgeInvulnerabilityTimer <= 0 || ledgeInvulnerabilityStartTick <= game.simTick) {
+            return 0;
+        }
+        return (int) Math.min(Integer.MAX_VALUE, ledgeInvulnerabilityStartTick - game.simTick);
     }
 
     String debugHitReactionTelemetryLabel() {
@@ -18916,8 +19018,12 @@ public class Bird {
         h = h * 31 + ledgeLockTimer;
         h = h * 31 + ledgeRegrabCooldownTimer;
         h = h * 31 + ledgeInvulnerabilityTimer;
+        h = h * 31 + ledgeInvulnerabilityStartTick;
         h = h * 31 + ledgeHangFrames;
         h = h * 31 + ledgeGrabCountWithoutLanding;
+        h = h * 31 + ledgeOptionType.ordinal();
+        h = h * 31 + ledgeOptionTimer;
+        h = h * 31 + ledgeOptionTotalFrames;
         return h;
     }
 
@@ -19333,6 +19439,7 @@ public class Bird {
             return;
         }
         clearLedgeHangState(LEDGE_REGRAB_COOLDOWN_FRAMES);
+        ledgeInvulnerabilityTimer = 0;
         y += Math.max(8.0, bodyHeight() * 0.14);
     }
 
@@ -20898,8 +21005,12 @@ public class Bird {
         ledgeLockTimer = 0;
         ledgeRegrabCooldownTimer = 0;
         ledgeInvulnerabilityTimer = 0;
+        ledgeInvulnerabilityStartTick = 0L;
         ledgeHangFrames = 0;
         ledgeGrabCountWithoutLanding = 0;
+        ledgeOptionType = LedgeOptionType.NONE;
+        ledgeOptionTimer = 0;
+        ledgeOptionTotalFrames = 0;
         respawnNestPlatform = null;
         respawnInvulnerabilityTimer = 0;
         respawnReturnTimer = 0;
@@ -21255,8 +21366,12 @@ public class Bird {
         state.ledgeLockTimer = ledgeLockTimer;
         state.ledgeRegrabCooldownTimer = ledgeRegrabCooldownTimer;
         state.ledgeInvulnerabilityTimer = ledgeInvulnerabilityTimer;
+        state.ledgeInvulnerabilityStartTick = ledgeInvulnerabilityStartTick;
         state.ledgeHangFrames = ledgeHangFrames;
         state.ledgeGrabCountWithoutLanding = ledgeGrabCountWithoutLanding;
+        state.ledgeOptionTypeOrdinal = ledgeOptionType.ordinal();
+        state.ledgeOptionTimer = ledgeOptionTimer;
+        state.ledgeOptionTotalFrames = ledgeOptionTotalFrames;
         state.ledgePlatformActive = ledgeHanging && ledgePlatform != null;
         if (state.ledgePlatformActive) {
             state.ledgePlatformX = ledgePlatform.x;
@@ -22140,8 +22255,16 @@ public class Bird {
         this.ledgeLockTimer = state.ledgeLockTimer;
         this.ledgeRegrabCooldownTimer = state.ledgeRegrabCooldownTimer;
         this.ledgeInvulnerabilityTimer = state.ledgeInvulnerabilityTimer;
+        this.ledgeInvulnerabilityStartTick = Math.max(0L, state.ledgeInvulnerabilityStartTick);
         this.ledgeHangFrames = Math.max(0, state.ledgeHangFrames);
         this.ledgeGrabCountWithoutLanding = Math.max(0, state.ledgeGrabCountWithoutLanding);
+        LedgeOptionType[] ledgeOptionTypes = LedgeOptionType.values();
+        this.ledgeOptionType = state.ledgeOptionTypeOrdinal >= 0
+                && state.ledgeOptionTypeOrdinal < ledgeOptionTypes.length
+                ? ledgeOptionTypes[state.ledgeOptionTypeOrdinal]
+                : LedgeOptionType.NONE;
+        this.ledgeOptionTimer = Math.max(0, state.ledgeOptionTimer);
+        this.ledgeOptionTotalFrames = Math.max(this.ledgeOptionTimer, state.ledgeOptionTotalFrames);
         this.ledgePlatform = null;
         if (state.ledgeHanging && state.ledgePlatformActive) {
             for (Platform candidate : game.platforms) {
@@ -22155,6 +22278,12 @@ public class Bird {
             }
         }
         this.ledgeHanging = state.ledgeHanging && this.ledgePlatform != null;
+        if (!this.ledgeHanging) {
+            this.ledgeInvulnerabilityStartTick = 0L;
+            this.ledgeOptionType = LedgeOptionType.NONE;
+            this.ledgeOptionTimer = 0;
+            this.ledgeOptionTotalFrames = 0;
+        }
         this.respawnInvulnerabilityTimer = state.respawnInvulnerabilityTimer;
         this.respawnReturnTimer = 0;
         this.respawnNestLockTimer = 0;

@@ -114,6 +114,11 @@ class PigeonMovesetIdentityTest {
         ledgeGame.setAiControlKey(0, ledgeGame.attackKeyForPlayer(0), true);
         assertTrue(ledgeGame.isAttackPressed(0));
 
+        assertTrue((boolean) invoke(ledgePigeon, "handleLedgeHanging", false));
+        assertTrue(ledgePigeon.debugUniversalActionLabel().contains("ATTACK STARTUP"));
+        for (int frame = 0; frame < 7; frame++) {
+            assertTrue((boolean) invoke(ledgePigeon, "handleLedgeHanging", false));
+        }
         assertFalse((boolean) invoke(ledgePigeon, "handleLedgeHanging", false));
         assertEquals("LEDGE_ATTACK", activeAttackVariantName(ledgePigeon));
 

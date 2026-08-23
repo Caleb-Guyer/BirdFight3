@@ -123,8 +123,12 @@ class LanProtocolTest {
         state.grabEscapeProgress = 12;
         state.grabReleaseLockTimer = 23;
         state.throwInvulnerabilityTimer = 4;
+        state.ledgeInvulnerabilityStartTick = 1234L;
         state.ledgeHangFrames = 73;
         state.ledgeGrabCountWithoutLanding = 2;
+        state.ledgeOptionTypeOrdinal = 2;
+        state.ledgeOptionTimer = 5;
+        state.ledgeOptionTotalFrames = 9;
         state.ledgePlatformActive = true;
         state.ledgePlatformX = 123.5;
         state.ledgePlatformY = 456.5;
@@ -474,8 +478,12 @@ class LanProtocolTest {
         assertEquals(12, decoded.grabEscapeProgress);
         assertEquals(23, decoded.grabReleaseLockTimer);
         assertEquals(4, decoded.throwInvulnerabilityTimer);
+        assertEquals(1234L, decoded.ledgeInvulnerabilityStartTick);
         assertEquals(73, decoded.ledgeHangFrames);
         assertEquals(2, decoded.ledgeGrabCountWithoutLanding);
+        assertEquals(2, decoded.ledgeOptionTypeOrdinal);
+        assertEquals(5, decoded.ledgeOptionTimer);
+        assertEquals(9, decoded.ledgeOptionTotalFrames);
         assertTrue(decoded.ledgePlatformActive);
         assertEquals(123.5, decoded.ledgePlatformX);
         assertEquals(456.5, decoded.ledgePlatformY);
