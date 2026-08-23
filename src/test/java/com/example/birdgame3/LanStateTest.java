@@ -67,6 +67,9 @@ class LanStateTest {
         bird.airDodgeAvailable = false;
         bird.techBufferTimer = 4;
         bird.knockdownTimer = 22;
+        bird.missedTechKnockdownActive = true;
+        bird.jabLockCount = 2;
+        bird.activeGetupOptionOrdinal = 2;
         bird.tumbleTimer = 51;
         bird.meteorTimer = 17;
         bird.lastLaunchSpeed = 19.75;
@@ -410,6 +413,9 @@ class LanStateTest {
         assertFalse(decoded.birds[0].airDodgeAvailable);
         assertEquals(4, decoded.birds[0].techBufferTimer);
         assertEquals(22, decoded.birds[0].knockdownTimer);
+        assertTrue(decoded.birds[0].missedTechKnockdownActive);
+        assertEquals(2, decoded.birds[0].jabLockCount);
+        assertEquals(2, decoded.birds[0].activeGetupOptionOrdinal);
         assertEquals(51, decoded.birds[0].tumbleTimer);
         assertEquals(17, decoded.birds[0].meteorTimer);
         assertEquals(19.75, decoded.birds[0].lastLaunchSpeed);

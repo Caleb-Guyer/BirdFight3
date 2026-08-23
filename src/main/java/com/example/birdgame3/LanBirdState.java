@@ -364,6 +364,9 @@ class LanBirdState {
     int dodgeStaleRecoveryTimer;
     int techBufferTimer;
     int knockdownTimer;
+    boolean missedTechKnockdownActive;
+    int jabLockCount;
+    int activeGetupOptionOrdinal;
     int tumbleTimer;
     int meteorTimer;
     double lastLaunchSpeed;
@@ -1150,6 +1153,9 @@ class LanBirdState {
         out.writeInt(dodgeStaleRecoveryTimer);
         out.writeInt(techBufferTimer);
         out.writeInt(knockdownTimer);
+        out.writeBoolean(missedTechKnockdownActive);
+        out.writeInt(jabLockCount);
+        out.writeInt(activeGetupOptionOrdinal);
         out.writeInt(tumbleTimer);
         out.writeInt(meteorTimer);
         out.writeDouble(lastLaunchSpeed);
@@ -1992,6 +1998,9 @@ class LanBirdState {
         state.dodgeStaleRecoveryTimer = in.readInt();
         state.techBufferTimer = in.readInt();
         state.knockdownTimer = in.readInt();
+        state.missedTechKnockdownActive = in.readBoolean();
+        state.jabLockCount = in.readInt();
+        state.activeGetupOptionOrdinal = in.readInt();
         state.tumbleTimer = in.readInt();
         state.meteorTimer = in.readInt();
         state.lastLaunchSpeed = in.readDouble();

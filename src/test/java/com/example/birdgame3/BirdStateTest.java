@@ -6498,7 +6498,7 @@ class BirdStateTest {
     }
 
     @Test
-    void missedTechLandingEntersKnockdownAndBlocksShieldUntilRecoveryEnds() throws Exception {
+    void missedTechLandingAllowsNeutralGetupBeforeShielding() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 1;
         setPrivateBoolean(game);
@@ -6520,8 +6520,13 @@ class BirdStateTest {
         bird.update(1.0);
 
         assertFalse(bird.isBlocking);
+        assertEquals(0, getPrivateInt(bird, "knockdownTimer"));
+        assertEquals("SPOT", getPrivateObject(bird, "dodgeType").toString());
+        assertEquals("NEUTRAL", getPrivateObject(bird, "activeGetupOption").toString());
+        assertEquals(0, getPrivateInt(bird, "dodgeStaleLevel"),
+                "Get-up invulnerability must not stale ordinary defensive dodges.");
 
-        while (getPrivateInt(bird, "knockdownTimer") > 0) {
+        while (getPrivateInt(bird, "dodgeTimer") > 0) {
             bird.update(1.0);
         }
         bird.update(1.0);

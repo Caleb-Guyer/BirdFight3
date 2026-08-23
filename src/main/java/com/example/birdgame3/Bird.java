@@ -1369,6 +1369,9 @@ public class Bird {
     private boolean blockHeldLastFrame = false;
     private int techBufferTimer = 0;
     int knockdownTimer = 0;
+    private boolean missedTechKnockdownActive = false;
+    private int jabLockCount = 0;
+    private GetupOption activeGetupOption = GetupOption.NONE;
     private int tumbleTimer = 0;
     private int meteorTimer = 0;
     private double lastLaunchSpeed = 0.0;
@@ -1840,6 +1843,8 @@ public class Bird {
     private static final double CEILING_TECH_MIN_IMPACT_SPEED = 6.5;
     private static final int TECH_INVULNERABILITY_FRAMES = 12;
     private static final int MISSED_TECH_KNOCKDOWN_FRAMES = 34;
+    private static final int JAB_LOCK_EXTENSION_FRAMES = 20;
+    private static final int MAX_JAB_LOCKS = 2;
     private static final double WALL_BOUNCE_SPEED_SCALE = 0.55;
     private static final double WALL_BOUNCE_VERTICAL_DAMPING = 0.88;
     private static final int SPOT_DODGE_FRAMES = 18;
@@ -2569,6 +2574,14 @@ public class Bird {
         MISSED_CEILING
     }
 
+    private enum GetupOption {
+        NONE,
+        NEUTRAL,
+        ROLL,
+        JUMP,
+        ATTACK
+    }
+
     private enum ProjectedKoZone {
         SAFE,
         LEFT,
@@ -2846,7 +2859,7 @@ public class Bird {
         clearAerialAttackState();
         attackAnimationTimer = 0;
         landingLagTimer = 0;
-        knockdownTimer = 0;
+        clearKnockdownState();
 
         if (respawnReturnTimer > 0) {
             double t = 1.0 - respawnReturnTimer / (double) SMASH_RESPAWN_RETURN_FRAMES;
@@ -6021,6 +6034,7 @@ public class Bird {
             return;
         }
 
+        boolean jabLocked = other.tryApplyJabLock(variant);
         double targetKnockbackMult = other.incomingKnockbackMultiplier();
         double horizontalKnockback = kb * targetKnockbackMult;
         if (variant == NormalAttackVariant.SIDE_SMASH && game.usesDamageScaledKnockback()) {
@@ -6030,11 +6044,16 @@ public class Bird {
             horizontalKnockback = Math.copySign(Math.min(Math.abs(horizontalKnockback), lowPercentCap),
                     horizontalKnockback);
         }
-        other.vx += horizontalKnockback;
-        other.vy -= verticalKb * targetKnockbackMult;
-        applyTurkeyStuffedKnockbackBonus(other, horizontalDirection);
+        if (jabLocked) {
+            other.vx *= 0.16;
+            other.vy = 0.0;
+        } else {
+            other.vx += horizontalKnockback;
+            other.vy -= verticalKb * targetKnockbackMult;
+            applyTurkeyStuffedKnockbackBonus(other, horizontalDirection);
+        }
         double oldHealth = other.health;
-        double dealtDamage = applyScaledDamageTo(other, scaledDamage);
+        double dealtDamage = applyScaledDamageTo(other, scaledDamage, !jabLocked);
 
         game.damageDealt[playerIndex] += (int) dealtDamage;
         if (dealtDamage > 0) {
@@ -6077,6 +6096,29 @@ public class Bird {
         double durabilityScale = SHIELD_MIN_VISUAL_SCALE + (1.0 - SHIELD_MIN_VISUAL_SCALE) * shieldDurabilityRatio();
         double holdScale = 1.0 - SHIELD_HOLD_VISUAL_SHRINK * Math.clamp(shieldHoldVisual, 0.0, 1.0);
         return Math.max(0.34, durabilityScale * holdScale);
+    }
+
+    private boolean tryApplyJabLock(NormalAttackVariant variant) {
+        if (!game.usesDamageScaledKnockback() || !missedTechKnockdownActive
+                || knockdownTimer <= 0 || activeGetupOption != GetupOption.NONE) {
+            return false;
+        }
+        boolean lockEligibleMove = variant == NormalAttackVariant.NEUTRAL
+                || variant == NormalAttackVariant.DOWN_TILT;
+        if (!lockEligibleMove) {
+            return false;
+        }
+        if (jabLockCount >= MAX_JAB_LOCKS) {
+            clearKnockdownState();
+            return false;
+        }
+        jabLockCount++;
+        knockdownTimer = Math.max(knockdownTimer, JAB_LOCK_EXTENSION_FRAMES);
+        stunTime = 0.0;
+        tumbleTimer = 0;
+        meteorTimer = 0;
+        lastTechResult = TechResult.MISSED_GROUND;
+        return true;
     }
 
     private boolean shieldCoversIncomingHit(Bird attacker) {
@@ -10365,6 +10407,11 @@ public class Bird {
         clearAIInputs();
         int cpuLevel = game.getCpuLevel(playerIndex);
         double currentDurability = aiDurabilityHealth();
+        if (applyAIGetupInputs(cpuLevel)) {
+            aiBlockHoldFrames = 0;
+            aiLastHealth = currentDurability;
+            return;
+        }
         if (applyAILaunchSurvivalInputs(cpuLevel)) {
             aiBlockHoldFrames = 0;
             aiLastHealth = currentDurability;
@@ -10812,6 +10859,36 @@ public class Bird {
         }
 
         aiLastHealth = currentDurability;
+    }
+
+    private boolean applyAIGetupInputs(int cpuLevel) {
+        if (!missedTechKnockdownActive || activeGetupOption != GetupOption.NONE) {
+            return false;
+        }
+        if (cpuLevel <= 2) {
+            return true;
+        }
+        int responseFrame = cpuLevel >= 8 ? 29 : cpuLevel >= 5 ? 24 : 14;
+        if (knockdownTimer > responseFrame) {
+            return true;
+        }
+
+        Bird target = pickAITarget();
+        double targetDx = target == null ? 0.0 : target.bodyCenterX() - bodyCenterX();
+        double targetDistance = target == null ? Double.POSITIVE_INFINITY
+                : Math.hypot(targetDx, target.bodyCenterY() - bodyCenterY());
+        int option = Math.floorMod((int) (game.simTick / 12L) + playerIndex * 3 + cpuLevel, 4);
+        if (targetDistance < 165.0 && option == 0) {
+            game.setAiControlKey(playerIndex, attackKey(), true);
+        } else if (option == 1) {
+            game.setAiControlKey(playerIndex, jumpKey(), true);
+        } else if (option == 2 && target != null) {
+            KeyCode awayKey = targetDx < 0.0 ? rightKey() : leftKey();
+            game.setAiControlKey(playerIndex, awayKey, true);
+        } else {
+            game.setAiControlKey(playerIndex, blockKey(), true);
+        }
+        return true;
     }
 
     /**
@@ -15294,7 +15371,8 @@ public class Bird {
             return;
         }
 
-        handleGroundedGetupAttack(stunned, airborne);
+        boolean getupInputConsumed = handleGroundedGetupOptions(stunned, airborne,
+                jumpHeld && !jumpHeldLastFrame, blockJustPressed, leftHeld, rightHeld);
 
         if (type == BirdGame3.BirdType.BAT && handleBatHanging(stunned)) {
             rememberFrameInputs(jumpHeld, specialHeld, blockHeld, grabHeld, leftHeld, rightHeld);
@@ -15310,9 +15388,11 @@ public class Bird {
         }
 
         boolean reserveBufferedTech = shouldReserveBufferedTechInput();
-        handleDodgeInput(stunned || reserveBufferedTech, airborne, inDockWater, blockJustPressed, grabJustPressed,
+        handleDodgeInput(stunned || reserveBufferedTech || getupInputConsumed,
+                airborne, inDockWater, blockJustPressed, grabJustPressed,
                 leftHeld, rightHeld, jumpHeld, directionalDownHeld, leftJustPressed, rightJustPressed);
-        updateShieldState(stunned, airborne, defensiveBlockHeld, blockHeld, inDockWater, gameSpeed);
+        updateShieldState(stunned || getupInputConsumed, airborne, defensiveBlockHeld, blockHeld,
+                inDockWater, gameSpeed);
         if (isDodging()) {
             downHeld = false;
             fastFallActive = false;
@@ -16117,6 +16197,12 @@ public class Bird {
         if (dodgeTimer == 0) {
             clearActiveDodge();
         }
+        if (activeGetupOption == GetupOption.ATTACK
+                && !normalAttackTimelineActive && attackAnimationTimer <= 0) {
+            activeGetupOption = GetupOption.NONE;
+        } else if (activeGetupOption == GetupOption.JUMP && jumpSquatTimer <= 0) {
+            activeGetupOption = GetupOption.NONE;
+        }
         shieldStunFrames = Math.max(0, (int) (shieldStunFrames - gameSpeed));
         parryWindowFrames = Math.max(0, (int) (parryWindowFrames - gameSpeed));
         if (!isBlocking && shieldRegenDelayFrames <= 0 && shieldHealth < SHIELD_MAX_HEALTH) {
@@ -16239,7 +16325,7 @@ public class Bird {
     void prepareVisualAuditPose(VisualAuditPose pose) {
         health = STARTING_HEALTH;
         stunTime = 0.0;
-        knockdownTimer = 0;
+        clearKnockdownState();
         isBlocking = false;
         shieldStunFrames = 0;
         parryWindowFrames = 0;
@@ -16741,6 +16827,9 @@ public class Bird {
         dodgePendingInvulnerabilityFrames = 0;
         dodgeDirection = 0;
         dodgeVerticalDirection = 0;
+        if (activeGetupOption == GetupOption.NEUTRAL || activeGetupOption == GetupOption.ROLL) {
+            activeGetupOption = GetupOption.NONE;
+        }
     }
 
     private void resetDodgeState() {
@@ -16807,6 +16896,9 @@ public class Bird {
 
     private void clearKnockdownState() {
         knockdownTimer = 0;
+        missedTechKnockdownActive = false;
+        jabLockCount = 0;
+        activeGetupOption = GetupOption.NONE;
     }
 
     private void clearLaunchTumbleOnSafeLanding() {
@@ -16831,7 +16923,50 @@ public class Bird {
         vy = 0.0;
         dodgeInvulnerabilityTimer = Math.max(dodgeInvulnerabilityTimer, 8);
         performAttack(0, NormalAttackVariant.GETUP_ATTACK);
+        activeGetupOption = GetupOption.ATTACK;
         attackHeldLastFrame = true;
+        return true;
+    }
+
+    private boolean handleGroundedGetupOptions(boolean stunned, boolean airborne,
+                                               boolean jumpJustPressed, boolean blockJustPressed,
+                                               boolean leftHeld, boolean rightHeld) {
+        if (activeGetupOption != GetupOption.NONE) {
+            return true;
+        }
+        if (!missedTechKnockdownActive) {
+            return handleGroundedGetupAttack(stunned, airborne);
+        }
+        if (stunned || airborne) {
+            clearKnockdownState();
+            return false;
+        }
+        if (handleGroundedGetupAttack(false, false)) {
+            return true;
+        }
+        if (jumpJustPressed) {
+            clearKnockdownState();
+            clearActiveDodge();
+            vx *= 0.35;
+            vy = 0.0;
+            activeGetupOption = GetupOption.JUMP;
+            startGroundJumpSquat();
+            jumpBufferFrames = 0;
+            return true;
+        }
+        int rollDirection = rightHeld == leftHeld ? 0 : rightHeld ? 1 : -1;
+        if (rollDirection != 0) {
+            clearKnockdownState();
+            startRoll(rollDirection, false);
+            activeGetupOption = GetupOption.ROLL;
+            return true;
+        }
+        if (blockJustPressed || knockdownTimer <= 0) {
+            clearKnockdownState();
+            startSpotDodge(false);
+            activeGetupOption = GetupOption.NEUTRAL;
+            return true;
+        }
         return true;
     }
 
@@ -16848,6 +16983,9 @@ public class Bird {
     private void enterMissedTechKnockdown() {
         clearTechBuffer();
         knockdownTimer = MISSED_TECH_KNOCKDOWN_FRAMES;
+        missedTechKnockdownActive = true;
+        jabLockCount = 0;
+        activeGetupOption = GetupOption.NONE;
         stunTime = 0.0;
         tumbleTimer = 0;
         meteorTimer = 0;
@@ -17120,6 +17258,9 @@ public class Bird {
             jumpScale *= opiumDrowsyUltimate ? 0.76 : 0.86;
         }
         clearJumpSquat();
+        if (activeGetupOption == GetupOption.JUMP) {
+            activeGetupOption = GetupOption.NONE;
+        }
         coyoteFrames = 0;
         vy = -type.jumpHeight * jumpScale;
         game.playSwingSfx();
@@ -17140,24 +17281,37 @@ public class Bird {
     }
 
     private void beginDodgeTiming(int baseFrames, int baseInvulnerabilityFrames, int startupFrames) {
-        int stalePenalty = Math.clamp(dodgeStaleLevel, 0, DODGE_STALE_MAX_LEVEL);
+        beginDodgeTiming(baseFrames, baseInvulnerabilityFrames, startupFrames, true);
+    }
+
+    private void beginDodgeTiming(int baseFrames, int baseInvulnerabilityFrames, int startupFrames,
+                                  boolean countTowardDodgeStaling) {
+        int stalePenalty = countTowardDodgeStaling
+                ? Math.clamp(dodgeStaleLevel, 0, DODGE_STALE_MAX_LEVEL)
+                : 0;
         dodgeTotalFrames = baseFrames + stalePenalty * DODGE_STALE_ENDLAG_PER_LEVEL;
         dodgeTimer = dodgeTotalFrames;
         dodgeInvulnerabilityTimer = 0;
         dodgeInvulnerabilityDelayTimer = startupFrames + stalePenalty / 2;
         dodgePendingInvulnerabilityFrames = Math.max(DODGE_STALE_MIN_INVULNERABILITY_FRAMES,
                 baseInvulnerabilityFrames - stalePenalty);
-        dodgeCooldown = Math.max(dodgeCooldown, DODGE_COOLDOWN_FRAMES
-                + stalePenalty * DODGE_STALE_ENDLAG_PER_LEVEL);
-        dodgeStaleLevel = Math.min(DODGE_STALE_MAX_LEVEL, dodgeStaleLevel + 1);
-        dodgeStaleRecoveryTimer = DODGE_STALE_RECOVERY_DELAY_FRAMES;
+        if (countTowardDodgeStaling) {
+            dodgeCooldown = Math.max(dodgeCooldown, DODGE_COOLDOWN_FRAMES
+                    + stalePenalty * DODGE_STALE_ENDLAG_PER_LEVEL);
+            dodgeStaleLevel = Math.min(DODGE_STALE_MAX_LEVEL, dodgeStaleLevel + 1);
+            dodgeStaleRecoveryTimer = DODGE_STALE_RECOVERY_DELAY_FRAMES;
+        }
     }
 
     private void startSpotDodge() {
+        startSpotDodge(true);
+    }
+
+    private void startSpotDodge(boolean countTowardDodgeStaling) {
         clearActiveDodge();
         dodgeType = DodgeType.SPOT;
         beginDodgeTiming(SPOT_DODGE_FRAMES, SPOT_DODGE_INVULNERABILITY_FRAMES,
-                SPOT_DODGE_INVULNERABILITY_STARTUP_FRAMES);
+                SPOT_DODGE_INVULNERABILITY_STARTUP_FRAMES, countTowardDodgeStaling);
         isBlocking = false;
         parryWindowFrames = 0;
         shieldStunFrames = 0;
@@ -17165,13 +17319,17 @@ public class Bird {
     }
 
     private void startRoll(int dir) {
+        startRoll(dir, true);
+    }
+
+    private void startRoll(int dir, boolean countTowardDodgeStaling) {
         if (dir == 0) {
             dir = facingRight ? 1 : -1;
         }
         clearActiveDodge();
         dodgeType = DodgeType.ROLL;
         beginDodgeTiming(ROLL_DODGE_FRAMES, ROLL_DODGE_INVULNERABILITY_FRAMES,
-                ROLL_DODGE_INVULNERABILITY_STARTUP_FRAMES);
+                ROLL_DODGE_INVULNERABILITY_STARTUP_FRAMES, countTowardDodgeStaling);
         dodgeDirection = dir;
         isBlocking = false;
         parryWindowFrames = 0;
@@ -18798,7 +18956,7 @@ public class Bird {
         clearAerialAttackState();
         landingLagTimer = 0;
         techBufferTimer = 0;
-        knockdownTimer = 0;
+        clearKnockdownState();
         tumbleTimer = 0;
         meteorTimer = 0;
         lastLaunchSpeed = 0.0;
@@ -19066,6 +19224,14 @@ public class Bird {
         }
         if (platformDropTimer > 0) return "PLATFORM DROP " + platformDropTimer + "f";
         if (fastFallActive) return "FAST FALL";
+        if (missedTechKnockdownActive) {
+            return "MISSED TECH " + knockdownTimer + "f | JAB LOCK "
+                    + jabLockCount + "/" + MAX_JAB_LOCKS;
+        }
+        if (activeGetupOption != GetupOption.NONE) {
+            return "GETUP " + activeGetupOption.name().replace('_', ' ')
+                    + " | INV " + debugCombatInvulnerabilityFrames() + "f";
+        }
         if (dodgeType != DodgeType.NONE) {
             String direction = dodgeType == DodgeType.AIR
                     ? " [" + dodgeDirection + "," + dodgeVerticalDirection + "]"
@@ -19138,9 +19304,10 @@ public class Bird {
     String debugMovementTelemetryLabel() {
         String surface = isOnGround() ? "GROUND" : "AIR";
         String jump = canDoubleJump ? "READY" : "SPENT";
+        String attackDrift = !isOnGround() && normalAttackTimelineActive ? " | ATTACK DRIFT" : "";
         return String.format(Locale.ROOT,
-                "%s | VX %+.1f | VY %+.1f | JUMP %s | DASH %df | FAST FALL %s",
-                surface, vx, vy, jump, dashTimer, fastFallActive ? "ON" : "OFF");
+                "%s | VX %+.1f | VY %+.1f | JUMP %s | DASH %df | FAST FALL %s%s",
+                surface, vx, vy, jump, dashTimer, fastFallActive ? "ON" : "OFF", attackDrift);
     }
 
     String debugGrabLedgeTelemetryLabel() {
@@ -19221,7 +19388,8 @@ public class Bird {
     String debugHitReactionTelemetryLabel() {
         return "HITSTUN " + Math.max(0, (int) Math.ceil(stunTime)) + "f | TUMBLE "
                 + Math.max(0, tumbleTimer) + "f | METEOR " + Math.max(0, meteorTimer)
-                + "f | TECH " + lastTechResult.name();
+                + "f | TECH " + lastTechResult.name() + " | GETUP " + activeGetupOption.name()
+                + " | LOCK " + jabLockCount + "/" + MAX_JAB_LOCKS;
     }
 
     String debugLaunchTelemetryLabel() {
@@ -19332,6 +19500,9 @@ public class Bird {
         h = h * 31 + meteorTimer;
         h = h * 31 + techBufferTimer;
         h = h * 31 + knockdownTimer;
+        h = h * 31 + (missedTechKnockdownActive ? 1 : 0);
+        h = h * 31 + jabLockCount;
+        h = h * 31 + activeGetupOption.ordinal();
         h = h * 31 + lastTechResult.ordinal();
         h = h * 31 + Double.doubleToLongBits(lastLaunchSpeed);
         h = h * 31 + Double.doubleToLongBits(lastLaunchAngleDegrees);
@@ -19458,11 +19629,15 @@ public class Bird {
     }
 
     private double applyScaledDamageTo(Bird target, double scaledDamage) {
+        return applyScaledDamageTo(target, scaledDamage, true);
+    }
+
+    private double applyScaledDamageTo(Bird target, double scaledDamage, boolean registerSmashLaunch) {
         if (target == null || scaledDamage <= 0 || target.health <= 0) return 0;
         scaledDamage = target.adjustDamageForPenguinSnowFort(this, scaledDamage);
         double dealtDamage = target.receiveScaledDamage(scaledDamage, this);
         if (dealtDamage > 0) {
-            if (game.usesDamageScaledKnockback()) {
+            if (game.usesDamageScaledKnockback() && registerSmashLaunch) {
                 target.registerSmashHit(this, dealtDamage);
             }
             RoadrunnerSpecials.onHitLanded(this);
@@ -21092,7 +21267,7 @@ public class Bird {
         leftHeldLastFrame = false;
         rightHeldLastFrame = false;
         techBufferTimer = 0;
-        knockdownTimer = 0;
+        clearKnockdownState();
         tumbleTimer = 0;
         meteorTimer = 0;
         lastLaunchSpeed = 0.0;
@@ -21703,6 +21878,9 @@ public class Bird {
         state.dodgeStaleRecoveryTimer = dodgeStaleRecoveryTimer;
         state.techBufferTimer = techBufferTimer;
         state.knockdownTimer = knockdownTimer;
+        state.missedTechKnockdownActive = missedTechKnockdownActive;
+        state.jabLockCount = jabLockCount;
+        state.activeGetupOptionOrdinal = activeGetupOption.ordinal();
         state.tumbleTimer = tumbleTimer;
         state.meteorTimer = meteorTimer;
         state.lastLaunchSpeed = lastLaunchSpeed;
@@ -22620,6 +22798,12 @@ public class Bird {
         this.dodgeStaleRecoveryTimer = Math.max(0, state.dodgeStaleRecoveryTimer);
         this.techBufferTimer = state.techBufferTimer;
         this.knockdownTimer = state.knockdownTimer;
+        this.missedTechKnockdownActive = state.missedTechKnockdownActive;
+        this.jabLockCount = Math.clamp(state.jabLockCount, 0, MAX_JAB_LOCKS);
+        GetupOption[] getupOptions = GetupOption.values();
+        this.activeGetupOption = state.activeGetupOptionOrdinal >= 0
+                && state.activeGetupOptionOrdinal < getupOptions.length
+                ? getupOptions[state.activeGetupOptionOrdinal] : GetupOption.NONE;
         this.tumbleTimer = Math.max(0, state.tumbleTimer);
         this.meteorTimer = Math.max(0, state.meteorTimer);
         this.lastLaunchSpeed = Math.max(0.0, state.lastLaunchSpeed);
@@ -23637,7 +23821,7 @@ public class Bird {
         pendingDamageScaledHitDamage = 0.0;
         pendingMoveKnockbackMultiplier = 1.0;
         techBufferTimer = 0;
-        knockdownTimer = 0;
+        clearKnockdownState();
         tumbleTimer = 0;
         meteorTimer = 0;
         lastLaunchSpeed = 0.0;
