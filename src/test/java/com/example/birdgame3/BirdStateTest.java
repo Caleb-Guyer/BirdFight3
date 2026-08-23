@@ -4599,6 +4599,8 @@ class BirdStateTest {
         game.setLocalActionsForKey(game.grabKeyForPlayer(0), true);
         defender.update(1.0);
         game.setLocalActionsForKey(game.grabKeyForPlayer(0), false);
+        defender.update(1.0);
+        defender.update(1.0);
 
         double dealtDamage = defender.receiveExternalDamage(14.0);
 
@@ -4723,6 +4725,7 @@ class BirdStateTest {
 
         assertEquals("AIR", getPrivateObject(bird, "dodgeType").toString());
         assertFalse(getPrivateBoolean(bird, "airDodgeAvailable"));
+        for (int i = 0; i < 3; i++) bird.update(1.0);
         assertEquals(0.0, bird.receiveExternalDamage(12.0), 0.0001);
 
         bird.y = BirdGame3.GROUND_Y - 80.0;
@@ -4769,6 +4772,89 @@ class BirdStateTest {
         assertTrue(bird.isOnGround());
         assertTrue(getPrivateInt(bird, "landingLagTimer") > 0,
                 "Landing out of an air dodge should create a punishable recovery window.");
+    }
+
+    @Test
+    void dodgesHaveReadableStartupBeforeInvulnerabilityBegins() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        Bird bird = new Bird(190.0, BirdGame3.BirdType.EAGLE, 0, game);
+        bird.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = bird;
+
+        invokePrivateVoid(bird, "startSpotDodge");
+
+        assertEquals(0, getPrivateInt(bird, "dodgeInvulnerabilityTimer"));
+        assertEquals(2, getPrivateInt(bird, "dodgeInvulnerabilityDelayTimer"));
+        assertTrue(bird.receiveExternalDamage(4.0) > 0.0,
+                "Spot dodge must not become intangible on the input frame.");
+
+        bird.update(1.0);
+        bird.update(1.0);
+        assertTrue(getPrivateInt(bird, "dodgeInvulnerabilityTimer") > 0);
+        assertEquals(0.0, bird.receiveExternalDamage(4.0), 0.0001);
+    }
+
+    @Test
+    void repeatedDodgesLoseInvulnerabilityAndGainRecovery() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        Bird bird = new Bird(190.0, BirdGame3.BirdType.EAGLE, 0, game);
+
+        invokePrivateVoid(bird, "startSpotDodge");
+        assertEquals(18, getPrivateInt(bird, "dodgeTotalFrames"));
+        assertEquals(10, getPrivateInt(bird, "dodgePendingInvulnerabilityFrames"));
+
+        for (int i = 0; i < 5; i++) {
+            invokePrivateVoid(bird, "clearActiveDodge");
+            setPrivateInt(bird, "dodgeCooldown", 0);
+            invokePrivateVoid(bird, "startSpotDodge");
+        }
+
+        assertEquals(5, getPrivateInt(bird, "dodgeStaleLevel"));
+        assertEquals(28, getPrivateInt(bird, "dodgeTotalFrames"));
+        assertEquals(5, getPrivateInt(bird, "dodgePendingInvulnerabilityFrames"));
+        assertEquals(4, getPrivateInt(bird, "dodgeInvulnerabilityDelayTimer"));
+        assertTrue(bird.debugUniversalActionLabel().contains("STALE 5/5"));
+    }
+
+    @Test
+    void dodgeStalingRecoversDeterministicallyDuringInactivity() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        Bird bird = new Bird(190.0, BirdGame3.BirdType.EAGLE, 0, game);
+        bird.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = bird;
+        setPrivateInt(bird, "dodgeStaleLevel", 2);
+        setPrivateInt(bird, "dodgeStaleRecoveryTimer", 1);
+
+        bird.update(1.0);
+        assertEquals(2, getPrivateInt(bird, "dodgeStaleLevel"));
+        bird.update(1.0);
+
+        assertEquals(1, getPrivateInt(bird, "dodgeStaleLevel"));
+        assertEquals(90, getPrivateInt(bird, "dodgeStaleRecoveryTimer"));
+    }
+
+    @Test
+    void lanSnapshotsRestoreDodgePhasesAndStaling() throws Exception {
+        BirdGame3 sourceGame = new BirdGame3();
+        Bird source = new Bird(190.0, BirdGame3.BirdType.EAGLE, 0, sourceGame);
+        invokePrivateVoid(source, "startRoll", new Class<?>[]{int.class}, 1);
+        source.update(1.0);
+        LanBirdState state = source.toLanState();
+
+        BirdGame3 remoteGame = new BirdGame3();
+        Bird remote = new Bird(0.0, BirdGame3.BirdType.EAGLE, 0, remoteGame);
+        remote.applyLanState(state);
+
+        assertEquals(getPrivateInt(source, "dodgeTimer"), getPrivateInt(remote, "dodgeTimer"));
+        assertEquals(getPrivateInt(source, "dodgeTotalFrames"), getPrivateInt(remote, "dodgeTotalFrames"));
+        assertEquals(getPrivateInt(source, "dodgeInvulnerabilityDelayTimer"),
+                getPrivateInt(remote, "dodgeInvulnerabilityDelayTimer"));
+        assertEquals(getPrivateInt(source, "dodgePendingInvulnerabilityFrames"),
+                getPrivateInt(remote, "dodgePendingInvulnerabilityFrames"));
+        assertEquals(getPrivateInt(source, "dodgeStaleLevel"), getPrivateInt(remote, "dodgeStaleLevel"));
+        assertEquals(source.deterministicDefenseStateHash(), remote.deterministicDefenseStateHash());
     }
 
     @Test
@@ -8398,6 +8484,10 @@ class BirdStateTest {
         invokePrivateVoid(pigeon, "startSpotDodge");
 
         assertTrue(pigeon.debugUniversalActionableFrames() > 0);
+        assertEquals(0, pigeon.debugCombatInvulnerabilityFrames());
+        assertTrue(pigeon.debugUniversalActionLabel().contains("START 2f"));
+        pigeon.update(1.0);
+        pigeon.update(1.0);
         assertEquals(10, pigeon.debugCombatInvulnerabilityFrames());
         assertTrue(pigeon.debugDefenseTelemetryLabel().contains("INV 10f"));
         assertTrue(pigeon.debugUniversalActionLabel().startsWith("SPOT DODGE"));

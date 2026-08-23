@@ -1352,11 +1352,16 @@ public class Bird {
     private double animationGlobalFrame = 0.0;
     private DodgeType dodgeType = DodgeType.NONE;
     private int dodgeTimer = 0;
+    private int dodgeTotalFrames = 0;
     private int dodgeInvulnerabilityTimer = 0;
+    private int dodgeInvulnerabilityDelayTimer = 0;
+    private int dodgePendingInvulnerabilityFrames = 0;
     private int dodgeCooldown = 0;
     private int dodgeDirection = 0;
     private int dodgeVerticalDirection = 0;
     private boolean airDodgeAvailable = true;
+    private int dodgeStaleLevel = 0;
+    private int dodgeStaleRecoveryTimer = 0;
     private boolean blockHeldLastFrame = false;
     private int techBufferTimer = 0;
     int knockdownTimer = 0;
@@ -1832,6 +1837,14 @@ public class Bird {
     private static final int AIR_DODGE_BURST_FRAMES = 7;
     private static final int AIR_DODGE_LANDING_LAG_FRAMES = 10;
     private static final int DODGE_COOLDOWN_FRAMES = 28;
+    private static final int SPOT_DODGE_INVULNERABILITY_STARTUP_FRAMES = 2;
+    private static final int ROLL_DODGE_INVULNERABILITY_STARTUP_FRAMES = 3;
+    private static final int AIR_DODGE_INVULNERABILITY_STARTUP_FRAMES = 3;
+    private static final int DODGE_STALE_MAX_LEVEL = 5;
+    private static final int DODGE_STALE_RECOVERY_DELAY_FRAMES = 120;
+    private static final int DODGE_STALE_RECOVERY_STEP_FRAMES = 90;
+    private static final int DODGE_STALE_ENDLAG_PER_LEVEL = 2;
+    private static final int DODGE_STALE_MIN_INVULNERABILITY_FRAMES = 4;
     private static final double SMASH_TOP_BLAST_Y = BirdGame3.CEILING_Y - 220.0;
     private static Image photoEagleIdleSprite;
     private static Image photoEagleAttackSprite;
@@ -15766,7 +15779,23 @@ public class Bird {
         if (attackInteractionTimer == 0) lastAttackInteraction = NormalAttackInteractionResult.NONE;
         dodgeCooldown = Math.max(0, (int)(dodgeCooldown - gameSpeed));
         dodgeTimer = Math.max(0, (int)(dodgeTimer - gameSpeed));
-        dodgeInvulnerabilityTimer = Math.max(0, (int)(dodgeInvulnerabilityTimer - gameSpeed));
+        if (dodgeInvulnerabilityDelayTimer > 0) {
+            dodgeInvulnerabilityDelayTimer = Math.max(0,
+                    (int) (dodgeInvulnerabilityDelayTimer - gameSpeed));
+            if (dodgeInvulnerabilityDelayTimer == 0 && dodgePendingInvulnerabilityFrames > 0) {
+                dodgeInvulnerabilityTimer = dodgePendingInvulnerabilityFrames;
+                dodgePendingInvulnerabilityFrames = 0;
+            }
+        } else {
+            dodgeInvulnerabilityTimer = Math.max(0,
+                    (int) (dodgeInvulnerabilityTimer - gameSpeed));
+        }
+        if (dodgeStaleRecoveryTimer > 0) {
+            dodgeStaleRecoveryTimer = Math.max(0, (int) (dodgeStaleRecoveryTimer - gameSpeed));
+        } else if (dodgeStaleLevel > 0 && !isDodging()) {
+            dodgeStaleLevel--;
+            dodgeStaleRecoveryTimer = dodgeStaleLevel > 0 ? DODGE_STALE_RECOVERY_STEP_FRAMES : 0;
+        }
         respawnInvulnerabilityTimer = Math.max(0, (int)(respawnInvulnerabilityTimer - gameSpeed));
         if (respawnInvulnerabilityTimer == 0) {
             respawnNestPlatform = null;
@@ -16392,7 +16421,10 @@ public class Bird {
     private void clearActiveDodge() {
         dodgeType = DodgeType.NONE;
         dodgeTimer = 0;
+        dodgeTotalFrames = 0;
         dodgeInvulnerabilityTimer = 0;
+        dodgeInvulnerabilityDelayTimer = 0;
+        dodgePendingInvulnerabilityFrames = 0;
         dodgeDirection = 0;
         dodgeVerticalDirection = 0;
     }
@@ -16401,6 +16433,8 @@ public class Bird {
         clearActiveDodge();
         dodgeCooldown = 0;
         airDodgeAvailable = true;
+        dodgeStaleLevel = 0;
+        dodgeStaleRecoveryTimer = 0;
     }
 
     void refreshAirDodge() {
@@ -16791,12 +16825,25 @@ public class Bird {
         }
     }
 
+    private void beginDodgeTiming(int baseFrames, int baseInvulnerabilityFrames, int startupFrames) {
+        int stalePenalty = Math.clamp(dodgeStaleLevel, 0, DODGE_STALE_MAX_LEVEL);
+        dodgeTotalFrames = baseFrames + stalePenalty * DODGE_STALE_ENDLAG_PER_LEVEL;
+        dodgeTimer = dodgeTotalFrames;
+        dodgeInvulnerabilityTimer = 0;
+        dodgeInvulnerabilityDelayTimer = startupFrames + stalePenalty / 2;
+        dodgePendingInvulnerabilityFrames = Math.max(DODGE_STALE_MIN_INVULNERABILITY_FRAMES,
+                baseInvulnerabilityFrames - stalePenalty);
+        dodgeCooldown = Math.max(dodgeCooldown, DODGE_COOLDOWN_FRAMES
+                + stalePenalty * DODGE_STALE_ENDLAG_PER_LEVEL);
+        dodgeStaleLevel = Math.min(DODGE_STALE_MAX_LEVEL, dodgeStaleLevel + 1);
+        dodgeStaleRecoveryTimer = DODGE_STALE_RECOVERY_DELAY_FRAMES;
+    }
+
     private void startSpotDodge() {
         clearActiveDodge();
         dodgeType = DodgeType.SPOT;
-        dodgeTimer = SPOT_DODGE_FRAMES;
-        dodgeInvulnerabilityTimer = SPOT_DODGE_INVULNERABILITY_FRAMES;
-        dodgeCooldown = Math.max(dodgeCooldown, DODGE_COOLDOWN_FRAMES);
+        beginDodgeTiming(SPOT_DODGE_FRAMES, SPOT_DODGE_INVULNERABILITY_FRAMES,
+                SPOT_DODGE_INVULNERABILITY_STARTUP_FRAMES);
         isBlocking = false;
         parryWindowFrames = 0;
         shieldStunFrames = 0;
@@ -16809,9 +16856,8 @@ public class Bird {
         }
         clearActiveDodge();
         dodgeType = DodgeType.ROLL;
-        dodgeTimer = ROLL_DODGE_FRAMES;
-        dodgeInvulnerabilityTimer = ROLL_DODGE_INVULNERABILITY_FRAMES;
-        dodgeCooldown = Math.max(dodgeCooldown, DODGE_COOLDOWN_FRAMES);
+        beginDodgeTiming(ROLL_DODGE_FRAMES, ROLL_DODGE_INVULNERABILITY_FRAMES,
+                ROLL_DODGE_INVULNERABILITY_STARTUP_FRAMES);
         dodgeDirection = dir;
         isBlocking = false;
         parryWindowFrames = 0;
@@ -16823,9 +16869,8 @@ public class Bird {
     private void startAirDodge(int horizontalDir, int verticalDir) {
         clearActiveDodge();
         dodgeType = DodgeType.AIR;
-        dodgeTimer = AIR_DODGE_FRAMES;
-        dodgeInvulnerabilityTimer = AIR_DODGE_INVULNERABILITY_FRAMES;
-        dodgeCooldown = Math.max(dodgeCooldown, DODGE_COOLDOWN_FRAMES);
+        beginDodgeTiming(AIR_DODGE_FRAMES, AIR_DODGE_INVULNERABILITY_FRAMES,
+                AIR_DODGE_INVULNERABILITY_STARTUP_FRAMES);
         dodgeDirection = Integer.compare(horizontalDir, 0);
         dodgeVerticalDirection = Integer.compare(verticalDir, 0);
         airDodgeAvailable = false;
@@ -16907,7 +16952,7 @@ public class Bird {
                 }
             }
             case AIR -> {
-                int elapsedFrames = Math.max(0, AIR_DODGE_FRAMES - dodgeTimer);
+                int elapsedFrames = Math.max(0, dodgeTotalFrames - dodgeTimer);
                 boolean burstActive = elapsedFrames <= AIR_DODGE_BURST_FRAMES;
                 double directionScale = dodgeDirection != 0 && dodgeVerticalDirection != 0 ? Math.sqrt(0.5) : 1.0;
                 if (burstActive && dodgeDirection != 0) {
@@ -18681,8 +18726,11 @@ public class Bird {
             String direction = dodgeType == DodgeType.AIR
                     ? " [" + dodgeDirection + "," + dodgeVerticalDirection + "]"
                     : dodgeType == DodgeType.ROLL ? " [" + dodgeDirection + "]" : "";
-            return dodgeType.name() + " DODGE" + direction + " " + dodgeTimer + "f | INV "
-                    + dodgeInvulnerabilityTimer + "f";
+            String invulnerability = dodgeInvulnerabilityDelayTimer > 0
+                    ? "START " + dodgeInvulnerabilityDelayTimer + "f"
+                    : "INV " + dodgeInvulnerabilityTimer + "f";
+            return dodgeType.name() + " DODGE" + direction + " " + dodgeTimer + "f | "
+                    + invulnerability + " | STALE " + dodgeStaleLevel + "/" + DODGE_STALE_MAX_LEVEL;
         }
         if (parryWindowFrames > 0) return "PARRY WINDOW " + parryWindowFrames + "f";
         if (isBlocking) {
@@ -18737,7 +18785,8 @@ public class Bird {
         int shieldPercent = (int) Math.round(shieldDurabilityRatio() * 100.0);
         String airDodge = isOnGround() || airDodgeAvailable ? "READY" : "SPENT";
         return "SHIELD " + shieldPercent + "% | PARRY " + parryWindowFrames
-                + "f | INV " + debugCombatInvulnerabilityFrames() + "f | AIR DODGE " + airDodge;
+                + "f | INV " + debugCombatInvulnerabilityFrames() + "f | DODGE STALE "
+                + dodgeStaleLevel + "/" + DODGE_STALE_MAX_LEVEL + " | AIR DODGE " + airDodge;
     }
 
     String debugMovementTelemetryLabel() {
@@ -18836,6 +18885,28 @@ public class Bird {
         h = h * 31 + ledgeInvulnerabilityTimer;
         h = h * 31 + ledgeHangFrames;
         h = h * 31 + ledgeGrabCountWithoutLanding;
+        return h;
+    }
+
+    long deterministicDefenseStateHash() {
+        long h = isBlocking ? 1 : 0;
+        h = h * 31 + blockCooldown;
+        h = h * 31 + Double.doubleToLongBits(shieldHealth);
+        h = h * 31 + shieldStunFrames;
+        h = h * 31 + parryWindowFrames;
+        h = h * 31 + shieldRegenDelayFrames;
+        h = h * 31 + dodgeType.ordinal();
+        h = h * 31 + dodgeTimer;
+        h = h * 31 + dodgeTotalFrames;
+        h = h * 31 + dodgeInvulnerabilityTimer;
+        h = h * 31 + dodgeInvulnerabilityDelayTimer;
+        h = h * 31 + dodgePendingInvulnerabilityFrames;
+        h = h * 31 + dodgeCooldown;
+        h = h * 31 + dodgeDirection;
+        h = h * 31 + dodgeVerticalDirection;
+        h = h * 31 + (airDodgeAvailable ? 1 : 0);
+        h = h * 31 + dodgeStaleLevel;
+        h = h * 31 + dodgeStaleRecoveryTimer;
         return h;
     }
 
@@ -21184,11 +21255,16 @@ public class Bird {
         state.grabEscapeProgress = grabEscapeProgress;
         state.dodgeTypeOrdinal = dodgeType.ordinal();
         state.dodgeTimer = dodgeTimer;
+        state.dodgeTotalFrames = dodgeTotalFrames;
         state.dodgeInvulnerabilityTimer = dodgeInvulnerabilityTimer;
+        state.dodgeInvulnerabilityDelayTimer = dodgeInvulnerabilityDelayTimer;
+        state.dodgePendingInvulnerabilityFrames = dodgePendingInvulnerabilityFrames;
         state.dodgeCooldown = dodgeCooldown;
         state.dodgeDirection = dodgeDirection;
         state.dodgeVerticalDirection = dodgeVerticalDirection;
         state.airDodgeAvailable = airDodgeAvailable;
+        state.dodgeStaleLevel = dodgeStaleLevel;
+        state.dodgeStaleRecoveryTimer = dodgeStaleRecoveryTimer;
         state.techBufferTimer = techBufferTimer;
         state.knockdownTimer = knockdownTimer;
         state.tumbleTimer = tumbleTimer;
@@ -22077,11 +22153,16 @@ public class Bird {
             this.dodgeType = DodgeType.NONE;
         }
         this.dodgeTimer = state.dodgeTimer;
+        this.dodgeTotalFrames = Math.max(0, state.dodgeTotalFrames);
         this.dodgeInvulnerabilityTimer = state.dodgeInvulnerabilityTimer;
+        this.dodgeInvulnerabilityDelayTimer = Math.max(0, state.dodgeInvulnerabilityDelayTimer);
+        this.dodgePendingInvulnerabilityFrames = Math.max(0, state.dodgePendingInvulnerabilityFrames);
         this.dodgeCooldown = state.dodgeCooldown;
         this.dodgeDirection = state.dodgeDirection;
         this.dodgeVerticalDirection = state.dodgeVerticalDirection;
         this.airDodgeAvailable = state.airDodgeAvailable;
+        this.dodgeStaleLevel = Math.clamp(state.dodgeStaleLevel, 0, DODGE_STALE_MAX_LEVEL);
+        this.dodgeStaleRecoveryTimer = Math.max(0, state.dodgeStaleRecoveryTimer);
         this.techBufferTimer = state.techBufferTimer;
         this.knockdownTimer = state.knockdownTimer;
         this.tumbleTimer = Math.max(0, state.tumbleTimer);
@@ -25304,10 +25385,11 @@ public class Bird {
     }
 
     private double dodgeVisualPhase(int timer) {
-        if (timer <= 0 || Bird.ROLL_DODGE_FRAMES <= 0) {
+        int duration = dodgeTotalFrames > 0 ? dodgeTotalFrames : Bird.ROLL_DODGE_FRAMES;
+        if (timer <= 0 || duration <= 0) {
             return 0.0;
         }
-        return Math.clamp(1.0 - ((timer - 1.0) / (double) Bird.ROLL_DODGE_FRAMES), 0.0, 1.0);
+        return Math.clamp(1.0 - ((timer - 1.0) / duration), 0.0, 1.0);
     }
 
     private AttackVisualPose currentDodgeVisualPose() {

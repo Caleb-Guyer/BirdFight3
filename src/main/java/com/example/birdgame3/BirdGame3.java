@@ -64996,6 +64996,7 @@ public class BirdGame3 {
             h = h * 1099511628211L + b.mockingbirdMicDirection;
             h = h * 1099511628211L + b.deterministicGrabStateHash();
             h = h * 1099511628211L + b.deterministicLedgeStateHash();
+            h = h * 1099511628211L + b.deterministicDefenseStateHash();
             h = h * 1099511628211L + b.deterministicHitReactionStateHash();
             h = h * 1099511628211L + b.deterministicStaleMoveStateHash();
             for (boolean hit : b.mockingbirdMicHit) {
