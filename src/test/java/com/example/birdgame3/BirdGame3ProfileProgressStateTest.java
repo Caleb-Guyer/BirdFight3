@@ -11,6 +11,7 @@ import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BirdGame3ProfileProgressStateTest {
@@ -46,6 +47,68 @@ class BirdGame3ProfileProgressStateTest {
         assertTrue(loaded.trainingAcademyDrillCompleted[BirdGame3.BirdType.TITMOUSE.ordinal()]);
         assertTrue(loaded.trainingAcademyDrillCompleted[BirdGame3.BirdType.HEISENBIRD.ordinal()]);
         assertFalse(loaded.trainingAcademyDrillCompleted[BirdGame3.BirdType.OPIUMBIRD.ordinal()]);
+    }
+
+    @Test
+    void blankProfileOffersFirstLaunchTutorialWithoutChangingUnlocks() {
+        BirdGame3ProfileProgressState state = BirdGame3ProfileProgressState.load(prefs, schema());
+
+        assertFalse(state.guidedTutorialPromptResolved);
+        assertFalse(state.guidedTutorialCompleted);
+        assertArrayEquals(new boolean[BirdGame3ProfileProgressState.GUIDED_TUTORIAL_LESSON_COUNT],
+                state.guidedTutorialLessonCompleted);
+        assertTrue(state.cityPigeonUnlocked);
+        assertTrue(state.eagleSkinUnlocked);
+        assertFalse(state.falconUnlocked);
+    }
+
+    @Test
+    void establishedLegacyProfileDoesNotReceiveFirstLaunchInterruption() {
+        prefs.putInt("city_wins_0", 1);
+
+        BirdGame3ProfileProgressState state = BirdGame3ProfileProgressState.load(prefs, schema());
+
+        assertTrue(state.guidedTutorialPromptResolved);
+        assertFalse(state.guidedTutorialCompleted);
+    }
+
+    @Test
+    void legacyTutorialCompletionMigratesAllEightLessons() {
+        prefs.putBoolean("academy_guided_tutorial_completed", true);
+
+        BirdGame3ProfileProgressState state = BirdGame3ProfileProgressState.load(prefs, schema());
+
+        assertTrue(state.guidedTutorialCompleted);
+        for (boolean lesson : state.guidedTutorialLessonCompleted) {
+            assertTrue(lesson);
+        }
+    }
+
+    @Test
+    void partialTutorialProgressAndPromptChoiceRoundTripIndependently() {
+        BirdGame3ProfileProgressState state = new BirdGame3ProfileProgressState();
+        state.guidedTutorialPromptResolved = true;
+        state.guidedTutorialLessonCompleted[0] = true;
+        state.guidedTutorialLessonCompleted[3] = true;
+        state.trainingAcademyDrillCompleted[BirdGame3.BirdType.RAVEN.ordinal()] = true;
+
+        state.saveTo(prefs, schema());
+        BirdGame3ProfileProgressState loaded = BirdGame3ProfileProgressState.load(prefs, schema());
+
+        assertTrue(loaded.guidedTutorialPromptResolved);
+        assertFalse(loaded.guidedTutorialCompleted);
+        assertArrayEquals(state.guidedTutorialLessonCompleted, loaded.guidedTutorialLessonCompleted);
+        assertTrue(loaded.trainingAcademyDrillCompleted[BirdGame3.BirdType.RAVEN.ordinal()]);
+    }
+
+    private static BirdGame3ProfileProgressState.Schema schema() {
+        return new BirdGame3ProfileProgressState.Schema(
+                BirdGame3Achievement.values().length,
+                4,
+                16,
+                0,
+                0
+        );
     }
 
     @Test

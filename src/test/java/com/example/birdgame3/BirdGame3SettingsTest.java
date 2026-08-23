@@ -341,7 +341,11 @@ class BirdGame3SettingsTest {
     @Test
     void persistAchievementsRoundTripsTrainingAcademyProgress() throws Exception {
         BirdGame3 game = new BirdGame3();
+        Field lessons = BirdGame3.class.getDeclaredField("guidedTutorialLessonCompleted");
+        lessons.setAccessible(true);
+        java.util.Arrays.fill((boolean[]) lessons.get(game), true);
         setPrivateField(game, "guidedTutorialCompleted", true);
+        setPrivateField(game, "guidedTutorialPromptResolved", true);
         game.persistAchievements(prefs);
 
         BirdGame3 reloaded = new BirdGame3();
@@ -350,6 +354,10 @@ class BirdGame3SettingsTest {
         loadProfileProgress.invoke(reloaded, prefs);
 
         assertTrue(reloaded.isGuidedTutorialCompleted());
+        assertTrue(getPrivateBooleanField(reloaded, "guidedTutorialPromptResolved"));
+        for (boolean lesson : (boolean[]) lessons.get(reloaded)) {
+            assertTrue(lesson);
+        }
     }
 
     @Test
@@ -405,6 +413,9 @@ class BirdGame3SettingsTest {
         assertTrue(getPrivateBoolean(game));
         assertTrue(game.ashenSovereignPhoenixUnlocked);
         assertTrue((boolean) spendBirdCoins.invoke(game, 99_999));
+        assertTrue(game.isGuidedTutorialCompleted());
+        assertTrue(getPrivateBooleanField(game, "guidedTutorialPromptResolved"));
+        assertEveryBooleanTrue(game, "guidedTutorialLessonCompleted");
         assertNoDeveloperGrantedBadges(game);
 
         game.persistAchievements(prefs);
@@ -433,6 +444,9 @@ class BirdGame3SettingsTest {
         assertTrue(getPrivateBoolean(reloaded));
         assertTrue(reloaded.ashenSovereignPhoenixUnlocked);
         assertTrue((boolean) spendBirdCoins.invoke(reloaded, Integer.MAX_VALUE));
+        assertTrue(reloaded.isGuidedTutorialCompleted());
+        assertTrue(getPrivateBooleanField(reloaded, "guidedTutorialPromptResolved"));
+        assertEveryBooleanTrue(reloaded, "guidedTutorialLessonCompleted");
         assertNoDeveloperGrantedBadges(reloaded);
     }
 
@@ -747,6 +761,14 @@ class BirdGame3SettingsTest {
         field.setAccessible(true);
         for (boolean value : (boolean[]) field.get(game)) {
             assertFalse(value, fieldName);
+        }
+    }
+
+    private static void assertEveryBooleanTrue(BirdGame3 game, String fieldName) throws Exception {
+        Field field = BirdGame3.class.getDeclaredField(fieldName);
+        field.setAccessible(true);
+        for (boolean value : (boolean[]) field.get(game)) {
+            assertTrue(value, fieldName);
         }
     }
 

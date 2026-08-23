@@ -4887,6 +4887,10 @@ public class BirdGame3 {
     private TrainingAcademyMode trainingAcademyMode = TrainingAcademyMode.NONE;
     private GuidedTutorialLesson guidedTutorialLesson = GuidedTutorialLesson.STAGE_CONTROL;
     private boolean guidedTutorialCompleted = false;
+    private boolean guidedTutorialPromptResolved = false;
+    private final boolean[] guidedTutorialLessonCompleted =
+            new boolean[BirdGame3ProfileProgressState.GUIDED_TUTORIAL_LESSON_COUNT];
+    private boolean guidedTutorialAutoAdvance = false;
     private TrainingDummyBehavior trainingDummyBehavior = TrainingDummyBehavior.IDLE;
     private boolean trainingCombatOverlayEnabled = false;
     private boolean trainingSlowMotionEnabled = false;
@@ -4913,6 +4917,8 @@ public class BirdGame3 {
     private boolean trainingAcademyShieldHitSeen = false;
     private boolean trainingAcademyGrabSeen = false;
     private boolean trainingAcademyThrowSeen = false;
+    private boolean trainingAcademyUltimateWasReady = false;
+    private boolean trainingAcademyUltimateActivatedSeen = false;
     private boolean trainingAcademyNeutralSpecialSeen = false;
     private boolean trainingAcademySideSpecialSeen = false;
     private boolean trainingAcademyUpSpecialSeen = false;
@@ -11378,6 +11384,24 @@ public class BirdGame3 {
                 BirdType.PIGEON,
                 TrainingDummyBehavior.IDLE
         ),
+        ULTIMATE_FINISH(
+                "Ultimate Finish",
+                "Activate your fully charged Ultimate with neutral special.",
+                "When the ULT meter reads READY, release every direction and press Special. Other special directions never spend it.",
+                MapType.BATTLEFIELD,
+                BirdType.EAGLE,
+                BirdType.PIGEON,
+                TrainingDummyBehavior.IDLE
+        ),
+        FINAL_PRACTICE(
+                "Final Practice Match",
+                "Win the one-stock practice fight by launching your opponent through a blast zone.",
+                "Use movement, defense, grabs, specials, and a charged finisher. The opponent will chase, attack, and recover.",
+                MapType.BATTLEFIELD,
+                BirdType.PIGEON,
+                BirdType.EAGLE,
+                TrainingDummyBehavior.MASH_ATTACK
+        ),
         PIGEON_DRILL(
                 "Pigeon Rooftop Routes",
                 "Land a held Long Peck, Street Rush, Fire-Escape Flutter, and a held Rooftop Drill.",
@@ -11577,9 +11601,9 @@ public class BirdGame3 {
                 TrainingDummyBehavior.IDLE
         ),
         DEFENSE_AND_PUNISH(
-                "Defense And Punish",
-                "Block a close hit, then strike back.",
-                "A timed block can parry. A held shield still lets you survive pressure and reset.",
+                "Defense, Grab, And Punish",
+                "Block a close hit, strike back, then grab and throw.",
+                "A timed block can parry. Grabs beat a held shield; choose a direction after grabbing to throw.",
                 MapType.BATTLEFIELD,
                 BirdType.EAGLE,
                 BirdType.PIGEON,
@@ -11633,10 +11657,54 @@ public class BirdGame3 {
         }
 
         GuidedTutorialLesson next() {
-            GuidedTutorialLesson[] lessons = values();
-            int nextIndex = ordinal() + 1;
-            return nextIndex >= lessons.length ? null : lessons[nextIndex];
+            return nextGuidedTutorialLesson(this);
         }
+    }
+
+    private static final GuidedTutorialLesson[] CORE_GUIDED_TUTORIAL_LESSONS = {
+            GuidedTutorialLesson.STAGE_CONTROL,
+            GuidedTutorialLesson.DAMAGE_AND_CHARGE,
+            GuidedTutorialLesson.RING_OUT,
+            GuidedTutorialLesson.RECOVERY_AND_LEDGE,
+            GuidedTutorialLesson.DEFENSE_AND_PUNISH,
+            GuidedTutorialLesson.DIRECTIONAL_SPECIALS,
+            GuidedTutorialLesson.ULTIMATE_FINISH,
+            GuidedTutorialLesson.FINAL_PRACTICE
+    };
+
+    private static final GuidedTutorialLesson[] CHARACTER_DRILL_LESSONS = Arrays.stream(GuidedTutorialLesson.values())
+            .filter(lesson -> lesson.name().endsWith("_DRILL"))
+            .toArray(GuidedTutorialLesson[]::new);
+
+    static {
+        if (CORE_GUIDED_TUTORIAL_LESSONS.length
+                != BirdGame3ProfileProgressState.GUIDED_TUTORIAL_LESSON_COUNT) {
+            throw new IllegalStateException("Tutorial lesson persistence count does not match the curriculum");
+        }
+    }
+
+    private static int guidedTutorialCoreIndex(GuidedTutorialLesson lesson) {
+        if (lesson == null) {
+            return -1;
+        }
+        for (int i = 0; i < CORE_GUIDED_TUTORIAL_LESSONS.length; i++) {
+            if (CORE_GUIDED_TUTORIAL_LESSONS[i] == lesson) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private static boolean isCoreGuidedTutorialLesson(GuidedTutorialLesson lesson) {
+        return guidedTutorialCoreIndex(lesson) >= 0;
+    }
+
+    private static GuidedTutorialLesson nextGuidedTutorialLesson(GuidedTutorialLesson lesson) {
+        int index = guidedTutorialCoreIndex(lesson);
+        if (index < 0 || index + 1 >= CORE_GUIDED_TUTORIAL_LESSONS.length) {
+            return null;
+        }
+        return CORE_GUIDED_TUTORIAL_LESSONS[index + 1];
     }
 
     private void gameTick() {
@@ -25125,7 +25193,7 @@ public class BirdGame3 {
         AnchorPane.setTopAnchor(profileLine, 608.0);
 
         Button startButton = uiFactory.action("PRESS START", 520, 104, 34, "#D62828", 26,
-                () -> showMenu(stage));
+                () -> continueFromTitle(stage));
         startButton.setAccessibleText("Start Bird Fight 3");
         startButton.setStyle("-fx-background-color: linear-gradient(to right, #D62828, #8B0000);"
                 + "-fx-text-fill: white; -fx-font-family: 'Arial Black'; -fx-font-size: 34px;"
@@ -25161,6 +25229,102 @@ public class BirdGame3 {
             startButton.requestFocus();
             setConsoleHighlightActive(true, scene);
         });
+    }
+
+    private void continueFromTitle(Stage stage) {
+        if (!guidedTutorialPromptResolved) {
+            showFirstLaunchTutorialPrompt(stage);
+            return;
+        }
+        showMenu(stage);
+    }
+
+    private void resolveFirstLaunchTutorialPrompt() {
+        if (guidedTutorialPromptResolved) {
+            return;
+        }
+        guidedTutorialPromptResolved = true;
+        saveAchievements();
+    }
+
+    private void showFirstLaunchTutorialPrompt(Stage stage) {
+        playMenuMusic();
+
+        StackPane root = new StackPane();
+        root.getProperties().put("noAutoScale", true);
+        root.setStyle("-fx-background-color: #02050A;");
+
+        BorderPane frame = new BorderPane();
+        frame.setId("uiFrame");
+        lockRegionSize(frame, 1600, 950);
+        frame.setStyle("-fx-background-color: linear-gradient(to bottom right, #07111D 0%, #101B2A 52%, #05070B 100%);");
+
+        Label eyebrow = new Label("WELCOME TO BIRD FIGHT 3");
+        eyebrow.setFont(Font.font("Consolas", FontWeight.BOLD, 21));
+        eyebrow.setTextFill(Color.web("#80DEEA"));
+        Label title = new Label("LEARN TO TAKE THE STAGE");
+        title.setFont(Font.font("Arial Black", 54));
+        title.setTextFill(Color.WHITE);
+        Label subtitle = new Label("Eight short, playable lessons teach the same movement, combat, recovery, and Ultimate rules used in every mode.");
+        subtitle.setFont(Font.font("Consolas", 21));
+        subtitle.setTextFill(Color.web("#CFD8DC"));
+        subtitle.setWrapText(true);
+        subtitle.setMaxWidth(1180);
+        VBox header = new VBox(8, eyebrow, title, subtitle);
+        header.setPadding(new Insets(60, 76, 32, 76));
+        header.setStyle("-fx-background-color: linear-gradient(to right, #0D47A1, #061527 70%);"
+                + "-fx-border-color: transparent transparent rgba(255,255,255,0.16) transparent; -fx-border-width: 0 0 3 0;");
+        frame.setTop(header);
+
+        GridPane topics = new GridPane();
+        topics.setHgap(18);
+        topics.setVgap(18);
+        topics.setAlignment(Pos.CENTER);
+        String[] topicLabels = {
+                "1  MOVEMENT", "2  NORMAL ATTACKS", "3  KNOCKOUTS", "4  RECOVERY",
+                "5  DEFENSE + GRABS", "6  SPECIALS", "7  ULTIMATES", "8  PRACTICE MATCH"
+        };
+        for (int i = 0; i < topicLabels.length; i++) {
+            Label topic = new Label(topicLabels[i]);
+            topic.setFont(Font.font("Arial Black", 20));
+            topic.setTextFill(i == topicLabels.length - 1 ? Color.web("#FFF59D") : Color.WHITE);
+            topic.setAlignment(Pos.CENTER_LEFT);
+            topic.setPadding(new Insets(20, 24, 20, 24));
+            lockRegionSize(topic, 330, 76);
+            topic.setStyle("-fx-background-color: rgba(8,21,34,0.90); -fx-background-radius: 16;"
+                    + "-fx-border-color: " + (i == topicLabels.length - 1 ? "#FFD54F" : "#2C7897") + ";"
+                    + "-fx-border-width: 2; -fx-border-radius: 16;");
+            topics.add(topic, i % 2, i / 2);
+        }
+        VBox center = new VBox(28, topics);
+        center.setAlignment(Pos.CENTER);
+        center.setPadding(new Insets(30, 60, 24, 60));
+        frame.setCenter(center);
+
+        Button later = uiFactory.action("NOT NOW", 300, 82, 28, "#37474F", 20, () -> {
+            resolveFirstLaunchTutorialPrompt();
+            showMenu(stage);
+        });
+        Button start = uiFactory.action("START ACADEMY", 420, 82, 28, "#00A84F", 22, () -> {
+            resolveFirstLaunchTutorialPrompt();
+            showGuidedTutorialHub(stage);
+        });
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        HBox footer = new HBox(22, later, spacer, start);
+        footer.setAlignment(Pos.CENTER);
+        footer.setPadding(new Insets(24, 66, 40, 66));
+        footer.setStyle("-fx-background-color: rgba(2,5,9,0.92); -fx-border-color: rgba(255,255,255,0.12) transparent transparent transparent; -fx-border-width: 2 0 0 0;");
+        frame.setBottom(footer);
+
+        root.getChildren().add(frame);
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        bindEscape(scene, later::fire);
+        bindFixedFrameScale(scene, frame, 0.0);
+        setScenePreservingFullscreen(stage, scene);
+        javafx.application.Platform.runLater(start::requestFocus);
     }
 
     private void showVersusRules(Stage stage) {
@@ -30434,6 +30598,8 @@ public class BirdGame3 {
     }
 
     private void showTrainingSetup(Stage stage) {
+        trainingAcademySceneTransitionPending = false;
+        guidedTutorialAutoAdvance = false;
         storyModeActive = false;
         storyReplayMode = false;
         adventureModeActive = false;
@@ -30708,15 +30874,21 @@ public class BirdGame3 {
         applyNoEllipsis(academyLabel);
 
         Label academyStatus = new Label(guidedTutorialCompleted
-                ? "Guided tutorial completed."
-                : GuidedTutorialLesson.values().length + "-lesson guided tutorial.");
+                ? "Fundamentals complete. Replay any of the 8 lessons whenever you want."
+                : completedGuidedTutorialLessonCount() + " / " + CORE_GUIDED_TUTORIAL_LESSONS.length
+                + " fundamentals complete.");
         academyStatus.setFont(Font.font("Consolas", 18));
         academyStatus.setTextFill(Color.web("#E1F5FE"));
         academyStatus.setWrapText(true);
         academyStatus.setMaxWidth(620);
         applyNoEllipsis(academyStatus);
 
-        final GuidedTutorialLesson[] academyLessonPick = {currentGuidedTutorialLesson()};
+        GuidedTutorialLesson currentAcademyLesson = currentGuidedTutorialLesson();
+        final GuidedTutorialLesson[] academyLessonPick = {
+                isCoreGuidedTutorialLesson(currentAcademyLesson)
+                        ? CHARACTER_DRILL_LESSONS[0]
+                        : currentAcademyLesson
+        };
         Label lessonPicker = new Label();
         lessonPicker.setFont(Font.font("Arial Black", 20));
         lessonPicker.setTextFill(Color.WHITE);
@@ -30733,7 +30905,7 @@ public class BirdGame3 {
 
         Runnable refreshLessonPicker = () -> {
             GuidedTutorialLesson lesson = academyLessonPick[0] == null
-                    ? GuidedTutorialLesson.STAGE_CONTROL
+                    ? CHARACTER_DRILL_LESSONS[0]
                     : academyLessonPick[0];
             BirdType drillBird = trainingAcademyDrillBirdFor(lesson);
             String badgeText = drillBird != null && hasTrainingAcademyDrillBadge(drillBird) ? "  |  BADGE EARNED" : "";
@@ -30744,21 +30916,21 @@ public class BirdGame3 {
         };
 
         Button previousLesson = uiFactory.action("<", 58, 52, 24, "#263238", 14, () -> {
-            academyLessonPick[0] = shiftGuidedTutorialLesson(academyLessonPick[0], -1);
+            academyLessonPick[0] = shiftCharacterDrillLesson(academyLessonPick[0], -1);
             refreshLessonPicker.run();
         });
         Button nextLesson = uiFactory.action(">", 58, 52, 24, "#263238", 14, () -> {
-            academyLessonPick[0] = shiftGuidedTutorialLesson(academyLessonPick[0], 1);
+            academyLessonPick[0] = shiftCharacterDrillLesson(academyLessonPick[0], 1);
             refreshLessonPicker.run();
         });
         HBox lessonPickerRow = new HBox(10, previousLesson, lessonPicker, nextLesson);
         lessonPickerRow.setAlignment(Pos.CENTER_LEFT);
         refreshLessonPicker.run();
 
-        Button guidedTutorialButton = uiFactory.action("START FROM FIRST", 248, 68, 20, "#1565C0", 18,
-                () -> beginGuidedTutorial(stage));
-        Button selectedLessonButton = uiFactory.action("START LESSON", 226, 68, 20, "#00897B", 18,
-                () -> beginGuidedTutorial(stage, academyLessonPick[0]));
+        Button guidedTutorialButton = uiFactory.action("OPEN FUNDAMENTALS", 260, 68, 20, "#1565C0", 16,
+                () -> showGuidedTutorialHub(stage));
+        Button selectedLessonButton = uiFactory.action("START DRILL", 226, 68, 20, "#00897B", 18,
+                () -> beginGuidedTutorial(stage, academyLessonPick[0], false));
         HBox academyActions = new HBox(12, guidedTutorialButton, selectedLessonButton);
         academyActions.setAlignment(Pos.CENTER_LEFT);
 
@@ -30830,33 +31002,201 @@ public class BirdGame3 {
 
     private String guidedTutorialLessonPickerText(GuidedTutorialLesson lesson) {
         GuidedTutorialLesson safeLesson = lesson == null ? GuidedTutorialLesson.STAGE_CONTROL : lesson;
-        return "LESSON " + (safeLesson.ordinal() + 1) + " / " + GuidedTutorialLesson.values().length
+        int coreIndex = guidedTutorialCoreIndex(safeLesson);
+        if (coreIndex >= 0) {
+            return "LESSON " + (coreIndex + 1) + " / " + CORE_GUIDED_TUTORIAL_LESSONS.length
+                    + "  " + safeLesson.title.toUpperCase(Locale.ROOT);
+        }
+        int drillIndex = indexOfGuidedTutorialLesson(CHARACTER_DRILL_LESSONS, safeLesson);
+        return "DRILL " + (Math.max(0, drillIndex) + 1) + " / " + CHARACTER_DRILL_LESSONS.length
                 + "  " + safeLesson.title.toUpperCase(Locale.ROOT);
     }
 
-    private GuidedTutorialLesson shiftGuidedTutorialLesson(GuidedTutorialLesson lesson, int delta) {
-        GuidedTutorialLesson[] lessons = GuidedTutorialLesson.values();
-        int current = lesson == null ? GuidedTutorialLesson.STAGE_CONTROL.ordinal() : lesson.ordinal();
-        int next = Math.floorMod(current + delta, lessons.length);
-        return lessons[next];
+    private static int indexOfGuidedTutorialLesson(GuidedTutorialLesson[] lessons, GuidedTutorialLesson lesson) {
+        if (lessons == null || lesson == null) {
+            return -1;
+        }
+        for (int i = 0; i < lessons.length; i++) {
+            if (lessons[i] == lesson) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private GuidedTutorialLesson shiftCharacterDrillLesson(GuidedTutorialLesson lesson, int delta) {
+        int current = indexOfGuidedTutorialLesson(CHARACTER_DRILL_LESSONS, lesson);
+        int next = Math.floorMod(Math.max(0, current) + delta, CHARACTER_DRILL_LESSONS.length);
+        return CHARACTER_DRILL_LESSONS[next];
     }
 
     private void beginGuidedTutorial(Stage stage) {
-        beginGuidedTutorial(stage, GuidedTutorialLesson.STAGE_CONTROL);
+        beginGuidedTutorial(stage, firstIncompleteGuidedTutorialLesson(), true);
     }
 
     private void beginGuidedTutorial(Stage stage, GuidedTutorialLesson startingLesson) {
+        beginGuidedTutorial(stage, startingLesson, isCoreGuidedTutorialLesson(startingLesson));
+    }
+
+    private void beginGuidedTutorial(Stage stage, GuidedTutorialLesson startingLesson, boolean autoAdvance) {
         if (stage == null) {
             return;
         }
         trainingAcademyMode = TrainingAcademyMode.GUIDED_TUTORIAL;
         guidedTutorialLesson = startingLesson == null ? GuidedTutorialLesson.STAGE_CONTROL : startingLesson;
+        guidedTutorialAutoAdvance = autoAdvance && isCoreGuidedTutorialLesson(guidedTutorialLesson);
         clearTrainingAcademyRuntimeState();
         beginTrainingMatchOnMap(stage, guidedTutorialLesson.map);
     }
 
     boolean isGuidedTutorialCompleted() {
         return guidedTutorialCompleted;
+    }
+
+    private int completedGuidedTutorialLessonCount() {
+        int completed = 0;
+        for (boolean value : guidedTutorialLessonCompleted) {
+            if (value) {
+                completed++;
+            }
+        }
+        return completed;
+    }
+
+    private boolean areAllGuidedTutorialLessonsCompleted() {
+        return completedGuidedTutorialLessonCount() == guidedTutorialLessonCompleted.length;
+    }
+
+    private GuidedTutorialLesson firstIncompleteGuidedTutorialLesson() {
+        for (int i = 0; i < CORE_GUIDED_TUTORIAL_LESSONS.length; i++) {
+            if (!guidedTutorialLessonCompleted[i]) {
+                return CORE_GUIDED_TUTORIAL_LESSONS[i];
+            }
+        }
+        return GuidedTutorialLesson.STAGE_CONTROL;
+    }
+
+    private void showGuidedTutorialHub(Stage stage) {
+        resolveFirstLaunchTutorialPrompt();
+        trainingAcademySceneTransitionPending = false;
+        trainingAcademyMode = TrainingAcademyMode.NONE;
+        guidedTutorialAutoAdvance = false;
+        playMenuMusic();
+
+        StackPane root = new StackPane();
+        root.getProperties().put("noAutoScale", true);
+        root.setStyle("-fx-background-color: #02050A;");
+
+        BorderPane frame = new BorderPane();
+        frame.setId("uiFrame");
+        lockRegionSize(frame, 1600, 950);
+        frame.setStyle("-fx-background-color: linear-gradient(to bottom, #07111C 0%, #101824 52%, #05070B 100%);");
+
+        Label progress = new Label(completedGuidedTutorialLessonCount() + " / "
+                + CORE_GUIDED_TUTORIAL_LESSONS.length + " COMPLETE");
+        progress.setFont(Font.font("Consolas", FontWeight.BOLD, 20));
+        progress.setTextFill(guidedTutorialCompleted ? Color.web("#A5D6A7") : Color.web("#80DEEA"));
+        Label heading = new Label("TRAINING ACADEMY");
+        heading.setFont(Font.font("Arial Black", 48));
+        heading.setTextFill(Color.WHITE);
+        Label subtitle = new Label(guidedTutorialCompleted
+                ? "Fundamentals cleared. Every lesson remains available for replay."
+                : "Clear the fundamentals in order, or select any lesson to practice it directly.");
+        subtitle.setFont(Font.font("Consolas", 19));
+        subtitle.setTextFill(Color.web("#CFD8DC"));
+        VBox headerText = new VBox(5, progress, heading, subtitle);
+        Button back = uiFactory.action("BACK", 230, 70, 24, "#8B1E24", 18,
+                () -> showTrainingSetup(stage));
+        Region topSpacer = new Region();
+        HBox.setHgrow(topSpacer, Priority.ALWAYS);
+        HBox header = new HBox(26, headerText, topSpacer, back);
+        header.setAlignment(Pos.CENTER_LEFT);
+        header.setPadding(new Insets(32, 52, 26, 52));
+        header.setStyle("-fx-background-color: linear-gradient(to right, #0D47A1 0%, #10243A 58%, #070A0F 100%);"
+                + "-fx-border-color: transparent transparent rgba(255,255,255,0.14) transparent; -fx-border-width: 0 0 3 0;");
+        frame.setTop(header);
+
+        GridPane lessons = new GridPane();
+        lessons.setHgap(18);
+        lessons.setVgap(18);
+        lessons.setAlignment(Pos.CENTER);
+        for (int i = 0; i < CORE_GUIDED_TUTORIAL_LESSONS.length; i++) {
+            GuidedTutorialLesson lesson = CORE_GUIDED_TUTORIAL_LESSONS[i];
+            lessons.add(buildGuidedTutorialLessonCard(stage, lesson, i), i % 4, i / 4);
+        }
+        VBox lessonShell = new VBox(lessons);
+        lessonShell.setAlignment(Pos.CENTER);
+        lessonShell.setPadding(new Insets(28, 42, 22, 42));
+        frame.setCenter(lessonShell);
+
+        String continueText = guidedTutorialCompleted ? "REPLAY FROM START" : "CONTINUE ACADEMY";
+        Button continueButton = uiFactory.action(continueText, 430, 78, 26, "#00A84F", 20,
+                () -> beginGuidedTutorial(stage, firstIncompleteGuidedTutorialLesson(), true));
+        Label footerHint = new Label("Character-specific move drills remain available from the Training screen.");
+        footerHint.setFont(Font.font("Consolas", 17));
+        footerHint.setTextFill(Color.web("#90A4AE"));
+        Region footerSpacer = new Region();
+        HBox.setHgrow(footerSpacer, Priority.ALWAYS);
+        HBox footer = new HBox(24, footerHint, footerSpacer, continueButton);
+        footer.setAlignment(Pos.CENTER);
+        footer.setPadding(new Insets(20, 52, 34, 52));
+        footer.setStyle("-fx-background-color: rgba(2,5,9,0.94); -fx-border-color: rgba(255,255,255,0.10) transparent transparent transparent; -fx-border-width: 2 0 0 0;");
+        frame.setBottom(footer);
+
+        root.getChildren().add(frame);
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        bindEscape(scene, back::fire);
+        bindFixedFrameScale(scene, frame, 0.0);
+        setScenePreservingFullscreen(stage, scene);
+        javafx.application.Platform.runLater(continueButton::requestFocus);
+    }
+
+    private Button buildGuidedTutorialLessonCard(Stage stage, GuidedTutorialLesson lesson, int index) {
+        boolean completed = index >= 0
+                && index < guidedTutorialLessonCompleted.length
+                && guidedTutorialLessonCompleted[index];
+        Label number = new Label(String.format(Locale.ROOT, "%02d", index + 1));
+        number.setFont(Font.font("Arial Black", 30));
+        number.setTextFill(completed ? Color.web("#A5D6A7") : Color.web("#80DEEA"));
+        Label state = new Label(completed ? "CLEARED" : "READY");
+        state.setFont(Font.font("Consolas", FontWeight.BOLD, 14));
+        state.setTextFill(completed ? Color.web("#A5D6A7") : Color.web("#FFE082"));
+        Region stateSpacer = new Region();
+        HBox.setHgrow(stateSpacer, Priority.ALWAYS);
+        HBox top = new HBox(8, number, stateSpacer, state);
+        top.setAlignment(Pos.CENTER_LEFT);
+
+        Label title = new Label(lesson.title.toUpperCase(Locale.ROOT));
+        title.setFont(Font.font("Arial Black", 20));
+        title.setTextFill(Color.WHITE);
+        title.setWrapText(true);
+        title.setMaxWidth(300);
+        Label objective = new Label(lesson.objective);
+        objective.setFont(Font.font("Consolas", 15));
+        objective.setTextFill(Color.web("#CFD8DC"));
+        objective.setWrapText(true);
+        objective.setMaxWidth(300);
+        objective.setMinHeight(54);
+
+        VBox content = new VBox(8, top, title, objective);
+        content.setAlignment(Pos.TOP_LEFT);
+        content.setPadding(new Insets(18));
+        Button card = new Button();
+        card.setGraphic(content);
+        card.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+        lockRegionSize(card, 340, 250);
+        card.setAccessibleText("Lesson " + (index + 1) + ", " + lesson.title
+                + (completed ? ", completed" : ", not completed"));
+        card.setStyle("-fx-background-color: " + (completed ? "rgba(16,55,48,0.92)" : "rgba(8,25,40,0.94)") + ";"
+                + "-fx-background-radius: 18; -fx-border-color: " + (completed ? "#66BB6A" : "#2C7897") + ";"
+                + "-fx-border-width: 3; -fx-border-radius: 18; -fx-cursor: hand;");
+        card.setOnAction(event -> {
+            playButtonClick();
+            beginGuidedTutorial(stage, lesson, false);
+        });
+        return card;
     }
 
     private void showClassicMoreMenu(Stage stage) {
@@ -36188,6 +36528,8 @@ public class BirdGame3 {
         applyDeveloperBirdCoinMode();
 
         guidedTutorialCompleted = true;
+        guidedTutorialPromptResolved = true;
+        Arrays.fill(guidedTutorialLessonCompleted, true);
         Arrays.fill(classicSkinUnlocked, true);
         developerBadgePolicyVersion = DEVELOPER_BADGE_POLICY_VERSION;
 
@@ -61216,6 +61558,8 @@ public class BirdGame3 {
         trainingAcademyShieldHitSeen = false;
         trainingAcademyGrabSeen = false;
         trainingAcademyThrowSeen = false;
+        trainingAcademyUltimateWasReady = false;
+        trainingAcademyUltimateActivatedSeen = false;
         clearTrainingSpecialProgress();
         clearTrainingCharacterDrillProgress();
         trainingAcademyRecoveryStarted = false;
@@ -61431,7 +61775,7 @@ public class BirdGame3 {
                 setTrainingBirdStandingPosition(player, stageCenter - 160, groundY);
                 setTrainingBirdStandingPosition(dummy, stageCenter + 120, groundY);
             }
-            case DIRECTIONAL_SPECIALS, PIGEON_DRILL, EAGLE_DRILL, GOOSE_DRILL,
+            case DIRECTIONAL_SPECIALS, ULTIMATE_FINISH, PIGEON_DRILL, EAGLE_DRILL, GOOSE_DRILL,
                  TITMOUSE_DRILL, OPIUM_DRILL, HEISEN_DRILL -> {
                 setTrainingBirdStandingPosition(player, stageCenter - 150, groundY);
                 setTrainingBirdStandingPosition(dummy, stageCenter + 130, groundY);
@@ -61475,6 +61819,10 @@ public class BirdGame3 {
                 setTrainingBirdStandingPosition(player, stage.x + stage.w - 220, groundY);
                 setTrainingBirdStandingPosition(dummy, stage.x + stage.w - 80, groundY);
             }
+            case FINAL_PRACTICE -> {
+                setTrainingBirdStandingPosition(player, stageCenter - 210, groundY);
+                setTrainingBirdStandingPosition(dummy, stageCenter + 210, groundY);
+            }
         }
         faceTrainingBirds(player, dummy);
     }
@@ -61485,6 +61833,10 @@ public class BirdGame3 {
         }
 
         switch (currentGuidedTutorialLesson()) {
+            case ULTIMATE_FINISH -> {
+                player.refillTrainingResources(true);
+                trainingAcademyUltimateWasReady = player.isUltimateReady();
+            }
             case GOOSE_DRILL ->
                     player.gooseTerritoryMeter = Bird.GOOSE_TERRITORY_MAX - 8.0;
             case OPIUM_DRILL, HEISEN_DRILL ->
@@ -62029,6 +62381,18 @@ public class BirdGame3 {
                     queueTrainingAcademyCompletion("Specials cleared");
                 }
             }
+            case ULTIMATE_FINISH -> {
+                trainingAcademyUltimateWasReady |= player.isUltimateReady();
+                if (trainingAcademyUltimateWasReady && !player.isUltimateReady()) {
+                    trainingAcademyUltimateActivatedSeen = true;
+                    queueTrainingAcademyCompletion("Ultimate activated");
+                }
+            }
+            case FINAL_PRACTICE -> {
+                if (dummy != null && falls[trainingDummyIndex] > 0) {
+                    queueTrainingAcademyCompletion("Practice match won");
+                }
+            }
             case PIGEON_DRILL -> {
                 if (hasCompletedPigeonTrainingDrill()) {
                     markTrainingAcademyDrillCompleted(BirdType.PIGEON);
@@ -62187,7 +62551,10 @@ public class BirdGame3 {
                     trainingAcademyPunishReady = true;
                     trainingAcademyHitsLanded = 0;
                     addToKillFeed("BLOCKED. PUNISH NOW.");
-                } else if (trainingAcademyPunishReady && trainingAcademyHitsLanded > 0) {
+                } else if (trainingAcademyPunishReady
+                        && trainingAcademyHitsLanded > 0
+                        && trainingAcademyGrabSeen
+                        && trainingAcademyThrowSeen) {
                     queueTrainingAcademyCompletion("Defense cleared");
                 }
             }
@@ -62680,34 +63047,47 @@ public class BirdGame3 {
         trainingAcademyCompletionMessage = "";
 
         if (trainingAcademyMode == TrainingAcademyMode.GUIDED_TUTORIAL) {
-            GuidedTutorialLesson nextLesson = currentGuidedTutorialLesson().next();
-            if (nextLesson == null) {
-                if (!guidedTutorialCompleted) {
-                    guidedTutorialCompleted = true;
-                    saveAchievements();
+            GuidedTutorialLesson completedLesson = currentGuidedTutorialLesson();
+            int coreIndex = guidedTutorialCoreIndex(completedLesson);
+            if (coreIndex >= 0) {
+                guidedTutorialLessonCompleted[coreIndex] = true;
+                guidedTutorialCompleted = areAllGuidedTutorialLessonsCompleted();
+                saveAchievements();
+            }
+
+            GuidedTutorialLesson nextLesson = coreIndex >= 0 && guidedTutorialAutoAdvance
+                    ? completedLesson.next()
+                    : null;
+            if (nextLesson != null) {
+                guidedTutorialLesson = nextLesson;
+                if (selectedMap == nextLesson.map) {
+                    resetTrainingPositions();
+                    addToKillFeed(guidedTutorialLessonPickerText(nextLesson));
+                    return;
                 }
-                trainingAcademyMode = TrainingAcademyMode.NONE;
+
                 trainingAcademySceneTransitionPending = true;
-                addToKillFeed("GUIDED TUTORIAL COMPLETE");
                 if (currentStage != null) {
-                    javafx.application.Platform.runLater(() -> showTrainingSetup(currentStage));
+                    javafx.application.Platform.runLater(() -> beginTrainingMatchOnMap(currentStage, nextLesson.map));
                 } else {
                     trainingAcademySceneTransitionPending = false;
                 }
                 return;
             }
 
-            guidedTutorialLesson = nextLesson;
-            if (selectedMap == nextLesson.map) {
-                resetTrainingPositions();
-                addToKillFeed("LESSON " + (guidedTutorialLesson.ordinal() + 1) + " / "
-                        + GuidedTutorialLesson.values().length + ": " + guidedTutorialLesson.title.toUpperCase(Locale.ROOT));
-                return;
-            }
-
+            trainingAcademyMode = TrainingAcademyMode.NONE;
+            guidedTutorialAutoAdvance = false;
             trainingAcademySceneTransitionPending = true;
             if (currentStage != null) {
-                javafx.application.Platform.runLater(() -> beginTrainingMatchOnMap(currentStage, nextLesson.map));
+                boolean returnToAcademy = coreIndex >= 0;
+                javafx.application.Platform.runLater(() -> {
+                    stopGameplayTimer();
+                    if (returnToAcademy) {
+                        showGuidedTutorialHub(currentStage);
+                    } else {
+                        showTrainingSetup(currentStage);
+                    }
+                });
             } else {
                 trainingAcademySceneTransitionPending = false;
             }
@@ -62805,7 +63185,15 @@ public class BirdGame3 {
         combatImpactEffects.clear();
         launchTrailEffects.clear();
         powerUps.clear();
+        Arrays.fill(falls, 0);
+        Arrays.fill(scores, 0);
         setupTrainingRoster();
+        int trainingStocks = trainingAcademyMode == TrainingAcademyMode.GUIDED_TUTORIAL
+                && currentGuidedTutorialLesson() == GuidedTutorialLesson.FINAL_PRACTICE
+                ? 1
+                : smashStartingStocks();
+        scores[0] = trainingStocks;
+        scores[trainingDummyIndex] = trainingStocks;
         positionBattlefieldSpawns();
         captureTrainingSpawns();
         Bird player = players[0];
@@ -68048,8 +68436,8 @@ public class BirdGame3 {
             }
         }
 
-        smashCombatRulesActive = (!trainingModeActive && !campaignModeActive
-                && !storyModeActive && !adventureModeActive && !classicModeActive)
+        smashCombatRulesActive = trainingModeActive
+                || (!campaignModeActive && !storyModeActive && !adventureModeActive && !classicModeActive)
                 || classicUsesSmashRules();
         if (smashCombatRulesActive) {
             Arrays.fill(scores, 0);
@@ -68059,6 +68447,12 @@ public class BirdGame3 {
                 }
             }
             applyClassicEncounterStockOverrides();
+            if (trainingModeActive
+                    && trainingAcademyMode == TrainingAcademyMode.GUIDED_TUTORIAL
+                    && currentGuidedTutorialLesson() == GuidedTutorialLesson.FINAL_PRACTICE) {
+                scores[0] = 1;
+                scores[trainingDummyIndex] = 1;
+            }
         }
 
         beginReplayRecordingForMatch();
@@ -69028,7 +69422,11 @@ public class BirdGame3 {
     private String trainingAcademyHeaderText() {
         if (trainingAcademyMode == TrainingAcademyMode.GUIDED_TUTORIAL) {
             GuidedTutorialLesson lesson = currentGuidedTutorialLesson();
-            return "GUIDED TUTORIAL  " + (lesson.ordinal() + 1) + " / " + GuidedTutorialLesson.values().length;
+            int coreIndex = guidedTutorialCoreIndex(lesson);
+            if (coreIndex >= 0) {
+                return "FUNDAMENTALS  " + (coreIndex + 1) + " / " + CORE_GUIDED_TUTORIAL_LESSONS.length;
+            }
+            return "CHARACTER DRILL";
         }
         return "TRAINING";
     }
@@ -69071,6 +69469,9 @@ public class BirdGame3 {
                         + "  Side: " + yesNoText(trainingAcademySideSpecialSeen)
                         + "  Up: " + yesNoText(trainingAcademyUpSpecialSeen)
                         + "  Down: " + yesNoText(trainingAcademyDownSpecialSeen);
+                case ULTIMATE_FINISH -> "ULT ready: " + yesNoText(trainingAcademyUltimateWasReady)
+                        + "  Activated: " + yesNoText(trainingAcademyUltimateActivatedSeen);
+                case FINAL_PRACTICE -> "Opponent KOs: " + Math.min(1, falls[trainingDummyIndex]) + " / 1";
                 case PIGEON_DRILL -> "Peck: " + yesNoText(trainingAcademyPigeonBurstHitSeen)
                         + "  Rush: " + yesNoText(trainingAcademyPigeonRushHitSeen)
                         + "  Flutter: " + yesNoText(trainingAcademyPigeonFlutterHitSeen)
@@ -69157,7 +69558,9 @@ public class BirdGame3 {
                         + "  Spring: " + yesNoText(trainingAcademyUpSpecialSeen)
                         + "  Stomp: " + yesNoText(trainingAcademyDownSpecialSeen);
                 case DEFENSE_AND_PUNISH -> "Blocked: " + yesNoText(trainingAcademyShieldHitSeen)
-                        + "  Punish hit: " + yesNoText(trainingAcademyHitsLanded > 0);
+                        + "  Punish: " + yesNoText(trainingAcademyPunishReady && trainingAcademyHitsLanded > 0)
+                        + "  Grab: " + yesNoText(trainingAcademyGrabSeen)
+                        + "  Throw: " + yesNoText(trainingAcademyThrowSeen);
                 case GRABS_AND_THROWS -> "Grab: " + yesNoText(trainingAcademyGrabSeen)
                         + "  Throw: " + yesNoText(trainingAcademyThrowSeen);
                 case RECOVERY_AND_LEDGE -> "Returns: " + trainingAcademyRecoveriesCompleted + " / 1";
@@ -72984,6 +73387,11 @@ public class BirdGame3 {
         state.developerInfiniteBirdCoins = developerInfiniteBirdCoins;
         state.developerBadgePolicyVersion = developerBadgePolicyVersion;
         state.guidedTutorialCompleted = guidedTutorialCompleted;
+        state.guidedTutorialPromptResolved = guidedTutorialPromptResolved;
+        state.guidedTutorialLessonCompleted = Arrays.copyOf(
+                guidedTutorialLessonCompleted,
+                guidedTutorialLessonCompleted.length
+        );
         state.trainingAcademyDrillCompleted = Arrays.copyOf(
                 trainingAcademyDrillCompleted,
                 trainingAcademyDrillCompleted.length
@@ -73123,6 +73531,9 @@ public class BirdGame3 {
         developerBadgePolicyVersion = resolved.developerBadgePolicyVersion;
         applyDeveloperBirdCoinMode();
         guidedTutorialCompleted = resolved.guidedTutorialCompleted;
+        guidedTutorialPromptResolved = resolved.guidedTutorialPromptResolved;
+        copyInto(resolved.guidedTutorialLessonCompleted, guidedTutorialLessonCompleted);
+        guidedTutorialCompleted = areAllGuidedTutorialLessonsCompleted();
         copyInto(resolved.trainingAcademyDrillCompleted, trainingAcademyDrillCompleted);
 
         dailyChallengeBestKey = resolved.dailyChallengeBestKey;
@@ -75333,8 +75744,10 @@ public class BirdGame3 {
         fitWrappedLabelText(objective, lesson.objective, 760, 38, 10);
 
         Button restartLesson = pauseAcademyButton("RESTART LESSON", "#00897B", () -> restartGuidedTutorialLesson(stage));
+        boolean coreLesson = isCoreGuidedTutorialLesson(lesson);
+        String skipText = !coreLesson ? "EXIT DRILL" : lesson.next() == null ? "EXIT ACADEMY" : "SKIP LESSON";
         Button skipLesson = pauseAcademyButton(
-                lesson.next() == null ? "FINISH ACADEMY" : "SKIP LESSON",
+                skipText,
                 "#1565C0",
                 () -> skipGuidedTutorialLesson(stage)
         );
@@ -75392,27 +75805,29 @@ public class BirdGame3 {
             return;
         }
         GuidedTutorialLesson nextLesson = currentGuidedTutorialLesson().next();
+        boolean coreLesson = isCoreGuidedTutorialLesson(currentGuidedTutorialLesson());
         closePauseMenuWithoutResuming();
         resetMatchStats();
 
         if (nextLesson == null) {
-            if (!guidedTutorialCompleted) {
-                guidedTutorialCompleted = true;
-                saveAchievements();
-            }
             trainingAcademyMode = TrainingAcademyMode.NONE;
+            guidedTutorialAutoAdvance = false;
             if (timer != null) {
                 timer.stop();
             }
-            showTrainingSetup(stage);
+            if (coreLesson) {
+                showGuidedTutorialHub(stage);
+            } else {
+                showTrainingSetup(stage);
+            }
             return;
         }
 
         guidedTutorialLesson = nextLesson;
+        guidedTutorialAutoAdvance = true;
         clearTrainingAcademyRuntimeState();
         beginTrainingMatchOnMap(stage, nextLesson.map);
-        addToKillFeed("LESSON " + (guidedTutorialLesson.ordinal() + 1) + " / "
-                + GuidedTutorialLesson.values().length + ": " + guidedTutorialLesson.title.toUpperCase(Locale.ROOT));
+        addToKillFeed(guidedTutorialLessonPickerText(guidedTutorialLesson));
     }
 
     private void togglePause(Stage stage) {

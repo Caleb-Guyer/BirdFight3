@@ -35,7 +35,10 @@ final class BirdGame3ProfileProgressState {
     private static final String KEY_BOSS_RUSH_PERFECT_PREFIX = "boss_rush_perfect_";
     private static final String KEY_ASHFALL_TRIAL_COMPLETED = "ashfall_trial_completed";
     private static final String KEY_GUIDED_TUTORIAL_COMPLETED = "academy_guided_tutorial_completed";
+    private static final String KEY_GUIDED_TUTORIAL_PROMPT_RESOLVED = "academy_first_launch_prompt_resolved";
+    private static final String KEY_GUIDED_TUTORIAL_LESSON_PREFIX = "academy_fundamental_completed_";
     private static final String KEY_ACADEMY_DRILL_COMPLETED_PREFIX = "academy_drill_completed_";
+    static final int GUIDED_TUTORIAL_LESSON_COUNT = 8;
     private static final String KEY_DEVELOPER_INFINITE_BIRD_COINS = "developer_infinite_bird_coins";
     private static final String KEY_DEVELOPER_BADGE_POLICY_VERSION = "developer_badge_policy_version";
     private static final String KEY_ROOFTOP_RELAY_UNLOCKED = "map_variant_rooftop_relay_unlocked";
@@ -105,6 +108,8 @@ final class BirdGame3ProfileProgressState {
     boolean developerInfiniteBirdCoins = false;
     int developerBadgePolicyVersion = 0;
     boolean guidedTutorialCompleted = false;
+    boolean guidedTutorialPromptResolved = false;
+    boolean[] guidedTutorialLessonCompleted = new boolean[GUIDED_TUTORIAL_LESSON_COUNT];
     boolean[] trainingAcademyDrillCompleted = new boolean[BirdGame3.BirdType.values().length];
     String dailyChallengeBestKey = "";
     int dailyChallengeBestProgress = 0;
@@ -517,10 +522,28 @@ final class BirdGame3ProfileProgressState {
     }
 
     private static void loadTrainingAcademy(Preferences prefs, BirdGame3ProfileProgressState state) {
+        boolean storedProfile = hasStoredProfileProgress(prefs);
         state.guidedTutorialCompleted = prefs.getBoolean(
                 KEY_GUIDED_TUTORIAL_COMPLETED,
                 prefs.getBoolean("start_here_completed", false)
         );
+        String promptValue = prefs.get(KEY_GUIDED_TUTORIAL_PROMPT_RESOLVED, null);
+        state.guidedTutorialPromptResolved = promptValue == null
+                ? storedProfile
+                : Boolean.parseBoolean(promptValue);
+        boolean hasLessonProgress = false;
+        for (int i = 0; i < state.guidedTutorialLessonCompleted.length; i++) {
+            String key = KEY_GUIDED_TUTORIAL_LESSON_PREFIX + i;
+            String stored = prefs.get(key, null);
+            if (stored != null) {
+                hasLessonProgress = true;
+                state.guidedTutorialLessonCompleted[i] = Boolean.parseBoolean(stored);
+            }
+        }
+        if (state.guidedTutorialCompleted && !hasLessonProgress) {
+            Arrays.fill(state.guidedTutorialLessonCompleted, true);
+        }
+        state.guidedTutorialCompleted = allCompleted(state.guidedTutorialLessonCompleted);
         for (BirdGame3.BirdType type : BirdGame3.BirdType.values()) {
             int idx = type.ordinal();
             state.trainingAcademyDrillCompleted[idx] =
@@ -530,11 +553,37 @@ final class BirdGame3ProfileProgressState {
 
     private void saveTrainingAcademy(Preferences prefs) {
         prefs.putBoolean(KEY_GUIDED_TUTORIAL_COMPLETED, guidedTutorialCompleted);
+        prefs.putBoolean(KEY_GUIDED_TUTORIAL_PROMPT_RESOLVED, guidedTutorialPromptResolved);
+        for (int i = 0; i < guidedTutorialLessonCompleted.length; i++) {
+            prefs.putBoolean(KEY_GUIDED_TUTORIAL_LESSON_PREFIX + i, guidedTutorialLessonCompleted[i]);
+        }
         for (BirdGame3.BirdType type : BirdGame3.BirdType.values()) {
             int idx = type.ordinal();
             boolean complete = idx < trainingAcademyDrillCompleted.length && trainingAcademyDrillCompleted[idx];
             prefs.putBoolean(KEY_ACADEMY_DRILL_COMPLETED_PREFIX + type.name(), complete);
         }
+    }
+
+    private static boolean hasStoredProfileProgress(Preferences prefs) {
+        try {
+            return prefs.keys().length > 0;
+        } catch (BackingStoreException ignored) {
+            // If the backing store cannot be inspected, avoid interrupting an
+            // established player with first-launch onboarding.
+            return true;
+        }
+    }
+
+    private static boolean allCompleted(boolean[] values) {
+        if (values == null || values.length == 0) {
+            return false;
+        }
+        for (boolean value : values) {
+            if (!value) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private void savePlayerProgressStats(Preferences prefs, int maxCombatants) {
