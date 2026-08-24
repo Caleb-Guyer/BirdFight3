@@ -29839,7 +29839,6 @@ public class BirdGame3 {
                 previewName = "THE STILL SKY";
                 primaryBird = BirdType.PIGEON;
                 secondaryBird = BirdType.RAVEN;
-                tertiaryBird = BirdType.PHOENIX;
             }
             case GAMES -> {
                 previewName = "GAMES & MORE";
@@ -29850,20 +29849,16 @@ public class BirdGame3 {
             case SHOP -> {
                 previewName = "SHOP";
                 primaryBird = BirdType.HUMMINGBIRD;
-                secondaryBird = BirdType.HEISENBIRD;
-                tertiaryBird = BirdType.TURKEY;
             }
             case NETWORK -> {
                 previewName = "NETWORK PLAY";
-                primaryBird = BirdType.EAGLE;
-                secondaryBird = BirdType.FALCON;
-                tertiaryBird = BirdType.PIGEON;
+                primaryBird = BirdType.PIGEON;
+                secondaryBird = BirdType.EAGLE;
+                tertiaryBird = BirdType.FALCON;
             }
             case VAULT -> {
                 previewName = "THE VAULT";
                 primaryBird = BirdType.PENGUIN;
-                secondaryBird = BirdType.RAVEN;
-                tertiaryBird = BirdType.KIWI;
             }
             case SETTINGS -> previewName = "SETTINGS";
             case PROFILES -> {
@@ -29881,6 +29876,7 @@ public class BirdGame3 {
         drawUltimateHubPreviewPortrait(primary, primaryBird);
         drawUltimateHubPreviewPortrait(secondary, secondaryBird);
         drawUltimateHubPreviewPortrait(tertiary, tertiaryBird);
+        layoutUltimateHubPreviewPortraits(primary, secondary, tertiary, resolved);
         title.setText(previewName);
 
         Object layerObject = medallion.getProperties().get("hubPreviewLayer");
@@ -29912,12 +29908,110 @@ public class BirdGame3 {
         }
     }
 
+    private void layoutUltimateHubPreviewPortraits(Canvas primary, Canvas secondary,
+                                                   Canvas tertiary,
+                                                   HubPresentationModel.Destination destination) {
+        resetUltimateHubPreviewPortrait(primary, 56, 62);
+        resetUltimateHubPreviewPortrait(secondary, 4, 130);
+        resetUltimateHubPreviewPortrait(tertiary, 170, 136);
+        switch (destination) {
+            case FIGHT -> {
+                primary.relocate(56, 72);
+                primary.setScaleX(1.02);
+                primary.setScaleY(1.02);
+                secondary.relocate(-4, 126);
+                secondary.setScaleX(-0.94);
+                secondary.setScaleY(0.94);
+                tertiary.relocate(174, 132);
+                tertiary.setScaleX(0.92);
+                tertiary.setScaleY(0.92);
+            }
+            case STORY -> {
+                secondary.relocate(-8, 52);
+                secondary.setScaleX(1.34);
+                secondary.setScaleY(1.34);
+                secondary.setOpacity(0.42);
+                primary.relocate(80, 92);
+                primary.setScaleX(0.92);
+                primary.setScaleY(0.92);
+            }
+            case GAMES -> {
+                primary.relocate(58, 52);
+                primary.setScaleX(0.90);
+                primary.setScaleY(0.90);
+                secondary.relocate(8, 154);
+                secondary.setScaleX(0.72);
+                secondary.setScaleY(0.72);
+                tertiary.relocate(174, 148);
+                tertiary.setScaleX(-0.74);
+                tertiary.setScaleY(0.74);
+            }
+            case SHOP -> {
+                primary.relocate(92, 46);
+                primary.setScaleX(0.70);
+                primary.setScaleY(0.70);
+            }
+            case NETWORK -> {
+                primary.relocate(78, 116);
+                primary.setScaleX(0.72);
+                primary.setScaleY(0.72);
+                secondary.relocate(-2, 58);
+                secondary.setScaleX(0.96);
+                secondary.setScaleY(0.96);
+                tertiary.relocate(172, 60);
+                tertiary.setScaleX(-0.96);
+                tertiary.setScaleY(0.96);
+            }
+            case VAULT -> {
+                primary.relocate(92, 104);
+                primary.setScaleX(0.66);
+                primary.setScaleY(0.66);
+            }
+            case PROFILES -> {
+                primary.relocate(62, 110);
+                primary.setScaleX(0.56);
+                primary.setScaleY(0.56);
+                secondary.relocate(14, 108);
+                secondary.setScaleX(0.55);
+                secondary.setScaleY(0.55);
+                tertiary.relocate(176, 110);
+                tertiary.setScaleX(-0.56);
+                tertiary.setScaleY(0.56);
+            }
+            case EXIT -> {
+                primary.relocate(18, 130);
+                primary.setScaleX(0.54);
+                primary.setScaleY(0.54);
+            }
+            case SETTINGS -> { }
+        }
+    }
+
+    private void resetUltimateHubPreviewPortrait(Canvas canvas, double x, double y) {
+        canvas.relocate(x, y);
+        canvas.setScaleX(1.0);
+        canvas.setScaleY(1.0);
+        canvas.setRotate(0.0);
+        canvas.setOpacity(1.0);
+    }
+
     private void drawUltimateHubPreviewBackdrop(Canvas canvas,
                                                 HubPresentationModel.Destination destination) {
         GraphicsContext g = canvas.getGraphicsContext2D();
         double w = canvas.getWidth();
         double h = canvas.getHeight();
         g.clearRect(0, 0, w, h);
+
+        StageChoice stagePicture = switch (destination) {
+            case FIGHT -> StageChoice.main(MapType.BATTLEFIELD);
+            case STORY -> StageChoice.main(MapType.BEACON_CROWN);
+            case GAMES -> new StageChoice(MapType.BEACON_CROWN, MapVariant.VOID_CROWN);
+            case NETWORK -> StageChoice.main(MapType.CITY);
+            default -> null;
+        };
+        if (stagePicture != null) {
+            StagePreviewRenderer.draw(canvas, stagePicture);
+        }
 
         Color top;
         Color bottom;
@@ -29933,19 +30027,22 @@ public class BirdGame3 {
             case EXIT -> { top = Color.web("#6E161D"); bottom = Color.web("#130406"); }
             default -> { top = Color.web("#26384A"); bottom = Color.web("#070A0E"); }
         }
+        Color topLayer = stagePicture == null
+                ? top : Color.color(top.getRed(), top.getGreen(), top.getBlue(), 0.38);
+        Color bottomLayer = stagePicture == null
+                ? bottom : Color.color(bottom.getRed(), bottom.getGreen(), bottom.getBlue(), 0.84);
         g.setFill(new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
-                new Stop(0, top), new Stop(1, bottom)));
+                new Stop(0, topLayer), new Stop(1, bottomLayer)));
         g.fillRect(0, 0, w, h);
-        g.setGlobalAlpha(0.16);
-        g.setStroke(Color.WHITE);
-        g.setLineWidth(3.0);
-        for (int i = -3; i < 7; i++) {
-            g.strokeLine(i * 58, h, i * 58 + 170, 0);
-        }
-        g.setGlobalAlpha(1.0);
 
         switch (destination) {
             case FIGHT -> {
+                g.setStroke(Color.web("#FFF3E0", 0.22));
+                g.setLineWidth(3);
+                for (int i = 0; i < 5; i++) {
+                    g.strokeLine(6, 42 + i * 32, 88 + i * 18, 32 + i * 28);
+                    g.strokeLine(270, 54 + i * 29, 190 - i * 12, 46 + i * 27);
+                }
                 g.setFill(Color.web("#0B0C10", 0.82));
                 g.fillRoundRect(22, 194, 232, 34, 16, 16);
                 g.setStroke(Color.web("#F6D365"));
@@ -29954,6 +30051,9 @@ public class BirdGame3 {
                 g.strokeOval(103, 64, 70, 70);
             }
             case STORY -> {
+                g.setFill(Color.web("#FFF8D6", 0.72));
+                double[][] stars = {{34, 48}, {62, 86}, {218, 40}, {244, 102}, {194, 78}};
+                for (double[] star : stars) g.fillOval(star[0], star[1], 4, 4);
                 g.setFill(Color.web("#FFB74D", 0.40));
                 g.fillOval(94, 30, 90, 90);
                 g.setFill(Color.web("#05080D", 0.78));
@@ -29964,6 +30064,12 @@ public class BirdGame3 {
                 g.strokeArc(98, 64, 80, 64, 200, 140, ArcType.OPEN);
             }
             case GAMES -> {
+                g.setFill(Color.web("#C4F0FF", 0.16));
+                for (int row = 0; row < 4; row++) {
+                    for (int col = 0; col < 4; col++) {
+                        g.fillOval(22 + col * 74, 24 + row * 62, 8, 8);
+                    }
+                }
                 g.setStroke(Color.web("#9BE7FF"));
                 g.setLineWidth(5);
                 g.strokeLine(38, 206, 230, 74);
@@ -29979,6 +30085,13 @@ public class BirdGame3 {
                 g.strokeLine(190, 59, 248, 59);
             }
             case SHOP -> {
+                g.setFill(Color.web("#FFE4F2", 0.22));
+                for (int i = 0; i < 7; i++) {
+                    double x = 26 + ((i * 47) % 226);
+                    double y = 28 + ((i * 61) % 186);
+                    g.fillPolygon(new double[]{x, x + 3, x + 10, x + 3, x},
+                            new double[]{y, y + 7, y + 10, y + 13, y + 20}, 5);
+                }
                 g.setFill(Color.web("#190914", 0.72));
                 g.fillRoundRect(28, 70, 220, 148, 22, 22);
                 g.setStroke(Color.web("#FFB4DC"));
@@ -29995,6 +30108,12 @@ public class BirdGame3 {
                 g.setTextAlign(TextAlignment.LEFT);
             }
             case NETWORK -> {
+                g.setStroke(Color.web("#FFF3C4", 0.28));
+                g.setLineWidth(2);
+                for (int i = 0; i < 6; i++) {
+                    g.strokeLine(20, 34 + i * 38, 256, 34 + i * 38);
+                    g.strokeLine(34 + i * 42, 22, 34 + i * 42, 248);
+                }
                 g.setStroke(Color.web("#FFF3C4"));
                 g.setLineWidth(4);
                 g.strokeOval(68, 48, 140, 140);
@@ -30007,6 +30126,9 @@ public class BirdGame3 {
                 g.strokeLine(138, 42, 226, 206);
             }
             case VAULT -> {
+                g.setStroke(Color.web("#B3E5FC", 0.14));
+                g.setLineWidth(2);
+                for (int i = 0; i < 12; i++) g.strokeLine(18, 26 + i * 20, 258, 26 + i * 20);
                 g.setFill(Color.web("#071018", 0.76));
                 g.fillRoundRect(30, 52, 216, 168, 18, 18);
                 g.setStroke(Color.web("#B3E5FC"));
@@ -30019,6 +30141,11 @@ public class BirdGame3 {
                         new double[]{150, 170, 172, 184, 206, 192, 206, 184, 172}, 9);
             }
             case SETTINGS -> {
+                g.setStroke(Color.web("#9CCBD2", 0.18));
+                g.setLineWidth(2);
+                for (int x = 22; x < 276; x += 28) {
+                    for (int y = 22; y < 276; y += 28) g.strokeOval(x, y, 3, 3);
+                }
                 g.setFill(Color.web("#D9EEF3", 0.18));
                 g.fillRoundRect(34, 48, 208, 174, 22, 22);
                 g.setStroke(Color.web("#E8F7FA"));
@@ -30032,6 +30159,9 @@ public class BirdGame3 {
                 }
             }
             case PROFILES -> {
+                g.setFill(Color.web("#DDE5FF", 0.12));
+                g.fillOval(-40, -32, 170, 170);
+                g.fillOval(166, 146, 150, 150);
                 g.setStroke(Color.web("#DDE5FF"));
                 g.setLineWidth(4);
                 for (int i = 0; i < 3; i++) {
@@ -30044,6 +30174,11 @@ public class BirdGame3 {
                 }
             }
             case EXIT -> {
+                g.setStroke(Color.web("#FF8A80", 0.20));
+                g.setLineWidth(7);
+                for (int i = -2; i < 7; i++) {
+                    g.strokeLine(i * 52, h, i * 52 + 112, 0);
+                }
                 g.setFill(Color.web("#08090C", 0.80));
                 g.fillRoundRect(72, 38, 132, 202, 12, 12);
                 g.setStroke(Color.web("#FFCDD2"));
@@ -30057,6 +30192,9 @@ public class BirdGame3 {
                 g.strokeLine(112, 170, 144, 138);
             }
         }
+        g.setStroke(Color.web("#FFFFFF", 0.18));
+        g.setLineWidth(3);
+        g.strokeOval(3, 3, w - 6, h - 6);
     }
 
     private void registerHubInteractiveNode(Node node, List<Node> nodes,

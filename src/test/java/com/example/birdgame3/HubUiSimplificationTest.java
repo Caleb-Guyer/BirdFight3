@@ -48,12 +48,16 @@ class HubUiSimplificationTest {
                 "private void updateUltimateHubCenterPreview(Node medallion,");
         String backdrop = methodBody(source,
                 "private void drawUltimateHubPreviewBackdrop(Canvas canvas,");
+        String layout = methodBody(source,
+                "private void layoutUltimateHubPreviewPortraits(Canvas primary, Canvas secondary,");
 
         for (HubPresentationModel.Destination destination : HubPresentationModel.Destination.values()) {
             assertTrue(updater.contains("case " + destination.name()),
                     "missing portrait treatment for " + destination);
             assertTrue(backdrop.contains("case " + destination.name()),
                     "missing illustrated backdrop for " + destination);
+            assertTrue(layout.contains("case " + destination.name()),
+                    "missing a distinct portrait composition for " + destination);
         }
         String portrait = methodBody(source,
                 "private void drawUltimateHubPreviewPortrait(Canvas canvas, BirdType type)");
@@ -61,6 +65,11 @@ class HubUiSimplificationTest {
                 "the preview should feature the game's real bird artwork");
         assertTrue(updater.contains("FadeTransition"),
                 "preview changes should be presented cleanly");
+        assertTrue(backdrop.contains("StagePreviewRenderer.draw(canvas, stagePicture)"),
+                "combat-oriented destinations should incorporate current stage captures");
+        assertTrue(backdrop.contains("MapType.BATTLEFIELD"));
+        assertTrue(backdrop.contains("MapType.BEACON_CROWN"));
+        assertTrue(backdrop.contains("MapType.CITY"));
     }
 
     @Test
