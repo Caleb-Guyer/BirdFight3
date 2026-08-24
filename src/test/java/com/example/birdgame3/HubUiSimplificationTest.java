@@ -28,8 +28,39 @@ class HubUiSimplificationTest {
         assertTrue(hub.contains("buildAdaptivePromptBar("));
         assertTrue(hub.contains("bindFixedFrameScale(scene, frame, 0.0);"));
         assertTrue(hub.contains("buildUltimateHubTipPanel(randomHubTip())"));
+        assertEquals(HubPresentationModel.Destination.values().length,
+                occurrences(hub, "tagUltimateHubDestination("),
+                "every hub destination should drive the center preview");
+        assertTrue(hub.contains("setUltimateHubDrawerExpanded("),
+                "the utility rail should open as a drawer instead of permanently consuming space");
+        assertTrue(hub.contains("railShell.setTranslateX(266.0)"),
+                "the utility drawer should start in its compact state");
+        assertTrue(hub.contains("if (utilityDrawerExpanded[0])"),
+                "Escape should close the open drawer before leaving the hub");
         assertTrue(source.contains("ROOST TIP"));
         assertTrue(source.contains("private String randomHubTip()"));
+    }
+
+    @Test
+    void centerMedallionProvidesAnIllustratedPreviewForEveryDestination() throws IOException {
+        String source = Files.readString(GAME_SOURCE).replace("\r\n", "\n");
+        String updater = methodBody(source,
+                "private void updateUltimateHubCenterPreview(Node medallion,");
+        String backdrop = methodBody(source,
+                "private void drawUltimateHubPreviewBackdrop(Canvas canvas,");
+
+        for (HubPresentationModel.Destination destination : HubPresentationModel.Destination.values()) {
+            assertTrue(updater.contains("case " + destination.name()),
+                    "missing portrait treatment for " + destination);
+            assertTrue(backdrop.contains("case " + destination.name()),
+                    "missing illustrated backdrop for " + destination);
+        }
+        String portrait = methodBody(source,
+                "private void drawUltimateHubPreviewPortrait(Canvas canvas, BirdType type)");
+        assertTrue(portrait.contains("drawRosterSprite(canvas, type, null, false)"),
+                "the preview should feature the game's real bird artwork");
+        assertTrue(updater.contains("FadeTransition"),
+                "preview changes should be presented cleanly");
     }
 
     @Test

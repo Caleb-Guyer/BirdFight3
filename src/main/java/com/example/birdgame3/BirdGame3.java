@@ -29043,6 +29043,7 @@ public class BirdGame3 {
                 buildUltimateHubStyle("#D62828", "#8B0000", "#FFF8E1", 38, 0, 0, 0, true),
                 HubPresentationModel.Destination.FIGHT.title(),
                 HubPresentationModel.Destination.FIGHT.description(), selectorPointer, medallion);
+        tagUltimateHubDestination(fightNode, HubPresentationModel.Destination.FIGHT);
         AnchorPane.setTopAnchor(fightNode, hubMainTop);
         AnchorPane.setLeftAnchor(fightNode, 0.0);
 
@@ -29057,6 +29058,7 @@ public class BirdGame3 {
                 HubPresentationModel.Destination.STORY.title(),
                 HubPresentationModel.Destination.STORY.description(),
                 selectorPointer, medallion);
+        tagUltimateHubDestination(adventureNode, HubPresentationModel.Destination.STORY);
         AnchorPane.setTopAnchor(adventureNode, hubMidline);
         AnchorPane.setLeftAnchor(adventureNode, 0.0);
 
@@ -29070,6 +29072,7 @@ public class BirdGame3 {
                 buildUltimateHubStyle("#1E88FF", "#0B53C1", "#F5FBFF", 0, 38, 0, 0, true),
                 HubPresentationModel.Destination.GAMES.title(),
                 HubPresentationModel.Destination.GAMES.description(), selectorPointer, medallion);
+        tagUltimateHubDestination(gamesNode, HubPresentationModel.Destination.GAMES);
         AnchorPane.setTopAnchor(gamesNode, hubMainTop);
         AnchorPane.setLeftAnchor(gamesNode, hubRightLeft);
 
@@ -29083,6 +29086,7 @@ public class BirdGame3 {
                 buildUltimateHubStyle("#FF4FA1", "#C2185B", "#FFF6FB", 0, true),
                 HubPresentationModel.Destination.SHOP.title(),
                 HubPresentationModel.Destination.SHOP.description(), selectorPointer, medallion);
+        tagUltimateHubDestination(shopNode, HubPresentationModel.Destination.SHOP);
         AnchorPane.setTopAnchor(shopNode, hubMainTop + hubGamesHeight);
         AnchorPane.setLeftAnchor(shopNode, hubRightLeft);
 
@@ -29096,6 +29100,7 @@ public class BirdGame3 {
                 buildUltimateHubStyle("#F6A400", "#C97700", "#FFFBEA", 0, 0, 38, 0, true),
                 HubPresentationModel.Destination.NETWORK.title(),
                 HubPresentationModel.Destination.NETWORK.description(), selectorPointer, medallion);
+        tagUltimateHubDestination(lanNode, HubPresentationModel.Destination.NETWORK);
         AnchorPane.setTopAnchor(lanNode, hubMidline);
         AnchorPane.setLeftAnchor(lanNode, hubRightLeft);
 
@@ -29106,6 +29111,7 @@ public class BirdGame3 {
                 buildUltimateHubStyle("#101214", "#050607", "#FFF8E1", 24, true),
                 HubPresentationModel.Destination.VAULT.title(),
                 HubPresentationModel.Destination.VAULT.description(), selectorPointer, medallion);
+        tagUltimateHubDestination(vaultBtn, HubPresentationModel.Destination.VAULT);
 
         Button settingsBtn = buildUltimateHubRailButton("SETTINGS", 112, hubIconSettings(), () -> {
             settingsReturn = () -> showMenu(stage);
@@ -29116,6 +29122,7 @@ public class BirdGame3 {
                 buildUltimateHubStyle("#101214", "#050607", "#ECEFF1", 24, true),
                 HubPresentationModel.Destination.SETTINGS.title(),
                 HubPresentationModel.Destination.SETTINGS.description(), selectorPointer, medallion);
+        tagUltimateHubDestination(settingsBtn, HubPresentationModel.Destination.SETTINGS);
 
         Button profilesBtn = buildUltimateHubRailButton("PROFILES", 112, hubIconProfiles(), () -> showProfileManager(stage));
         registerHubInteractiveNode(profilesBtn, hubButtons, helpTitle, helpBody,
@@ -29123,6 +29130,7 @@ public class BirdGame3 {
                 buildUltimateHubStyle("#101214", "#050607", "#ECEFF1", 24, true),
                 HubPresentationModel.Destination.PROFILES.title(),
                 HubPresentationModel.Destination.PROFILES.description(), selectorPointer, medallion);
+        tagUltimateHubDestination(profilesBtn, HubPresentationModel.Destination.PROFILES);
 
         Button exitBtn = buildUltimateHubRailButton("EXIT", 98, hubIconExit(), () -> confirmExitGame(stage));
         registerHubInteractiveNode(exitBtn, hubButtons, helpTitle, helpBody,
@@ -29130,22 +29138,84 @@ public class BirdGame3 {
                 buildUltimateHubStyle("#4A0A0A", "#1C0202", "#FFF5F6", 24, true),
                 HubPresentationModel.Destination.EXIT.title(),
                 HubPresentationModel.Destination.EXIT.description(), selectorPointer, medallion);
+        tagUltimateHubDestination(exitBtn, HubPresentationModel.Destination.EXIT);
+
+        List<Node> primaryHubButtons = List.of(fightNode, adventureNode, gamesNode, shopNode, lanNode);
+        List<Node> utilityHubButtons = List.of(vaultBtn, settingsBtn, profilesBtn, exitBtn);
+        utilityHubButtons.forEach(node -> node.getProperties().put("hubUtilityButton", Boolean.TRUE));
 
         Region railSpacer = new Region();
         VBox.setVgrow(railSpacer, Priority.ALWAYS);
-        VBox railButtons = new VBox(14, vaultBtn, settingsBtn, profilesBtn, railSpacer, exitBtn);
+        Label drawerToggleLabel = new Label("TOOLS");
+        drawerToggleLabel.setFont(Font.font("Arial Black", 19));
+        drawerToggleLabel.setTextFill(Color.WHITE);
+        drawerToggleLabel.setMouseTransparent(true);
+        Label drawerToggleArrow = new Label("<");
+        drawerToggleArrow.setFont(Font.font("Arial Black", 27));
+        drawerToggleArrow.setTextFill(Color.web("#FFE082"));
+        drawerToggleArrow.setMouseTransparent(true);
+        Region drawerToggleSpacer = new Region();
+        HBox.setHgrow(drawerToggleSpacer, Priority.ALWAYS);
+        HBox drawerToggleGraphic = new HBox(12, drawerToggleLabel, drawerToggleSpacer, drawerToggleArrow);
+        drawerToggleGraphic.setAlignment(Pos.CENTER);
+        drawerToggleGraphic.setPadding(new Insets(0, 14, 0, 24));
+        drawerToggleGraphic.setMouseTransparent(true);
+
+        Button drawerToggle = buildUltimateHubButtonBase(328, 72, () -> { });
+        drawerToggle.setAccessibleText("Open utility menu");
+        drawerToggle.setGraphic(drawerToggleGraphic);
+        drawerToggle.setStyle(buildUltimateHubStyle("#20252B", "#080A0D", "#FFE082", 22, false));
+
+        VBox railButtons = new VBox(12, drawerToggle, vaultBtn, settingsBtn, profilesBtn, railSpacer, exitBtn);
         railButtons.setAlignment(Pos.TOP_CENTER);
 
         StackPane railShell = new StackPane(railButtons);
-        lockRegionSize(railShell, 144, 818);
-        railShell.setPadding(new Insets(18, 6, 18, 6));
+        lockRegionSize(railShell, 360, 818);
+        railShell.setPadding(new Insets(16));
         railShell.setStyle("-fx-background-color: linear-gradient(to bottom, rgba(0,0,0,0.98), rgba(8,8,8,0.97));"
                 + "-fx-background-radius: 28 0 0 28;"
                 + "-fx-border-color: rgba(255,255,255,0.16);"
                 + "-fx-border-width: 3 0 3 3;"
                 + "-fx-border-radius: 28 0 0 28;");
+        railShell.setViewOrder(-1000);
         AnchorPane.setTopAnchor(railShell, 0.0);
         AnchorPane.setRightAnchor(railShell, 0.0);
+
+        boolean[] utilityDrawerExpanded = {false};
+        railShell.setTranslateX(266.0);
+        drawerToggle.setOnAction(e -> {
+            playButtonClick();
+            setUltimateHubDrawerExpanded(railShell, drawerToggle, drawerToggleLabel,
+                    drawerToggleArrow, utilityDrawerExpanded, !utilityDrawerExpanded[0], true);
+        });
+        for (Node node : primaryHubButtons) {
+            node.hoverProperty().addListener((obs, oldVal, active) -> {
+                if (active) {
+                    setUltimateHubDrawerExpanded(railShell, drawerToggle, drawerToggleLabel,
+                            drawerToggleArrow, utilityDrawerExpanded, false, true);
+                }
+            });
+            node.focusedProperty().addListener((obs, oldVal, active) -> {
+                if (active) {
+                    setUltimateHubDrawerExpanded(railShell, drawerToggle, drawerToggleLabel,
+                            drawerToggleArrow, utilityDrawerExpanded, false, true);
+                }
+            });
+        }
+        for (Node node : utilityHubButtons) {
+            node.hoverProperty().addListener((obs, oldVal, active) -> {
+                if (active) {
+                    setUltimateHubDrawerExpanded(railShell, drawerToggle, drawerToggleLabel,
+                            drawerToggleArrow, utilityDrawerExpanded, true, true);
+                }
+            });
+            node.focusedProperty().addListener((obs, oldVal, active) -> {
+                if (active) {
+                    setUltimateHubDrawerExpanded(railShell, drawerToggle, drawerToggleLabel,
+                            drawerToggleArrow, utilityDrawerExpanded, true, true);
+                }
+            });
+        }
 
         StackPane helpBar = new StackPane();
         lockRegionSize(helpBar, 1600, 94);
@@ -29171,6 +29241,14 @@ public class BirdGame3 {
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         addSceneEventFilter(scene, KeyEvent.KEY_PRESSED, e -> {
             if (e.getCode() == KeyCode.ESCAPE) {
+                if (utilityDrawerExpanded[0]) {
+                    playButtonClick();
+                    setUltimateHubDrawerExpanded(railShell, drawerToggle, drawerToggleLabel,
+                            drawerToggleArrow, utilityDrawerExpanded, false, true);
+                    fightNode.requestFocus();
+                    e.consume();
+                    return;
+                }
                 playButtonClick();
                 frontEndMatchFlow.back();
                 showTitleScreen(stage);
@@ -29498,40 +29576,81 @@ public class BirdGame3 {
     }
 
     private Button buildUltimateHubRailButton(String text, double height, Node icon, Runnable action) {
-        Button button = buildUltimateHubButtonBase(132, height, action);
+        final double drawerButtonWidth = 328.0;
+        Button button = buildUltimateHubButtonBase(drawerButtonWidth, height, action);
         button.setAccessibleText(text);
 
         StackPane iconFrame = new StackPane();
-        lockRegionSize(iconFrame, 60, 60);
+        lockRegionSize(iconFrame, 68, 68);
         iconFrame.setMouseTransparent(true);
         if (icon != null) {
-            icon.setScaleX(1.12);
-            icon.setScaleY(1.12);
+            icon.setScaleX(1.18);
+            icon.setScaleY(1.18);
             icon.setOpacity(0.96);
             icon.setMouseTransparent(true);
             iconFrame.getChildren().add(icon);
         }
 
         Label label = new Label(text);
-        label.setFont(Font.font("Arial Black", 18));
+        label.setFont(Font.font("Arial Black", 24));
         label.setTextFill(Color.WHITE);
-        label.setWrapText(true);
-        label.setTextAlignment(TextAlignment.CENTER);
-        label.setAlignment(Pos.CENTER);
-        label.setMaxWidth((double) 132 - 20);
+        label.setTextAlignment(TextAlignment.LEFT);
+        label.setAlignment(Pos.CENTER_LEFT);
+        label.setMaxWidth(210);
         label.setMouseTransparent(true);
         applyNoEllipsis(label);
-        fitLabelSingleLine(label, 18, 12, Math.max(80, (double) 132 - 18));
+        fitLabelSingleLine(label, 24, 16, 210);
 
-        VBox content = new VBox(10, iconFrame, label);
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        HBox content = new HBox(14, label, spacer, iconFrame);
         content.setAlignment(Pos.CENTER);
-        lockRegionSize(content, 132, height);
+        content.setPadding(new Insets(0, 8, 0, 24));
+        lockRegionSize(content, drawerButtonWidth, height);
         content.setMouseTransparent(true);
 
         button.setGraphic(content);
         installRegionClip(button, 24, 24);
-        applyHubButtonHitShape(button, buildRoundedCornerShape(132, height, 24, 24, 24, 24));
+        applyHubButtonHitShape(button, buildRoundedCornerShape(
+                drawerButtonWidth, height, 24, 24, 24, 24));
         return button;
+    }
+
+    private void setUltimateHubDrawerExpanded(StackPane drawer, Button toggle,
+                                              Label toggleLabel, Label toggleArrow,
+                                              boolean[] state, boolean expanded,
+                                              boolean animate) {
+        if (drawer == null || state == null || state.length == 0) return;
+        double targetX = expanded ? 0.0 : 266.0;
+        boolean changed = state[0] != expanded || Math.abs(drawer.getTranslateX() - targetX) > 0.5;
+        state[0] = expanded;
+
+        if (toggle != null) {
+            toggle.setAccessibleText(expanded ? "Close utility menu" : "Open utility menu");
+            toggle.setStyle(buildUltimateHubStyle("#20252B", "#080A0D", "#FFE082", 22, expanded));
+        }
+        if (toggleLabel != null) {
+            toggleLabel.setText(expanded ? "UTILITY MENU" : "TOOLS");
+        }
+        if (toggleArrow != null) {
+            toggleArrow.setText(expanded ? ">" : "<");
+        }
+        if (!changed) return;
+
+        Object previous = drawer.getProperties().remove("hubDrawerTransition");
+        if (previous instanceof TranslateTransition transition) {
+            transition.stop();
+        }
+        if (!animate || drawer.getScene() == null) {
+            drawer.setTranslateX(targetX);
+            return;
+        }
+        TranslateTransition transition = new TranslateTransition(Duration.millis(190), drawer);
+        transition.setToX(targetX);
+        transition.setInterpolator(javafx.animation.Interpolator.EASE_BOTH);
+        transition.setOnFinished(e -> drawer.getProperties().remove("hubDrawerTransition"));
+        drawer.getProperties().put("hubDrawerTransition", transition);
+        transition.play();
     }
 
     private StackPane buildUltimateHubTipPanel(String tip, Button... actionButtons) {
@@ -29617,40 +29736,327 @@ public class BirdGame3 {
                 new Stop(0.45, Color.web("#0B111A")),
                 new Stop(1, Color.web("#050608"))));
 
-        Node crest = hubIconFight();
-        crest.setScaleX(4.2);
-        crest.setScaleY(4.2);
-        crest.setOpacity(0.10);
-        crest.setMouseTransparent(true);
+        Pane previewLayer = new Pane();
+        lockRegionSize(previewLayer, 276, 276);
+        previewLayer.setMouseTransparent(true);
+        Circle previewClip = new Circle(138, 138, 138);
+        previewLayer.setClip(previewClip);
 
-        Label title = new Label("BIRD\nFIGHT 3");
-        title.setFont(Font.font("Impact", 46));
-        title.setTextFill(Color.WHITE);
-        title.setTextAlignment(TextAlignment.CENTER);
-        title.setEffect(new DropShadow(18, Color.rgb(0, 0, 0, 0.78)));
-        title.setMouseTransparent(true);
-        applyNoEllipsis(title);
+        Canvas previewBackdrop = new Canvas(276, 276);
+        Canvas primaryPortrait = new Canvas(164, 164);
+        Canvas secondaryPortrait = new Canvas(112, 112);
+        Canvas tertiaryPortrait = new Canvas(104, 104);
+        primaryPortrait.relocate(56, 62);
+        secondaryPortrait.relocate(4, 130);
+        tertiaryPortrait.relocate(170, 136);
+        previewLayer.getChildren().addAll(
+                previewBackdrop, secondaryPortrait, tertiaryPortrait, primaryPortrait);
 
-        Label profile = new Label(activeProfile.name().toUpperCase(Locale.ROOT));
-        profile.setFont(Font.font("Arial Black", 22));
-        profile.setTextFill(Color.web("#FFE082"));
-        profile.setMouseTransparent(true);
-        applyNoEllipsis(profile);
-        fitLabelSingleLine(profile, 22, 16, 250);
+        Label profileChip = new Label(activeProfile.name().toUpperCase(Locale.ROOT));
+        profileChip.setFont(Font.font("Consolas", FontWeight.BOLD, 13));
+        profileChip.setTextFill(Color.web("#E8F4FF"));
+        profileChip.setStyle("-fx-background-color: rgba(2,7,12,0.72);"
+                + "-fx-background-radius: 14; -fx-padding: 5 13 5 13;"
+                + "-fx-border-color: rgba(255,255,255,0.28); -fx-border-radius: 14;");
+        profileChip.setMouseTransparent(true);
+        applyNoEllipsis(profileChip);
+        fitLabelSingleLine(profileChip, 13, 10, 190);
+        StackPane.setAlignment(profileChip, Pos.TOP_CENTER);
+        StackPane.setMargin(profileChip, new Insets(34, 0, 0, 0));
 
-        Label coins = new Label(birdCoinBalanceText() + " BIRD COINS");
-        coins.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
-        coins.setTextFill(Color.web("#B3E5FC"));
-        coins.setMouseTransparent(true);
-        applyNoEllipsis(coins);
+        Label previewTitle = new Label("FIGHT");
+        previewTitle.setFont(Font.font("Arial Black", 22));
+        previewTitle.setTextFill(Color.WHITE);
+        previewTitle.setTextAlignment(TextAlignment.CENTER);
+        previewTitle.setAlignment(Pos.CENTER);
+        previewTitle.setMinWidth(232);
+        previewTitle.setMaxWidth(232);
+        previewTitle.setStyle("-fx-background-color: rgba(0,0,0,0.78);"
+                + "-fx-background-radius: 18; -fx-padding: 8 14 8 14;"
+                + "-fx-border-color: rgba(255,255,255,0.32); -fx-border-radius: 18;");
+        previewTitle.setEffect(new DropShadow(14, Color.rgb(0, 0, 0, 0.82)));
+        previewTitle.setMouseTransparent(true);
+        applyNoEllipsis(previewTitle);
+        fitLabelSingleLine(previewTitle, 22, 14, 204);
+        StackPane.setAlignment(previewTitle, Pos.BOTTOM_CENTER);
+        StackPane.setMargin(previewTitle, new Insets(0, 0, 30, 0));
 
-        VBox text = new VBox(8, title, profile, coins);
-        text.setAlignment(Pos.CENTER);
-        text.setMouseTransparent(true);
+        medallion.getProperties().put("hubPreviewLayer", previewLayer);
+        medallion.getProperties().put("hubPreviewBackdrop", previewBackdrop);
+        medallion.getProperties().put("hubPreviewPrimary", primaryPortrait);
+        medallion.getProperties().put("hubPreviewSecondary", secondaryPortrait);
+        medallion.getProperties().put("hubPreviewTertiary", tertiaryPortrait);
+        medallion.getProperties().put("hubPreviewTitle", previewTitle);
 
-        medallion.getChildren().addAll(outer, ring, inner, crest, text);
+        medallion.getChildren().addAll(outer, ring, inner, previewLayer, profileChip, previewTitle);
         medallion.setEffect(new DropShadow(40, Color.rgb(0, 0, 0, 0.55)));
+        updateUltimateHubCenterPreview(medallion, HubPresentationModel.Destination.FIGHT, false);
         return medallion;
+    }
+
+    private void tagUltimateHubDestination(Node node, HubPresentationModel.Destination destination) {
+        if (node != null && destination != null) {
+            node.getProperties().put("hubDestination", destination);
+        }
+    }
+
+    private void updateUltimateHubCenterPreview(Node medallion,
+                                                HubPresentationModel.Destination destination,
+                                                boolean animate) {
+        if (medallion == null) return;
+        HubPresentationModel.Destination resolved = destination == null
+                ? HubPresentationModel.Destination.FIGHT : destination;
+        Object previous = medallion.getProperties().get("hubPreviewDestination");
+        if (previous == resolved) return;
+        medallion.getProperties().put("hubPreviewDestination", resolved);
+
+        Object backdropObject = medallion.getProperties().get("hubPreviewBackdrop");
+        Object primaryObject = medallion.getProperties().get("hubPreviewPrimary");
+        Object secondaryObject = medallion.getProperties().get("hubPreviewSecondary");
+        Object tertiaryObject = medallion.getProperties().get("hubPreviewTertiary");
+        Object titleObject = medallion.getProperties().get("hubPreviewTitle");
+        if (!(backdropObject instanceof Canvas backdrop)
+                || !(primaryObject instanceof Canvas primary)
+                || !(secondaryObject instanceof Canvas secondary)
+                || !(tertiaryObject instanceof Canvas tertiary)
+                || !(titleObject instanceof Label title)) {
+            return;
+        }
+
+        drawUltimateHubPreviewBackdrop(backdrop, resolved);
+        BirdType primaryBird = null;
+        BirdType secondaryBird = null;
+        BirdType tertiaryBird = null;
+        String previewName;
+        switch (resolved) {
+            case FIGHT -> {
+                previewName = "FIGHT";
+                primaryBird = BirdType.PIGEON;
+                secondaryBird = BirdType.EAGLE;
+                tertiaryBird = BirdType.ROADRUNNER;
+            }
+            case STORY -> {
+                previewName = "THE STILL SKY";
+                primaryBird = BirdType.PIGEON;
+                secondaryBird = BirdType.RAVEN;
+                tertiaryBird = BirdType.PHOENIX;
+            }
+            case GAMES -> {
+                previewName = "GAMES & MORE";
+                primaryBird = BirdType.PHOENIX;
+                secondaryBird = BirdType.HUMMINGBIRD;
+                tertiaryBird = BirdType.SHOEBILL;
+            }
+            case SHOP -> {
+                previewName = "SHOP";
+                primaryBird = BirdType.HUMMINGBIRD;
+                secondaryBird = BirdType.HEISENBIRD;
+                tertiaryBird = BirdType.TURKEY;
+            }
+            case NETWORK -> {
+                previewName = "NETWORK PLAY";
+                primaryBird = BirdType.EAGLE;
+                secondaryBird = BirdType.FALCON;
+                tertiaryBird = BirdType.PIGEON;
+            }
+            case VAULT -> {
+                previewName = "THE VAULT";
+                primaryBird = BirdType.PENGUIN;
+                secondaryBird = BirdType.RAVEN;
+                tertiaryBird = BirdType.KIWI;
+            }
+            case SETTINGS -> previewName = "SETTINGS";
+            case PROFILES -> {
+                previewName = "PROFILES";
+                primaryBird = BirdType.PIGEON;
+                secondaryBird = BirdType.EAGLE;
+                tertiaryBird = BirdType.HUMMINGBIRD;
+            }
+            case EXIT -> {
+                previewName = "EXIT";
+                primaryBird = BirdType.KIWI;
+            }
+            default -> previewName = "BIRD FIGHT 3";
+        }
+        drawUltimateHubPreviewPortrait(primary, primaryBird);
+        drawUltimateHubPreviewPortrait(secondary, secondaryBird);
+        drawUltimateHubPreviewPortrait(tertiary, tertiaryBird);
+        title.setText(previewName);
+
+        Object layerObject = medallion.getProperties().get("hubPreviewLayer");
+        if (layerObject instanceof Node layer) {
+            Object oldTransition = layer.getProperties().remove("hubPreviewTransition");
+            if (oldTransition instanceof FadeTransition transition) {
+                transition.stop();
+            }
+            if (animate && layer.getScene() != null) {
+                FadeTransition transition = new FadeTransition(Duration.millis(150), layer);
+                transition.setFromValue(0.58);
+                transition.setToValue(1.0);
+                transition.setOnFinished(e -> layer.getProperties().remove("hubPreviewTransition"));
+                layer.getProperties().put("hubPreviewTransition", transition);
+                transition.play();
+            } else {
+                layer.setOpacity(1.0);
+            }
+        }
+    }
+
+    private void drawUltimateHubPreviewPortrait(Canvas canvas, BirdType type) {
+        if (canvas == null) return;
+        canvas.setVisible(type != null);
+        if (type == null) {
+            canvas.getGraphicsContext2D().clearRect(0, 0, canvas.getWidth(), canvas.getHeight());
+        } else {
+            drawRosterSprite(canvas, type, null, false);
+        }
+    }
+
+    private void drawUltimateHubPreviewBackdrop(Canvas canvas,
+                                                HubPresentationModel.Destination destination) {
+        GraphicsContext g = canvas.getGraphicsContext2D();
+        double w = canvas.getWidth();
+        double h = canvas.getHeight();
+        g.clearRect(0, 0, w, h);
+
+        Color top;
+        Color bottom;
+        switch (destination) {
+            case FIGHT -> { top = Color.web("#A70E18"); bottom = Color.web("#19060A"); }
+            case STORY -> { top = Color.web("#234D68"); bottom = Color.web("#08111D"); }
+            case GAMES -> { top = Color.web("#1267B4"); bottom = Color.web("#071629"); }
+            case SHOP -> { top = Color.web("#C22A78"); bottom = Color.web("#31091F"); }
+            case NETWORK -> { top = Color.web("#CC7B00"); bottom = Color.web("#261606"); }
+            case VAULT -> { top = Color.web("#344A5B"); bottom = Color.web("#080B0F"); }
+            case SETTINGS -> { top = Color.web("#375A64"); bottom = Color.web("#0B1114"); }
+            case PROFILES -> { top = Color.web("#3E4F87"); bottom = Color.web("#0D1021"); }
+            case EXIT -> { top = Color.web("#6E161D"); bottom = Color.web("#130406"); }
+            default -> { top = Color.web("#26384A"); bottom = Color.web("#070A0E"); }
+        }
+        g.setFill(new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
+                new Stop(0, top), new Stop(1, bottom)));
+        g.fillRect(0, 0, w, h);
+        g.setGlobalAlpha(0.16);
+        g.setStroke(Color.WHITE);
+        g.setLineWidth(3.0);
+        for (int i = -3; i < 7; i++) {
+            g.strokeLine(i * 58, h, i * 58 + 170, 0);
+        }
+        g.setGlobalAlpha(1.0);
+
+        switch (destination) {
+            case FIGHT -> {
+                g.setFill(Color.web("#0B0C10", 0.82));
+                g.fillRoundRect(22, 194, 232, 34, 16, 16);
+                g.setStroke(Color.web("#F6D365"));
+                g.setLineWidth(4);
+                g.strokeLine(34, 194, 242, 194);
+                g.strokeOval(103, 64, 70, 70);
+            }
+            case STORY -> {
+                g.setFill(Color.web("#FFB74D", 0.40));
+                g.fillOval(94, 30, 90, 90);
+                g.setFill(Color.web("#05080D", 0.78));
+                g.fillRect(18, 176, 240, 72);
+                g.fillPolygon(new double[]{84, 112, 140, 164, 192},
+                        new double[]{176, 112, 176, 124, 176}, 5);
+                g.setStroke(Color.web("#FFE082"));
+                g.strokeArc(98, 64, 80, 64, 200, 140, ArcType.OPEN);
+            }
+            case GAMES -> {
+                g.setStroke(Color.web("#9BE7FF"));
+                g.setLineWidth(5);
+                g.strokeLine(38, 206, 230, 74);
+                for (int i = 0; i < 5; i++) {
+                    double x = 48 + i * 44;
+                    double y = 198 - i * 29;
+                    g.setFill(i == 4 ? Color.web("#FFE082") : Color.web("#102B40"));
+                    g.fillOval(x - 10, y - 10, 20, 20);
+                    g.strokeOval(x - 10, y - 10, 20, 20);
+                }
+                g.strokeOval(190, 30, 58, 58);
+                g.strokeLine(219, 30, 219, 88);
+                g.strokeLine(190, 59, 248, 59);
+            }
+            case SHOP -> {
+                g.setFill(Color.web("#190914", 0.72));
+                g.fillRoundRect(28, 70, 220, 148, 22, 22);
+                g.setStroke(Color.web("#FFB4DC"));
+                g.setLineWidth(4);
+                for (int i = 0; i < 3; i++) {
+                    g.strokeRoundRect(48 + i * 62, 94, 48, 76, 12, 12);
+                }
+                g.setFill(Color.web("#FFE082"));
+                g.fillOval(110, 184, 56, 56);
+                g.setFill(Color.web("#6D4C00"));
+                g.setFont(Font.font("Arial Black", 28));
+                g.setTextAlign(TextAlignment.CENTER);
+                g.fillText("B", 138, 221);
+                g.setTextAlign(TextAlignment.LEFT);
+            }
+            case NETWORK -> {
+                g.setStroke(Color.web("#FFF3C4"));
+                g.setLineWidth(4);
+                g.strokeOval(68, 48, 140, 140);
+                g.strokeArc(96, 48, 84, 140, 90, 180, ArcType.OPEN);
+                g.strokeLine(68, 118, 208, 118);
+                double[][] points = {{50, 206}, {138, 42}, {226, 206}};
+                g.setFill(Color.web("#FFE082"));
+                for (double[] point : points) g.fillOval(point[0] - 9, point[1] - 9, 18, 18);
+                g.strokeLine(50, 206, 138, 42);
+                g.strokeLine(138, 42, 226, 206);
+            }
+            case VAULT -> {
+                g.setFill(Color.web("#071018", 0.76));
+                g.fillRoundRect(30, 52, 216, 168, 18, 18);
+                g.setStroke(Color.web("#B3E5FC"));
+                g.setLineWidth(4);
+                g.strokeRoundRect(48, 72, 78, 58, 10, 10);
+                g.strokeRoundRect(150, 72, 78, 58, 10, 10);
+                g.strokeRoundRect(48, 148, 180, 48, 10, 10);
+                g.setFill(Color.web("#FFE082"));
+                g.fillPolygon(new double[]{138, 145, 160, 143, 150, 138, 126, 131, 116},
+                        new double[]{150, 170, 172, 184, 206, 192, 206, 184, 172}, 9);
+            }
+            case SETTINGS -> {
+                g.setFill(Color.web("#D9EEF3", 0.18));
+                g.fillRoundRect(34, 48, 208, 174, 22, 22);
+                g.setStroke(Color.web("#E8F7FA"));
+                g.setLineWidth(6);
+                double[] ys = {88, 136, 184};
+                double[] knobs = {92, 188, 132};
+                for (int i = 0; i < ys.length; i++) {
+                    g.strokeLine(58, ys[i], 218, ys[i]);
+                    g.setFill(Color.web("#FFE082"));
+                    g.fillOval(knobs[i] - 12, ys[i] - 12, 24, 24);
+                }
+            }
+            case PROFILES -> {
+                g.setStroke(Color.web("#DDE5FF"));
+                g.setLineWidth(4);
+                for (int i = 0; i < 3; i++) {
+                    double x = 32 + i * 74;
+                    g.setFill(i == 0 ? Color.web("#FFE082", 0.35) : Color.web("#071224", 0.72));
+                    g.fillRoundRect(x, 64, 62, 146, 15, 15);
+                    g.strokeRoundRect(x, 64, 62, 146, 15, 15);
+                    g.strokeOval(x + 17, 84, 28, 28);
+                    g.strokeArc(x + 12, 122, 38, 44, 0, 180, ArcType.OPEN);
+                }
+            }
+            case EXIT -> {
+                g.setFill(Color.web("#08090C", 0.80));
+                g.fillRoundRect(72, 38, 132, 202, 12, 12);
+                g.setStroke(Color.web("#FFCDD2"));
+                g.setLineWidth(5);
+                g.strokeRoundRect(72, 38, 132, 202, 12, 12);
+                g.setFill(Color.web("#FFE082"));
+                g.fillOval(172, 133, 14, 14);
+                g.setStroke(Color.web("#FF8A80"));
+                g.strokeLine(42, 138, 142, 138);
+                g.strokeLine(112, 106, 144, 138);
+                g.strokeLine(112, 170, 144, 138);
+            }
+        }
     }
 
     private void registerHubInteractiveNode(Node node, List<Node> nodes,
@@ -29693,6 +30099,7 @@ public class BirdGame3 {
         if (buttons == null || buttons.isEmpty()) {
             if (helpTitle != null) helpTitle.setText(HubPresentationModel.IDLE_TITLE);
             if (helpBody != null) helpBody.setText(HubPresentationModel.IDLE_DESCRIPTION);
+            updateUltimateHubCenterPreview(medallion, HubPresentationModel.Destination.FIGHT, true);
             updateUltimateHubSelectorPointer(null, selectorPointer, medallion);
             return;
         }
@@ -29741,6 +30148,14 @@ public class BirdGame3 {
                     : Objects.toString(selected.getProperties().get("hubHelpBody"),
                     HubPresentationModel.IDLE_DESCRIPTION));
         }
+        HubPresentationModel.Destination previewDestination = HubPresentationModel.Destination.FIGHT;
+        if (selected != null) {
+            Object destination = selected.getProperties().get("hubDestination");
+            if (destination instanceof HubPresentationModel.Destination hubDestination) {
+                previewDestination = hubDestination;
+            }
+        }
+        updateUltimateHubCenterPreview(medallion, previewDestination, true);
         updateUltimateHubSelectorPointer(selected, selectorPointer, medallion);
     }
 
