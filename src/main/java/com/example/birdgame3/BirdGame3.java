@@ -31040,17 +31040,10 @@ public class BirdGame3 {
                 + "-fx-border-width: 3; -fx-border-radius: 18;");
         applyNoEllipsis(back);
 
-        Label title = new Label("SELECT FIGHTERS");
-        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 34));
-        title.setTextFill(Color.web("#111111"));
-        StackPane titleBanner = new StackPane(title);
-        titleBanner.setMinSize(440, 72);
-        titleBanner.setPrefSize(440, 72);
-        titleBanner.setMaxSize(440, 72);
-        titleBanner.setStyle("-fx-background-color: linear-gradient(to bottom, #FFE45C, #F8C528); "
-                + "-fx-background-radius: 12; -fx-border-color: black; -fx-border-width: 4; "
-                + "-fx-border-radius: 12;");
-        titleBanner.setEffect(new DropShadow(18, Color.rgb(0, 0, 0, 0.28)));
+        Label breadcrumb = new Label("SMASH  ›  FIGHTERS");
+        breadcrumb.setFont(Font.font("Arial Black", FontWeight.BOLD, 28));
+        breadcrumb.setTextFill(Color.WHITE);
+        applyNoEllipsis(breadcrumb);
 
         final Runnable[] refreshLayoutRef = new Runnable[1];
 
@@ -31070,15 +31063,18 @@ public class BirdGame3 {
         HBox rightHud = new HBox(10, teamModeToggleButton, settingsBtn);
         rightHud.setAlignment(Pos.CENTER_RIGHT);
 
+        HBox leftHud = new HBox(20, back, breadcrumb);
+        leftHud.setAlignment(Pos.CENTER_LEFT);
+
         BorderPane topChrome = new BorderPane();
-        topChrome.setLeft(back);
+        topChrome.setLeft(leftHud);
         topChrome.setRight(rightHud);
-        BorderPane.setAlignment(back, Pos.CENTER_LEFT);
+        BorderPane.setAlignment(leftHud, Pos.CENTER_LEFT);
         BorderPane.setAlignment(rightHud, Pos.CENTER_RIGHT);
 
-        StackPane topStrip = new StackPane(topChrome, titleBanner);
+        StackPane topStrip = new StackPane(topChrome);
         topStrip.setPadding(new Insets(10, 14, 10, 14));
-        topStrip.setMinHeight(92);
+        topStrip.setMinHeight(78);
         topStrip.setStyle("-fx-background-color: linear-gradient(to right, #8E0D16 0%, #C51A24 42%, #111317 42%, #111317 100%); "
                 + "-fx-background-radius: 24; -fx-border-color: black; -fx-border-width: 4; -fx-border-radius: 24;");
         topStrip.setEffect(new DropShadow(24, Color.rgb(0, 0, 0, 0.30)));
@@ -31231,15 +31227,15 @@ public class BirdGame3 {
             showStageSelect(stage);
         };
         Label readyText = new Label("READY TO FIGHT!");
-        readyText.setFont(Font.font("Arial Black", FontWeight.BOLD, 18));
+        readyText.setFont(Font.font("Arial Black", FontWeight.BOLD, 20));
         readyText.setTextFill(Color.web("#08090B"));
         readyText.setMouseTransparent(true);
 
         StackPane readyBanner = new StackPane(readyText);
         readyBanner.setMouseTransparent(false);
-        readyBanner.setPrefSize(226, 92);
-        readyBanner.setMinSize(226, 92);
-        readyBanner.setMaxSize(226, 92);
+        readyBanner.setPrefSize(292, 64);
+        readyBanner.setMinSize(292, 64);
+        readyBanner.setMaxSize(292, 64);
         readyBanner.setCursor(Cursor.HAND);
         readyBanner.setOnMouseClicked(e -> {
             if (!fightSetupSelection.allReady(activePlayers) || !e.isStillSincePress()) {
@@ -31461,16 +31457,14 @@ public class BirdGame3 {
                         compactSlot ? 20 : 30,
                         compactSlot ? 12 : 16,
                         nameFitWidth);
-                if (type == null) {
-                    skinButtons[idx].setDisable(true);
-                    skinButtons[idx].setOpacity(0.6);
-                    skinButtons[idx].setText("SKIN: BASE");
-                } else {
-                    List<String> options = adventureSkinOptions(type);
-                    skinButtons[idx].setDisable(options.size() <= 1);
-                    skinButtons[idx].setOpacity(options.size() <= 1 ? 0.6 : 1.0);
-                    skinButtons[idx].setText(adventureSkinLabel(type, skinKey));
-                }
+                List<String> skinOptions = type == null ? List.of() : adventureSkinOptions(type);
+                boolean skinChoiceAvailable = type != null && skinOptions.size() > 1;
+                skinButtons[idx].setVisible(skinChoiceAvailable);
+                skinButtons[idx].setManaged(skinChoiceAvailable);
+                skinButtons[idx].setDisable(!skinChoiceAvailable);
+                skinButtons[idx].setOpacity(skinChoiceAvailable ? 1.0 : 0.0);
+                skinButtons[idx].setText(skinChoiceAvailable
+                        ? adventureSkinLabel(type, skinKey) : "SKIN: BASE");
                 updateReadyBanner.run();
             };
 
@@ -31560,6 +31554,8 @@ public class BirdGame3 {
                 }
                 inputBtn.setDisable(display.disabled());
                 inputBtn.setOpacity(display.opacity());
+                inputBtn.setVisible(active && !cpu);
+                inputBtn.setManaged(active && !cpu);
             }
         };
         refreshInputAssignmentsRef[0] = refreshInputAssignments;
@@ -31751,20 +31747,12 @@ public class BirdGame3 {
 
         refreshLayout.run();
 
-        Label rosterTitle = new Label("SELECT YOUR BIRD");
-        rosterTitle.setFont(Font.font("Arial Black", 28));
-        rosterTitle.setTextFill(Color.web("#FFF176"));
-        rosterTitle.setEffect(new DropShadow(10, Color.rgb(0, 0, 0, 0.30)));
-        Region rosterSpacer = new Region();
-        HBox.setHgrow(rosterSpacer, Priority.ALWAYS);
         HBox rosterPrompt = buildAdaptivePromptBar(
                 UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "MOVE CURSOR"),
                 UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "PICK / READY"),
                 UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "RELEASE"));
-        HBox rosterHeader = new HBox(16, rosterTitle, rosterSpacer, rosterPrompt);
-        rosterHeader.setAlignment(Pos.CENTER_LEFT);
 
-        VBox rosterCard = new VBox(10, rosterHeader, selectionPane);
+        VBox rosterCard = new VBox(selectionPane);
         rosterCard.setPadding(new Insets(12));
         rosterCard.setStyle("-fx-background-color: rgba(4,5,8,0.90); -fx-background-radius: 28; "
                 + "-fx-border-color: rgba(255,255,255,0.12); -fx-border-width: 3; -fx-border-radius: 28;");
@@ -31774,33 +31762,24 @@ public class BirdGame3 {
         playerBar.setAlignment(Pos.CENTER);
         playerBar.setFillHeight(true);
 
-        HBox playerCountButtons = new HBox(8, removePlayerBtn, addPlayerBtn);
-        playerCountButtons.setAlignment(Pos.CENTER);
-
-        VBox playerCountControls = new VBox(16, playerCountLabel, playerCountButtons);
+        HBox playerCountControls = new HBox(10, removePlayerBtn, playerCountLabel, addPlayerBtn);
         playerCountControls.setAlignment(Pos.CENTER);
-        StackPane playerCountBox = new StackPane(playerCountControls);
-        playerCountBox.setPrefSize(226, 92);
-        playerCountBox.setMinSize(226, 92);
-        playerCountBox.setMaxSize(226, 92);
-        playerCountBox.setStyle("-fx-background-color: rgba(5,8,12,0.78); -fx-background-radius: 16; "
-                + "-fx-border-color: rgba(255,255,255,0.12); -fx-border-width: 2; -fx-border-radius: 16;");
-        VBox actionCardBody = new VBox(12, readyBanner, playerCountBox);
-        actionCardBody.setAlignment(Pos.CENTER);
-        actionCardBody.setMinSize(250, 248);
-        actionCardBody.setPrefSize(250, 248);
-        actionCardBody.setMaxSize(250, 248);
-        actionCardBody.setPadding(new Insets(24, 0, 16, 0));
 
-        HBox footerRow = getHBox(actionCardBody, playerBar);
-        HBox.setHgrow(playerBar, Priority.ALWAYS);
-
-        StackPane playersPanel = new StackPane(footerRow);
+        StackPane playersPanel = new StackPane(playerBar);
         playersPanel.setPadding(new Insets(10));
         playersPanel.setStyle("-fx-background-color: rgba(4,5,8,0.92); -fx-background-radius: 28; "
                 + "-fx-border-color: rgba(255,255,255,0.12); -fx-border-width: 3; -fx-border-radius: 28;");
 
-        VBox body = new VBox(14, rosterCard, playersPanel);
+        Region actionSpacer = new Region();
+        HBox.setHgrow(actionSpacer, Priority.ALWAYS);
+        HBox actionBar = new HBox(18, playerCountControls, actionSpacer, rosterPrompt, readyBanner);
+        actionBar.setAlignment(Pos.CENTER);
+        actionBar.setPadding(new Insets(8, 12, 8, 12));
+        actionBar.setMinHeight(80);
+        actionBar.setStyle("-fx-background-color: rgba(3,5,8,0.96); -fx-background-radius: 20; "
+                + "-fx-border-color: rgba(255,255,255,0.12); -fx-border-width: 2; -fx-border-radius: 20;");
+
+        VBox body = new VBox(12, rosterCard, playersPanel, actionBar);
         body.setAlignment(Pos.TOP_CENTER);
 
         StackPane interactionLayer = new StackPane(body, interactionOverlay);
@@ -31899,34 +31878,6 @@ public class BirdGame3 {
             showMainSettings(stage);
         });
         return settingsBtn;
-    }
-
-    private static HBox getHBox(Node actionCardBody, HBox playerBar) {
-        StackPane actionCard = getStackPane(actionCardBody);
-        actionCard.setStyle("-fx-background-color: linear-gradient(to bottom, rgba(18,22,28,0.96), rgba(6,8,11,0.98)); "
-                + "-fx-background-radius: 26; -fx-border-color: rgba(255,224,130,0.60); "
-                + "-fx-border-width: 3; -fx-border-radius: 26;");
-
-        HBox footerRow = new HBox(14, playerBar, actionCard);
-        footerRow.setAlignment(Pos.BOTTOM_CENTER);
-        return footerRow;
-    }
-
-    private static StackPane getStackPane(Node actionCardBody) {
-        Region actionAccent = new Region();
-        actionAccent.setPrefHeight(14);
-        actionAccent.setMaxWidth(Double.MAX_VALUE);
-        actionAccent.setStyle("-fx-background-color: linear-gradient(to right, #FEEB6E, #F2B626); "
-                + "-fx-background-radius: 24 24 0 0;");
-
-        BorderPane actionCardChrome = new BorderPane();
-        actionCardChrome.setTop(actionAccent);
-
-        StackPane actionCard = new StackPane(actionCardChrome, actionCardBody);
-        actionCard.setMinSize(250, 248);
-        actionCard.setPrefSize(250, 248);
-        actionCard.setMaxSize(250, 248);
-        return actionCard;
     }
 
     private void showTrainingSetup(Stage stage) {
@@ -63829,18 +63780,9 @@ public class BirdGame3 {
             throw new IllegalStateException("Stage catalog exceeds no-scroll capacity: " + tileCount
                     + " > " + StageSelectLayout.capacity());
         }
-        StackPane countChip = buildMenuChip(stages.size() + " STAGES", "#29131A", "#FF8A80");
-        StackPane rulesChip = localVersusFlow
-                ? buildMenuChip(frontEndMatchFlow.rules().name(), "#102331", frontEndMatchFlow.rulesPreset().accent)
-                : null;
-
         Region headerSpacer = new Region();
         HBox.setHgrow(headerSpacer, Priority.ALWAYS);
         HBox topBar = new HBox(20, backArrow, heading, headerSpacer);
-        if (rulesChip != null) {
-            topBar.getChildren().add(rulesChip);
-        }
-        topBar.getChildren().add(countChip);
         topBar.setAlignment(Pos.CENTER_LEFT);
         topBar.setMinHeight(StageSelectLayout.TOP_BAR_HEIGHT);
         topBar.setPrefHeight(StageSelectLayout.TOP_BAR_HEIGHT);
@@ -63881,14 +63823,6 @@ public class BirdGame3 {
         previewName.setWrapText(true);
         previewName.setPrefWidth(StageSelectLayout.PREVIEW_CANVAS_WIDTH);
         previewName.setMaxWidth(StageSelectLayout.PREVIEW_CANVAS_WIDTH);
-        Label previewBase = stageSelectPreviewLabel("", 17, "#90A4AE");
-        Label previewDescription = stageSelectPreviewLabel("", 19, "#CFD8DC");
-        previewDescription.setWrapText(true);
-        previewDescription.setPrefWidth(StageSelectLayout.PREVIEW_CANVAS_WIDTH);
-        previewDescription.setMaxWidth(StageSelectLayout.PREVIEW_CANVAS_WIDTH);
-        previewDescription.setMinHeight(92);
-        previewDescription.setAlignment(Pos.TOP_LEFT);
-        previewDescription.setTextAlignment(TextAlignment.LEFT);
         StringProperty chooseVerb = new SimpleStringProperty("FIGHT HERE");
         Label chooseHint = stageSelectPreviewLabel("", 18, "#FFE082");
         bindAdaptivePrompt(chooseHint, chooseVerb, UiInputPrompts.Command.SELECT);
@@ -63903,9 +63837,8 @@ public class BirdGame3 {
         previewRule.setStyle("-fx-background-color:linear-gradient(to right,#FF1744,#FFE082,#4DD0E1);"
                 + "-fx-background-radius:3;");
 
-        VBox previewPanel = new VBox(11,
-                buildMenuEyebrow("NOW SELECTING", "#FF8A80"), previewFrame, previewCategory,
-                previewName, previewRule, previewBase, previewDescription, chooseHint);
+        VBox previewPanel = new VBox(14,
+                previewFrame, previewCategory, previewName, previewRule, chooseHint);
         previewPanel.setPadding(new Insets(18, 18, 18, 18));
         previewPanel.setAlignment(Pos.TOP_LEFT);
         previewPanel.setMinSize(StageSelectLayout.PREVIEW_WIDTH, StageSelectLayout.PREVIEW_HEIGHT);
@@ -63925,10 +63858,6 @@ public class BirdGame3 {
                     ? "MAIN STAGE" : variant.category.toUpperCase(Locale.ROOT));
             previewCategory.setTextFill(accent);
             previewName.setText(stageDisplayName(choice.map(), variant).toUpperCase(Locale.ROOT));
-            previewBase.setText(variant == MapVariant.STANDARD
-                    ? "ORIGINAL ARENA"
-                    : "VARIANT OF  " + mapDisplayName(choice.map()).toUpperCase(Locale.ROOT));
-            previewDescription.setText(stageSelectDescription(choice));
             chooseVerb.set("FIGHT HERE");
         };
         Runnable showRandomPreview = () -> {
@@ -63939,9 +63868,6 @@ public class BirdGame3 {
                     : randomPoolForScreen == StageRandomPool.VARIANTS ? "VARIANTS" : "ALL STAGES");
             previewCategory.setTextFill(Color.web("#FFE082"));
             previewName.setText("RANDOM");
-            previewBase.setText(!localVersusFlow || frontEndMatchFlow.rules().excludedStageKeys().isEmpty()
-                    ? "NO EXCLUSIONS" : frontEndMatchFlow.rules().excludedStageKeys().size() + " STAGES EXCLUDED");
-            previewDescription.setText("Let the game choose from your saved random-stage pool.");
             chooseVerb.set("ROLL A STAGE");
         };
 
@@ -63968,17 +63894,7 @@ public class BirdGame3 {
                     gridIndex / StageSelectLayout.GRID_COLUMNS);
         }
 
-        HBox stageLegend = new HBox(8,
-                stageSelectLegendChip("M", "MAIN", "#90CAF9"),
-                stageSelectLegendChip("S", "STORY", "#FFD54F"),
-                stageSelectLegendChip("B", "BOSS", "#CE93D8"),
-                stageSelectLegendChip("C", "CLASSIC", "#4DD0E1"));
-        stageLegend.setAlignment(Pos.CENTER_RIGHT);
-        stageLegend.setMinHeight(StageSelectLayout.LEGEND_HEIGHT);
-        stageLegend.setPrefHeight(StageSelectLayout.LEGEND_HEIGHT);
-        stageLegend.setMaxHeight(StageSelectLayout.LEGEND_HEIGHT);
-
-        VBox catalogPanel = new VBox(StageSelectLayout.LEGEND_GAP, stageLegend, stageGrid);
+        VBox catalogPanel = new VBox(stageGrid);
         catalogPanel.setAlignment(Pos.TOP_CENTER);
         catalogPanel.setMinWidth(StageSelectLayout.gridWidth());
         catalogPanel.setPrefWidth(StageSelectLayout.gridWidth());
@@ -64064,29 +63980,6 @@ public class BirdGame3 {
         return capture;
     }
 
-    private HBox stageSelectLegendChip(String marker, String labelText, String accent) {
-        Label badge = new Label(marker);
-        badge.setFont(Font.font("Arial Black", FontWeight.BOLD, 11));
-        badge.setTextFill(Color.web("#071018"));
-        badge.setAlignment(Pos.CENTER);
-        badge.setMinSize(22, 22);
-        badge.setPrefSize(22, 22);
-        badge.setMaxSize(22, 22);
-        badge.setStyle("-fx-background-color:" + accent + "; -fx-background-radius:11;");
-
-        Label text = new Label(labelText);
-        text.setFont(Font.font("Consolas", FontWeight.BOLD, 13));
-        text.setTextFill(Color.web("#B8C7D5"));
-        applyNoEllipsis(text);
-
-        HBox chip = new HBox(5, badge, text);
-        chip.setAlignment(Pos.CENTER_LEFT);
-        chip.setPadding(new Insets(3, 9, 3, 4));
-        chip.setStyle("-fx-background-color:#0A0E16CC; -fx-background-radius:12;"
-                + "-fx-border-color:#FFFFFF22; -fx-border-radius:12;");
-        return chip;
-    }
-
     private void styleStagePreviewFrame(StackPane frame, Color accent) {
         String color = toCssHex(accent);
         frame.setStyle("-fx-background-color:#03050A; -fx-background-radius:16;"
@@ -64129,25 +64022,7 @@ public class BirdGame3 {
         applyNoEllipsis(nameLabel);
         fitWrappedLabelText(nameLabel, name, StageSelectLayout.TILE_IMAGE_WIDTH - 4.0, 39.0, 8.0);
 
-        String badgeText = random ? "?" : choice.variant() == MapVariant.STANDARD ? "M"
-                : switch (choice.variant().category) {
-                    case "Story Arenas" -> "S";
-                    case "Boss Rush Arenas" -> "B";
-                    case "Classic Routes" -> "C";
-                    default -> "V";
-                };
-        Label badge = new Label(badgeText);
-        badge.setFont(Font.font("Arial Black", FontWeight.BOLD, 12));
-        badge.setTextFill(Color.web("#071018"));
-        badge.setAlignment(Pos.CENTER);
-        badge.setMinSize(24, 24);
-        badge.setPrefSize(24, 24);
-        badge.setMaxSize(24, 24);
         Color accent = random ? Color.web("#FFE082") : StagePreviewRenderer.accentFor(choice);
-        badge.setStyle("-fx-background-color:" + toCssHex(accent) + "; -fx-background-radius:12;"
-                + "-fx-border-color:#FFFFFFAA; -fx-border-radius:12;");
-        StackPane.setAlignment(badge, Pos.TOP_LEFT);
-        StackPane.setMargin(badge, new Insets(5, 0, 0, 5));
 
         Rectangle imageClip = new Rectangle(StageSelectLayout.TILE_IMAGE_WIDTH,
                 StageSelectLayout.TILE_IMAGE_HEIGHT);
@@ -64169,7 +64044,7 @@ public class BirdGame3 {
         StackPane.setAlignment(cursorTag, Pos.TOP_RIGHT);
         StackPane.setMargin(cursorTag, new Insets(5, 5, 0, 0));
 
-        StackPane picture = new StackPane(image, badge, cursorTag);
+        StackPane picture = new StackPane(image, cursorTag);
         picture.setMinSize(StageSelectLayout.TILE_IMAGE_WIDTH, StageSelectLayout.TILE_IMAGE_HEIGHT);
         picture.setPrefSize(StageSelectLayout.TILE_IMAGE_WIDTH, StageSelectLayout.TILE_IMAGE_HEIGHT);
         picture.setMaxSize(StageSelectLayout.TILE_IMAGE_WIDTH, StageSelectLayout.TILE_IMAGE_HEIGHT);
