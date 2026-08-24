@@ -25426,88 +25426,56 @@ public class BirdGame3 {
 
         StackPane root = new StackPane();
         root.getProperties().put("noAutoScale", true);
-        root.setStyle("-fx-background-color: #020305;");
+        root.setStyle("-fx-background-color: #050505;");
 
         AnchorPane frame = new AnchorPane();
         frame.setId("uiFrame");
         lockRegionSize(frame, 1600, 950);
-        frame.setStyle("-fx-background-color: linear-gradient(to bottom right, #05070B 0%, #111722 54%, #050507 100%);");
+        frame.setStyle("-fx-background-color: #F7F6F2;");
 
-        Region redSlash = new Region();
-        lockRegionSize(redSlash, 1060, 360);
-        redSlash.relocate(-190, 170);
-        redSlash.setRotate(-10);
-        redSlash.setStyle("-fx-background-color: linear-gradient(to right, rgba(214,40,40,0.86), rgba(139,0,0,0.12));"
-                + "-fx-background-radius: 34;");
-        Region blueSlash = new Region();
-        lockRegionSize(blueSlash, 1040, 260);
-        blueSlash.relocate(730, 280);
-        blueSlash.setRotate(-10);
-        blueSlash.setStyle("-fx-background-color: linear-gradient(to left, rgba(30,136,229,0.68), rgba(13,71,161,0.05));"
-                + "-fx-background-radius: 34;");
+        Canvas backdrop = new Canvas(1600, 950);
+        drawBirdFightTitleBackdrop(backdrop.getGraphicsContext2D(), false);
 
-        Label eyebrow = new Label("THE PLATFORM FIGHTER WITH WINGS");
-        eyebrow.setFont(Font.font("Consolas", FontWeight.BOLD, 22));
-        eyebrow.setTextFill(Color.web("#FFE082"));
-        applyNoEllipsis(eyebrow);
-
-        Label title = new Label("BIRD FIGHT");
-        title.setFont(Font.font("Arial Black", 116));
-        title.setTextFill(Color.WHITE);
-        title.setEffect(new DropShadow(22, Color.rgb(0, 0, 0, 0.70)));
-        applyNoEllipsis(title);
-
-        Label three = new Label("3");
-        three.setFont(Font.font("Arial Black", 190));
-        three.setTextFill(Color.web("#FFD54F"));
-        three.setRotate(-7);
-        three.setEffect(new DropShadow(26, Color.rgb(0, 0, 0, 0.72)));
-        applyNoEllipsis(three);
-
-        HBox logo = new HBox(24, title, three);
-        logo.setAlignment(Pos.CENTER_LEFT);
-        VBox logoBlock = new VBox(-10, eyebrow, logo);
-        logoBlock.setAlignment(Pos.CENTER_LEFT);
-        AnchorPane.setLeftAnchor(logoBlock, 94.0);
-        AnchorPane.setTopAnchor(logoBlock, 245.0);
+        Pane wordmark = buildBirdFightTitleWordmark(false);
+        AnchorPane.setLeftAnchor(wordmark, 290.0);
+        AnchorPane.setTopAnchor(wordmark, 126.0);
 
         GameSaveRepository.SaveProfile profile = saveRepository.activeProfile();
         Label profileLine = new Label("PROFILE  " + profile.name().toUpperCase(Locale.ROOT)
-                + "     BIRD COINS  " + birdCoinBalanceText());
-        profileLine.setFont(Font.font("Consolas", FontWeight.BOLD, 20));
-        profileLine.setTextFill(Color.web("#CFD8DC"));
+                + "   •   " + birdCoinBalanceText() + " BIRD COINS");
+        profileLine.setFont(Font.font("Consolas", FontWeight.BOLD, 15));
+        profileLine.setTextFill(Color.web("#D7D7D7"));
         applyNoEllipsis(profileLine);
-        AnchorPane.setLeftAnchor(profileLine, 102.0);
-        AnchorPane.setTopAnchor(profileLine, 608.0);
+        AnchorPane.setLeftAnchor(profileLine, 42.0);
+        AnchorPane.setBottomAnchor(profileLine, 28.0);
 
-        Button startButton = uiFactory.action("PRESS START", 520, 104, 34, "#D62828", 26,
+        Button startButton = uiFactory.action("PRESS ANY BUTTON", 1600, 70, 30, "#E21D2D", 0,
                 () -> continueFromTitle(stage));
         startButton.setAccessibleText("Start Bird Fight 3");
-        startButton.setStyle("-fx-background-color: linear-gradient(to right, #D62828, #8B0000);"
-                + "-fx-text-fill: white; -fx-font-family: 'Arial Black'; -fx-font-size: 34px;"
-                + "-fx-background-radius: 18; -fx-border-color: #FFE082; -fx-border-width: 4;"
-                + "-fx-border-radius: 18; -fx-cursor: hand;");
-        AnchorPane.setLeftAnchor(startButton, 94.0);
-        AnchorPane.setBottomAnchor(startButton, 126.0);
+        startButton.setStyle(titleCardActionStyle("#E21D2D", "#FF5260", Color.WHITE));
+        AnchorPane.setLeftAnchor(startButton, 0.0);
+        AnchorPane.setBottomAnchor(startButton, 86.0);
+        installTitlePromptPulse(startButton);
 
-        HBox prompt = buildAdaptivePromptBar(
-                UiInputPrompts.prompt(UiInputPrompts.Command.START, "START"),
-                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "EXIT"),
-                UiInputPrompts.prompt(UiInputPrompts.Command.FULLSCREEN, "FULLSCREEN"));
-        AnchorPane.setLeftAnchor(prompt, 102.0);
-        AnchorPane.setBottomAnchor(prompt, 60.0);
+        Label ownership = new Label("© 2026 CALEB GUYER   •   BIRD FIGHT 3");
+        ownership.setFont(Font.font("Consolas", 13));
+        ownership.setTextFill(Color.web("#8A8A8A"));
+        applyNoEllipsis(ownership);
+        AnchorPane.setRightAnchor(ownership, 42.0);
+        AnchorPane.setBottomAnchor(ownership, 28.0);
 
-        Label versionMark = new Label("BIRD FIGHT 3");
-        versionMark.setFont(Font.font("Arial Black", 24));
-        versionMark.setTextFill(Color.web("#FFFFFF", 0.22));
+        Label versionMark = new Label(applicationVersionLabel());
+        versionMark.setFont(Font.font("Consolas", FontWeight.BOLD, 13));
+        versionMark.setTextFill(Color.web("#616161"));
         applyNoEllipsis(versionMark);
-        AnchorPane.setRightAnchor(versionMark, 58.0);
-        AnchorPane.setBottomAnchor(versionMark, 52.0);
+        AnchorPane.setRightAnchor(versionMark, 28.0);
+        AnchorPane.setTopAnchor(versionMark, 22.0);
 
-        frame.getChildren().addAll(redSlash, blueSlash, logoBlock, profileLine, startButton, prompt, versionMark);
+        frame.getChildren().addAll(backdrop, wordmark, startButton, profileLine, ownership, versionMark);
         root.getChildren().add(frame);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindTitleCardAdvance(scene, startButton);
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
         bindEscape(scene, () -> confirmExitGame(stage));
@@ -25516,6 +25484,213 @@ public class BirdGame3 {
         javafx.application.Platform.runLater(() -> {
             startButton.requestFocus();
             setConsoleHighlightActive(true, scene);
+        });
+    }
+
+    private void showCampaignTitleScreen(Stage stage) {
+        playMenuMusic();
+
+        StackPane root = new StackPane();
+        root.getProperties().put("noAutoScale", true);
+        root.setStyle("-fx-background-color: #050505;");
+
+        AnchorPane frame = new AnchorPane();
+        frame.setId("uiFrame");
+        lockRegionSize(frame, 1600, 950);
+        frame.setStyle("-fx-background-color: #F7F6F2;");
+
+        Canvas backdrop = new Canvas(1600, 950);
+        drawBirdFightTitleBackdrop(backdrop.getGraphicsContext2D(), true);
+
+        Pane wordmark = buildBirdFightTitleWordmark(true);
+        AnchorPane.setLeftAnchor(wordmark, 420.0);
+        AnchorPane.setTopAnchor(wordmark, 142.0);
+
+        Label campaignTitle = new Label("THE STILL SKY");
+        campaignTitle.setFont(Font.font("Georgia", FontWeight.BOLD, 58));
+        campaignTitle.setTextFill(Color.web("#111318"));
+        campaignTitle.setAlignment(Pos.CENTER);
+        campaignTitle.setTextAlignment(TextAlignment.CENTER);
+        campaignTitle.setPrefWidth(920);
+        applyNoEllipsis(campaignTitle);
+        AnchorPane.setLeftAnchor(campaignTitle, 340.0);
+        AnchorPane.setTopAnchor(campaignTitle, 554.0);
+
+        Label campaignType = new Label("ADVENTURE");
+        campaignType.setFont(Font.font("Consolas", FontWeight.BOLD, 17));
+        campaignType.setTextFill(Color.web("#94712C"));
+        campaignType.setText("A D V E N T U R E");
+        campaignType.setAlignment(Pos.CENTER);
+        campaignType.setPrefWidth(920);
+        applyNoEllipsis(campaignType);
+        AnchorPane.setLeftAnchor(campaignType, 340.0);
+        AnchorPane.setTopAnchor(campaignType, 632.0);
+
+        Button startButton = uiFactory.action("PRESS ANY BUTTON", 1600, 82, 29, "#101216", 0,
+                () -> showCampaignHub(stage));
+        startButton.setAccessibleText("Enter The Still Sky campaign");
+        startButton.setStyle(titleCardActionStyle("#111318", "#2A2D34", Color.web("#F7CF73")));
+        AnchorPane.setLeftAnchor(startButton, 0.0);
+        AnchorPane.setBottomAnchor(startButton, 0.0);
+        installTitlePromptPulse(startButton);
+
+        frame.getChildren().addAll(backdrop, wordmark, campaignTitle, campaignType, startButton);
+        root.getChildren().add(frame);
+
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindTitleCardAdvance(scene, startButton);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        bindEscape(scene, () -> showMenu(stage));
+        bindFixedFrameScale(scene, frame, 0.0);
+        setScenePreservingFullscreen(stage, scene);
+        javafx.application.Platform.runLater(() -> {
+            startButton.requestFocus();
+            setConsoleHighlightActive(true, scene);
+        });
+    }
+
+    private void drawBirdFightTitleBackdrop(GraphicsContext g, boolean campaign) {
+        g.setFill(Color.web("#F7F6F2"));
+        g.fillRect(0, 0, 1600, 950);
+
+        g.setFill(Color.web(campaign ? "#E9E7E1" : "#EEECE6"));
+        g.fillPolygon(new double[]{0, 470, 260, 0}, new double[]{0, 0, 690, 820}, 4);
+        g.setFill(Color.web(campaign ? "#E1DFD8" : "#E7E4DD"));
+        g.fillPolygon(new double[]{1600, 1160, 1375, 1600}, new double[]{0, 0, 670, 810}, 4);
+
+        g.setStroke(Color.web("#18191C"));
+        g.setLineWidth(8);
+        g.strokeLine(0, 10, 1600, 10);
+        if (!campaign) {
+            g.setFill(Color.web("#111216"));
+            g.fillRect(0, 864, 1600, 86);
+            g.setStroke(Color.web("#292A2E"));
+            g.setLineWidth(1);
+            for (int y = 874; y < 950; y += 8) {
+                g.strokeLine(0, y, 1600, y);
+            }
+        }
+    }
+
+    private Pane buildBirdFightTitleWordmark(boolean compact) {
+        double width = compact ? 760 : 1020;
+        double height = compact ? 390 : 520;
+        Pane logo = new Pane();
+        lockRegionSize(logo, width, height);
+
+        double birdSize = compact ? 72 : 96;
+        double fightSize = compact ? 118 : 162;
+        Label bird = new Label("BIRD");
+        bird.setFont(Font.font("Georgia", FontWeight.BOLD, birdSize));
+        bird.setTextFill(Color.web("#090A0C"));
+        bird.setAlignment(Pos.CENTER);
+        bird.setPrefWidth(width);
+        bird.setLayoutY(compact ? 4 : 6);
+        applyNoEllipsis(bird);
+
+        Label fight = new Label("FIGHT");
+        fight.setFont(Font.font("Georgia", FontWeight.BOLD, fightSize));
+        fight.setTextFill(Color.web("#090A0C"));
+        fight.setAlignment(Pos.CENTER);
+        fight.setPrefWidth(width - (compact ? 90 : 125));
+        fight.setLayoutX(compact ? 8 : 10);
+        fight.setLayoutY(compact ? 76 : 104);
+        applyNoEllipsis(fight);
+
+        double crestX = compact ? 650 : 870;
+        double crestY = compact ? 165 : 227;
+        double crestRadius = compact ? 54 : 73;
+        Circle crest = new Circle(crestX, crestY, crestRadius, Color.web("#090A0C"));
+        Line crestVertical = new Line(crestX - crestRadius * 0.26, crestY - crestRadius,
+                crestX - crestRadius * 0.26, crestY + crestRadius);
+        crestVertical.setStroke(Color.web("#F7F6F2"));
+        crestVertical.setStrokeWidth(compact ? 7 : 9);
+        Line crestHorizontal = new Line(crestX - crestRadius, crestY + crestRadius * 0.06,
+                crestX + crestRadius, crestY + crestRadius * 0.06);
+        crestHorizontal.setStroke(Color.web("#F7F6F2"));
+        crestHorizontal.setStrokeWidth(compact ? 7 : 9);
+        Polygon beak = new Polygon(
+                crestX + crestRadius * 0.72, crestY - crestRadius * 0.16,
+                crestX + crestRadius * 1.43, crestY + crestRadius * 0.02,
+                crestX + crestRadius * 0.72, crestY + crestRadius * 0.24);
+        beak.setFill(Color.web("#D8272F"));
+
+        Label three = new Label("3");
+        three.setFont(Font.font("Georgia", FontWeight.BOLD, compact ? 90 : 124));
+        three.setTextFill(Color.web("#090A0C"));
+        three.setLayoutX(compact ? 705 : 946);
+        three.setLayoutY(compact ? 104 : 140);
+        applyNoEllipsis(three);
+
+        Path underline = new Path(
+                new MoveTo(compact ? 70 : 90, compact ? 282 : 382),
+                new QuadCurveTo(width / 2.0, compact ? 244 : 324,
+                        width - (compact ? 70 : 90), compact ? 282 : 382));
+        underline.setFill(null);
+        underline.setStroke(Color.web("#090A0C"));
+        underline.setStrokeWidth(compact ? 7 : 9);
+        underline.setStrokeLineCap(StrokeLineCap.ROUND);
+
+        Label subtitle = new Label(compact ? "B I R D   F I G H T   3"
+                : "U L T I M A T E   B I R D   C O M B A T");
+        subtitle.setFont(Font.font("Consolas", FontWeight.BOLD, compact ? 17 : 22));
+        subtitle.setTextFill(Color.web("#151619"));
+        subtitle.setAlignment(Pos.CENTER);
+        subtitle.setPrefWidth(width);
+        subtitle.setLayoutY(compact ? 300 : 404);
+        applyNoEllipsis(subtitle);
+
+        logo.getChildren().addAll(bird, fight, crest, crestVertical, crestHorizontal,
+                beak, three, underline, subtitle);
+        return logo;
+    }
+
+    private String titleCardActionStyle(String base, String hover, Color textColor) {
+        String text = toHex(textColor);
+        return "-fx-background-color: linear-gradient(to right, " + base + ", " + hover + ", " + base + ");"
+                + "-fx-text-fill: " + text + "; -fx-font-family: 'Arial Black'; -fx-font-size: 29px;"
+                + "-fx-background-radius: 0; -fx-border-color: rgba(255,255,255,0.36) transparent rgba(0,0,0,0.45) transparent;"
+                + "-fx-border-width: 2 0 3 0; -fx-cursor: hand;";
+    }
+
+    private String applicationVersionLabel() {
+        String version = BirdGame3.class.getPackage().getImplementationVersion();
+        return version == null || version.isBlank()
+                ? "BIRD FIGHT 3  /  DEVELOPMENT BUILD"
+                : "BIRD FIGHT 3  /  VER. " + version;
+    }
+
+    private void installTitlePromptPulse(Button button) {
+        FadeTransition pulse = new FadeTransition(Duration.seconds(0.9), button);
+        pulse.setFromValue(1.0);
+        pulse.setToValue(0.68);
+        pulse.setAutoReverse(true);
+        pulse.setCycleCount(Animation.INDEFINITE);
+        pulse.play();
+    }
+
+    private void bindTitleCardAdvance(Scene scene, Button advanceButton) {
+        addSceneEventFilter(scene, KeyEvent.KEY_PRESSED, event -> {
+            KeyCode code = event.getCode();
+            if (code == KeyCode.ESCAPE || code == KeyCode.F11
+                    || code == KeyCode.SHIFT || code == KeyCode.CONTROL
+                    || code == KeyCode.ALT || code == KeyCode.META) {
+                return;
+            }
+            if (!Boolean.TRUE.equals(scene.getProperties().get("titleCardAdvancing"))) {
+                scene.getProperties().put("titleCardAdvancing", Boolean.TRUE);
+                advanceButton.fire();
+            }
+            event.consume();
+        });
+        addSceneEventFilter(scene, MouseEvent.MOUSE_PRESSED, event -> {
+            if (event.getButton() != MouseButton.PRIMARY) return;
+            if (!Boolean.TRUE.equals(scene.getProperties().get("titleCardAdvancing"))) {
+                scene.getProperties().put("titleCardAdvancing", Boolean.TRUE);
+                advanceButton.fire();
+            }
+            event.consume();
         });
     }
 
@@ -28878,7 +29053,7 @@ public class BirdGame3 {
                 "THE STILL SKY", "STORY",
                 hubLeftWidth, hubBottomHeight, 62, new Insets(16, 210, 26, 30),
                 Pos.CENTER_LEFT, hubIconAdventure(), 2.9, 0.15,
-                0, 0, 0, 38, () -> showCampaignHub(stage));
+                0, 0, 0, 38, () -> showCampaignTitleScreen(stage));
         registerHubInteractiveNode(adventureNode, hubButtons, helpTitle, helpBody,
                 buildUltimateHubStyle("#00A84F", "#007730", "#D9FFE8", 0, 0, 0, 38, false),
                 buildUltimateHubStyle("#00A84F", "#007730", "#F1FFF4", 0, 0, 0, 38, true),

@@ -16,7 +16,10 @@ class InputAwareUiIntegrationTest {
     @Test
     void highTrafficFrontEndScreensUseAdaptivePrompts() throws IOException {
         String source = Files.readString(GAME_SOURCE);
-        assertTrue(methodBody(source, "showTitleScreen").contains("buildAdaptivePromptBar("));
+        String title = methodBody(source, "showTitleScreen");
+        assertTrue(title.contains("bindTitleCardAdvance(scene, startButton)"));
+        assertFalse(title.contains("buildAdaptivePromptBar("),
+                "the device-neutral title prompt should stay visually minimal");
         assertTrue(methodBody(source, "showHub").contains("buildAdaptivePromptBar("));
         assertTrue(methodBody(source, "showClassicMoreMenu").contains("buildAdaptivePromptBar("));
         assertTrue(methodBody(source, "showStageSelect").contains("buildAdaptivePromptBar("));
