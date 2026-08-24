@@ -11,6 +11,9 @@ import javafx.animation.ScaleTransition;
 import javafx.animation.Timeline;
 import javafx.animation.TranslateTransition;
 import javafx.beans.value.ChangeListener;
+import javafx.beans.binding.Bindings;
+import javafx.beans.property.StringProperty;
+import javafx.beans.property.SimpleStringProperty;
 import javafx.event.ActionEvent;
 import javafx.event.Event;
 import javafx.event.EventHandler;
@@ -521,6 +524,9 @@ public class BirdGame3 {
     private Scene gameplayScene;
     private WiimoteInputManager wiimoteInputManager;
     private XboxInputManager xboxInputManager;
+    private final UiInputTracker uiInputTracker = new UiInputTracker(MAX_COMBATANTS);
+    private boolean syntheticControllerMenuEvent = false;
+    private long syntheticControllerPointerEventUntilNs = 0L;
     private final Object inputManagerLock = new Object();
     private AnimationTimer wiimoteMenuTimer;
     private boolean wiimoteMenuSelectHeld = false;
@@ -2352,7 +2358,10 @@ public class BirdGame3 {
             }
         });
         applyFocusRingStyle(scene);
+        addSceneEventFilter(scene, MouseEvent.MOUSE_MOVED, e -> noteRealMouseInput());
+        addSceneEventFilter(scene, MouseEvent.MOUSE_DRAGGED, e -> noteRealMouseInput());
         addSceneEventFilter(scene, MouseEvent.MOUSE_PRESSED, e -> {
+            noteRealMouseInput();
             Scene targetScene = activeSceneFor(scene);
             setConsoleHighlightActive(false, targetScene);
             if (!(e.getTarget() instanceof Node target)) return;
@@ -2362,6 +2371,9 @@ public class BirdGame3 {
             e.consume();
         });
         scene.setOnKeyPressed(e -> {
+            if (!syntheticControllerMenuEvent) {
+                uiInputTracker.note(keyboardPlayerForKey(e.getCode()), UiInputPrompts.Device.KEYBOARD_MOUSE);
+            }
             Scene targetScene = activeSceneFor(scene);
             KeyCode code = e.getCode();
 
@@ -2699,6 +2711,12 @@ public class BirdGame3 {
         WiimoteMappedState xboxState = xboxInputManager == null
                 ? WiimoteMappedState.off("Xbox controller unavailable")
                 : xboxInputManager.menuState();
+        if (hasUiInputActivity(wiimoteState)) {
+            uiInputTracker.note(firstEnabledWiimotePlayer(), wiimotePromptDevice(firstEnabledWiimotePlayer()));
+        }
+        if (hasUiInputActivity(xboxState)) {
+            uiInputTracker.note(controllerMenuPlayerFromStatus(xboxState.status()), UiInputPrompts.Device.GAMEPAD);
+        }
         return mergedControllerState(wiimoteState, xboxState);
     }
 
@@ -2707,7 +2725,55 @@ public class BirdGame3 {
                 ? WiimoteMappedState.off("Wiimote HID unavailable")
                 : wiimoteInputManager.stateForPlayer(playerIdx);
         WiimoteMappedState xboxState = xboxStateForPlayer(playerIdx);
+        if (hasUiInputActivity(wiimoteState)) {
+            uiInputTracker.note(playerIdx, wiimotePromptDevice(playerIdx));
+        }
+        if (hasUiInputActivity(xboxState)) {
+            uiInputTracker.note(playerIdx, UiInputPrompts.Device.GAMEPAD);
+        }
         return mergedControllerState(wiimoteState, xboxState);
+    }
+
+    private boolean hasUiInputActivity(WiimoteMappedState state) {
+        return state != null && state.connected() && (state.left() || state.right()
+                || state.attackUp() || state.attackDown() || state.jump() || state.attack()
+                || state.special() || state.block() || state.grab() || state.tauntCycle()
+                || state.tauntExecute() || state.menuUp() || state.menuDown() || state.menuLeft()
+                || state.menuRight() || state.menuUpHeld() || state.menuDownHeld()
+                || state.menuLeftHeld() || state.menuRightHeld() || state.menuSelectHeld()
+                || state.menuBackHeld() || state.menuPauseHeld() || state.menuSelect()
+                || state.menuBack() || state.menuPause());
+    }
+
+    private int firstEnabledWiimotePlayer() {
+        for (int playerIdx = 0; playerIdx < wiimoteModes.length; playerIdx++) {
+            if (wiimoteModes[playerIdx] != WiimoteControlMode.OFF) return playerIdx;
+        }
+        return 0;
+    }
+
+    private UiInputPrompts.Device wiimotePromptDevice(int playerIdx) {
+        WiimoteControlMode mode = playerIdx >= 0 && playerIdx < wiimoteModes.length
+                ? wiimoteModes[playerIdx]
+                : WiimoteControlMode.SIDEWAYS;
+        return mode == WiimoteControlMode.NUNCHUK
+                ? UiInputPrompts.Device.WIIMOTE_NUNCHUK
+                : UiInputPrompts.Device.WIIMOTE_SIDEWAYS;
+    }
+
+    private int controllerMenuPlayerFromStatus(String status) {
+        if (status != null) {
+            int marker = status.lastIndexOf('P');
+            if (marker >= 0 && marker + 1 < status.length()) {
+                try {
+                    int xboxSlot = Integer.parseInt(status.substring(marker + 1).trim()) - 1;
+                    int assignedPlayer = xboxAssignedPlayerForSlot(xboxSlot);
+                    return assignedPlayer >= 0 ? assignedPlayer : Math.max(0, xboxSlot);
+                } catch (NumberFormatException ignored) {
+                }
+            }
+        }
+        return 0;
     }
 
     private void pollWiimoteMenuNavigation() {
@@ -2886,6 +2952,7 @@ public class BirdGame3 {
         boolean selectHeld = state != null && state.connected() && state.menuSelectHeld();
         if (selectHeld && !wiimoteMenuSelectHeld) {
             setFightSetupClawCursor(scene, true);
+            syntheticControllerPointerEventUntilNs = System.nanoTime() + 250_000_000L;
             robot.mousePress(MouseButton.PRIMARY);
             wiimoteMenuMousePressed = true;
         } else if (!selectHeld && wiimoteMenuSelectHeld) {
@@ -3001,6 +3068,7 @@ public class BirdGame3 {
             return;
         }
         updateWiimoteMenuPointerScenePosition(scene, sceneX, sceneY);
+        syntheticControllerPointerEventUntilNs = System.nanoTime() + 250_000_000L;
         robot.mouseMove(screenPoint.getX(), screenPoint.getY());
     }
 
@@ -3062,6 +3130,7 @@ public class BirdGame3 {
         }
         Robot robot = wiimoteUiRobot();
         if (robot != null) {
+            syntheticControllerPointerEventUntilNs = System.nanoTime() + 250_000_000L;
             robot.mouseRelease(MouseButton.PRIMARY);
         }
         wiimoteMenuMousePressed = false;
@@ -3422,18 +3491,28 @@ public class BirdGame3 {
     private void dispatchWiimoteMenuDirectional(Scene scene, KeyCode code) {
         scene = activeSceneFor(scene);
         if (scene == null || code == null) return;
-        Node focus = scene.getFocusOwner();
-        if (focus != null) {
-            focus.fireEvent(new KeyEvent(KeyEvent.KEY_PRESSED, "", "", code, false, false, false, false));
-            return;
+        syntheticControllerMenuEvent = true;
+        try {
+            Node focus = scene.getFocusOwner();
+            if (focus != null) {
+                focus.fireEvent(new KeyEvent(KeyEvent.KEY_PRESSED, "", "", code, false, false, false, false));
+                return;
+            }
+            Event.fireEvent(scene, new KeyEvent(KeyEvent.KEY_PRESSED, "", "", code, false, false, false, false));
+        } finally {
+            syntheticControllerMenuEvent = false;
         }
-        Event.fireEvent(scene, new KeyEvent(KeyEvent.KEY_PRESSED, "", "", code, false, false, false, false));
     }
 
     private void dispatchWiimoteMenuKey(Scene scene, KeyCode code) {
         scene = activeSceneFor(scene);
         if (scene == null || code == null) return;
-        Event.fireEvent(scene, new KeyEvent(KeyEvent.KEY_PRESSED, "", "", code, false, false, false, false));
+        syntheticControllerMenuEvent = true;
+        try {
+            Event.fireEvent(scene, new KeyEvent(KeyEvent.KEY_PRESSED, "", "", code, false, false, false, false));
+        } finally {
+            syntheticControllerMenuEvent = false;
+        }
     }
 
     private void bindEscape(Scene scene, Runnable action) {
@@ -3923,10 +4002,7 @@ public class BirdGame3 {
 
     static double fixedFrameScale(double availableWidth, double availableHeight,
                                   double designWidth, double designHeight) {
-        double safeDesignWidth = Math.max(1.0, designWidth);
-        double safeDesignHeight = Math.max(1.0, designHeight);
-        return Math.min(Math.max(1.0, availableWidth) / safeDesignWidth,
-                Math.max(1.0, availableHeight) / safeDesignHeight);
+        return UiLayoutMetrics.fitScale(availableWidth, availableHeight, designWidth, designHeight);
     }
 
     private Bounds measureUiContentBounds(Node content) {
@@ -25364,12 +25440,12 @@ public class BirdGame3 {
         AnchorPane.setLeftAnchor(startButton, 94.0);
         AnchorPane.setBottomAnchor(startButton, 126.0);
 
-        Label prompt = new Label("ENTER / A  START     ESC  EXIT     F11  FULLSCREEN");
-        prompt.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
-        prompt.setTextFill(Color.web("#90A4AE"));
-        applyNoEllipsis(prompt);
+        HBox prompt = buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.START, "START"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "EXIT"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.FULLSCREEN, "FULLSCREEN"));
         AnchorPane.setLeftAnchor(prompt, 102.0);
-        AnchorPane.setBottomAnchor(prompt, 72.0);
+        AnchorPane.setBottomAnchor(prompt, 60.0);
 
         Label versionMark = new Label("BIRD FIGHT 3");
         versionMark.setFont(Font.font("Arial Black", 24));
@@ -25391,6 +25467,64 @@ public class BirdGame3 {
             startButton.requestFocus();
             setConsoleHighlightActive(true, scene);
         });
+    }
+
+    private void noteRealMouseInput() {
+        if (!syntheticControllerMenuEvent && System.nanoTime() > syntheticControllerPointerEventUntilNs) {
+            uiInputTracker.note(0, UiInputPrompts.Device.KEYBOARD_MOUSE);
+        }
+    }
+
+    private int keyboardPlayerForKey(KeyCode code) {
+        if (code == null) return 0;
+        int count = Math.max(1, Math.min(activePlayers, playerKeyBindings.length));
+        for (int playerIdx = 0; playerIdx < count; playerIdx++) {
+            if (effectiveKeyboardActionForKey(playerIdx, code) != null) {
+                return playerIdx;
+            }
+        }
+        return 0;
+    }
+
+    private HBox buildAdaptivePromptBar(UiInputPrompts.Prompt... prompts) {
+        Label device = new Label();
+        device.setFont(Font.font("Consolas", FontWeight.BOLD, 13));
+        device.setTextFill(Color.WHITE);
+        applyNoEllipsis(device);
+
+        Label commands = new Label();
+        commands.setFont(Font.font("Consolas", FontWeight.BOLD, 16));
+        commands.setTextFill(Color.web("#CFD8DC"));
+        applyNoEllipsis(commands);
+
+        device.textProperty().bind(Bindings.createStringBinding(() -> {
+            UiInputTracker.ActiveInput input = uiInputTracker.activeInputProperty().get();
+            String player = input.playerIndex() > 0 ? "P" + (input.playerIndex() + 1) + "  ·  " : "";
+            return player + input.device().label();
+        }, uiInputTracker.activeInputProperty()));
+        device.styleProperty().bind(Bindings.createStringBinding(() ->
+                        MenuTheme.promptDeviceStyle(uiInputTracker.activeDevice().accent()),
+                uiInputTracker.activeInputProperty()));
+        commands.textProperty().bind(Bindings.createStringBinding(() ->
+                        UiInputPrompts.render(uiInputTracker.activeDevice(), prompts),
+                uiInputTracker.activeInputProperty()));
+
+        HBox bar = new HBox(12, device, commands);
+        bar.setAlignment(Pos.CENTER_LEFT);
+        bar.setPadding(new Insets(6, 10, 6, 8));
+        bar.setStyle(MenuTheme.promptBarStyle());
+        bar.setMinHeight(42);
+        bar.setMaxHeight(48);
+        bar.getProperties().put("adaptiveInputPrompt", Boolean.TRUE);
+        return bar;
+    }
+
+    private void bindAdaptivePrompt(Label label, StringProperty verb, UiInputPrompts.Command command) {
+        if (label == null || verb == null || command == null) return;
+        label.textProperty().bind(Bindings.createStringBinding(() -> {
+            String input = UiInputPrompts.inputFor(uiInputTracker.activeDevice(), command);
+            return input + (verb.get().isBlank() ? "" : "  " + verb.get().toUpperCase(Locale.ROOT));
+        }, uiInputTracker.activeInputProperty(), verb));
     }
 
     private void continueFromTitle(Stage stage) {
@@ -28283,11 +28417,10 @@ public class BirdGame3 {
         helpBody.setMaxWidth(860);
         applyNoEllipsis(helpBody);
 
-        Label footerStatus = new Label("PROFILE  " + activeProfile.name().toUpperCase(Locale.ROOT)
-                + "   |   BIRD COINS  " + birdCoinBalanceText());
-        footerStatus.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
-        footerStatus.setTextFill(Color.web("#B0BEC5"));
-        applyNoEllipsis(footerStatus);
+        HBox footerPrompts = buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "NAVIGATE"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "SELECT"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "TITLE"));
 
         List<Node> hubButtons = new ArrayList<>();
         final double hubMainTop = 112.0;
@@ -28433,7 +28566,7 @@ public class BirdGame3 {
         HBox.setHgrow(helpSpacer, Priority.ALWAYS);
         VBox helpText = new VBox(4, helpTitle, helpBody);
         helpText.setAlignment(Pos.CENTER_LEFT);
-        HBox helpContent = new HBox(24, helpText, helpSpacer, footerStatus);
+        HBox helpContent = new HBox(24, helpText, helpSpacer, footerPrompts);
         helpContent.setAlignment(Pos.CENTER_LEFT);
         helpBar.getChildren().add(helpContent);
         AnchorPane.setLeftAnchor(helpBar, 0.0);
@@ -32003,8 +32136,6 @@ public class BirdGame3 {
         clearBossRushState();
         clearAshfallTrialState();
         playMenuMusic();
-        GameSaveRepository.SaveProfile activeProfile = saveRepository.activeProfile();
-
         StackPane root = new StackPane();
         root.getProperties().put("noAutoScale", true);
         root.setStyle("-fx-background-color: linear-gradient(to bottom, #06101B 0%, #0A2033 40%, #05080C 100%);");
@@ -32039,11 +32170,10 @@ public class BirdGame3 {
         helpBody.setMinWidth(0);
         applyNoEllipsis(helpBody);
 
-        HBox footerMeta = new HBox(
-                10,
-                buildMenuChip("PROFILE  " + activeProfile.name().toUpperCase(Locale.ROOT), "#263238", "#90A4AE"),
-                buildMenuChip("BIRD COINS  " + birdCoinBalanceText(), "#5D4037", "#FFE082")
-        );
+        HBox footerMeta = buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "NAVIGATE"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "SELECT"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "HUB"));
         footerMeta.setAlignment(Pos.CENTER_RIGHT);
 
         List<Node> modeButtons = new ArrayList<>();
@@ -63237,7 +63367,9 @@ public class BirdGame3 {
         previewDescription.setMinHeight(92);
         previewDescription.setAlignment(Pos.TOP_LEFT);
         previewDescription.setTextAlignment(TextAlignment.LEFT);
-        Label chooseHint = stageSelectPreviewLabel("PRESS ENTER / A TO FIGHT HERE", 18, "#FFE082");
+        StringProperty chooseVerb = new SimpleStringProperty("FIGHT HERE");
+        Label chooseHint = stageSelectPreviewLabel("", 18, "#FFE082");
+        bindAdaptivePrompt(chooseHint, chooseVerb, UiInputPrompts.Command.SELECT);
 
         StackPane previewFrame = new StackPane(largePreview);
         previewFrame.setPadding(new Insets(6));
@@ -63275,7 +63407,7 @@ public class BirdGame3 {
                     ? "ORIGINAL ARENA"
                     : "VARIANT OF  " + mapDisplayName(choice.map()).toUpperCase(Locale.ROOT));
             previewDescription.setText(stageSelectDescription(choice));
-            chooseHint.setText("PRESS ENTER / A TO FIGHT HERE");
+            chooseVerb.set("FIGHT HERE");
         };
         Runnable showRandomPreview = () -> {
             StagePreviewRenderer.drawRandom(largePreview);
@@ -63288,7 +63420,7 @@ public class BirdGame3 {
             previewBase.setText(!localVersusFlow || frontEndMatchFlow.rules().excludedStageKeys().isEmpty()
                     ? "NO EXCLUSIONS" : frontEndMatchFlow.rules().excludedStageKeys().size() + " STAGES EXCLUDED");
             previewDescription.setText("Let the game choose from your saved random-stage pool.");
-            chooseHint.setText("PRESS ENTER / A TO ROLL A STAGE");
+            chooseVerb.set("ROLL A STAGE");
         };
 
         GridPane stageGrid = new GridPane();
@@ -63337,15 +63469,15 @@ public class BirdGame3 {
         content.setPrefHeight(StageSelectLayout.PREVIEW_HEIGHT);
         content.setMaxHeight(StageSelectLayout.PREVIEW_HEIGHT);
 
-        Label footer = new Label("MOVE / HOVER TO PREVIEW   •   ENTER / A SELECT   •   ESC / B BACK");
-        footer.setFont(Font.font("Consolas", FontWeight.BOLD, 17));
-        footer.setTextFill(Color.web("#9FB3C8"));
+        HBox footer = buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.PREVIEW, "PREVIEW"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "SELECT"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "BACK"));
         footer.setAlignment(Pos.CENTER);
         footer.setMaxWidth(Double.MAX_VALUE);
         footer.setMinHeight(StageSelectLayout.FOOTER_HEIGHT);
         footer.setPrefHeight(StageSelectLayout.FOOTER_HEIGHT);
         footer.setMaxHeight(StageSelectLayout.FOOTER_HEIGHT);
-        applyNoEllipsis(footer);
 
         root.setTop(topBar);
         root.setCenter(content);
@@ -67497,6 +67629,9 @@ public class BirdGame3 {
 
     private void handleGameplayKeyPress(Stage stage, KeyEvent e) {
         KeyCode code = e.getCode();
+        if (!syntheticControllerMenuEvent) {
+            uiInputTracker.note(keyboardPlayerForKey(code), UiInputPrompts.Device.KEYBOARD_MOUSE);
+        }
         if (replayPlaybackActive) {
             if (code == KeyCode.ESCAPE) {
                 endReplayPlayback(stage);
@@ -78051,37 +78186,48 @@ public class BirdGame3 {
         return name == null || name.isBlank() ? code.name() : name.toUpperCase(Locale.ROOT);
     }
 
-    private String pauseControllerBinding(ControlAction action) {
+    private UiInputPrompts.GameplayAction pauseGameplayAction(ControlAction action) {
         return switch (action) {
-            case LEFT, RIGHT -> "LEFT STICK / D-PAD";
-            case JUMP -> "A";
-            case ATTACK -> "X";
-            case SPECIAL -> "B / RT";
-            case GRAB -> "RB";
-            case BLOCK -> "LB / LT";
-            case TAUNT_CYCLE -> "Y";
-            case TAUNT_EXECUTE -> "BACK";
+            case LEFT -> UiInputPrompts.GameplayAction.LEFT;
+            case RIGHT -> UiInputPrompts.GameplayAction.RIGHT;
+            case JUMP -> UiInputPrompts.GameplayAction.JUMP;
+            case ATTACK -> UiInputPrompts.GameplayAction.ATTACK;
+            case SPECIAL -> UiInputPrompts.GameplayAction.SPECIAL;
+            case GRAB -> UiInputPrompts.GameplayAction.GRAB;
+            case BLOCK -> UiInputPrompts.GameplayAction.BLOCK;
+            case TAUNT_CYCLE -> UiInputPrompts.GameplayAction.TAUNT_CYCLE;
+            case TAUNT_EXECUTE -> UiInputPrompts.GameplayAction.TAUNT_EXECUTE;
         };
     }
 
+    private String pauseBindingForDevice(int playerIdx, ControlAction action, UiInputPrompts.Device device) {
+        if (device == null || device == UiInputPrompts.Device.KEYBOARD_MOUSE) {
+            return pauseKeyboardBinding(playerIdx, action);
+        }
+        return UiInputPrompts.gameplayBinding(device, pauseGameplayAction(action));
+    }
+
+    private String pauseDeviceLabel(int playerIdx) {
+        UiInputPrompts.Device device = uiInputTracker.playerDevice(playerIdx);
+        return "P" + (playerIdx + 1) + "  ·  " + device.label();
+    }
+
+    // Kept as the keyboard-specific reference seam used by settings/layout regression tests.
     private String pauseDirectionalSpecialBinding(int playerIdx, String direction) {
-        String special = pauseKeyboardBinding(playerIdx, ControlAction.SPECIAL);
-        return switch (direction) {
-            case "SIDE" -> pauseKeyboardBinding(playerIdx, ControlAction.LEFT) + " / "
-                    + pauseKeyboardBinding(playerIdx, ControlAction.RIGHT) + " + " + special;
-            case "UP" -> pauseKeyboardBinding(playerIdx, ControlAction.JUMP) + " + " + special;
-            case "DOWN" -> pauseKeyboardBinding(playerIdx, ControlAction.BLOCK) + " + " + special;
-            default -> special + " (NO DIRECTION)";
-        };
+        return pauseDirectionalSpecialBindingForDevice(
+                playerIdx, direction, UiInputPrompts.Device.KEYBOARD_MOUSE);
     }
 
-    private String pauseControllerDirectionalSpecialBinding(String direction) {
-        return switch (direction) {
-            case "SIDE" -> "STICK LEFT / RIGHT + B";
-            case "UP" -> "STICK UP / A + B";
-            case "DOWN" -> "STICK DOWN / LB + B";
-            default -> "B (NO DIRECTION)";
-        };
+    private String pauseDirectionalSpecialBindingForDevice(int playerIdx, String direction,
+                                                            UiInputPrompts.Device device) {
+        return UiInputPrompts.directionalSpecial(
+                device,
+                direction,
+                pauseKeyboardBinding(playerIdx, ControlAction.SPECIAL),
+                pauseKeyboardBinding(playerIdx, ControlAction.LEFT),
+                pauseKeyboardBinding(playerIdx, ControlAction.RIGHT),
+                pauseKeyboardBinding(playerIdx, ControlAction.JUMP),
+                pauseKeyboardBinding(playerIdx, ControlAction.BLOCK));
     }
 
     private Button pauseTabButton(PausePanel panel, Stage stage) {
@@ -78199,8 +78345,13 @@ public class BirdGame3 {
             moves.add(buildPauseMoveCard(playerIdx, move), i % 2, i / 2);
         }
 
-        Label ultInput = new Label(pauseKeyboardBinding(playerIdx, ControlAction.SPECIAL)
-                + " / B  -  NO DIRECTION WHEN ULT IS READY");
+        Label ultInput = new Label();
+        ultInput.textProperty().bind(Bindings.createStringBinding(() -> {
+            UiInputPrompts.Device device = uiInputTracker.playerDevice(playerIdx);
+            return pauseDeviceLabel(playerIdx) + "  ·  "
+                    + pauseDirectionalSpecialBindingForDevice(playerIdx, "NEUTRAL", device)
+                    + "  —  WHEN ULT IS READY";
+        }, uiInputTracker.playerDeviceProperty(playerIdx)));
         ultInput.setFont(Font.font("Consolas", FontWeight.BOLD, 14));
         ultInput.setTextFill(Color.web("#FFF59D"));
         applyNoEllipsis(ultInput);
@@ -78234,14 +78385,15 @@ public class BirdGame3 {
         name.setFont(Font.font("Arial Black", 20));
         name.setTextFill(Color.WHITE);
         applyNoEllipsis(name);
-        Label keyboard = new Label("KEYBOARD  " + pauseDirectionalSpecialBinding(playerIdx, move.direction()));
-        keyboard.setFont(Font.font("Consolas", FontWeight.BOLD, 12));
-        keyboard.setTextFill(Color.web("#B0BEC5"));
-        applyNoEllipsis(keyboard);
-        Label controller = new Label("CONTROLLER  " + pauseControllerDirectionalSpecialBinding(move.direction()));
-        controller.setFont(Font.font("Consolas", FontWeight.BOLD, 12));
-        controller.setTextFill(Color.web("#90CAF9"));
-        applyNoEllipsis(controller);
+        Label input = new Label();
+        input.textProperty().bind(Bindings.createStringBinding(() -> {
+            UiInputPrompts.Device device = uiInputTracker.playerDevice(playerIdx);
+            return pauseDeviceLabel(playerIdx) + "  ·  "
+                    + pauseDirectionalSpecialBindingForDevice(playerIdx, move.direction(), device);
+        }, uiInputTracker.playerDeviceProperty(playerIdx)));
+        input.setFont(Font.font("Consolas", FontWeight.BOLD, 12));
+        input.setTextFill(Color.web("#90CAF9"));
+        applyNoEllipsis(input);
         Label description = new Label(move.description());
         description.setFont(Font.font("Consolas", FontWeight.BOLD, 13));
         description.setTextFill(Color.web("#ECEFF1"));
@@ -78249,7 +78401,7 @@ public class BirdGame3 {
         description.setMaxWidth(430);
         description.setMinHeight(40);
 
-        VBox card = new VBox(3, direction, name, keyboard, controller, description);
+        VBox card = new VBox(4, direction, name, input, description);
         card.setAlignment(Pos.TOP_LEFT);
         card.setPadding(new Insets(12, 15, 12, 15));
         lockRegionSize(card, 455, 178);
@@ -78271,19 +78423,29 @@ public class BirdGame3 {
         bindings.setHgap(16);
         bindings.setVgap(8);
         bindings.setAlignment(Pos.CENTER);
-        String[] headers = {"ACTION", "YOUR KEY", "CONTROLLER"};
-        for (int col = 0; col < headers.length; col++) {
-            Label header = new Label(headers[col]);
+        for (int col = 0; col < 2; col++) {
+            Label header = new Label(col == 0 ? "ACTION" : "");
+            if (col == 1) {
+                header.textProperty().bind(Bindings.createStringBinding(() ->
+                                "ACTIVE INPUT  ·  " + pauseDeviceLabel(playerIdx),
+                        uiInputTracker.playerDeviceProperty(playerIdx)));
+            }
             header.setFont(Font.font("Consolas", FontWeight.BOLD, 15));
             header.setTextFill(Color.web("#80DEEA"));
-            header.setMinWidth(col == 0 ? 260 : 300);
+            header.setMinWidth(col == 0 ? 300 : 520);
             bindings.add(header, col, 0);
         }
         for (int row = 0; row < ControlAction.values().length; row++) {
             ControlAction action = ControlAction.values()[row];
-            bindings.add(pauseControlCell(action.label.toUpperCase(Locale.ROOT), true), 0, row + 1);
-            bindings.add(pauseControlCell(pauseKeyboardBinding(playerIdx, action), false), 1, row + 1);
-            bindings.add(pauseControlCell(pauseControllerBinding(action), false), 2, row + 1);
+            Label actionCell = pauseControlCell(action.label.toUpperCase(Locale.ROOT), true);
+            actionCell.setMinWidth(300);
+            Label bindingCell = pauseControlCell("", false);
+            bindingCell.setMinWidth(520);
+            bindingCell.textProperty().bind(Bindings.createStringBinding(() ->
+                            pauseBindingForDevice(playerIdx, action, uiInputTracker.playerDevice(playerIdx)),
+                    uiInputTracker.playerDeviceProperty(playerIdx)));
+            bindings.add(actionCell, 0, row + 1);
+            bindings.add(bindingCell, 1, row + 1);
         }
 
         Label techniquesTitle = new Label("DIRECTIONAL INPUTS");

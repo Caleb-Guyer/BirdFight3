@@ -92,6 +92,24 @@ final class MenuTheme {
                 + "-fx-border-radius: " + radius + ";";
     }
 
+    static String promptBarStyle() {
+        return "-fx-background-color: rgba(4,7,11,0.84);"
+                + "-fx-background-radius: 14;"
+                + "-fx-border-color: rgba(255,255,255,0.14);"
+                + "-fx-border-width: 1.5;"
+                + "-fx-border-radius: 14;";
+    }
+
+    static String promptDeviceStyle(String accentColor) {
+        Color accent = parse(accentColor, DEFAULT_ACCENT);
+        return "-fx-background-color: " + rgba(accent, 0.22) + ";"
+                + "-fx-background-radius: 10;"
+                + "-fx-border-color: " + rgba(blend(accent, Color.WHITE, 0.28), 0.78) + ";"
+                + "-fx-border-width: 1.5;"
+                + "-fx-border-radius: 10;"
+                + "-fx-padding: 6 11 6 11;";
+    }
+
     private static Color parse(String value, Color fallback) {
         if (value == null || value.isBlank()) {
             return fallback;
