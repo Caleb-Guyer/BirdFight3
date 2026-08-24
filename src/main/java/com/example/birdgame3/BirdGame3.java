@@ -28080,7 +28080,7 @@ public class BirdGame3 {
         frame.setPadding(new Insets(18, 28, 22, 28));
         root.getChildren().add(frame);
 
-        Button back = uiFactory.action("BACK TO HUB", 250, 68, 24, "#B5121B", 18, () -> showMenu(stage));
+        Button back = uiFactory.action("BACK", 220, 68, 24, "#B5121B", 18, () -> showMenu(stage));
         StackPane title = buildMenuTitleBanner("THE VAULT", 420, 72, 34);
         StackPane profile = buildMenuChip(
                 saveRepository.activeProfile().name().toUpperCase(Locale.ROOT), "#1565C0", "#90CAF9");
@@ -28116,12 +28116,6 @@ public class BirdGame3 {
         Label fighterHeading = new Label("FIGHTER RECORDS");
         fighterHeading.setFont(Font.font("Arial Black", 28));
         fighterHeading.setTextFill(Color.web("#E3F2FD"));
-        Label fighterHint = new Label("Earned progress stays separate from developer entitlement. Select an unlocked bird to open its Classic route.");
-        fighterHint.setFont(Font.font("Consolas", 16));
-        fighterHint.setTextFill(Color.web("#90A4AE"));
-        fighterHint.setWrapText(true);
-        fighterHint.setMaxWidth(930);
-
         FlowPane fighterGrid = new FlowPane(16, 16);
         fighterGrid.setAlignment(Pos.TOP_CENTER);
         fighterGrid.setPrefWrapLength(950);
@@ -28136,10 +28130,10 @@ public class BirdGame3 {
         fighterScroll.setPannable(true);
         fighterScroll.setStyle("-fx-background: transparent; -fx-background-color: transparent; -fx-border-color: transparent;");
         installTransparentScrollViewport(fighterScroll);
-        VBox fighterPanel = new VBox(5, fighterHeading, fighterHint, fighterScroll);
+        VBox fighterPanel = new VBox(8, fighterHeading, fighterScroll);
         fighterPanel.setPadding(new Insets(18));
-        fighterPanel.setPrefSize(1000, 720);
-        fighterPanel.setMaxSize(1000, 720);
+        fighterPanel.setPrefSize(1000, 666);
+        fighterPanel.setMaxSize(1000, 666);
         fighterPanel.setStyle(MenuTheme.panelStyle("#35566F", 24));
         VBox.setVgrow(fighterScroll, Priority.ALWAYS);
 
@@ -28183,23 +28177,24 @@ public class BirdGame3 {
             libraryGrid.add(destinations[i], i % 2, i / 2);
         }
 
-        Label libraryHint = new Label("Everything collected, earned, watched, recorded, and purchased lives here.");
-        libraryHint.setFont(Font.font("Consolas", 15));
-        libraryHint.setTextFill(Color.web("#90A4AE"));
-        libraryHint.setWrapText(true);
-        libraryHint.setTextAlignment(TextAlignment.CENTER);
-        libraryHint.setMaxWidth(480);
-        VBox libraryPanel = new VBox(12, libraryHeading, libraryGrid, libraryHint);
+        VBox libraryPanel = new VBox(12, libraryHeading, libraryGrid);
         libraryPanel.setAlignment(Pos.TOP_CENTER);
         libraryPanel.setPadding(new Insets(18, 14, 18, 14));
-        libraryPanel.setPrefSize(516, 720);
-        libraryPanel.setMaxSize(516, 720);
+        libraryPanel.setPrefSize(516, 666);
+        libraryPanel.setMaxSize(516, 666);
         libraryPanel.setStyle(MenuTheme.panelStyle("#7C6322", 24));
 
         HBox body = new HBox(18, fighterPanel, libraryPanel);
         body.setAlignment(Pos.TOP_CENTER);
         BorderPane.setMargin(body, new Insets(0, 0, 0, 0));
         frame.setCenter(body);
+
+        HBox prompts = buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "BROWSE"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "OPEN"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "HUB"));
+        frame.setBottom(prompts);
+        BorderPane.setMargin(prompts, new Insets(12, 0, 0, 0));
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         bindEscape(scene, back);
@@ -28256,17 +28251,11 @@ public class BirdGame3 {
         HBox tags = new HBox(7, badge, drill, skins);
         tags.setAlignment(Pos.CENTER_LEFT);
 
-        Label record = new Label("BATTLES " + progress.appearances()
-                + "   WINS " + progress.wins()
-                + "   RATE " + progress.winRateText()
-                + "   TIME " + progress.arenaTimeText());
+        Label record = new Label("WINS  " + progress.wins() + " / " + progress.appearances()
+                + "   •   RATE  " + progress.winRateText());
         record.setFont(Font.font("Consolas", FontWeight.BOLD, 12));
         record.setTextFill(Color.web("#CFD8DC"));
-        Label totals = new Label("TOTAL DMG " + progress.damage() + "   KOs " + progress.knockouts()
-                + (progress.endingAvailable() ? "   ENDING AVAILABLE" : ""));
-        totals.setFont(Font.font("Consolas", 12));
-        totals.setTextFill(Color.web(progress.endingAvailable() ? "#FFE082" : "#90A4AE"));
-        VBox graphic = new VBox(8, top, tags, record, totals);
+        VBox graphic = new VBox(8, top, tags, record);
         graphic.setAlignment(Pos.TOP_LEFT);
         graphic.setPadding(new Insets(12));
 
@@ -28274,7 +28263,7 @@ public class BirdGame3 {
         card.setGraphic(graphic);
         card.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
         card.setAlignment(Pos.TOP_LEFT);
-        lockRegionSize(card, 300, 184);
+        lockRegionSize(card, 300, 164);
         String border = progress.routeBadgeEarned() ? "#FFD54F" : (progress.fighterUnlocked() ? "#4FC3F7" : "#455A64");
         card.setStyle("-fx-background-color: linear-gradient(to bottom right, rgba(28,39,53,0.96), rgba(5,9,14,0.98));"
                 + "-fx-background-radius: 18; -fx-border-color: " + border + "; -fx-border-width: 3;"
@@ -28405,7 +28394,7 @@ public class BirdGame3 {
         frame.setPadding(new Insets(20, 34, 24, 34));
         root.getChildren().add(frame);
 
-        Button back = uiFactory.action("BACK TO VAULT", 280, 70, 23, "#B5121B", 18, () -> showVault(stage));
+        Button back = uiFactory.action("BACK", 220, 68, 23, "#B5121B", 18, () -> showVault(stage));
         StackPane title = buildMenuTitleBanner("SOUND & CREDITS", 570, 72, 31);
         Button stop = uiFactory.action("MENU THEME", 250, 64, 20, "#455A64", 16, this::playMenuMusic);
         StackPane header = buildMenuTopStrip(back, title, stop);
@@ -28433,9 +28422,7 @@ public class BirdGame3 {
         Label creditsTitle = new Label("AUDIO CREDITS");
         creditsTitle.setFont(Font.font("Arial Black", 20));
         creditsTitle.setTextFill(Color.web("#FFE082"));
-        Label credits = new Label("All music is public domain from FreePD, distributed through the Internet Archive mirror "
-                + "allfreepdmusicbykuronekony4n. Sound effects are original procedural synthesizer recordings. "
-                + "Complete per-track attribution is preserved in CREDITS-AUDIO.md.");
+        Label credits = new Label("PUBLIC-DOMAIN MUSIC  •  ORIGINAL SOUND EFFECTS  •  CREDITS-AUDIO.MD");
         credits.setFont(Font.font("Consolas", 15));
         credits.setTextFill(Color.web("#CFD8DC"));
         credits.setWrapText(true);
@@ -28443,8 +28430,13 @@ public class BirdGame3 {
         VBox creditPanel = new VBox(4, creditsTitle, credits);
         creditPanel.setPadding(new Insets(12, 20, 12, 20));
         creditPanel.setStyle(MenuTheme.panelStyle("#FFB74D", 18));
-        frame.setBottom(creditPanel);
-        BorderPane.setMargin(creditPanel, new Insets(14, 0, 0, 0));
+        HBox prompts = buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "CHOOSE TRACK"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "PLAY"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "VAULT"));
+        VBox footer = new VBox(10, creditPanel, prompts);
+        frame.setBottom(footer);
+        BorderPane.setMargin(footer, new Insets(12, 0, 0, 0));
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         bindEscape(scene, back);
@@ -32172,6 +32164,7 @@ public class BirdGame3 {
 
         root.getChildren().add(frame);
         Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, back);
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
         bindEscape(scene, back::fire);
@@ -39492,8 +39485,8 @@ public class BirdGame3 {
         root.setPadding(new Insets(26, 40, 26, 40));
         root.setStyle(MenuTheme.pageBackground());
 
-        Button back = uiFactory.action(vaultSubpageActive ? "BACK TO VAULT" : "BACK TO HUB",
-                360, 90, 30, "#D32F2F", 22,
+        Button back = uiFactory.action("BACK",
+                220, 68, 24, "#B5121B", 18,
                 () -> returnFromVaultSubpage(stage, () -> showMenu(stage)));
         StackPane title = buildMenuTitleBanner("SHOP", 320, 72, 34);
         StackPane coins = buildMenuChip("BIRD COINS  " + birdCoinBalanceText(), "#FFC107", "#FFF59D");
@@ -39511,41 +39504,8 @@ public class BirdGame3 {
             boolean owned = item.owned.getAsBoolean();
             boolean available = item.available.getAsBoolean();
             int previewCount = item.previews.size();
-            double cardW = 420;
-            double cardH = 300;
-            if (item.bundle) {
-                if (previewCount > 10) {
-                    cardW = 980;
-                    cardH = 640;
-                } else if (previewCount > 4) {
-                    cardW = 820;
-                    cardH = 520;
-                } else {
-                    cardW = 700;
-                    cardH = 440;
-                }
-            } else {
-                switch (item.rarity) {
-                    case COMMON -> cardW = 360;
-                    case UNCOMMON -> {
-                        cardW = 390;
-                        cardH = 315;
-                    }
-                    case RARE -> cardH = 330;
-                    case EPIC -> {
-                        cardW = 480;
-                        cardH = 350;
-                    }
-                    case LEGENDARY -> {
-                        cardW = 560;
-                        cardH = 380;
-                    }
-                    case BUNDLE -> {
-                        cardW = 700;
-                        cardH = 460;
-                    }
-                }
-            }
+            double cardW = item.bundle ? 500 : 420;
+            double cardH = item.bundle ? 520 : 480;
 
             List<String> ownedNames = new ArrayList<>();
             int ownedCredits = 0;
@@ -39588,17 +39548,7 @@ public class BirdGame3 {
             rarity.setTextAlignment(TextAlignment.CENTER);
             rarity.setStyle(MenuTheme.chipStyle(border, "#FFF8E1", 12) + "-fx-padding: 4 12 4 12;");
 
-            Label value = null;
-            if (item.bundle) {
-                value = new Label("VALUE: " + item.bundleValue + " BIRD COINS");
-                value.setFont(Font.font("Consolas", 20));
-                value.setTextFill(Color.web("#B0BEC5"));
-                value.setAlignment(Pos.CENTER);
-                value.setTextAlignment(TextAlignment.CENTER);
-                value.setMaxWidth(cardW - 36);
-            }
-
-            String priceText = "PRICE: " + item.cost + " BIRD COINS";
+            String priceText = item.cost + " BIRD COINS";
             if (owned) {
                 priceText += " (OWNED)";
             } else if (!available) {
@@ -39629,7 +39579,7 @@ public class BirdGame3 {
 
             Label ownedLabel = null;
             if (item.bundle && !ownedNames.isEmpty()) {
-                String ownedText = "OWNED " + ownedNames.size() + "/" + previewCount + ": " + String.join(", ", ownedNames);
+                String ownedText = ownedNames.size() + " / " + previewCount + " ITEMS ALREADY OWNED";
                 ownedLabel = new Label(ownedText);
                 ownedLabel.setFont(Font.font("Consolas", 16));
                 ownedLabel.setTextFill(Color.web("#A5D6A7"));
@@ -39648,14 +39598,14 @@ public class BirdGame3 {
             previewWrap.setAlignment(Pos.CENTER);
 
             Label desc = new Label(item.description);
-            desc.setFont(Font.font("Consolas", 18));
+            desc.setFont(Font.font("Consolas", 16));
             desc.setTextFill(Color.web("#CFD8DC"));
             desc.setWrapText(true);
             desc.setAlignment(Pos.CENTER);
             desc.setTextAlignment(TextAlignment.CENTER);
             desc.setMaxWidth(cardW - 36);
 
-            final int purchaseCost = item.cost;
+            final int purchaseCost = effectiveCost;
             String buyLabel = owned ? "OWNED" : (available ? "BUY" : "UNAVAILABLE");
             String buyColor = owned ? "#455A64" : (available ? "#00C853" : "#455A64");
             Button buy = uiFactory.action(buyLabel, 240, 64, 28, buyColor, 20, () -> {
@@ -39681,7 +39631,6 @@ public class BirdGame3 {
             List<Node> parts = new ArrayList<>();
             parts.add(name);
             parts.add(rarity);
-            if (value != null) parts.add(value);
             parts.add(price);
             if (discounted != null) parts.add(discounted);
             if (ownedLabel != null) parts.add(ownedLabel);
@@ -39702,6 +39651,11 @@ public class BirdGame3 {
 
         root.setTop(top);
         root.setCenter(catalogShell);
+        root.setBottom(buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "BROWSE"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "BUY"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, vaultSubpageActive ? "VAULT" : "HUB")));
+        BorderPane.setMargin(root.getBottom(), new Insets(12, 0, 0, 0));
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         bindEscape(scene, back);
@@ -39741,14 +39695,19 @@ public class BirdGame3 {
 
         card.getChildren().addAll(header, text);
 
-        Button back = uiFactory.action("BACK TO SHOP", 420, 110, 38, "#00C853", 24, () -> showShop(stage));
-        Button menu = uiFactory.action("BACK TO HUB", 420, 110, 38, "#D32F2F", 24, () -> showMenu(stage));
+        Button back = uiFactory.action("SHOP", 340, 86, 30, "#00A854", 22, () -> showShop(stage));
+        Button menu = uiFactory.action("HUB", 340, 86, 30, "#B5121B", 22, () -> showMenu(stage));
         HBox buttons = new HBox(24, back, menu);
         buttons.setAlignment(Pos.CENTER);
 
-        root.getChildren().addAll(title, card, buttons);
+        HBox prompt = buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "CHOOSE"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "OPEN"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "SHOP"));
+        root.getChildren().addAll(title, card, buttons, prompt);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, back);
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
         setScenePreservingFullscreen(stage, scene);
@@ -39851,6 +39810,10 @@ public class BirdGame3 {
                 buildMenuEyebrow("ENTRY ADDED TO YOUR COLLECTION", "#80DEEA"), sidebar, continueButton);
         center.setAlignment(Pos.CENTER);
         root.setCenter(center);
+        root.setBottom(buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT,
+                        pendingUnlockCards.isEmpty() ? "CONTINUE" : "NEXT UNLOCK")));
+        BorderPane.setMargin(root.getBottom(), new Insets(12, 0, 0, 0));
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         setupKeyboardNavigation(scene);
@@ -40030,19 +39993,16 @@ public class BirdGame3 {
         root.setPadding(new Insets(26, 40, 26, 40));
         root.setStyle(MenuTheme.pageBackground());
 
-        Button back = uiFactory.action(vaultSubpageActive ? "BACK TO VAULT" : "BACK TO HUB",
-                360, 90, 30, "#D32F2F", 22,
+        Button back = uiFactory.action("BACK",
+                220, 68, 24, "#B5121B", 18,
                 () -> returnFromVaultSubpage(stage, () -> showMenu(stage)));
         StackPane title = buildMenuTitleBanner("FEATHERPEDIA", 520, 74, 34);
-        StackPane activeTabChip = buildMenuChip(category.name(), "#4FC3F7", "#B3E5FC");
-        Button trailerButton = uiFactory.action("WATCH UPDATE TRAILER", 340, 68, 18, "#FB8C00", 18,
+        Button trailerButton = uiFactory.action("UPDATE TRAILER", 290, 64, 18, "#FB8C00", 16,
                 () -> showUpdateTrailer(stage, category));
         trailerButton.setWrapText(false);
         trailerButton.setStyle(MenuTheme.buttonStyle("#FB8C00", 18, "#111111"));
         uiFactory.fitSingleLineOnLayout(trailerButton, 18, 12);
-        HBox headerActions = new HBox(14, activeTabChip, trailerButton);
-        headerActions.setAlignment(Pos.CENTER_RIGHT);
-        StackPane header = buildMenuTopStrip(back, title, headerActions);
+        StackPane header = buildMenuTopStrip(back, title, trailerButton);
 
         HBox tabs = new HBox(16,
                 birdBookTab("ITEMS", BirdBookCategory.ITEMS, category, stage),
@@ -40061,6 +40021,11 @@ public class BirdGame3 {
 
         BorderPane content = buildBirdBookContent(category);
         root.setCenter(content);
+        root.setBottom(buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "BROWSE"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "OPEN"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, vaultSubpageActive ? "VAULT" : "HUB")));
+        BorderPane.setMargin(root.getBottom(), new Insets(12, 0, 0, 0));
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         bindEscape(scene, back);
@@ -76597,7 +76562,12 @@ public class BirdGame3 {
 
         root.setTop(top);
         root.setCenter(historyShell);
+        root.setBottom(buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "BROWSE"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "OPEN"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, vaultSubpageActive ? "VAULT" : "HUB")));
         BorderPane.setMargin(top, new Insets(0, 0, 18, 0));
+        BorderPane.setMargin(root.getBottom(), new Insets(12, 0, 0, 0));
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         bindEscape(scene, back);
@@ -76649,7 +76619,12 @@ public class BirdGame3 {
 
         root.setTop(top);
         root.setCenter(shell);
+        root.setBottom(buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "BROWSE"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "WATCH"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "HISTORY")));
         BorderPane.setMargin(top, new Insets(0, 0, 18, 0));
+        BorderPane.setMargin(root.getBottom(), new Insets(12, 0, 0, 0));
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         bindEscape(scene, back);
@@ -78127,8 +78102,8 @@ public class BirdGame3 {
         root.setPadding(new Insets(28, 36, 28, 36));
         root.setStyle(MenuTheme.pageBackground());
 
-        Button back = uiFactory.action(vaultSubpageActive ? "BACK TO VAULT" : "BACK TO HUB",
-                320, 84, 27, "#D32F2F", 22,
+        Button back = uiFactory.action("BACK",
+                220, 68, 24, "#B5121B", 18,
                 () -> returnFromVaultSubpage(stage, () -> showMenu(stage)));
         StackPane title = buildMenuTitleBanner("ACHIEVEMENTS", 620, 74, 34);
 
@@ -78140,21 +78115,9 @@ public class BirdGame3 {
             }
         }
 
-        Label subtitle = new Label("Unlock challenges, claim rewards, and convert duplicate cosmetic rewards into Bird Coins.");
-        subtitle.setFont(Font.font("Consolas", 20));
-        subtitle.setTextFill(Color.web("#CFD8DC"));
-        subtitle.setWrapText(true);
-        subtitle.setMaxWidth(1180);
-        applyNoEllipsis(subtitle);
-
-        Label summary = new Label("UNLOCKED " + unlockedCount + " / " + ACHIEVEMENT_COUNT
-                + "   |   CLAIMABLE REWARDS " + claimableCount);
-        summary.setFont(Font.font("Consolas", 22));
-        summary.setTextFill(claimableCount > 0 ? Color.web("#FFF59D") : Color.web("#80DEEA"));
-        applyNoEllipsis(summary);
-
         StackPane summaryChip = buildMenuChip(
-                claimableCount > 0 ? "REWARDS READY  " + claimableCount : "UNLOCKED  " + unlockedCount,
+                claimableCount > 0 ? claimableCount + " REWARDS READY"
+                        : unlockedCount + " / " + ACHIEVEMENT_COUNT + " UNLOCKED",
                 claimableCount > 0 ? "#FFE082" : "#80DEEA",
                 "#FFF8E1"
         );
@@ -78183,14 +78146,14 @@ public class BirdGame3 {
         listShell.setPadding(new Insets(14));
         listShell.setStyle(MenuTheme.panelStyle("#64B5F6", 28));
 
-        VBox infoBox = new VBox(6, subtitle, summary);
-        infoBox.setAlignment(Pos.CENTER_LEFT);
-        infoBox.setPadding(new Insets(14, 18, 14, 18));
-        infoBox.setStyle(MenuTheme.insetPanelStyle("#80DEEA", 22));
-
-        VBox top = new VBox(16, header, infoBox, tabsShell);
+        VBox top = new VBox(12, header, tabsShell);
         root.setTop(top);
         root.setCenter(listShell);
+        root.setBottom(buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "BROWSE"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "CLAIM"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, vaultSubpageActive ? "VAULT" : "HUB")));
+        BorderPane.setMargin(root.getBottom(), new Insets(12, 0, 0, 0));
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         bindEscape(scene, back);
