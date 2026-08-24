@@ -30,7 +30,7 @@ class FighterSelectUiCrashRegressionTest {
         String fightSetup = methodBody(source, "private void showFightSetup(Stage stage)");
         String sceneFitter = methodBody(source, "private void fitSceneButtons(Node node)");
         String buttonFitter = methodBody(source, "private void fitButtonText(Button b)");
-        String rules = methodBody(source, "private void showVersusRulesEditor(Stage stage, boolean networkLobby)");
+        String rules = methodBody(source, "private void continueFromVersusRulesSelection(Stage stage, boolean networkLobby)");
 
         assertTrue(fightSetup.contains("inputBtn.textProperty().bind"));
         assertTrue(fightSetup.contains("inputBtn.styleProperty().bind"));

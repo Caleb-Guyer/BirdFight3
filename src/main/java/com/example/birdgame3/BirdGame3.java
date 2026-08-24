@@ -25784,7 +25784,7 @@ public class BirdGame3 {
 
     private void showVersusRules(Stage stage) {
         frontEndMatchFlow.beginVersus();
-        showVersusRulesEditor(stage, false);
+        showVersusRulesets(stage, false);
     }
 
     private void showLanRulesEditor(Stage stage) {
@@ -25792,7 +25792,306 @@ public class BirdGame3 {
             if (stage != null) showLanLobby(stage);
             return;
         }
-        showVersusRulesEditor(stage, true);
+        showVersusRulesets(stage, true);
+    }
+
+    private void showVersusRulesets(Stage stage, boolean networkLobby) {
+        playMenuMusic();
+
+        StackPane root = new StackPane();
+        root.getProperties().put("noAutoScale", true);
+        root.setStyle("-fx-background-color: #05070B;");
+
+        BorderPane frame = new BorderPane();
+        frame.setId("uiFrame");
+        lockRegionSize(frame, 1600, 950);
+        frame.setStyle("-fx-background-color: linear-gradient(to bottom right, #12091D 0%, #090C13 55%, #151926 100%);");
+
+        Label breadcrumb = new Label(networkLobby ? "NETWORK LOBBY  ›  RULESETS" : "SMASH  ›  RULESETS");
+        breadcrumb.setFont(Font.font("Consolas", FontWeight.BOLD, 21));
+        breadcrumb.setTextFill(Color.web("#FFE082"));
+        applyNoEllipsis(breadcrumb);
+        Label heading = new Label("CHOOSE A RULESET");
+        heading.setFont(Font.font("Arial Black", 46));
+        heading.setTextFill(Color.WHITE);
+        applyNoEllipsis(heading);
+        Label subtitle = new Label(networkLobby
+                ? "Choose the host rules first. Editing a ruleset opens its own screen."
+                : "Pick a saved setup, or open the separate creator to make changes.");
+        subtitle.setFont(Font.font("Consolas", 18));
+        subtitle.setTextFill(Color.web("#CFD8DC"));
+        VBox header = new VBox(5, breadcrumb, heading, subtitle);
+        header.setPadding(new Insets(30, 54, 24, 54));
+        header.setStyle("-fx-background-color: linear-gradient(to right, #7B1FA2 0%, #30064D 48%, #090C13 100%);"
+                + "-fx-border-color: transparent transparent rgba(255,255,255,0.18) transparent; -fx-border-width: 0 0 3 0;");
+        frame.setTop(header);
+
+        Runnable[] refreshAll = new Runnable[1];
+        List<Runnable> selectionRefreshers = new ArrayList<>();
+
+        Button createRuleset = uiFactory.action("✎  CREATE RULESET", 660, 72, 22,
+                "#FDD835", 18, () -> {
+                    VersusRules selected = versusRulesLibrary.selected();
+                    frontEndMatchFlow.selectCustomRules(selected);
+                    saveAchievements();
+                    showVersusRulesEditor(stage, networkLobby);
+                });
+        createRuleset.setStyle(MenuTheme.buttonStyle("#FDD835", 18, "#161006"));
+
+        VBox rulesetChoices = new VBox(9);
+        rulesetChoices.setAlignment(Pos.TOP_CENTER);
+
+        for (VersusRulesPreset preset : List.of(VersusRulesPreset.STANDARD,
+                VersusRulesPreset.COMPETITIVE, VersusRulesPreset.CHAOS)) {
+            Button choice = buildVersusRulesetChoice(preset.eyebrow, preset.title,
+                    preset.rules.summary(), preset.accent, () -> {
+                        frontEndMatchFlow.selectRulesPreset(preset);
+                        if (refreshAll[0] != null) refreshAll[0].run();
+                    });
+            selectionRefreshers.add(() -> styleVersusRulesetChoice(choice,
+                    frontEndMatchFlow.rulesPreset() == preset, preset.accent));
+            rulesetChoices.getChildren().add(choice);
+        }
+
+        for (int i = 0; i < VersusRulesLibrary.SLOT_COUNT; i++) {
+            final int slot = i;
+            VersusRules slotRules = versusRulesLibrary.slot(slot);
+            Button choice = buildVersusRulesetChoice("SAVED RULESET " + (slot + 1),
+                    slotRules.name(), slotRules.summary(), "#AB47BC", () -> {
+                        versusRulesLibrary.selectSlot(slot);
+                        frontEndMatchFlow.selectCustomRules(versusRulesLibrary.selected());
+                        if (refreshAll[0] != null) refreshAll[0].run();
+                    });
+            selectionRefreshers.add(() -> styleVersusRulesetChoice(choice,
+                    frontEndMatchFlow.rulesPreset() == VersusRulesPreset.CUSTOM
+                            && versusRulesLibrary.selectedSlot() == slot, "#AB47BC"));
+            rulesetChoices.getChildren().add(choice);
+        }
+
+        VBox left = new VBox(14, createRuleset, rulesetChoices);
+        left.setAlignment(Pos.TOP_CENTER);
+        left.setPrefWidth(700);
+
+        Label previewEyebrow = new Label();
+        previewEyebrow.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
+        previewEyebrow.setTextFill(Color.web("#FFE082"));
+        applyNoEllipsis(previewEyebrow);
+        Label previewName = new Label();
+        previewName.setFont(Font.font("Arial Black", 37));
+        previewName.setTextFill(Color.WHITE);
+        previewName.setWrapText(true);
+        previewName.setMaxWidth(540);
+        applyNoEllipsis(previewName);
+
+        Label stockValue = buildRulesetPreviewValue();
+        Label timeValue = buildRulesetPreviewValue();
+        Label itemsValue = buildRulesetPreviewValue();
+        Label hazardsValue = buildRulesetPreviewValue();
+        Label ultimatesValue = buildRulesetPreviewValue();
+        Label formatValue = buildRulesetPreviewValue();
+        VBox ruleRows = new VBox(10,
+                buildRulesetPreviewRow("STOCK", stockValue, "#EC407A"),
+                buildRulesetPreviewRow("TIME LIMIT", timeValue, "#42A5F5"),
+                buildRulesetPreviewRow("ITEMS", itemsValue, "#FFB300"),
+                buildRulesetPreviewRow("HAZARDS", hazardsValue, "#26A69A"),
+                buildRulesetPreviewRow("ULTIMATES", ultimatesValue, "#7E57C2"),
+                buildRulesetPreviewRow("MATCH FORMAT", formatValue, "#EF5350"));
+
+        Label poolSummary = new Label();
+        poolSummary.setFont(Font.font("Consolas", FontWeight.BOLD, 15));
+        poolSummary.setTextFill(Color.web("#B0BEC5"));
+        poolSummary.setWrapText(true);
+        poolSummary.setMaxWidth(540);
+
+        Button editRuleset = uiFactory.action("EDIT RULESET", 300, 62, 18,
+                "#FDD835", 16, () -> {
+                    if (frontEndMatchFlow.rulesPreset() != VersusRulesPreset.CUSTOM) {
+                        VersusRules copy = frontEndMatchFlow.rules()
+                                .withName(versusRulesLibrary.selected().name());
+                        versusRulesLibrary.setSlot(versusRulesLibrary.selectedSlot(), copy);
+                        frontEndMatchFlow.selectCustomRules(copy);
+                    }
+                    saveAchievements();
+                    showVersusRulesEditor(stage, networkLobby);
+                });
+        editRuleset.setStyle(MenuTheme.buttonStyle("#FDD835", 16, "#161006"));
+
+        VBox preview = new VBox(13, previewEyebrow, previewName, ruleRows, poolSummary, editRuleset);
+        preview.setAlignment(Pos.TOP_CENTER);
+        preview.setPadding(new Insets(28, 30, 26, 30));
+        lockRegionSize(preview, 610, 570);
+        preview.setStyle("-fx-background-color: linear-gradient(to bottom, rgba(91,10,123,0.96), rgba(20,14,31,0.98));"
+                + "-fx-background-radius: 30; -fx-border-color: #CE93D8; -fx-border-width: 3; -fx-border-radius: 30;");
+
+        refreshAll[0] = () -> {
+            selectionRefreshers.forEach(Runnable::run);
+            VersusRules selected = frontEndMatchFlow.rules();
+            VersusRulesPreset preset = frontEndMatchFlow.rulesPreset();
+            previewEyebrow.setText(preset == VersusRulesPreset.CUSTOM
+                    ? "SAVED RULESET " + (versusRulesLibrary.selectedSlot() + 1)
+                    : preset.eyebrow);
+            previewName.setText(selected.name());
+            stockValue.setText(Integer.toString(selected.stockCount()));
+            timeValue.setText(selected.timeText());
+            itemsValue.setText(rulesOnOff(selected.powerUpsEnabled()));
+            hazardsValue.setText(rulesOnOff(selected.stageHazardsEnabled()));
+            ultimatesValue.setText(rulesOnOff(selected.ultimatesEnabled()));
+            formatValue.setText(selected.seriesWins() <= 1
+                    ? "SINGLE MATCH" : "FIRST TO " + selected.seriesWins());
+            int exclusions = selected.excludedStageKeys().size();
+            poolSummary.setText("RANDOM: " + selected.randomPoolText()
+                    + (exclusions == 0 ? "" : "  •  " + exclusions + " STAGES EXCLUDED")
+                    + "  •  CPU LEVEL " + selected.defaultCpuLevel());
+            editRuleset.setText(preset == VersusRulesPreset.CUSTOM ? "EDIT RULESET" : "CUSTOMIZE COPY");
+        };
+        refreshAll[0].run();
+
+        HBox center = new HBox(34, left, preview);
+        center.setAlignment(Pos.CENTER);
+        center.setPadding(new Insets(20, 46, 18, 46));
+        frame.setCenter(center);
+
+        Button backButton = uiFactory.action(networkLobby ? "BACK TO LOBBY" : "BACK",
+                280, 78, 26, "#8B1E24", 19, () -> {
+                    if (networkLobby) {
+                        showLanLobby(stage);
+                    } else {
+                        frontEndMatchFlow.back();
+                        showMenu(stage);
+                    }
+                });
+        Button useButton = uiFactory.action(networkLobby ? "USE RULESET" : "CHOOSE FIGHTERS",
+                410, 78, 26, "#00A84F", 19,
+                () -> continueFromVersusRulesSelection(stage, networkLobby));
+        HBox inputPrompt = buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "CHOOSE"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "SELECT"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "BACK"));
+        Region footerSpacer = new Region();
+        HBox.setHgrow(footerSpacer, Priority.ALWAYS);
+        HBox footer = new HBox(22, backButton, inputPrompt, footerSpacer, useButton);
+        footer.setAlignment(Pos.CENTER);
+        footer.setPadding(new Insets(20, 54, 28, 54));
+        footer.setStyle("-fx-background-color: rgba(3,5,8,0.97); -fx-border-color: rgba(255,255,255,0.12) transparent transparent transparent; -fx-border-width: 3 0 0 0;");
+        frame.setBottom(footer);
+
+        root.getChildren().add(frame);
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        bindEscape(scene, backButton::fire);
+        bindFixedFrameScale(scene, frame, 0.0);
+        setScenePreservingFullscreen(stage, scene);
+        javafx.application.Platform.runLater(() -> {
+            createRuleset.requestFocus();
+            setConsoleHighlightActive(true, scene);
+        });
+    }
+
+    private Button buildVersusRulesetChoice(String eyebrow, String title, String summary,
+                                            String accent, Runnable action) {
+        Label eyebrowLabel = new Label(eyebrow == null ? "RULESET" : eyebrow);
+        eyebrowLabel.setFont(Font.font("Consolas", FontWeight.BOLD, 13));
+        eyebrowLabel.setTextFill(Color.web(accent));
+        Label titleLabel = new Label(title == null ? "RULESET" : title);
+        titleLabel.setFont(Font.font("Arial Black", 22));
+        titleLabel.setTextFill(Color.WHITE);
+        Label summaryLabel = new Label(summary == null ? "" : summary.toUpperCase(Locale.ROOT));
+        summaryLabel.setFont(Font.font("Consolas", FontWeight.BOLD, 12));
+        summaryLabel.setTextFill(Color.web("#B0BEC5"));
+        summaryLabel.setMaxWidth(520);
+        applyNoEllipsis(summaryLabel);
+        VBox copy = new VBox(1, eyebrowLabel, titleLabel, summaryLabel);
+        copy.setAlignment(Pos.CENTER_LEFT);
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        Label arrow = new Label("›");
+        arrow.setFont(Font.font("Arial Black", 36));
+        arrow.setTextFill(Color.web(accent));
+        HBox graphic = new HBox(16, copy, spacer, arrow);
+        graphic.setAlignment(Pos.CENTER_LEFT);
+        graphic.setPrefWidth(600);
+
+        Button button = new Button();
+        button.setGraphic(graphic);
+        button.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+        lockRegionSize(button, 660, 72);
+        button.setFocusTraversable(true);
+        button.setOnAction(event -> {
+            playButtonClick();
+            if (action != null) action.run();
+        });
+        styleVersusRulesetChoice(button, false, accent);
+        return button;
+    }
+
+    private void styleVersusRulesetChoice(Button button, boolean selected, String accent) {
+        if (button == null) return;
+        button.setStyle("-fx-background-color: " + (selected ? "#F8F8FA" : "#171D27") + ";"
+                + "-fx-background-radius: 12; -fx-border-color: " + (selected ? "#FDD835" : accent) + ";"
+                + "-fx-border-width: " + (selected ? "5" : "2") + "; -fx-border-radius: 12; -fx-padding: 8 18;");
+        if (button.getGraphic() instanceof HBox graphic
+                && !graphic.getChildren().isEmpty()
+                && graphic.getChildren().getFirst() instanceof VBox copy) {
+            for (Node node : copy.getChildren()) {
+                if (node instanceof Label label && selected && label.getFont().getSize() >= 20) {
+                    label.setTextFill(Color.web("#16181D"));
+                } else if (node instanceof Label label && !selected && label.getFont().getSize() >= 20) {
+                    label.setTextFill(Color.WHITE);
+                } else if (node instanceof Label label && label.getFont().getSize() <= 12.5) {
+                    label.setTextFill(Color.web(selected ? "#455A64" : "#B0BEC5"));
+                }
+            }
+        }
+    }
+
+    private Label buildRulesetPreviewValue() {
+        Label value = new Label();
+        value.setFont(Font.font("Arial Black", 20));
+        value.setTextFill(Color.web("#17131B"));
+        value.setAlignment(Pos.CENTER);
+        value.setMaxWidth(Double.MAX_VALUE);
+        applyNoEllipsis(value);
+        return value;
+    }
+
+    private HBox buildRulesetPreviewRow(String name, Label value, String accent) {
+        Label key = new Label(name);
+        key.setFont(Font.font("Arial Black", 17));
+        key.setTextFill(Color.WHITE);
+        key.setAlignment(Pos.CENTER_LEFT);
+        key.setPadding(new Insets(0, 0, 0, 20));
+        lockRegionSize(key, 215, 46);
+        key.setStyle("-fx-background-color: " + accent + "; -fx-background-radius: 24 0 0 24;");
+        StackPane valuePane = new StackPane(value);
+        lockRegionSize(valuePane, 315, 46);
+        valuePane.setStyle("-fx-background-color: #F6F5F7; -fx-background-radius: 0 24 24 0;");
+        HBox row = new HBox(key, valuePane);
+        row.setAlignment(Pos.CENTER);
+        return row;
+    }
+
+    private void continueFromVersusRulesSelection(Stage stage, boolean networkLobby) {
+        applyVersusRulesPreset();
+        for (int i = 1; i < MAX_COMBATANTS; i++) {
+            cpuLevels[i] = frontEndMatchFlow.rules().defaultCpuLevel();
+        }
+        saveAchievements();
+        if (networkLobby) {
+            syncLanHostRulesChange();
+            showLanLobby(stage);
+            return;
+        }
+
+        frontEndMatchFlow.confirmRules();
+        try {
+            showFightSetup(stage);
+        } catch (RuntimeException | Error failure) {
+            // Keep the visible ruleset screen and state machine aligned if fighter select
+            // cannot be constructed. A retry should expose the original failure cleanly.
+            frontEndMatchFlow.beginVersus();
+            throw failure;
+        }
     }
 
     private void showVersusRulesEditor(Stage stage, boolean networkLobby) {
@@ -25807,17 +26106,19 @@ public class BirdGame3 {
         lockRegionSize(frame, 1600, 950);
         frame.setStyle("-fx-background-color: linear-gradient(to bottom, #080B11 0%, #151B26 100%);");
 
-        Label progress = new Label(networkLobby ? "NETWORK LOBBY  ›  HOST RULES" : frontEndMatchFlow.progressLabel());
+        Label progress = new Label(networkLobby
+                ? "NETWORK LOBBY  ›  RULESETS  ›  EDIT"
+                : "SMASH  ›  RULESETS  ›  EDIT");
         progress.setFont(Font.font("Consolas", FontWeight.BOLD, 21));
         progress.setTextFill(Color.web("#FFE082"));
         applyNoEllipsis(progress);
-        Label heading = new Label("RULES");
+        Label heading = new Label("RULESET CREATOR");
         heading.setFont(Font.font("Arial Black", 52));
         heading.setTextFill(Color.WHITE);
         applyNoEllipsis(heading);
         Label subtitle = new Label(networkLobby
-                ? "Everyone in the lobby sees these rules. Any change clears every ready state."
-                : "Start with the essentials. Advanced match tuning stays one tab away.");
+                ? "Changes are saved to this slot. Return to the browser to apply it to the lobby."
+                : "Edit one saved setup at a time, then return to the ruleset browser.");
         subtitle.setFont(Font.font("Consolas", 20));
         subtitle.setTextFill(Color.web("#B0BEC5"));
         applyNoEllipsis(subtitle);
@@ -25839,41 +26140,9 @@ public class BirdGame3 {
             working[0] = resolved;
             frontEndMatchFlow.selectCustomRules(resolved);
             saveAchievements();
-            if (networkLobby) syncLanHostRulesChange();
             if (refreshAll[0] != null) refreshAll[0].run();
         };
 
-        HBox presetRow = new HBox(12);
-        presetRow.setAlignment(Pos.CENTER_LEFT);
-        List<Button> quickPresets = new ArrayList<>();
-        for (VersusRulesPreset preset : List.of(VersusRulesPreset.STANDARD,
-                VersusRulesPreset.COMPETITIVE, VersusRulesPreset.CHAOS)) {
-            Button button = uiFactory.action(preset.title, 260, 54, 16, preset.accent, 14, () -> {
-                frontEndMatchFlow.selectRulesPreset(preset);
-                working[0] = preset.rules;
-                if (networkLobby) syncLanHostRulesChange();
-                if (refreshAll[0] != null) refreshAll[0].run();
-            });
-            quickPresets.add(button);
-            presetRow.getChildren().add(button);
-        }
-
-        HBox customRow = new HBox(12);
-        customRow.setAlignment(Pos.CENTER_LEFT);
-        List<Button> slotButtons = new ArrayList<>();
-        for (int i = 0; i < VersusRulesLibrary.SLOT_COUNT; i++) {
-            final int slot = i;
-            Button slotButton = uiFactory.action("", 260, 54, 16, "#6A1B9A", 14, () -> {
-                versusRulesLibrary.selectSlot(slot);
-                working[0] = versusRulesLibrary.selected();
-                frontEndMatchFlow.selectCustomRules(working[0]);
-                saveAchievements();
-                if (networkLobby) syncLanHostRulesChange();
-                if (refreshAll[0] != null) refreshAll[0].run();
-            });
-            slotButtons.add(slotButton);
-            customRow.getChildren().add(slotButton);
-        }
         Button rename = uiFactory.action("RENAME", 170, 54, 16, "#455A64", 14, () -> {
             TextInputDialog dialog = new TextInputDialog(versusRulesLibrary.selected().name());
             dialog.setTitle("Rename Ruleset");
@@ -25882,7 +26151,6 @@ public class BirdGame3 {
             modernizeDialog(dialog, stage);
             dialog.showAndWait().ifPresent(name -> saveCustom.accept(working[0].withName(name)));
         });
-        customRow.getChildren().add(rename);
 
         GridPane basicOptions = new GridPane();
         basicOptions.setHgap(14);
@@ -25982,20 +26250,16 @@ public class BirdGame3 {
                     if (frontEndMatchFlow.rulesPreset() != VersusRulesPreset.CUSTOM) saveCustom.accept(working[0]);
                     showRandomStagePoolEditor(stage, networkLobby);
                 });
-        HBox current = new HBox(20, new VBox(3, currentName, currentSummary), randomPoolButton);
+        HBox current = new HBox(16, new VBox(3, currentName, currentSummary), rename, randomPoolButton);
         HBox.setHgrow(current.getChildren().getFirst(), Priority.ALWAYS);
         current.setAlignment(Pos.CENTER_RIGHT);
+        current.setMaxWidth(1090);
         current.setPadding(new Insets(10, 18, 10, 18));
         current.setStyle("-fx-background-color: rgba(0,0,0,0.42); -fx-background-radius: 13;"
                 + "-fx-border-color: rgba(255,255,255,0.14); -fx-border-radius: 13; -fx-border-width: 2;");
 
         refreshAll[0] = () -> {
             for (Runnable refresher : refreshers) refresher.run();
-            for (int i = 0; i < slotButtons.size(); i++) {
-                Button button = slotButtons.get(i);
-                button.setText((i == versusRulesLibrary.selectedSlot() ? "★ " : "")
-                        + (i + 1) + "  " + versusRulesLibrary.slot(i).name());
-            }
             currentName.setText(working[0].name());
             int excluded = working[0].excludedStageKeys().size();
             currentSummary.setText(working[0].summary() + "  •  " + working[0].randomPoolText()
@@ -26004,40 +26268,18 @@ public class BirdGame3 {
         };
         refreshAll[0].run();
 
-        VBox center = new VBox(14, presetRow, customRow, optionTabs, optionsDeck, current);
+        VBox center = new VBox(24, optionTabs, optionsDeck, current);
         center.setAlignment(Pos.CENTER);
-        center.setPadding(new Insets(20, 48, 18, 48));
+        center.setPadding(new Insets(40, 48, 34, 48));
         frame.setCenter(center);
 
-        Button backButton = uiFactory.action(networkLobby ? "BACK TO LOBBY" : "BACK",
-                280, 82, 28, "#8B1E24", 20, () -> {
-            if (networkLobby) {
-                showLanLobby(stage);
-            } else {
-                frontEndMatchFlow.back();
-                showMenu(stage);
-            }
-        });
-        Button continueButton = uiFactory.action(networkLobby ? "APPLY & RETURN" : "CHOOSE FIGHTERS",
-                430, 82, 28, "#00A84F", 20, () -> {
-            applyVersusRulesPreset();
-            for (int i = 1; i < MAX_COMBATANTS; i++) cpuLevels[i] = frontEndMatchFlow.rules().defaultCpuLevel();
+        Button backButton = uiFactory.action("BACK TO RULESETS",
+                310, 82, 28, "#8B1E24", 19,
+                () -> showVersusRulesets(stage, networkLobby));
+        Button continueButton = uiFactory.action("SAVE & RETURN",
+                360, 82, 28, "#00A84F", 19, () -> {
             saveAchievements();
-            if (networkLobby) {
-                syncLanHostRulesChange();
-                showLanLobby(stage);
-            } else {
-                frontEndMatchFlow.confirmRules();
-                try {
-                    showFightSetup(stage);
-                } catch (RuntimeException | Error failure) {
-                    // Keep the visible rules screen and its state machine in sync if fighter-select
-                    // construction fails. Without this rollback, every retry becomes an unrelated
-                    // "transition is not valid from FIGHTERS" error that hides the original cause.
-                    frontEndMatchFlow.beginVersus();
-                    throw failure;
-                }
-            }
+            showVersusRulesets(stage, networkLobby);
         });
         HBox inputPrompt = buildAdaptivePromptBar(
                 UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "NAVIGATE"),
@@ -26059,7 +26301,7 @@ public class BirdGame3 {
         bindFixedFrameScale(scene, frame, 0.0);
         setScenePreservingFullscreen(stage, scene);
         javafx.application.Platform.runLater(() -> {
-            (quickPresets.isEmpty() ? continueButton : quickPresets.getFirst()).requestFocus();
+            basicTab.requestFocus();
             setConsoleHighlightActive(true, scene);
         });
     }
@@ -26163,7 +26405,6 @@ public class BirdGame3 {
             VersusRules updated = frontEndMatchFlow.rules().withRandomStagePool(next);
             versusRulesLibrary.setSlot(versusRulesLibrary.selectedSlot(), updated);
             frontEndMatchFlow.selectCustomRules(updated);
-            if (networkLobby) syncLanHostRulesChange();
             showRandomStagePoolEditor(stage, networkLobby);
         });
         Button done = uiFactory.action("DONE", 330, 70, 22, "#00A84F", 18, () -> {
@@ -26171,7 +26412,6 @@ public class BirdGame3 {
             versusRulesLibrary.setSlot(versusRulesLibrary.selectedSlot(), updated);
             frontEndMatchFlow.selectCustomRules(updated);
             saveAchievements();
-            if (networkLobby) syncLanHostRulesChange();
             showVersusRulesEditor(stage, networkLobby);
         });
         HBox inputPrompt = buildAdaptivePromptBar(

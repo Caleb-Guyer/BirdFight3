@@ -19,6 +19,8 @@ class VersusFrontEndIntegrationTest {
 
         assertTrue(source.contains("showTitleScreen(stage);"), "startup should enter through the title screen");
         assertTrue(source.contains("() -> showVersusRules(stage)"), "Fight should open rules before fighter select");
+        assertTrue(source.contains("showVersusRulesets(stage, false);"),
+                "local Smash should browse saved rulesets before entering the editor");
         assertTrue(source.contains("frontEndMatchFlow.confirmRules();"));
         assertTrue(source.contains("frontEndMatchFlow.confirmFighters(true);"));
         assertTrue(source.contains("showVersusLoading(stage, choice, standardFightRandomMapPool);"));
@@ -67,7 +69,48 @@ class VersusFrontEndIntegrationTest {
                 "the roster header should not spend permanent space on four move-guide cards");
     }
 
+    @Test
+    void rulesetBrowserAndCreatorAreSeparateSmashStyleScreens() throws IOException {
+        String source = source();
+        String browser = methodBody(source, "private void showVersusRulesets(Stage stage, boolean networkLobby)");
+        String editor = methodBody(source, "private void showVersusRulesEditor(Stage stage, boolean networkLobby)");
+        String transition = methodBody(source,
+                "private void continueFromVersusRulesSelection(Stage stage, boolean networkLobby)");
+
+        assertTrue(browser.contains("CHOOSE A RULESET"));
+        assertTrue(browser.contains("CREATE RULESET"));
+        assertTrue(browser.contains("CUSTOMIZE COPY"));
+        assertTrue(browser.contains("buildVersusRulesetChoice"));
+        assertTrue(browser.contains("buildRulesetPreviewRow"));
+        assertTrue(browser.contains("continueFromVersusRulesSelection"));
+
+        assertTrue(editor.contains("RULESET CREATOR"));
+        assertTrue(editor.contains("BACK TO RULESETS"));
+        assertTrue(editor.contains("SAVE & RETURN"));
+        assertFalse(editor.contains("VersusRulesPreset.STANDARD"),
+                "preset browsing belongs on the browser, not inside the creator");
+        assertFalse(editor.contains("CHOOSE FIGHTERS"),
+                "the creator should return to rulesets instead of advancing the match");
+
+        assertTrue(transition.contains("frontEndMatchFlow.confirmRules()"));
+        assertTrue(transition.contains("catch (RuntimeException | Error failure)"));
+        assertTrue(transition.contains("frontEndMatchFlow.beginVersus()"));
+    }
+
     private static String source() throws IOException {
         return Files.readString(GAME_SOURCE).replace("\r\n", "\n");
+    }
+
+    private static String methodBody(String source, String signature) {
+        int start = source.indexOf(signature);
+        assertTrue(start >= 0, "missing " + signature);
+        int open = source.indexOf('{', start);
+        int depth = 0;
+        for (int i = open; i < source.length(); i++) {
+            char c = source.charAt(i);
+            if (c == '{') depth++;
+            if (c == '}' && --depth == 0) return source.substring(open, i + 1);
+        }
+        throw new AssertionError("unterminated " + signature);
     }
 }
