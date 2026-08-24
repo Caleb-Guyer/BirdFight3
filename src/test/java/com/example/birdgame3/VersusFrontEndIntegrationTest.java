@@ -82,10 +82,14 @@ class VersusFrontEndIntegrationTest {
         assertTrue(browser.contains("CUSTOMIZE COPY"));
         assertTrue(browser.contains("buildVersusRulesetChoice"));
         assertTrue(browser.contains("buildRulesetPreviewRow"));
-        assertTrue(browser.contains("VersusRulesPreset.STAMINA"),
+        assertTrue(browser.contains("VersusRulesUiModel.quickPresets()"),
                 "stamina should be a built-in ruleset, not a hidden custom-only switch");
-        assertTrue(browser.contains("selected.staminaHealth() + \" HP\""));
+        assertTrue(browser.contains("VersusRulesUiModel.preview(preset, selected)"));
+        assertTrue(browser.contains("VersusRulesUiModel.cycleCustomSlot"));
+        assertTrue(browser.contains("setVersusRulesetChoiceTitle(customChoice"));
         assertTrue(browser.contains("continueFromVersusRulesSelection"));
+        assertFalse(browser.contains("for (int i = 0; i < VersusRulesLibrary.SLOT_COUNT; i++)"),
+                "the browser should expose only the active custom slot instead of three duplicate rows");
         assertFalse(browser.contains("buildRulesetPreviewRow(\"HAZARDS\""));
         assertFalse(browser.contains("buildRulesetPreviewRow(\"ULTIMATES\""));
         assertFalse(browser.contains("poolSummary"));
@@ -97,10 +101,13 @@ class VersusFrontEndIntegrationTest {
         assertFalse(choice.contains("eyebrowLabel"));
 
         assertTrue(editor.contains("RULESET CREATOR"));
-        assertTrue(editor.contains("BACK TO RULESETS"));
-        assertTrue(editor.contains("SAVE & RETURN"));
+        assertTrue(editor.contains("uiFactory.action(\"DONE\""));
         assertTrue(editor.contains("\"RULE TYPE\""));
         assertTrue(editor.contains("\"STOCKS / HP\""));
+        assertFalse(editor.contains("currentSummary"),
+                "the editor should not repeat every setting beneath the actual controls");
+        assertFalse(editor.contains("SAVE & RETURN"),
+                "changes save as they are made, so the only exit action should be Done");
         assertFalse(editor.contains("VersusRulesPreset.STANDARD"),
                 "preset browsing belongs on the browser, not inside the creator");
         assertFalse(editor.contains("CHOOSE FIGHTERS"),
