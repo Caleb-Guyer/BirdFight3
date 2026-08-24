@@ -47235,7 +47235,13 @@ public class BirdGame3 {
 
         Runnable render = () -> renderAdventureDialogueFrame(g, titleText, lines[idx[0]]);
 
-        StackPane root = new StackPane(canvas);
+        HBox dialoguePrompt = buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "CONTINUE"));
+        dialoguePrompt.setMouseTransparent(true);
+        StackPane.setAlignment(dialoguePrompt, Pos.BOTTOM_CENTER);
+        StackPane.setMargin(dialoguePrompt, new Insets(0, 0, 42, 0));
+
+        StackPane root = new StackPane(canvas, dialoguePrompt);
         root.getProperties().put("noAutoScale", true);
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         canvas.widthProperty().bind(scene.widthProperty());
@@ -77322,6 +77328,9 @@ public class BirdGame3 {
         VBox center = new VBox(18, card, continueButton);
         center.setAlignment(Pos.CENTER);
         root.setCenter(center);
+        root.setBottom(buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "CONTINUE")));
+        BorderPane.setMargin(root.getBottom(), new Insets(12, 0, 0, 0));
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         setupKeyboardNavigation(scene);
