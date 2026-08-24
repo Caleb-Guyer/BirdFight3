@@ -29363,67 +29363,51 @@ public class BirdGame3 {
         List<GameSaveRepository.SaveProfile> profiles = saveRepository.profiles();
         String activeProfileId = saveRepository.activeProfile().id();
 
-        BorderPane root = new BorderPane();
-        root.setPadding(new Insets(30, 40, 30, 40));
-        root.setStyle(MenuTheme.pageBackground());
-
-        Button back = uiFactory.action("BACK TO HUB", 320, 84, 30, "#D32F2F", 22, () -> showMenu(stage));
-        Button create = uiFactory.action("NEW PROFILE", 290, 84, 28, "#2E7D32", 22, () -> createProfilePrompt(stage));
-        Button backupNow = uiFactory.action("BACK UP NOW", 260, 84, 26, "#00897B", 20, () -> createManualBackup(stage));
-        Button backups = uiFactory.action("BACKUPS", 220, 84, 26, "#5E35B1", 20, () -> showBackupManager(stage));
-        Button export = uiFactory.action("EXPORT SAVE", 250, 84, 26, "#1565C0", 20, () -> exportSaveData(stage));
-        Button importSave = uiFactory.action("IMPORT SAVE", 250, 84, 26, "#EF6C00", 20, () -> importSaveData(stage));
-        StackPane title = buildMenuTitleBanner("SAVE PROFILES", 520, 74, 34);
-
-        Label subtitle = new Label("Settings and controls stay global. Coins, unlocks, story progress, and match history are stored per profile.");
-        subtitle.setFont(Font.font("Consolas", 20));
-        subtitle.setTextFill(Color.web("#CFD8DC"));
-        subtitle.setWrapText(true);
-        subtitle.setMaxWidth(920);
-        applyNoEllipsis(subtitle);
-
-        VBox titleBox = new VBox(10, title, subtitle);
-        titleBox.setAlignment(Pos.CENTER_LEFT);
-
-        FlowPane tools = new FlowPane(12, 12, create, backupNow, backups, export, importSave);
-        tools.setAlignment(Pos.CENTER_RIGHT);
-        tools.setPrefWrapLength(1040);
-        tools.setPadding(new Insets(12, 14, 12, 14));
-        tools.setStyle(MenuTheme.insetPanelStyle("#90CAF9", 22));
-
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
-        HBox topBar = new HBox(18, back, titleBox, spacer, tools);
-        topBar.setAlignment(Pos.CENTER_LEFT);
-        topBar.setPadding(new Insets(12, 16, 12, 16));
-        topBar.setStyle(MenuTheme.topStripStyle());
+        BorderPane root = buildModernMenuPage();
+        Button back = uiFactory.action("BACK", 180, 64, 23, "#B5121B", 18, () -> showMenu(stage));
+        Button create = uiFactory.action("NEW PROFILE", 260, 66, 23, "#2E7D32", 18,
+                () -> createProfilePrompt(stage));
+        Button saveTools = uiFactory.action("SAVE TOOLS", 240, 66, 23, "#1565C0", 18,
+                () -> showProfileSaveTools(stage));
+        StackPane title = buildMenuTitleBanner("PROFILES", 410, 72, 34);
+        root.setTop(buildMenuTopStrip(back, title,
+                buildMenuChip(profiles.size() + (profiles.size() == 1 ? " PROFILE" : " PROFILES"),
+                        "#1565C0", "#90CAF9")));
 
         VBox cards = new VBox(18);
         cards.setAlignment(Pos.TOP_CENTER);
-        cards.setPadding(new Insets(8, 0, 8, 0));
+        cards.setPadding(new Insets(6, 0, 14, 0));
         for (GameSaveRepository.SaveProfile profile : profiles) {
-            cards.getChildren().add(buildProfileCard(stage, profile, profile.id().equals(activeProfileId), profiles.size() > 1));
+            cards.getChildren().add(buildProfileCard(stage, profile, profile.id().equals(activeProfileId)));
         }
 
         ScrollPane scroll = new ScrollPane(cards);
         scroll.setFitToWidth(true);
         scroll.setStyle("-fx-background-color: transparent; -fx-background: transparent; -fx-control-inner-background: transparent;");
         scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        installTransparentScrollViewport(scroll);
 
-        Label note = new Label("Automatic backups are created before resets, deletes, imports, and save recovery. Switching or resetting the active profile reloads the hub immediately.");
-        note.setFont(Font.font("Consolas", 18));
-        note.setTextFill(Color.web("#80DEEA"));
-        note.setWrapText(true);
-        note.setPadding(new Insets(16, 18, 16, 18));
-        note.setMaxWidth(Double.MAX_VALUE);
-        note.setStyle(MenuTheme.insetPanelStyle("#80DEEA", 20));
-        applyNoEllipsis(note);
+        Label section = buildMenuEyebrow("CHOOSE A SAVE", "#90CAF9");
+        HBox actions = new HBox(14, create, saveTools);
+        actions.setAlignment(Pos.CENTER_RIGHT);
+        Region actionSpacer = new Region();
+        HBox.setHgrow(actionSpacer, Priority.ALWAYS);
+        HBox rail = new HBox(18, section, actionSpacer, actions);
+        rail.setAlignment(Pos.CENTER_LEFT);
+        rail.setMaxWidth(1480);
+        rail.setPadding(new Insets(12, 16, 12, 16));
+        rail.setStyle(MenuTheme.insetPanelStyle("#607D8B", 18));
 
-        root.setTop(topBar);
-        root.setCenter(scroll);
-        root.setBottom(note);
-        BorderPane.setAlignment(note, Pos.CENTER_LEFT);
-        BorderPane.setMargin(note, new Insets(18, 8, 0, 8));
+        VBox center = new VBox(16, rail, scroll);
+        center.setAlignment(Pos.TOP_CENTER);
+        center.setPadding(new Insets(24, 0, 0, 0));
+        root.setCenter(center);
+        root.setBottom(buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "CHOOSE PROFILE"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "OPEN"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "BACK")));
+        BorderPane.setAlignment(root.getBottom(), Pos.CENTER_LEFT);
+        BorderPane.setMargin(root.getBottom(), new Insets(16, 0, 0, 0));
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         bindEscape(scene, back);
@@ -29433,10 +29417,10 @@ public class BirdGame3 {
         create.requestFocus();
     }
 
-    private VBox buildProfileCard(Stage stage, GameSaveRepository.SaveProfile profile, boolean active, boolean canDelete) {
-        VBox card = new VBox(12);
-        card.setPadding(new Insets(20, 24, 20, 24));
-        card.setMaxWidth(1540);
+    private VBox buildProfileCard(Stage stage, GameSaveRepository.SaveProfile profile, boolean active) {
+        VBox card = new VBox(10);
+        card.setPadding(new Insets(18, 22, 18, 22));
+        card.setMaxWidth(1480);
         card.setStyle(MenuTheme.panelStyle(active ? "#FFE082" : "#607D8B", 24));
 
         Label name = new Label(profile.name());
@@ -29444,38 +29428,130 @@ public class BirdGame3 {
         name.setTextFill(active ? Color.web("#FFF59D") : Color.WHITE);
         applyNoEllipsis(name);
 
-        Label state = new Label(active ? "ACTIVE PROFILE" : "AVAILABLE");
+        Label state = new Label(active ? "ACTIVE" : "READY");
         state.setFont(Font.font("Consolas", 18));
         state.setTextFill(active ? Color.web("#80DEEA") : Color.web("#B0BEC5"));
+        state.setPadding(new Insets(7, 13, 7, 13));
+        state.setStyle(MenuTheme.chipStyle(active ? "#00838F" : "#455A64",
+                active ? "#B2EBF2" : "#CFD8DC", 20));
         applyNoEllipsis(state);
 
-        Label details = new Label("Created: " + formatProfileTimestamp(profile.createdAtMillis())
-                + "   |   Last updated: " + formatProfileTimestamp(profile.updatedAtMillis()));
+        Label details = new Label("LAST PLAYED  " + formatProfileTimestamp(profile.updatedAtMillis()));
         details.setFont(Font.font("Consolas", 17));
         details.setTextFill(Color.web("#CFD8DC"));
-        details.setWrapText(true);
-        details.setMaxWidth(1460);
         applyNoEllipsis(details);
 
-        Button activate = uiFactory.action(active ? "ACTIVE" : "SWITCH", 180, 64, 22,
+        Button activate = uiFactory.action(active ? "SELECTED" : "USE PROFILE", 220, 62, 20,
                 active ? "#546E7A" : "#1565C0", 18, () -> switchToProfile(stage, profile.id()));
         activate.setDisable(active);
+        Button manage = uiFactory.action("MANAGE", 190, 62, 20, "#6A1B9A", 18,
+                () -> showProfileDetails(stage, profile.id()));
+        HBox actions = new HBox(12, activate, manage);
+        actions.setAlignment(Pos.CENTER_RIGHT);
 
-        Button rename = uiFactory.action("RENAME", 180, 64, 22, "#6A1B9A", 18,
+        VBox identity = new VBox(7, name, details);
+        identity.setAlignment(Pos.CENTER_LEFT);
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        HBox row = new HBox(18, identity, state, spacer, actions);
+        row.setAlignment(Pos.CENTER_LEFT);
+        card.getChildren().add(row);
+        return card;
+    }
+
+    private void showProfileDetails(Stage stage, String profileId) {
+        GameSaveRepository.SaveProfile profile = saveRepository.profiles().stream()
+                .filter(candidate -> candidate.id().equals(profileId))
+                .findFirst()
+                .orElse(null);
+        if (profile == null) {
+            showProfileManager(stage);
+            return;
+        }
+        boolean active = profile.id().equals(saveRepository.activeProfile().id());
+        boolean canDelete = saveRepository.profiles().size() > 1;
+
+        BorderPane root = buildModernMenuPage();
+        Button back = uiFactory.action("BACK", 180, 64, 23, "#B5121B", 18,
+                () -> showProfileManager(stage));
+        root.setTop(buildMenuTopStrip(back, buildMenuTitleBanner("MANAGE PROFILE", 520, 72, 31),
+                buildMenuChip(active ? "ACTIVE" : "INACTIVE", active ? "#00838F" : "#455A64",
+                        active ? "#B2EBF2" : "#CFD8DC")));
+
+        Label name = buildMenuPanelTitle(profile.name(), 40);
+        Label timestamps = buildMenuPanelBody(
+                "Created  " + formatProfileTimestamp(profile.createdAtMillis())
+                        + "\nLast played  " + formatProfileTimestamp(profile.updatedAtMillis()), 860);
+        Button rename = uiFactory.action("RENAME", 250, 76, 25, "#6A1B9A", 20,
                 () -> renameProfilePrompt(stage, profile.id()));
-        Button reset = uiFactory.action("RESET", 180, 64, 22, "#EF6C00", 18,
+        Button reset = uiFactory.action("RESET PROGRESS", 300, 76, 24, "#EF6C00", 20,
                 () -> confirmResetProfile(stage, profile.id()));
-        Button delete = uiFactory.action("DELETE", 180, 64, 22, "#B71C1C", 18,
+        Button delete = uiFactory.action("DELETE PROFILE", 300, 76, 24, "#B71C1C", 20,
                 () -> confirmDeleteProfile(stage, profile.id()));
         delete.setDisable(!canDelete);
+        HBox actions = new HBox(14, rename, reset, delete);
+        actions.setAlignment(Pos.CENTER);
+        VBox panel = buildModernMenuPanel(active ? "#FFE082" : "#90CAF9", 1040, 22,
+                buildMenuEyebrow("PROFILE OPTIONS", active ? "#FFE082" : "#90CAF9"),
+                name, timestamps, actions);
+        root.setCenter(panel);
+        root.setBottom(buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "CHOOSE ACTION"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "CONFIRM"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "BACK")));
+        BorderPane.setMargin(root.getBottom(), new Insets(16, 0, 0, 0));
 
-        FlowPane actions = new FlowPane(12, 12, activate, rename, reset, delete);
-        actions.setAlignment(Pos.CENTER_LEFT);
-        actions.setPadding(new Insets(12, 14, 12, 14));
-        actions.setStyle(MenuTheme.insetPanelStyle(active ? "#FFE082" : "#607D8B", 18));
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, back);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        setScenePreservingFullscreen(stage, scene);
+        rename.requestFocus();
+    }
 
-        card.getChildren().addAll(name, state, details, actions);
-        return card;
+    private void showProfileSaveTools(Stage stage) {
+        playMenuMusic();
+        BorderPane root = buildModernMenuPage();
+        Button back = uiFactory.action("BACK", 180, 64, 23, "#B5121B", 18,
+                () -> showProfileManager(stage));
+        root.setTop(buildMenuTopStrip(back, buildMenuTitleBanner("SAVE TOOLS", 440, 72, 32),
+                buildMenuChip("SAFE TRANSFERS", "#1565C0", "#90CAF9")));
+
+        Button backupNow = uiFactory.action("BACK UP NOW", 280, 72, 24, "#00897B", 19,
+                () -> createManualBackup(stage));
+        Button backups = uiFactory.action("VIEW BACKUPS", 280, 72, 24, "#5E35B1", 19,
+                () -> showBackupManager(stage));
+        Button export = uiFactory.action("EXPORT SAVE", 280, 72, 24, "#1565C0", 19,
+                () -> exportSaveData(stage));
+        Button importSave = uiFactory.action("IMPORT SAVE", 280, 72, 24, "#EF6C00", 19,
+                () -> importSaveData(stage));
+        VBox backupCard = buildMenuActionCard("PROTECT", "CREATE BACKUP",
+                "Snapshot every profile before a risky change.", "#80CBC4", backupNow);
+        VBox historyCard = buildMenuActionCard("RECOVER", "BACKUP HISTORY",
+                "Restore or remove an earlier snapshot.", "#B39DDB", backups);
+        VBox exportCard = buildMenuActionCard("TRANSFER", "EXPORT",
+                "Copy your complete save to one file.", "#90CAF9", export);
+        VBox importCard = buildMenuActionCard("REPLACE", "IMPORT",
+                "Load a save file after creating a safety backup.", "#FFCC80", importSave);
+        HBox firstRow = new HBox(18, backupCard, historyCard);
+        HBox secondRow = new HBox(18, exportCard, importCard);
+        firstRow.setAlignment(Pos.CENTER);
+        secondRow.setAlignment(Pos.CENTER);
+        VBox center = new VBox(18, firstRow, secondRow);
+        center.setAlignment(Pos.CENTER);
+        root.setCenter(center);
+        root.setBottom(buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "CHOOSE TOOL"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "OPEN"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "BACK")));
+        BorderPane.setMargin(root.getBottom(), new Insets(16, 0, 0, 0));
+
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, back);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        setScenePreservingFullscreen(stage, scene);
+        backupNow.requestFocus();
     }
 
     private void createProfilePrompt(Stage stage) {
@@ -29608,36 +29684,21 @@ public class BirdGame3 {
         playMenuMusic();
         List<GameSaveRepository.SaveBackup> backups = saveRepository.backups();
 
-        BorderPane root = new BorderPane();
-        root.setPadding(new Insets(30, 40, 30, 40));
-        root.setStyle(MenuTheme.pageBackground());
-
-        Button back = uiFactory.action("BACK TO PROFILES", 360, 84, 28, "#D32F2F", 22, () -> showProfileManager(stage));
-        Button backupNow = uiFactory.action("BACK UP NOW", 260, 84, 26, "#00897B", 20, () -> createManualBackup(stage));
-        StackPane title = buildMenuTitleBanner("SAVE BACKUPS", 520, 74, 34);
-
-        Label subtitle = new Label("Use restore before risky changes or after a bad update. Imports also create a restore point automatically.");
-        subtitle.setFont(Font.font("Consolas", 20));
-        subtitle.setTextFill(Color.web("#CFD8DC"));
-        subtitle.setWrapText(true);
-        subtitle.setMaxWidth(920);
-        applyNoEllipsis(subtitle);
-
-        VBox titleBox = new VBox(10, title, subtitle);
-        titleBox.setAlignment(Pos.CENTER_LEFT);
-
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
-        HBox topBar = new HBox(18, back, titleBox, spacer, backupNow);
-        topBar.setAlignment(Pos.CENTER_LEFT);
-        topBar.setPadding(new Insets(12, 16, 12, 16));
-        topBar.setStyle(MenuTheme.topStripStyle());
+        BorderPane root = buildModernMenuPage();
+        Button back = uiFactory.action("BACK", 180, 64, 23, "#B5121B", 18,
+                () -> showProfileSaveTools(stage));
+        Button backupNow = uiFactory.action("BACK UP NOW", 260, 64, 22, "#00897B", 18,
+                () -> createManualBackup(stage));
+        StackPane title = buildMenuTitleBanner("BACKUPS", 390, 72, 34);
+        root.setTop(buildMenuTopStrip(back, title,
+                buildMenuChip(backups.size() + (backups.size() == 1 ? " BACKUP" : " BACKUPS"),
+                        "#5E35B1", "#D1C4E9")));
 
         VBox cards = new VBox(18);
         cards.setAlignment(Pos.TOP_CENTER);
         cards.setPadding(new Insets(8, 0, 8, 0));
         if (backups.isEmpty()) {
-            Label empty = new Label("No backups yet. Create one now or trigger one automatically by importing, resetting, or deleting a profile.");
+            Label empty = new Label("No backups yet.");
             empty.setFont(Font.font("Consolas", 22));
             empty.setTextFill(Color.web("#CFD8DC"));
             empty.setWrapText(true);
@@ -29659,21 +29720,25 @@ public class BirdGame3 {
         scroll.setFitToWidth(true);
         scroll.setStyle("-fx-background-color: transparent; -fx-background: transparent; -fx-control-inner-background: transparent;");
         scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        installTransparentScrollViewport(scroll);
 
-        Label note = new Label("Restoring a backup first snapshots your current save, so you can undo the restore if needed.");
-        note.setFont(Font.font("Consolas", 18));
-        note.setTextFill(Color.web("#80DEEA"));
-        note.setWrapText(true);
-        note.setPadding(new Insets(16, 18, 16, 18));
-        note.setMaxWidth(Double.MAX_VALUE);
-        note.setStyle(MenuTheme.insetPanelStyle("#80DEEA", 20));
-        applyNoEllipsis(note);
-
-        root.setTop(topBar);
-        root.setCenter(scroll);
-        root.setBottom(note);
-        BorderPane.setAlignment(note, Pos.CENTER_LEFT);
-        BorderPane.setMargin(note, new Insets(18, 8, 0, 8));
+        HBox rail = new HBox(14, buildMenuEyebrow("RESTORE POINTS", "#D1C4E9"), backupNow);
+        rail.setAlignment(Pos.CENTER_RIGHT);
+        Region railSpacer = new Region();
+        HBox.setHgrow(railSpacer, Priority.ALWAYS);
+        rail.getChildren().add(1, railSpacer);
+        rail.setMaxWidth(1480);
+        rail.setPadding(new Insets(12, 16, 12, 16));
+        rail.setStyle(MenuTheme.insetPanelStyle("#5E35B1", 18));
+        VBox center = new VBox(16, rail, scroll);
+        center.setAlignment(Pos.TOP_CENTER);
+        center.setPadding(new Insets(24, 0, 0, 0));
+        root.setCenter(center);
+        root.setBottom(buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "CHOOSE BACKUP"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "RESTORE OR DELETE"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "BACK")));
+        BorderPane.setMargin(root.getBottom(), new Insets(16, 0, 0, 0));
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         bindEscape(scene, back);
@@ -29684,9 +29749,9 @@ public class BirdGame3 {
     }
 
     private VBox buildBackupCard(Stage stage, GameSaveRepository.SaveBackup backup) {
-        VBox card = new VBox(12);
-        card.setPadding(new Insets(20, 24, 20, 24));
-        card.setMaxWidth(1540);
+        VBox card = new VBox(10);
+        card.setPadding(new Insets(18, 22, 18, 22));
+        card.setMaxWidth(1480);
         card.setStyle(MenuTheme.panelStyle("#78909C", 24));
 
         Label name = new Label(backup.reason());
@@ -29700,8 +29765,7 @@ public class BirdGame3 {
         applyNoEllipsis(state);
 
         String profileLabel = backup.activeProfileName().isBlank() ? "Unknown profile" : backup.activeProfileName();
-        Label details = new Label("Snapshot of: " + profileLabel
-                + (backup.sourceProfileId().isBlank() ? "" : "   |   Source profile id: " + backup.sourceProfileId()));
+        Label details = new Label("PROFILE  " + profileLabel);
         details.setFont(Font.font("Consolas", 17));
         details.setTextFill(Color.web("#CFD8DC"));
         details.setWrapText(true);
@@ -29712,12 +29776,15 @@ public class BirdGame3 {
                 () -> confirmRestoreBackup(stage, backup.id()));
         Button delete = uiFactory.action("DELETE", 210, 64, 22, "#B71C1C", 18,
                 () -> confirmDeleteBackup(stage, backup.id()));
-        FlowPane actions = new FlowPane(12, 12, restore, delete);
-        actions.setAlignment(Pos.CENTER_LEFT);
-        actions.setPadding(new Insets(12, 14, 12, 14));
-        actions.setStyle(MenuTheme.insetPanelStyle("#78909C", 18));
-
-        card.getChildren().addAll(name, state, details, actions);
+        HBox actions = new HBox(12, restore, delete);
+        actions.setAlignment(Pos.CENTER_RIGHT);
+        VBox identity = new VBox(6, name, state, details);
+        identity.setAlignment(Pos.CENTER_LEFT);
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        HBox row = new HBox(18, identity, spacer, actions);
+        row.setAlignment(Pos.CENTER_LEFT);
+        card.getChildren().add(row);
         return card;
     }
 
