@@ -25579,70 +25579,67 @@ public class BirdGame3 {
         Pane logo = new Pane();
         lockRegionSize(logo, width, height);
 
-        double birdSize = compact ? 72 : 96;
-        double fightSize = compact ? 118 : 162;
-        Label bird = new Label("BIRD");
-        bird.setFont(Font.font("Georgia", FontWeight.BOLD, birdSize));
-        bird.setTextFill(Color.web("#090A0C"));
-        bird.setAlignment(Pos.CENTER);
-        bird.setPrefWidth(width);
-        bird.setLayoutY(compact ? 4 : 6);
-        applyNoEllipsis(bird);
+        double markScale = compact ? 0.72 : 1.0;
+        double markTop = compact ? 94 : 142;
+        Polygon upperFeather = new Polygon(
+                8 * markScale, markTop + 28 * markScale,
+                148 * markScale, markTop - 56 * markScale,
+                185 * markScale, markTop - 25 * markScale,
+                66 * markScale, markTop + 43 * markScale);
+        upperFeather.setFill(Color.web("#111216"));
+        Polygon middleFeather = new Polygon(
+                0 * markScale, markTop + 67 * markScale,
+                151 * markScale, markTop + 1 * markScale,
+                187 * markScale, markTop + 34 * markScale,
+                50 * markScale, markTop + 85 * markScale);
+        middleFeather.setFill(Color.web("#D92332"));
+        Polygon lowerFeather = new Polygon(
+                20 * markScale, markTop + 101 * markScale,
+                150 * markScale, markTop + 52 * markScale,
+                180 * markScale, markTop + 83 * markScale,
+                77 * markScale, markTop + 119 * markScale);
+        lowerFeather.setFill(Color.web("#111216"));
 
-        Label fight = new Label("FIGHT");
-        fight.setFont(Font.font("Georgia", FontWeight.BOLD, fightSize));
-        fight.setTextFill(Color.web("#090A0C"));
-        fight.setAlignment(Pos.CENTER);
-        fight.setPrefWidth(width - (compact ? 90 : 125));
-        fight.setLayoutX(compact ? 8 : 10);
-        fight.setLayoutY(compact ? 76 : 104);
-        applyNoEllipsis(fight);
+        double titleX = compact ? 132 : 190;
+        Label title = new Label("BIRD FIGHT");
+        title.setFont(Font.font("Arial Black", FontWeight.BOLD, compact ? 76 : 108));
+        title.setTextFill(Color.web("#0A0B0D"));
+        title.setLayoutX(titleX);
+        title.setLayoutY(compact ? 82 : 118);
+        title.setPrefWidth(compact ? 500 : 680);
+        title.setAlignment(Pos.CENTER_LEFT);
+        applyNoEllipsis(title);
+        fitLabelSingleLine(title, compact ? 76 : 108, compact ? 58 : 82, compact ? 500 : 680);
 
-        double crestX = compact ? 650 : 870;
-        double crestY = compact ? 165 : 227;
-        double crestRadius = compact ? 54 : 73;
-        Circle crest = new Circle(crestX, crestY, crestRadius, Color.web("#090A0C"));
-        Line crestVertical = new Line(crestX - crestRadius * 0.26, crestY - crestRadius,
-                crestX - crestRadius * 0.26, crestY + crestRadius);
-        crestVertical.setStroke(Color.web("#F7F6F2"));
-        crestVertical.setStrokeWidth(compact ? 7 : 9);
-        Line crestHorizontal = new Line(crestX - crestRadius, crestY + crestRadius * 0.06,
-                crestX + crestRadius, crestY + crestRadius * 0.06);
-        crestHorizontal.setStroke(Color.web("#F7F6F2"));
-        crestHorizontal.setStrokeWidth(compact ? 7 : 9);
-        Polygon beak = new Polygon(
-                crestX + crestRadius * 0.72, crestY - crestRadius * 0.16,
-                crestX + crestRadius * 1.43, crestY + crestRadius * 0.02,
-                crestX + crestRadius * 0.72, crestY + crestRadius * 0.24);
-        beak.setFill(Color.web("#D8272F"));
+        double plateX = compact ? 635 : 870;
+        double plateY = compact ? 88 : 126;
+        double plateW = compact ? 104 : 140;
+        double plateH = compact ? 112 : 154;
+        Polygon numberPlate = new Polygon(
+                plateX + 18, plateY,
+                plateX + plateW, plateY,
+                plateX + plateW - 18, plateY + plateH,
+                plateX, plateY + plateH);
+        numberPlate.setFill(Color.web("#D92332"));
 
         Label three = new Label("3");
-        three.setFont(Font.font("Georgia", FontWeight.BOLD, compact ? 90 : 124));
-        three.setTextFill(Color.web("#090A0C"));
-        three.setLayoutX(compact ? 705 : 946);
-        three.setLayoutY(compact ? 104 : 140);
+        three.setFont(Font.font("Arial Black", FontWeight.BOLD, compact ? 74 : 104));
+        three.setTextFill(Color.WHITE);
+        three.setAlignment(Pos.CENTER);
+        three.setPrefSize(plateW, plateH);
+        three.setLayoutX(plateX);
+        three.setLayoutY(plateY - (compact ? 4 : 7));
         applyNoEllipsis(three);
 
-        Path underline = new Path(
-                new MoveTo(compact ? 70 : 90, compact ? 282 : 382),
-                new QuadCurveTo(width / 2.0, compact ? 244 : 324,
-                        width - (compact ? 70 : 90), compact ? 282 : 382));
-        underline.setFill(null);
-        underline.setStroke(Color.web("#090A0C"));
-        underline.setStrokeWidth(compact ? 7 : 9);
-        underline.setStrokeLineCap(StrokeLineCap.ROUND);
+        Rectangle rule = new Rectangle(compact ? 132 : 190, compact ? 224 : 308,
+                compact ? 607 : 820, compact ? 8 : 11);
+        rule.setFill(Color.web("#111216"));
+        Rectangle redRule = new Rectangle(compact ? 132 : 190, compact ? 224 : 308,
+                compact ? 150 : 205, compact ? 8 : 11);
+        redRule.setFill(Color.web("#D92332"));
 
-        Label subtitle = new Label(compact ? "B I R D   F I G H T   3"
-                : "U L T I M A T E   B I R D   C O M B A T");
-        subtitle.setFont(Font.font("Consolas", FontWeight.BOLD, compact ? 17 : 22));
-        subtitle.setTextFill(Color.web("#151619"));
-        subtitle.setAlignment(Pos.CENTER);
-        subtitle.setPrefWidth(width);
-        subtitle.setLayoutY(compact ? 300 : 404);
-        applyNoEllipsis(subtitle);
-
-        logo.getChildren().addAll(bird, fight, crest, crestVertical, crestHorizontal,
-                beak, three, underline, subtitle);
+        logo.getChildren().addAll(upperFeather, middleFeather, lowerFeather,
+                title, numberPlate, three, rule, redRule);
         return logo;
     }
 

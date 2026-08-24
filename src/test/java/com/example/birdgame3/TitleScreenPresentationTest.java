@@ -17,6 +17,7 @@ class TitleScreenPresentationTest {
     void mainTitleUsesAQuietWordmarkAndSingleFullWidthPrompt() throws IOException {
         String source = Files.readString(GAME_SOURCE).replace("\r\n", "\n");
         String title = methodBody(source, "showTitleScreen");
+        String wordmark = methodBody(source, "buildBirdFightTitleWordmark");
 
         assertTrue(title.contains("drawBirdFightTitleBackdrop(backdrop.getGraphicsContext2D(), false)"));
         assertTrue(title.contains("buildBirdFightTitleWordmark(false)"));
@@ -27,6 +28,15 @@ class TitleScreenPresentationTest {
         assertFalse(title.contains("buildAdaptivePromptBar("));
         assertFalse(title.contains("redSlash"));
         assertFalse(title.contains("blueSlash"));
+        assertTrue(wordmark.contains("new Label(\"BIRD FIGHT\")"));
+        assertTrue(wordmark.contains("new Label(\"3\")"));
+        assertTrue(wordmark.contains("upperFeather"));
+        assertTrue(wordmark.contains("numberPlate"));
+        assertFalse(wordmark.contains("Georgia"));
+        assertFalse(wordmark.contains("Circle crest"));
+        assertFalse(wordmark.contains("crestHorizontal"));
+        assertFalse(wordmark.contains("QuadCurveTo"));
+        assertFalse(wordmark.contains("ULTIMATE"));
     }
 
     @Test
