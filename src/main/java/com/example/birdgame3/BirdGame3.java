@@ -45761,17 +45761,17 @@ public class BirdGame3 {
             adventureChapterProgress = chapter.battles.length;
         }
 
-        VBox root = new VBox(26);
+        VBox root = new VBox(18);
         root.setAlignment(Pos.CENTER);
-        root.setPadding(new Insets(50));
+        root.setPadding(new Insets(34));
         root.setMinHeight(Region.USE_PREF_SIZE);
         root.setStyle("-fx-background-color: linear-gradient(to bottom, #091426, #1A2B4B);");
 
         double cardWidth = 1400;
         double cardInnerWidth = cardWidth - 52;
 
-        Label title = new Label("ADVENTURE MODE");
-        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 90));
+        Label title = new Label("ADVENTURE");
+        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 58));
         title.setTextFill(Color.web("#FFD54F"));
 
         HBox routeRow = new HBox(18);
@@ -45781,9 +45781,9 @@ public class BirdGame3 {
             boolean selected = route == selectedAdventureRoute;
             boolean[] routeCompleted = adventureChapterCompletedByRoute[route.ordinal()];
             int routeDone = countCompleted(routeCompleted);
-            String buttonText = route.label.toUpperCase() + "\n" + route.heading.toUpperCase()
-                    + "\n" + routeDone + "/" + Math.max(1, routeCompleted.length) + " CHAPTERS";
-            Button routeBtn = uiFactory.action(buttonText, 460, 118, 20, selected ? route.accent : "#455A64", 18, () -> {
+            String buttonText = route.label.toUpperCase()
+                    + "  ·  " + routeDone + "/" + Math.max(1, routeCompleted.length);
+            Button routeBtn = uiFactory.action(buttonText, 460, 82, 20, selected ? route.accent : "#455A64", 18, () -> {
                 playButtonClick();
                 setAdventureRoute(route);
                 showAdventureHub(stage);
@@ -45801,27 +45801,11 @@ public class BirdGame3 {
         card.setStyle("-fx-background-color: rgba(0,0,0,0.6); -fx-background-radius: 24; -fx-border-color: " + selectedAdventureRoute.accent + "; -fx-border-width: 3; -fx-border-radius: 24;");
 
         Label routeHeading = new Label(selectedAdventureRoute.heading);
-        routeHeading.setFont(Font.font("Arial Black", 42));
+        routeHeading.setFont(Font.font("Arial Black", 34));
         routeHeading.setTextFill(Color.web(selectedAdventureRoute.accent));
 
-        String completionRewardText = selectedAdventureRoute == AdventureRoute.TEMPEST
-                ? "Completion reward: Ironclad Pelican skin + Broken Harbor map"
-                : "Completion reward: Beacon Pigeon + Beacon Crown finale rewards";
-        Label routeSummary = new Label(selectedAdventureRoute.summary
-                + "\nRoute roster: " + adventureRosterText()
-                + "\n" + completionRewardText);
-        routeSummary.setFont(Font.font("Consolas", 22));
-        routeSummary.setTextFill(Color.web("#B3E5FC"));
-        routeSummary.setWrapText(true);
-        routeSummary.setMaxWidth(cardInnerWidth);
-        routeSummary.setPrefWidth(cardInnerWidth);
-        routeSummary.setMinHeight(Region.USE_PREF_SIZE);
-        routeSummary.setTextAlignment(TextAlignment.LEFT);
-        routeSummary.setAlignment(Pos.CENTER_LEFT);
-        applyNoEllipsis(routeSummary);
-
         Label chaptersLabel = new Label(selectedAdventureRoute.label.toUpperCase() + " CHAPTERS");
-        chaptersLabel.setFont(Font.font("Arial Black", 32));
+        chaptersLabel.setFont(Font.font("Arial Black", 24));
         chaptersLabel.setTextFill(Color.web("#FFECB3"));
 
         FlowPane chapterRow = new FlowPane(14, 14);
@@ -45838,7 +45822,7 @@ public class BirdGame3 {
             }
             String buttonText = "CHAPTER " + (i + 1) + "\n" + chapterTitle;
             String color = idx == adventureChapterIndex ? "#2E7D32" : "#455A64";
-            Button chapterBtn = uiFactory.action(buttonText, 360, 90, 22, color, 18, () -> {
+            Button chapterBtn = uiFactory.action(buttonText, 320, 76, 18, color, 16, () -> {
                 playButtonClick();
                 adventureChapterIndex = idx;
                 adventureChapterProgress = adventureChapterProgressByIndex[idx];
@@ -45849,17 +45833,17 @@ public class BirdGame3 {
         }
 
         Label chapterTitle = new Label(chapter.title);
-        chapterTitle.setFont(Font.font("Arial Black", 48));
+        chapterTitle.setFont(Font.font("Arial Black", 40));
         chapterTitle.setTextFill(Color.WHITE);
 
         Label status = getLabel(adventureChapterCompleted
                 ? "Completed"
                 : ("Battles cleared: " + adventureChapterProgress + "/" + chapter.battles.length));
-        status.setFont(Font.font("Consolas", 30));
+        status.setFont(Font.font("Consolas", FontWeight.BOLD, 22));
         status.setTextFill(adventureChapterCompleted ? Color.LIMEGREEN : Color.ORANGE);
 
         Label summary = new Label(chapter.summary);
-        summary.setFont(Font.font("Consolas", 24));
+        summary.setFont(Font.font("Consolas", 20));
         summary.setTextFill(Color.web("#B3E5FC"));
         summary.setWrapText(true);
         summary.setMaxWidth(cardInnerWidth);
@@ -45869,17 +45853,6 @@ public class BirdGame3 {
         summary.setAlignment(Pos.CENTER_LEFT);
         applyNoEllipsis(summary);
 
-        Label roster = new Label("Adventure Roster: " + adventureRosterText());
-        roster.setFont(Font.font("Consolas", 24));
-        roster.setTextFill(Color.web("#C5CAE9"));
-        roster.setWrapText(true);
-        roster.setMaxWidth(cardInnerWidth);
-        roster.setPrefWidth(cardInnerWidth);
-        roster.setMinHeight(Region.USE_PREF_SIZE);
-        roster.setTextAlignment(TextAlignment.LEFT);
-        roster.setAlignment(Pos.CENTER_LEFT);
-        applyNoEllipsis(roster);
-
         HBox actions = new HBox(18);
         actions.setAlignment(Pos.CENTER_LEFT);
         actions.setMaxWidth(cardInnerWidth);
@@ -45887,7 +45860,7 @@ public class BirdGame3 {
 
         String continueText = adventureChapterProgress == 0 ? "START CHAPTER"
                 : (adventureChapterCompleted ? "REPLAY CHAPTER" : "CONTINUE CHAPTER");
-        Button continueBtn = uiFactory.action(continueText, 420, 96, 32, "#00C853", 22, () -> {
+        Button continueBtn = uiFactory.action(continueText, 380, 76, 26, "#00C853", 20, () -> {
             playButtonClick();
             resetMatchStats();
             AdventureChapter active = activeAdventureChapter();
@@ -45904,22 +45877,28 @@ public class BirdGame3 {
             }
         });
 
-        Button selectBtn = uiFactory.action("BATTLE SELECT", 360, 96, 28, "#1976D2", 22, () -> {
+        Button selectBtn = uiFactory.action("BATTLE SELECT", 320, 76, 23, "#1976D2", 20, () -> {
             playButtonClick();
             showAdventureBattleSelect(stage);
         });
 
         actions.getChildren().addAll(continueBtn, selectBtn);
-        card.getChildren().addAll(routeHeading, routeSummary, chaptersLabel, chapterRow, chapterTitle, status, summary, roster, actions);
+        card.getChildren().addAll(routeHeading, chaptersLabel, chapterRow, chapterTitle, status, summary, actions);
 
-        Button menuBtn = uiFactory.action("BACK TO LEGACY STORIES", 500, 100, 30, "#D32F2F", 22,
+        Button menuBtn = uiFactory.action("BACK", 260, 66, 22, "#D32F2F", 18,
                 () -> showLegacyStories(stage));
 
-        root.getChildren().addAll(title, routeRow, card, menuBtn);
+        HBox prompts = buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "CHOOSE CHAPTER"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "OPEN"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "LEGACY STORIES"));
+
+        root.getChildren().addAll(title, routeRow, card, menuBtn, prompts);
 
         ScrollPane scroll = wrapInScroll(root);
         scroll.setFitToHeight(false);
         Scene scene = new Scene(scroll, WIDTH, HEIGHT);
+        bindEscape(scene, menuBtn);
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
         setScenePreservingFullscreen(stage, scene);
@@ -45935,28 +45914,57 @@ public class BirdGame3 {
         }
 
         int unlocked = Math.clamp(adventureChapterProgress + 1, 1, chapter.battles.length);
-        VBox root = new VBox(24);
-        root.setAlignment(Pos.CENTER);
-        root.setPadding(new Insets(50));
-        root.setStyle("-fx-background-color: linear-gradient(to bottom, #0A1530, #1B2C52);");
+        BorderPane root = buildModernMenuPage();
+        lockRegionSize(root, 1600, 950);
+        Button back = uiFactory.action("BACK", 220, 66, 22, "#B5121B", 18,
+                () -> showAdventureHub(stage));
+        String chapterName = chapter.title;
+        int colon = chapterName.indexOf(':');
+        if (colon >= 0 && colon + 1 < chapterName.length()) {
+            chapterName = chapterName.substring(colon + 1).trim();
+        }
+        StackPane title = buildMenuTitleBanner("BATTLE SELECT", 500, 72, 32);
+        root.setTop(buildMenuTopStrip(back, title,
+                buildMenuChip((unlocked - 1) + " / " + chapter.battles.length + " CLEARED",
+                        selectedAdventureRoute.accent, "#B3E5FC")));
 
-        Label title = new Label(selectedAdventureRoute.label.toUpperCase() + " - " + chapter.title + " - BATTLES");
-        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 84));
-        title.setTextFill(Color.web("#4FC3F7"));
-
-        VBox list = new VBox(16);
-        list.setAlignment(Pos.CENTER);
+        Label chapterLabel = buildMenuEyebrow(
+                selectedAdventureRoute.label + "  ·  " + chapterName,
+                selectedAdventureRoute.accent);
+        GridPane battles = new GridPane();
+        battles.setHgap(16);
+        battles.setVgap(16);
+        battles.setAlignment(Pos.CENTER);
+        Button firstSelectable = null;
 
         for (int i = 0; i < chapter.battles.length; i++) {
             AdventureBattle battle = chapter.battles[i];
             boolean isUnlocked = i < unlocked;
-            String label = (i + 1) + ". " + battle.title + " - " + battle.opponentName;
-            Button battleBtn = new Button(isUnlocked ? label : ((i + 1) + ". LOCKED"));
-            battleBtn.setPrefSize(1500, 96);
-            battleBtn.setFont(Font.font("Arial Black", 28));
-            battleBtn.setStyle(isUnlocked
-                    ? "-fx-background-color: #263238; -fx-text-fill: white; -fx-background-radius: 18;"
-                    : "-fx-background-color: #444444; -fx-text-fill: #BBBBBB; -fx-background-radius: 18;");
+            Label number = new Label(String.format(Locale.ROOT, "%02d", i + 1));
+            number.setFont(Font.font("Arial Black", 30));
+            number.setTextFill(Color.web(isUnlocked ? "#FFE082" : "#607D8B"));
+            Label battleName = new Label(isUnlocked ? battle.title.toUpperCase(Locale.ROOT) : "LOCKED");
+            battleName.setFont(Font.font("Arial Black", 23));
+            battleName.setTextFill(Color.web(isUnlocked ? "#FFFFFF" : "#78909C"));
+            battleName.setWrapText(true);
+            battleName.setMaxWidth(510);
+            Label opponent = new Label(isUnlocked
+                    ? mapDisplayName(battle.map).toUpperCase(Locale.ROOT) + "  ·  VS " + battle.opponentName.toUpperCase(Locale.ROOT)
+                    : "CLEAR THE PREVIOUS BATTLE");
+            opponent.setFont(Font.font("Consolas", FontWeight.BOLD, 15));
+            opponent.setTextFill(Color.web(isUnlocked ? "#80DEEA" : "#546E7A"));
+            VBox copy = new VBox(4, battleName, opponent);
+            copy.setAlignment(Pos.CENTER_LEFT);
+            HBox.setHgrow(copy, Priority.ALWAYS);
+            HBox graphic = new HBox(18, number, copy);
+            graphic.setAlignment(Pos.CENTER_LEFT);
+            graphic.setPadding(new Insets(16, 22, 16, 22));
+
+            Button battleBtn = new Button();
+            battleBtn.setGraphic(graphic);
+            battleBtn.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+            lockRegionSize(battleBtn, 700, 118);
+            battleBtn.setStyle(MenuTheme.buttonStyle(isUnlocked ? "#263238" : "#182027", 18));
             battleBtn.setDisable(!isUnlocked);
 
             if (isUnlocked) {
@@ -45968,18 +45976,24 @@ public class BirdGame3 {
                     adventureBattleIndex = battleIndex;
                     showAdventureBattleIntro(stage);
                 });
+                if (firstSelectable == null) firstSelectable = battleBtn;
             }
-            list.getChildren().add(battleBtn);
+            battles.add(battleBtn, i % 2, i / 2);
         }
 
-        Button back = uiFactory.action("BACK TO ADVENTURE", 700, 105, 42, "#FF1744", 22, () -> showAdventureHub(stage));
-
-        root.getChildren().addAll(title, list, back);
-        Scene scene = new Scene(root, WIDTH, HEIGHT);
-        setupKeyboardNavigation(scene);
-        applyConsoleHighlight(scene);
-        setScenePreservingFullscreen(stage, scene);
-        back.requestFocus();
+        VBox center = new VBox(18, chapterLabel, battles);
+        center.setAlignment(Pos.CENTER);
+        center.setPadding(new Insets(20));
+        center.setStyle(MenuTheme.panelStyle(selectedAdventureRoute.accent, 22));
+        root.setCenter(center);
+        BorderPane.setMargin(center, new Insets(18, 0, 0, 0));
+        HBox prompts = buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "CHOOSE BATTLE"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "OPEN"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "ADVENTURE"));
+        root.setBottom(prompts);
+        BorderPane.setMargin(prompts, new Insets(14, 0, 0, 0));
+        installFixedCampaignScene(stage, root, firstSelectable == null ? back : firstSelectable, back);
     }
 
     private void showAdventureChapterIntro(Stage stage) {
@@ -46026,19 +46040,25 @@ public class BirdGame3 {
         final boolean[] selectorJustUnlocked = new boolean[]{false};
 
         BorderPane root = new BorderPane();
-        root.setPadding(new Insets(30, 40, 30, 40));
+        lockRegionSize(root, 1600, 950);
+        root.setPadding(new Insets(24, 32, 24, 32));
         root.setStyle("-fx-background-color: linear-gradient(to bottom, #07111F, #16263F);");
 
-        Label title = new Label(selectedAdventureRoute.label.toUpperCase() + " - " + battle.title);
-        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 72));
+        Label title = new Label(battle.title.toUpperCase(Locale.ROOT));
+        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 44));
         title.setTextFill(Color.web("#FFD54F"));
+        title.setMaxWidth(1480);
+        fitLabelSingleLine(title, 44, 28, 1480);
         BorderPane.setAlignment(title, Pos.CENTER);
 
-        double rightCardWidth = 680;
+        double rightCardWidth = 500;
         double rightCardInnerWidth = rightCardWidth - 44;
 
-        Label info = new Label(battle.briefing + "\nMap: " + mapDisplayName(battle.map) + "\nOpponent: " + battle.opponentName);
-        info.setFont(Font.font("Consolas", 24));
+        Canvas stagePreview = new Canvas(430, 220);
+        StagePreviewRenderer.draw(stagePreview, StageChoice.main(battle.map));
+        Label info = new Label(mapDisplayName(battle.map).toUpperCase(Locale.ROOT)
+                + "  ·  VS " + battle.opponentName.toUpperCase(Locale.ROOT));
+        info.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
         info.setTextFill(Color.web("#B3E5FC"));
         info.setWrapText(true);
         info.setMaxWidth(rightCardInnerWidth);
@@ -46048,18 +46068,9 @@ public class BirdGame3 {
         info.setAlignment(Pos.CENTER_LEFT);
         applyNoEllipsis(info);
 
-        String allowedText;
-        if (battle.requiredPlayerType != null) {
-            allowedText = "Required bird: " + battle.requiredPlayerType.name;
-        } else if (battle.allowedBirds != null) {
-            allowedText = "Allowed birds: " + battle.allowedBirds.stream().map(b -> b.name).reduce((a, b) -> a + ", " + b).orElse("Pigeon");
-        } else {
-            allowedText = "Allowed birds: Any unlocked";
-        }
-
         String rewardText = adventureRewardText(battle);
-        Label rules = new Label(allowedText + "\n" + rewardText + "\nAdventure roster: " + adventureRosterText());
-        rules.setFont(Font.font("Consolas", 22));
+        Label rules = new Label(rewardText);
+        rules.setFont(Font.font("Consolas", 16));
         rules.setTextFill(Color.web("#E0E0E0"));
         rules.setWrapText(true);
         rules.setMaxWidth(rightCardInnerWidth);
@@ -46070,13 +46081,13 @@ public class BirdGame3 {
         applyNoEllipsis(rules);
 
         Label selectedLabel = new Label();
-        selectedLabel.setFont(Font.font("Arial Black", 38));
+        selectedLabel.setFont(Font.font("Arial Black", 34));
         selectedLabel.setTextFill(Color.web("#FAFAFA"));
         selectedLabel.setMaxWidth(rightCardInnerWidth);
         applyNoEllipsis(selectedLabel);
 
-        Button skinBtn = uiFactory.action("SKIN: BASE", 520, 90, 30, "#37474F", 22, () -> {});
-        Button difficultyBtn = uiFactory.action("DIFFICULTY\n" + difficultyLabels[difficultyIndex[0]], 320, 90, 28, "#455A64", 22, () -> {});
+        Button skinBtn = uiFactory.action("SKIN: BASE", 280, 68, 20, "#37474F", 18, () -> {});
+        Button difficultyBtn = uiFactory.action("DIFFICULTY\n" + difficultyLabels[difficultyIndex[0]], 160, 68, 18, "#455A64", 18, () -> {});
         difficultyBtn.getProperties().put("origText", difficultyBtn.getText());
         Runnable refreshSkin = () -> {
             BirdType pick = selected[0];
@@ -46124,7 +46135,7 @@ public class BirdGame3 {
 
         List<BirdType> gridBirds = new ArrayList<>(allowed);
         Pane selectionPane = new Pane();
-        double paneW = 1100;
+        double paneW = 930;
         double paneH = 520;
         lockRegionSize(selectionPane, paneW, paneH);
         selectionPane.setStyle("-fx-background-color: rgba(0,0,0,0.35); -fx-border-color: #90A4AE; -fx-border-width: 3; -fx-background-radius: 20; -fx-border-radius: 20;");
@@ -46135,13 +46146,13 @@ public class BirdGame3 {
 
         int columns = gridBirds.size() > 12 ? 4 : 3;
         int rows = (int) Math.ceil(gridBirds.size() / (double) columns);
-        double dockW = 150;
-        double dockH = 300;
+        double dockW = 110;
+        double dockH = 180;
         double dockX = 0;
         double dockY = paneH - dockH;
         double gridX = dockX + dockW + 20;
         double gridY = 10;
-        double gridRightPad = 140;
+        double gridRightPad = 36;
         double gridW = paneW - gridX - gridRightPad;
         double gridH = paneH - 20;
         double cellW = gridW / columns;
@@ -46187,7 +46198,7 @@ public class BirdGame3 {
         selectorDock.setStyle("-fx-background-color: rgba(10,10,10,0.6); -fx-border-color: #FFD54F; -fx-border-width: 2; -fx-background-radius: 18; -fx-border-radius: 18;");
         selectionPane.getChildren().add(selectorDock);
 
-        Label dockLabel = new Label("PLAYER SELECTOR");
+        Label dockLabel = new Label("P1");
         dockLabel.setFont(Font.font("Consolas", 18));
         dockLabel.setTextFill(Color.web("#FFE082"));
         dockLabel.setLayoutX(dockX + 10);
@@ -46210,8 +46221,8 @@ public class BirdGame3 {
         selectorLabel.setMouseTransparent(true);
         selectionPane.getChildren().add(selectorLabel);
 
-        Button back = uiFactory.action("BACK", 320, 96, 34, "#546E7A", 22, () -> showAdventureBattleSelect(stage));
-        Button start = uiFactory.action("START BATTLE", 420, 96, 34, "#00C853", 24, () -> {
+        Button back = uiFactory.action("BACK", 220, 66, 22, "#546E7A", 18, () -> showAdventureBattleSelect(stage));
+        Button start = uiFactory.action("START BATTLE", 330, 66, 25, "#00C853", 20, () -> {
             if (selected[0] == null) return;
             playButtonClick();
             adventureSelectedBird = selected[0];
@@ -46223,8 +46234,8 @@ public class BirdGame3 {
         Runnable refreshSelection = () -> {
             BirdType pick = selected[0];
             boolean hasPick = pick != null;
-            selectedLabel.setText(hasPick ? "Selected: " + pick.name : "Selected: SELECT");
-            fitLabelSingleLine(selectedLabel, 38, 22, rightCardInnerWidth);
+            selectedLabel.setText(hasPick ? pick.name.toUpperCase(Locale.ROOT) : "CHOOSE A BIRD");
+            fitLabelSingleLine(selectedLabel, 34, 22, rightCardInnerWidth);
             if (hasPick) {
                 selectedSkin[0] = normalizeAdventureSkinChoice(pick, selectedSkin[0]);
             } else {
@@ -46301,7 +46312,10 @@ public class BirdGame3 {
             }
         });
 
-        VBox rightCard = new VBox(14, info, rules, selectedLabel, optionRow);
+        StackPane previewFrame = new StackPane(stagePreview);
+        lockRegionSize(previewFrame, 456, 230);
+        previewFrame.setStyle("-fx-background-color: rgba(0,0,0,0.45); -fx-background-radius: 16;");
+        VBox rightCard = new VBox(12, previewFrame, info, selectedLabel, optionRow, rules);
         rightCard.setAlignment(Pos.TOP_LEFT);
         rightCard.setPadding(new Insets(22));
         rightCard.setMinWidth(rightCardWidth);
@@ -46312,17 +46326,20 @@ public class BirdGame3 {
         HBox center = new HBox(22, selectionPane, rightCard);
         center.setAlignment(Pos.CENTER);
 
-        HBox bottom = new HBox(18, back, start);
+        HBox prompts = buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "CHOOSE BIRD"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "SELECT"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "BATTLES"));
+        Region bottomSpacer = new Region();
+        HBox.setHgrow(bottomSpacer, Priority.ALWAYS);
+        HBox bottom = new HBox(18, back, prompts, bottomSpacer, start);
         bottom.setAlignment(Pos.CENTER);
 
         root.setTop(title);
         root.setCenter(center);
         root.setBottom(bottom);
 
-        Scene scene = new Scene(root, WIDTH, HEIGHT);
-        setupKeyboardNavigation(scene);
-        applyConsoleHighlight(scene);
-        setScenePreservingFullscreen(stage, scene);
+        installFixedCampaignScene(stage, root, start, back);
         if (selected[0] != null) {
             BirdIconSpot spot = spotByType.get(selected[0]);
             if (spot != null) {
@@ -46338,7 +46355,6 @@ public class BirdGame3 {
             selectorLabel.setY(dockPosition.getY() + 6);
         }
         refreshSelection.run();
-        start.requestFocus();
     }
 
     private void startAdventureBattle(Stage stage) {

@@ -53,6 +53,36 @@ class StoryUiModernizationTest {
         assertFalse(gallery.contains("content.getChildren().addAll(title, count"));
     }
 
+    @Test
+    void legacyAdventureFlowUsesFocusedFixedWidthPresentation() throws IOException {
+        String source = Files.readString(GAME_SOURCE);
+        String hub = methodBody(source, "showAdventureHub");
+        String battles = methodBody(source, "showAdventureBattleSelect");
+        String fighters = methodBody(source, "showAdventureBirdSelect");
+
+        assertTrue(hub.contains("buildAdaptivePromptBar("));
+        assertTrue(hub.contains("bindEscape(scene, menuBtn)"));
+        assertFalse(hub.contains("Adventure Roster:"));
+        assertFalse(hub.contains("Completion reward:"));
+        assertFalse(hub.contains("selectedAdventureRoute.summary"));
+
+        assertTrue(battles.contains("buildMenuTopStrip("));
+        assertTrue(battles.contains("GridPane battles"));
+        assertTrue(battles.contains("buildAdaptivePromptBar("));
+        assertTrue(battles.contains("installFixedCampaignScene("));
+        assertFalse(battles.contains("setPrefSize(1500, 96)"));
+
+        assertTrue(fighters.contains("lockRegionSize(root, 1600, 950)"));
+        assertTrue(fighters.contains("double paneW = 930"));
+        assertTrue(fighters.contains("double rightCardWidth = 500"));
+        assertTrue(fighters.contains("StagePreviewRenderer.draw(stagePreview"));
+        assertTrue(fighters.contains("buildAdaptivePromptBar("));
+        assertTrue(fighters.contains("installFixedCampaignScene("));
+        assertFalse(fighters.contains("battle.briefing"));
+        assertFalse(fighters.contains("Adventure roster:"));
+        assertFalse(fighters.contains("double paneW = 1100"));
+    }
+
     private static String methodBody(String source, String methodName) {
         int name = source.indexOf("private void " + methodName + "(");
         assertTrue(name >= 0, "Missing method " + methodName);
