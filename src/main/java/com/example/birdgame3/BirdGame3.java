@@ -845,29 +845,6 @@ public class BirdGame3 {
             .map(action -> action.prefKey)
             .toArray(String[]::new);
 
-    private Node controllerGlyphHint(String glyph, String glyphColor, String text) {
-        StackPane badge = new StackPane();
-        double badgeWidth = glyph != null && glyph.length() > 1 ? Math.max(54.0, glyph.length() * 12.0 + 18.0) : 34.0;
-        badge.setMinSize(badgeWidth, 34);
-        badge.setPrefSize(badgeWidth, 34);
-        badge.setMaxSize(badgeWidth, 34);
-        badge.setStyle("-fx-background-color: " + glyphColor + "; -fx-background-radius: 18; -fx-border-color: rgba(255,255,255,0.5); -fx-border-width: 1.5; -fx-border-radius: 18;");
-
-        Label glyphLabel = new Label(glyph == null ? "" : glyph.toUpperCase(Locale.ROOT));
-        glyphLabel.setFont(Font.font("Arial Black", FontWeight.BOLD, glyph != null && glyph.length() > 1 ? 11 : 18));
-        glyphLabel.setTextFill(Color.WHITE);
-        badge.getChildren().add(glyphLabel);
-
-        Label textLabel = new Label(text);
-        textLabel.setFont(Font.font("Consolas", 15));
-        textLabel.setTextFill(Color.web("#ECEFF1"));
-        applyNoEllipsis(textLabel);
-
-        HBox hint = new HBox(8, badge, textLabel);
-        hint.setAlignment(Pos.CENTER_LEFT);
-        return hint;
-    }
-
     private enum TrainingDummyBehavior {
         IDLE("Idle"),
         JUMP("Jump"),
@@ -40648,10 +40625,19 @@ public class BirdGame3 {
 
         Button back = uiFactory.action("BACK", 180, 50, 18, "#D32F2F", 16, () -> { });
         back.setStyle(MenuTheme.buttonStyle("#D32F2F", 16));
-        Label hint = new Label("ESC BACK   R / SPACE / ENTER REPLAY   H TOGGLE UI");
+        Label hint = new Label();
         hint.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
         hint.setTextFill(Color.web("#ECEFF1"));
         hint.setStyle("-fx-background-color: rgba(4,8,12,0.70); -fx-background-radius: 16; -fx-padding: 6 14 6 14;");
+        hint.textProperty().bind(Bindings.createStringBinding(() -> {
+            UiInputPrompts.Device device = uiInputTracker.activeDevice();
+            String primary = UiInputPrompts.render(device,
+                    UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "EXIT"),
+                    UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "REPLAY"));
+            return device == UiInputPrompts.Device.KEYBOARD_MOUSE
+                    ? primary + "   •   H  HIDE UI"
+                    : primary;
+        }, uiInputTracker.activeInputProperty()));
         VBox chrome = new VBox(8, back, hint);
         chrome.setAlignment(Pos.TOP_CENTER);
         chrome.setMaxSize(Region.USE_PREF_SIZE, Region.USE_PREF_SIZE);
@@ -47722,7 +47708,7 @@ public class BirdGame3 {
         Button[] wiimoteModeButtons = new Button[4];
         Label[] wiimoteStatusLabels = new Label[4];
 
-        Label controlsInfo = new Label("Select a control, then press a new key. Conflicts swap automatically. ESC cancels a pending rebind.");
+        Label controlsInfo = new Label("Choose a player and binding, then press a new keyboard key. Conflicts swap automatically.");
         controlsInfo.setFont(Font.font("Consolas", 20));
         controlsInfo.setTextFill(Color.web("#FFE082"));
         controlsInfo.setWrapText(true);
@@ -47882,7 +47868,7 @@ public class BirdGame3 {
             saveAchievements();
         });
 
-        controlsInfo.setText("Choose a player, then select one binding to change it. ESC cancels a pending rebind.");
+        controlsInfo.setText("Choose a player and binding, then press a new keyboard key. Conflicts swap automatically.");
         wiimoteInfo.setText("Pair Wii Remotes in Windows Bluetooth, then choose the mode for each player slot.");
 
         int[] keyboardPlayer = {Math.clamp(uiInputTracker.activeInputProperty().get().playerIndex(), 0, 3)};
@@ -68387,7 +68373,8 @@ public class BirdGame3 {
         g.setFill(Color.web("#E1F5FE"));
         g.setFont(Font.font("Arial", FontWeight.BOLD, 26));
         g.setTextAlign(TextAlignment.CENTER);
-        g.fillText("REPLAY — ESC TO EXIT", WIDTH / 2.0, 186);
+        String exitInput = UiInputPrompts.inputFor(uiInputTracker.activeDevice(), UiInputPrompts.Command.BACK);
+        g.fillText("REPLAY  ·  " + exitInput + "  EXIT", WIDTH / 2.0, 186);
         g.setTextAlign(TextAlignment.LEFT);
     }
 
@@ -68806,12 +68793,25 @@ public class BirdGame3 {
 
     private void pollWiimoteGameplayInputs() {
         if (replayPlaybackActive) {
+            WiimoteMappedState replayControls = controllerMenuState();
+            boolean replayExitHeld = replayControls.connected()
+                    && (replayControls.menuBack() || replayControls.menuPause());
+            if (replayExitHeld && !wiimoteGameplayPauseHeld[0] && currentStage != null) {
+                wiimoteGameplayPauseHeld[0] = true;
+                javafx.application.Platform.runLater(() -> {
+                    if (replayPlaybackActive && currentStage != null) {
+                        endReplayPlayback(currentStage);
+                    }
+                });
+            } else {
+                wiimoteGameplayPauseHeld[0] = replayExitHeld;
+            }
             clearActionStates(wiimoteActionPressed);
             Arrays.fill(controllerAttackUpHeld, false);
             Arrays.fill(controllerAttackDownHeld, false);
             Arrays.fill(wiimoteLeftHeld, false);
             Arrays.fill(wiimoteRightHeld, false);
-            Arrays.fill(wiimoteGameplayPauseHeld, false);
+            Arrays.fill(wiimoteGameplayPauseHeld, 1, wiimoteGameplayPauseHeld.length, false);
             return;
         }
         clearActionStates(wiimoteActionPressed);
@@ -79129,13 +79129,11 @@ public class BirdGame3 {
         VBox heading = new VBox(0, pause, mode);
         heading.setAlignment(Pos.CENTER_LEFT);
 
-        FlowPane legend = new FlowPane(16, 6);
+        HBox legend = buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "SELECT"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "BACK"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.PAUSE, "RESUME"));
         legend.setAlignment(Pos.CENTER_RIGHT);
-        legend.getChildren().addAll(
-                controllerGlyphHint("A", "#2E7D32", "select"),
-                controllerGlyphHint("B", "#B71C1C", "back"),
-                controllerGlyphHint("START", "#F9A825", "resume")
-        );
         Region headerSpacer = new Region();
         HBox.setHgrow(headerSpacer, Priority.ALWAYS);
         HBox header = new HBox(20, heading, headerSpacer, legend);
