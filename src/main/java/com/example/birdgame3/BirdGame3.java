@@ -44555,30 +44555,19 @@ public class BirdGame3 {
         clearAshfallTrialState();
         playMenuMusic();
 
-        BorderPane root = new BorderPane();
-        root.setPadding(new Insets(30, 40, 30, 40));
-        root.setStyle("-fx-background-color: linear-gradient(to bottom, #081122, #1F355E);");
-
-        Label title = new Label("EPISODES");
-        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 96));
-        title.setTextFill(Color.GOLD);
-
-        Label legacyNote = new Label("Legacy Episodes: self-contained story arcs with one-time achievement rewards when you finish them.");
-        legacyNote.setFont(Font.font("Consolas", 24));
-        legacyNote.setTextFill(Color.web("#FFCC80"));
-        legacyNote.setWrapText(true);
-        legacyNote.setMaxWidth(1400);
-        legacyNote.setTextAlignment(TextAlignment.CENTER);
-
-        VBox header = new VBox(8, title, legacyNote);
-        header.setAlignment(Pos.CENTER);
-        BorderPane.setAlignment(header, Pos.CENTER);
+        BorderPane root = buildModernMenuPage();
+        Button menuButton = uiFactory.action("BACK", 220, 66, 22, "#B5121B", 18,
+                () -> showLegacyStories(stage));
+        StackPane title = buildMenuTitleBanner("EPISODES", 430, 72, 34);
+        root.setTop(buildMenuTopStrip(menuButton, title,
+                buildMenuChip("3 STORY ARCS", "#26345B", "#90CAF9")));
 
         VBox pigeonCard = buildEpisodeCard(stage, EpisodeType.PIGEON, "#4FC3F7", "Legacy rooftop skirmishes that introduce the early rivalries.");
         VBox batCard = buildEpisodeCard(stage, EpisodeType.BAT, "#B388FF", "Echo caverns and aerial ambushes where timing decides everything.");
         VBox pelicanCard = buildEpisodeCard(stage, EpisodeType.PELICAN, "#FFD54F", "Iron Beak leads a siege through storm arenas and elite foes.");
-        VBox cards = new VBox(18, pigeonCard, batCard, pelicanCard);
+        VBox cards = new VBox(14, pigeonCard, batCard, pelicanCard);
         cards.setAlignment(Pos.TOP_CENTER);
+        cards.setPadding(new Insets(14, 10, 14, 10));
 
         ScrollPane scroll = new ScrollPane(cards);
         scroll.setFitToWidth(true);
@@ -44586,22 +44575,19 @@ public class BirdGame3 {
         scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
 
-        Button menuButton = uiFactory.action("BACK TO LEGACY STORIES", 560, 95, 30, "#D32F2F", 22,
-                () -> showLegacyStories(stage));
-        menuButton.setWrapText(false);
-        uiFactory.fitSingleLineOnLayout(menuButton, 34, 20);
-        HBox bottom = new HBox(menuButton);
-        bottom.setAlignment(Pos.CENTER);
-
-        root.setTop(header);
         root.setCenter(scroll);
-        root.setBottom(bottom);
+        root.setBottom(buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "CHOOSE EPISODE"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "OPEN"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "LEGACY STORIES")));
+        BorderPane.setMargin(root.getBottom(), new Insets(14, 0, 0, 0));
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, menuButton);
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
         setScenePreservingFullscreen(stage, scene);
-        if (!pigeonCard.getChildren().isEmpty() && pigeonCard.getChildren().get(3) instanceof HBox h && !h.getChildren().isEmpty() && h.getChildren().getFirst() instanceof Button b) {
+        if (!pigeonCard.getChildren().isEmpty() && pigeonCard.getChildren().getLast() instanceof HBox h && !h.getChildren().isEmpty() && h.getChildren().getFirst() instanceof Button b) {
             b.requestFocus();
         }
     }
@@ -44824,19 +44810,17 @@ public class BirdGame3 {
         HBox utilityRail = new HBox(12, difficulty, gallery, legacy, newStory, back);
         utilityRail.setAlignment(Pos.CENTER);
         utilityRail.setLayoutX(250);
-        utilityRail.setLayoutY(844);
+        utilityRail.setLayoutY(824);
 
-        Label footer = new Label(
-                "FIGHTER CHOICES CHANGE THE MISSION RESPONSE, NOT THE CAMPAIGN OUTCOME.");
-        footer.setFont(Font.font("Consolas", FontWeight.BOLD, 13));
-        footer.setTextFill(Color.web("#728896"));
-        footer.setPrefWidth(1000);
-        footer.setTextAlignment(TextAlignment.CENTER);
-        footer.setLayoutX(300);
-        footer.setLayoutY(915);
+        HBox inputPrompt = buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "CHOOSE ACT"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "OPEN"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "HUB"));
+        inputPrompt.setLayoutX(42);
+        inputPrompt.setLayoutY(892);
 
         overlay.getChildren().addAll(eyebrow, title, subtitle, dossier,
-                routePanel, utilityRail, footer);
+                routePanel, utilityRail, inputPrompt);
         installFixedCampaignScene(stage, content, continueButton, back);
     }
 
@@ -44954,9 +44938,15 @@ public class BirdGame3 {
 
         Region spacer = new Region();
         VBox.setVgrow(spacer, Priority.ALWAYS);
-        Button back = uiFactory.action("BACK TO CAMPAIGN ROUTE", 390, 66, 18, "#344854", 16,
+        Button back = uiFactory.action("BACK", 250, 66, 18, "#344854", 16,
                 () -> showCampaignHub(stage));
-        page.getChildren().addAll(eyebrow, title, guidance, missionCards, spacer, back);
+        HBox prompt = buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "CHOOSE MISSION"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "OPEN"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "CAMPAIGN ROUTE"));
+        HBox footer = new HBox(18, back, prompt);
+        footer.setAlignment(Pos.CENTER);
+        page.getChildren().addAll(eyebrow, title, guidance, missionCards, spacer, footer);
         content.getChildren().addAll(backdrop, page);
         installFixedCampaignScene(stage, content, firstSelectable == null ? back : firstSelectable, back);
     }
@@ -45090,7 +45080,7 @@ public class BirdGame3 {
         root.setAlignment(Pos.CENTER);
         root.setPadding(new Insets(42, 70, 42, 70));
         lockRegionSize(root, 1600, 950);
-        root.setStyle("-fx-background-color: linear-gradient(to bottom, #050A13, #172B42);");
+        root.setStyle(MenuTheme.pageBackground());
 
         int actNumber = Math.max(1, stillSkyCampaign.actIndexForMission(mission.id()) + 1);
         Label kicker = new Label("ACT " + actNumber + "  •  "
@@ -45116,9 +45106,7 @@ public class BirdGame3 {
         objectives.setAlignment(Pos.CENTER_LEFT);
         objectives.setPadding(new Insets(22, 34, 22, 34));
         objectives.setMaxWidth(980);
-        objectives.setStyle("-fx-background-color: rgba(0,0,0,0.44);"
-                + "-fx-border-color: #546E7A; -fx-border-width: 2;"
-                + "-fx-background-radius: 18; -fx-border-radius: 18;");
+        objectives.setStyle(MenuTheme.panelStyle("#80DEEA", 18));
         for (int i = 0; i < mission.phases().size(); i++) {
             StoryCampaign.MissionPhase phase = mission.phases().get(i);
             Label line = new Label((i + 1) + ". " + phase.label()
@@ -45134,8 +45122,8 @@ public class BirdGame3 {
                     .map(type -> type.name).collect(Collectors.joining(" / "));
             case FULL_ROSTER -> "PLAYABLE: ANY OF ALL 21 BIRDS";
         };
-        Label rules = new Label(policy + "\nDIFFICULTY: " + stillSkyProgress.difficulty.label.toUpperCase(Locale.ROOT)
-                + "  •  CPU " + stillSkyProgress.difficulty.cpuLevel);
+        Label rules = new Label(policy + "  •  DIFFICULTY: "
+                + stillSkyProgress.difficulty.label.toUpperCase(Locale.ROOT));
         rules.setFont(Font.font("Consolas", FontWeight.BOLD, 20));
         rules.setTextFill(Color.web("#FFE082"));
         rules.setTextAlignment(TextAlignment.CENTER);
@@ -45147,7 +45135,10 @@ public class BirdGame3 {
         );
         Button back = uiFactory.action("BACK TO STORY", 330, 72, 20, "#455A64", 18,
                 () -> showCampaignHub(stage));
-        root.getChildren().addAll(kicker, title, briefing, objectives, rules, deploy, back);
+        HBox prompt = buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "PLAY"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "STORY"));
+        root.getChildren().addAll(kicker, title, briefing, objectives, rules, deploy, back, prompt);
         installFixedCampaignScene(stage, root, deploy, back);
     }
 
@@ -45183,7 +45174,7 @@ public class BirdGame3 {
         root.setAlignment(Pos.CENTER);
         root.setPadding(new Insets(28, 44, 28, 44));
         lockRegionSize(root, 1600, 950);
-        root.setStyle("-fx-background-color: linear-gradient(to bottom, #07111E, #261936);");
+        root.setStyle(MenuTheme.pageBackground());
         Label title = new Label(mission.playable().kind() == StoryCampaign.PlayableKind.FORCED
                 ? "STORY HANDOFF"
                 : mission.playable().kind() == StoryCampaign.PlayableKind.FULL_ROSTER
@@ -45237,7 +45228,11 @@ public class BirdGame3 {
                 () -> showCampaignMissionBriefing(stage, mission));
         HBox bottom = new HBox(14, skin, deploy, back);
         bottom.setAlignment(Pos.CENTER);
-        root.getChildren().addAll(title, portrait, selected, choices, bottom);
+        HBox prompt = buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "CHOOSE FIGHTER"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "DEPLOY"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "BRIEFING"));
+        root.getChildren().addAll(title, portrait, selected, choices, bottom, prompt);
         installFixedCampaignScene(stage, root, deploy, back);
     }
 
@@ -45390,10 +45385,7 @@ public class BirdGame3 {
         content.setAlignment(Pos.TOP_CENTER);
         content.setPadding(new Insets(28, 46, 28, 46));
         lockRegionSize(content, 1600, 950);
-        content.setStyle("-fx-background-color: linear-gradient(to bottom, #050A12, #1A2438);");
-        Label title = new Label("CUTSCENE GALLERY");
-        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 48));
-        title.setTextFill(Color.web("#E1F5FE"));
+        content.setStyle(MenuTheme.pageBackground());
         long authoredScenesSeen = stillSkyCampaign.scenes.keySet().stream()
                 .filter(stillSkyProgress::hasSeenScene)
                 .count();
@@ -45402,11 +45394,8 @@ public class BirdGame3 {
         boolean creditsSeen = stillSkyProgress.hasSeenScene(StillSkyCreditsPlayer.ID)
                 || stillSkyProgress.campaignComplete;
         long creditsSeenCount = creditsSeen ? 1 : 0;
-        Label count = new Label((authoredScenesSeen + prologuesSeen + epiloguesSeen + creditsSeenCount)
-                + "/" + (stillSkyCampaign.scenes.size() + 3)
-                + " SCENES SEEN");
-        count.setFont(Font.font("Consolas", FontWeight.BOLD, 22));
-        count.setTextFill(Color.web("#80DEEA"));
+        String sceneCount = (authoredScenesSeen + prologuesSeen + epiloguesSeen + creditsSeenCount)
+                + " / " + (stillSkyCampaign.scenes.size() + 3) + " SEEN";
         FlowPane grid = new FlowPane(10, 10);
         grid.setAlignment(Pos.CENTER);
         grid.setPrefWrapLength(1420);
@@ -45443,8 +45432,7 @@ public class BirdGame3 {
             sceneButton.setDisable(!seen);
             grid.getChildren().add(sceneButton);
         }
-        Button back = uiFactory.action(vaultSubpageActive ? "BACK TO VAULT" : "BACK TO STORY",
-                330, 70, 20, "#455A64", 18,
+        Button back = uiFactory.action("BACK", 230, 66, 20, "#B5121B", 18,
                 () -> returnFromVaultSubpage(stage, () -> showCampaignHub(stage)));
         ScrollPane galleryScroll = new ScrollPane(grid);
         galleryScroll.setFitToWidth(true);
@@ -45452,37 +45440,69 @@ public class BirdGame3 {
         galleryScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         galleryScroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
         VBox.setVgrow(galleryScroll, Priority.ALWAYS);
-        content.getChildren().addAll(title, count, galleryScroll, back);
+        StackPane top = buildMenuTopStrip(back,
+                buildMenuTitleBanner("CUTSCENE GALLERY", 590, 72, 30),
+                buildMenuChip(sceneCount, "#123B54", "#80DEEA"));
+        HBox prompt = buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "CHOOSE SCENE"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "PLAY"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK,
+                        vaultSubpageActive ? "VAULT" : "STORY"));
+        content.getChildren().addAll(top, galleryScroll, prompt);
         installFixedCampaignScene(stage, content, back, back);
     }
 
     private void showLegacyStories(Stage stage) {
         campaignModeActive = false;
-        VBox root = new VBox(24);
-        root.setAlignment(Pos.CENTER);
-        root.setPadding(new Insets(60));
+        BorderPane root = buildModernMenuPage();
         lockRegionSize(root, 1600, 950);
-        root.setStyle("-fx-background-color: linear-gradient(to bottom, #100B14, #2A2030);");
-        Label title = new Label("LEGACY STORIES");
-        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 74));
-        title.setTextFill(Color.web("#FFE0B2"));
-        Label description = new Label("Original routes remain playable with their existing checkpoints, rewards, and unlocks.");
-        description.setFont(Font.font("Consolas", 23));
-        description.setTextFill(Color.web("#CFD8DC"));
-        Button main = uiFactory.action("MAIN ADVENTURE\nPIGEON'S BEACON WAR", 620, 100, 22, "#1565C0", 18, () -> {
+        Button back = uiFactory.action("BACK", 220, 66, 22, "#B5121B", 18,
+                () -> showCampaignHub(stage));
+        root.setTop(buildMenuTopStrip(back, buildMenuTitleBanner("LEGACY STORIES", 560, 72, 31),
+                buildMenuChip("3 ARCHIVES", "#4A2A55", "#CE93D8")));
+
+        Button main = uiFactory.action("OPEN", 260, 72, 24, "#1565C0", 19, () -> {
             setAdventureRoute(AdventureRoute.MAIN);
             showAdventureHub(stage);
         });
-        Button tempest = uiFactory.action("TEMPEST RUN\nPELICAN'S HARBOR WAR", 620, 100, 22, "#00838F", 18, () -> {
+        main.setAccessibleText("Main Adventure: Pigeon's Beacon War");
+        Button tempest = uiFactory.action("OPEN", 260, 72, 24, "#00838F", 19, () -> {
             setAdventureRoute(AdventureRoute.TEMPEST);
             showAdventureHub(stage);
         });
-        Button episodes = uiFactory.action("EPISODES\nPIGEON • BAT • PELICAN", 620, 100, 22, "#6A1B9A", 18,
+        tempest.setAccessibleText("Tempest Run: Pelican's Harbor War");
+        Button episodes = uiFactory.action("OPEN", 260, 72, 24, "#6A1B9A", 19,
                 () -> showEpisodesHub(stage));
-        Button back = uiFactory.action("BACK TO THE STILL SKY", 460, 72, 20, "#455A64", 18,
-                () -> showCampaignHub(stage));
-        root.getChildren().addAll(title, description, main, tempest, episodes, back);
+        episodes.setAccessibleText("Episodes: Pigeon, Bat, and Pelican");
+
+        VBox choices = new VBox(18,
+                buildLegacyStoryChoice("PIGEON'S BEACON WAR", "MAIN ADVENTURE", main, "#64B5F6"),
+                buildLegacyStoryChoice("PELICAN'S HARBOR WAR", "TEMPEST RUN", tempest, "#80DEEA"),
+                buildLegacyStoryChoice("PIGEON  /  BAT  /  PELICAN", "EPISODES", episodes, "#CE93D8"));
+        choices.setAlignment(Pos.CENTER);
+        root.setCenter(choices);
+        root.setBottom(buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "CHOOSE STORY"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "OPEN"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "THE STILL SKY")));
+        BorderPane.setMargin(root.getBottom(), new Insets(14, 0, 0, 0));
+
         installFixedCampaignScene(stage, root, main, back);
+    }
+
+    private HBox buildLegacyStoryChoice(String titleText, String eyebrowText, Button action, String accent) {
+        Label eyebrow = buildMenuEyebrow(eyebrowText, accent);
+        Label title = buildMenuPanelTitle(titleText, 25);
+        VBox copy = new VBox(4, eyebrow, title);
+        copy.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(copy, Priority.ALWAYS);
+
+        HBox row = new HBox(22, copy, action);
+        row.setAlignment(Pos.CENTER_LEFT);
+        row.setPadding(new Insets(18, 22, 18, 26));
+        row.setMaxWidth(1100);
+        row.setStyle(MenuTheme.panelStyle(accent, 18));
+        return row;
     }
 
     private void showAdventureHub(Stage stage) {
@@ -53218,38 +53238,39 @@ public class BirdGame3 {
         boolean completed = isEpisodeCompleted(ep);
         boolean episodePlayable = ep != EpisodeType.BAT || batUnlocked;
 
-        VBox card = new VBox(14);
+        VBox card = new VBox(10);
         card.setAlignment(Pos.CENTER_LEFT);
-        card.setPadding(new Insets(28));
-        card.setMaxWidth(1480);
-        card.setStyle("-fx-background-color: rgba(0,0,0,0.55); -fx-background-radius: 24; -fx-border-color: " + borderColor + "; -fx-border-width: 4; -fx-border-radius: 24;");
+        card.setPadding(new Insets(20, 26, 20, 26));
+        card.setMaxWidth(1360);
+        card.setStyle(MenuTheme.panelStyle(borderColor, 20));
 
         Label epTitle = new Label(switch (ep) {
             case BAT -> BAT_EPISODE_TITLE;
             case PELICAN -> PELICAN_EPISODE_TITLE;
             default -> PIGEON_EPISODE_TITLE;
         });
-        epTitle.setFont(Font.font("Arial Black", 46));
+        epTitle.setFont(Font.font("Arial Black", 34));
         epTitle.setTextFill(Color.WHITE);
 
         Label epStatus = new Label(
                 !episodePlayable
-                        ? "Locked - character not unlocked"
-                        : (completed ? "Completed" : ("Unlocked Chapters: " + unlocked + "/" + chapters.length))
+                        ? "LOCKED  /  UNLOCK BAT TO PLAY"
+                        : (completed ? "EPISODE COMPLETE" : (unlocked + " / " + chapters.length + " CHAPTERS AVAILABLE"))
         );
-        epStatus.setFont(Font.font("Consolas", 30));
+        epStatus.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
         epStatus.setTextFill(!episodePlayable ? Color.GRAY : (completed ? Color.LIMEGREEN : Color.ORANGE));
 
         Label flavor = new Label(flavorText);
-        flavor.setFont(Font.font("Consolas", 22));
-        flavor.setTextFill(Color.LIGHTBLUE);
+        flavor.setFont(Font.font("Consolas", 17));
+        flavor.setTextFill(Color.web("#B0BEC5"));
+        flavor.setWrapText(true);
 
         HBox actions = new HBox(18);
         actions.setAlignment(Pos.CENTER_LEFT);
 
         Button continueEpisode = uiFactory.action(
                 completed ? "REPLAY EPISODE" : "CONTINUE EPISODE",
-                430, 96, 32, "#00C853", 22, () -> {
+                360, 70, 24, "#00A854", 18, () -> {
                     resetMatchStats();
                     selectedEpisode = ep;
                     storyReplayMode = false;
@@ -53261,7 +53282,7 @@ public class BirdGame3 {
         continueEpisode.setDisable(!episodePlayable);
         continueEpisode.setOpacity(episodePlayable ? 1.0 : 0.65);
 
-        Button chapterSelect = uiFactory.action("CHAPTER SELECT", 380, 96, 30, "#1976D2", 22, () -> {
+        Button chapterSelect = uiFactory.action("CHAPTER SELECT", 330, 70, 23, "#1565C0", 18, () -> {
             selectedEpisode = ep;
             showEpisodeChapterSelect(stage);
         });
@@ -53269,7 +53290,7 @@ public class BirdGame3 {
         chapterSelect.setOpacity(episodePlayable ? 1.0 : 0.65);
 
         actions.getChildren().addAll(continueEpisode, chapterSelect);
-        card.getChildren().addAll(epTitle, epStatus, actions, flavor);
+        card.getChildren().addAll(epTitle, epStatus, flavor, actions);
         return card;
     }
 
@@ -53277,28 +53298,30 @@ public class BirdGame3 {
         playMenuMusic();
         StoryChapter[] chapters = activeStoryChapters();
         int unlocked = Math.clamp(getEpisodeUnlocked(selectedEpisode), 1, chapters.length);
-        VBox root = new VBox(30);
-        root.setAlignment(Pos.CENTER);
-        root.setPadding(new Insets(50));
-        root.setStyle("-fx-background-color: linear-gradient(to bottom, #0A1530, #1B2C52);");
+        BorderPane root = buildModernMenuPage();
+        Button back = uiFactory.action("BACK", 220, 66, 22, "#B5121B", 18, () -> showEpisodesHub(stage));
+        StackPane title = buildMenuTitleBanner("CHAPTER SELECT", 520, 72, 31);
+        root.setTop(buildMenuTopStrip(back, title,
+                buildMenuChip(unlocked + " / " + chapters.length + " AVAILABLE", "#123B54", "#80DEEA")));
 
-        Label title = new Label(activeEpisodeTitle() + " - CHAPTERS");
-        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 84));
-        title.setTextFill(Color.CYAN.brighter());
-
-        VBox chapterList = new VBox(18);
+        VBox chapterList = new VBox(12);
         chapterList.setAlignment(Pos.CENTER);
+        chapterList.setPadding(new Insets(18, 0, 18, 0));
 
         for (int i = 0; i < chapters.length; i++) {
             StoryChapter chapter = chapters[i];
             boolean isUnlocked = i < unlocked;
-            String label = (i + 1) + ". " + chapter.title + " - " + chapter.opponentName;
-            Button chapterBtn = new Button(isUnlocked ? label : ((i + 1) + ". LOCKED"));
-            chapterBtn.setPrefSize(1500, 100);
-            chapterBtn.setFont(Font.font("Arial Black", 30));
-            chapterBtn.setStyle(isUnlocked
-                    ? "-fx-background-color: #263238; -fx-text-fill: white; -fx-background-radius: 18;"
-                    : "-fx-background-color: #444444; -fx-text-fill: #BBBBBB; -fx-background-radius: 18;");
+            String label = isUnlocked
+                    ? String.format(Locale.ROOT, "%02d   %s     VS  %s", i + 1,
+                    chapter.title.toUpperCase(Locale.ROOT), chapter.opponentName.toUpperCase(Locale.ROOT))
+                    : String.format(Locale.ROOT, "%02d   LOCKED", i + 1);
+            Button chapterBtn = new Button(label);
+            chapterBtn.setPrefSize(1260, 82);
+            chapterBtn.setFont(Font.font("Arial Black", 22));
+            chapterBtn.setAlignment(Pos.CENTER_LEFT);
+            chapterBtn.setStyle(MenuTheme.listRowStyle(isUnlocked ? "#29B6F6" : "#455A64", 16,
+                    i == Math.max(0, unlocked - 1)) + "-fx-text-fill: " + (isUnlocked ? "white" : "#78909C") + ";"
+                    + "-fx-padding: 0 28 0 28;");
             chapterBtn.setDisable(!isUnlocked);
 
             if (isUnlocked) {
@@ -53314,14 +53337,22 @@ public class BirdGame3 {
             chapterList.getChildren().add(chapterBtn);
         }
 
-        Button back = uiFactory.action("BACK TO EPISODES", 700, 105, 42, "#FF1744", 22, () -> showEpisodesHub(stage));
-
-        root.getChildren().addAll(title, chapterList, back);
+        root.setCenter(chapterList);
+        root.setBottom(buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "CHOOSE CHAPTER"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "PLAY"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "EPISODES")));
+        BorderPane.setMargin(root.getBottom(), new Insets(14, 0, 0, 0));
         Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, back);
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
         setScenePreservingFullscreen(stage, scene);
-        back.requestFocus();
+        if (!chapterList.getChildren().isEmpty() && chapterList.getChildren().getFirst() instanceof Button first) {
+            first.requestFocus();
+        } else {
+            back.requestFocus();
+        }
     }
 
     private void showCurrentStoryChapterIntro(Stage stage) {
@@ -63417,8 +63448,9 @@ public class BirdGame3 {
         text.setMaxWidth(1120);
         applyNoEllipsis(text);
 
+        String dialogueKind = speaker.equalsIgnoreCase("Narrator") ? "STORY" : "TRANSMISSION";
         VBox card = buildModernMenuPanel("#4FC3F7", 1260, 18,
-                buildMenuEyebrow("MISSION DISPATCH", "#80DEEA"),
+                buildMenuEyebrow(dialogueKind, "#80DEEA"),
                 buildMenuPanelTitle(speaker, 40), text);
         card.setAlignment(Pos.CENTER_LEFT);
 
@@ -63431,6 +63463,10 @@ public class BirdGame3 {
         VBox center = new VBox(24, card, buttons);
         center.setAlignment(Pos.CENTER);
         root.setCenter(center);
+        root.setBottom(buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "CONTINUE"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "HUB")));
+        BorderPane.setMargin(root.getBottom(), new Insets(14, 0, 0, 0));
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         bindEscape(scene, menuButton);
