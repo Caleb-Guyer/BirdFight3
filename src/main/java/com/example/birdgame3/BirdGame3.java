@@ -53160,8 +53160,7 @@ public class BirdGame3 {
             playErrorSound();
             Alert alert = new Alert(
                     Alert.AlertType.INFORMATION,
-                    "Only FEATHERDEV-enabled profiles can use Classic Level Select.\n\n"
-                            + "Enter FEATHERDEV in Settings to enable developer tools for this profile.",
+                    "Enable developer access for this profile from Settings → About.",
                     ButtonType.OK
             );
             alert.setTitle("FEATHERDEV Required");
@@ -53236,6 +53235,11 @@ public class BirdGame3 {
                 route, heading, current, rounds, navigation);
         panel.setAlignment(Pos.CENTER);
         root.setCenter(panel);
+        root.setBottom(buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "CHOOSE ROUND"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "USE ROUND"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "BATTLE CARD")));
+        BorderPane.setMargin(root.getBottom(), new Insets(14, 0, 0, 0));
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         bindEscape(scene, back);
