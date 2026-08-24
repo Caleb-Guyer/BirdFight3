@@ -22,18 +22,24 @@ class ResultsUiModernizationTest {
     }
 
     @Test
-    void resultsKeepOneHighlightAndIncludeAllSupportedPlayers() throws IOException {
+    void resultsKeepOnlyPlacementEssentialsAndIncludeAllSupportedPlayers() throws IOException {
         String source = Files.readString(Path.of(
                 "src", "main", "java", "com", "example", "birdgame3", "BirdGame3.java"));
-        String telemetry = methodBody(source, "private VBox buildCinematicTelemetrySummary");
+        String rewards = methodBody(source, "private VBox buildCinematicRewardSummary");
         String table = methodBody(source, "private VBox buildCinematicResultsTable");
         String summary = methodBody(source, "void showMatchSummary");
         String achievement = methodBody(source, "public void unlockAchievement");
 
-        assertTrue(telemetry.contains("postMatchTelemetryMoveRows(1)"));
-        assertTrue(telemetry.contains("MATCH HIGHLIGHT"));
-        assertFalse(telemetry.contains("SURVIVAL"));
+        assertTrue(rewards.contains("BIRD COINS"));
+        assertTrue(rewards.contains("birdCoinBalanceText()"));
+        assertFalse(rewards.contains("MATCH HIGHLIGHT"));
+        assertFalse(rewards.contains("postMatchTelemetryMoveRows"));
         assertTrue(table.contains("Math.min(6"));
+        assertTrue(table.contains("\"KOs\""));
+        assertTrue(table.contains("\"FALLS\""));
+        assertFalse(table.contains("\"DMG\""));
+        assertFalse(table.contains("\"STOCK\""));
+        assertFalse(table.contains("\"SCORE\""));
         assertTrue(summary.contains("ACHIEVEMENT_TOAST_TOP_ALIGNED_KEY"));
         assertFalse(achievement.contains("addToKillFeed"),
                 "the dedicated achievement toast must not duplicate itself in the event feed");

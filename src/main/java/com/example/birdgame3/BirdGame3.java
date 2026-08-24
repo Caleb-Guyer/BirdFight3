@@ -74589,8 +74589,8 @@ public class BirdGame3 {
         content.setPadding(new Insets(18, 22, 18, 22));
 
         VBox table = buildCinematicResultsTable(rankedBirds, winner, teamSummaryMode);
-        VBox telemetry = buildCinematicTelemetrySummary(coinsEarned);
-        content.getChildren().addAll(table, telemetry);
+        VBox rewards = buildCinematicRewardSummary(coinsEarned);
+        content.getChildren().addAll(table, rewards);
         shell.getChildren().add(content);
         return shell;
     }
@@ -74598,7 +74598,7 @@ public class BirdGame3 {
     private VBox buildCinematicResultsTable(List<Bird> rankedBirds, Bird winner, boolean teamSummaryMode) {
         VBox table = new VBox(8);
         table.setAlignment(Pos.TOP_LEFT);
-        lockRegionSize(table, 1062, 214);
+        lockRegionSize(table, 1200, 214);
 
         HBox header = new HBox(16);
         header.setAlignment(Pos.CENTER_LEFT);
@@ -74614,11 +74614,9 @@ public class BirdGame3 {
         grid.setVgap(5);
         grid.add(cinematicResultsLabel("PLACE", 15, Color.web("#8FA5CC"), true), 0, 0);
         grid.add(cinematicResultsLabel("PLAYER", 15, Color.web("#8FA5CC"), true), 1, 0);
-        grid.add(cinematicResultsLabel("BIRD", 15, Color.web("#8FA5CC"), true), 2, 0);
+        grid.add(cinematicResultsLabel("FIGHTER", 15, Color.web("#8FA5CC"), true), 2, 0);
         grid.add(cinematicResultsLabel("KOs", 15, Color.web("#8FA5CC"), true), 3, 0);
-        grid.add(cinematicResultsLabel("DMG", 15, Color.web("#8FA5CC"), true), 4, 0);
-        grid.add(cinematicResultsLabel("FALLS", 15, Color.web("#8FA5CC"), true), 5, 0);
-        grid.add(cinematicResultsLabel(usesSmashCombatRules() ? "STOCK" : "SCORE", 15, Color.web("#8FA5CC"), true), 6, 0);
+        grid.add(cinematicResultsLabel("FALLS", 15, Color.web("#8FA5CC"), true), 4, 0);
 
         int rows = Math.min(6, rankedBirds == null ? 0 : rankedBirds.size());
         for (int i = 0; i < rows; i++) {
@@ -74631,44 +74629,26 @@ public class BirdGame3 {
             grid.add(cinematicResultsLabel(hudTrim(matchSummaryOwnerLabel(bird), 16), 18, rowColor, true), 1, row);
             grid.add(cinematicResultsLabel(hudTrim(matchSummaryBirdLabel(bird), 18), 18, matchSummaryAccent(bird), true), 2, row);
             grid.add(cinematicResultsLabel(String.valueOf(safeStat(eliminations, bird)), 18, rowColor, false), 3, row);
-            grid.add(cinematicResultsLabel(String.valueOf(safeStat(damageDealt, bird)), 18, rowColor, false), 4, row);
-            grid.add(cinematicResultsLabel(String.valueOf(safeStat(falls, bird)), 18, rowColor, false), 5, row);
-            grid.add(cinematicResultsLabel(String.valueOf(safeStat(scores, bird)), 18, rowColor, false), 6, row);
+            grid.add(cinematicResultsLabel(String.valueOf(safeStat(falls, bird)), 18, rowColor, false), 4, row);
         }
 
         table.getChildren().addAll(header, grid);
         return table;
     }
 
-    private VBox buildCinematicTelemetrySummary(int coinsEarned) {
-        VBox box = new VBox(14);
-        box.setAlignment(Pos.TOP_LEFT);
-        lockRegionSize(box, 610, 214);
+    private VBox buildCinematicRewardSummary(int coinsEarned) {
+        VBox box = new VBox(6);
+        box.setAlignment(Pos.CENTER);
+        lockRegionSize(box, 470, 214);
 
-        HBox header = new HBox(14);
-        header.setAlignment(Pos.CENTER_LEFT);
-        header.getChildren().addAll(
-                cinematicResultsLabel("REWARDS", 24, Color.web("#80DEEA"), true),
-                cinematicResultsLabel("BIRD COINS +" + coinsEarned + "  TOTAL " + birdCoinBalanceText(),
-                        17, Color.web("#FFE082"), true)
-        );
-
-        List<GameplayTelemetry.MoveSnapshot> moves = postMatchTelemetryMoveRows(1);
-        VBox moveBox = new VBox(7);
-        moveBox.getChildren().add(cinematicResultsLabel("MATCH HIGHLIGHT", 15, Color.web("#8FA5CC"), true));
-        if (moves.isEmpty()) {
-            moveBox.getChildren().add(cinematicResultsLabel(
-                    "NO DAMAGE RECORDED", 20, Color.web("#B8C7E8"), true));
-        } else {
-            GameplayTelemetry.MoveSnapshot move = moves.getFirst();
-            moveBox.getChildren().add(cinematicResultsLabel(
-                    hudTrim(postMatchMoveName(move), 34), 21, Color.web("#E8F4FF"), true));
-            moveBox.getChildren().add(cinematicResultsLabel(
-                    move.damage() + " DAMAGE  |  " + move.kos() + (move.kos() == 1 ? " KO" : " KOs"),
-                    17, Color.web("#B8C7E8"), false));
-        }
-
-        box.getChildren().addAll(header, moveBox);
+        Label title = cinematicResultsLabel("REWARD", 18, Color.web("#80DEEA"), true);
+        Label earned = cinematicResultsLabel("+" + coinsEarned, 48, Color.web("#FFE082"), true);
+        Label currency = cinematicResultsLabel("BIRD COINS", 20, Color.WHITE, true);
+        Label total = cinematicResultsLabel("TOTAL  " + birdCoinBalanceText(),
+                16, Color.web("#B8C7E8"), false);
+        box.getChildren().addAll(title, earned, currency, total);
+        box.setStyle("-fx-background-color:rgba(255,255,255,0.04); -fx-background-radius:16;"
+                + "-fx-border-color:rgba(128,222,234,0.36); -fx-border-width:2; -fx-border-radius:16;");
         return box;
     }
 
@@ -78632,10 +78612,10 @@ public class BirdGame3 {
 
     private Button pauseTabButton(PausePanel panel, Stage stage) {
         Button button = new Button(panel.label);
-        button.setPrefSize(245, 58);
-        button.setMinSize(245, 58);
-        button.setMaxSize(245, 58);
-        button.setFont(Font.font("Arial Black", 19));
+        button.setPrefSize(220, 52);
+        button.setMinSize(220, 52);
+        button.setMaxSize(220, 52);
+        button.setFont(Font.font("Arial Black", 17));
         boolean selected = pausePanel == panel;
         button.setStyle("-fx-background-color: " + (selected ? "#F5C542" : "#182431") + ";"
                 + "-fx-text-fill: " + (selected ? "#080B10" : "#ECEFF1") + ";"
@@ -78652,37 +78632,58 @@ public class BirdGame3 {
         return button;
     }
 
-    private Button pauseFighterButton(int playerIdx, Bird bird, Stage stage) {
-        String label = "P" + (playerIdx + 1) + "  " + shortName(bird.name).toUpperCase(Locale.ROOT);
-        if (isAI[playerIdx]) label += "  CPU";
-        Button button = new Button(label);
-        button.setPrefSize(260, 46);
-        button.setMinSize(220, 46);
-        button.setMaxSize(310, 46);
-        button.setFont(Font.font("Arial Black", 15));
-        boolean selected = playerIdx == resolvedPausePlayerIndex();
-        button.setStyle("-fx-background-color: " + (selected ? "#136D85" : "#111A24") + ";"
-                + "-fx-text-fill: white; -fx-background-radius: 12; -fx-border-radius: 12;"
-                + "-fx-border-color: " + (selected ? "#80DEEA" : "#37474F") + "; -fx-border-width: 2;");
-        button.setFocusTraversable(true);
-        button.setOnAction(event -> {
-            playButtonClick();
-            pauseSelectedPlayerIndex = playerIdx;
-            rebuildPauseMenu(stage);
-        });
-        return button;
-    }
-
-    private Node buildPauseFighterStrip(Stage stage) {
-        HBox fighters = new HBox(10);
-        fighters.setAlignment(Pos.CENTER);
+    private List<Integer> pauseAvailablePlayerIndices() {
+        List<Integer> indices = new ArrayList<>();
         int count = Math.min(activePlayers, players.length);
         for (int i = 0; i < count; i++) {
-            if (players[i] != null) {
-                fighters.getChildren().add(pauseFighterButton(i, players[i], stage));
-            }
+            if (players[i] != null) indices.add(i);
         }
-        return fighters;
+        return List.copyOf(indices);
+    }
+
+    private void cyclePausePlayer(Stage stage, int delta) {
+        List<Integer> indices = pauseAvailablePlayerIndices();
+        int current = resolvedPausePlayerIndex();
+        int next = cycledPausePlayerIndex(indices, current, delta);
+        if (next >= 0 && next != current) {
+            pauseSelectedPlayerIndex = next;
+            rebuildPauseMenu(stage);
+        }
+    }
+
+    private Node buildPauseFighterSelector(Stage stage) {
+        List<Integer> indices = pauseAvailablePlayerIndices();
+        if (indices.size() <= 1) return null;
+
+        int playerIdx = resolvedPausePlayerIndex();
+        Bird bird = playerIdx >= 0 && playerIdx < players.length ? players[playerIdx] : null;
+        String text = "P" + (playerIdx + 1) + "  "
+                + (bird == null ? "FIGHTER" : shortName(bird.name).toUpperCase(Locale.ROOT))
+                + (isAI[playerIdx] ? "  ·  CPU" : "");
+        Label selected = new Label(text);
+        selected.setFont(Font.font("Arial Black", 16));
+        selected.setTextFill(Color.WHITE);
+        selected.setAlignment(Pos.CENTER);
+        applyNoEllipsis(selected);
+        StackPane selectedCard = new StackPane(selected);
+        lockRegionSize(selectedCard, 390, 48);
+        selectedCard.setStyle("-fx-background-color:#136D85; -fx-background-radius:12;"
+                + "-fx-border-color:#80DEEA; -fx-border-width:2; -fx-border-radius:12;");
+
+        Button previous = pauseFooterButton("‹", "#182431", 58, () -> cyclePausePlayer(stage, -1));
+        Button next = pauseFooterButton("›", "#182431", 58, () -> cyclePausePlayer(stage, 1));
+        previous.setFont(Font.font("Arial Black", 28));
+        next.setFont(Font.font("Arial Black", 28));
+        HBox selector = new HBox(8, previous, selectedCard, next);
+        selector.setAlignment(Pos.CENTER);
+        return selector;
+    }
+
+    static int cycledPausePlayerIndex(List<Integer> availableIndices, int currentIndex, int delta) {
+        if (availableIndices == null || availableIndices.isEmpty()) return -1;
+        int position = availableIndices.indexOf(currentIndex);
+        if (position < 0) position = 0;
+        return availableIndices.get(Math.floorMod(position + delta, availableIndices.size()));
     }
 
     private Node buildPauseMoveListPanel() {
@@ -78717,21 +78718,10 @@ public class BirdGame3 {
         role.setAlignment(Pos.CENTER);
         role.setMaxWidth(310);
 
-        Label mechanicTitle = new Label("CORE GAME PLAN");
-        mechanicTitle.setFont(Font.font("Arial Black", 17));
-        mechanicTitle.setTextFill(Color.web("#80DEEA"));
-        Label mechanic = new Label(guide.mechanic());
-        mechanic.setFont(Font.font("Consolas", FontWeight.BOLD, 15));
-        mechanic.setTextFill(Color.web("#ECEFF1"));
-        mechanic.setWrapText(true);
-        mechanic.setTextAlignment(TextAlignment.CENTER);
-        mechanic.setAlignment(Pos.CENTER);
-        mechanic.setMaxWidth(310);
-
-        VBox identity = new VBox(6, player, portrait, name, role, mechanicTitle, mechanic);
+        VBox identity = new VBox(6, player, portrait, name, role);
         identity.setAlignment(Pos.TOP_CENTER);
         identity.setPadding(new Insets(14, 18, 14, 18));
-        lockRegionSize(identity, 350, 570);
+        lockRegionSize(identity, 350, 520);
         identity.setStyle("-fx-background-color: linear-gradient(to bottom, #142536, #09111A);"
                 + "-fx-background-radius: 18; -fx-border-color: #2D7893; -fx-border-width: 2; -fx-border-radius: 18;");
 
@@ -78848,26 +78838,7 @@ public class BirdGame3 {
             bindings.add(bindingCell, 1, row + 1);
         }
 
-        Label techniquesTitle = new Label("DIRECTIONAL INPUTS");
-        techniquesTitle.setFont(Font.font("Arial Black", 19));
-        techniquesTitle.setTextFill(Color.web("#FFE082"));
-        Label techniques = new Label(
-                "Attack + direction changes normal attacks. Hold a grounded Attack to charge a smash.  "
-                        + "Special + direction selects one of four specials.  Block in air fast-falls.  "
-                        + "After a grab, hold a direction to choose the throw.  Double-tap a direction to dash.");
-        techniques.setFont(Font.font("Consolas", FontWeight.BOLD, 15));
-        techniques.setTextFill(Color.web("#ECEFF1"));
-        techniques.setWrapText(true);
-        techniques.setTextAlignment(TextAlignment.CENTER);
-        techniques.setAlignment(Pos.CENTER);
-        techniques.setMaxWidth(1180);
-        VBox techniquesBox = new VBox(5, techniquesTitle, techniques);
-        techniquesBox.setAlignment(Pos.CENTER);
-        techniquesBox.setPadding(new Insets(12, 18, 12, 18));
-        techniquesBox.setStyle("-fx-background-color: rgba(52,42,12,0.72); -fx-background-radius: 14;"
-                + "-fx-border-color: #8D6E28; -fx-border-width: 2; -fx-border-radius: 14;");
-
-        VBox panel = new VBox(14, title, bindings, techniquesBox);
+        VBox panel = new VBox(14, title, bindings);
         panel.setAlignment(Pos.TOP_CENTER);
         panel.setPadding(new Insets(16, 34, 16, 34));
         return panel;
@@ -78961,43 +78932,8 @@ public class BirdGame3 {
             if (academy != null) {
                 panel.getChildren().add(academy);
             }
-        } else {
-            Label body = new Label(pauseOptionsDescription());
-            body.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
-            body.setTextFill(Color.web("#ECEFF1"));
-            body.setWrapText(true);
-            body.setTextAlignment(TextAlignment.CENTER);
-            body.setAlignment(Pos.CENTER);
-            body.setMaxWidth(1080);
-
-            Label safety = new Label(classicModeActive
-                    ? "Forfeiting is treated as a loss and applies the normal Classic difficulty and continue rules."
-                    : "Restart and exit always require confirmation. No result, reward, or achievement is awarded for an abandoned match.");
-            safety.setFont(Font.font("Consolas", FontWeight.BOLD, 16));
-            safety.setTextFill(classicModeActive ? Color.web("#FFCC80") : Color.web("#B0BEC5"));
-            safety.setWrapText(true);
-            safety.setTextAlignment(TextAlignment.CENTER);
-            safety.setAlignment(Pos.CENTER);
-            safety.setMaxWidth(1080);
-            VBox info = new VBox(12, body, safety);
-            info.setAlignment(Pos.CENTER);
-            info.setPadding(new Insets(30, 38, 30, 38));
-            info.setMaxWidth(1160);
-            info.setStyle("-fx-background-color: rgba(10,20,29,0.92); -fx-background-radius: 18;"
-                    + "-fx-border-color: #344A5C; -fx-border-width: 2; -fx-border-radius: 18;");
-            panel.getChildren().add(info);
         }
         return panel;
-    }
-
-    private String pauseOptionsDescription() {
-        if (classicModeActive) return "This encounter is part of an active Classic route.";
-        if (campaignModeActive) return "Mission progress is committed only at its authored checkpoints and results screens.";
-        if (storyModeActive) return "This battle belongs to an active legacy episode.";
-        if (adventureModeActive) return "This battle belongs to the current Adventure chapter.";
-        if (squadStrikeModeActive) return "This bout belongs to an active Squad Strike. Results are checkpointed only when the bout ends.";
-        if (tournamentModeActive) return "Tournament results are recorded only after a completed match.";
-        return "Change your decision without changing the match: resume, restart from the opening countdown, or return to fighter select.";
     }
 
     private Button pauseOptionButton(String text, String color, Runnable action) {
@@ -79354,7 +79290,7 @@ public class BirdGame3 {
         pauseMenu.setStyle("-fx-background-color: rgba(1,4,8,0.88);");
 
         BorderPane shell = new BorderPane();
-        lockRegionSize(shell, 1600, 950);
+        lockRegionSize(shell, 1440, 900);
         shell.setStyle("-fx-background-color: linear-gradient(to bottom right, #101925, #05080D);"
                 + "-fx-background-radius: 24; -fx-border-color: #40566B;"
                 + "-fx-border-width: 3; -fx-border-radius: 24;");
@@ -79370,16 +79306,9 @@ public class BirdGame3 {
         VBox heading = new VBox(0, pause, mode);
         heading.setAlignment(Pos.CENTER_LEFT);
 
-        HBox legend = buildAdaptivePromptBar(
-                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "SELECT"),
-                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "BACK"),
-                UiInputPrompts.prompt(UiInputPrompts.Command.PAUSE, "RESUME"));
-        legend.setAlignment(Pos.CENTER_RIGHT);
-        Region headerSpacer = new Region();
-        HBox.setHgrow(headerSpacer, Priority.ALWAYS);
-        HBox header = new HBox(20, heading, headerSpacer, legend);
+        HBox header = new HBox(heading);
         header.setAlignment(Pos.CENTER_LEFT);
-        header.setPadding(new Insets(24, 34, 18, 34));
+        header.setPadding(new Insets(20, 30, 16, 30));
         header.setStyle("-fx-background-color: linear-gradient(to right, #0F4D67, #101925 68%);"
                 + "-fx-background-radius: 22 22 0 0; -fx-border-color: transparent transparent #2A4355 transparent;"
                 + "-fx-border-width: 0 0 2 0;");
@@ -79387,14 +79316,21 @@ public class BirdGame3 {
 
         HBox tabs = new HBox(12,
                 pauseTabButton(PausePanel.MOVES, stage),
-                pauseTabButton(PausePanel.CONTROLS, stage),
-                pauseTabButton(PausePanel.OPTIONS, stage));
+                pauseTabButton(PausePanel.CONTROLS, stage));
+        if (trainingModeActive) {
+            tabs.getChildren().add(pauseTabButton(PausePanel.OPTIONS, stage));
+        } else if (pausePanel == PausePanel.OPTIONS) {
+            pausePanel = PausePanel.MOVES;
+        }
         tabs.setAlignment(Pos.CENTER);
 
         VBox center = new VBox(12);
         center.setAlignment(Pos.TOP_CENTER);
-        center.setPadding(new Insets(14, 28, 12, 28));
-        center.getChildren().add(buildPauseFighterStrip(stage));
+        center.setPadding(new Insets(12, 24, 10, 24));
+        Node fighterSelector = buildPauseFighterSelector(stage);
+        if (fighterSelector != null) {
+            center.getChildren().add(fighterSelector);
+        }
         center.getChildren().add(tabs);
         if (!disconnectedXboxPlayers.isEmpty()) {
             center.getChildren().add(buildPauseDisconnectBanner(stage, disconnectedXboxPlayers));
@@ -79404,12 +79340,12 @@ public class BirdGame3 {
             case CONTROLS -> buildPauseControlsPanel();
             case OPTIONS -> buildPauseOptionsPanel(stage);
         });
-        lockRegionSize(body, 1510, disconnectedXboxPlayers.isEmpty() ? 590 : 490);
+        lockRegionSize(body, 1360, disconnectedXboxPlayers.isEmpty() ? 540 : 450);
         body.setAlignment(Pos.TOP_CENTER);
         center.getChildren().add(body);
         shell.setCenter(center);
 
-        Button resume = pauseFooterButton("RESUME", "#0B9B50", 300, () -> {
+        Button resume = pauseFooterButton("RESUME", "#0B9B50", 240, () -> {
             refreshXboxDisconnectMarker();
             if (hasDisconnectedAssignedXboxPlayers()) {
                 playErrorSound();
@@ -79418,12 +79354,16 @@ public class BirdGame3 {
                 togglePause(stage);
             }
         });
-        Button restart = pauseFooterButton(pauseRestartLabel(), classicModeActive ? "#C77800" : "#B07016", 360,
+        Button restart = pauseFooterButton(pauseRestartLabel(), classicModeActive ? "#C77800" : "#B07016", 300,
                 () -> confirmPauseRestart(stage));
-        Button exit = pauseFooterButton(pauseExitLabel(), "#B71C2B", 360, () -> confirmPauseExit(stage));
-        HBox footer = new HBox(18, resume, restart, exit);
+        Button exit = pauseFooterButton(pauseExitLabel(), "#B71C2B", 300, () -> confirmPauseExit(stage));
+        HBox pausePrompt = buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.PAUSE, "RESUME"));
+        Region footerSpacer = new Region();
+        HBox.setHgrow(footerSpacer, Priority.ALWAYS);
+        HBox footer = new HBox(16, pausePrompt, footerSpacer, resume, restart, exit);
         footer.setAlignment(Pos.CENTER);
-        footer.setPadding(new Insets(14, 28, 22, 28));
+        footer.setPadding(new Insets(12, 24, 18, 24));
         footer.setStyle("-fx-background-color: rgba(3,6,10,0.88);"
                 + "-fx-background-radius: 0 0 22 22; -fx-border-color: #263746 transparent transparent transparent;"
                 + "-fx-border-width: 2 0 0 0;");
