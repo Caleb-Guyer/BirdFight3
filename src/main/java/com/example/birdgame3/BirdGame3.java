@@ -5939,6 +5939,43 @@ public class BirdGame3 {
         };
     }
 
+    static boolean shouldShowFightHudMinimap(boolean academyActive,
+                                              boolean campaignActive,
+                                              boolean classicActive,
+                                              ClassicEncounterStyle classicStyle) {
+        if (academyActive) return false;
+        return campaignActive || (classicActive && isClassicObjectiveEncounterStyle(classicStyle));
+    }
+
+    static List<String> compactFightHudInfoLines(List<String> rawLines) {
+        if (rawLines == null || rawLines.isEmpty()) return List.of();
+
+        List<String> lines = new ArrayList<>();
+        for (String rawLine : rawLines) {
+            if (rawLine == null || rawLine.isBlank()) continue;
+            String line = rawLine.trim();
+            if ("RULES  NONE | NONE".equalsIgnoreCase(line)) continue;
+            if (!lines.contains(line)) lines.add(line);
+        }
+        if (lines.size() <= 3) return List.copyOf(lines);
+
+        // Rules are useful during a standard fight, but route-specific progress
+        // takes priority when a route has enough live information to fill the card.
+        for (int i = 1; i < lines.size() && lines.size() > 3; i++) {
+            if (lines.get(i).regionMatches(true, 0, "RULES", 0, 5)) {
+                lines.remove(i--);
+            }
+        }
+        for (int i = 1; i < lines.size() && lines.size() > 3; i++) {
+            if (lines.get(i).regionMatches(true, 0, "DIFFICULTY", 0, 10)) {
+                lines.remove(i--);
+            }
+        }
+        if (lines.size() <= 3) return List.copyOf(lines);
+
+        return List.of(lines.getFirst(), lines.get(lines.size() - 2), lines.getLast());
+    }
+
     static final class ClassicRiftAnchor {
         final double x;
         final double y;
@@ -72314,7 +72351,10 @@ public class BirdGame3 {
         List<FightHudPanelLayout> panels = buildFightHudPanels();
         List<String> infoLines = fightHudInfoLines();
         boolean academyActive = trainingAcademyMode != TrainingAcademyMode.NONE;
-        Rectangle2D minimapRect = academyActive ? null : new Rectangle2D(24, 24, 190, 138);
+        ClassicEncounterStyle classicStyle = classicEncounter == null ? null : classicEncounter.style;
+        boolean showMinimap = shouldShowFightHudMinimap(
+                academyActive, campaignModeActive, classicModeActive, classicStyle);
+        Rectangle2D minimapRect = showMinimap ? new Rectangle2D(24, 24, 190, 138) : null;
         Rectangle2D infoRect = buildFightHudInfoRect(infoLines, minimapRect);
         Rectangle2D timerRect = academyActive ? null : new Rectangle2D(WIDTH - 274, 28, 240, 102);
 
@@ -72413,18 +72453,13 @@ public class BirdGame3 {
     private List<String> fightHudInfoLines() {
         List<String> lines = new ArrayList<>();
         if (campaignModeActive && currentCampaignMission != null && campaignMissionController != null) {
-            StoryCampaign.Act act = stillSkyCampaign.actForMission(currentCampaignMission.id());
-            int actNumber = Math.max(1, stillSkyCampaign.actIndexForMission(currentCampaignMission.id()) + 1);
-            lines.add("THE STILL SKY  ACT " + actNumber
-                    + (act == null ? "" : "  " + act.title().replaceFirst("^Act [^:]+:\\s*", "").toUpperCase(Locale.ROOT)));
-            lines.add(currentCampaignMission.title().toUpperCase(Locale.ROOT)
-                    + "  |  " + stillSkyProgress.difficulty.label.toUpperCase(Locale.ROOT));
+            lines.add("THE STILL SKY  |  " + currentCampaignMission.title().toUpperCase(Locale.ROOT));
             StoryCampaign.MissionPhase phase = campaignMissionController.currentPhase();
             int percent = (int) Math.round(campaignMissionController.objectiveProgressRatio() * 100.0);
             lines.add("OBJECTIVE " + (campaignMissionController.phaseIndex() + 1)
                     + "/" + currentCampaignMission.phases().size()
                     + "  " + phase.label().toUpperCase(Locale.ROOT) + "  " + percent + "%");
-            return lines;
+            return compactFightHudInfoLines(lines);
         }
         if (classicModeActive && classicEncounter != null) {
             String classicModeLabel = dailyChallengeModeActive ? "DAILY"
@@ -72613,7 +72648,7 @@ public class BirdGame3 {
                             : "OWL GUARDED"));
                 }
             }
-            return lines;
+            return compactFightHudInfoLines(lines);
         }
 
         if (competitionModeEnabled && !storyModeActive && !adventureModeActive && !classicModeActive) {
@@ -72625,7 +72660,7 @@ public class BirdGame3 {
             lines.add("MUTATOR  " + activeMutator.label.toUpperCase(Locale.ROOT));
         }
 
-        return lines;
+        return compactFightHudInfoLines(lines);
     }
 
     private void drawFightHud(GraphicsContext g, FightHudLayout layout) {
