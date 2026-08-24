@@ -4244,38 +4244,16 @@ public class BirdGame3 {
         javafx.application.Platform.runLater(apply);
     }
 
-    private void styleSettingsInfoLabel(Label label) {
-        label.setFont(Font.font("Consolas", 22));
-        label.setTextFill(Color.web("#CFD8DC"));
-        label.setWrapText(true);
-        label.setMaxWidth(1100);
-        label.setPrefWidth(1100);
-        label.setTextAlignment(TextAlignment.LEFT);
-        label.setAlignment(Pos.CENTER_LEFT);
-        label.setPadding(new Insets(0, 8, 0, 8));
-        applyNoEllipsis(label);
-    }
-
-    private VBox buildSettingsRow(Button toggle, String description, String color) {
-        Label label = new Label(description);
-        label.setFont(Font.font("Consolas", 20));
-        label.setTextFill(Color.web(color));
-        label.setWrapText(true);
-        label.setMaxWidth(620);
-        label.setPrefWidth(620);
-        label.setTextAlignment(TextAlignment.LEFT);
-        label.setAlignment(Pos.CENTER_LEFT);
-        label.setPadding(new Insets(0, 0, 0, 14));
-        applyNoEllipsis(label);
-
-        VBox row = new VBox(6, toggle, label);
+    private VBox buildSettingsRow(Button toggle, String color) {
+        toggle.setMaxWidth(Double.MAX_VALUE);
+        VBox row = new VBox(toggle);
         row.setAlignment(Pos.CENTER_LEFT);
-        row.setPadding(new Insets(12, 14, 12, 14));
+        row.setPadding(new Insets(8));
         row.setStyle(MenuTheme.insetPanelStyle(color, 20));
         return row;
     }
 
-    private VBox buildVolumeSettingsRow(String title, String description, String accent,
+    private VBox buildVolumeSettingsRow(String title, String accent,
                                         double initialValue, DoubleConsumer onValueChanged, Runnable preview) {
         Label titleLabel = new Label(title);
         titleLabel.setFont(Font.font("Arial Black", 24));
@@ -4292,16 +4270,16 @@ public class BirdGame3 {
 
         HBox header = new HBox(16, titleLabel, spacer, valueLabel);
         header.setAlignment(Pos.CENTER_LEFT);
-        header.setMaxWidth(620);
+        header.setMaxWidth(820);
 
         Slider slider = new Slider(0, 100, Math.round(sanitizeVolume(initialValue) * 100.0));
-        slider.setPrefWidth(620);
-        slider.setMaxWidth(620);
+        slider.setPrefWidth(820);
+        slider.setMaxWidth(820);
         slider.setBlockIncrement(5);
         slider.setMajorTickUnit(25);
         slider.setMinorTickCount(4);
-        slider.setShowTickMarks(true);
-        slider.setShowTickLabels(true);
+        slider.setShowTickMarks(false);
+        slider.setShowTickLabels(false);
         slider.setStyle("-fx-accent: " + accent + ";");
         slider.valueProperty().addListener((obs, oldValue, newValue) -> {
             double normalized = sanitizeVolume(newValue.doubleValue() / 100.0);
@@ -4321,20 +4299,9 @@ public class BirdGame3 {
             });
         }
 
-        Label descriptionLabel = new Label(description);
-        descriptionLabel.setFont(Font.font("Consolas", 20));
-        descriptionLabel.setTextFill(Color.web("#B3E5FC"));
-        descriptionLabel.setWrapText(true);
-        descriptionLabel.setMaxWidth(620);
-        descriptionLabel.setPrefWidth(620);
-        descriptionLabel.setTextAlignment(TextAlignment.LEFT);
-        descriptionLabel.setAlignment(Pos.CENTER_LEFT);
-        descriptionLabel.setPadding(new Insets(0, 0, 0, 14));
-        applyNoEllipsis(descriptionLabel);
-
-        VBox row = new VBox(8, header, slider, descriptionLabel);
+        VBox row = new VBox(8, header, slider);
         row.setAlignment(Pos.CENTER_LEFT);
-        row.setPadding(new Insets(12, 14, 12, 14));
+        row.setPadding(new Insets(14, 18, 16, 18));
         row.setStyle(MenuTheme.insetPanelStyle(accent, 20));
         return row;
     }
@@ -29666,9 +29633,9 @@ public class BirdGame3 {
         Button saveTools = uiFactory.action("SAVE TOOLS", 240, 66, 23, "#1565C0", 18,
                 () -> showProfileSaveTools(stage));
         StackPane title = buildMenuTitleBanner("PROFILES", 410, 72, 34);
-        root.setTop(buildMenuTopStrip(back, title,
-                buildMenuChip(profiles.size() + (profiles.size() == 1 ? " PROFILE" : " PROFILES"),
-                        "#1565C0", "#90CAF9")));
+        HBox topActions = new HBox(12, create, saveTools);
+        topActions.setAlignment(Pos.CENTER_RIGHT);
+        root.setTop(buildMenuTopStrip(back, title, topActions));
 
         VBox cards = new VBox(18);
         cards.setAlignment(Pos.TOP_CENTER);
@@ -29683,18 +29650,7 @@ public class BirdGame3 {
         scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         installTransparentScrollViewport(scroll);
 
-        Label section = buildMenuEyebrow("CHOOSE A SAVE", "#90CAF9");
-        HBox actions = new HBox(14, create, saveTools);
-        actions.setAlignment(Pos.CENTER_RIGHT);
-        Region actionSpacer = new Region();
-        HBox.setHgrow(actionSpacer, Priority.ALWAYS);
-        HBox rail = new HBox(18, section, actionSpacer, actions);
-        rail.setAlignment(Pos.CENTER_LEFT);
-        rail.setMaxWidth(1480);
-        rail.setPadding(new Insets(12, 16, 12, 16));
-        rail.setStyle(MenuTheme.insetPanelStyle("#607D8B", 18));
-
-        VBox center = new VBox(16, rail, scroll);
+        VBox center = new VBox(scroll);
         center.setAlignment(Pos.TOP_CENTER);
         center.setPadding(new Insets(24, 0, 0, 0));
         root.setCenter(center);
@@ -29715,8 +29671,8 @@ public class BirdGame3 {
 
     private VBox buildProfileCard(Stage stage, GameSaveRepository.SaveProfile profile, boolean active) {
         VBox card = new VBox(10);
-        card.setPadding(new Insets(18, 22, 18, 22));
-        card.setMaxWidth(1480);
+        card.setPadding(new Insets(15, 20, 15, 20));
+        card.setMaxWidth(1320);
         card.setStyle(MenuTheme.panelStyle(active ? "#FFE082" : "#607D8B", 24));
 
         Label name = new Label(profile.name());
@@ -29724,12 +29680,14 @@ public class BirdGame3 {
         name.setTextFill(active ? Color.web("#FFF59D") : Color.WHITE);
         applyNoEllipsis(name);
 
-        Label state = new Label(active ? "ACTIVE" : "READY");
+        Label state = new Label("ACTIVE");
         state.setFont(Font.font("Consolas", 18));
         state.setTextFill(active ? Color.web("#80DEEA") : Color.web("#B0BEC5"));
         state.setPadding(new Insets(7, 13, 7, 13));
         state.setStyle(MenuTheme.chipStyle(active ? "#00838F" : "#455A64",
                 active ? "#B2EBF2" : "#CFD8DC", 20));
+        state.setVisible(active);
+        state.setManaged(active);
         applyNoEllipsis(state);
 
         Label details = new Label("LAST PLAYED  " + formatProfileTimestamp(profile.updatedAtMillis()));
@@ -29737,9 +29695,10 @@ public class BirdGame3 {
         details.setTextFill(Color.web("#CFD8DC"));
         applyNoEllipsis(details);
 
-        Button activate = uiFactory.action(active ? "SELECTED" : "USE PROFILE", 220, 62, 20,
-                active ? "#546E7A" : "#1565C0", 18, () -> switchToProfile(stage, profile.id()));
-        activate.setDisable(active);
+        Button activate = uiFactory.action("USE PROFILE", 220, 62, 20,
+                "#1565C0", 18, () -> switchToProfile(stage, profile.id()));
+        activate.setVisible(!active);
+        activate.setManaged(!active);
         Button manage = uiFactory.action("MANAGE", 190, 62, 20, "#6A1B9A", 18,
                 () -> showProfileDetails(stage, profile.id()));
         HBox actions = new HBox(12, activate, manage);
@@ -47842,24 +47801,24 @@ public class BirdGame3 {
     private void showMainSettings(Stage stage) {
         playMenuMusic();
 
-        VBox root = new VBox(18);
+        VBox root = new VBox(14);
         root.setAlignment(Pos.CENTER);
-        root.setPadding(new Insets(32));
+        root.setPadding(new Insets(26, 34, 24, 34));
         root.setStyle(MenuTheme.pageBackground());
 
-        StackPane title = buildMenuTitleBanner("SETTINGS", 520, 74, 34);
+        StackPane title = buildMenuTitleBanner("SETTINGS", 460, 68, 31);
 
-        VBox card = new VBox(18);
-        card.setAlignment(Pos.CENTER_LEFT);
-        card.setPadding(new Insets(26));
-        card.setMaxWidth(1320);
+        HBox card = new HBox(20);
+        card.setAlignment(Pos.TOP_LEFT);
+        card.setPadding(new Insets(20));
+        card.setMaxWidth(1460);
         card.setStyle(MenuTheme.panelStyle("#90CAF9", 22));
 
-        Button shakeToggle = uiFactory.action("", 620, 96, 34, "#546E7A", 24, () -> {});
-        Button displayModeToggle = uiFactory.action("", 620, 96, 34, "#546E7A", 24, () -> {});
-        Button particlesToggle = uiFactory.action("", 620, 96, 34, "#546E7A", 24, () -> {});
-        Button ambientToggle = uiFactory.action("", 620, 96, 34, "#546E7A", 24, () -> {});
-        Button fpsCapToggle = uiFactory.action("", 620, 96, 34, "#546E7A", 24, () -> {});
+        Button shakeToggle = uiFactory.action("", 820, 72, 25, "#546E7A", 21, () -> {});
+        Button displayModeToggle = uiFactory.action("", 820, 72, 25, "#546E7A", 21, () -> {});
+        Button particlesToggle = uiFactory.action("", 820, 72, 25, "#546E7A", 21, () -> {});
+        Button ambientToggle = uiFactory.action("", 820, 72, 25, "#546E7A", 21, () -> {});
+        Button fpsCapToggle = uiFactory.action("", 820, 72, 25, "#546E7A", 21, () -> {});
 
         shakeToggle.setOnAction(e -> {
             playButtonClick();
@@ -47901,7 +47860,6 @@ public class BirdGame3 {
 
         VBox musicRow = buildVolumeSettingsRow(
                 "MUSIC VOLUME",
-                "Menu, match, and victory tracks. Set to 0% to mute.",
                 "#64B5F6",
                 musicVolume,
                 value -> {
@@ -47920,7 +47878,6 @@ public class BirdGame3 {
         );
         VBox sfxRow = buildVolumeSettingsRow(
                 "SFX VOLUME",
-                "Battle effects, hits, UI clicks, and hazard sounds. Set to 0% to mute.",
                 "#80CBC4",
                 sfxVolume,
                 value -> {
@@ -47929,11 +47886,11 @@ public class BirdGame3 {
                 },
                 this::playButtonClick
         );
-        VBox shakeRow = buildSettingsRow(shakeToggle, "Camera jolts on big hits.", "#C5E1A5");
-        VBox displayModeRow = buildSettingsRow(displayModeToggle, "Switch between fullscreen and windowed play.", "#C5E1A5");
-        VBox particlesRow = buildSettingsRow(particlesToggle, "Damage sparks and ability particles.", "#FFE0B2");
-        VBox ambientRow = buildSettingsRow(ambientToggle, "Animated background ambience and glow.", "#FFE0B2");
-        VBox fpsRow = buildSettingsRow(fpsCapToggle, "Limits render FPS without changing game speed.", "#FFE0B2");
+        VBox shakeRow = buildSettingsRow(shakeToggle, "#C5E1A5");
+        VBox displayModeRow = buildSettingsRow(displayModeToggle, "#C5E1A5");
+        VBox particlesRow = buildSettingsRow(particlesToggle, "#FFE0B2");
+        VBox ambientRow = buildSettingsRow(ambientToggle, "#FFE0B2");
+        VBox fpsRow = buildSettingsRow(fpsCapToggle, "#FFE0B2");
 
         VBox audioPanel = new VBox(16, musicRow, sfxRow);
         audioPanel.setAlignment(Pos.CENTER_LEFT);
@@ -47959,15 +47916,7 @@ public class BirdGame3 {
         Button[] wiimoteModeButtons = new Button[4];
         Label[] wiimoteStatusLabels = new Label[4];
 
-        Label controlsInfo = new Label("Choose a player and binding, then press a new keyboard key. Conflicts swap automatically.");
-        controlsInfo.setFont(Font.font("Consolas", 20));
-        controlsInfo.setTextFill(Color.web("#FFE082"));
-        controlsInfo.setWrapText(true);
-        controlsInfo.setMaxWidth(1180);
-        controlsInfo.setAlignment(Pos.CENTER_LEFT);
-        applyNoEllipsis(controlsInfo);
-
-        Label controlsStatus = new Label("Ready to edit controls.");
+        Label controlsStatus = new Label("SELECT A BINDING TO CHANGE IT");
         controlsStatus.setFont(Font.font("Consolas", 18));
         controlsStatus.setTextFill(Color.web("#CFD8DC"));
         controlsStatus.setWrapText(true);
@@ -47975,7 +47924,7 @@ public class BirdGame3 {
         controlsStatus.setAlignment(Pos.CENTER_LEFT);
         applyNoEllipsis(controlsStatus);
 
-        Label wiimoteInfo = new Label("Wiimote modes pair to player slots globally. Pair the controller in Windows Bluetooth first, then wake it with a button press. SIDEWAYS uses the D-pad plus motion gestures. NUNCHUK uses the stick with C/Z and remote motion.");
+        Label wiimoteInfo = new Label("PAIR IN WINDOWS BLUETOOTH, THEN CHOOSE A MODE");
         wiimoteInfo.setFont(Font.font("Consolas", 18));
         wiimoteInfo.setTextFill(Color.web("#B3E5FC"));
         wiimoteInfo.setWrapText(true);
@@ -48119,9 +48068,6 @@ public class BirdGame3 {
             saveAchievements();
         });
 
-        controlsInfo.setText("Choose a player and binding, then press a new keyboard key. Conflicts swap automatically.");
-        wiimoteInfo.setText("Pair Wii Remotes in Windows Bluetooth, then choose the mode for each player slot.");
-
         int[] keyboardPlayer = {Math.clamp(uiInputTracker.activeInputProperty().get().playerIndex(), 0, 3)};
         Button[] keyboardPlayerTabs = new Button[4];
         Runnable[] refreshKeyboardPlayer = new Runnable[1];
@@ -48149,16 +48095,13 @@ public class BirdGame3 {
             }
         };
 
-        VBox keyboardSection = new VBox(12, keyboardPlayers, controlsInfo, controlsStatus,
+        VBox keyboardSection = new VBox(12, keyboardPlayers, controlsStatus,
                 controlsGrid, resetControlsButton);
         keyboardSection.setAlignment(Pos.CENTER_LEFT);
         keyboardSection.setPadding(new Insets(12));
         keyboardSection.setStyle(MenuTheme.insetPanelStyle("#64B5F6", 18));
 
-        Label controllerInfo = new Label("Controller bindings are fixed and shown for the device currently in use.");
-        styleSettingsInfoLabel(controllerInfo);
-        VBox controllerSection = new VBox(14, controllerInfo,
-                buildSettingsFixedControlGrid(UiInputPrompts.Device.GAMEPAD));
+        VBox controllerSection = new VBox(buildSettingsFixedControlGrid(UiInputPrompts.Device.GAMEPAD));
         controllerSection.setAlignment(Pos.CENTER_LEFT);
         controllerSection.setPadding(new Insets(12));
         controllerSection.setStyle(MenuTheme.insetPanelStyle("#64B5F6", 18));
@@ -48172,15 +48115,15 @@ public class BirdGame3 {
                 ControlSettingsPresentation.pageFor(uiInputTracker.activeDevice())
         };
         Runnable[] refreshControlPage = new Runnable[1];
-        Button keyboardDeviceTab = uiFactory.action("KEYBOARD", 230, 52, 14, "#455A64", 14, () -> {
+        Button keyboardDeviceTab = uiFactory.action("KEYBOARD", 190, 48, 13, "#455A64", 13, () -> {
             controlPage[0] = ControlSettingsPresentation.Page.KEYBOARD;
             refreshControlPage[0].run();
         });
-        Button controllerDeviceTab = uiFactory.action("CONTROLLER", 230, 52, 14, "#455A64", 14, () -> {
+        Button controllerDeviceTab = uiFactory.action("CONTROLLER", 190, 48, 13, "#455A64", 13, () -> {
             controlPage[0] = ControlSettingsPresentation.Page.CONTROLLER;
             refreshControlPage[0].run();
         });
-        Button wiimoteDeviceTab = uiFactory.action("WII REMOTE", 230, 52, 14, "#455A64", 14, () -> {
+        Button wiimoteDeviceTab = uiFactory.action("WII REMOTE", 190, 48, 13, "#455A64", 13, () -> {
             controlPage[0] = ControlSettingsPresentation.Page.WIIMOTE;
             refreshControlPage[0].run();
         });
@@ -48223,20 +48166,18 @@ public class BirdGame3 {
         Button enterCode = buildEnterCodeButton(stage);
         Button whatsNew = uiFactory.action("WHAT'S NEW", 300, 100, 30, "#FB8C00", 22,
                 () -> showUpdateSplashBrowser(stage, () -> showMainSettings(stage)));
-        Label aboutInfo = new Label("Update history and optional unlock codes live here instead of crowding every settings page.");
-        styleSettingsInfoLabel(aboutInfo);
         HBox aboutActions = new HBox(18, whatsNew, enterCode);
         aboutActions.setAlignment(Pos.CENTER_LEFT);
-        VBox aboutPanel = new VBox(18, aboutInfo, aboutActions);
+        VBox aboutPanel = new VBox(aboutActions);
         aboutPanel.setAlignment(Pos.CENTER_LEFT);
         aboutPanel.setPadding(new Insets(18));
         aboutPanel.setStyle(MenuTheme.insetPanelStyle("#FB8C00", 22));
 
-        Button audioTab = uiFactory.action("AUDIO", 205, 64, 22, "#455A64", 16, null);
-        Button displayTab = uiFactory.action("DISPLAY", 205, 64, 22, "#455A64", 16, null);
-        Button graphicsTab = uiFactory.action("GRAPHICS", 205, 64, 22, "#455A64", 16, null);
-        Button controlsTab = uiFactory.action("CONTROLS", 205, 64, 22, "#455A64", 16, null);
-        Button aboutTab = uiFactory.action("ABOUT", 205, 64, 22, "#455A64", 16, null);
+        Button audioTab = uiFactory.action("AUDIO", 240, 62, 20, "#455A64", 16, null);
+        Button displayTab = uiFactory.action("DISPLAY", 240, 62, 20, "#455A64", 16, null);
+        Button graphicsTab = uiFactory.action("GRAPHICS", 240, 62, 20, "#455A64", 16, null);
+        Button controlsTab = uiFactory.action("CONTROLS", 240, 62, 20, "#455A64", 16, null);
+        Button aboutTab = uiFactory.action("OTHER", 240, 62, 20, "#455A64", 16, null);
 
         Runnable showAudio = () -> {
             setSettingsTabActive(audioTab, true);
@@ -48306,9 +48247,10 @@ public class BirdGame3 {
             showAbout.run();
         });
 
-        HBox tabs = new HBox(12, audioTab, displayTab, graphicsTab, controlsTab, aboutTab);
-        tabs.setAlignment(Pos.CENTER);
-        tabs.setMaxWidth(Double.MAX_VALUE);
+        Label categoryLabel = buildMenuEyebrow("OPTIONS", "#90CAF9");
+        VBox tabs = new VBox(10, categoryLabel, audioTab, displayTab, graphicsTab, controlsTab, aboutTab);
+        tabs.setAlignment(Pos.TOP_CENTER);
+        tabs.setPrefWidth(250);
 
         showAudio.run();
 
@@ -48316,11 +48258,13 @@ public class BirdGame3 {
         contentScroll.setFitToWidth(true);
         contentScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         contentScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
-        contentScroll.setPrefViewportHeight(570);
-        contentScroll.setMaxHeight(590);
+        contentScroll.setPrefViewportWidth(1080);
+        contentScroll.setPrefViewportHeight(620);
+        contentScroll.setMaxHeight(640);
         contentScroll.setStyle("-fx-background-color: transparent; -fx-background: transparent; -fx-control-inner-background: transparent;");
         installTransparentScrollViewport(contentScroll);
-        card.setMaxHeight(750);
+        HBox.setHgrow(contentScroll, Priority.ALWAYS);
+        card.setMaxHeight(700);
         card.getChildren().addAll(tabs, contentScroll);
 
         HBox buttons = new HBox(20);
@@ -48334,7 +48278,7 @@ public class BirdGame3 {
                 showMenu(stage);
             }
         };
-        Button back = uiFactory.action("BACK", 360, 100, 40, "#FF1744", 28, backAction);
+        Button back = uiFactory.action("BACK", 300, 82, 30, "#FF1744", 23, backAction);
         HBox inputPrompt = buildAdaptivePromptBar(
                 UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "NAVIGATE"),
                 UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "CHANGE"),

@@ -39,10 +39,11 @@ class UiDevicePromptCoverageTest {
     }
 
     @Test
-    void keyboardBindingHelpDoesNotDuplicateAStaleEscapeInstruction() throws IOException {
+    void keyboardBindingHelpStaysConciseAndDoesNotDuplicateEscapeInstructions() throws IOException {
         String source = Files.readString(GAME_SOURCE);
 
-        assertTrue(source.contains("press a new keyboard key"));
+        assertTrue(source.contains("SELECT A BINDING TO CHANGE IT"));
+        assertFalse(source.contains("Choose a player and binding, then press a new keyboard key"));
         assertFalse(source.contains("ESC cancels a pending rebind"));
     }
 
