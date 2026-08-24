@@ -52235,60 +52235,70 @@ public class BirdGame3 {
             playerMarkers.put(birdType, marker);
         }
 
-        Canvas portrait = new Canvas(200, 135);
+        Canvas portrait = new Canvas(230, 150);
         StackPane portraitFrame = new StackPane(portrait);
-        lockRegionSize(portraitFrame, 300, 145);
-        portraitFrame.setStyle(MenuTheme.panelStyle("#EF5350", 20));
+        lockRegionSize(portraitFrame, 350, 160);
+        portraitFrame.setStyle("-fx-background-color: linear-gradient(to bottom right, rgba(181,18,27,0.88), rgba(65,12,18,0.92));"
+                + "-fx-background-radius: 18;");
         Label selectedName = new Label();
-        selectedName.setFont(Font.font("Arial Black", 25));
+        selectedName.setFont(Font.font("Arial Black", 30));
         selectedName.setTextFill(Color.WHITE);
-        Label playerOne = new Label("PLAYER 1");
-        playerOne.setFont(Font.font("Arial Black", 18));
-        playerOne.setTextFill(Color.web("#111111"));
-        playerOne.setPadding(new Insets(2, 24, 2, 24));
-        playerOne.setStyle("-fx-background-color: white; -fx-border-color: black; -fx-border-width: 3;");
-        Button skin = uiFactory.action("SKIN: BASE", 300, 34, 14, "#37474F", 14, () -> {});
-        VBox fighterPanel = new VBox(6, portraitFrame, selectedName, playerOne, skin);
+        Button skin = uiFactory.action("SKIN: BASE", 320, 36, 14, "#37474F", 14, () -> {});
+        VBox fighterPanel = new VBox(6, portraitFrame, selectedName, skin);
         fighterPanel.setAlignment(Pos.CENTER);
-        lockRegionSize(fighterPanel, 420, 270);
+        lockRegionSize(fighterPanel, 390, 224);
 
-        Label routeEyebrow = new Label("PIGEON ROUTE");
+        Label routeEyebrow = new Label(bossRush ? "BOSS GAUNTLET" : "SELECTED ROUTE");
         routeEyebrow.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
         routeEyebrow.setTextFill(Color.web("#F8C528"));
         Label routeTitle = new Label();
-        routeTitle.setFont(Font.font("Arial Black", 39));
+        routeTitle.setFont(Font.font("Arial Black", 42));
         routeTitle.setTextFill(Color.WHITE);
         routeTitle.setWrapText(true);
         routeTitle.setTextAlignment(TextAlignment.CENTER);
         routeTitle.setAlignment(Pos.CENTER);
-        routeTitle.setMaxWidth(500);
+        routeTitle.setMaxWidth(920);
         HBox routeStrip = buildClassicRouteStrip(0, 8, false);
-        VBox routePanel = new VBox(14, routeEyebrow, routeTitle, routeStrip);
-        routePanel.setAlignment(Pos.CENTER);
-        routePanel.setPadding(new Insets(22));
-        lockRegionSize(routePanel, 540, 270);
-        routePanel.setStyle(MenuTheme.panelStyle("#F8C528", 18));
 
-        Label difficultyCaption = new Label(bossRush ? "ROUTE DIFFICULTY" : "STARTING DIFFICULTY");
-        difficultyCaption.setFont(Font.font("Consolas", FontWeight.BOLD, 20));
+        Label difficultyCaption = new Label("DIFFICULTY");
+        difficultyCaption.setFont(Font.font("Consolas", FontWeight.BOLD, 15));
         difficultyCaption.setTextFill(Color.web("#CFD8DC"));
         Label difficulty = new Label(bossRush ? "AUTO" : String.format(Locale.US, "%.1f", CLASSIC_STARTING_DIFFICULTY));
-        difficulty.setFont(Font.font("Arial Black", 66));
+        difficulty.setFont(Font.font("Arial Black", 34));
         difficulty.setTextFill(Color.web("#FFE45C"));
-        Label coinContinue = new Label("CONTINUE  " + CLASSIC_CONTINUE_BIRD_COIN_COST + " COINS");
-        coinContinue.setFont(Font.font("Arial Black", 19));
+        VBox difficultyBlock = new VBox(-2, difficultyCaption, difficulty);
+        difficultyBlock.setAlignment(Pos.CENTER);
+        difficultyBlock.setPadding(new Insets(6, 18, 6, 18));
+        difficultyBlock.setStyle(MenuTheme.chipStyle("#4E3B00", "#FFE45C", 14));
+
+        Label coinContinue = new Label("CONTINUE  ·  " + CLASSIC_CONTINUE_BIRD_COIN_COST + " COINS");
+        coinContinue.setFont(Font.font("Arial Black", 16));
         coinContinue.setTextFill(Color.WHITE);
+        coinContinue.setPadding(new Insets(12, 18, 12, 18));
+        coinContinue.setStyle(MenuTheme.chipStyle("#263238", "#78909C", 14));
         coinContinue.setVisible(!bossRush);
         coinContinue.setManaged(!bossRush);
         Label record = new Label();
-        record.setFont(Font.font("Consolas", FontWeight.BOLD, 19));
+        record.setFont(Font.font("Consolas", FontWeight.BOLD, 16));
         record.setTextFill(Color.web("#B3E5FC"));
-        record.setWrapText(true);
         record.setTextAlignment(TextAlignment.CENTER);
-        VBox statusPanel = new VBox(7, difficultyCaption, difficulty, coinContinue, record);
-        statusPanel.setAlignment(Pos.CENTER);
-        lockRegionSize(statusPanel, 420, 270);
-        statusPanel.setStyle(MenuTheme.panelStyle("#607D8B", 18));
+        record.setPadding(new Insets(12, 18, 12, 18));
+        record.setStyle(MenuTheme.chipStyle("#123044", "#4FC3F7", 14));
+
+        HBox routeMeta = new HBox(12, difficultyBlock, coinContinue, record);
+        routeMeta.setAlignment(Pos.CENTER);
+        VBox routeDetails = new VBox(10, routeEyebrow, routeTitle, routeStrip, routeMeta);
+        routeDetails.setAlignment(Pos.CENTER);
+        HBox.setHgrow(routeDetails, Priority.ALWAYS);
+
+        Region heroDivider = new Region();
+        lockRegionSize(heroDivider, 2, 182);
+        heroDivider.setStyle("-fx-background-color: rgba(255,255,255,0.18);");
+        HBox selectionHero = new HBox(28, fighterPanel, heroDivider, routeDetails);
+        selectionHero.setAlignment(Pos.CENTER_LEFT);
+        selectionHero.setPadding(new Insets(18, 28, 18, 28));
+        lockRegionSize(selectionHero, 1520, 260);
+        selectionHero.setStyle(MenuTheme.panelStyle("#F8C528", 22));
 
         Button start = uiFactory.action("START", 330, 66, 27, "#00C853", 20, () -> {
             if (selected[0] == null) return;
@@ -52323,20 +52333,17 @@ public class BirdGame3 {
                 selectedSkin[0] = normalizeAdventureSkinChoice(pick, selectedSkin[0]);
                 drawRosterSprite(portrait, pick, selectedSkin[0], false, true);
                 selectedName.setText(pick.name.toUpperCase(Locale.ROOT));
-                routeEyebrow.setText((bossRush ? "BOSS RUSH" : pick.name.toUpperCase(Locale.ROOT) + " ROUTE"));
                 routeTitle.setText(bossRush ? "THE CROWN GAUNTLET" : classicRouteTitle(pick));
                 List<String> skins = adventureSkinOptions(pick);
                 skin.setText(adventureSkinLabel(pick, selectedSkin[0]));
                 skin.setDisable(skins.size() <= 1);
                 record.setText(bossRush ? bossRushBestStatusForBird(pick)
-                        : (isClassicCompleted(pick) ? "ROUTE BADGE EARNED" : "ROUTE BADGE NOT EARNED"));
+                        : (isClassicCompleted(pick) ? "BADGE EARNED" : "BADGE LOCKED"));
             }
             start.setDisable(!hasPick);
         };
 
-        HBox lowerPanels = new HBox(20, fighterPanel, routePanel, statusPanel);
-        lowerPanels.setAlignment(Pos.CENTER);
-        VBox center = new VBox(12, rosterGrid, lowerPanels);
+        VBox center = new VBox(12, rosterGrid, selectionHero);
         center.setAlignment(Pos.TOP_CENTER);
         center.setPadding(new Insets(12, 0, 0, 0));
         content.setCenter(center);
@@ -52407,9 +52414,6 @@ public class BirdGame3 {
             Label bird = new Label(ending.bird().name.toUpperCase(Locale.ROOT));
             bird.setFont(Font.font("Arial Black", 18));
             bird.setTextFill(Color.WHITE);
-            Label route = new Label(ending.routeTitle());
-            route.setFont(Font.font("Consolas", FontWeight.BOLD, 14));
-            route.setTextFill(Color.web(unlocked ? "#FFE082" : "#78909C"));
             Label endingTitle = new Label(unlocked ? ending.title() : "LOCKED ENDING");
             endingTitle.setFont(Font.font("Arial Black", 15));
             endingTitle.setTextFill(Color.web(unlocked ? "#E1F5FE" : "#607D8B"));
@@ -52417,16 +52421,16 @@ public class BirdGame3 {
             endingTitle.setTextAlignment(TextAlignment.CENTER);
             endingTitle.setAlignment(Pos.CENTER);
             endingTitle.setMaxWidth(250);
-            Label lockState = new Label(unlocked ? "PLAY ENDING" : "ROUTE BADGE REQUIRED");
+            Label lockState = new Label(unlocked ? "WATCH" : "BADGE REQUIRED");
             lockState.setFont(Font.font("Consolas", FontWeight.BOLD, 13));
             lockState.setTextFill(Color.web(unlocked ? "#B2DFDB" : "#78909C"));
 
-            VBox cardGraphic = new VBox(4, portrait, bird, route, endingTitle, lockState);
+            VBox cardGraphic = new VBox(7, portrait, bird, endingTitle, lockState);
             cardGraphic.setAlignment(Pos.CENTER);
             Button card = new Button();
             card.setGraphic(cardGraphic);
             card.setPadding(new Insets(10));
-            lockRegionSize(card, 286, 224);
+            lockRegionSize(card, 286, 206);
             String accent = switch (ending.alignment()) {
                 case HOPEFUL -> "#168A86";
                 case AMBIGUOUS -> "#B66A18";
@@ -75381,87 +75385,72 @@ public class BirdGame3 {
         boolean bossRush = bossRushModeActive && !daily && !ashfallTrial;
         boolean exUnlockNext = bossRush && won && finalRound && bossRushPerfectRun && !bossRushExEncounterAdded && !isBossRushExEncounter(current);
 
-        VBox box = new VBox(8);
+        VBox box = new VBox(6);
         box.setAlignment(Pos.CENTER_LEFT);
-        box.setPadding(new Insets(18, 26, 18, 26));
+        box.setPadding(new Insets(16, 24, 16, 24));
         box.setMaxWidth(1500);
-        box.setStyle("-fx-background-color: rgba(0,0,0,0.55); -fx-background-radius: 22; -fx-border-color: #FFD54F; -fx-border-width: 3; -fx-border-radius: 22;");
+        box.setStyle(MenuTheme.panelStyle("#607D8B", 18));
 
         String headerText = daily
-                ? "DAILY CHALLENGE: " + dailyChallengeRunKey + "  |  SEED " + formatDailyChallengeSeed(dailyChallengeSeed)
+                ? "DAILY CHALLENGE  ·  " + dailyChallengeRunKey
                 : (ashfallTrial
-                ? "ASHFALL TRIAL: " + classicRunCodename
-                : (bossRush ? "BOSS RUSH: " + classicRunCodename : "CLASSIC RUN: " + classicRunCodename));
+                ? "ASHFALL TRIAL  ·  " + classicRunCodename
+                : (bossRush ? "BOSS RUSH  ·  " + classicRunCodename : "CLASSIC  ·  " + classicRunCodename));
         Label header = getLabel(headerText);
-        header.setFont(Font.font("Arial Black", 34));
+        header.setFont(Font.font("Arial Black", 28));
         header.setTextFill(Color.web("#FFE082"));
         applyNoEllipsis(header);
 
-        Label status = new Label(won ? "RESULT: VICTORY" : "RESULT: DEFEAT");
-        status.setFont(Font.font("Arial Black", 28));
-        status.setTextFill(won ? Color.LIMEGREEN : Color.ORANGE);
-        applyNoEllipsis(status);
-
         Label progress = getLabel(daily
-                ? "Round " + (classicRoundIndex + 1) + "/" + classicRun.size()
-                  + "  |  Lives " + livesLeft + "/3  |  " + dailyChallengeBonusStatus(dailyChallengeRunKey)
+                ? "ROUND " + (classicRoundIndex + 1) + " / " + classicRun.size()
+                  + "  ·  LIVES " + livesLeft + " / 3  ·  " + dailyChallengeBonusStatus(dailyChallengeRunKey)
                 : ashfallTrial
-                  ? "Trial " + (classicRoundIndex + 1) + "/" + classicRun.size()
-                    + "  |  Lives " + livesLeft + "/3  |  Completion "
+                  ? "TRIAL " + (classicRoundIndex + 1) + " / " + classicRun.size()
+                    + "  ·  LIVES " + livesLeft + " / 3  ·  "
                     + (ashfallTrialCompleted ? "CLEARED" : "UNCLEARED")
                 : bossRush
-                  ? "Boss " + (classicRoundIndex + 1) + "/" + classicRun.size()
-                    + "  |  Repair Stocks " + livesLeft + "/3  |  Perfect Route "
-                    + (bossRushPerfectRun ? "LIVE" : "BROKEN")
-                  : "Round " + (classicRoundIndex + 1) + "/" + classicRun.size()
-                    + "  |  Difficulty " + String.format(Locale.US, "%.1f", classicDifficulty)
-                    + "  |  Bird Coins " + birdCoinBalanceText());
-        progress.setFont(Font.font("Consolas", 22));
+                  ? "BOSS " + (classicRoundIndex + 1) + " / " + classicRun.size()
+                    + "  ·  REPAIRS " + livesLeft + " / 3  ·  PERFECT "
+                    + (bossRushPerfectRun ? "ACTIVE" : "LOST")
+                  : "ROUND " + (classicRoundIndex + 1) + " / " + classicRun.size()
+                    + "  ·  DIFFICULTY " + String.format(Locale.US, "%.1f", classicDifficulty)
+                    + "  ·  LIVES " + livesLeft + " / 3");
+        progress.setFont(Font.font("Consolas", FontWeight.BOLD, 20));
         progress.setTextFill(Color.web("#B3E5FC"));
         progress.setWrapText(true);
         progress.setMaxWidth(1450);
         applyNoEllipsis(progress);
 
-        Label currentLine = new Label("Current: " + current.name + "  |  " + encounterMapDisplayName(current)
-                + "  |  " + current.mutator.label + "  |  " + current.twist.label);
-        currentLine.setFont(Font.font("Consolas", 22));
-        currentLine.setTextFill(Color.web("#E3F2FD"));
-        currentLine.setWrapText(true);
-        currentLine.setMaxWidth(1450);
-        applyNoEllipsis(currentLine);
-
-        box.getChildren().addAll(header, status, progress, currentLine);
-
+        String nextText;
+        Color nextColor;
         if (next != null) {
-            Label nextLine = new Label("Next: " + next.name + "  |  " + encounterMapDisplayName(next)
-                    + "  |  " + next.mutator.label + "  |  " + next.twist.label);
-            nextLine.setFont(Font.font("Consolas", 21));
-            nextLine.setTextFill(Color.web("#C5E1A5"));
-            nextLine.setWrapText(true);
-            nextLine.setMaxWidth(1450);
-            applyNoEllipsis(nextLine);
-            box.getChildren().add(nextLine);
+            nextText = "NEXT  ·  " + next.name;
+            nextColor = Color.web("#C5E1A5");
         } else if (won && finalRound) {
-            Label nextLine = getLabel(daily
-                    ? "Next: RETURN TO DAILY BOARD"
+            nextText = daily
+                    ? "NEXT  ·  RETURN TO DAILY BOARD"
                     : (ashfallTrial
-                       ? "Next: CLAIM TRIAL REWARD"
+                       ? "NEXT  ·  CLAIM TRIAL REWARD"
                     : (bossRush
-                       ? (exUnlockNext ? "Next: UNLOCK EX ROUND" : "Next: CLAIM RANK")
-                       : "Next: CLAIM REWARD")));
-            nextLine.setFont(Font.font("Consolas", 21));
-            nextLine.setTextFill(Color.web("#C8E6C9"));
-            applyNoEllipsis(nextLine);
-            box.getChildren().add(nextLine);
+                       ? (exUnlockNext ? "NEXT  ·  UNLOCK EX ROUND" : "NEXT  ·  CLAIM RANK")
+                       : "NEXT  ·  CLAIM REWARD"));
+            nextColor = Color.web("#C8E6C9");
         } else if (!won) {
-            Label nextLine = getLabel(livesLeft > 0
-                    ? (ashfallTrial ? "Next: RETRY TRIAL" : (bossRush ? "Next: RETRY BOSS" : "Next: RETRY ENCOUNTER"))
-                    : (daily ? "Next: DAILY RUN FAILED" : (ashfallTrial ? "Next: ASHFALL TRIAL FAILED" : (bossRush ? "Next: BOSS RUSH FAILED" : "Next: RUN FAILED"))));
-            nextLine.setFont(Font.font("Consolas", 21));
-            nextLine.setTextFill(Color.web("#FFCCBC"));
-            applyNoEllipsis(nextLine);
-            box.getChildren().add(nextLine);
+            nextText = livesLeft > 0
+                    ? (ashfallTrial ? "NEXT  ·  RETRY TRIAL" : (bossRush ? "NEXT  ·  RETRY BOSS" : "NEXT  ·  RETRY ENCOUNTER"))
+                    : (daily ? "DAILY RUN FAILED" : (ashfallTrial ? "ASHFALL TRIAL FAILED" : (bossRush ? "BOSS RUSH FAILED" : "CLASSIC RUN FAILED")));
+            nextColor = Color.web("#FFCCBC");
+        } else {
+            nextText = "NEXT  ·  RETURN";
+            nextColor = Color.web("#CFD8DC");
         }
+        Label nextLine = getLabel(nextText);
+        nextLine.setFont(Font.font("Consolas", FontWeight.BOLD, 20));
+        nextLine.setTextFill(nextColor);
+        nextLine.setWrapText(true);
+        nextLine.setMaxWidth(1450);
+        applyNoEllipsis(nextLine);
+        box.getChildren().addAll(header, progress, nextLine);
         return box;
     }
 

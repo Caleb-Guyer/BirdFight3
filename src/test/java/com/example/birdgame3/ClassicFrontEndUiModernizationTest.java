@@ -26,6 +26,11 @@ class ClassicFrontEndUiModernizationTest {
         assertFalse(select.contains("frontEndMatchFlow.rulesPreset().title"),
                 "Versus rules are not useful information on Classic character select");
         assertFalse(select.contains("Label title = new Label(bossRush ? \"BOSS RUSH\" : \"CLASSIC MODE\")"));
+        assertTrue(select.contains("HBox selectionHero"));
+        assertTrue(select.contains("new VBox(12, rosterGrid, selectionHero)"));
+        assertFalse(select.contains("Label playerOne = new Label(\"PLAYER 1\")"));
+        assertFalse(select.contains("HBox lowerPanels"));
+        assertFalse(select.contains("statusPanel"));
     }
 
     @Test
@@ -46,14 +51,30 @@ class ClassicFrontEndUiModernizationTest {
         assertTrue(gallery.contains("buildAdaptivePromptBar("));
         assertFalse(gallery.contains("ending.crownChoice()"));
         assertFalse(gallery.contains("Every route badge unlocks its bird's alternate Crown epilogue"));
-        assertTrue(gallery.contains("ROUTE BADGE REQUIRED"));
+        assertTrue(gallery.contains("BADGE REQUIRED"));
+        assertFalse(gallery.contains("ending.routeTitle()"));
         assertTrue(continuePrompt.contains("buildAdaptivePromptBar("));
         assertTrue(continuePrompt.contains("uiFactory.action(\"CONTINUE\""));
         assertFalse(continuePrompt.contains("uiFactory.action(\"CONTINUE  \" + CLASSIC_CONTINUE_BIRD_COIN_COST"));
     }
 
+    @Test
+    void classicResultsKeepOnlyRouteProgressAndNextAction() throws IOException {
+        String summary = methodBody(Files.readString(GAME_SOURCE), "buildClassicSummaryPanel");
+
+        assertTrue(summary.contains("NEXT  ·  "));
+        assertTrue(summary.contains("DIFFICULTY "));
+        assertFalse(summary.contains("RESULT: VICTORY"));
+        assertFalse(summary.contains("Current: "));
+        assertFalse(summary.contains("encounterMapDisplayName(current)"));
+        assertFalse(summary.contains("current.mutator.label"));
+        assertFalse(summary.contains("next.mutator.label"));
+        assertFalse(summary.contains("Bird Coins "));
+    }
+
     private static String methodBody(String source, String methodName) {
         int name = source.indexOf("private void " + methodName + "(");
+        if (name < 0) name = source.indexOf("private VBox " + methodName + "(");
         assertTrue(name >= 0, "Missing method " + methodName);
         int open = source.indexOf('{', name);
         int depth = 0;
