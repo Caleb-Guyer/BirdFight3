@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class VersusFrontEndIntegrationTest {
@@ -49,6 +50,21 @@ class VersusFrontEndIntegrationTest {
         assertTrue(source.contains("bindEscape(scene, () -> confirmExitGame(stage));"));
         assertTrue(source.contains("bindEscape(scene, backButton::fire);"));
         assertTrue(source.contains("bindEscape(scene, backArrow);"));
+    }
+
+    @Test
+    void preMatchFlowUsesProgressiveRulesAndDeviceAwarePlayerPrompts() throws IOException {
+        String source = source();
+
+        assertTrue(source.contains("GridPane basicOptions = new GridPane();"));
+        assertTrue(source.contains("GridPane advancedOptions = new GridPane();"));
+        assertTrue(source.contains("CORE RULES · EVERYTHING NEEDED TO START"));
+        assertTrue(source.contains("FightSetupInputPresentation.resolve("));
+        assertTrue(source.contains("UiInputPrompts.Command.SELECT, \"PICK / READY\""));
+        assertFalse(source.contains("INPUT: KEYBOARD"),
+                "fighter slots should name the active device instead of assuming keyboard");
+        assertFalse(source.contains("SPECIALS REVEALED AT START"),
+                "the roster header should not spend permanent space on four move-guide cards");
     }
 
     private static String source() throws IOException {

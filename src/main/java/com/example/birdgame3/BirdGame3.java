@@ -25658,7 +25658,7 @@ public class BirdGame3 {
         applyNoEllipsis(heading);
         Label subtitle = new Label(networkLobby
                 ? "Everyone in the lobby sees these rules. Any change clears every ready state."
-                : "Choose a preset or tune every part of the battle. Custom rules save automatically.");
+                : "Start with the essentials. Advanced match tuning stays one tab away.");
         subtitle.setFont(Font.font("Consolas", 20));
         subtitle.setTextFill(Color.web("#B0BEC5"));
         applyNoEllipsis(subtitle);
@@ -25724,48 +25724,91 @@ public class BirdGame3 {
         });
         customRow.getChildren().add(rename);
 
-        GridPane options = new GridPane();
-        options.setHgap(14);
-        options.setVgap(14);
-        options.setAlignment(Pos.CENTER);
-        options.add(buildVersusRuleOption("STOCKS", () -> Integer.toString(working[0].stockCount()),
+        GridPane basicOptions = new GridPane();
+        basicOptions.setHgap(14);
+        basicOptions.setVgap(14);
+        basicOptions.setAlignment(Pos.CENTER);
+        basicOptions.add(buildVersusRuleOption("STOCKS", () -> Integer.toString(working[0].stockCount()),
                 () -> saveCustom.accept(working[0].withStockCount(working[0].stockCount() - 1)),
                 () -> saveCustom.accept(working[0].withStockCount(working[0].stockCount() + 1)), refreshers), 0, 0);
-        options.add(buildVersusRuleOption("TIME LIMIT", () -> working[0].timeText(),
+        basicOptions.add(buildVersusRuleOption("TIME LIMIT", () -> working[0].timeText(),
                 () -> saveCustom.accept(working[0].withTimeLimitSeconds(working[0].timeLimitSeconds() - 30)),
                 () -> saveCustom.accept(working[0].withTimeLimitSeconds(working[0].timeLimitSeconds() + 30)), refreshers), 1, 0);
-        options.add(buildVersusRuleOption("ITEMS", () -> rulesOnOff(working[0].powerUpsEnabled()),
+        basicOptions.add(buildVersusRuleOption("ITEMS", () -> rulesOnOff(working[0].powerUpsEnabled()),
                 () -> saveCustom.accept(working[0].withPowerUpsEnabled(!working[0].powerUpsEnabled())),
                 () -> saveCustom.accept(working[0].withPowerUpsEnabled(!working[0].powerUpsEnabled())), refreshers), 2, 0);
-        options.add(buildVersusRuleOption("ITEM FREQUENCY", () -> working[0].powerUpsEnabled()
-                        ? "EVERY " + working[0].powerUpIntervalSeconds() + "s" : "DISABLED",
-                () -> saveCustom.accept(working[0].withPowerUpIntervalSeconds(working[0].powerUpIntervalSeconds() + 2)),
-                () -> saveCustom.accept(working[0].withPowerUpIntervalSeconds(working[0].powerUpIntervalSeconds() - 2)), refreshers), 3, 0);
-        options.add(buildVersusRuleOption("STAGE HAZARDS", () -> rulesOnOff(working[0].stageHazardsEnabled()),
+        basicOptions.add(buildVersusRuleOption("STAGE HAZARDS", () -> rulesOnOff(working[0].stageHazardsEnabled()),
                 () -> saveCustom.accept(working[0].withStageHazardsEnabled(!working[0].stageHazardsEnabled())),
                 () -> saveCustom.accept(working[0].withStageHazardsEnabled(!working[0].stageHazardsEnabled())), refreshers), 0, 1);
-        options.add(buildVersusRuleOption("ULTIMATES", () -> rulesOnOff(working[0].ultimatesEnabled()),
+        basicOptions.add(buildVersusRuleOption("ULTIMATES", () -> rulesOnOff(working[0].ultimatesEnabled()),
                 () -> saveCustom.accept(working[0].withUltimatesEnabled(!working[0].ultimatesEnabled())),
                 () -> saveCustom.accept(working[0].withUltimatesEnabled(!working[0].ultimatesEnabled())), refreshers), 1, 1);
-        options.add(buildVersusRuleOption("FRIENDLY FIRE", () -> rulesOnOff(working[0].friendlyFireEnabled()),
+        basicOptions.add(buildVersusRuleOption("DEFAULT CPU", () -> "LEVEL " + working[0].defaultCpuLevel(),
+                () -> saveCustom.accept(working[0].withDefaultCpuLevel(working[0].defaultCpuLevel() - 1)),
+                () -> saveCustom.accept(working[0].withDefaultCpuLevel(working[0].defaultCpuLevel() + 1)), refreshers), 2, 1);
+
+        GridPane advancedOptions = new GridPane();
+        advancedOptions.setHgap(14);
+        advancedOptions.setVgap(14);
+        advancedOptions.setAlignment(Pos.CENTER);
+        advancedOptions.add(buildVersusRuleOption("ITEM FREQUENCY", () -> working[0].powerUpsEnabled()
+                        ? "EVERY " + working[0].powerUpIntervalSeconds() + "s" : "DISABLED",
+                () -> saveCustom.accept(working[0].withPowerUpIntervalSeconds(working[0].powerUpIntervalSeconds() + 2)),
+                () -> saveCustom.accept(working[0].withPowerUpIntervalSeconds(working[0].powerUpIntervalSeconds() - 2)), refreshers), 0, 0);
+        advancedOptions.add(buildVersusRuleOption("FRIENDLY FIRE", () -> rulesOnOff(working[0].friendlyFireEnabled()),
                 () -> saveCustom.accept(working[0].withFriendlyFireEnabled(!working[0].friendlyFireEnabled())),
-                () -> saveCustom.accept(working[0].withFriendlyFireEnabled(!working[0].friendlyFireEnabled())), refreshers), 2, 1);
-        options.add(buildVersusRuleOption("MUTATORS", () -> rulesOnOff(working[0].mutatorsEnabled()),
+                () -> saveCustom.accept(working[0].withFriendlyFireEnabled(!working[0].friendlyFireEnabled())), refreshers), 1, 0);
+        advancedOptions.add(buildVersusRuleOption("MUTATORS", () -> rulesOnOff(working[0].mutatorsEnabled()),
                 () -> saveCustom.accept(working[0].withMutatorsEnabled(!working[0].mutatorsEnabled())),
-                () -> saveCustom.accept(working[0].withMutatorsEnabled(!working[0].mutatorsEnabled())), refreshers), 3, 1);
-        options.add(buildVersusRuleOption("LAUNCH RATE", () -> working[0].launchRatePercent() + "%",
+                () -> saveCustom.accept(working[0].withMutatorsEnabled(!working[0].mutatorsEnabled())), refreshers), 2, 0);
+        advancedOptions.add(buildVersusRuleOption("LAUNCH RATE", () -> working[0].launchRatePercent() + "%",
                 () -> saveCustom.accept(working[0].withLaunchRatePercent(working[0].launchRatePercent() - 10)),
-                () -> saveCustom.accept(working[0].withLaunchRatePercent(working[0].launchRatePercent() + 10)), refreshers), 0, 2);
-        options.add(buildVersusRuleOption("DAMAGE RATE", () -> working[0].damageRatePercent() + "%",
+                () -> saveCustom.accept(working[0].withLaunchRatePercent(working[0].launchRatePercent() + 10)), refreshers), 0, 1);
+        advancedOptions.add(buildVersusRuleOption("DAMAGE RATE", () -> working[0].damageRatePercent() + "%",
                 () -> saveCustom.accept(working[0].withDamageRatePercent(working[0].damageRatePercent() - 10)),
-                () -> saveCustom.accept(working[0].withDamageRatePercent(working[0].damageRatePercent() + 10)), refreshers), 1, 2);
-        options.add(buildVersusRuleOption("MATCH FORMAT", () -> working[0].seriesWins() == 1
+                () -> saveCustom.accept(working[0].withDamageRatePercent(working[0].damageRatePercent() + 10)), refreshers), 1, 1);
+        advancedOptions.add(buildVersusRuleOption("MATCH FORMAT", () -> working[0].seriesWins() == 1
                         ? "SINGLE MATCH" : "FIRST TO " + working[0].seriesWins(),
                 () -> saveCustom.accept(working[0].withSeriesWins(working[0].seriesWins() - 1)),
-                () -> saveCustom.accept(working[0].withSeriesWins(working[0].seriesWins() + 1)), refreshers), 2, 2);
-        options.add(buildVersusRuleOption("DEFAULT CPU", () -> "LEVEL " + working[0].defaultCpuLevel(),
-                () -> saveCustom.accept(working[0].withDefaultCpuLevel(working[0].defaultCpuLevel() - 1)),
-                () -> saveCustom.accept(working[0].withDefaultCpuLevel(working[0].defaultCpuLevel() + 1)), refreshers), 3, 2);
+                () -> saveCustom.accept(working[0].withSeriesWins(working[0].seriesWins() + 1)), refreshers), 2, 1);
+
+        boolean[] advancedPage = {false};
+        Runnable[] refreshOptionPage = new Runnable[1];
+        Button basicTab = uiFactory.action("BASIC", 210, 50, 14, "#1565C0", 14, () -> {
+            advancedPage[0] = false;
+            refreshOptionPage[0].run();
+        });
+        Button advancedTab = uiFactory.action("ADVANCED", 210, 50, 14, "#37474F", 14, () -> {
+            advancedPage[0] = true;
+            refreshOptionPage[0].run();
+        });
+        Label optionHint = new Label();
+        optionHint.setFont(Font.font("Consolas", FontWeight.BOLD, 15));
+        optionHint.setTextFill(Color.web("#B0BEC5"));
+        applyNoEllipsis(optionHint);
+        Region optionTabSpacer = new Region();
+        HBox.setHgrow(optionTabSpacer, Priority.ALWAYS);
+        HBox optionTabs = new HBox(10, basicTab, advancedTab, optionTabSpacer, optionHint);
+        optionTabs.setAlignment(Pos.CENTER_LEFT);
+        optionTabs.setMaxWidth(1090);
+
+        StackPane optionsDeck = new StackPane(basicOptions, advancedOptions);
+        optionsDeck.setMinHeight(178);
+        optionsDeck.setPrefHeight(178);
+        optionsDeck.setMaxHeight(178);
+        refreshOptionPage[0] = () -> {
+            boolean advanced = advancedPage[0];
+            basicOptions.setVisible(!advanced);
+            basicOptions.setManaged(!advanced);
+            advancedOptions.setVisible(advanced);
+            advancedOptions.setManaged(advanced);
+            optionHint.setText(advanced
+                    ? "MATCH BEHAVIOR · TEAM RULES · SERIES"
+                    : "CORE RULES · EVERYTHING NEEDED TO START");
+            basicTab.setStyle(MenuTheme.segmentedButtonStyle(!advanced, "#1565C0"));
+            advancedTab.setStyle(MenuTheme.segmentedButtonStyle(advanced, "#7B1FA2"));
+        };
+        refreshOptionPage[0].run();
 
         Label currentName = new Label();
         currentName.setFont(Font.font("Arial Black", 25));
@@ -25794,12 +25837,14 @@ public class BirdGame3 {
                         + (i + 1) + "  " + versusRulesLibrary.slot(i).name());
             }
             currentName.setText(working[0].name());
-            currentSummary.setText(working[0].detailSummary() + "  •  random: "
-                    + working[0].randomPoolText() + "  •  " + working[0].excludedStageKeys().size() + " excluded");
+            int excluded = working[0].excludedStageKeys().size();
+            currentSummary.setText(working[0].summary() + "  •  " + working[0].randomPoolText()
+                    + (excluded == 0 ? "" : "  •  " + excluded + " EXCLUDED"));
+            randomPoolButton.setText("STAGE POOL  ·  " + working[0].randomPoolText());
         };
         refreshAll[0].run();
 
-        VBox center = new VBox(14, presetRow, customRow, options, current);
+        VBox center = new VBox(14, presetRow, customRow, optionTabs, optionsDeck, current);
         center.setAlignment(Pos.CENTER);
         center.setPadding(new Insets(20, 48, 18, 48));
         frame.setCenter(center);
@@ -25826,9 +25871,13 @@ public class BirdGame3 {
                 showFightSetup(stage);
             }
         });
+        HBox inputPrompt = buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "NAVIGATE"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "CHANGE"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "BACK"));
         Region footerSpacer = new Region();
         HBox.setHgrow(footerSpacer, Priority.ALWAYS);
-        HBox footer = new HBox(24, backButton, footerSpacer, continueButton);
+        HBox footer = new HBox(24, backButton, inputPrompt, footerSpacer, continueButton);
         footer.setAlignment(Pos.CENTER);
         footer.setPadding(new Insets(24, 54, 34, 54));
         footer.setStyle("-fx-background-color: rgba(3,5,8,0.96); -fx-border-color: rgba(255,255,255,0.10) transparent transparent transparent; -fx-border-width: 3 0 0 0;");
@@ -25957,7 +26006,13 @@ public class BirdGame3 {
             if (networkLobby) syncLanHostRulesChange();
             showVersusRulesEditor(stage, networkLobby);
         });
-        HBox footer = new HBox(20, all, pool, done);
+        HBox inputPrompt = buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "NAVIGATE"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "TOGGLE"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "DONE"));
+        Region footerSpacer = new Region();
+        HBox.setHgrow(footerSpacer, Priority.ALWAYS);
+        HBox footer = new HBox(20, all, pool, footerSpacer, inputPrompt, done);
         footer.setAlignment(Pos.CENTER_RIGHT);
         footer.setPadding(new Insets(18, 44, 28, 44));
         frame.setBottom(footer);
@@ -30583,43 +30638,7 @@ public class BirdGame3 {
                 + "-fx-border-radius: 12;");
         titleBanner.setEffect(new DropShadow(18, Color.rgb(0, 0, 0, 0.28)));
 
-        Label coins = new Label("BIRD COINS  " + birdCoinBalanceText());
-        coins.setFont(Font.font("Arial Black", 19));
-        coins.setTextFill(Color.web("#FFF8D6"));
-        StackPane coinsChip = new StackPane(coins);
-        coinsChip.setPadding(new Insets(10, 18, 10, 18));
-        coinsChip.setStyle("-fx-background-color: rgba(255, 193, 7, 0.22); -fx-background-radius: 24; -fx-border-color: rgba(255, 245, 157, 0.65); -fx-border-width: 2; -fx-border-radius: 24;");
-
-        HBox countBox = new HBox(8);
-        countBox.setAlignment(Pos.CENTER_LEFT);
-        Button[] countButtons = new Button[3];
         final Runnable[] refreshLayoutRef = new Runnable[1];
-        Runnable refreshCountButtons = () -> {
-            for (int i = 0; i < countButtons.length; i++) {
-                Button b = countButtons[i];
-                if (b == null) continue;
-                int value = i + 2;
-                boolean active = activePlayers == value;
-                b.setStyle("-fx-background-color: " + (active ? "#FFE45C" : "#20252D") + "; "
-                        + "-fx-text-fill: " + (active ? "#141414" : "white") + "; "
-                        + "-fx-font-family: 'Arial Black'; -fx-font-size: 16px; -fx-font-weight: bold; "
-                        + "-fx-background-radius: 16; -fx-border-color: black; -fx-border-width: 2.5; "
-                        + "-fx-border-radius: 16;");
-                b.setOpacity(active ? 1.0 : 0.94);
-            }
-        };
-        for (int i = 2; i <= 4; i++) {
-            int n = i;
-            Button b = uiFactory.action(n + "P", 74, 52, 18, "#20252D", 16, () -> {
-                activePlayers = n;
-                refreshCountButtons.run();
-                if (refreshLayoutRef[0] != null) refreshLayoutRef[0].run();
-            });
-            applyNoEllipsis(b);
-            countButtons[i - 2] = b;
-            countBox.getChildren().add(b);
-        }
-        refreshCountButtons.run();
 
         teamModeToggleButton = uiFactory.action("TEAM MODE: OFF", 206, 52, 18, "#3A434D", 16, () -> {
             teamModeEnabled = !teamModeEnabled;
@@ -30634,7 +30653,7 @@ public class BirdGame3 {
         settingsIcon.setScaleY(0.58);
         Button settingsBtn = getButton(stage, settingsIcon);
 
-        HBox rightHud = new HBox(10, teamModeToggleButton, settingsBtn, coinsChip);
+        HBox rightHud = new HBox(10, teamModeToggleButton, settingsBtn);
         rightHud.setAlignment(Pos.CENTER_RIGHT);
 
         BorderPane topChrome = new BorderPane();
@@ -30827,7 +30846,6 @@ public class BirdGame3 {
                 return;
             }
             activePlayers--;
-            refreshCountButtons.run();
             if (refreshLayoutRef[0] != null) refreshLayoutRef[0].run();
         });
         Button addPlayerBtn = uiFactory.action("+ PLAYER", 126, 46, 18, "#2E7D32", 14, () -> {
@@ -30835,7 +30853,6 @@ public class BirdGame3 {
                 return;
             }
             activePlayers++;
-            refreshCountButtons.run();
             if (refreshLayoutRef[0] != null) refreshLayoutRef[0].run();
         });
         applyNoEllipsis(removePlayerBtn);
@@ -30879,27 +30896,6 @@ public class BirdGame3 {
         Runnable[] updateSlot = new Runnable[4];
         int[] nullRockSequenceProgress = new int[4];
         Runnable[] refreshInputAssignmentsRef = new Runnable[1];
-        Label[] specialGuideCards = new Label[4];
-        FlowPane specialGuideStrip = new FlowPane(8, 6);
-        specialGuideStrip.setAlignment(Pos.CENTER_RIGHT);
-        specialGuideStrip.setPrefWrapLength(1180);
-        specialGuideStrip.setMaxWidth(1180);
-        specialGuideStrip.setMinHeight(76);
-        specialGuideStrip.setPrefHeight(76);
-        Runnable[] refreshSpecialGuideRef = new Runnable[1];
-        for (int i = 0; i < specialGuideCards.length; i++) {
-            Label card = createFightSetupSpecialGuideCard(i);
-            specialGuideCards[i] = card;
-            specialGuideStrip.getChildren().add(card);
-        }
-        refreshSpecialGuideRef[0] = () -> {
-            for (int guideIdx = 0; guideIdx < specialGuideCards.length; guideIdx++) {
-                boolean active = guideIdx < activePlayers;
-                BirdType type = active ? fightSetupSelection.selectedBird(guideIdx) : null;
-                boolean randomPick = active && fightSetupSelection.isRandomSelected(guideIdx);
-                refreshFightSetupSpecialGuideCard(specialGuideCards[guideIdx], guideIdx, type, randomPick, active, activePlayers);
-            }
-        };
 
         for (int i = 0; i < 4; i++) {
             int idx = i;
@@ -30973,12 +30969,13 @@ public class BirdGame3 {
             syncTeamButtons[idx] = syncTeamButton;
             syncTeamButton.run();
 
-            Button inputBtn = new Button("INPUT: KEYBOARD");
+            Button inputBtn = new Button("KEYBOARD + MOUSE");
             inputBtn.setMinHeight(42);
             inputBtn.setPrefHeight(42);
             inputBtn.setMaxWidth(Double.MAX_VALUE);
             inputBtn.setFont(Font.font("Arial Black", 14));
             inputBtn.setWrapText(true);
+            inputBtn.setAccessibleText("Input source. Activate to connect or disconnect a controller.");
             applyNoEllipsis(inputBtn);
             inputBtn.setOnAction(e -> {
                 playButtonClick();
@@ -31060,9 +31057,6 @@ public class BirdGame3 {
                     skinButtons[idx].setOpacity(options.size() <= 1 ? 0.6 : 1.0);
                     skinButtons[idx].setText(adventureSkinLabel(type, skinKey));
                 }
-                if (refreshSpecialGuideRef[0] != null) {
-                    refreshSpecialGuideRef[0].run();
-                }
                 updateReadyBanner.run();
             };
 
@@ -31116,6 +31110,7 @@ public class BirdGame3 {
         Runnable refreshInputAssignments = () -> {
             normalizeXboxAssignmentsForLocalSetup();
             for (int idx = 0; idx < inputButtons.length; idx++) {
+                int playerIdx = idx;
                 Button inputBtn = inputButtons[idx];
                 if (inputBtn == null) {
                     continue;
@@ -31125,37 +31120,32 @@ public class BirdGame3 {
                 int xboxSlot = xboxAssignedSlotForPlayer(idx);
                 boolean xboxConnected = xboxSlot >= 0 && isXboxSlotConnected(xboxSlot);
                 boolean awaitingAssign = active && !cpu && xboxPendingAssignPlayerIdx == idx;
-                String text;
-                String color;
-                double opacity = 1.0;
-                boolean disabled = !active;
-                if (!active) {
-                    text = "INACTIVE SLOT";
-                    color = "#37474F";
-                    opacity = 0.45;
-                } else if (cpu) {
-                    text = "CPU CONTROL";
-                    color = "#6D4C41";
-                    opacity = 0.85;
-                    disabled = true;
-                } else if (xboxSlot >= 0) {
-                    text = xboxConnected ? "INPUT: XBOX " + (xboxSlot + 1) : "XBOX " + (xboxSlot + 1) + " DISCONNECTED";
-                    color = xboxConnected ? "#2E7D32" : "#C62828";
-                } else if (awaitingAssign) {
-                    text = "PRESS A TO JOIN";
-                    color = "#F9A825";
-                } else {
-                    text = "INPUT: KEYBOARD";
-                    color = "#455A64";
-                }
-                inputBtn.setText(text);
-                inputBtn.setDisable(disabled);
-                inputBtn.setOpacity(opacity);
                 double inputFontSize = activePlayers >= 4 ? 11.5 : 13.0;
-                inputBtn.setStyle("-fx-background-color: " + color + "; -fx-text-fill: white; "
-                        + "-fx-font-family: 'Arial Black'; -fx-font-size: " + inputFontSize + "px; -fx-font-weight: bold; "
-                        + "-fx-background-radius: 16; -fx-border-color: rgba(255,255,255,0.16); "
-                        + "-fx-border-width: 2; -fx-border-radius: 16;");
+                inputBtn.textProperty().unbind();
+                inputBtn.styleProperty().unbind();
+                FightSetupInputPresentation.Display display = FightSetupInputPresentation.resolve(
+                        active, cpu, xboxSlot, xboxConnected, awaitingAssign,
+                        uiInputTracker.playerDevice(playerIdx));
+                boolean followsActiveDevice = active && !cpu && xboxSlot < 0 && !awaitingAssign;
+                if (followsActiveDevice) {
+                    inputBtn.textProperty().bind(Bindings.createStringBinding(
+                            () -> FightSetupInputPresentation.resolve(
+                                    true, false, -1, false, false,
+                                    uiInputTracker.playerDevice(playerIdx)).text(),
+                            uiInputTracker.playerDeviceProperty(playerIdx)));
+                    inputBtn.styleProperty().bind(Bindings.createStringBinding(
+                            () -> fightSetupInputButtonStyle(
+                                    FightSetupInputPresentation.resolve(
+                                            true, false, -1, false, false,
+                                            uiInputTracker.playerDevice(playerIdx)).accent(),
+                                    inputFontSize),
+                            uiInputTracker.playerDeviceProperty(playerIdx)));
+                } else {
+                    inputBtn.setText(display.text());
+                    inputBtn.setStyle(fightSetupInputButtonStyle(display.accent(), inputFontSize));
+                }
+                inputBtn.setDisable(display.disabled());
+                inputBtn.setOpacity(display.opacity());
             }
         };
         refreshInputAssignmentsRef[0] = refreshInputAssignments;
@@ -31333,9 +31323,6 @@ public class BirdGame3 {
             layoutFightSelectorsForSharedSpots(selectors, selectorLabels, selectorLocked, spots, activePlayers);
             refreshInputAssignments.run();
             refreshPlayerCountControls.run();
-            if (refreshSpecialGuideRef[0] != null) {
-                refreshSpecialGuideRef[0].run();
-            }
             updateReadyBanner.run();
             if (fightSceneRef[0] != null) {
                 javafx.application.Platform.runLater(() -> {
@@ -31349,11 +31336,6 @@ public class BirdGame3 {
         refreshLayoutRef[0] = refreshLayout;
 
         refreshLayout.run();
-        for (Node node : countBox.getChildren()) {
-            if (node instanceof Button btn) {
-                btn.addEventHandler(ActionEvent.ACTION, e -> refreshLayout.run());
-            }
-        }
 
         Label rosterTitle = new Label("SELECT YOUR BIRD");
         rosterTitle.setFont(Font.font("Arial Black", 28));
@@ -31361,7 +31343,11 @@ public class BirdGame3 {
         rosterTitle.setEffect(new DropShadow(10, Color.rgb(0, 0, 0, 0.30)));
         Region rosterSpacer = new Region();
         HBox.setHgrow(rosterSpacer, Priority.ALWAYS);
-        HBox rosterHeader = new HBox(16, rosterTitle, rosterSpacer, specialGuideStrip);
+        HBox rosterPrompt = buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "MOVE CURSOR"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "PICK / READY"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "RELEASE"));
+        HBox rosterHeader = new HBox(16, rosterTitle, rosterSpacer, rosterPrompt);
         rosterHeader.setAlignment(Pos.CENTER_LEFT);
 
         VBox rosterCard = new VBox(10, rosterHeader, selectionPane);
@@ -65860,66 +65846,6 @@ public class BirdGame3 {
                 + "-fx-border-radius: 16;");
     }
 
-    private Label createFightSetupSpecialGuideCard(int playerIdx) {
-        Label card = new Label();
-        card.setWrapText(true);
-        card.setTextAlignment(TextAlignment.LEFT);
-        card.setAlignment(Pos.CENTER_LEFT);
-        card.setPadding(new Insets(8, 10, 8, 10));
-        card.setFont(Font.font("Consolas", FontWeight.BOLD, 12.0));
-        applyNoEllipsis(card);
-        refreshFightSetupSpecialGuideCard(card, playerIdx, null, false, false, activePlayers);
-        return card;
-    }
-
-    private void refreshFightSetupSpecialGuideCard(Label card, int playerIdx, BirdType type,
-                                                   boolean randomPick, boolean active, int activeCount) {
-        if (card == null) {
-            return;
-        }
-        double width = activeCount >= 4 ? 286.0 : activeCount == 3 ? 360.0 : 500.0;
-        double height = 72.0;
-        Color accent = switch (playerIdx) {
-            case 0 -> Color.web("#F44336");
-            case 1 -> Color.web("#42A5F5");
-            case 2 -> Color.web("#FDD835");
-            default -> Color.web("#66BB6A");
-        };
-        String accentHex = toHex(accent);
-
-        card.setVisible(active);
-        card.setManaged(active);
-        card.setMinSize(width, height);
-        card.setPrefSize(width, height);
-        card.setMaxSize(width, height);
-        if (!active) {
-            return;
-        }
-
-        boolean waitingForPick = type == null && !randomPick;
-        String text = fightSetupSpecialGuideText(playerIdx, type, randomPick);
-        card.setFont(Font.font("Consolas", FontWeight.BOLD, activeCount >= 4 ? 10.8 : 12.0));
-        card.setTextFill(waitingForPick && playerIdx == 2 ? Color.web("#111111") : Color.WHITE);
-        card.setStyle("-fx-background-color: " + (waitingForPick ? accentHex : "rgba(12, 17, 24, 0.94)") + "; "
-                + "-fx-background-radius: 12; -fx-border-color: " + accentHex + "; "
-                + "-fx-border-width: 2; -fx-border-radius: 12;");
-        fitWrappedLabelText(card, text, width - 22.0, height - 16.0, activeCount >= 4 ? 8.8 : 10.0);
-    }
-
-    private String fightSetupSpecialGuideText(int playerIdx, BirdType type, boolean randomPick) {
-        String prefix = "P" + (playerIdx + 1) + " ";
-        if (randomPick) {
-            return prefix + "RANDOM\nSPECIALS REVEALED AT START";
-        }
-        if (type == null) {
-            return prefix + "SELECT BIRD\nN: -    S: -\nU: -    D: -";
-        }
-        String[] moves = specialMoveNames(type);
-        return prefix + type.name.toUpperCase(Locale.ROOT)
-                + "\nN: " + moves[0] + "    S: " + moves[1]
-                + "\nU: " + moves[2] + "    D: " + moves[3];
-    }
-
     private void applyFightSetupSlotLayout(
             StackPane slotCard,
             VBox slot,
@@ -66017,6 +65943,14 @@ public class BirdGame3 {
         button.setMaxHeight(height);
         button.setMaxWidth(Double.MAX_VALUE);
         button.setFont(Font.font("Arial Black", fontSize));
+    }
+
+    private String fightSetupInputButtonStyle(String accent, double fontSize) {
+        String color = accent == null || accent.isBlank() ? "#455A64" : accent;
+        return "-fx-background-color: " + color + "; -fx-text-fill: white; "
+                + "-fx-font-family: 'Arial Black'; -fx-font-size: " + fontSize + "px; -fx-font-weight: bold; "
+                + "-fx-background-radius: 16; -fx-border-color: rgba(255,255,255,0.20); "
+                + "-fx-border-width: 2; -fx-border-radius: 16;";
     }
 
     private String toHex(Color c) {

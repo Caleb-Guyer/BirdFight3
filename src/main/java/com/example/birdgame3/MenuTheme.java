@@ -110,6 +110,11 @@ final class MenuTheme {
                 + "-fx-padding: 6 11 6 11;";
     }
 
+    static String segmentedButtonStyle(boolean selected, String accentColor) {
+        return buttonStyle(selected ? accentColor : "#26313D", 13)
+                + "-fx-opacity: " + (selected ? "1.0" : "0.78") + ";";
+    }
+
     private static Color parse(String value, Color fallback) {
         if (value == null || value.isBlank()) {
             return fallback;
