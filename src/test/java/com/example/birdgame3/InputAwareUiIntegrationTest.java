@@ -20,6 +20,7 @@ class InputAwareUiIntegrationTest {
         assertTrue(methodBody(source, "showHub").contains("buildAdaptivePromptBar("));
         assertTrue(methodBody(source, "showClassicMoreMenu").contains("buildAdaptivePromptBar("));
         assertTrue(methodBody(source, "showStageSelect").contains("buildAdaptivePromptBar("));
+        assertTrue(methodBody(source, "showMainSettings").contains("buildAdaptivePromptBar("));
 
         assertFalse(source.contains("ENTER / A  START"));
         assertFalse(source.contains("PRESS ENTER / A"));
@@ -47,6 +48,23 @@ class InputAwareUiIntegrationTest {
         assertTrue(methodBody(source, "showHub").contains("KeyCode.ESCAPE"));
         assertTrue(methodBody(source, "showClassicMoreMenu").contains("bindEscape(scene, back)"));
         assertTrue(methodBody(source, "showStageSelect").contains("bindEscape(scene, backArrow)"));
+    }
+
+    @Test
+    void settingsShowOneInputFamilyAndKeyboardPlayerAtATime() throws IOException {
+        String source = Files.readString(GAME_SOURCE);
+        String settings = methodBody(source, "showMainSettings");
+
+        assertTrue(settings.contains("ControlSettingsPresentation.pageFor(activeInput.device())"));
+        assertTrue(settings.contains("Button keyboardDeviceTab"));
+        assertTrue(settings.contains("Button controllerDeviceTab"));
+        assertTrue(settings.contains("Button wiimoteDeviceTab"));
+        assertTrue(settings.contains("keyboardPlayerNodes.get(playerIdx)"));
+        assertTrue(settings.contains("buildSettingsFixedControlGrid(UiInputPrompts.Device.GAMEPAD)"));
+        assertTrue(settings.contains("\"SFX VOLUME\""));
+        assertFalse(settings.contains("new VBox(16, controlsInfo, controlsStatus, wiimoteInfo"));
+        assertTrue(source.contains("settingsReturn = () -> showFightSetup(stage);\n            showMainSettings(stage);"),
+                "the fighter-select gear should open the unified settings page");
     }
 
     private static String methodBody(String source, String methodName) {

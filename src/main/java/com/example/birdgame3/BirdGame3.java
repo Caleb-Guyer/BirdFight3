@@ -4580,6 +4580,48 @@ public class BirdGame3 {
         updateControlHighlight(button);
     }
 
+    private GridPane buildSettingsFixedControlGrid(UiInputPrompts.Device device) {
+        UiInputPrompts.Device resolved = device == null ? UiInputPrompts.Device.GAMEPAD : device;
+        GridPane grid = new GridPane();
+        grid.setHgap(18);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(8));
+        int row = 0;
+        for (ControlAction action : ControlAction.values()) {
+            Label actionLabel = new Label(action.label.toUpperCase(Locale.ROOT));
+            actionLabel.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
+            actionLabel.setTextFill(Color.web("#ECEFF1"));
+            actionLabel.setMinWidth(250);
+            applyNoEllipsis(actionLabel);
+
+            String bindingText = UiInputPrompts.gameplayBinding(resolved, switch (action) {
+                case LEFT -> UiInputPrompts.GameplayAction.LEFT;
+                case RIGHT -> UiInputPrompts.GameplayAction.RIGHT;
+                case JUMP -> UiInputPrompts.GameplayAction.JUMP;
+                case ATTACK -> UiInputPrompts.GameplayAction.ATTACK;
+                case SPECIAL -> UiInputPrompts.GameplayAction.SPECIAL;
+                case GRAB -> UiInputPrompts.GameplayAction.GRAB;
+                case BLOCK -> UiInputPrompts.GameplayAction.BLOCK;
+                case TAUNT_CYCLE -> UiInputPrompts.GameplayAction.TAUNT_CYCLE;
+                case TAUNT_EXECUTE -> UiInputPrompts.GameplayAction.TAUNT_EXECUTE;
+            });
+            Label binding = new Label(bindingText);
+            binding.setFont(Font.font("Arial Black", 17));
+            binding.setTextFill(Color.WHITE);
+            binding.setAlignment(Pos.CENTER_LEFT);
+            binding.setMinSize(420, 44);
+            binding.setPrefSize(420, 44);
+            binding.setPadding(new Insets(0, 16, 0, 16));
+            binding.setStyle(MenuTheme.chipStyle(resolved.accent(), "#CFD8DC", 13));
+            applyNoEllipsis(binding);
+
+            grid.add(actionLabel, 0, row);
+            grid.add(binding, 1, row);
+            row++;
+        }
+        return grid;
+    }
+
     private void setSettingsTabActive(Button tab, boolean active) {
         String color = active ? "#FBC02D" : "#455A64";
         String textColor = active ? "#111111" : "white";
@@ -31482,7 +31524,7 @@ public class BirdGame3 {
         settingsBtn.setOnAction(e -> {
             playButtonClick();
             settingsReturn = () -> showFightSetup(stage);
-            showGameSettings(stage);
+            showMainSettings(stage);
         });
         return settingsBtn;
     }
@@ -47467,9 +47509,9 @@ public class BirdGame3 {
     private void showMainSettings(Stage stage) {
         playMenuMusic();
 
-        VBox root = new VBox(24);
+        VBox root = new VBox(18);
         root.setAlignment(Pos.CENTER);
-        root.setPadding(new Insets(50));
+        root.setPadding(new Insets(32));
         root.setStyle(MenuTheme.pageBackground());
 
         StackPane title = buildMenuTitleBanner("SETTINGS", 520, 74, 34);
@@ -47544,7 +47586,7 @@ public class BirdGame3 {
                 }
         );
         VBox sfxRow = buildVolumeSettingsRow(
-                "VFX VOLUME",
+                "SFX VOLUME",
                 "Battle effects, hits, UI clicks, and hazard sounds. Set to 0% to mute.",
                 "#80CBC4",
                 sfxVolume,
@@ -47560,16 +47602,12 @@ public class BirdGame3 {
         VBox ambientRow = buildSettingsRow(ambientToggle, "Animated background ambience and glow.", "#FFE0B2");
         VBox fpsRow = buildSettingsRow(fpsCapToggle, "Limits render FPS without changing game speed.", "#FFE0B2");
 
-        Label audioInfo = new Label("Audio now uses channel sliders. Drag to mix levels, or set a slider to 0% to mute it.");
-        styleSettingsInfoLabel(audioInfo);
-        VBox audioPanel = new VBox(16, audioInfo, musicRow, sfxRow);
+        VBox audioPanel = new VBox(16, musicRow, sfxRow);
         audioPanel.setAlignment(Pos.CENTER_LEFT);
         audioPanel.setPadding(new Insets(14, 16, 14, 16));
         audioPanel.setStyle(MenuTheme.insetPanelStyle("#64B5F6", 22));
 
-        Label displayInfo = new Label("Windowed mode uses a clamped default game window and fullscreen stays as a one-tap toggle.");
-        styleSettingsInfoLabel(displayInfo);
-        VBox displayPanel = new VBox(16, displayInfo, shakeRow, displayModeRow);
+        VBox displayPanel = new VBox(16, shakeRow, displayModeRow);
         displayPanel.setAlignment(Pos.CENTER_LEFT);
         displayPanel.setPadding(new Insets(14, 16, 14, 16));
         displayPanel.setStyle(MenuTheme.insetPanelStyle("#90CAF9", 22));
@@ -47581,6 +47619,10 @@ public class BirdGame3 {
 
         final ControlBindingTarget[] pendingBinding = new ControlBindingTarget[1];
         Map<String, Button> bindingButtons = new HashMap<>();
+        List<List<Node>> keyboardPlayerNodes = new ArrayList<>();
+        for (int playerIdx = 0; playerIdx < 4; playerIdx++) {
+            keyboardPlayerNodes.add(new ArrayList<>());
+        }
         Button[] wiimoteModeButtons = new Button[4];
         Label[] wiimoteStatusLabels = new Label[4];
 
@@ -47694,6 +47736,7 @@ public class BirdGame3 {
             playerHeader.setFont(Font.font("Arial Black", 22));
             playerHeader.setTextFill(Color.web("#FFECB3"));
             controlsGrid.add(playerHeader, playerIdx + 1, 0);
+            keyboardPlayerNodes.get(playerIdx).add(playerHeader);
         }
 
         Runnable refreshBindingButtons = () -> {
@@ -47729,6 +47772,7 @@ public class BirdGame3 {
                 });
                 bindingButtons.put(controlBindingButtonId(playerIdx, action), bindingButton);
                 controlsGrid.add(bindingButton, playerIdx + 1, row);
+                keyboardPlayerNodes.get(playerIdx).add(bindingButton);
             }
             row++;
         }
@@ -47742,28 +47786,131 @@ public class BirdGame3 {
             saveAchievements();
         });
 
-        VBox controlsPanel = new VBox(16, controlsInfo, controlsStatus, wiimoteInfo, wiimoteGrid, controlsGrid, resetControlsButton);
+        controlsInfo.setText("Choose a player, then select one binding to change it. ESC cancels a pending rebind.");
+        wiimoteInfo.setText("Pair Wii Remotes in Windows Bluetooth, then choose the mode for each player slot.");
+
+        int[] keyboardPlayer = {Math.clamp(uiInputTracker.activeInputProperty().get().playerIndex(), 0, 3)};
+        Button[] keyboardPlayerTabs = new Button[4];
+        Runnable[] refreshKeyboardPlayer = new Runnable[1];
+        HBox keyboardPlayers = new HBox(10);
+        keyboardPlayers.setAlignment(Pos.CENTER_LEFT);
+        for (int playerIdx = 0; playerIdx < keyboardPlayerTabs.length; playerIdx++) {
+            int selectedPlayer = playerIdx;
+            Button playerTab = uiFactory.action("PLAYER " + (playerIdx + 1), 170, 48, 14,
+                    "#455A64", 13, () -> {
+                        keyboardPlayer[0] = selectedPlayer;
+                        refreshKeyboardPlayer[0].run();
+                    });
+            keyboardPlayerTabs[playerIdx] = playerTab;
+            keyboardPlayers.getChildren().add(playerTab);
+        }
+        refreshKeyboardPlayer[0] = () -> {
+            for (int playerIdx = 0; playerIdx < keyboardPlayerNodes.size(); playerIdx++) {
+                boolean selected = playerIdx == keyboardPlayer[0];
+                for (Node node : keyboardPlayerNodes.get(playerIdx)) {
+                    node.setVisible(selected);
+                    node.setManaged(selected);
+                }
+                keyboardPlayerTabs[playerIdx].setStyle(
+                        MenuTheme.segmentedButtonStyle(selected, "#1565C0"));
+            }
+        };
+
+        VBox keyboardSection = new VBox(12, keyboardPlayers, controlsInfo, controlsStatus,
+                controlsGrid, resetControlsButton);
+        keyboardSection.setAlignment(Pos.CENTER_LEFT);
+        keyboardSection.setPadding(new Insets(12));
+        keyboardSection.setStyle(MenuTheme.insetPanelStyle("#64B5F6", 18));
+
+        Label controllerInfo = new Label("Controller bindings are fixed and shown for the device currently in use.");
+        styleSettingsInfoLabel(controllerInfo);
+        VBox controllerSection = new VBox(14, controllerInfo,
+                buildSettingsFixedControlGrid(UiInputPrompts.Device.GAMEPAD));
+        controllerSection.setAlignment(Pos.CENTER_LEFT);
+        controllerSection.setPadding(new Insets(12));
+        controllerSection.setStyle(MenuTheme.insetPanelStyle("#64B5F6", 18));
+
+        VBox wiimoteSection = new VBox(14, wiimoteInfo, wiimoteGrid);
+        wiimoteSection.setAlignment(Pos.CENTER_LEFT);
+        wiimoteSection.setPadding(new Insets(12));
+        wiimoteSection.setStyle(MenuTheme.insetPanelStyle("#80DEEA", 18));
+
+        ControlSettingsPresentation.Page[] controlPage = {
+                ControlSettingsPresentation.pageFor(uiInputTracker.activeDevice())
+        };
+        Runnable[] refreshControlPage = new Runnable[1];
+        Button keyboardDeviceTab = uiFactory.action("KEYBOARD", 230, 52, 14, "#455A64", 14, () -> {
+            controlPage[0] = ControlSettingsPresentation.Page.KEYBOARD;
+            refreshControlPage[0].run();
+        });
+        Button controllerDeviceTab = uiFactory.action("CONTROLLER", 230, 52, 14, "#455A64", 14, () -> {
+            controlPage[0] = ControlSettingsPresentation.Page.CONTROLLER;
+            refreshControlPage[0].run();
+        });
+        Button wiimoteDeviceTab = uiFactory.action("WII REMOTE", 230, 52, 14, "#455A64", 14, () -> {
+            controlPage[0] = ControlSettingsPresentation.Page.WIIMOTE;
+            refreshControlPage[0].run();
+        });
+        HBox controlDeviceTabs = new HBox(10, keyboardDeviceTab, controllerDeviceTab, wiimoteDeviceTab);
+        controlDeviceTabs.setAlignment(Pos.CENTER_LEFT);
+
+        StackPane controlDeck = new StackPane(keyboardSection, controllerSection, wiimoteSection);
+        controlDeck.setAlignment(Pos.TOP_LEFT);
+        refreshControlPage[0] = () -> {
+            ControlSettingsPresentation.Page page = controlPage[0];
+            boolean keyboard = page == ControlSettingsPresentation.Page.KEYBOARD;
+            boolean controller = page == ControlSettingsPresentation.Page.CONTROLLER;
+            boolean wiimote = page == ControlSettingsPresentation.Page.WIIMOTE;
+            keyboardSection.setVisible(keyboard);
+            keyboardSection.setManaged(keyboard);
+            controllerSection.setVisible(controller);
+            controllerSection.setManaged(controller);
+            wiimoteSection.setVisible(wiimote);
+            wiimoteSection.setManaged(wiimote);
+            keyboardDeviceTab.setStyle(MenuTheme.segmentedButtonStyle(keyboard, "#1565C0"));
+            controllerDeviceTab.setStyle(MenuTheme.segmentedButtonStyle(controller, "#1976D2"));
+            wiimoteDeviceTab.setStyle(MenuTheme.segmentedButtonStyle(wiimote, "#00838F"));
+            if (keyboard) refreshKeyboardPlayer[0].run();
+            if (wiimote) refreshWiimoteControls.run();
+        };
+
+        VBox controlsPanel = new VBox(14, controlDeviceTabs, controlDeck);
         controlsPanel.setAlignment(Pos.CENTER_LEFT);
         controlsPanel.setPadding(new Insets(14, 16, 14, 16));
         controlsPanel.setStyle(MenuTheme.insetPanelStyle("#80CBC4", 22));
 
         refreshBindingButtons.run();
         refreshWiimoteControls.run();
+        refreshControlPage[0].run();
 
         VBox contentHolder = new VBox(18);
         contentHolder.setAlignment(Pos.CENTER_LEFT);
         contentHolder.getChildren().add(audioPanel);
 
-        Button audioTab = uiFactory.action("AUDIO", 240, 70, 26, "#455A64", 18, null);
-        Button displayTab = uiFactory.action("DISPLAY", 240, 70, 26, "#455A64", 18, null);
-        Button graphicsTab = uiFactory.action("GRAPHICS", 240, 70, 26, "#455A64", 18, null);
-        Button controlsTab = uiFactory.action("CONTROLS", 240, 70, 26, "#455A64", 18, null);
+        Button enterCode = buildEnterCodeButton(stage);
+        Button whatsNew = uiFactory.action("WHAT'S NEW", 300, 100, 30, "#FB8C00", 22,
+                () -> showUpdateSplashBrowser(stage, () -> showMainSettings(stage)));
+        Label aboutInfo = new Label("Update history and optional unlock codes live here instead of crowding every settings page.");
+        styleSettingsInfoLabel(aboutInfo);
+        HBox aboutActions = new HBox(18, whatsNew, enterCode);
+        aboutActions.setAlignment(Pos.CENTER_LEFT);
+        VBox aboutPanel = new VBox(18, aboutInfo, aboutActions);
+        aboutPanel.setAlignment(Pos.CENTER_LEFT);
+        aboutPanel.setPadding(new Insets(18));
+        aboutPanel.setStyle(MenuTheme.insetPanelStyle("#FB8C00", 22));
+
+        Button audioTab = uiFactory.action("AUDIO", 205, 64, 22, "#455A64", 16, null);
+        Button displayTab = uiFactory.action("DISPLAY", 205, 64, 22, "#455A64", 16, null);
+        Button graphicsTab = uiFactory.action("GRAPHICS", 205, 64, 22, "#455A64", 16, null);
+        Button controlsTab = uiFactory.action("CONTROLS", 205, 64, 22, "#455A64", 16, null);
+        Button aboutTab = uiFactory.action("ABOUT", 205, 64, 22, "#455A64", 16, null);
 
         Runnable showAudio = () -> {
             setSettingsTabActive(audioTab, true);
             setSettingsTabActive(displayTab, false);
             setSettingsTabActive(graphicsTab, false);
             setSettingsTabActive(controlsTab, false);
+            setSettingsTabActive(aboutTab, false);
             contentHolder.getChildren().setAll(audioPanel);
         };
         Runnable showDisplay = () -> {
@@ -47771,6 +47918,7 @@ public class BirdGame3 {
             setSettingsTabActive(displayTab, true);
             setSettingsTabActive(graphicsTab, false);
             setSettingsTabActive(controlsTab, false);
+            setSettingsTabActive(aboutTab, false);
             contentHolder.getChildren().setAll(displayPanel);
         };
         Runnable showGraphics = () -> {
@@ -47778,6 +47926,7 @@ public class BirdGame3 {
             setSettingsTabActive(displayTab, false);
             setSettingsTabActive(graphicsTab, true);
             setSettingsTabActive(controlsTab, false);
+            setSettingsTabActive(aboutTab, false);
             contentHolder.getChildren().setAll(graphicsPanel);
         };
         Runnable showControls = () -> {
@@ -47785,8 +47934,22 @@ public class BirdGame3 {
             setSettingsTabActive(displayTab, false);
             setSettingsTabActive(graphicsTab, false);
             setSettingsTabActive(controlsTab, true);
-            refreshWiimoteControls.run();
+            setSettingsTabActive(aboutTab, false);
+            UiInputTracker.ActiveInput activeInput = uiInputTracker.activeInputProperty().get();
+            controlPage[0] = ControlSettingsPresentation.pageFor(activeInput.device());
+            if (controlPage[0] == ControlSettingsPresentation.Page.KEYBOARD) {
+                keyboardPlayer[0] = Math.clamp(activeInput.playerIndex(), 0, 3);
+            }
+            refreshControlPage[0].run();
             contentHolder.getChildren().setAll(controlsPanel);
+        };
+        Runnable showAbout = () -> {
+            setSettingsTabActive(audioTab, false);
+            setSettingsTabActive(displayTab, false);
+            setSettingsTabActive(graphicsTab, false);
+            setSettingsTabActive(controlsTab, false);
+            setSettingsTabActive(aboutTab, true);
+            contentHolder.getChildren().setAll(aboutPanel);
         };
 
         audioTab.setOnAction(e -> {
@@ -47805,14 +47968,27 @@ public class BirdGame3 {
             playButtonClick();
             showControls.run();
         });
+        aboutTab.setOnAction(e -> {
+            playButtonClick();
+            showAbout.run();
+        });
 
-        HBox tabs = new HBox(16, audioTab, displayTab, graphicsTab, controlsTab);
+        HBox tabs = new HBox(12, audioTab, displayTab, graphicsTab, controlsTab, aboutTab);
         tabs.setAlignment(Pos.CENTER);
         tabs.setMaxWidth(Double.MAX_VALUE);
 
         showAudio.run();
 
-        card.getChildren().addAll(tabs, contentHolder);
+        ScrollPane contentScroll = new ScrollPane(contentHolder);
+        contentScroll.setFitToWidth(true);
+        contentScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        contentScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        contentScroll.setPrefViewportHeight(570);
+        contentScroll.setMaxHeight(590);
+        contentScroll.setStyle("-fx-background-color: transparent; -fx-background: transparent; -fx-control-inner-background: transparent;");
+        installTransparentScrollViewport(contentScroll);
+        card.setMaxHeight(750);
+        card.getChildren().addAll(tabs, contentScroll);
 
         HBox buttons = new HBox(20);
         buttons.setAlignment(Pos.CENTER);
@@ -47825,11 +48001,15 @@ public class BirdGame3 {
                 showMenu(stage);
             }
         };
-        Button enterCode = buildEnterCodeButton(stage);
-        Button whatsNew = uiFactory.action("WHAT'S NEW", 300, 100, 30, "#FB8C00", 22,
-                () -> showUpdateSplashBrowser(stage, () -> showMainSettings(stage)));
         Button back = uiFactory.action("BACK", 360, 100, 40, "#FF1744", 28, backAction);
-        buttons.getChildren().addAll(whatsNew, enterCode, back);
+        HBox inputPrompt = buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "NAVIGATE"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "CHANGE"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "BACK"));
+        Region buttonSpacer = new Region();
+        HBox.setHgrow(buttonSpacer, Priority.ALWAYS);
+        buttons.setMaxWidth(1320);
+        buttons.getChildren().addAll(inputPrompt, buttonSpacer, back);
 
         root.getChildren().addAll(title, card, buttons);
         Scene scene = new Scene(root, WIDTH, HEIGHT);
