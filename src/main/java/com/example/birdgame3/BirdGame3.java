@@ -1174,6 +1174,7 @@ public class BirdGame3 {
     private int flashTimer = 0;          // frames remaining for flash
     private final UIFactory uiFactory = new UIFactory(this::playButtonClick, this::applyNoEllipsis, this::fitMainMenuButtonSingleLine);
     private final FrontEndMatchFlow frontEndMatchFlow = new FrontEndMatchFlow();
+    private final VersusRulesLibrary versusRulesLibrary = new VersusRulesLibrary();
     private Runnable stageSelectReturn = null;
     private Consumer<StageChoice> stageSelectHandler = null;
     private Consumer<StageRandomPool> stageSelectRandomHandler = null;
@@ -4424,6 +4425,8 @@ public class BirdGame3 {
         state.fpsCap = fpsCap;
         state.lastSeenUpdateSplashKey = lastSeenUpdateSplashKey;
         state.versusRulesPresetName = frontEndMatchFlow.rulesPreset().name();
+        state.versusCustomRulesSlot = versusRulesLibrary.selectedSlot();
+        state.versusCustomRuleEncodings = versusRulesLibrary.encodedSlots();
         return state;
     }
 
@@ -4446,7 +4449,8 @@ public class BirdGame3 {
         ambientEffectsEnabled = resolved.ambientEffectsEnabled;
         fpsCap = sanitizeFpsCap(resolved.fpsCap);
         lastSeenUpdateSplashKey = resolved.lastSeenUpdateSplashKey == null ? "" : resolved.lastSeenUpdateSplashKey;
-        frontEndMatchFlow.restoreRulesPreset(resolved.versusRulesPresetName);
+        versusRulesLibrary.restore(resolved.versusCustomRulesSlot, resolved.versusCustomRuleEncodings);
+        frontEndMatchFlow.restoreRules(resolved.versusRulesPresetName, versusRulesLibrary.selected());
     }
 
     private boolean isReservedBindingKey(KeyCode code) {
@@ -13014,12 +13018,14 @@ public class BirdGame3 {
 
         updateMockingbirdShadowMinions();
 
-        updateDockStageHazards();
-        updatePrisonStageHazards();
-        updateAshfallCathedralHazards();
+        if (versusStageHazardsEnabled()) {
+            updateDockStageHazards();
+            updatePrisonStageHazards();
+            updateAshfallCathedralHazards();
+        }
         updateMatchTimerState();
 
-        if (!(competitionModeEnabled && !storyModeActive && !adventureModeActive && !classicModeActive)
+        if (versusStageHazardsEnabled()
                 && selectedMap == MapType.CITY
                 && simTick - lastWindBurstTime > WIND_BURST_INTERVAL) {
             lastWindBurstTime = simTick;
@@ -25420,11 +25426,11 @@ public class BirdGame3 {
         progress.setFont(Font.font("Consolas", FontWeight.BOLD, 21));
         progress.setTextFill(Color.web("#FFE082"));
         applyNoEllipsis(progress);
-        Label heading = new Label("CHOOSE THE RULES");
+        Label heading = new Label("RULES");
         heading.setFont(Font.font("Arial Black", 52));
         heading.setTextFill(Color.WHITE);
         applyNoEllipsis(heading);
-        Label subtitle = new Label("Your selection is remembered for the next local battle.");
+        Label subtitle = new Label("Choose a preset or tune every part of the battle. Custom rules save automatically.");
         subtitle.setFont(Font.font("Consolas", 20));
         subtitle.setTextFill(Color.web("#B0BEC5"));
         applyNoEllipsis(subtitle);
@@ -25434,45 +25440,137 @@ public class BirdGame3 {
                 + "-fx-border-color: transparent transparent rgba(255,255,255,0.16) transparent; -fx-border-width: 0 0 3 0;");
         frame.setTop(header);
 
-        List<Button> presetButtons = new ArrayList<>();
-        for (VersusRulesPreset preset : VersusRulesPreset.values()) {
-            presetButtons.add(buildVersusRuleCard(preset));
-        }
-        refreshVersusRuleCards(presetButtons);
-        HBox cards = new HBox(28);
-        cards.setAlignment(Pos.CENTER);
-        cards.getChildren().addAll(presetButtons);
+        VersusRules[] working = {frontEndMatchFlow.rules()};
+        List<Runnable> refreshers = new ArrayList<>();
+        Runnable[] refreshAll = new Runnable[1];
+        Consumer<VersusRules> saveCustom = next -> {
+            VersusRules resolved = next == null ? VersusRules.standard() : next;
+            if (frontEndMatchFlow.rulesPreset() != VersusRulesPreset.CUSTOM) {
+                resolved = resolved.withName(versusRulesLibrary.selected().name());
+            }
+            versusRulesLibrary.setSlot(versusRulesLibrary.selectedSlot(), resolved);
+            working[0] = resolved;
+            frontEndMatchFlow.selectCustomRules(resolved);
+            saveAchievements();
+            if (refreshAll[0] != null) refreshAll[0].run();
+        };
 
-        Label savedLabel = new Label("SAVED RULESET");
-        savedLabel.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
-        savedLabel.setTextFill(Color.web("#80CBC4"));
-        Label savedValue = new Label(frontEndMatchFlow.rulesPreset().title);
-        savedValue.setFont(Font.font("Arial Black", 30));
-        savedValue.setTextFill(Color.WHITE);
-        Label savedSummary = new Label(frontEndMatchFlow.rulesPreset().summary);
-        savedSummary.setFont(Font.font("Consolas", 18));
-        savedSummary.setTextFill(Color.web("#CFD8DC"));
-        savedSummary.setWrapText(true);
-        savedSummary.setMaxWidth(1240);
-        VBox currentRules = new VBox(5, savedLabel, savedValue, savedSummary);
-        currentRules.setPadding(new Insets(16, 24, 16, 24));
-        currentRules.setStyle("-fx-background-color: rgba(0,0,0,0.38); -fx-background-radius: 14;"
-                + "-fx-border-color: rgba(255,255,255,0.12); -fx-border-radius: 14; -fx-border-width: 2;");
-
-        for (Button button : presetButtons) {
-            button.setOnAction(e -> {
-                playButtonClick();
-                VersusRulesPreset preset = (VersusRulesPreset) button.getProperties().get("versusPreset");
+        HBox presetRow = new HBox(12);
+        presetRow.setAlignment(Pos.CENTER_LEFT);
+        List<Button> quickPresets = new ArrayList<>();
+        for (VersusRulesPreset preset : List.of(VersusRulesPreset.STANDARD,
+                VersusRulesPreset.COMPETITIVE, VersusRulesPreset.CHAOS)) {
+            Button button = uiFactory.action(preset.title, 260, 54, 16, preset.accent, 14, () -> {
                 frontEndMatchFlow.selectRulesPreset(preset);
-                savedValue.setText(preset.title);
-                savedSummary.setText(preset.summary);
-                refreshVersusRuleCards(presetButtons);
+                working[0] = preset.rules;
+                if (refreshAll[0] != null) refreshAll[0].run();
             });
+            quickPresets.add(button);
+            presetRow.getChildren().add(button);
         }
 
-        VBox center = new VBox(32, cards, currentRules);
+        HBox customRow = new HBox(12);
+        customRow.setAlignment(Pos.CENTER_LEFT);
+        List<Button> slotButtons = new ArrayList<>();
+        for (int i = 0; i < VersusRulesLibrary.SLOT_COUNT; i++) {
+            final int slot = i;
+            Button slotButton = uiFactory.action("", 260, 54, 16, "#6A1B9A", 14, () -> {
+                versusRulesLibrary.selectSlot(slot);
+                working[0] = versusRulesLibrary.selected();
+                frontEndMatchFlow.selectCustomRules(working[0]);
+                saveAchievements();
+                if (refreshAll[0] != null) refreshAll[0].run();
+            });
+            slotButtons.add(slotButton);
+            customRow.getChildren().add(slotButton);
+        }
+        Button rename = uiFactory.action("RENAME", 170, 54, 16, "#455A64", 14, () -> {
+            TextInputDialog dialog = new TextInputDialog(versusRulesLibrary.selected().name());
+            dialog.setTitle("Rename Ruleset");
+            dialog.setHeaderText("Name custom rules slot " + (versusRulesLibrary.selectedSlot() + 1));
+            dialog.setContentText("Name:");
+            dialog.showAndWait().ifPresent(name -> saveCustom.accept(working[0].withName(name)));
+        });
+        customRow.getChildren().add(rename);
+
+        GridPane options = new GridPane();
+        options.setHgap(14);
+        options.setVgap(14);
+        options.setAlignment(Pos.CENTER);
+        options.add(buildVersusRuleOption("STOCKS", () -> Integer.toString(working[0].stockCount()),
+                () -> saveCustom.accept(working[0].withStockCount(working[0].stockCount() - 1)),
+                () -> saveCustom.accept(working[0].withStockCount(working[0].stockCount() + 1)), refreshers), 0, 0);
+        options.add(buildVersusRuleOption("TIME LIMIT", () -> working[0].timeText(),
+                () -> saveCustom.accept(working[0].withTimeLimitSeconds(working[0].timeLimitSeconds() - 30)),
+                () -> saveCustom.accept(working[0].withTimeLimitSeconds(working[0].timeLimitSeconds() + 30)), refreshers), 1, 0);
+        options.add(buildVersusRuleOption("ITEMS", () -> rulesOnOff(working[0].powerUpsEnabled()),
+                () -> saveCustom.accept(working[0].withPowerUpsEnabled(!working[0].powerUpsEnabled())),
+                () -> saveCustom.accept(working[0].withPowerUpsEnabled(!working[0].powerUpsEnabled())), refreshers), 2, 0);
+        options.add(buildVersusRuleOption("ITEM FREQUENCY", () -> working[0].powerUpsEnabled()
+                        ? "EVERY " + working[0].powerUpIntervalSeconds() + "s" : "DISABLED",
+                () -> saveCustom.accept(working[0].withPowerUpIntervalSeconds(working[0].powerUpIntervalSeconds() + 2)),
+                () -> saveCustom.accept(working[0].withPowerUpIntervalSeconds(working[0].powerUpIntervalSeconds() - 2)), refreshers), 3, 0);
+        options.add(buildVersusRuleOption("STAGE HAZARDS", () -> rulesOnOff(working[0].stageHazardsEnabled()),
+                () -> saveCustom.accept(working[0].withStageHazardsEnabled(!working[0].stageHazardsEnabled())),
+                () -> saveCustom.accept(working[0].withStageHazardsEnabled(!working[0].stageHazardsEnabled())), refreshers), 0, 1);
+        options.add(buildVersusRuleOption("ULTIMATES", () -> rulesOnOff(working[0].ultimatesEnabled()),
+                () -> saveCustom.accept(working[0].withUltimatesEnabled(!working[0].ultimatesEnabled())),
+                () -> saveCustom.accept(working[0].withUltimatesEnabled(!working[0].ultimatesEnabled())), refreshers), 1, 1);
+        options.add(buildVersusRuleOption("FRIENDLY FIRE", () -> rulesOnOff(working[0].friendlyFireEnabled()),
+                () -> saveCustom.accept(working[0].withFriendlyFireEnabled(!working[0].friendlyFireEnabled())),
+                () -> saveCustom.accept(working[0].withFriendlyFireEnabled(!working[0].friendlyFireEnabled())), refreshers), 2, 1);
+        options.add(buildVersusRuleOption("MUTATORS", () -> rulesOnOff(working[0].mutatorsEnabled()),
+                () -> saveCustom.accept(working[0].withMutatorsEnabled(!working[0].mutatorsEnabled())),
+                () -> saveCustom.accept(working[0].withMutatorsEnabled(!working[0].mutatorsEnabled())), refreshers), 3, 1);
+        options.add(buildVersusRuleOption("LAUNCH RATE", () -> working[0].launchRatePercent() + "%",
+                () -> saveCustom.accept(working[0].withLaunchRatePercent(working[0].launchRatePercent() - 10)),
+                () -> saveCustom.accept(working[0].withLaunchRatePercent(working[0].launchRatePercent() + 10)), refreshers), 0, 2);
+        options.add(buildVersusRuleOption("DAMAGE RATE", () -> working[0].damageRatePercent() + "%",
+                () -> saveCustom.accept(working[0].withDamageRatePercent(working[0].damageRatePercent() - 10)),
+                () -> saveCustom.accept(working[0].withDamageRatePercent(working[0].damageRatePercent() + 10)), refreshers), 1, 2);
+        options.add(buildVersusRuleOption("MATCH FORMAT", () -> working[0].seriesWins() == 1
+                        ? "SINGLE MATCH" : "FIRST TO " + working[0].seriesWins(),
+                () -> saveCustom.accept(working[0].withSeriesWins(working[0].seriesWins() - 1)),
+                () -> saveCustom.accept(working[0].withSeriesWins(working[0].seriesWins() + 1)), refreshers), 2, 2);
+        options.add(buildVersusRuleOption("DEFAULT CPU", () -> "LEVEL " + working[0].defaultCpuLevel(),
+                () -> saveCustom.accept(working[0].withDefaultCpuLevel(working[0].defaultCpuLevel() - 1)),
+                () -> saveCustom.accept(working[0].withDefaultCpuLevel(working[0].defaultCpuLevel() + 1)), refreshers), 3, 2);
+
+        Label currentName = new Label();
+        currentName.setFont(Font.font("Arial Black", 25));
+        currentName.setTextFill(Color.WHITE);
+        Label currentSummary = new Label();
+        currentSummary.setFont(Font.font("Consolas", FontWeight.BOLD, 16));
+        currentSummary.setTextFill(Color.web("#B2DFDB"));
+        currentSummary.setWrapText(true);
+        Button randomPoolButton = uiFactory.action("RANDOM POOL", 250, 58, 16, "#00695C", 14,
+                () -> {
+                    if (frontEndMatchFlow.rulesPreset() != VersusRulesPreset.CUSTOM) saveCustom.accept(working[0]);
+                    showRandomStagePoolEditor(stage);
+                });
+        HBox current = new HBox(20, new VBox(3, currentName, currentSummary), randomPoolButton);
+        HBox.setHgrow(current.getChildren().getFirst(), Priority.ALWAYS);
+        current.setAlignment(Pos.CENTER_RIGHT);
+        current.setPadding(new Insets(10, 18, 10, 18));
+        current.setStyle("-fx-background-color: rgba(0,0,0,0.42); -fx-background-radius: 13;"
+                + "-fx-border-color: rgba(255,255,255,0.14); -fx-border-radius: 13; -fx-border-width: 2;");
+
+        refreshAll[0] = () -> {
+            for (Runnable refresher : refreshers) refresher.run();
+            for (int i = 0; i < slotButtons.size(); i++) {
+                Button button = slotButtons.get(i);
+                button.setText((i == versusRulesLibrary.selectedSlot() ? "★ " : "")
+                        + (i + 1) + "  " + versusRulesLibrary.slot(i).name());
+            }
+            currentName.setText(working[0].name());
+            currentSummary.setText(working[0].detailSummary() + "  •  random: "
+                    + working[0].randomPoolText() + "  •  " + working[0].excludedStageKeys().size() + " excluded");
+        };
+        refreshAll[0].run();
+
+        VBox center = new VBox(14, presetRow, customRow, options, current);
         center.setAlignment(Pos.CENTER);
-        center.setPadding(new Insets(36, 52, 30, 52));
+        center.setPadding(new Insets(20, 48, 18, 48));
         frame.setCenter(center);
 
         Button backButton = uiFactory.action("BACK", 280, 82, 28, "#8B1E24", 20, () -> {
@@ -25481,6 +25579,7 @@ public class BirdGame3 {
         });
         Button continueButton = uiFactory.action("CHOOSE FIGHTERS", 430, 82, 28, "#00A84F", 20, () -> {
             applyVersusRulesPreset();
+            for (int i = 1; i < MAX_COMBATANTS; i++) cpuLevels[i] = frontEndMatchFlow.rules().defaultCpuLevel();
             saveAchievements();
             frontEndMatchFlow.confirmRules();
             showFightSetup(stage);
@@ -25501,69 +25600,137 @@ public class BirdGame3 {
         bindFixedFrameScale(scene, frame, 0.0);
         setScenePreservingFullscreen(stage, scene);
         javafx.application.Platform.runLater(() -> {
-            presetButtons.stream()
-                    .filter(button -> button.getProperties().get("versusPreset") == frontEndMatchFlow.rulesPreset())
-                    .findFirst().orElse(continueButton).requestFocus();
+            (quickPresets.isEmpty() ? continueButton : quickPresets.getFirst()).requestFocus();
             setConsoleHighlightActive(true, scene);
         });
     }
 
-    private Button buildVersusRuleCard(VersusRulesPreset preset) {
-        Label eyebrow = new Label(preset.eyebrow);
-        eyebrow.setFont(Font.font("Consolas", FontWeight.BOLD, 16));
-        eyebrow.setTextFill(Color.web(preset.accent));
-        eyebrow.setWrapText(true);
-        eyebrow.setMaxWidth(390);
-        Label title = new Label(preset.title);
-        title.setFont(Font.font("Arial Black", 31));
-        title.setTextFill(Color.WHITE);
-        title.setWrapText(true);
-        title.setMaxWidth(390);
-        Label summary = new Label(preset.summary);
-        summary.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
-        summary.setTextFill(Color.web("#CFD8DC"));
-        summary.setWrapText(true);
-        summary.setMaxWidth(390);
-        Region spacer = new Region();
-        VBox.setVgrow(spacer, Priority.ALWAYS);
-        Label selectHint = new Label("SELECT RULESET");
-        selectHint.setFont(Font.font("Consolas", FontWeight.BOLD, 16));
-        selectHint.setTextFill(Color.web("#90A4AE"));
-        VBox graphic = new VBox(12, eyebrow, title, summary, spacer, selectHint);
-        graphic.setAlignment(Pos.TOP_LEFT);
-        graphic.setPadding(new Insets(30));
-        lockRegionSize(graphic, 430, 310);
-        graphic.setMouseTransparent(true);
-
-        Button button = new Button();
-        button.setGraphic(graphic);
-        button.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
-        button.setPadding(Insets.EMPTY);
-        lockRegionSize(button, 430, 310);
-        button.setCursor(Cursor.HAND);
-        button.setAccessibleText(preset.title + ". " + preset.summary);
-        button.getProperties().put("versusPreset", preset);
-        button.getProperties().put("skipConsoleHighlight", Boolean.TRUE);
-        return button;
+    private VBox buildVersusRuleOption(String title, Supplier<String> value,
+                                       Runnable previous, Runnable next, List<Runnable> refreshers) {
+        Label titleLabel = new Label(title);
+        titleLabel.setFont(Font.font("Consolas", FontWeight.BOLD, 14));
+        titleLabel.setTextFill(Color.web("#90A4AE"));
+        Label valueLabel = new Label();
+        valueLabel.setFont(Font.font("Arial Black", 19));
+        valueLabel.setTextFill(Color.WHITE);
+        valueLabel.setAlignment(Pos.CENTER);
+        valueLabel.setMaxWidth(Double.MAX_VALUE);
+        Button left = uiFactory.action("‹", 54, 43, 12, "#37474F", 22, previous);
+        Button right = uiFactory.action("›", 54, 43, 12, "#37474F", 22, next);
+        HBox row = new HBox(7, left, valueLabel, right);
+        row.setAlignment(Pos.CENTER);
+        HBox.setHgrow(valueLabel, Priority.ALWAYS);
+        VBox card = new VBox(5, titleLabel, row);
+        card.setPadding(new Insets(9));
+        lockRegionSize(card, 354, 82);
+        card.setStyle("-fx-background-color: linear-gradient(to bottom, #202A38, #111720);"
+                + "-fx-background-radius: 10; -fx-border-color: #455A64; -fx-border-radius: 10; -fx-border-width: 2;");
+        refreshers.add(() -> valueLabel.setText(value.get()));
+        return card;
     }
 
-    private void refreshVersusRuleCards(List<Button> buttons) {
-        for (Button button : buttons) {
-            VersusRulesPreset preset = (VersusRulesPreset) button.getProperties().get("versusPreset");
-            boolean selected = preset == frontEndMatchFlow.rulesPreset();
-            button.setStyle("-fx-background-color: " + (selected
-                    ? "linear-gradient(to bottom right, #27364A, #111821)"
-                    : "linear-gradient(to bottom right, #161C26, #090C11)") + ";"
-                    + "-fx-background-radius: 20; -fx-border-radius: 20;"
-                    + "-fx-border-color: " + (selected ? preset.accent : "rgba(255,255,255,0.16)") + ";"
-                    + "-fx-border-width: " + (selected ? "5" : "3") + "; -fx-padding: 0;");
+    private String rulesOnOff(boolean enabled) {
+        return enabled ? "ON" : "OFF";
+    }
+
+    private void showRandomStagePoolEditor(Stage stage) {
+        VersusRules rules = frontEndMatchFlow.rules();
+        Set<String> excluded = new LinkedHashSet<>(rules.excludedStageKeys());
+        BorderPane frame = new BorderPane();
+        frame.setId("uiFrame");
+        lockRegionSize(frame, 1600, 950);
+        frame.setStyle("-fx-background-color: linear-gradient(to bottom, #080B11, #151B26);");
+        Label title = new Label("RANDOM STAGE POOL");
+        title.setFont(Font.font("Arial Black", 45));
+        title.setTextFill(Color.WHITE);
+        Label hint = new Label("Select stages to include. Excluded stages stay available for direct selection.");
+        hint.setFont(Font.font("Consolas", 18));
+        hint.setTextFill(Color.web("#B0BEC5"));
+        VBox header = new VBox(5, title, hint);
+        header.setPadding(new Insets(34, 54, 22, 54));
+        header.setStyle("-fx-background-color: linear-gradient(to right, #00695C, #0A0D13);");
+        frame.setTop(header);
+
+        List<StageChoice> catalog = unifiedStageSelectCatalog();
+        FlowPane grid = new FlowPane(14, 14);
+        grid.setAlignment(Pos.TOP_CENTER);
+        grid.setPadding(new Insets(18));
+        List<Runnable> refreshers = new ArrayList<>();
+        for (StageChoice choice : catalog) {
+            Canvas preview = new Canvas(210, 112);
+            StagePreviewRenderer.draw(preview, choice);
+            Label name = new Label(stageDisplayName(choice.map(), choice.variant()).toUpperCase(Locale.ROOT));
+            name.setFont(Font.font("Consolas", FontWeight.BOLD, 13));
+            name.setTextFill(Color.WHITE);
+            name.setAlignment(Pos.CENTER);
+            name.setMaxWidth(220);
+            Button card = new Button();
+            card.setGraphic(new VBox(5, preview, name));
+            card.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+            lockRegionSize(card, 230, 160);
+            String key = VersusRules.stageKey(choice);
+            Runnable refresh = () -> {
+                boolean included = !excluded.contains(key);
+                card.setOpacity(included ? 1.0 : 0.42);
+                card.setStyle("-fx-background-color: #111821; -fx-background-radius: 12;"
+                        + "-fx-border-color: " + (included ? "#4DD0E1" : "#EF5350") + ";"
+                        + "-fx-border-width: 3; -fx-border-radius: 12; -fx-padding: 7;");
+            };
+            refreshers.add(refresh);
+            card.setOnAction(e -> {
+                playButtonClick();
+                if (excluded.contains(key)) excluded.remove(key);
+                else if (excluded.size() < catalog.size() - 1) excluded.add(key);
+                refresh.run();
+            });
+            refresh.run();
+            grid.getChildren().add(card);
         }
+        ScrollPane scroll = new ScrollPane(grid);
+        scroll.setFitToWidth(true);
+        scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+        frame.setCenter(scroll);
+
+        Button all = uiFactory.action("INCLUDE ALL", 260, 70, 22, "#455A64", 16, () -> {
+            excluded.clear();
+            refreshers.forEach(Runnable::run);
+        });
+        Button pool = uiFactory.action("POOL: " + rules.randomPoolText(), 300, 70, 22, "#00695C", 15, () -> {
+            StageRandomPool next = switch (frontEndMatchFlow.rules().randomStagePool()) {
+                case MAIN -> StageRandomPool.VARIANTS;
+                case VARIANTS -> StageRandomPool.ALL;
+                case ALL, NONE -> StageRandomPool.MAIN;
+            };
+            VersusRules updated = frontEndMatchFlow.rules().withRandomStagePool(next);
+            versusRulesLibrary.setSlot(versusRulesLibrary.selectedSlot(), updated);
+            frontEndMatchFlow.selectCustomRules(updated);
+            showRandomStagePoolEditor(stage);
+        });
+        Button done = uiFactory.action("DONE", 330, 70, 22, "#00A84F", 18, () -> {
+            VersusRules updated = frontEndMatchFlow.rules().withExcludedStageKeys(excluded);
+            versusRulesLibrary.setSlot(versusRulesLibrary.selectedSlot(), updated);
+            frontEndMatchFlow.selectCustomRules(updated);
+            saveAchievements();
+            showVersusRules(stage);
+        });
+        HBox footer = new HBox(20, all, pool, done);
+        footer.setAlignment(Pos.CENTER_RIGHT);
+        footer.setPadding(new Insets(18, 44, 28, 44));
+        frame.setBottom(footer);
+        StackPane root = new StackPane(frame);
+        root.getProperties().put("noAutoScale", true);
+        root.setStyle("-fx-background-color: #05070B;");
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        setupKeyboardNavigation(scene);
+        bindEscape(scene, done::fire);
+        bindFixedFrameScale(scene, frame, 0.0);
+        setScenePreservingFullscreen(stage, scene);
     }
 
     private void applyVersusRulesPreset() {
-        VersusRulesPreset preset = frontEndMatchFlow.rulesPreset();
-        competitionModeEnabled = preset.competitionMode;
-        mutatorModeEnabled = preset.mutatorMode;
+        VersusRules rules = frontEndMatchFlow.rules();
+        competitionModeEnabled = rules.seriesWins() > 1;
+        mutatorModeEnabled = rules.mutatorsEnabled();
         if (!competitionModeEnabled) {
             competitionSeriesActive = false;
             competitionRoundNumber = 1;
@@ -35216,8 +35383,20 @@ public class BirdGame3 {
     }
 
     private StageChoice randomStageChoice(StageRandomPool pool, Random picker) {
-        List<StageChoice> choices = availableStageChoices(pool);
+        List<StageChoice> choices = availableRandomStageChoices(pool);
         return choices.get(picker.nextInt(choices.size()));
+    }
+
+    List<StageChoice> availableRandomStageChoices(StageRandomPool pool) {
+        List<StageChoice> unlocked = availableStageChoices(pool);
+        if (campaignModeActive || storyModeActive || adventureModeActive || classicModeActive
+                || trainingModeActive || tournamentModeActive) {
+            return unlocked;
+        }
+        List<StageChoice> included = unlocked.stream()
+                .filter(choice -> !activeVersusRules().excludes(choice))
+                .toList();
+        return included.isEmpty() ? unlocked : included;
     }
 
     private int countLanConnected() {
@@ -35549,6 +35728,7 @@ public class BirdGame3 {
             networkInputDelayTicks = LockstepSession.sanitizeInputDelay(inputDelayTicks);
             if (simulationConfig != null) {
                 simulationConfig.apply();
+                frontEndMatchFlow.selectCustomRules(simulationConfig.versusRules());
                 networkSimulationConfigApplied = true;
             }
             startLanMatchClient(currentStage, map, variant, seed, connected, birds, skinKeys);
@@ -35683,8 +35863,7 @@ public class BirdGame3 {
         classicModeActive = false;
         clearAshfallTrialState();
         classicEncounter = null;
-        competitionModeEnabled = false;
-        mutatorModeEnabled = false;
+        applyVersusRulesPreset();
         teamModeEnabled = false;
         lanMatchSeed = System.nanoTime();
         StageChoice stageToPlay = pickLanStageForMatch(lanMatchSeed);
@@ -35708,7 +35887,7 @@ public class BirdGame3 {
                 lanSelectedSkinKeys[i] = null;
             }
         }
-        NetworkSimulationConfig simulationConfig = NetworkSimulationConfig.capture();
+        NetworkSimulationConfig simulationConfig = NetworkSimulationConfig.capture(frontEndMatchFlow.rules());
         if (lanHost != null) {
             lanHost.broadcastStart(mapToPlay, selectedMapVariant, lanMatchSeed, networkInputDelayTicks, simulationConfig,
                     lanSlotConnected, lanSelectedBirds, lanSelectedSkinKeys);
@@ -35733,8 +35912,7 @@ public class BirdGame3 {
         classicModeActive = false;
         clearAshfallTrialState();
         classicEncounter = null;
-        competitionModeEnabled = false;
-        mutatorModeEnabled = false;
+        applyVersusRulesPreset();
         teamModeEnabled = false;
         lanMatchSeed = seed;
         StageChoice selectedStage = new StageChoice(map, variant);
@@ -61382,6 +61560,8 @@ public class BirdGame3 {
 
     private void showStageSelect(Stage stage) {
         boolean localVersusFlow = frontEndMatchFlow.screen() == FrontEndMatchFlow.Screen.STAGES;
+        StageRandomPool randomPoolForScreen = localVersusFlow
+                ? frontEndMatchFlow.rules().randomStagePool() : StageRandomPool.ALL;
         playMenuMusic();
         BorderPane root = new BorderPane();
         root.setPadding(new Insets(
@@ -61429,7 +61609,7 @@ public class BirdGame3 {
         }
         StackPane countChip = buildMenuChip(stages.size() + " STAGES", "#29131A", "#FF8A80");
         StackPane rulesChip = localVersusFlow
-                ? buildMenuChip(frontEndMatchFlow.rulesPreset().title, "#102331", frontEndMatchFlow.rulesPreset().accent)
+                ? buildMenuChip(frontEndMatchFlow.rules().name(), "#102331", frontEndMatchFlow.rulesPreset().accent)
                 : null;
 
         Region headerSpacer = new Region();
@@ -61531,11 +61711,13 @@ public class BirdGame3 {
             StagePreviewRenderer.drawRandom(largePreview);
             styleStagePreviewFrame(previewFrame, Color.web("#FFE082"));
             animateStagePreview(largePreview);
-            previewCategory.setText("ALL STAGES");
+            previewCategory.setText(randomPoolForScreen == StageRandomPool.MAIN ? "MAIN STAGES"
+                    : randomPoolForScreen == StageRandomPool.VARIANTS ? "VARIANTS" : "ALL STAGES");
             previewCategory.setTextFill(Color.web("#FFE082"));
             previewName.setText("RANDOM");
-            previewBase.setText("MAIN STAGES + VARIANTS");
-            previewDescription.setText("Let the game choose from every stage currently unlocked on this profile.");
+            previewBase.setText(!localVersusFlow || frontEndMatchFlow.rules().excludedStageKeys().isEmpty()
+                    ? "NO EXCLUSIONS" : frontEndMatchFlow.rules().excludedStageKeys().size() + " STAGES EXCLUDED");
+            previewDescription.setText("Let the game choose from your saved random-stage pool.");
             chooseHint.setText("PRESS ENTER / A TO ROLL A STAGE");
         };
 
@@ -61549,7 +61731,7 @@ public class BirdGame3 {
 
         List<Button> stageTiles = new ArrayList<>();
         Button randomTile = buildStageSelectTile(null, true,
-                () -> selectRandom.accept(StageRandomPool.ALL), showRandomPreview);
+                () -> selectRandom.accept(randomPoolForScreen), showRandomPreview);
         stageTiles.add(randomTile);
         stageGrid.add(randomTile, 0, 0);
         for (int i = 0; i < stages.size(); i++) {
@@ -61930,7 +62112,7 @@ public class BirdGame3 {
         slash.setRotate(-6);
         slash.setStyle("-fx-background-color: linear-gradient(to right, rgba(198,24,46,0.96), rgba(255,179,0,0.72));");
 
-        Label ready = new Label("READY TO FIGHT!");
+        Label ready = new Label("CONFIRM BATTLE");
         ready.setFont(Font.font("Impact", FontWeight.BOLD, 86));
         ready.setTextFill(Color.WHITE);
         ready.setEffect(new DropShadow(18, Color.rgb(0, 0, 0, 0.70)));
@@ -61938,8 +62120,8 @@ public class BirdGame3 {
         AnchorPane.setLeftAnchor(ready, 64.0);
         AnchorPane.setTopAnchor(ready, 70.0);
 
-        Label rules = new Label(frontEndMatchFlow.rulesPreset().title + "   •   "
-                + frontEndMatchFlow.rulesPreset().summary);
+        Label rules = new Label(frontEndMatchFlow.rules().name() + "   •   "
+                + frontEndMatchFlow.rules().detailSummary());
         rules.setFont(Font.font("Consolas", FontWeight.BOLD, 19));
         rules.setTextFill(Color.web("#FFE082"));
         applyNoEllipsis(rules);
@@ -62001,41 +62183,44 @@ public class BirdGame3 {
         AnchorPane.setLeftAnchor(fighters, 68.0);
         AnchorPane.setTopAnchor(fighters, 300.0);
 
-        Label loadingHint = new Label("LOADING BATTLE  •  ENTER / A TO SKIP");
+        Label loadingHint = new Label("REVIEW THE FIGHTERS, STAGE, AND RULES BEFORE STARTING");
         loadingHint.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
         loadingHint.setTextFill(Color.web("#B0BEC5"));
         applyNoEllipsis(loadingHint);
         AnchorPane.setLeftAnchor(loadingHint, 70.0);
         AnchorPane.setBottomAnchor(loadingHint, 64.0);
 
-        frame.getChildren().addAll(slash, ready, rules, fighters, previewFrame, stageLabel, loadingHint);
+        Button backButton = uiFactory.action("BACK TO STAGES", 320, 76, 24, "#8B1E24", 18, () -> {
+            frontEndMatchFlow.back();
+            stageSelectReturn = () -> {
+                frontEndMatchFlow.showFighters();
+                showFightSetup(stage);
+            };
+            showStageSelect(stage);
+        });
+        AnchorPane.setLeftAnchor(backButton, 68.0);
+        AnchorPane.setBottomAnchor(backButton, 54.0);
+        Button launchButton = uiFactory.action("START BATTLE", 390, 76, 24, "#00A84F", 20, () -> {
+            if (frontEndMatchFlow.screen() != FrontEndMatchFlow.Screen.LOADING) return;
+            frontEndMatchFlow.beginBattle();
+            startMatch(stage);
+        });
+        AnchorPane.setRightAnchor(launchButton, 68.0);
+        AnchorPane.setBottomAnchor(launchButton, 54.0);
+        AnchorPane.setLeftAnchor(loadingHint, 450.0);
+        AnchorPane.setBottomAnchor(loadingHint, 78.0);
+
+        frame.getChildren().addAll(slash, ready, rules, fighters, previewFrame, stageLabel,
+                loadingHint, backButton, launchButton);
         root.getChildren().add(frame);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
+        bindEscape(scene, backButton::fire);
         bindFixedFrameScale(scene, frame, 0.0);
         setScenePreservingFullscreen(stage, scene);
-
-        boolean[] launched = new boolean[1];
-        Runnable launch = () -> {
-            if (launched[0]) return;
-            launched[0] = true;
-            frontEndMatchFlow.beginBattle();
-            startMatch(stage);
-        };
-        PauseTransition pause = new PauseTransition(Duration.millis(760));
-        pause.setOnFinished(e -> launch.run());
-        addSceneEventFilter(scene, KeyEvent.KEY_PRESSED, e -> {
-            if (e.getCode() == KeyCode.ENTER || e.getCode() == KeyCode.SPACE) {
-                pause.stop();
-                launch.run();
-                e.consume();
-            } else if (e.getCode() == KeyCode.ESCAPE) {
-                e.consume();
-            }
-        });
-        pause.play();
+        javafx.application.Platform.runLater(launchButton::requestFocus);
     }
 
     private void beginTrainingMatchOnMap(Stage stage, MapType map) {
@@ -64158,6 +64343,39 @@ public class BirdGame3 {
         return smashCombatRulesActive;
     }
 
+    boolean appliesVersusRules() {
+        return !trainingModeActive && !campaignModeActive && !storyModeActive
+                && !adventureModeActive && !classicModeActive && !tournamentModeActive;
+    }
+
+    VersusRules activeVersusRules() {
+        return frontEndMatchFlow.rules();
+    }
+
+    int versusMatchTimerFrames() {
+        return activeVersusRules().timeLimitSeconds() * 60;
+    }
+
+    int versusSeriesWinsRequired() {
+        return appliesVersusRules() ? activeVersusRules().seriesWins() : COMPETITION_ROUND_TARGET;
+    }
+
+    boolean versusStageHazardsEnabled() {
+        return !appliesVersusRules() || activeVersusRules().stageHazardsEnabled();
+    }
+
+    boolean versusFriendlyFireEnabled() {
+        return appliesVersusRules() && activeVersusRules().friendlyFireEnabled();
+    }
+
+    double versusDamageRateMultiplier() {
+        return appliesVersusRules() ? activeVersusRules().damageRatePercent() / 100.0 : 1.0;
+    }
+
+    double versusLaunchRateMultiplier() {
+        return appliesVersusRules() ? activeVersusRules().launchRatePercent() / 100.0 : 1.0;
+    }
+
     boolean classicUsesSmashRules() {
         if (!classicModeActive || classicEncounter == null
                 || bossRushModeActive || ashfallTrialModeActive) {
@@ -64201,7 +64419,8 @@ public class BirdGame3 {
     }
 
     int smashStartingStocks() {
-        return classicUsesSmashRules() ? 1 : SMASH_STARTING_STOCKS;
+        if (classicUsesSmashRules()) return 1;
+        return appliesVersusRules() ? activeVersusRules().stockCount() : SMASH_STARTING_STOCKS;
     }
 
     private void applyClassicEncounterStockOverrides() {
@@ -64559,12 +64778,14 @@ public class BirdGame3 {
     }
 
     private void applyMatchModeRuntimeEffects() {
-        applyPeregrineRunJetstreams();
-        applyCharlesArenaRuntimeEffects();
-        applyRazorbillArenaRuntimeEffects();
-        applyGrinchHawkArenaRuntimeEffects();
-        applyVultureArenaRuntimeEffects();
-        applyStormglassRefineryRuntimeEffects();
+        if (versusStageHazardsEnabled()) {
+            applyPeregrineRunJetstreams();
+            applyCharlesArenaRuntimeEffects();
+            applyRazorbillArenaRuntimeEffects();
+            applyGrinchHawkArenaRuntimeEffects();
+            applyVultureArenaRuntimeEffects();
+            applyStormglassRefineryRuntimeEffects();
+        }
         if (classicModeActive && !bossRushModeActive && !ashfallTrialModeActive) {
             applyStormTyrantRuntimeEffects();
             applyFalconClassicRuntimeEffects();
@@ -65630,7 +65851,6 @@ public class BirdGame3 {
     }
 
     private void spawnPowerUp() {
-        if (competitionModeEnabled && !storyModeActive && !adventureModeActive && !classicModeActive) return;
         if (isCrownDuelArena()) return;
         if (simTick - lastPowerUpSpawnTime < activePowerUpSpawnInterval) return;
         double spawnChance = 0.8;
@@ -66061,6 +66281,7 @@ public class BirdGame3 {
         replay.timestampMillis = System.currentTimeMillis();
         replay.teamModeEnabled = teamModeEnabled;
         replay.mutatorModeEnabled = mutatorModeEnabled;
+        replay.versusRulesEncoded = frontEndMatchFlow.rules().encode();
         replay.slotBirdTypes = new String[activePlayers];
         replay.slotIsAi = new boolean[activePlayers];
         replay.slotTeams = new int[activePlayers];
@@ -66145,6 +66366,7 @@ public class BirdGame3 {
 
     /** Snapshot of the menu selections a replay's config restore overwrites. */
     private record ReplayMenuSnapshot(MapType map, MapVariant mapVariant, int activePlayers, boolean teamMode, boolean mutatorMode,
+                                      VersusRulesPreset rulesPreset, VersusRules rules,
                                       boolean[] ai, int[] teams, BirdType[] birds, boolean[] randoms, String[] skins) {
     }
 
@@ -66175,6 +66397,7 @@ public class BirdGame3 {
     private ReplayMenuSnapshot captureReplayMenuSnapshot() {
         return new ReplayMenuSnapshot(
                 selectedMap, selectedMapVariant, activePlayers, teamModeEnabled, mutatorModeEnabled,
+                frontEndMatchFlow.rulesPreset(), frontEndMatchFlow.rules(),
                 Arrays.copyOf(isAI, isAI.length),
                 Arrays.copyOf(playerTeams, playerTeams.length),
                 Arrays.copyOf(fightSetupSelection.selectedBirds(), fightSetupSelection.selectedBirds().length),
@@ -66191,6 +66414,8 @@ public class BirdGame3 {
         activePlayers = s.activePlayers();
         teamModeEnabled = s.teamMode();
         mutatorModeEnabled = s.mutatorMode();
+        if (s.rulesPreset() == VersusRulesPreset.CUSTOM) frontEndMatchFlow.selectCustomRules(s.rules());
+        else frontEndMatchFlow.selectRulesPreset(s.rulesPreset());
         System.arraycopy(s.ai(), 0, isAI, 0, Math.min(s.ai().length, isAI.length));
         System.arraycopy(s.teams(), 0, playerTeams, 0, Math.min(s.teams().length, playerTeams.length));
         BirdType[] birds = fightSetupSelection.selectedBirds();
@@ -66218,7 +66443,10 @@ public class BirdGame3 {
         selectedMapVariant = replayStage.variant();
         activePlayers = Math.min(r.playerCount, MAX_COMBATANTS);
         teamModeEnabled = r.teamModeEnabled;
-        mutatorModeEnabled = r.mutatorModeEnabled;
+        VersusRules replayRules = VersusRules.decode(r.versusRulesEncoded, VersusRules.standard()
+                .withMutatorsEnabled(r.mutatorModeEnabled));
+        frontEndMatchFlow.selectCustomRules(replayRules);
+        applyVersusRulesPreset();
         for (int i = 0; i < activePlayers; i++) {
             if (r.slotBirdTypes[i] == null) continue;
             isAI[i] = r.slotIsAi[i];
@@ -67241,7 +67469,7 @@ public class BirdGame3 {
         if (attacker == null || target == null || attacker == target) return false;
         if (target.health <= 0) return false;
         if (target.isCombatInvulnerable()) return false;
-        return !areAllies(attacker.playerIndex, target.playerIndex);
+        return !areAllies(attacker.playerIndex, target.playerIndex) || versusFriendlyFireEnabled();
     }
 
     public void addToKillFeed(String message) {
@@ -68968,6 +69196,11 @@ public class BirdGame3 {
         smashCombatRulesActive = trainingModeActive
                 || (!campaignModeActive && !storyModeActive && !adventureModeActive && !classicModeActive)
                 || classicUsesSmashRules();
+        if (appliesVersusRules() && !activeVersusRules().ultimatesEnabled()) {
+            for (int i = 0; i < activePlayers; i++) {
+                if (players[i] != null) players[i].setUltimateEnabled(false);
+            }
+        }
         if (smashCombatRulesActive) {
             Arrays.fill(scores, 0);
             for (int i = 0; i < activePlayers; i++) {

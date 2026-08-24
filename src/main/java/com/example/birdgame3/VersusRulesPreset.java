@@ -12,42 +12,43 @@ enum VersusRulesPreset {
     STANDARD(
             "STANDARD SMASH",
             "THE BIRD FIGHT 3 DEFAULT",
-            "3 stocks  •  2:30  •  items on  •  stage hazards on",
-            false,
-            false,
+            VersusRules.standard(),
             "#EF5350"
     ),
     COMPETITIVE(
             "COMPETITIVE",
             "TOURNAMENT RULES",
-            "3 stocks  •  2:00  •  items off  •  stage hazards off",
-            true,
-            false,
+            VersusRules.competitive(),
             "#42A5F5"
     ),
     CHAOS(
             "POWER-UP CHAOS",
             "ONE MUTATOR EVERY MATCH",
-            "3 stocks  •  2:30  •  items on  •  hazards + mutators",
-            false,
-            true,
+            VersusRules.chaos(),
             "#FFB300"
+    ),
+    CUSTOM(
+            "CUSTOM RULES",
+            "THREE SAVED RULESETS",
+            VersusRules.standard().withName("CUSTOM RULES"),
+            "#AB47BC"
     );
 
     final String title;
     final String eyebrow;
     final String summary;
+    final VersusRules rules;
     final boolean competitionMode;
     final boolean mutatorMode;
     final String accent;
 
-    VersusRulesPreset(String title, String eyebrow, String summary,
-                      boolean competitionMode, boolean mutatorMode, String accent) {
+    VersusRulesPreset(String title, String eyebrow, VersusRules rules, String accent) {
         this.title = title;
         this.eyebrow = eyebrow;
-        this.summary = summary;
-        this.competitionMode = competitionMode;
-        this.mutatorMode = mutatorMode;
+        this.rules = rules;
+        this.summary = rules.summary();
+        this.competitionMode = rules.seriesWins() > 1;
+        this.mutatorMode = rules.mutatorsEnabled();
         this.accent = accent;
     }
 

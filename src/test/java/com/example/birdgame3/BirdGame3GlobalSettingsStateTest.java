@@ -73,4 +73,22 @@ class BirdGame3GlobalSettingsStateTest {
         state = BirdGame3GlobalSettingsState.load(prefs, new String[0], 0);
         assertEquals(VersusRulesPreset.STANDARD.name(), state.versusRulesPresetName);
     }
+
+    @Test
+    void customRulesSlotsPersistAndMalformedDataFallsBackSafely() {
+        BirdGame3GlobalSettingsState state = new BirdGame3GlobalSettingsState();
+        state.versusRulesPresetName = VersusRulesPreset.CUSTOM.name();
+        state.versusCustomRulesSlot = 2;
+        state.versusCustomRuleEncodings[2] = VersusRules.standard()
+                .withName("FIVE STOCKS").withStockCount(5).encode();
+        state.saveTo(prefs, new String[0]);
+
+        BirdGame3GlobalSettingsState loaded = BirdGame3GlobalSettingsState.load(prefs, new String[0], 0);
+        assertEquals(2, loaded.versusCustomRulesSlot);
+        assertEquals(5, VersusRules.decode(loaded.versusCustomRuleEncodings[2], null).stockCount());
+
+        prefs.put("versus_custom_rules_1", "corrupt");
+        loaded = BirdGame3GlobalSettingsState.load(prefs, new String[0], 0);
+        assertEquals("TOURNAMENT", VersusRules.decode(loaded.versusCustomRuleEncodings[1], null).name());
+    }
 }

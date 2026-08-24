@@ -17,6 +17,7 @@ final class FrontEndMatchFlow {
 
     private Screen screen = Screen.TITLE;
     private VersusRulesPreset rulesPreset = VersusRulesPreset.STANDARD;
+    private VersusRules rules = VersusRules.standard();
 
     Screen screen() {
         return screen;
@@ -26,12 +27,33 @@ final class FrontEndMatchFlow {
         return rulesPreset;
     }
 
+    VersusRules rules() {
+        return rules;
+    }
+
     void restoreRulesPreset(String preference) {
-        rulesPreset = VersusRulesPreset.fromPreference(preference);
+        selectRulesPreset(VersusRulesPreset.fromPreference(preference));
+    }
+
+    void restoreRules(String preference, VersusRules customRules) {
+        VersusRulesPreset preset = VersusRulesPreset.fromPreference(preference);
+        if (preset == VersusRulesPreset.CUSTOM) {
+            selectCustomRules(customRules);
+        } else {
+            selectRulesPreset(preset);
+        }
     }
 
     void selectRulesPreset(VersusRulesPreset preset) {
         rulesPreset = Objects.requireNonNullElse(preset, VersusRulesPreset.STANDARD);
+        if (rulesPreset != VersusRulesPreset.CUSTOM) {
+            rules = rulesPreset.rules;
+        }
+    }
+
+    void selectCustomRules(VersusRules customRules) {
+        rulesPreset = VersusRulesPreset.CUSTOM;
+        rules = Objects.requireNonNullElse(customRules, VersusRules.standard().withName("CUSTOM RULES"));
     }
 
     void showTitle() {
@@ -88,7 +110,8 @@ final class FrontEndMatchFlow {
             case STAGES -> Screen.FIGHTERS;
             case RESULTS -> Screen.HUB;
             case TITLE, HUB -> Screen.TITLE;
-            case LOADING, BATTLE -> screen;
+            case LOADING -> Screen.STAGES;
+            case BATTLE -> screen;
         };
         return screen;
     }

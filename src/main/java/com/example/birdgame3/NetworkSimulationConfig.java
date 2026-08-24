@@ -20,14 +20,21 @@ final class NetworkSimulationConfig {
     private final double gravity;
     private final double startingHealth;
     private final BirdTuning[] birds;
+    private final VersusRules versusRules;
 
-    private NetworkSimulationConfig(double gravity, double startingHealth, BirdTuning[] birds) {
+    private NetworkSimulationConfig(double gravity, double startingHealth, BirdTuning[] birds,
+                                    VersusRules versusRules) {
         this.gravity = gravity;
         this.startingHealth = startingHealth;
         this.birds = birds;
+        this.versusRules = versusRules == null ? VersusRules.standard() : versusRules;
     }
 
     static NetworkSimulationConfig capture() {
+        return capture(VersusRules.standard());
+    }
+
+    static NetworkSimulationConfig capture(VersusRules versusRules) {
         BirdType[] types = BirdType.values();
         BirdTuning[] birds = new BirdTuning[types.length];
         for (int i = 0; i < types.length; i++) {
@@ -43,7 +50,7 @@ final class NetworkSimulationConfig {
                     type.ultimateRate
             );
         }
-        return new NetworkSimulationConfig(BirdGame3.GRAVITY, Bird.STARTING_HEALTH, birds);
+        return new NetworkSimulationConfig(BirdGame3.GRAVITY, Bird.STARTING_HEALTH, birds, versusRules);
     }
 
     void write(DataOutputStream out) throws IOException {
@@ -60,6 +67,7 @@ final class NetworkSimulationConfig {
             out.writeDouble(bird.cooldownRate);
             out.writeDouble(bird.ultimateRate);
         }
+        out.writeUTF(versusRules.encode());
     }
 
     static NetworkSimulationConfig read(DataInputStream in) throws IOException {
@@ -83,7 +91,12 @@ final class NetworkSimulationConfig {
             birds[i] = new BirdTuning(power, jumpHeight, speed, flyUpForce,
                     damageDealtMult, damageTakenMult, cooldownRate, ultimateRate);
         }
-        return new NetworkSimulationConfig(gravity, startingHealth, birds);
+        VersusRules versusRules = VersusRules.decode(in.readUTF(), VersusRules.standard());
+        return new NetworkSimulationConfig(gravity, startingHealth, birds, versusRules);
+    }
+
+    VersusRules versusRules() {
+        return versusRules;
     }
 
     void apply() {
@@ -121,6 +134,9 @@ final class NetworkSimulationConfig {
             hash = mix(hash, Double.doubleToLongBits(bird.damageTakenMult));
             hash = mix(hash, Double.doubleToLongBits(bird.cooldownRate));
             hash = mix(hash, Double.doubleToLongBits(bird.ultimateRate));
+        }
+        for (int i = 0; i < versusRules.encode().length(); i++) {
+            hash = mix(hash, versusRules.encode().charAt(i));
         }
         return hash;
     }

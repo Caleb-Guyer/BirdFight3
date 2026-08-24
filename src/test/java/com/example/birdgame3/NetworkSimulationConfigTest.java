@@ -24,7 +24,9 @@ class NetworkSimulationConfigTest {
         BirdGame3.BirdType.RAVEN.cooldownRate = 1.37;
         BirdGame3.GRAVITY = 0.73;
         Bird.STARTING_HEALTH = 275.0;
-        NetworkSimulationConfig hostConfig = NetworkSimulationConfig.capture();
+        VersusRules hostRules = VersusRules.standard().withName("HOST RULES")
+                .withStockCount(5).withUltimatesEnabled(false).withDamageRatePercent(140);
+        NetworkSimulationConfig hostConfig = NetworkSimulationConfig.capture(hostRules);
 
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         hostConfig.write(new DataOutputStream(bytes));
@@ -40,11 +42,12 @@ class NetworkSimulationConfigTest {
 
         received.apply();
 
-        assertEquals(hostConfig.fingerprint(), NetworkSimulationConfig.capture().fingerprint());
+        assertEquals(hostConfig.fingerprint(), NetworkSimulationConfig.capture(hostRules).fingerprint());
         assertEquals(7.25, BirdGame3.BirdType.PIGEON.speed);
         assertEquals(13, BirdGame3.BirdType.GOOSE.power);
         assertEquals(1.37, BirdGame3.BirdType.RAVEN.cooldownRate);
         assertEquals(0.73, BirdGame3.GRAVITY);
         assertEquals(275.0, Bird.STARTING_HEALTH);
+        assertEquals(hostRules, received.versusRules());
     }
 }

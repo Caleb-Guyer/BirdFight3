@@ -17,6 +17,8 @@ final class BirdGame3GlobalSettingsState {
     private static final String KEY_FPS_CAP = "setting_fps_cap";
     private static final String KEY_LAST_SEEN_UPDATE_SPLASH = "last_seen_update_splash";
     private static final String KEY_VERSUS_RULES_PRESET = "versus_rules_preset";
+    private static final String KEY_VERSUS_CUSTOM_SLOT = "versus_custom_slot";
+    private static final String KEY_VERSUS_CUSTOM_RULE_PREFIX = "versus_custom_rules_";
     private static final String WIIMOTE_MODE_PREFIX = "setting_wiimote_mode_p";
 
     String[][] controlBindingNames = new String[0][];
@@ -35,6 +37,8 @@ final class BirdGame3GlobalSettingsState {
     int fpsCap = 60;
     String lastSeenUpdateSplashKey = "";
     String versusRulesPresetName = VersusRulesPreset.STANDARD.name();
+    int versusCustomRulesSlot;
+    String[] versusCustomRuleEncodings = new VersusRulesLibrary().encodedSlots();
 
     static BirdGame3GlobalSettingsState load(Preferences prefs, String[] controlActionPrefKeys, int playerCount) {
         BirdGame3GlobalSettingsState state = new BirdGame3GlobalSettingsState();
@@ -75,6 +79,15 @@ final class BirdGame3GlobalSettingsState {
         state.lastSeenUpdateSplashKey = prefs.get(KEY_LAST_SEEN_UPDATE_SPLASH, "");
         state.versusRulesPresetName = VersusRulesPreset.fromPreference(
                 prefs.get(KEY_VERSUS_RULES_PRESET, VersusRulesPreset.STANDARD.name())).name();
+        VersusRulesLibrary defaults = new VersusRulesLibrary();
+        state.versusCustomRulesSlot = Math.clamp(prefs.getInt(KEY_VERSUS_CUSTOM_SLOT, 0),
+                0, VersusRulesLibrary.SLOT_COUNT - 1);
+        state.versusCustomRuleEncodings = new String[VersusRulesLibrary.SLOT_COUNT];
+        for (int i = 0; i < VersusRulesLibrary.SLOT_COUNT; i++) {
+            VersusRules fallback = defaults.slot(i);
+            state.versusCustomRuleEncodings[i] = VersusRules.decode(
+                    prefs.get(KEY_VERSUS_CUSTOM_RULE_PREFIX + i, fallback.encode()), fallback).encode();
+        }
         return state;
     }
 
@@ -119,6 +132,15 @@ final class BirdGame3GlobalSettingsState {
         prefs.put(KEY_LAST_SEEN_UPDATE_SPLASH, nullToEmpty(lastSeenUpdateSplashKey));
         prefs.put(KEY_VERSUS_RULES_PRESET,
                 VersusRulesPreset.fromPreference(versusRulesPresetName).name());
+        prefs.putInt(KEY_VERSUS_CUSTOM_SLOT,
+                Math.clamp(versusCustomRulesSlot, 0, VersusRulesLibrary.SLOT_COUNT - 1));
+        VersusRulesLibrary defaults = new VersusRulesLibrary();
+        for (int i = 0; i < VersusRulesLibrary.SLOT_COUNT; i++) {
+            String encoded = versusCustomRuleEncodings != null && i < versusCustomRuleEncodings.length
+                    ? versusCustomRuleEncodings[i] : null;
+            prefs.put(KEY_VERSUS_CUSTOM_RULE_PREFIX + i,
+                    VersusRules.decode(encoded, defaults.slot(i)).encode());
+        }
     }
 
     private static String controlPrefKey(int playerIdx, String actionPrefKey) {

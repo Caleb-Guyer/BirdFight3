@@ -54,7 +54,7 @@ class FrontEndMatchFlowTest {
 
         flow.restoreRulesPreset("removed-in-a-future-build");
         assertEquals(VersusRulesPreset.STANDARD, flow.rulesPreset());
-        assertEquals("3 stocks  •  2:30  •  items on  •  stage hazards on",
+        assertEquals("3 stocks  •  2:30  •  items on  •  hazards on  •  ults on",
                 flow.rulesPreset().summary);
     }
 
@@ -70,5 +70,22 @@ class FrontEndMatchFlowTest {
         flow.showLoading();
         flow.beginBattle();
         assertEquals(FrontEndMatchFlow.Screen.BATTLE, flow.screen());
+    }
+
+    @Test
+    void customRulesAndLoadingBackPathKeepExactConfiguration() {
+        FrontEndMatchFlow flow = new FrontEndMatchFlow();
+        VersusRules custom = VersusRules.standard().withName("NO ULTS")
+                .withStockCount(5).withUltimatesEnabled(false);
+        flow.restoreRules("custom", custom);
+        assertEquals(VersusRulesPreset.CUSTOM, flow.rulesPreset());
+        assertEquals(custom, flow.rules());
+
+        flow.beginVersus();
+        flow.confirmRules();
+        flow.confirmFighters(true);
+        flow.showLoading();
+        assertEquals(FrontEndMatchFlow.Screen.STAGES, flow.back());
+        assertEquals(custom, flow.rules());
     }
 }

@@ -27,6 +27,7 @@ class ReplayStoreTest {
         replay.winnerLabel = "P1: Eagle";
         replay.teamModeEnabled = false;
         replay.mutatorModeEnabled = true;
+        replay.versusRulesEncoded = VersusRules.chaos().withName("REPLAY RULES").encode();
         replay.slotBirdTypes = new String[]{"EAGLE", "GOOSE"};
         replay.slotIsAi = new boolean[]{false, true};
         replay.slotTeams = new int[]{1, 2};
@@ -61,6 +62,7 @@ class ReplayStoreTest {
         assertEquals(original.winnerLabel, loaded.winnerLabel);
         assertEquals(original.teamModeEnabled, loaded.teamModeEnabled);
         assertEquals(original.mutatorModeEnabled, loaded.mutatorModeEnabled);
+        assertEquals(original.versusRulesEncoded, loaded.versusRulesEncoded);
         assertArrayEquals(original.slotBirdTypes, loaded.slotBirdTypes);
         assertArrayEquals(original.slotIsAi, loaded.slotIsAi);
         assertArrayEquals(original.slotTeams, loaded.slotTeams);

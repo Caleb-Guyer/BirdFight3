@@ -19997,6 +19997,7 @@ public class Bird {
         // through here, so these two factors tune a bird's whole kit at once.
         if (attacker != null && attacker != this && attacker.type != null) {
             scaledDamage *= attacker.type.damageDealtMult;
+            scaledDamage *= game.versusDamageRateMultiplier();
         }
         if (type != null) {
             scaledDamage *= type.damageTakenMult;
@@ -23592,6 +23593,9 @@ public class Bird {
             vx *= moveKnockbackMultiplier;
             vy *= moveKnockbackMultiplier;
         }
+        double versusLaunchRate = game.versusLaunchRateMultiplier();
+        vx *= versusLaunchRate;
+        vy *= versusLaunchRate;
         if (!game.usesDamageScaledKnockback() || pendingSmashLaunchScale <= 1.0001) {
             return;
         }

@@ -128,6 +128,14 @@ final class MatchController {
 
         if (game.campaignModeActive || game.storyModeActive || game.adventureModeActive || game.trainingModeActive) return;
 
+        if (game.appliesVersusRules()) {
+            VersusRules rules = game.activeVersusRules();
+            game.matchTimer = game.versusMatchTimerFrames();
+            game.activePowerUpSpawnInterval = rules.powerUpsEnabled()
+                    ? rules.powerUpIntervalSeconds() * 60L : Long.MAX_VALUE;
+            if (!rules.powerUpsEnabled()) game.powerUps.clear();
+        }
+
         if (game.competitionModeEnabled) {
             if (!game.competitionSeriesActive) {
                 Arrays.fill(game.competitionRoundWins, 0);
@@ -135,12 +143,8 @@ final class MatchController {
                 game.competitionRoundNumber = 1;
                 game.competitionSeriesActive = true;
             }
-            game.matchTimer = BirdGame3.COMPETITION_DURATION_FRAMES;
-            game.activePowerUpSpawnInterval = Long.MAX_VALUE;
-            game.powerUps.clear();
             game.addToKillFeed("COMPETITION MODE: Round " + game.competitionRoundNumber
-                    + " (first to " + BirdGame3.COMPETITION_ROUND_TARGET + ")");
-            return;
+                    + " (first to " + game.versusSeriesWinsRequired() + ")");
         }
 
         if (!game.mutatorModeEnabled) return;
@@ -385,14 +389,14 @@ final class MatchController {
                 if (team == 1 || team == 2) {
                     game.competitionTeamWins[team]++;
                     roundWinnerText = team == 1 ? "TEAM A" : "TEAM B";
-                    seriesWon = game.competitionTeamWins[team] >= BirdGame3.COMPETITION_ROUND_TARGET;
+                    seriesWon = game.competitionTeamWins[team] >= game.versusSeriesWinsRequired();
                 }
             } else {
                 int idx = winner.playerIndex;
                 if (idx >= 0 && idx < game.competitionRoundWins.length) {
                     game.competitionRoundWins[idx]++;
                     roundWinnerText = BirdGame3.shortName(winner.name);
-                    seriesWon = game.competitionRoundWins[idx] >= BirdGame3.COMPETITION_ROUND_TARGET;
+                    seriesWon = game.competitionRoundWins[idx] >= game.versusSeriesWinsRequired();
                 }
             }
         }
