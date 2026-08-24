@@ -28,10 +28,17 @@ class FighterSelectUiCrashRegressionTest {
     void fighterSelectCanBindLiveDeviceStylesAndRollsBackFailedTransitions() throws IOException {
         String source = Files.readString(GAME_SOURCE);
         String fightSetup = methodBody(source, "private void showFightSetup(Stage stage)");
+        String sceneFitter = methodBody(source, "private void fitSceneButtons(Node node)");
+        String buttonFitter = methodBody(source, "private void fitButtonText(Button b)");
         String rules = methodBody(source, "private void showVersusRulesEditor(Stage stage, boolean networkLobby)");
 
+        assertTrue(fightSetup.contains("inputBtn.textProperty().bind"));
         assertTrue(fightSetup.contains("inputBtn.styleProperty().bind"));
         assertTrue(fightSetup.contains("setupKeyboardNavigation(scene)"));
+        assertTrue(sceneFitter.contains("b.textProperty().isBound() || b.styleProperty().isBound()"));
+        assertTrue(sceneFitter.contains("applyNoEllipsis(b)"));
+        assertTrue(buttonFitter.contains("b.textProperty().isBound() || b.styleProperty().isBound()"),
+                "the text fitter must never rewrite live-bound fighter input labels");
         assertTrue(rules.contains("catch (RuntimeException | Error failure)"));
         assertTrue(rules.contains("frontEndMatchFlow.beginVersus()"));
     }

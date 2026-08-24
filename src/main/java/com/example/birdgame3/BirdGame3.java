@@ -3592,8 +3592,19 @@ public class BirdGame3 {
 
     private void fitSceneButtons(Node node) {
         if (node instanceof Button b) {
-            installButtonFontLock(b);
-            fitButtonText(b);
+            if (b.textProperty().isBound() || b.styleProperty().isBound()) {
+                // Live input/device buttons own their text and styling through bindings.
+                // Keep the shared scene pass presentation-only for those controls: JavaFX
+                // rejects writes to bound properties, and a font lock would also fight the
+                // device-specific style whenever the active input source changes.
+                b.setWrapText(true);
+                applyNoEllipsis(b);
+                b.setTextAlignment(TextAlignment.CENTER);
+                b.setAlignment(Pos.CENTER);
+            } else {
+                installButtonFontLock(b);
+                fitButtonText(b);
+            }
         }
         if (node instanceof Parent p) {
             for (Node child : p.getChildrenUnmodifiable()) {
@@ -3603,6 +3614,7 @@ public class BirdGame3 {
     }
 
     private void fitButtonText(Button b) {
+        if (b == null || b.textProperty().isBound() || b.styleProperty().isBound()) return;
         String original = (String) b.getProperties().computeIfAbsent("origText", k -> b.getText());
         if (original == null || original.isBlank()) return;
         if (b.getGraphic() != null) return;
