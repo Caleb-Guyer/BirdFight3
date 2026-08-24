@@ -32,6 +32,7 @@
 }
 
 .dialog-pane .button {
+    -fx-min-width: 128px;
     -fx-background-color: #37474f;
     -fx-text-fill: white;
     -fx-font-family: "Arial Black";
@@ -41,6 +42,7 @@
     -fx-border-width: 2px;
     -fx-border-radius: 12px;
     -fx-padding: 10px 26px;
+    -fx-text-overrun: clip;
     -fx-cursor: hand;
 }
 

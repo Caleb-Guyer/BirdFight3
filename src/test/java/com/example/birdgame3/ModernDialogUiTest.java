@@ -17,11 +17,17 @@ class ModernDialogUiTest {
     void modalThemeCoversTypographyFocusInputsAndActions() throws IOException {
         String css = Files.readString(Path.of(
                 "src", "main", "resources", "com", "example", "birdgame3", "modern-dialog.css"));
+        String theme = Files.readString(MAIN_SOURCE.resolve("ModernDialogTheme.java"));
 
         assertTrue(css.contains(".dialog-pane > .header-panel"));
         assertTrue(css.contains(".dialog-pane .button:focused"));
         assertTrue(css.contains(".dialog-pane .button:default"));
         assertTrue(css.contains(".dialog-pane .text-field"));
+        assertTrue(css.contains("-fx-min-width: 128px"));
+        assertTrue(css.contains("-fx-text-overrun: clip"));
+        assertTrue(theme.contains("button.setMinWidth(ACTION_BUTTON_MIN_WIDTH)"));
+        assertTrue(theme.contains("button.setTextOverrun(OverrunStyle.CLIP)"));
+        assertTrue(theme.contains("button.setEllipsisString(\"\")"));
     }
 
     @Test
