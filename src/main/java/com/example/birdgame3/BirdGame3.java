@@ -29146,19 +29146,24 @@ public class BirdGame3 {
 
         Region railSpacer = new Region();
         VBox.setVgrow(railSpacer, Priority.ALWAYS);
-        Label drawerToggleLabel = new Label("TOOLS");
+        Label drawerToggleLabel = new Label("");
         drawerToggleLabel.setFont(Font.font("Arial Black", 19));
         drawerToggleLabel.setTextFill(Color.WHITE);
         drawerToggleLabel.setMouseTransparent(true);
         Label drawerToggleArrow = new Label("<");
         drawerToggleArrow.setFont(Font.font("Arial Black", 27));
         drawerToggleArrow.setTextFill(Color.web("#FFE082"));
+        drawerToggleArrow.setAlignment(Pos.CENTER);
+        lockRegionSize(drawerToggleArrow, 68, 52);
+        drawerToggleArrow.setStyle("-fx-background-color: rgba(255,255,255,0.06);"
+                + "-fx-background-radius: 16; -fx-border-color: rgba(255,224,130,0.45);"
+                + "-fx-border-radius: 16; -fx-border-width: 2;");
         drawerToggleArrow.setMouseTransparent(true);
         Region drawerToggleSpacer = new Region();
         HBox.setHgrow(drawerToggleSpacer, Priority.ALWAYS);
-        HBox drawerToggleGraphic = new HBox(12, drawerToggleLabel, drawerToggleSpacer, drawerToggleArrow);
+        HBox drawerToggleGraphic = new HBox(14, drawerToggleArrow, drawerToggleLabel, drawerToggleSpacer);
         drawerToggleGraphic.setAlignment(Pos.CENTER);
-        drawerToggleGraphic.setPadding(new Insets(0, 14, 0, 24));
+        drawerToggleGraphic.setPadding(new Insets(0, 14, 0, 8));
         drawerToggleGraphic.setMouseTransparent(true);
 
         Button drawerToggle = buildUltimateHubButtonBase(328, 72, () -> { });
@@ -29179,10 +29184,10 @@ public class BirdGame3 {
                 + "-fx-border-radius: 28 0 0 28;");
         railShell.setViewOrder(-1000);
         AnchorPane.setTopAnchor(railShell, 0.0);
-        AnchorPane.setRightAnchor(railShell, 0.0);
+        AnchorPane.setLeftAnchor(railShell, 1496.0);
 
         boolean[] utilityDrawerExpanded = {false};
-        railShell.setTranslateX(266.0);
+        railShell.setTranslateX(0.0);
         drawerToggle.setOnAction(e -> {
             playButtonClick();
             setUltimateHubDrawerExpanded(railShell, drawerToggle, drawerToggleLabel,
@@ -29603,9 +29608,9 @@ public class BirdGame3 {
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
-        HBox content = new HBox(14, label, spacer, iconFrame);
+        HBox content = new HBox(14, iconFrame, label, spacer);
         content.setAlignment(Pos.CENTER);
-        content.setPadding(new Insets(0, 8, 0, 24));
+        content.setPadding(new Insets(0, 8, 0, 8));
         lockRegionSize(content, drawerButtonWidth, height);
         content.setMouseTransparent(true);
 
@@ -29621,7 +29626,7 @@ public class BirdGame3 {
                                               boolean[] state, boolean expanded,
                                               boolean animate) {
         if (drawer == null || state == null || state.length == 0) return;
-        double targetX = expanded ? 0.0 : 266.0;
+        double targetX = expanded ? -256.0 : 0.0;
         boolean changed = state[0] != expanded || Math.abs(drawer.getTranslateX() - targetX) > 0.5;
         state[0] = expanded;
 
@@ -29630,7 +29635,7 @@ public class BirdGame3 {
             toggle.setStyle(buildUltimateHubStyle("#20252B", "#080A0D", "#FFE082", 22, expanded));
         }
         if (toggleLabel != null) {
-            toggleLabel.setText(expanded ? "UTILITY MENU" : "TOOLS");
+            toggleLabel.setText(expanded ? "UTILITY MENU" : "");
         }
         if (toggleArrow != null) {
             toggleArrow.setText(expanded ? ">" : "<");

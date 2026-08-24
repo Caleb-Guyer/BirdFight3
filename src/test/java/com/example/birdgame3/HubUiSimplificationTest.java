@@ -33,12 +33,29 @@ class HubUiSimplificationTest {
                 "every hub destination should drive the center preview");
         assertTrue(hub.contains("setUltimateHubDrawerExpanded("),
                 "the utility rail should open as a drawer instead of permanently consuming space");
-        assertTrue(hub.contains("railShell.setTranslateX(266.0)"),
+        assertTrue(hub.contains("AnchorPane.setLeftAnchor(railShell, 1496.0)"));
+        assertTrue(hub.contains("railShell.setTranslateX(0.0)"),
                 "the utility drawer should start in its compact state");
         assertTrue(hub.contains("if (utilityDrawerExpanded[0])"),
                 "Escape should close the open drawer before leaving the hub");
         assertTrue(source.contains("ROOST TIP"));
         assertTrue(source.contains("private String randomHubTip()"));
+    }
+
+    @Test
+    void compactUtilityRailShowsIconsAndExpandedRowsPutTextAfterThem() throws IOException {
+        String source = Files.readString(GAME_SOURCE).replace("\r\n", "\n");
+        String railButton = methodBody(source,
+                "private Button buildUltimateHubRailButton(String text, double height, Node icon, Runnable action)");
+        String drawerState = methodBody(source,
+                "private void setUltimateHubDrawerExpanded(StackPane drawer, Button toggle,");
+
+        assertTrue(railButton.contains("new HBox(14, iconFrame, label, spacer)"),
+                "expanded utility rows should read icon first, then label");
+        assertTrue(drawerState.contains("double targetX = expanded ? -256.0 : 0.0"),
+                "the drawer should expand leftward from its visible icon strip");
+        assertTrue(drawerState.contains("expanded ? \"UTILITY MENU\" : \"\""),
+                "collapsed drawer chrome should not expose clipped text");
     }
 
     @Test
