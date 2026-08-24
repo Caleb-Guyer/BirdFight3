@@ -112,7 +112,6 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.nio.file.Files;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.*;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
@@ -183,18 +182,6 @@ public class BirdGame3 {
     private static final int VERIFIED_COMPETITION_MATCH_BONUS = 20;
     private static final int DAILY_CHALLENGE_FIRST_CLEAR_BONUS = 180;
     private static final int MATCH_HISTORY_LIMIT = 20;
-    private static final String[] HUB_TIPS = {
-            "Recover early and save your jump so you still have options offstage.",
-            "Training is the fastest way to test ranges, confirms, and recovery angles.",
-            "Adventure is the safest route for unlocking birds and learning matchups.",
-            "Boss Rush rewards clean routing more than risky coin-flip scrambles.",
-            "Classic route milestones reward learning several different birds.",
-            "Ground block turns into a fast fall in the air, so use it deliberately.",
-            "Bird Coins come from matches, achievements, and steady route clears.",
-            "Featherpedia lists unlock paths when you need a bird or skin target.",
-            "Test LAN controls before the set so rooms do not stall at the start.",
-            "Tournament mode works best when every player locks a real main first."
-    };
     private static final String UNITED_FINALE_CHAPTER_TITLE = "Chapter 9: Sky of All Wings";
     private static final String UNITED_FINALE_PENULTIMATE_TITLE = "Battle 2: Crack the Crown";
     private static final String UNITED_FINALE_CLIMAX_TITLE = "Battle 3: The Null Rock";
@@ -28851,12 +28838,12 @@ public class BirdGame3 {
         lockRegionSize(frame, 1600, 950);
         frame.getChildren().add(buildUltimateHubBackdrop());
 
-        Label helpTitle = new Label("CENTRAL HUB");
+        Label helpTitle = new Label(HubPresentationModel.IDLE_TITLE);
         helpTitle.setFont(Font.font("Arial Black", 30));
         helpTitle.setTextFill(Color.web("#FFE082"));
         applyNoEllipsis(helpTitle);
 
-        Label helpBody = new Label("Pick a mode tile or utility menu.");
+        Label helpBody = new Label(HubPresentationModel.IDLE_DESCRIPTION);
         helpBody.setFont(Font.font("Consolas", 20));
         helpBody.setTextFill(Color.web("#F5F5F5"));
         helpBody.setWrapText(true);
@@ -28881,11 +28868,6 @@ public class BirdGame3 {
         final double medallionTop = 244.0;
         final double medallionLeft = 568.0;
 
-        StackPane tipPanel = buildUltimateHubTipPanel(randomHubTip());
-        AnchorPane.setTopAnchor(tipPanel, 0.0);
-        AnchorPane.setLeftAnchor(tipPanel, 0.0);
-        AnchorPane.setRightAnchor(tipPanel, 0.0);
-
         StackPane medallion = buildUltimateHubCenterMedallion(activeProfile);
         medallion.setScaleX(1.04);
         medallion.setScaleY(1.04);
@@ -28904,7 +28886,8 @@ public class BirdGame3 {
         registerHubInteractiveNode(fightNode, hubButtons, helpTitle, helpBody,
                 buildUltimateHubStyle("#D62828", "#8B0000", "#FFD7C2", 38, 0, 0, 0, false),
                 buildUltimateHubStyle("#D62828", "#8B0000", "#FFF8E1", 38, 0, 0, 0, true),
-                "FIGHT", "Jump into versus battles with the main match setup flow.", selectorPointer, medallion);
+                HubPresentationModel.Destination.FIGHT.title(),
+                HubPresentationModel.Destination.FIGHT.description(), selectorPointer, medallion);
         AnchorPane.setTopAnchor(fightNode, hubMainTop);
         AnchorPane.setLeftAnchor(fightNode, 0.0);
 
@@ -28916,8 +28899,8 @@ public class BirdGame3 {
         registerHubInteractiveNode(adventureNode, hubButtons, helpTitle, helpBody,
                 buildUltimateHubStyle("#00A84F", "#007730", "#D9FFE8", 0, 0, 0, 38, false),
                 buildUltimateHubStyle("#00A84F", "#007730", "#F1FFF4", 0, 0, 0, 38, true),
-                "STORY — THE STILL SKY",
-                "Play the definitive 12-act campaign. Original Adventure routes and Episodes are preserved under Legacy Stories.",
+                HubPresentationModel.Destination.STORY.title(),
+                HubPresentationModel.Destination.STORY.description(),
                 selectorPointer, medallion);
         AnchorPane.setTopAnchor(adventureNode, hubMidline);
         AnchorPane.setLeftAnchor(adventureNode, 0.0);
@@ -28930,7 +28913,8 @@ public class BirdGame3 {
         registerHubInteractiveNode(gamesNode, hubButtons, helpTitle, helpBody,
                 buildUltimateHubStyle("#1E88FF", "#0B53C1", "#D6E8FF", 0, 38, 0, 0, false),
                 buildUltimateHubStyle("#1E88FF", "#0B53C1", "#F5FBFF", 0, 38, 0, 0, true),
-                "GAMES & MORE", "Open the challenge stack with Classic, Boss Rush, Episodes, Tournament, and Training.", selectorPointer, medallion);
+                HubPresentationModel.Destination.GAMES.title(),
+                HubPresentationModel.Destination.GAMES.description(), selectorPointer, medallion);
         AnchorPane.setTopAnchor(gamesNode, hubMainTop);
         AnchorPane.setLeftAnchor(gamesNode, hubRightLeft);
 
@@ -28942,7 +28926,8 @@ public class BirdGame3 {
         registerHubInteractiveNode(shopNode, hubButtons, helpTitle, helpBody,
                 buildUltimateHubStyle("#FF4FA1", "#C2185B", "#FFE3F3", 0, false),
                 buildUltimateHubStyle("#FF4FA1", "#C2185B", "#FFF6FB", 0, true),
-                "SHOP", "Spend Bird Coins on skins, unlockables, and cosmetic pickups.", selectorPointer, medallion);
+                HubPresentationModel.Destination.SHOP.title(),
+                HubPresentationModel.Destination.SHOP.description(), selectorPointer, medallion);
         AnchorPane.setTopAnchor(shopNode, hubMainTop + hubGamesHeight);
         AnchorPane.setLeftAnchor(shopNode, hubRightLeft);
 
@@ -28954,7 +28939,8 @@ public class BirdGame3 {
         registerHubInteractiveNode(lanNode, hubButtons, helpTitle, helpBody,
                 buildUltimateHubStyle("#F6A400", "#C97700", "#FFF2CF", 0, 0, 38, 0, false),
                 buildUltimateHubStyle("#F6A400", "#C97700", "#FFFBEA", 0, 0, 38, 0, true),
-                "NETWORK PLAY", "Host or join direct Internet matches, or play over a local network.", selectorPointer, medallion);
+                HubPresentationModel.Destination.NETWORK.title(),
+                HubPresentationModel.Destination.NETWORK.description(), selectorPointer, medallion);
         AnchorPane.setTopAnchor(lanNode, hubMidline);
         AnchorPane.setLeftAnchor(lanNode, hubRightLeft);
 
@@ -28963,7 +28949,8 @@ public class BirdGame3 {
         registerHubInteractiveNode(vaultBtn, hubButtons, helpTitle, helpBody,
                 buildUltimateHubStyle("#101214", "#050607", "#FFD54F", 24, false),
                 buildUltimateHubStyle("#101214", "#050607", "#FFF8E1", 24, true),
-                "THE VAULT", "Browse fighter records, collections, achievements, galleries, replays, music, and the Bird Coin shop.", selectorPointer, medallion);
+                HubPresentationModel.Destination.VAULT.title(),
+                HubPresentationModel.Destination.VAULT.description(), selectorPointer, medallion);
 
         Button settingsBtn = buildUltimateHubRailButton("SETTINGS", 112, hubIconSettings(), () -> {
             settingsReturn = () -> showMenu(stage);
@@ -28972,19 +28959,22 @@ public class BirdGame3 {
         registerHubInteractiveNode(settingsBtn, hubButtons, helpTitle, helpBody,
                 buildUltimateHubStyle("#101214", "#050607", "#B0BEC5", 24, false),
                 buildUltimateHubStyle("#101214", "#050607", "#ECEFF1", 24, true),
-                "SETTINGS", "Adjust controls, audio, fullscreen, particles, and system options.", selectorPointer, medallion);
+                HubPresentationModel.Destination.SETTINGS.title(),
+                HubPresentationModel.Destination.SETTINGS.description(), selectorPointer, medallion);
 
         Button profilesBtn = buildUltimateHubRailButton("PROFILES", 112, hubIconProfiles(), () -> showProfileManager(stage));
         registerHubInteractiveNode(profilesBtn, hubButtons, helpTitle, helpBody,
                 buildUltimateHubStyle("#101214", "#050607", "#90A4AE", 24, false),
                 buildUltimateHubStyle("#101214", "#050607", "#ECEFF1", 24, true),
-                "PROFILES", "Switch, rename, back up, import, or reset save profiles.", selectorPointer, medallion);
+                HubPresentationModel.Destination.PROFILES.title(),
+                HubPresentationModel.Destination.PROFILES.description(), selectorPointer, medallion);
 
         Button exitBtn = buildUltimateHubRailButton("EXIT", 98, hubIconExit(), () -> confirmExitGame(stage));
         registerHubInteractiveNode(exitBtn, hubButtons, helpTitle, helpBody,
                 buildUltimateHubStyle("#4A0A0A", "#1C0202", "#FFCDD2", 24, false),
                 buildUltimateHubStyle("#4A0A0A", "#1C0202", "#FFF5F6", 24, true),
-                "EXIT", "Close Bird Fight 3.", selectorPointer, medallion);
+                HubPresentationModel.Destination.EXIT.title(),
+                HubPresentationModel.Destination.EXIT.description(), selectorPointer, medallion);
 
         Region railSpacer = new Region();
         VBox.setVgrow(railSpacer, Priority.ALWAYS);
@@ -29019,7 +29009,8 @@ public class BirdGame3 {
         AnchorPane.setRightAnchor(helpBar, 0.0);
         AnchorPane.setBottomAnchor(helpBar, 0.0);
 
-        frame.getChildren().addAll(tipPanel, fightNode, adventureNode, gamesNode, shopNode, lanNode, medallion, selectorPointer, railShell, helpBar);
+        frame.getChildren().addAll(fightNode, adventureNode, gamesNode, shopNode, lanNode,
+                medallion, selectorPointer, railShell, helpBar);
         root.getChildren().add(frame);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
@@ -29040,11 +29031,6 @@ public class BirdGame3 {
             setConsoleHighlightActive(true, scene);
             refreshUltimateHubButtons(hubButtons, helpTitle, helpBody, selectorPointer, medallion);
         });
-    }
-
-    private String randomHubTip() {
-        int index = ThreadLocalRandom.current().nextInt(HUB_TIPS.length);
-        return HUB_TIPS[index];
     }
 
     private Pane buildUltimateHubBackdrop() {
@@ -29388,47 +29374,6 @@ public class BirdGame3 {
         return button;
     }
 
-    private StackPane buildUltimateHubTipPanel(String tip, Button... actionButtons) {
-        StackPane panel = new StackPane();
-        lockRegionSize(panel, 1600, 108);
-        panel.setPadding(new Insets(10, 186, 12, 36));
-        panel.setStyle("-fx-background-color: linear-gradient(to right, rgba(0,0,0,0.98), rgba(14,14,14,0.96));"
-                + "-fx-border-color: #E53935 transparent rgba(255,255,255,0.12) transparent;"
-                + "-fx-border-width: 6 0 2 0;"
-                + "-fx-background-radius: 0;"
-                + "-fx-border-radius: 0;");
-
-        Label header = new Label("ROOST TIP");
-        header.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
-        header.setTextFill(Color.web("#FFCDD2"));
-        applyNoEllipsis(header);
-
-        Label tipLabel = new Label(tip);
-        tipLabel.setFont(Font.font("Consolas", 20));
-        tipLabel.setTextFill(Color.WHITE);
-        tipLabel.setWrapText(false);
-        tipLabel.setMaxWidth(1320);
-        applyNoEllipsis(tipLabel);
-        fitLabelSingleLine(tipLabel, 20, 14, 1320);
-
-        VBox tipText = new VBox(4, header, tipLabel);
-        tipText.setAlignment(Pos.CENTER_LEFT);
-        if (actionButtons == null || actionButtons.length == 0) {
-            panel.getChildren().add(tipText);
-        } else {
-            HBox actions = new HBox(10, actionButtons);
-            actions.setAlignment(Pos.CENTER_RIGHT);
-
-            Region spacer = new Region();
-            HBox.setHgrow(spacer, Priority.ALWAYS);
-
-            HBox content = new HBox(20, tipText, spacer, actions);
-            content.setAlignment(Pos.CENTER_LEFT);
-            panel.getChildren().add(content);
-        }
-        return panel;
-    }
-
     private Group buildUltimateHubSelectorPointer() {
         Line shaftOutline = new Line(0, 0, 18, 0);
         shaftOutline.setStroke(Color.web("#111111"));
@@ -29547,8 +29492,8 @@ public class BirdGame3 {
     private void refreshUltimateHubButtons(List<Node> buttons, Label helpTitle, Label helpBody,
                                            Group selectorPointer, Node medallion) {
         if (buttons == null || buttons.isEmpty()) {
-            if (helpTitle != null) helpTitle.setText("CENTRAL HUB");
-            if (helpBody != null) helpBody.setText("Choose a panel to jump into versus battles, routes, unlocks, or support menus.");
+            if (helpTitle != null) helpTitle.setText(HubPresentationModel.IDLE_TITLE);
+            if (helpBody != null) helpBody.setText(HubPresentationModel.IDLE_DESCRIPTION);
             updateUltimateHubSelectorPointer(null, selectorPointer, medallion);
             return;
         }
@@ -29587,13 +29532,15 @@ public class BirdGame3 {
 
         if (helpTitle != null) {
             helpTitle.setText(selected == null
-                    ? "CENTRAL HUB"
-                    : Objects.toString(selected.getProperties().get("hubHelpTitle"), "CENTRAL HUB"));
+                    ? HubPresentationModel.IDLE_TITLE
+                    : Objects.toString(selected.getProperties().get("hubHelpTitle"),
+                    HubPresentationModel.IDLE_TITLE));
         }
         if (helpBody != null) {
             helpBody.setText(selected == null
-                    ? "Choose a panel to jump into versus battles, routes, unlocks, or support menus."
-                    : Objects.toString(selected.getProperties().get("hubHelpBody"), "Choose a panel to jump into versus battles, routes, unlocks, or support menus."));
+                    ? HubPresentationModel.IDLE_DESCRIPTION
+                    : Objects.toString(selected.getProperties().get("hubHelpBody"),
+                    HubPresentationModel.IDLE_DESCRIPTION));
         }
         updateUltimateHubSelectorPointer(selected, selectorPointer, medallion);
     }
@@ -32611,12 +32558,12 @@ public class BirdGame3 {
         AnchorPane.setLeftAnchor(topStrip, 0.0);
         AnchorPane.setRightAnchor(topStrip, 0.0);
 
-        Label helpTitle = new Label("MODE STACK");
+        Label helpTitle = new Label(HubPresentationModel.IDLE_TITLE);
         helpTitle.setFont(Font.font("Arial Black", 30));
         helpTitle.setTextFill(Color.web("#FFE082"));
         applyNoEllipsis(helpTitle);
 
-        Label helpBody = new Label("Pick a route, lab, or challenge lane from the extras dashboard.");
+        Label helpBody = new Label(HubPresentationModel.IDLE_DESCRIPTION);
         helpBody.setFont(Font.font("Consolas", 20));
         helpBody.setTextFill(Color.web("#F5F5F5"));
         helpBody.setWrapText(true);
@@ -32648,8 +32595,8 @@ public class BirdGame3 {
         registerHubInteractiveNode(classicBtn, modeButtons, helpTitle, helpBody,
                 buildGamesMoreCardStyle("#08B2F0", "#1457C0", "#FFF176", 42, false),
                 buildGamesMoreCardStyle("#08B2F0", "#1457C0", "#FFFDE7", 42, true),
-                "CLASSIC MODE",
-                "Run the main arcade route ladder with branching encounters, rewards, and classic unlock progress.",
+                HubPresentationModel.ExtraMode.CLASSIC.title(),
+                HubPresentationModel.ExtraMode.CLASSIC.description(),
                 null, null);
         AnchorPane.setTopAnchor(classicBtn, 112.0);
         AnchorPane.setLeftAnchor(classicBtn, 0.0);
@@ -32666,8 +32613,8 @@ public class BirdGame3 {
         registerHubInteractiveNode(ashfallTrialBtn, modeButtons, helpTitle, helpBody,
                 buildGamesMoreCardStyle("#F4511E", "#7A1C00", "#FFCC80", 32, false),
                 buildGamesMoreCardStyle("#F4511E", "#7A1C00", "#FFF3E0", 32, true),
-                "ASHFALL TRIAL",
-                "Phoenix-only Rebirth route through Ashfall Cathedral. Clear three escalating rites to earn the trial reward.",
+                HubPresentationModel.ExtraMode.ASHFALL.title(),
+                HubPresentationModel.ExtraMode.ASHFALL.description(),
                 null, null);
         AnchorPane.setTopAnchor(ashfallTrialBtn, 350.0);
         AnchorPane.setLeftAnchor(ashfallTrialBtn, 0.0);
@@ -32688,8 +32635,8 @@ public class BirdGame3 {
         registerHubInteractiveNode(bossRushBtn, modeButtons, helpTitle, helpBody,
                 buildGamesMoreCardStyle("#D84343", "#6A1010", "#FFCDD2", 32, false),
                 buildGamesMoreCardStyle("#D84343", "#6A1010", "#FFF5F6", 32, true),
-                "BOSS RUSH",
-                "Push through the boss-only route stack for stronger rewards and a harsher routing test.",
+                HubPresentationModel.ExtraMode.BOSS_RUSH.title(),
+                HubPresentationModel.ExtraMode.BOSS_RUSH.description(),
                 null, null);
         AnchorPane.setTopAnchor(bossRushBtn, 350.0);
         AnchorPane.setLeftAnchor(bossRushBtn, 540.0);
@@ -32706,8 +32653,8 @@ public class BirdGame3 {
         registerHubInteractiveNode(episodesBtn, modeButtons, helpTitle, helpBody,
                 buildGamesMoreCardStyle("#9334C8", "#4A148C", "#E1BEE7", 32, false),
                 buildGamesMoreCardStyle("#9334C8", "#4A148C", "#F6E7FF", 32, true),
-                "LEGACY STORIES",
-                "Open the original Main Adventure, Tempest Run, and Episodes with all existing progress preserved.",
+                HubPresentationModel.ExtraMode.LEGACY.title(),
+                HubPresentationModel.ExtraMode.LEGACY.description(),
                 null, null);
         AnchorPane.setTopAnchor(episodesBtn, 350.0);
         AnchorPane.setLeftAnchor(episodesBtn, 1080.0);
@@ -32724,8 +32671,8 @@ public class BirdGame3 {
         registerHubInteractiveNode(tournamentBtn, modeButtons, helpTitle, helpBody,
                 buildGamesMoreCardStyle("#F5A623", "#C46A00", "#FFE082", 32, false),
                 buildGamesMoreCardStyle("#F5A623", "#C46A00", "#FFF8E1", 32, true),
-                "TOURNAMENT MODE",
-                "Set up a bracket, seed the room, and track local tournament championships.",
+                HubPresentationModel.ExtraMode.TOURNAMENT.title(),
+                HubPresentationModel.ExtraMode.TOURNAMENT.description(),
                 null, null);
         AnchorPane.setTopAnchor(tournamentBtn, 556.0);
         AnchorPane.setLeftAnchor(tournamentBtn, 0.0);
@@ -32742,8 +32689,8 @@ public class BirdGame3 {
         registerHubInteractiveNode(squadStrikeBtn, modeButtons, helpTitle, helpBody,
                 buildGamesMoreCardStyle("#7E57C2", "#311B92", "#D1C4E9", 32, false),
                 buildGamesMoreCardStyle("#7E57C2", "#311B92", "#F3E5F5", 32, true),
-                "SQUAD STRIKE",
-                "Build two ordered 3- or 5-bird squads for Elimination, Relay, or Best Of battles.",
+                HubPresentationModel.ExtraMode.SQUAD_STRIKE.title(),
+                HubPresentationModel.ExtraMode.SQUAD_STRIKE.description(),
                 null, null);
         AnchorPane.setTopAnchor(squadStrikeBtn, 556.0);
         AnchorPane.setLeftAnchor(squadStrikeBtn, 540.0);
@@ -32760,8 +32707,8 @@ public class BirdGame3 {
         registerHubInteractiveNode(trainingBtn, modeButtons, helpTitle, helpBody,
                 buildGamesMoreCardStyle("#00ACC1", "#006064", "#B2EBF2", 34, false),
                 buildGamesMoreCardStyle("#00ACC1", "#006064", "#E0F7FA", 34, true),
-                "TRAINING",
-                "Use the lab to test confirms, dummy behavior, slow motion, and movement checks.",
+                HubPresentationModel.ExtraMode.TRAINING.title(),
+                HubPresentationModel.ExtraMode.TRAINING.description(),
                 null, null);
         AnchorPane.setTopAnchor(trainingBtn, 556.0);
         AnchorPane.setLeftAnchor(trainingBtn, 1080.0);
