@@ -6062,7 +6062,7 @@ public class Bird {
             commitMoveForStaling(moveName);
             game.recordNormalMoveImpact(this, moveName, (int) Math.round(dealtDamage), true);
         }
-        boolean isKill = !game.usesSmashCombatRules() && other.health <= 0 && oldHealth > 0;
+        boolean isKill = game.usesHealthDepletionKos() && other.health <= 0 && oldHealth > 0;
         if (isKill) {
             game.eliminations[playerIndex]++;
             game.recordMoveKo(this, other, moveName);
@@ -6788,7 +6788,7 @@ public class Bird {
         if (dealtDamage > 0) {
             game.recordNormalMoveImpact(this, moveName, (int) Math.round(dealtDamage), true);
         }
-        if (!game.usesSmashCombatRules() && target.health <= 0 && oldHealth > 0) {
+        if (game.usesHealthDepletionKos() && target.health <= 0 && oldHealth > 0) {
             game.eliminations[playerIndex]++;
             game.recordMoveKo(this, target, moveName);
             game.checkAchievements(this);
@@ -15174,6 +15174,10 @@ public class Bird {
                 }
                 return;
             }
+            if (health <= 0.0 && game.usesVersusStaminaRules()
+                    && game.playerHasStocksRemaining(playerIndex)) {
+                respawnAfterVersusStaminaDepletion();
+            }
             if (health > 0 && game.isAI[playerIndex] && !respawnReturnActive()) aiControl();
 
         // Resolve launch authored by hits from an earlier-updated fighter before
@@ -18745,7 +18749,7 @@ public class Bird {
 
     void resetForSmashRespawn(double spawnX, double spawnY, double damagePercent) {
         onDefeated();
-        health = STARTING_HEALTH;
+        health = game.smashRespawnHealth();
         smashDamage = Math.max(0.0, damagePercent);
         vx = 0;
         vy = 0;
@@ -18766,6 +18770,35 @@ public class Bird {
         vx = 0;
         vy = 0;
         canDoubleJump = false;
+    }
+
+    private void spendVersusStaminaStock() {
+        if (!game.usesVersusStaminaRules() || health > 0.0) {
+            return;
+        }
+        game.falls[playerIndex]++;
+        game.scores[playerIndex] = Math.max(0, game.scores[playerIndex] - 1);
+        int stocksRemaining = game.matchScoreForPlayer(playerIndex);
+        String stockText = stocksRemaining > 0
+                ? (stocksRemaining == 1 ? "1 stock left." : stocksRemaining + " stocks left.")
+                : "OUT OF STOCKS!";
+        game.addToKillFeed(shortName() + " ran out of stamina! " + stockText);
+        game.shakeIntensity = Math.max(game.shakeIntensity, 14.0);
+        game.hitstopFrames = Math.max(game.hitstopFrames, 5);
+        onDefeated();
+    }
+
+    private void respawnAfterVersusStaminaDepletion() {
+        double spawnX;
+        double spawnY;
+        if (usesIslandBounds()) {
+            spawnX = game.battlefieldSpawnCenterX() - 40.0 * sizeMultiplier;
+            spawnY = game.battlefieldSpawnY(sizeMultiplier);
+        } else {
+            spawnX = 2000.0 + playerIndex * 600.0;
+            spawnY = BirdGame3.GROUND_Y - 400.0;
+        }
+        resetForSmashRespawn(spawnX, spawnY, 0.0);
     }
 
     private void handleEagleDiveImpact() {
@@ -18977,6 +19010,7 @@ public class Bird {
         if (type == BirdGame3.BirdType.PHOENIX && phoenixRebornActive) return PHOENIX_REBORN_HEALTH;
         if (classicMaxHealthOverride > 0.0) return classicMaxHealthOverride;
         if (isNullRockForm()) return game.nullRockTrueFormHealth();
+        if (game.usesVersusStaminaRules()) return game.versusStaminaHealth();
         return 100.0;
     }
 
@@ -20040,7 +20074,8 @@ public class Bird {
             interruptOpiumSpecialStateOnHit();
         }
         RoadrunnerSpecials.onDamageTaken(this, scaledDamage);
-        if (game.usesSmashCombatRules() && !game.isClassicStaminaBoss(this)) {
+        if (game.usesSmashCombatRules() && !game.isClassicStaminaBoss(this)
+                && !game.usesVersusStaminaRules()) {
             smashDamage += scaledDamage;
             return scaledDamage;
         }
@@ -20064,6 +20099,10 @@ public class Bird {
         if (health <= 0) {
             tryPhoenixRebirth();
             if (health <= 0) {
+                if (game.usesVersusStaminaRules()) {
+                    spendVersusStaminaStock();
+                    return dealtDamage;
+                }
                 if (game.isClassicStaminaBoss(this)) {
                     game.onClassicStaminaBossDefeated(this, attacker);
                 }
@@ -23958,6 +23997,9 @@ public class Bird {
 
     private double aiDurabilityHealth() {
         if (!game.usesSmashCombatRules()) {
+            return health;
+        }
+        if (game.usesVersusStaminaRules()) {
             return health;
         }
         return Math.max(0.0, STARTING_HEALTH - smashDamagePercent());

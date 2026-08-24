@@ -28,9 +28,10 @@ record VersusRules(
         int defaultCpuLevel,
         BirdGame3.StageRandomPool randomStagePool,
         boolean mutatorsEnabled,
+        int staminaHealth,
         Set<String> excludedStageKeys
 ) {
-    private static final int FORMAT_VERSION = 1;
+    private static final int FORMAT_VERSION = 2;
 
     VersusRules {
         name = sanitizeName(name);
@@ -42,6 +43,7 @@ record VersusRules(
         seriesWins = Math.clamp(seriesWins, 1, 5);
         defaultCpuLevel = Math.clamp(defaultCpuLevel, 1, 9);
         randomStagePool = sanitizeRandomPool(randomStagePool);
+        staminaHealth = staminaHealth <= 0 ? 0 : snapStaminaHealth(staminaHealth);
         excludedStageKeys = sanitizeStageKeys(excludedStageKeys);
     }
 
@@ -49,21 +51,28 @@ record VersusRules(
         return new VersusRules("STANDARD SMASH", 3, 150,
                 true, 8, true, true, false,
                 100, 100, 1, 5, BirdGame3.StageRandomPool.ALL,
-                false, Set.of());
+                false, 0, Set.of());
     }
 
     static VersusRules competitive() {
         return new VersusRules("COMPETITIVE", 3, 120,
                 false, 8, false, true, false,
                 100, 100, 3, 7, BirdGame3.StageRandomPool.MAIN,
-                false, Set.of());
+                false, 0, Set.of());
     }
 
     static VersusRules chaos() {
         return new VersusRules("POWER-UP CHAOS", 3, 150,
                 true, 4, true, true, false,
                 110, 110, 1, 6, BirdGame3.StageRandomPool.ALL,
-                true, Set.of());
+                true, 0, Set.of());
+    }
+
+    static VersusRules stamina() {
+        return new VersusRules("STAMINA", 1, 150,
+                true, 8, true, true, false,
+                100, 100, 1, 5, BirdGame3.StageRandomPool.ALL,
+                false, 150, Set.of());
     }
 
     static VersusRules decode(String encoded, VersusRules fallback) {
@@ -71,11 +80,14 @@ record VersusRules(
         if (encoded == null || encoded.isBlank()) return safeFallback;
         try {
             String[] parts = encoded.split(";", -1);
-            if (parts.length != 16 || Integer.parseInt(parts[0]) != FORMAT_VERSION) return safeFallback;
+            int version = Integer.parseInt(parts[0]);
+            if ((version == 1 && parts.length != 16) || (version == FORMAT_VERSION && parts.length != 17)
+                    || (version != 1 && version != FORMAT_VERSION)) return safeFallback;
             String decodedName = new String(Base64.getUrlDecoder().decode(parts[1]), StandardCharsets.UTF_8);
             Set<String> exclusions = new LinkedHashSet<>();
-            if (!parts[15].isBlank()) {
-                for (String key : parts[15].split(",")) {
+            int exclusionIndex = version == 1 ? 15 : 16;
+            if (!parts[exclusionIndex].isBlank()) {
+                for (String key : parts[exclusionIndex].split(",")) {
                     if (!key.isBlank()) exclusions.add(key);
                 }
             }
@@ -94,6 +106,7 @@ record VersusRules(
                     Integer.parseInt(parts[12]),
                     BirdGame3.StageRandomPool.valueOf(parts[13]),
                     Boolean.parseBoolean(parts[14]),
+                    version == 1 ? 0 : Integer.parseInt(parts[15]),
                     exclusions
             );
         } catch (IllegalArgumentException | IndexOutOfBoundsException ignored) {
@@ -120,11 +133,15 @@ record VersusRules(
                 Integer.toString(defaultCpuLevel),
                 randomStagePool.name(),
                 Boolean.toString(mutatorsEnabled),
+                Integer.toString(staminaHealth),
                 String.join(",", excludedStageKeys));
     }
 
     String summary() {
-        return stockCount + (stockCount == 1 ? " stock" : " stocks")
+        String durability = staminaMode()
+                ? staminaHealth + " HP  •  " + stockCount + (stockCount == 1 ? " stock" : " stocks")
+                : stockCount + (stockCount == 1 ? " stock" : " stocks");
+        return durability
                 + "  •  " + timeText()
                 + "  •  items " + onOff(powerUpsEnabled)
                 + "  •  hazards " + onOff(stageHazardsEnabled)
@@ -152,6 +169,10 @@ record VersusRules(
         };
     }
 
+    boolean staminaMode() {
+        return staminaHealth > 0;
+    }
+
     boolean excludes(BirdGame3.StageChoice choice) {
         return choice != null && excludedStageKeys.contains(stageKey(choice));
     }
@@ -165,105 +186,112 @@ record VersusRules(
         return copy(value, stockCount, timeLimitSeconds, powerUpsEnabled, powerUpIntervalSeconds,
                 stageHazardsEnabled, ultimatesEnabled, friendlyFireEnabled, launchRatePercent,
                 damageRatePercent, seriesWins, defaultCpuLevel, randomStagePool, mutatorsEnabled,
-                excludedStageKeys);
+                staminaHealth, excludedStageKeys);
     }
 
     VersusRules withStockCount(int value) {
         return copy(name, value, timeLimitSeconds, powerUpsEnabled, powerUpIntervalSeconds,
                 stageHazardsEnabled, ultimatesEnabled, friendlyFireEnabled, launchRatePercent,
                 damageRatePercent, seriesWins, defaultCpuLevel, randomStagePool, mutatorsEnabled,
-                excludedStageKeys);
+                staminaHealth, excludedStageKeys);
     }
 
     VersusRules withTimeLimitSeconds(int value) {
         return copy(name, stockCount, value, powerUpsEnabled, powerUpIntervalSeconds,
                 stageHazardsEnabled, ultimatesEnabled, friendlyFireEnabled, launchRatePercent,
                 damageRatePercent, seriesWins, defaultCpuLevel, randomStagePool, mutatorsEnabled,
-                excludedStageKeys);
+                staminaHealth, excludedStageKeys);
     }
 
     VersusRules withPowerUpsEnabled(boolean value) {
         return copy(name, stockCount, timeLimitSeconds, value, powerUpIntervalSeconds,
                 stageHazardsEnabled, ultimatesEnabled, friendlyFireEnabled, launchRatePercent,
                 damageRatePercent, seriesWins, defaultCpuLevel, randomStagePool, mutatorsEnabled,
-                excludedStageKeys);
+                staminaHealth, excludedStageKeys);
     }
 
     VersusRules withPowerUpIntervalSeconds(int value) {
         return copy(name, stockCount, timeLimitSeconds, powerUpsEnabled, value,
                 stageHazardsEnabled, ultimatesEnabled, friendlyFireEnabled, launchRatePercent,
                 damageRatePercent, seriesWins, defaultCpuLevel, randomStagePool, mutatorsEnabled,
-                excludedStageKeys);
+                staminaHealth, excludedStageKeys);
     }
 
     VersusRules withStageHazardsEnabled(boolean value) {
         return copy(name, stockCount, timeLimitSeconds, powerUpsEnabled, powerUpIntervalSeconds,
                 value, ultimatesEnabled, friendlyFireEnabled, launchRatePercent,
                 damageRatePercent, seriesWins, defaultCpuLevel, randomStagePool, mutatorsEnabled,
-                excludedStageKeys);
+                staminaHealth, excludedStageKeys);
     }
 
     VersusRules withUltimatesEnabled(boolean value) {
         return copy(name, stockCount, timeLimitSeconds, powerUpsEnabled, powerUpIntervalSeconds,
                 stageHazardsEnabled, value, friendlyFireEnabled, launchRatePercent,
                 damageRatePercent, seriesWins, defaultCpuLevel, randomStagePool, mutatorsEnabled,
-                excludedStageKeys);
+                staminaHealth, excludedStageKeys);
     }
 
     VersusRules withFriendlyFireEnabled(boolean value) {
         return copy(name, stockCount, timeLimitSeconds, powerUpsEnabled, powerUpIntervalSeconds,
                 stageHazardsEnabled, ultimatesEnabled, value, launchRatePercent,
                 damageRatePercent, seriesWins, defaultCpuLevel, randomStagePool, mutatorsEnabled,
-                excludedStageKeys);
+                staminaHealth, excludedStageKeys);
     }
 
     VersusRules withLaunchRatePercent(int value) {
         return copy(name, stockCount, timeLimitSeconds, powerUpsEnabled, powerUpIntervalSeconds,
                 stageHazardsEnabled, ultimatesEnabled, friendlyFireEnabled, value,
                 damageRatePercent, seriesWins, defaultCpuLevel, randomStagePool, mutatorsEnabled,
-                excludedStageKeys);
+                staminaHealth, excludedStageKeys);
     }
 
     VersusRules withDamageRatePercent(int value) {
         return copy(name, stockCount, timeLimitSeconds, powerUpsEnabled, powerUpIntervalSeconds,
                 stageHazardsEnabled, ultimatesEnabled, friendlyFireEnabled, launchRatePercent,
                 value, seriesWins, defaultCpuLevel, randomStagePool, mutatorsEnabled,
-                excludedStageKeys);
+                staminaHealth, excludedStageKeys);
     }
 
     VersusRules withSeriesWins(int value) {
         return copy(name, stockCount, timeLimitSeconds, powerUpsEnabled, powerUpIntervalSeconds,
                 stageHazardsEnabled, ultimatesEnabled, friendlyFireEnabled, launchRatePercent,
                 damageRatePercent, value, defaultCpuLevel, randomStagePool, mutatorsEnabled,
-                excludedStageKeys);
+                staminaHealth, excludedStageKeys);
     }
 
     VersusRules withDefaultCpuLevel(int value) {
         return copy(name, stockCount, timeLimitSeconds, powerUpsEnabled, powerUpIntervalSeconds,
                 stageHazardsEnabled, ultimatesEnabled, friendlyFireEnabled, launchRatePercent,
                 damageRatePercent, seriesWins, value, randomStagePool, mutatorsEnabled,
-                excludedStageKeys);
+                staminaHealth, excludedStageKeys);
     }
 
     VersusRules withRandomStagePool(BirdGame3.StageRandomPool value) {
         return copy(name, stockCount, timeLimitSeconds, powerUpsEnabled, powerUpIntervalSeconds,
                 stageHazardsEnabled, ultimatesEnabled, friendlyFireEnabled, launchRatePercent,
                 damageRatePercent, seriesWins, defaultCpuLevel, value, mutatorsEnabled,
-                excludedStageKeys);
+                staminaHealth, excludedStageKeys);
     }
 
     VersusRules withMutatorsEnabled(boolean value) {
         return copy(name, stockCount, timeLimitSeconds, powerUpsEnabled, powerUpIntervalSeconds,
                 stageHazardsEnabled, ultimatesEnabled, friendlyFireEnabled, launchRatePercent,
                 damageRatePercent, seriesWins, defaultCpuLevel, randomStagePool, value,
-                excludedStageKeys);
+                staminaHealth, excludedStageKeys);
+    }
+
+    VersusRules withStaminaHealth(int value) {
+        return copy(name, stockCount, timeLimitSeconds, powerUpsEnabled, powerUpIntervalSeconds,
+                stageHazardsEnabled, ultimatesEnabled, friendlyFireEnabled, launchRatePercent,
+                damageRatePercent, seriesWins, defaultCpuLevel, randomStagePool, mutatorsEnabled,
+                value, excludedStageKeys);
     }
 
     VersusRules withExcludedStageKeys(Set<String> value) {
         return copy(name, stockCount, timeLimitSeconds, powerUpsEnabled, powerUpIntervalSeconds,
                 stageHazardsEnabled, ultimatesEnabled, friendlyFireEnabled, launchRatePercent,
                 damageRatePercent, seriesWins, defaultCpuLevel, randomStagePool, mutatorsEnabled,
-                value);
+                staminaHealth, value);
     }
 
     private VersusRules copy(String copiedName, int copiedStocks, int copiedSeconds,
@@ -271,11 +299,12 @@ record VersusRules(
                              boolean copiedUltimates, boolean copiedFriendlyFire, int copiedLaunch,
                              int copiedDamage, int copiedSeries, int copiedCpu,
                              BirdGame3.StageRandomPool copiedPool, boolean copiedMutators,
+                             int copiedStaminaHealth,
                              Set<String> copiedExclusions) {
         return new VersusRules(copiedName, copiedStocks, copiedSeconds, copiedPowerUps,
                 copiedPowerInterval, copiedHazards, copiedUltimates, copiedFriendlyFire,
                 copiedLaunch, copiedDamage, copiedSeries, copiedCpu, copiedPool,
-                copiedMutators, copiedExclusions);
+                copiedMutators, copiedStaminaHealth, copiedExclusions);
     }
 
     private static String sanitizeName(String value) {
@@ -287,6 +316,11 @@ record VersusRules(
     private static int snapPercent(int value) {
         int clamped = Math.clamp(value, 50, 200);
         return Math.clamp((int) Math.round(clamped / 10.0) * 10, 50, 200);
+    }
+
+    private static int snapStaminaHealth(int value) {
+        int clamped = Math.clamp(value, 50, 500);
+        return Math.clamp((int) Math.round(clamped / 10.0) * 10, 50, 500);
     }
 
     private static BirdGame3.StageRandomPool sanitizeRandomPool(BirdGame3.StageRandomPool value) {

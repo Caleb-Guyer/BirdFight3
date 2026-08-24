@@ -14,7 +14,7 @@ class VersusRulesTest {
         VersusRules original = new VersusRules("Caleb Rules", 5, 330,
                 false, 14, false, false, true,
                 170, 80, 4, 9, BirdGame3.StageRandomPool.VARIANTS,
-                true, Set.of(VersusRules.stageKey(excluded)));
+                true, 280, Set.of(VersusRules.stageKey(excluded)));
 
         VersusRules decoded = VersusRules.decode(original.encode(), VersusRules.standard());
 
@@ -22,6 +22,8 @@ class VersusRulesTest {
         assertTrue(decoded.excludes(excluded));
         assertEquals("5:30", decoded.timeText());
         assertEquals("VARIANTS", decoded.randomPoolText());
+        assertTrue(decoded.staminaMode());
+        assertEquals(280, decoded.staminaHealth());
     }
 
     @Test
@@ -29,7 +31,7 @@ class VersusRulesTest {
         VersusRules sanitized = new VersusRules("  A name that is intentionally far too long  ",
                 -10, 99_999, true, -1, true, true, false,
                 53, 999, 99, -5, BirdGame3.StageRandomPool.NONE, false,
-                Set.of("bad key", "CITY:STANDARD"));
+                9_999, Set.of("bad key", "CITY:STANDARD"));
 
         assertEquals(1, sanitized.stockCount());
         assertEquals(600, sanitized.timeLimitSeconds());
@@ -39,9 +41,27 @@ class VersusRulesTest {
         assertEquals(5, sanitized.seriesWins());
         assertEquals(1, sanitized.defaultCpuLevel());
         assertEquals(BirdGame3.StageRandomPool.ALL, sanitized.randomStagePool());
+        assertEquals(500, sanitized.staminaHealth());
         assertEquals(Set.of("CITY:STANDARD"), sanitized.excludedStageKeys());
         assertTrue(sanitized.name().length() <= 24);
         assertEquals(VersusRules.standard(), VersusRules.decode("not rules", VersusRules.standard()));
+    }
+
+    @Test
+    void staminaIsAFirstClassPresetAndLegacyRulesStayStockBased() {
+        VersusRules stamina = VersusRules.stamina();
+
+        assertTrue(stamina.staminaMode());
+        assertEquals(150, stamina.staminaHealth());
+        assertEquals(1, stamina.stockCount());
+        assertEquals(VersusRulesPreset.STAMINA, VersusRulesPreset.fromPreference("stamina"));
+
+        String legacy = VersusRules.standard().encode()
+                .replaceFirst("^2;", "1;")
+                .replaceFirst(";0;([^;]*)$", ";$1");
+        VersusRules migrated = VersusRules.decode(legacy, VersusRules.chaos());
+        assertFalse(migrated.staminaMode());
+        assertEquals(0, migrated.staminaHealth());
     }
 
     @Test

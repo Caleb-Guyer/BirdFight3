@@ -25,7 +25,8 @@ class NetworkSimulationConfigTest {
         BirdGame3.GRAVITY = 0.73;
         Bird.STARTING_HEALTH = 275.0;
         VersusRules hostRules = VersusRules.standard().withName("HOST RULES")
-                .withStockCount(5).withUltimatesEnabled(false).withDamageRatePercent(140);
+                .withStockCount(5).withUltimatesEnabled(false).withDamageRatePercent(140)
+                .withStaminaHealth(220);
         NetworkSimulationConfig hostConfig = NetworkSimulationConfig.capture(hostRules);
 
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();

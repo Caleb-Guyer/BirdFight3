@@ -27,6 +27,12 @@ enum VersusRulesPreset {
             VersusRules.chaos(),
             "#FFB300"
     ),
+    STAMINA(
+            "STAMINA",
+            "150 HP · LAST BIRD STANDING",
+            VersusRules.stamina(),
+            "#26A69A"
+    ),
     CUSTOM(
             "CUSTOM RULES",
             "THREE SAVED RULESETS",

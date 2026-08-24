@@ -13446,7 +13446,7 @@ public class BirdGame3 {
             recordSpecialImpact(ownerIndex, shownDamage, true);
         }
         String moveName = MockingbirdSpecials.SHADOW_COURT_MOVE;
-        boolean isKill = !usesSmashCombatRules() && target.health <= 0 && oldHealth > 0;
+        boolean isKill = usesHealthDepletionKos() && target.health <= 0 && oldHealth > 0;
         if (isKill && ownerIndex >= 0 && ownerIndex < eliminations.length) {
             eliminations[ownerIndex]++;
             recordMoveKo(owner, target, moveName);
@@ -24218,7 +24218,7 @@ public class BirdGame3 {
 
         String moveName = crow.displayName();
         recordTelemetryMoveImpact(owner, moveName, shownDamage, true);
-        boolean isKill = !usesSmashCombatRules() && oldHealth > 0.0 && target.health <= 0.0;
+        boolean isKill = usesHealthDepletionKos() && oldHealth > 0.0 && target.health <= 0.0;
         emitCombatImpact(owner, target, target.bodyCenterX(), target.bodyCenterY(),
                 target.vx, target.vy, dealtDamage, isKill, moveName);
         if (isKill) {
@@ -25834,7 +25834,8 @@ public class BirdGame3 {
         rulesetChoices.setAlignment(Pos.TOP_CENTER);
 
         for (VersusRulesPreset preset : List.of(VersusRulesPreset.STANDARD,
-                VersusRulesPreset.COMPETITIVE, VersusRulesPreset.CHAOS)) {
+                VersusRulesPreset.COMPETITIVE, VersusRulesPreset.CHAOS,
+                VersusRulesPreset.STAMINA)) {
             Button choice = buildVersusRulesetChoice(preset.title, preset.accent, () -> {
                         frontEndMatchFlow.selectRulesPreset(preset);
                         if (refreshAll[0] != null) refreshAll[0].run();
@@ -25874,8 +25875,9 @@ public class BirdGame3 {
         Label timeValue = buildRulesetPreviewValue();
         Label itemsValue = buildRulesetPreviewValue();
         Label formatValue = buildRulesetPreviewValue();
+        HBox durabilityRow = buildRulesetPreviewRow("STOCK", stockValue, "#EC407A");
         VBox ruleRows = new VBox(14,
-                buildRulesetPreviewRow("STOCK", stockValue, "#EC407A"),
+                durabilityRow,
                 buildRulesetPreviewRow("TIME LIMIT", timeValue, "#42A5F5"),
                 buildRulesetPreviewRow("ITEMS", itemsValue, "#FFB300"),
                 buildRulesetPreviewRow("MATCH FORMAT", formatValue, "#EF5350"));
@@ -25903,7 +25905,15 @@ public class BirdGame3 {
             selectionRefreshers.forEach(Runnable::run);
             VersusRules selected = frontEndMatchFlow.rules();
             VersusRulesPreset preset = frontEndMatchFlow.rulesPreset();
-            stockValue.setText(Integer.toString(selected.stockCount()));
+            boolean stamina = selected.staminaMode();
+            modeName.setText(stamina ? "STAMINA" : "STOCK");
+            if (!durabilityRow.getChildren().isEmpty()
+                    && durabilityRow.getChildren().getFirst() instanceof Label key) {
+                key.setText(stamina ? "STAMINA HP" : "STOCK");
+            }
+            stockValue.setText(stamina
+                    ? selected.staminaHealth() + " HP"
+                    : Integer.toString(selected.stockCount()));
             timeValue.setText(selected.timeText());
             itemsValue.setText(rulesOnOff(selected.powerUpsEnabled()));
             formatValue.setText(selected.seriesWins() <= 1
@@ -26103,24 +26113,29 @@ public class BirdGame3 {
         basicOptions.setHgap(14);
         basicOptions.setVgap(14);
         basicOptions.setAlignment(Pos.CENTER);
-        basicOptions.add(buildVersusRuleOption("STOCKS", () -> Integer.toString(working[0].stockCount()),
-                () -> saveCustom.accept(working[0].withStockCount(working[0].stockCount() - 1)),
-                () -> saveCustom.accept(working[0].withStockCount(working[0].stockCount() + 1)), refreshers), 0, 0);
+        basicOptions.add(buildVersusRuleOption("RULE TYPE", () -> working[0].staminaMode() ? "STAMINA" : "STOCK",
+                () -> saveCustom.accept(working[0].withStaminaHealth(working[0].staminaMode() ? 0 : 150)),
+                () -> saveCustom.accept(working[0].withStaminaHealth(working[0].staminaMode() ? 0 : 150)), refreshers), 0, 0);
+        basicOptions.add(buildVersusRuleOption("STOCKS / HP", () -> working[0].staminaMode()
+                        ? working[0].staminaHealth() + " HP" : working[0].stockCount() + " STOCKS",
+                () -> saveCustom.accept(working[0].staminaMode()
+                        ? working[0].withStaminaHealth(working[0].staminaHealth() - 10)
+                        : working[0].withStockCount(working[0].stockCount() - 1)),
+                () -> saveCustom.accept(working[0].staminaMode()
+                        ? working[0].withStaminaHealth(working[0].staminaHealth() + 10)
+                        : working[0].withStockCount(working[0].stockCount() + 1)), refreshers), 1, 0);
         basicOptions.add(buildVersusRuleOption("TIME LIMIT", () -> working[0].timeText(),
                 () -> saveCustom.accept(working[0].withTimeLimitSeconds(working[0].timeLimitSeconds() - 30)),
-                () -> saveCustom.accept(working[0].withTimeLimitSeconds(working[0].timeLimitSeconds() + 30)), refreshers), 1, 0);
+                () -> saveCustom.accept(working[0].withTimeLimitSeconds(working[0].timeLimitSeconds() + 30)), refreshers), 2, 0);
         basicOptions.add(buildVersusRuleOption("ITEMS", () -> rulesOnOff(working[0].powerUpsEnabled()),
                 () -> saveCustom.accept(working[0].withPowerUpsEnabled(!working[0].powerUpsEnabled())),
-                () -> saveCustom.accept(working[0].withPowerUpsEnabled(!working[0].powerUpsEnabled())), refreshers), 2, 0);
+                () -> saveCustom.accept(working[0].withPowerUpsEnabled(!working[0].powerUpsEnabled())), refreshers), 0, 1);
         basicOptions.add(buildVersusRuleOption("STAGE HAZARDS", () -> rulesOnOff(working[0].stageHazardsEnabled()),
                 () -> saveCustom.accept(working[0].withStageHazardsEnabled(!working[0].stageHazardsEnabled())),
-                () -> saveCustom.accept(working[0].withStageHazardsEnabled(!working[0].stageHazardsEnabled())), refreshers), 0, 1);
+                () -> saveCustom.accept(working[0].withStageHazardsEnabled(!working[0].stageHazardsEnabled())), refreshers), 1, 1);
         basicOptions.add(buildVersusRuleOption("ULTIMATES", () -> rulesOnOff(working[0].ultimatesEnabled()),
                 () -> saveCustom.accept(working[0].withUltimatesEnabled(!working[0].ultimatesEnabled())),
-                () -> saveCustom.accept(working[0].withUltimatesEnabled(!working[0].ultimatesEnabled())), refreshers), 1, 1);
-        basicOptions.add(buildVersusRuleOption("DEFAULT CPU", () -> "LEVEL " + working[0].defaultCpuLevel(),
-                () -> saveCustom.accept(working[0].withDefaultCpuLevel(working[0].defaultCpuLevel() - 1)),
-                () -> saveCustom.accept(working[0].withDefaultCpuLevel(working[0].defaultCpuLevel() + 1)), refreshers), 2, 1);
+                () -> saveCustom.accept(working[0].withUltimatesEnabled(!working[0].ultimatesEnabled())), refreshers), 2, 1);
 
         GridPane advancedOptions = new GridPane();
         advancedOptions.setHgap(14);
@@ -26146,6 +26161,9 @@ public class BirdGame3 {
                         ? "SINGLE MATCH" : "FIRST TO " + working[0].seriesWins(),
                 () -> saveCustom.accept(working[0].withSeriesWins(working[0].seriesWins() - 1)),
                 () -> saveCustom.accept(working[0].withSeriesWins(working[0].seriesWins() + 1)), refreshers), 2, 1);
+        advancedOptions.add(buildVersusRuleOption("DEFAULT CPU", () -> "LEVEL " + working[0].defaultCpuLevel(),
+                () -> saveCustom.accept(working[0].withDefaultCpuLevel(working[0].defaultCpuLevel() - 1)),
+                () -> saveCustom.accept(working[0].withDefaultCpuLevel(working[0].defaultCpuLevel() + 1)), refreshers), 1, 2);
 
         boolean[] advancedPage = {false};
         Runnable[] refreshOptionPage = new Runnable[1];
@@ -26168,9 +26186,9 @@ public class BirdGame3 {
         optionTabs.setMaxWidth(1090);
 
         StackPane optionsDeck = new StackPane(basicOptions, advancedOptions);
-        optionsDeck.setMinHeight(178);
-        optionsDeck.setPrefHeight(178);
-        optionsDeck.setMaxHeight(178);
+        optionsDeck.setMinHeight(258);
+        optionsDeck.setPrefHeight(258);
+        optionsDeck.setMaxHeight(258);
         refreshOptionPage[0] = () -> {
             boolean advanced = advancedPage[0];
             basicOptions.setVisible(!advanced);
@@ -66533,6 +66551,23 @@ public class BirdGame3 {
         return frontEndMatchFlow.rules();
     }
 
+    boolean usesVersusStaminaRules() {
+        return smashCombatRulesActive && appliesVersusRules() && activeVersusRules().staminaMode();
+    }
+
+    boolean usesHealthDepletionKos() {
+        return !usesSmashCombatRules() || usesVersusStaminaRules();
+    }
+
+    int versusStaminaHealth() {
+        return appliesVersusRules() && activeVersusRules().staminaMode()
+                ? activeVersusRules().staminaHealth() : (int) Math.round(Bird.STARTING_HEALTH);
+    }
+
+    double smashRespawnHealth() {
+        return usesVersusStaminaRules() ? versusStaminaHealth() : Bird.STARTING_HEALTH;
+    }
+
     int versusMatchTimerFrames() {
         return activeVersusRules().timeLimitSeconds() * 60;
     }
@@ -66584,6 +66619,9 @@ public class BirdGame3 {
             return 0.0;
         }
         if (usesSmashCombatRules()) {
+            if (usesVersusStaminaRules()) {
+                return 0.0;
+            }
             return bird.smashDamagePercent();
         }
         if (!campaignModeActive) {
@@ -66855,6 +66893,10 @@ public class BirdGame3 {
         return usesSmashCombatRules() ? bird.smashDamagePercent() : Math.max(0.0, bird.health);
     }
 
+    double displayedStaminaForBird(Bird bird) {
+        return bird == null ? 0.0 : Math.max(0.0, bird.health);
+    }
+
     int compareBirdPlacements(Bird a, Bird b) {
         if (a == b) return 0;
         if (a == null) return 1;
@@ -66868,8 +66910,13 @@ public class BirdGame3 {
         int scoreCompare = Integer.compare(matchScoreForPlayer(b.playerIndex), matchScoreForPlayer(a.playerIndex));
         if (scoreCompare != 0) return scoreCompare;
 
-        int damagePercentCompare = Double.compare(displayedDamageForBird(a), displayedDamageForBird(b));
-        if (damagePercentCompare != 0) return damagePercentCompare;
+        if (usesVersusStaminaRules()) {
+            int staminaCompare = Double.compare(displayedStaminaForBird(b), displayedStaminaForBird(a));
+            if (staminaCompare != 0) return staminaCompare;
+        } else {
+            int damagePercentCompare = Double.compare(displayedDamageForBird(a), displayedDamageForBird(b));
+            if (damagePercentCompare != 0) return damagePercentCompare;
+        }
 
         int damageCompare = Integer.compare(damageDealt[b.playerIndex], damageDealt[a.playerIndex]);
         if (damageCompare != 0) return damageCompare;
@@ -66885,8 +66932,13 @@ public class BirdGame3 {
         int scoreCompare = Integer.compare(teamMatchScore(teamB), teamMatchScore(teamA));
         if (scoreCompare != 0) return scoreCompare;
 
-        int damagePercentCompare = Double.compare(teamDisplayedDamage(teamA), teamDisplayedDamage(teamB));
-        if (damagePercentCompare != 0) return damagePercentCompare;
+        if (usesVersusStaminaRules()) {
+            int staminaCompare = Double.compare(teamRemainingStamina(teamB), teamRemainingStamina(teamA));
+            if (staminaCompare != 0) return staminaCompare;
+        } else {
+            int damagePercentCompare = Double.compare(teamDisplayedDamage(teamA), teamDisplayedDamage(teamB));
+            if (damagePercentCompare != 0) return damagePercentCompare;
+        }
 
         int damageCompare = Integer.compare(teamDamageDealt(teamB), teamDamageDealt(teamA));
         if (damageCompare != 0) return damageCompare;
@@ -66918,6 +66970,17 @@ public class BirdGame3 {
             Bird bird = players[i];
             if (bird != null && getEffectiveTeam(i) == teamId) {
                 total += displayedDamageForBird(bird);
+            }
+        }
+        return total;
+    }
+
+    double teamRemainingStamina(int teamId) {
+        double total = 0.0;
+        for (int i = 0; i < activePlayers; i++) {
+            Bird bird = players[i];
+            if (bird != null && getEffectiveTeam(i) == teamId && playerHasStocksRemaining(i)) {
+                total += displayedStaminaForBird(bird);
             }
         }
         return total;
@@ -71437,6 +71500,16 @@ public class BirdGame3 {
             }
         }
 
+        if (usesVersusStaminaRules()) {
+            double startingStamina = versusStaminaHealth();
+            for (int i = 0; i < activePlayers; i++) {
+                if (players[i] != null) {
+                    players[i].health = startingStamina;
+                    players[i].setStartingSmashDamagePercent(0.0);
+                }
+            }
+        }
+
         applySquadStrikeCarryState();
         beginReplayRecordingForMatch();
 
@@ -73332,7 +73405,8 @@ public class BirdGame3 {
         g.setFont(Font.font("Arial Black", FontWeight.BOLD, 15));
         g.fillText(slotLabel, rect.getMinX() + 24, rect.getMinY() + 28);
 
-        double shownDamage = displayedDamageForBird(bird);
+        boolean staminaRules = usesVersusStaminaRules();
+        double shownDamage = staminaRules ? displayedStaminaForBird(bird) : displayedDamageForBird(bird);
         int shownHealth = (int) Math.round(shownDamage);
         String damageText = Integer.toString(shownHealth);
         FightHudMeterLayout meterLayout = fightHudMeterLayout(rect.getHeight());
@@ -73369,10 +73443,10 @@ public class BirdGame3 {
 
         double maxHealth = Math.max(1.0, bird.getMaxHealth());
         double healthRatio = Math.clamp(bird.health / maxHealth, 0.0, 1.0);
-        double barRatio = usesSmashCombatRules()
+        double barRatio = usesSmashCombatRules() && !staminaRules
                 ? Math.min(1.0, shownDamage / 180.0)
                 : healthRatio;
-        Color healthColor = usesSmashCombatRules()
+        Color healthColor = usesSmashCombatRules() && !staminaRules
                 ? fightHudDamageColor(shownDamage)
                 : fightHudHealthColor(healthRatio);
         if (!usesSmashCombatRules() && bird.health <= 0) {
@@ -73382,14 +73456,15 @@ public class BirdGame3 {
         g.setTextAlign(TextAlignment.RIGHT);
         g.setFill(Color.BLACK.deriveColor(0, 1, 1, 0.42));
         g.setFont(meterLayout.damageFont());
-        g.fillText(damageText, rect.getMaxX() - meterLayout.damageRightInset() + 5,
+        double damageRightInset = meterLayout.damageRightInset() + (staminaRules ? 22.0 : 0.0);
+        g.fillText(damageText, rect.getMaxX() - damageRightInset + 5,
                 rect.getMinY() + meterLayout.damageBaselineOffset() + 5);
         g.setFill(healthColor);
-        g.fillText(damageText, rect.getMaxX() - meterLayout.damageRightInset(),
+        g.fillText(damageText, rect.getMaxX() - damageRightInset,
                 rect.getMinY() + meterLayout.damageBaselineOffset());
         g.setFont(meterLayout.percentFont());
         g.setFill(Color.web("#ECEFF1"));
-        g.fillText("%", rect.getMaxX() - meterLayout.percentRightInset(),
+        g.fillText(staminaRules ? "HP" : "%", rect.getMaxX() - meterLayout.percentRightInset(),
                 rect.getMinY() + meterLayout.damageBaselineOffset());
         g.setTextAlign(TextAlignment.LEFT);
 
@@ -73814,7 +73889,8 @@ public class BirdGame3 {
     }
 
     private void drawHealthBar(GraphicsContext g, Bird b, double x) {
-        double shownDamage = displayedDamageForBird(b);
+        boolean staminaRules = usesVersusStaminaRules();
+        double shownDamage = staminaRules ? displayedStaminaForBird(b) : displayedDamageForBird(b);
         int shownHealth = (int) Math.round(shownDamage);
         double maxHealth = Math.max(1.0, b.getMaxHealth());
         double barWidth = 400;
@@ -73836,10 +73912,11 @@ public class BirdGame3 {
         g.setFill(usesSmashCombatRules() ? Color.web("#16242E") : Color.RED);
         g.fillRoundRect(x, healthY, barWidth, healthHeight, 10, 10);
         boolean compStyle = competitionModeEnabled && !storyModeActive && !adventureModeActive && !classicModeActive;
-        Color baseColor = usesSmashCombatRules()
+        Color baseColor = usesSmashCombatRules() && !staminaRules
                 ? fightHudDamageColor(shownDamage)
-                : (compStyle ? Color.DODGERBLUE : Color.LIME);
-        double baseRatio = usesSmashCombatRules()
+                : (staminaRules ? fightHudHealthColor(Math.clamp(b.health / maxHealth, 0.0, 1.0))
+                : (compStyle ? Color.DODGERBLUE : Color.LIME));
+        double baseRatio = usesSmashCombatRules() && !staminaRules
                 ? Math.min(1.0, shownDamage / 180.0)
                 : Math.clamp(b.health / maxHealth, 0.0, 1.0);
         g.setFill(baseColor);
@@ -74037,7 +74114,8 @@ public class BirdGame3 {
             boolean isWinner = teamMode
                     ? winningTeam > 0 && getEffectiveTeam(i) == winningTeam
                     : winner != null && i == winner.playerIndex;
-            int health = bird != null ? (int) Math.round(displayedDamageForBird(bird)) : 0;
+            int health = bird != null ? (int) Math.round(usesVersusStaminaRules()
+                    ? displayedStaminaForBird(bird) : displayedDamageForBird(bird)) : 0;
             participants.add(new MatchHistoryEntry.Participant(
                     slotLabel,
                     type != null ? type.name : "Unknown",
@@ -74055,8 +74133,10 @@ public class BirdGame3 {
                 .comparing(MatchHistoryEntry.Participant::winner).reversed()
                 .thenComparing(MatchHistoryEntry.Participant::score, Comparator.reverseOrder());
         if (usesSmashCombatRules()) {
-            participantOrder = participantOrder
-                    .thenComparing(MatchHistoryEntry.Participant::health)
+            participantOrder = usesVersusStaminaRules()
+                    ? participantOrder.thenComparing(MatchHistoryEntry.Participant::health, Comparator.reverseOrder())
+                    .thenComparing(MatchHistoryEntry.Participant::damage, Comparator.reverseOrder())
+                    : participantOrder.thenComparing(MatchHistoryEntry.Participant::health)
                     .thenComparing(MatchHistoryEntry.Participant::damage, Comparator.reverseOrder());
         } else {
             participantOrder = participantOrder

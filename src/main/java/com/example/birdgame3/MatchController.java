@@ -269,11 +269,47 @@ final class MatchController {
     }
 
     private boolean hasSmashTimeoutStockTie() {
+        if (game.usesVersusStaminaRules()) {
+            return hasStaminaTimeoutTie();
+        }
         if (isStandardTeamMatch()) {
             Set<Integer> leadingTeams = leadingTeamsByStocks();
             return leadingTeams.size() > 1;
         }
         return leadingPlayerSlotsByStocks().size() > 1;
+    }
+
+    private boolean hasStaminaTimeoutTie() {
+        if (isStandardTeamMatch()) {
+            Set<Integer> stockLeaders = leadingTeamsByStocks();
+            double bestStamina = Double.NEGATIVE_INFINITY;
+            int tied = 0;
+            for (int team : stockLeaders) {
+                double stamina = game.teamRemainingStamina(team);
+                if (stamina > bestStamina + 0.001) {
+                    bestStamina = stamina;
+                    tied = 1;
+                } else if (Math.abs(stamina - bestStamina) <= 0.001) {
+                    tied++;
+                }
+            }
+            return tied > 1;
+        }
+
+        List<Integer> stockLeaders = leadingPlayerSlotsByStocks();
+        double bestStamina = Double.NEGATIVE_INFINITY;
+        int tied = 0;
+        for (int slot : stockLeaders) {
+            Bird bird = game.players[slot];
+            double stamina = game.displayedStaminaForBird(bird);
+            if (stamina > bestStamina + 0.001) {
+                bestStamina = stamina;
+                tied = 1;
+            } else if (Math.abs(stamina - bestStamina) <= 0.001) {
+                tied++;
+            }
+        }
+        return tied > 1;
     }
 
     private List<Integer> leadingPlayerSlotsByStocks() {
@@ -324,6 +360,12 @@ final class MatchController {
         List<Bird> contenders = new ArrayList<>();
         if (isStandardTeamMatch()) {
             Set<Integer> leadingTeams = leadingTeamsByStocks();
+            if (game.usesVersusStaminaRules() && !leadingTeams.isEmpty()) {
+                double bestStamina = leadingTeams.stream()
+                        .mapToDouble(game::teamRemainingStamina)
+                        .max().orElse(0.0);
+                leadingTeams.removeIf(team -> game.teamRemainingStamina(team) < bestStamina - 0.001);
+            }
             for (int i = 0; i < game.activePlayers; i++) {
                 Bird bird = game.players[i];
                 if (bird == null) continue;
@@ -337,6 +379,15 @@ final class MatchController {
             }
         } else {
             List<Integer> leadingSlots = leadingPlayerSlotsByStocks();
+            if (game.usesVersusStaminaRules() && !leadingSlots.isEmpty()) {
+                double bestStamina = Double.NEGATIVE_INFINITY;
+                for (int slot : leadingSlots) {
+                    bestStamina = Math.max(bestStamina, game.displayedStaminaForBird(game.players[slot]));
+                }
+                double requiredStamina = bestStamina;
+                leadingSlots.removeIf(slot -> game.displayedStaminaForBird(game.players[slot])
+                        < requiredStamina - 0.001);
+            }
             for (int i = 0; i < game.activePlayers; i++) {
                 Bird bird = game.players[i];
                 if (bird == null) continue;
@@ -357,10 +408,16 @@ final class MatchController {
                     game.battlefieldSpawnY(bird.sizeMultiplier),
                     game.smashSuddenDeathPercent()
             );
+            if (game.usesVersusStaminaRules()) {
+                bird.health = 1.0;
+            }
         }
 
-        game.addToKillFeed("TIME! Stocks tied.");
-        game.addToKillFeed("SUDDEN DEATH! 1 stock at 300%. The crows are coming.");
+        game.addToKillFeed(game.usesVersusStaminaRules()
+                ? "TIME! Stocks and stamina tied." : "TIME! Stocks tied.");
+        game.addToKillFeed(game.usesVersusStaminaRules()
+                ? "SUDDEN DEATH! 1 stock and 1 HP. The crows are coming."
+                : "SUDDEN DEATH! 1 stock at 300%. The crows are coming.");
         game.playHugewaveSfx();
         game.shakeIntensity = Math.max(game.shakeIntensity, 20);
         game.hitstopFrames = Math.max(game.hitstopFrames, 12);
@@ -533,7 +590,9 @@ final class MatchController {
                     startSmashSuddenDeath();
                 } else {
                     Bird timeoutWinner = findTimeoutWinner();
-                    game.addToKillFeed("TIME! Highest stock count wins.");
+                    game.addToKillFeed(game.usesVersusStaminaRules()
+                            ? "TIME! Stocks, then remaining HP, decide the winner."
+                            : "TIME! Highest stock count wins.");
                     triggerMatchEnd(timeoutWinner);
                     return;
                 }

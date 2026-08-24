@@ -110,6 +110,29 @@ class MatchControllerTest {
     }
 
     @Test
+    void staminaTimeoutUsesRemainingHpBeforeSuddenDeath() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        MatchController controller = new MatchController(game);
+        setSmashCombatRules(game, true);
+        setRules(game, VersusRules.stamina().withStaminaHealth(150));
+        game.headlessHarnessMode = true;
+        game.activePlayers = 2;
+        game.players[0] = new Bird(100, BirdGame3.BirdType.PIGEON, 0, game);
+        game.players[1] = new Bird(250, BirdGame3.BirdType.EAGLE, 1, game);
+        game.players[0].health = 90.0;
+        game.players[1].health = 35.0;
+        game.scores[0] = 1;
+        game.scores[1] = 1;
+        game.matchTimer = 0;
+
+        controller.updateTimerAndSuddenDeath();
+
+        assertFalse(game.suddenDeath.isActive());
+        assertTrue(game.matchEnded);
+        assertEquals(game.players[0], game.harnessWinner);
+    }
+
+    @Test
     void smashSuddenDeathContinuesSpawningCrowsAfterItStarts() throws Exception {
         BirdGame3 game = new BirdGame3();
         MatchController controller = new MatchController(game);
@@ -148,5 +171,11 @@ class MatchControllerTest {
         Field field = BirdGame3.class.getDeclaredField("smashCombatRulesActive");
         field.setAccessible(true);
         field.setBoolean(game, active);
+    }
+
+    private static void setRules(BirdGame3 game, VersusRules rules) throws Exception {
+        Field field = BirdGame3.class.getDeclaredField("frontEndMatchFlow");
+        field.setAccessible(true);
+        ((FrontEndMatchFlow) field.get(game)).selectCustomRules(rules);
     }
 }

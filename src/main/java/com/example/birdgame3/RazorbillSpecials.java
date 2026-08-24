@@ -158,7 +158,7 @@ final class RazorbillSpecials {
         if (dealt > 0) {
             bird.game.damageDealt[bird.playerIndex] += (int) dealt;
             bird.game.recordSpecialImpact(bird.playerIndex, (int) dealt, true);
-            if (!bird.game.usesSmashCombatRules() && attacker.health <= 0 && oldHealth > 0) {
+            if (bird.game.usesHealthDepletionKos() && attacker.health <= 0 && oldHealth > 0) {
                 bird.game.eliminations[bird.playerIndex]++;
             }
         }

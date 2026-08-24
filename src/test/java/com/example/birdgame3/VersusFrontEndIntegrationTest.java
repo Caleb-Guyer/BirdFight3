@@ -82,6 +82,9 @@ class VersusFrontEndIntegrationTest {
         assertTrue(browser.contains("CUSTOMIZE COPY"));
         assertTrue(browser.contains("buildVersusRulesetChoice"));
         assertTrue(browser.contains("buildRulesetPreviewRow"));
+        assertTrue(browser.contains("VersusRulesPreset.STAMINA"),
+                "stamina should be a built-in ruleset, not a hidden custom-only switch");
+        assertTrue(browser.contains("selected.staminaHealth() + \" HP\""));
         assertTrue(browser.contains("continueFromVersusRulesSelection"));
         assertFalse(browser.contains("buildRulesetPreviewRow(\"HAZARDS\""));
         assertFalse(browser.contains("buildRulesetPreviewRow(\"ULTIMATES\""));
@@ -96,6 +99,8 @@ class VersusFrontEndIntegrationTest {
         assertTrue(editor.contains("RULESET CREATOR"));
         assertTrue(editor.contains("BACK TO RULESETS"));
         assertTrue(editor.contains("SAVE & RETURN"));
+        assertTrue(editor.contains("\"RULE TYPE\""));
+        assertTrue(editor.contains("\"STOCKS / HP\""));
         assertFalse(editor.contains("VersusRulesPreset.STANDARD"),
                 "preset browsing belongs on the browser, not inside the creator");
         assertFalse(editor.contains("CHOOSE FIGHTERS"),
