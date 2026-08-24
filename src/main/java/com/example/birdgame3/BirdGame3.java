@@ -268,6 +268,7 @@ public class BirdGame3 {
     private static final double ACHIEVEMENT_TOAST_WIDTH = 448.0;
     static final double ACHIEVEMENT_TOAST_HEIGHT = 204.0;
     private static final double ACHIEVEMENT_TOAST_MARGIN = 26.0;
+    private static final String ACHIEVEMENT_TOAST_TOP_ALIGNED_KEY = "achievementToastTopAligned";
     private static final double MENU_MUSIC_BASE_VOLUME = 0.55;
     private static final double VICTORY_MUSIC_BASE_VOLUME = 0.75;
     private static final double DEFEAT_MUSIC_BASE_VOLUME = 0.68;
@@ -11403,7 +11404,6 @@ public class BirdGame3 {
         enqueueAchievementToast(index, safeTitle);
         tryShowQueuedAchievementToast();
         playAchievementSfx();
-        addToKillFeed("ACHIEVEMENT UNLOCKED: " + safeTitle);
         shakeIntensity = 30;
         hitstopFrames = 20;
         saveAchievements();
@@ -11564,10 +11564,25 @@ public class BirdGame3 {
         double sceneHeight = scene == null ? currentStage.getHeight() : scene.getHeight();
         double toastWidth = resolvedAchievementToastExtent(ACHIEVEMENT_TOAST_WIDTH, popup.getWidth());
         double toastHeight = resolvedAchievementToastExtent(ACHIEVEMENT_TOAST_HEIGHT, popup.getHeight());
-        double x = currentStage.getX() + sceneX + Math.max(0.0, sceneWidth - toastWidth - ACHIEVEMENT_TOAST_MARGIN);
-        double y = currentStage.getY() + sceneY + Math.max(0.0, sceneHeight - toastHeight - ACHIEVEMENT_TOAST_MARGIN);
+        boolean topAligned = scene != null
+                && Boolean.TRUE.equals(scene.getProperties().get(ACHIEVEMENT_TOAST_TOP_ALIGNED_KEY));
+        double x = achievementToastAxisPosition(
+                currentStage.getX() + sceneX, sceneWidth, toastWidth, ACHIEVEMENT_TOAST_MARGIN, false);
+        double y = achievementToastAxisPosition(
+                currentStage.getY() + sceneY, sceneHeight, toastHeight, ACHIEVEMENT_TOAST_MARGIN, topAligned);
         popup.setX(x);
         popup.setY(y);
+    }
+
+    static double achievementToastAxisPosition(double origin, double availableExtent,
+                                               double toastExtent, double margin,
+                                               boolean alignStart) {
+        double safeAvailable = Math.max(1.0, availableExtent);
+        double safeToast = Math.max(1.0, toastExtent);
+        double safeMargin = Math.max(0.0, margin);
+        double remaining = Math.max(0.0, safeAvailable - safeToast);
+        double inset = Math.min(safeMargin, remaining);
+        return origin + (alignStart ? inset : Math.max(0.0, remaining - inset));
     }
 
     static double resolvedAchievementToastExtent(double configuredExtent, double renderedExtent) {
@@ -73883,9 +73898,9 @@ public class BirdGame3 {
                 : "NO CONTEST");
         String heroSubtitle = campaignModeActive
                 ? (campaignMissionWon
-                ? "THE STILL SKY  |  OBJECTIVE SECURED"
-                : "THE STILL SKY  |  CHECKPOINT READY")
-                : matchSummaryHeroSubtitle(heroBird, coinsEarned);
+                ? "OBJECTIVE SECURED"
+                : "CHECKPOINT READY")
+                : "";
 
         StackPane frame = new StackPane();
         lockRegionSize(frame, WIDTH, HEIGHT);
@@ -73966,6 +73981,7 @@ public class BirdGame3 {
             }
         };
         Scene scene = new Scene(frame, WIDTH, HEIGHT);
+        scene.getProperties().put(ACHIEVEMENT_TOAST_TOP_ALIGNED_KEY, Boolean.TRUE);
         // Results share the gameplay render surface, so use the same direct
         // full-window scaling path as gameplay. The generic menu wrapper adds
         // a 28px safe-area margin and letterboxes fixed-ratio content.
@@ -74100,17 +74116,6 @@ public class BirdGame3 {
         return matchSummaryOwnerLabel(winner) + " WINS";
     }
 
-    private String matchSummaryHeroSubtitle(Bird bird, int coinsEarned) {
-        if (bird == null) {
-            return "BIRD COINS +" + coinsEarned + "   TOTAL " + birdCoinBalanceText();
-        }
-        return matchSummaryOwnerLabel(bird)
-                + "   |   KOS " + safeStat(eliminations, bird)
-                + "   |   DMG " + safeStat(damageDealt, bird)
-                + "   |   FALLS " + safeStat(falls, bird)
-                + "   |   COINS +" + coinsEarned;
-    }
-
     private VBox buildCinematicWinnerTitle(String winnerTitle, String heroName, String subtitle, Color accent) {
         VBox block = new VBox(10);
         block.setAlignment(Pos.CENTER_LEFT);
@@ -74146,7 +74151,10 @@ public class BirdGame3 {
                 + toRgba(accent, 0.95) + ", rgba(255,255,255,0.82), rgba(255,255,255,0.0));"
                 + "-fx-background-radius: 8;");
 
-        block.getChildren().addAll(result, name, accentLine, detail);
+        block.getChildren().addAll(result, name, accentLine);
+        if (subtitle != null && !subtitle.isBlank()) {
+            block.getChildren().add(detail);
+        }
         return block;
     }
 
@@ -74374,7 +74382,7 @@ public class BirdGame3 {
         grid.add(cinematicResultsLabel("FALLS", 15, Color.web("#8FA5CC"), true), 5, 0);
         grid.add(cinematicResultsLabel(usesSmashCombatRules() ? "STOCK" : "SCORE", 15, Color.web("#8FA5CC"), true), 6, 0);
 
-        int rows = Math.min(5, rankedBirds == null ? 0 : rankedBirds.size());
+        int rows = Math.min(6, rankedBirds == null ? 0 : rankedBirds.size());
         for (int i = 0; i < rows; i++) {
             Bird bird = rankedBirds.get(i);
             boolean rowWinner = bird != null && winner != null && (
@@ -74395,7 +74403,7 @@ public class BirdGame3 {
     }
 
     private VBox buildCinematicTelemetrySummary(int coinsEarned) {
-        VBox box = new VBox(8);
+        VBox box = new VBox(14);
         box.setAlignment(Pos.TOP_LEFT);
         lockRegionSize(box, 610, 214);
 
@@ -74407,35 +74415,22 @@ public class BirdGame3 {
                         17, Color.web("#FFE082"), true)
         );
 
-        List<GameplayTelemetry.MoveSnapshot> moves = postMatchTelemetryMoveRows(3);
-        VBox moveBox = new VBox(5);
-        moveBox.getChildren().add(cinematicResultsLabel("TOP MOVES", 15, Color.web("#8FA5CC"), true));
+        List<GameplayTelemetry.MoveSnapshot> moves = postMatchTelemetryMoveRows(1);
+        VBox moveBox = new VBox(7);
+        moveBox.getChildren().add(cinematicResultsLabel("MATCH HIGHLIGHT", 15, Color.web("#8FA5CC"), true));
         if (moves.isEmpty()) {
-            moveBox.getChildren().add(cinematicResultsLabel("No damaging moves recorded.", 16, Color.web("#B8C7E8"), false));
+            moveBox.getChildren().add(cinematicResultsLabel(
+                    "NO DAMAGE RECORDED", 20, Color.web("#B8C7E8"), true));
         } else {
-            for (GameplayTelemetry.MoveSnapshot move : moves) {
-                String line = String.format(Locale.ROOT, "%-31s %4d DMG  %2d KO",
-                        hudTrim(postMatchMoveName(move), 31), move.damage(), move.kos());
-                moveBox.getChildren().add(cinematicResultsLabel(line, 16, Color.web("#E8F4FF"), false));
-            }
+            GameplayTelemetry.MoveSnapshot move = moves.getFirst();
+            moveBox.getChildren().add(cinematicResultsLabel(
+                    hudTrim(postMatchMoveName(move), 34), 21, Color.web("#E8F4FF"), true));
+            moveBox.getChildren().add(cinematicResultsLabel(
+                    move.damage() + " DAMAGE  |  " + move.kos() + (move.kos() == 1 ? " KO" : " KOs"),
+                    17, Color.web("#B8C7E8"), false));
         }
 
-        List<GameplayTelemetry.BirdSnapshot> birds = gameplayTelemetry.currentMatchBirds();
-        VBox survivalBox = new VBox(5);
-        survivalBox.getChildren().add(cinematicResultsLabel("SURVIVAL", 15, Color.web("#8FA5CC"), true));
-        int limit = Math.min(2, birds.size());
-        if (limit == 0) {
-            survivalBox.getChildren().add(cinematicResultsLabel("No survival samples recorded.", 16, Color.web("#B8C7E8"), false));
-        } else {
-            for (int i = 0; i < limit; i++) {
-                GameplayTelemetry.BirdSnapshot bird = birds.get(i);
-                String line = String.format(Locale.ROOT, "%-18s %5.1fs AVG  %3d DMG",
-                        hudTrim(bird.birdName(), 18), bird.averageSurvivalSeconds(), bird.damage());
-                survivalBox.getChildren().add(cinematicResultsLabel(line, 16, Color.web("#E8F4FF"), false));
-            }
-        }
-
-        box.getChildren().addAll(header, moveBox, survivalBox);
+        box.getChildren().addAll(header, moveBox);
         return box;
     }
 
