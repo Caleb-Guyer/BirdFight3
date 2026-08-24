@@ -25808,20 +25808,12 @@ public class BirdGame3 {
         frame.setStyle("-fx-background-color: linear-gradient(to bottom right, #12091D 0%, #090C13 55%, #151926 100%);");
 
         Label breadcrumb = new Label(networkLobby ? "NETWORK LOBBY  ›  RULESETS" : "SMASH  ›  RULESETS");
-        breadcrumb.setFont(Font.font("Consolas", FontWeight.BOLD, 21));
-        breadcrumb.setTextFill(Color.web("#FFE082"));
+        breadcrumb.setFont(Font.font("Arial Black", FontWeight.BOLD, 28));
+        breadcrumb.setTextFill(Color.WHITE);
         applyNoEllipsis(breadcrumb);
-        Label heading = new Label("CHOOSE A RULESET");
-        heading.setFont(Font.font("Arial Black", 46));
-        heading.setTextFill(Color.WHITE);
-        applyNoEllipsis(heading);
-        Label subtitle = new Label(networkLobby
-                ? "Choose the host rules first. Editing a ruleset opens its own screen."
-                : "Pick a saved setup, or open the separate creator to make changes.");
-        subtitle.setFont(Font.font("Consolas", 18));
-        subtitle.setTextFill(Color.web("#CFD8DC"));
-        VBox header = new VBox(5, breadcrumb, heading, subtitle);
-        header.setPadding(new Insets(30, 54, 24, 54));
+        HBox header = new HBox(breadcrumb);
+        header.setAlignment(Pos.CENTER_LEFT);
+        header.setPadding(new Insets(22, 50, 22, 50));
         header.setStyle("-fx-background-color: linear-gradient(to right, #7B1FA2 0%, #30064D 48%, #090C13 100%);"
                 + "-fx-border-color: transparent transparent rgba(255,255,255,0.18) transparent; -fx-border-width: 0 0 3 0;");
         frame.setTop(header);
@@ -25843,8 +25835,7 @@ public class BirdGame3 {
 
         for (VersusRulesPreset preset : List.of(VersusRulesPreset.STANDARD,
                 VersusRulesPreset.COMPETITIVE, VersusRulesPreset.CHAOS)) {
-            Button choice = buildVersusRulesetChoice(preset.eyebrow, preset.title,
-                    preset.rules.summary(), preset.accent, () -> {
+            Button choice = buildVersusRulesetChoice(preset.title, preset.accent, () -> {
                         frontEndMatchFlow.selectRulesPreset(preset);
                         if (refreshAll[0] != null) refreshAll[0].run();
                     });
@@ -25856,8 +25847,7 @@ public class BirdGame3 {
         for (int i = 0; i < VersusRulesLibrary.SLOT_COUNT; i++) {
             final int slot = i;
             VersusRules slotRules = versusRulesLibrary.slot(slot);
-            Button choice = buildVersusRulesetChoice("SAVED RULESET " + (slot + 1),
-                    slotRules.name(), slotRules.summary(), "#AB47BC", () -> {
+            Button choice = buildVersusRulesetChoice(slotRules.name(), "#AB47BC", () -> {
                         versusRulesLibrary.selectSlot(slot);
                         frontEndMatchFlow.selectCustomRules(versusRulesLibrary.selected());
                         if (refreshAll[0] != null) refreshAll[0].run();
@@ -25872,36 +25862,23 @@ public class BirdGame3 {
         left.setAlignment(Pos.TOP_CENTER);
         left.setPrefWidth(700);
 
-        Label previewEyebrow = new Label();
-        previewEyebrow.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
-        previewEyebrow.setTextFill(Color.web("#FFE082"));
-        applyNoEllipsis(previewEyebrow);
-        Label previewName = new Label();
-        previewName.setFont(Font.font("Arial Black", 37));
-        previewName.setTextFill(Color.WHITE);
-        previewName.setWrapText(true);
-        previewName.setMaxWidth(540);
-        applyNoEllipsis(previewName);
+        Label modeName = new Label("STOCK");
+        modeName.setFont(Font.font("Arial Black", 34));
+        modeName.setTextFill(Color.WHITE);
+        modeName.setAlignment(Pos.CENTER);
+        lockRegionSize(modeName, 530, 72);
+        modeName.setStyle("-fx-background-color: linear-gradient(to right, #D500F9, #AD00B8);"
+                + "-fx-background-radius: 36; -fx-border-color: #F48FFF; -fx-border-width: 2; -fx-border-radius: 36;");
 
         Label stockValue = buildRulesetPreviewValue();
         Label timeValue = buildRulesetPreviewValue();
         Label itemsValue = buildRulesetPreviewValue();
-        Label hazardsValue = buildRulesetPreviewValue();
-        Label ultimatesValue = buildRulesetPreviewValue();
         Label formatValue = buildRulesetPreviewValue();
-        VBox ruleRows = new VBox(10,
+        VBox ruleRows = new VBox(14,
                 buildRulesetPreviewRow("STOCK", stockValue, "#EC407A"),
                 buildRulesetPreviewRow("TIME LIMIT", timeValue, "#42A5F5"),
                 buildRulesetPreviewRow("ITEMS", itemsValue, "#FFB300"),
-                buildRulesetPreviewRow("HAZARDS", hazardsValue, "#26A69A"),
-                buildRulesetPreviewRow("ULTIMATES", ultimatesValue, "#7E57C2"),
                 buildRulesetPreviewRow("MATCH FORMAT", formatValue, "#EF5350"));
-
-        Label poolSummary = new Label();
-        poolSummary.setFont(Font.font("Consolas", FontWeight.BOLD, 15));
-        poolSummary.setTextFill(Color.web("#B0BEC5"));
-        poolSummary.setWrapText(true);
-        poolSummary.setMaxWidth(540);
 
         Button editRuleset = uiFactory.action("EDIT RULESET", 300, 62, 18,
                 "#FDD835", 16, () -> {
@@ -25916,32 +25893,21 @@ public class BirdGame3 {
                 });
         editRuleset.setStyle(MenuTheme.buttonStyle("#FDD835", 16, "#161006"));
 
-        VBox preview = new VBox(13, previewEyebrow, previewName, ruleRows, poolSummary, editRuleset);
+        VBox preview = new VBox(24, modeName, ruleRows, editRuleset);
         preview.setAlignment(Pos.TOP_CENTER);
-        preview.setPadding(new Insets(28, 30, 26, 30));
-        lockRegionSize(preview, 610, 570);
-        preview.setStyle("-fx-background-color: linear-gradient(to bottom, rgba(91,10,123,0.96), rgba(20,14,31,0.98));"
-                + "-fx-background-radius: 30; -fx-border-color: #CE93D8; -fx-border-width: 3; -fx-border-radius: 30;");
+        preview.setPadding(new Insets(18, 30, 20, 30));
+        lockRegionSize(preview, 610, 440);
+        preview.setStyle("-fx-background-color: rgba(6,5,10,0.70); -fx-background-radius: 26;");
 
         refreshAll[0] = () -> {
             selectionRefreshers.forEach(Runnable::run);
             VersusRules selected = frontEndMatchFlow.rules();
             VersusRulesPreset preset = frontEndMatchFlow.rulesPreset();
-            previewEyebrow.setText(preset == VersusRulesPreset.CUSTOM
-                    ? "SAVED RULESET " + (versusRulesLibrary.selectedSlot() + 1)
-                    : preset.eyebrow);
-            previewName.setText(selected.name());
             stockValue.setText(Integer.toString(selected.stockCount()));
             timeValue.setText(selected.timeText());
             itemsValue.setText(rulesOnOff(selected.powerUpsEnabled()));
-            hazardsValue.setText(rulesOnOff(selected.stageHazardsEnabled()));
-            ultimatesValue.setText(rulesOnOff(selected.ultimatesEnabled()));
             formatValue.setText(selected.seriesWins() <= 1
                     ? "SINGLE MATCH" : "FIRST TO " + selected.seriesWins());
-            int exclusions = selected.excludedStageKeys().size();
-            poolSummary.setText("RANDOM: " + selected.randomPoolText()
-                    + (exclusions == 0 ? "" : "  •  " + exclusions + " STAGES EXCLUDED")
-                    + "  •  CPU LEVEL " + selected.defaultCpuLevel());
             editRuleset.setText(preset == VersusRulesPreset.CUSTOM ? "EDIT RULESET" : "CUSTOMIZE COPY");
         };
         refreshAll[0].run();
@@ -25988,34 +25954,23 @@ public class BirdGame3 {
         });
     }
 
-    private Button buildVersusRulesetChoice(String eyebrow, String title, String summary,
-                                            String accent, Runnable action) {
-        Label eyebrowLabel = new Label(eyebrow == null ? "RULESET" : eyebrow);
-        eyebrowLabel.setFont(Font.font("Consolas", FontWeight.BOLD, 13));
-        eyebrowLabel.setTextFill(Color.web(accent));
+    private Button buildVersusRulesetChoice(String title, String accent, Runnable action) {
         Label titleLabel = new Label(title == null ? "RULESET" : title);
-        titleLabel.setFont(Font.font("Arial Black", 22));
+        titleLabel.setFont(Font.font("Arial Black", 24));
         titleLabel.setTextFill(Color.WHITE);
-        Label summaryLabel = new Label(summary == null ? "" : summary.toUpperCase(Locale.ROOT));
-        summaryLabel.setFont(Font.font("Consolas", FontWeight.BOLD, 12));
-        summaryLabel.setTextFill(Color.web("#B0BEC5"));
-        summaryLabel.setMaxWidth(520);
-        applyNoEllipsis(summaryLabel);
-        VBox copy = new VBox(1, eyebrowLabel, titleLabel, summaryLabel);
-        copy.setAlignment(Pos.CENTER_LEFT);
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
         Label arrow = new Label("›");
         arrow.setFont(Font.font("Arial Black", 36));
         arrow.setTextFill(Color.web(accent));
-        HBox graphic = new HBox(16, copy, spacer, arrow);
+        HBox graphic = new HBox(16, titleLabel, spacer, arrow);
         graphic.setAlignment(Pos.CENTER_LEFT);
         graphic.setPrefWidth(600);
 
         Button button = new Button();
         button.setGraphic(graphic);
         button.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
-        lockRegionSize(button, 660, 72);
+        lockRegionSize(button, 660, 64);
         button.setFocusTraversable(true);
         button.setOnAction(event -> {
             playButtonClick();
@@ -26032,16 +25987,8 @@ public class BirdGame3 {
                 + "-fx-border-width: " + (selected ? "5" : "2") + "; -fx-border-radius: 12; -fx-padding: 8 18;");
         if (button.getGraphic() instanceof HBox graphic
                 && !graphic.getChildren().isEmpty()
-                && graphic.getChildren().getFirst() instanceof VBox copy) {
-            for (Node node : copy.getChildren()) {
-                if (node instanceof Label label && selected && label.getFont().getSize() >= 20) {
-                    label.setTextFill(Color.web("#16181D"));
-                } else if (node instanceof Label label && !selected && label.getFont().getSize() >= 20) {
-                    label.setTextFill(Color.WHITE);
-                } else if (node instanceof Label label && label.getFont().getSize() <= 12.5) {
-                    label.setTextFill(Color.web(selected ? "#455A64" : "#B0BEC5"));
-                }
-            }
+                && graphic.getChildren().getFirst() instanceof Label titleLabel) {
+            titleLabel.setTextFill(Color.web(selected ? "#16181D" : "#FFFFFF"));
         }
     }
 

@@ -77,12 +77,21 @@ class VersusFrontEndIntegrationTest {
         String transition = methodBody(source,
                 "private void continueFromVersusRulesSelection(Stage stage, boolean networkLobby)");
 
-        assertTrue(browser.contains("CHOOSE A RULESET"));
+        assertTrue(browser.contains("SMASH  ›  RULESETS"));
         assertTrue(browser.contains("CREATE RULESET"));
         assertTrue(browser.contains("CUSTOMIZE COPY"));
         assertTrue(browser.contains("buildVersusRulesetChoice"));
         assertTrue(browser.contains("buildRulesetPreviewRow"));
         assertTrue(browser.contains("continueFromVersusRulesSelection"));
+        assertFalse(browser.contains("buildRulesetPreviewRow(\"HAZARDS\""));
+        assertFalse(browser.contains("buildRulesetPreviewRow(\"ULTIMATES\""));
+        assertFalse(browser.contains("poolSummary"));
+
+        String choice = methodBody(source,
+                "private Button buildVersusRulesetChoice(String title, String accent, Runnable action)");
+        assertFalse(choice.contains("summaryLabel"),
+                "ruleset entries should show only their name; details belong in the side panel");
+        assertFalse(choice.contains("eyebrowLabel"));
 
         assertTrue(editor.contains("RULESET CREATOR"));
         assertTrue(editor.contains("BACK TO RULESETS"));
