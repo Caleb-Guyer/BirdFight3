@@ -811,6 +811,7 @@ final class BirdGame3TournamentSetupUi {
         dialog.setHeaderText("Rename this tournament entrant.");
         dialog.setContentText("Entrant name:");
         dialog.initOwner(stage);
+        ModernDialogTheme.apply(dialog);
         dialog.showAndWait().ifPresent(name -> {
             entry.customName = normalizeTournamentEntryName(name);
             if (onComplete != null) {

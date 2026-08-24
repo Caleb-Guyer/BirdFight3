@@ -34,6 +34,8 @@ import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
 import javafx.scene.control.Control;
 import javafx.scene.control.ContentDisplay;
+import javafx.scene.control.Dialog;
+import javafx.scene.control.DialogPane;
 import javafx.scene.control.Label;
 import javafx.scene.control.OverrunStyle;
 import javafx.scene.control.ProgressBar;
@@ -526,6 +528,7 @@ public class BirdGame3 {
     private WiimoteInputManager wiimoteInputManager;
     private XboxInputManager xboxInputManager;
     private final UiInputTracker uiInputTracker = new UiInputTracker(MAX_COMBATANTS);
+    private final Map<Dialog<?>, AnimationTimer> dialogInputBridges = new IdentityHashMap<>();
     private boolean syntheticControllerMenuEvent = false;
     private long syntheticControllerPointerEventUntilNs = 0L;
     private final Object inputManagerLock = new Object();
@@ -4615,6 +4618,7 @@ public class BirdGame3 {
         alert.setTitle("Exit Game");
         alert.setHeaderText("Are you sure you want to quit?");
         alert.initOwner(stage);
+        modernizeDialog(alert, stage);
         alert.showAndWait().ifPresent(choice -> {
             if (choice == ButtonType.YES) {
                 shutdownAndExit();
@@ -25540,6 +25544,83 @@ public class BirdGame3 {
         });
     }
 
+    private <T> Dialog<T> modernizeDialog(Dialog<T> dialog, Stage owner) {
+        if (dialog == null) return null;
+        if (dialog.getOwner() == null && owner != null) {
+            dialog.initOwner(owner);
+        }
+
+        ModernDialogTheme.apply(dialog);
+        DialogPane pane = dialog.getDialogPane();
+
+        dialog.setOnShown(event -> {
+            Scene dialogScene = pane.getScene();
+            if (dialogScene != null) {
+                applyFocusRingStyle(dialogScene);
+            }
+            AnimationTimer bridge = createDialogInputBridge(dialog);
+            dialogInputBridges.put(dialog, bridge);
+            bridge.start();
+        });
+        dialog.setOnHidden(event -> {
+            AnimationTimer bridge = dialogInputBridges.remove(dialog);
+            if (bridge != null) bridge.stop();
+        });
+        return dialog;
+    }
+
+    private AnimationTimer createDialogInputBridge(Dialog<?> dialog) {
+        return new AnimationTimer() {
+            private boolean upHeld;
+            private boolean downHeld;
+            private boolean leftHeld;
+            private boolean rightHeld;
+            private boolean selectHeld;
+            private boolean backHeld;
+
+            @Override
+            public void handle(long now) {
+                if (dialog == null || !dialog.isShowing()) return;
+                Scene scene = dialog.getDialogPane().getScene();
+                if (scene == null || scene.getWindow() == null || !scene.getWindow().isFocused()) return;
+
+                WiimoteMappedState state = controllerMenuState();
+                boolean connected = state != null && state.connected();
+                boolean up = connected && state.menuUp();
+                boolean down = connected && state.menuDown();
+                boolean left = connected && state.menuLeft();
+                boolean right = connected && state.menuRight();
+                boolean select = connected && state.menuSelect();
+                boolean back = connected && (state.menuBack() || state.menuPause());
+
+                if (up && !upHeld) dispatchDialogKey(scene, KeyCode.TAB, true);
+                if (down && !downHeld) dispatchDialogKey(scene, KeyCode.TAB, false);
+                if (left && !leftHeld) dispatchDialogKey(scene, KeyCode.LEFT, false);
+                if (right && !rightHeld) dispatchDialogKey(scene, KeyCode.RIGHT, false);
+                if (select && !selectHeld) dispatchDialogKey(scene, KeyCode.ENTER, false);
+                if (back && !backHeld) dispatchDialogKey(scene, KeyCode.ESCAPE, false);
+
+                upHeld = up;
+                downHeld = down;
+                leftHeld = left;
+                rightHeld = right;
+                selectHeld = select;
+                backHeld = back;
+            }
+        };
+    }
+
+    private void dispatchDialogKey(Scene scene, KeyCode code, boolean shiftDown) {
+        if (scene == null || code == null) return;
+        syntheticControllerMenuEvent = true;
+        try {
+            Event.fireEvent(scene, new KeyEvent(
+                    KeyEvent.KEY_PRESSED, "", "", code, shiftDown, false, false, false));
+        } finally {
+            syntheticControllerMenuEvent = false;
+        }
+    }
+
     private void noteRealMouseInput() {
         if (!syntheticControllerMenuEvent && System.nanoTime() > syntheticControllerPointerEventUntilNs) {
             uiInputTracker.note(0, UiInputPrompts.Device.KEYBOARD_MOUSE);
@@ -25791,6 +25872,7 @@ public class BirdGame3 {
             dialog.setTitle("Rename Ruleset");
             dialog.setHeaderText("Name custom rules slot " + (versusRulesLibrary.selectedSlot() + 1));
             dialog.setContentText("Name:");
+            modernizeDialog(dialog, stage);
             dialog.showAndWait().ifPresent(name -> saveCustom.accept(working[0].withName(name)));
         });
         customRow.getChildren().add(rename);
@@ -29581,6 +29663,7 @@ public class BirdGame3 {
         dialog.setHeaderText("Create and switch to a new save profile.");
         dialog.setContentText("Profile name:");
         dialog.initOwner(stage);
+        modernizeDialog(dialog, stage);
         dialog.showAndWait().ifPresent(name -> {
             flushAchievementsNow();
             saveRepository.createProfile(name, true);
@@ -29604,6 +29687,7 @@ public class BirdGame3 {
         dialog.setHeaderText("Rename save profile.");
         dialog.setContentText("Profile name:");
         dialog.initOwner(stage);
+        modernizeDialog(dialog, stage);
         dialog.showAndWait().ifPresent(name -> {
             saveRepository.renameProfile(profileId, name);
             showProfileManager(stage);
@@ -29643,6 +29727,7 @@ public class BirdGame3 {
         alert.setTitle("Reset Profile");
         alert.setHeaderText("Reset " + profile.name() + "?");
         alert.initOwner(stage);
+        modernizeDialog(alert, stage);
         alert.showAndWait().ifPresent(choice -> {
             if (choice != ButtonType.YES) {
                 return;
@@ -29676,6 +29761,7 @@ public class BirdGame3 {
         alert.setTitle("Delete Profile");
         alert.setHeaderText("Delete " + profile.name() + "?");
         alert.initOwner(stage);
+        modernizeDialog(alert, stage);
         alert.showAndWait().ifPresent(choice -> {
             if (choice != ButtonType.YES) {
                 return;
@@ -29817,6 +29903,7 @@ public class BirdGame3 {
         alert.setTitle("Restore Backup");
         alert.setHeaderText("Restore save backup?");
         alert.initOwner(stage);
+        modernizeDialog(alert, stage);
         alert.showAndWait().ifPresent(choice -> {
             if (choice != ButtonType.YES) {
                 return;
@@ -29843,6 +29930,7 @@ public class BirdGame3 {
         alert.setTitle("Delete Backup");
         alert.setHeaderText("Delete save backup?");
         alert.initOwner(stage);
+        modernizeDialog(alert, stage);
         alert.showAndWait().ifPresent(choice -> {
             if (choice != ButtonType.YES) {
                 return;
@@ -29883,6 +29971,7 @@ public class BirdGame3 {
         confirm.setTitle("Import Save");
         confirm.setHeaderText("Import save data?");
         confirm.initOwner(stage);
+        modernizeDialog(confirm, stage);
         confirm.showAndWait().ifPresent(choice -> {
             if (choice != ButtonType.YES) {
                 return;
@@ -29913,6 +30002,7 @@ public class BirdGame3 {
         alert.setTitle(title);
         alert.setHeaderText(header);
         alert.initOwner(stage);
+        modernizeDialog(alert, stage);
         alert.showAndWait();
     }
 
@@ -29921,6 +30011,7 @@ public class BirdGame3 {
         alert.setTitle(title);
         alert.setHeaderText(header);
         alert.initOwner(stage);
+        modernizeDialog(alert, stage);
         alert.showAndWait();
     }
 
@@ -34109,6 +34200,7 @@ public class BirdGame3 {
         dialog.setHeaderText("Rename this tournament entrant.");
         dialog.setContentText("Entrant name:");
         dialog.initOwner(stage);
+        modernizeDialog(dialog, stage);
         dialog.showAndWait().ifPresent(name -> {
             entry.customName = normalizeTournamentEntryName(name);
             if (onComplete != null) {
@@ -36462,6 +36554,7 @@ public class BirdGame3 {
                     + ". Another program may be using it.", ButtonType.OK);
             alert.setTitle("Network Error");
             alert.setHeaderText("Failed to host network match.");
+            modernizeDialog(alert, stage);
             alert.showAndWait();
             stopLanSession();
             showNetworkModeMenu(stage, mode);
@@ -37463,6 +37556,7 @@ public class BirdGame3 {
                     + (e.getMessage() == null ? "" : e.getMessage()), ButtonType.OK);
             alert.setTitle("Network Error");
             alert.setHeaderText("Hosting interrupted.");
+            modernizeDialog(alert, currentStage);
             alert.showAndWait();
             stopLanSession();
             if (currentStage != null) {
@@ -37638,6 +37732,7 @@ public class BirdGame3 {
             Alert alert = new Alert(Alert.AlertType.INFORMATION, detail, ButtonType.OK);
             alert.setTitle("Network Disconnected");
             alert.setHeaderText("Connection closed.");
+            modernizeDialog(alert, currentStage);
             alert.showAndWait();
             stopLanSession();
             if (currentStage != null) {
@@ -37852,6 +37947,7 @@ public class BirdGame3 {
         alert.setTitle("Leave Match");
         alert.setHeaderText("This will disconnect you from the network session.");
         alert.initOwner(stage);
+        modernizeDialog(alert, stage);
         alert.showAndWait().ifPresent(choice -> {
             if (choice == ButtonType.YES) {
                 stopLanSession();
@@ -37868,6 +37964,7 @@ public class BirdGame3 {
         alert.setTitle("Leave Network Match");
         alert.setHeaderText("This will disconnect you from the network session.");
         alert.initOwner(stage);
+        modernizeDialog(alert, stage);
         alert.showAndWait().ifPresent(choice -> {
             if (choice == ButtonType.YES && onConfirm != null) {
                 onConfirm.run();
@@ -38929,6 +39026,7 @@ public class BirdGame3 {
         if (stage != null) {
             dialog.initOwner(stage);
         }
+        modernizeDialog(dialog, stage);
         dialog.showAndWait().ifPresent(code -> {
             if (!tryApplySettingsCode(code)) {
                 playErrorSound();
@@ -38938,6 +39036,7 @@ public class BirdGame3 {
                 if (stage != null) {
                     alert.initOwner(stage);
                 }
+                modernizeDialog(alert, stage);
                 alert.showAndWait();
                 return;
             }
@@ -38953,6 +39052,7 @@ public class BirdGame3 {
             if (stage != null) {
                 alert.initOwner(stage);
             }
+            modernizeDialog(alert, stage);
             alert.showAndWait();
         });
     }
@@ -45061,6 +45161,7 @@ public class BirdGame3 {
         );
         confirm.setHeaderText("NEW STORY");
         confirm.initOwner(stage);
+        modernizeDialog(confirm, stage);
         confirm.showAndWait().ifPresent(button -> {
             if (button == ButtonType.YES) {
                 stillSkyProgress.reset(stillSkyCampaign);
@@ -53138,6 +53239,7 @@ public class BirdGame3 {
             alert.setTitle("FEATHERDEV Required");
             alert.setHeaderText("Classic Level Select is a developer tool.");
             if (stage != null) alert.initOwner(stage);
+            modernizeDialog(alert, stage);
             alert.showAndWait();
             return;
         }

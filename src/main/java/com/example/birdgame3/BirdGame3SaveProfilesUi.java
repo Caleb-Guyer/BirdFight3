@@ -223,6 +223,7 @@ final class BirdGame3SaveProfilesUi {
         dialog.setHeaderText("Create and switch to a new save profile.");
         dialog.setContentText("Profile name:");
         dialog.initOwner(stage);
+        ModernDialogTheme.apply(dialog);
         dialog.showAndWait().ifPresent(name -> {
             flushAchievementsNow.run();
             saveRepository.createProfile(name, true);
@@ -243,6 +244,7 @@ final class BirdGame3SaveProfilesUi {
         dialog.setHeaderText("Rename save profile.");
         dialog.setContentText("Profile name:");
         dialog.initOwner(stage);
+        ModernDialogTheme.apply(dialog);
         dialog.showAndWait().ifPresent(name -> {
             saveRepository.renameProfile(profileId, name);
             showProfileManager(stage);
@@ -279,6 +281,7 @@ final class BirdGame3SaveProfilesUi {
         alert.setTitle("Reset Profile");
         alert.setHeaderText("Reset " + profile.name() + "?");
         alert.initOwner(stage);
+        ModernDialogTheme.apply(alert);
         alert.showAndWait().ifPresent(choice -> {
             if (choice != ButtonType.YES) {
                 return;
@@ -309,6 +312,7 @@ final class BirdGame3SaveProfilesUi {
         alert.setTitle("Delete Profile");
         alert.setHeaderText("Delete " + profile.name() + "?");
         alert.initOwner(stage);
+        ModernDialogTheme.apply(alert);
         alert.showAndWait().ifPresent(choice -> {
             if (choice != ButtonType.YES) {
                 return;
@@ -459,6 +463,7 @@ final class BirdGame3SaveProfilesUi {
         alert.setTitle("Restore Backup");
         alert.setHeaderText("Restore save backup?");
         alert.initOwner(stage);
+        ModernDialogTheme.apply(alert);
         alert.showAndWait().ifPresent(choice -> {
             if (choice != ButtonType.YES) {
                 return;
@@ -485,6 +490,7 @@ final class BirdGame3SaveProfilesUi {
         alert.setTitle("Delete Backup");
         alert.setHeaderText("Delete save backup?");
         alert.initOwner(stage);
+        ModernDialogTheme.apply(alert);
         alert.showAndWait().ifPresent(choice -> {
             if (choice != ButtonType.YES) {
                 return;
@@ -525,6 +531,7 @@ final class BirdGame3SaveProfilesUi {
         confirm.setTitle("Import Save");
         confirm.setHeaderText("Import save data?");
         confirm.initOwner(stage);
+        ModernDialogTheme.apply(confirm);
         confirm.showAndWait().ifPresent(choice -> {
             if (choice != ButtonType.YES) {
                 return;
@@ -562,6 +569,7 @@ final class BirdGame3SaveProfilesUi {
         alert.setTitle(title);
         alert.setHeaderText(header);
         alert.initOwner(stage);
+        ModernDialogTheme.apply(alert);
         alert.showAndWait();
     }
 
@@ -570,6 +578,7 @@ final class BirdGame3SaveProfilesUi {
         alert.setTitle(title);
         alert.setHeaderText(header);
         alert.initOwner(stage);
+        ModernDialogTheme.apply(alert);
         alert.showAndWait();
     }
 

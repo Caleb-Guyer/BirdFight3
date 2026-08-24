@@ -1,0 +1,75 @@
+.dialog-pane {
+    -fx-background-color: linear-gradient(to bottom right, #17222f, #080d14);
+    -fx-border-color: #4fc3f7;
+    -fx-border-width: 2px;
+    -fx-font-family: "Consolas";
+    -fx-font-size: 16px;
+    -fx-padding: 10px;
+}
+
+.dialog-pane > .header-panel {
+    -fx-background-color: linear-gradient(to right, #123d52, #111923);
+    -fx-background-radius: 14px;
+    -fx-padding: 18px 20px;
+}
+
+.dialog-pane > .header-panel > .label {
+    -fx-text-fill: white;
+    -fx-font-family: "Arial Black";
+    -fx-font-size: 22px;
+    -fx-wrap-text: true;
+}
+
+.dialog-pane > .content.label,
+.dialog-pane .label {
+    -fx-text-fill: #cfd8dc;
+    -fx-wrap-text: true;
+}
+
+.dialog-pane > .button-bar > .container {
+    -fx-background-color: transparent;
+    -fx-padding: 12px 0 0 0;
+}
+
+.dialog-pane .button {
+    -fx-background-color: #37474f;
+    -fx-text-fill: white;
+    -fx-font-family: "Arial Black";
+    -fx-font-size: 15px;
+    -fx-background-radius: 12px;
+    -fx-border-color: rgba(255, 255, 255, 0.28);
+    -fx-border-width: 2px;
+    -fx-border-radius: 12px;
+    -fx-padding: 10px 26px;
+    -fx-cursor: hand;
+}
+
+.dialog-pane .button:default {
+    -fx-background-color: #00897b;
+    -fx-border-color: #80deea;
+}
+
+.dialog-pane .button:cancel {
+    -fx-background-color: #8e1b26;
+    -fx-border-color: #ef9a9a;
+}
+
+.dialog-pane .button:focused {
+    -fx-border-color: #fff176;
+    -fx-border-width: 3px;
+    -fx-effect: dropshadow(gaussian, rgba(255, 241, 118, 0.58), 16, 0.35, 0, 0);
+}
+
+.dialog-pane .text-field {
+    -fx-background-color: #07111a;
+    -fx-text-fill: white;
+    -fx-prompt-text-fill: #78909c;
+    -fx-highlight-fill: #00897b;
+    -fx-highlight-text-fill: white;
+    -fx-border-color: #4fc3f7;
+    -fx-border-width: 2px;
+    -fx-border-radius: 10px;
+    -fx-background-radius: 10px;
+    -fx-padding: 10px 12px;
+    -fx-font-size: 18px;
+}

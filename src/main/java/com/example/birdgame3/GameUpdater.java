@@ -127,6 +127,7 @@ final class GameUpdater {
                 ButtonType.OK, ButtonType.CANCEL);
         offer.setTitle("Bird Fight 3 Update");
         offer.setHeaderText("UPDATE AVAILABLE: " + latest);
+        ModernDialogTheme.apply(offer);
         Optional<ButtonType> answer = offer.showAndWait();
         if (answer.isEmpty() || answer.get() != ButtonType.OK) {
             return; // offered again on next launch
@@ -134,22 +135,30 @@ final class GameUpdater {
 
         Path appRoot = exe.getParent();
         if (!isWritableDirectory(appRoot)) {
-            new Alert(Alert.AlertType.INFORMATION,
+            Alert readOnly = new Alert(Alert.AlertType.INFORMATION,
                     "The install folder is read-only, so the game can't update itself here.\n"
                             + "Download the new version manually from:\n" + RELEASES_PAGE,
-                    ButtonType.OK).showAndWait();
+                    ButtonType.OK);
+            readOnly.setTitle("Manual Update Required");
+            readOnly.setHeaderText("THE INSTALL FOLDER IS READ-ONLY");
+            ModernDialogTheme.apply(readOnly);
+            readOnly.showAndWait();
             return;
         }
 
         Label status = new Label("Downloading Bird Fight 3 " + latest + "...");
+        status.setStyle("-fx-font-family: 'Arial Black'; -fx-font-size: 20px; -fx-text-fill: white;");
         ProgressBar bar = new ProgressBar(ProgressBar.INDETERMINATE_PROGRESS);
-        bar.setPrefWidth(320);
+        bar.setPrefWidth(460);
+        bar.setStyle("-fx-accent: #26c6da;");
         VBox box = new VBox(12, status, bar);
         box.setAlignment(Pos.CENTER);
-        box.setPadding(new Insets(20));
+        box.setPadding(new Insets(30));
+        box.setStyle("-fx-background-color: linear-gradient(to bottom right, #17222f, #080d14);"
+                + "-fx-border-color: #4fc3f7; -fx-border-width: 2px;");
         Stage progressStage = new Stage(StageStyle.UTILITY);
         progressStage.setTitle("Updating Bird Fight 3");
-        progressStage.setScene(new Scene(box));
+        progressStage.setScene(new Scene(box, 560, 180));
         progressStage.setResizable(false);
         progressStage.setOnCloseRequest(javafx.event.Event::consume); // no cancel mid-swap
         progressStage.show();
@@ -166,10 +175,14 @@ final class GameUpdater {
                 LOGGER.log(Level.WARNING, "Update download failed", e);
                 Platform.runLater(() -> {
                     progressStage.close();
-                    new Alert(Alert.AlertType.WARNING,
+                    Alert failed = new Alert(Alert.AlertType.WARNING,
                             "The update could not be downloaded. The game will keep running on "
                                     + "the current version.\nYou can grab it manually from:\n" + RELEASES_PAGE,
-                            ButtonType.OK).showAndWait();
+                            ButtonType.OK);
+                    failed.setTitle("Update Failed");
+                    failed.setHeaderText("DOWNLOAD INTERRUPTED");
+                    ModernDialogTheme.apply(failed);
+                    failed.showAndWait();
                 });
             }
         }, "update-download");
