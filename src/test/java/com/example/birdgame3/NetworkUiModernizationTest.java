@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -50,6 +51,40 @@ class NetworkUiModernizationTest {
         assertFalse(menu.contains("All players run the same simulation"));
         assertFalse(menu.contains("Use the same game version and a wired connection"));
         assertFalse(menu.contains("public IP or DNS address. Best for trusted players"));
+    }
+
+    @Test
+    void networkModeScreensUseDirectChoicesInsteadOfNestedActionCards() throws IOException {
+        String source = Files.readString(GAME_SOURCE);
+        for (String method : new String[]{"showLanMenu", "showLanDirectMenu", "showInternetMenu"}) {
+            String body = methodBody(source, method);
+            assertFalse(body.contains("buildMenuActionCard("),
+                    method + " should not wrap obvious host/join choices in explanatory cards");
+            assertTrue(body.contains("VBox choices = new VBox("),
+                    method + " should present one concise choice list");
+        }
+    }
+
+    @Test
+    void connectionFormsAndLobbyAvoidRepeatedDetailPanels() throws IOException {
+        String source = Files.readString(GAME_SOURCE);
+        for (String method : new String[]{"showInternetHostSetup", "showInternetJoin", "showLanJoin"}) {
+            String body = methodBody(source, method);
+            assertEquals(1, occurrences(body, "buildMenuPanelTitle("),
+                    method + " should have one field heading instead of repeated setup headings");
+        }
+
+        String lobby = methodBody(source, "showLanLobby");
+        assertTrue(lobby.contains("lanRulesSummaryLabel = null"));
+        assertFalse(lobby.contains("lanRulesSummaryLabel = new Label()"));
+        assertFalse(lobby.contains("HOST SESSION"));
+        assertFalse(lobby.contains("CONNECTED SESSION"));
+    }
+
+    private static int occurrences(String source, String needle) {
+        int count = 0;
+        for (int at = 0; (at = source.indexOf(needle, at)) >= 0; at += needle.length()) count++;
+        return count;
     }
 
     private static String methodBody(String source, String methodName) {

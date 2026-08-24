@@ -36135,21 +36135,18 @@ public class BirdGame3 {
         BorderPane root = buildModernMenuPage();
         Button back = uiFactory.action("BACK TO HUB", 250, 66, 23, "#B5121B", 18, () -> showMenu(stage));
         StackPane title = buildMenuTitleBanner("NETWORK PLAY", 480, 72, 34);
-        StackPane modeChip = buildMenuChip("DIRECT LOCKSTEP", "#1565C0", "#90CAF9");
+        StackPane modeChip = buildMenuChip("DIRECT PLAY", "#1565C0", "#90CAF9");
         root.setTop(buildMenuTopStrip(back, title, modeChip));
 
-        Button internetBtn = uiFactory.action("INTERNET PLAY", 340, 82, 29, "#6A1B9A", 20,
+        Button internetBtn = uiFactory.action("INTERNET PLAY", 640, 96, 32, "#6A1B9A", 20,
                 () -> showInternetMenu(stage));
-        Button lanBtn = uiFactory.action("LAN PLAY", 340, 82, 29, "#1565C0", 20,
+        Button lanBtn = uiFactory.action("LAN PLAY", 640, 96, 32, "#1565C0", 20,
                 () -> showLanDirectMenu(stage));
-        VBox internetCard = buildMenuActionCard("ONLINE", "INTERNET PLAY",
-                "Direct play by public address.",
-                "#CE93D8", internetBtn);
-        VBox lanCard = buildMenuActionCard("LOCAL NETWORK", "LAN PLAY",
-                "Play with up to " + LAN_MAX_PLAYERS + " computers on the same router.", "#81D4FA", lanBtn);
-        HBox cards = new HBox(24, internetCard, lanCard);
-        cards.setAlignment(Pos.CENTER);
-        root.setCenter(cards);
+        Label note = buildMenuPanelBody("Choose internet for a public address or LAN for the same router.", 760);
+        note.setTextAlignment(TextAlignment.CENTER);
+        VBox choices = new VBox(18, internetBtn, lanBtn, note);
+        choices.setAlignment(Pos.CENTER);
+        root.setCenter(choices);
         root.setBottom(buildAdaptivePromptBar(
                 UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "CHOOSE MODE"),
                 UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "OPEN"),
@@ -36175,17 +36172,13 @@ public class BirdGame3 {
         root.setTop(buildMenuTopStrip(back, title,
                 buildMenuChip("SAME NETWORK", "#00838F", "#80DEEA")));
 
-        Button hostBtn = uiFactory.action("HOST LAN", 320, 82, 29, "#2E7D32", 20, () -> startLanHost(stage));
-        Button joinBtn = uiFactory.action("JOIN LAN", 320, 82, 29, "#1565C0", 20, () -> showLanJoin(stage, ""));
-        VBox hostCard = buildMenuActionCard("CREATE SESSION", "HOST A LOBBY",
-                "Open a lobby on this computer.",
-                "#A5D6A7", hostBtn);
-        VBox joinCard = buildMenuActionCard("FIND SESSION", "JOIN A LOBBY",
-                "Connect with the host computer's local IP.",
-                "#90CAF9", joinBtn);
-        HBox cards = new HBox(24, hostCard, joinCard);
-        cards.setAlignment(Pos.CENTER);
-        root.setCenter(cards);
+        Button hostBtn = uiFactory.action("HOST LAN", 640, 96, 32, "#2E7D32", 20, () -> startLanHost(stage));
+        Button joinBtn = uiFactory.action("JOIN LAN", 640, 96, 32, "#1565C0", 20, () -> showLanJoin(stage, ""));
+        Label note = buildMenuPanelBody("Use JOIN LAN on the other computers connected to this router.", 760);
+        note.setTextAlignment(TextAlignment.CENTER);
+        VBox choices = new VBox(18, hostBtn, joinBtn, note);
+        choices.setAlignment(Pos.CENTER);
+        root.setCenter(choices);
         root.setBottom(buildAdaptivePromptBar(
                 UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "HOST OR JOIN"),
                 UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "OPEN"),
@@ -36212,19 +36205,15 @@ public class BirdGame3 {
                 () -> showInternetHelp(stage));
         root.setTop(buildMenuTopStrip(back, title, helpBtn));
 
-        Button hostBtn = uiFactory.action("HOST INTERNET", 340, 82, 28, "#6A1B9A", 20,
+        Button hostBtn = uiFactory.action("HOST INTERNET", 640, 96, 31, "#6A1B9A", 20,
                 () -> showInternetHostSetup(stage, ""));
-        Button joinBtn = uiFactory.action("JOIN INTERNET", 340, 82, 28, "#1565C0", 20,
+        Button joinBtn = uiFactory.action("JOIN INTERNET", 640, 96, 31, "#1565C0", 20,
                 () -> showInternetJoin(stage, ""));
-        VBox hostCard = buildMenuActionCard("PORT FORWARD", "HOST A MATCH",
-                "Open a port and share your public address.",
-                "#CE93D8", hostBtn);
-        VBox joinCard = buildMenuActionCard("DIRECT ADDRESS", "JOIN A MATCH",
-                "Connect with the host's public IP or DNS name.",
-                "#90CAF9", joinBtn);
-        HBox cards = new HBox(24, hostCard, joinCard);
-        cards.setAlignment(Pos.CENTER);
-        root.setCenter(cards);
+        Label note = buildMenuPanelBody("Hosting requires port forwarding. Setup Help explains it.", 760);
+        note.setTextAlignment(TextAlignment.CENTER);
+        VBox choices = new VBox(18, hostBtn, joinBtn, note);
+        choices.setAlignment(Pos.CENTER);
+        root.setCenter(choices);
         root.setBottom(buildAdaptivePromptBar(
                 UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "HOST OR JOIN"),
                 UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "OPEN"),
@@ -36272,13 +36261,11 @@ public class BirdGame3 {
                 status.setText(e.getMessage());
             }
         });
-        Label prompt = buildMenuPanelBody(
-                "Forward this TCP port in your router to this computer, then share your public IP or DNS name.", 760);
         VBox fieldBox = new VBox(8, portLabel, portField);
         fieldBox.setAlignment(Pos.CENTER_LEFT);
-        VBox panel = buildModernMenuPanel("#CE93D8", 900, 20,
-                buildMenuEyebrow("CREATE DIRECT SESSION", "#CE93D8"),
-                buildMenuPanelTitle("OPEN YOUR LOBBY", 38), prompt, fieldBox, status, host);
+        Label note = buildMenuPanelBody("Forward this TCP port, then share your public address.", 720);
+        VBox panel = buildModernMenuPanel("#CE93D8", 820, 20,
+                buildMenuPanelTitle("TCP PORT", 34), fieldBox, note, status, host);
         root.setCenter(panel);
         root.setBottom(buildAdaptivePromptBar(
                 UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "PORT FIELD"),
@@ -36325,13 +36312,11 @@ public class BirdGame3 {
                 status.setText(e.getMessage());
             }
         });
-        Label prompt = buildMenuPanelBody("Enter the host's public IP or DNS name. Add :port when it is not "
-                + LanProtocol.DEFAULT_PORT + ".", 760);
         VBox fieldBox = new VBox(8, buildMenuEyebrow("HOST ADDRESS", "#90CAF9"), endpointField);
         fieldBox.setAlignment(Pos.CENTER_LEFT);
-        VBox panel = buildModernMenuPanel("#64B5F6", 900, 20,
-                buildMenuEyebrow("CONNECT TO SESSION", "#90CAF9"),
-                buildMenuPanelTitle("ENTER THE HOST ADDRESS", 36), prompt, fieldBox, status, connect);
+        Label note = buildMenuPanelBody("Use host:port when the host changed the default port.", 720);
+        VBox panel = buildModernMenuPanel("#64B5F6", 820, 20,
+                buildMenuPanelTitle("HOST ADDRESS", 34), fieldBox, note, status, connect);
         root.setCenter(panel);
         root.setBottom(buildAdaptivePromptBar(
                 UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "ADDRESS FIELD"),
@@ -36425,13 +36410,11 @@ public class BirdGame3 {
             startLanClient(stage, host);
         });
 
-        Label prompt = buildMenuPanelBody("Enter the host computer's local IP address. The default port is "
-                + LanProtocol.DEFAULT_PORT + ".", 720);
         VBox fieldBox = new VBox(8, buildMenuEyebrow("LOCAL IP ADDRESS", "#80DEEA"), hostField);
         fieldBox.setAlignment(Pos.CENTER_LEFT);
-        VBox panel = buildModernMenuPanel("#80DEEA", 860, 20,
-                buildMenuEyebrow("FIND LOCAL SESSION", "#80DEEA"),
-                buildMenuPanelTitle("CONNECT TO THE HOST", 36), prompt, fieldBox, status, connect);
+        Label note = buildMenuPanelBody("Enter the local IP shown in the host's lobby.", 680);
+        VBox panel = buildModernMenuPanel("#80DEEA", 800, 20,
+                buildMenuPanelTitle("LOCAL IP ADDRESS", 34), fieldBox, note, status, connect);
         root.setCenter(panel);
         root.setBottom(buildAdaptivePromptBar(
                 UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "ADDRESS FIELD"),
@@ -36483,7 +36466,7 @@ public class BirdGame3 {
         String infoText = networkLobbyInfoText();
 
         Label info = new Label(infoText);
-        MenuLayout.styleMenuMessage(info, 18, "#B3E5FC", 1120, this::applyNoEllipsis);
+        MenuLayout.styleMenuMessage(info, 16, "#B3E5FC", 1180, this::applyNoEllipsis);
         lanLobbyInfoLabel = info;
 
         lanStatusLabel = new Label(lanIsHost ? "Waiting for players..." : "Connecting...");
@@ -36502,86 +36485,80 @@ public class BirdGame3 {
             lanCompanionFeedLabel.setFont(Font.font("Consolas", 17));
             lanCompanionFeedLabel.setTextFill(Color.web("#B2DFDB"));
             applyNoEllipsis(lanCompanionFeedLabel);
-            lanCompanionFeedButton = uiFactory.action("COMPANION FEED", 300, 58, 22, "#00695C", 16, this::toggleLanCompanionFeed);
-            companionBox = new VBox(8, lanCompanionFeedLabel, lanCompanionFeedButton);
+            lanCompanionFeedButton = uiFactory.action("COMPANION FEED", 250, 50, 18, "#00695C", 14, this::toggleLanCompanionFeed);
+            companionBox = new VBox(6, lanCompanionFeedLabel, lanCompanionFeedButton);
             companionBox.setAlignment(Pos.CENTER);
-            companionBox.setPadding(new Insets(12, 18, 12, 18));
+            companionBox.setPadding(new Insets(8, 14, 8, 14));
             companionBox.setStyle(MenuTheme.insetPanelStyle("#80CBC4", 18));
         }
 
         lanSlotLabels = new Label[LAN_MAX_PLAYERS];
         lanPortraits = new Canvas[LAN_MAX_PLAYERS];
-        HBox slots = new HBox(14);
+        HBox slots = new HBox(12);
         slots.setAlignment(Pos.CENTER);
         for (int i = 0; i < LAN_MAX_PLAYERS; i++) {
             Label slot = new Label();
-            slot.setFont(Font.font("Consolas", FontWeight.BOLD, 17));
+            slot.setFont(Font.font("Consolas", FontWeight.BOLD, 15));
             slot.setTextFill(Color.web("#CFD8DC"));
             slot.setWrapText(true);
             slot.setTextAlignment(TextAlignment.CENTER);
             slot.setAlignment(Pos.CENTER);
-            slot.setMaxWidth(250);
+            slot.setMaxWidth(210);
             lanSlotLabels[i] = slot;
-            Canvas portrait = new Canvas(112, 112);
+            Canvas portrait = new Canvas(88, 88);
             lanPortraits[i] = portrait;
             StackPane frame = new StackPane(portrait);
             frame.setPadding(new Insets(8));
             frame.setStyle(MenuTheme.insetPanelStyle(i == 0 ? "#EF5350" : "#607D8B", 18));
             Label player = buildMenuEyebrow("PLAYER " + (i + 1), i == 0 ? "#FF8A80" : "#90A4AE");
-            VBox slotCard = new VBox(8, player, frame, slot);
+            VBox slotCard = new VBox(5, player, frame, slot);
             slotCard.setAlignment(Pos.CENTER);
-            slotCard.setPadding(new Insets(14));
-            slotCard.setPrefWidth(280);
-            slotCard.setMinHeight(205);
+            slotCard.setPadding(new Insets(10));
+            slotCard.setPrefWidth(250);
+            slotCard.setMinHeight(174);
             slotCard.setStyle(MenuTheme.panelStyle(i == 0 ? "#EF5350" : "#607D8B", 20));
             slots.getChildren().add(slotCard);
         }
 
         lanMapLabel = null;
         lanMapVoteLabel = new Label();
-        lanMapVoteLabel.setFont(Font.font("Arial Black", 22));
+        lanMapVoteLabel.setFont(Font.font("Arial Black", 19));
         lanMapVoteLabel.setTextFill(Color.web("#FFECB3"));
 
-        lanSelectMapButton = uiFactory.action("VOTE MAP", 240, 70, 26, "#455A64", 18, () -> openLanMapSelect(stage));
-        VBox mapBox = new VBox(10, buildMenuEyebrow("STAGE", "#80DEEA"), lanMapVoteLabel, lanSelectMapButton);
+        lanSelectMapButton = uiFactory.action("CHANGE", 200, 54, 20, "#455A64", 16, () -> openLanMapSelect(stage));
+        VBox mapBox = new VBox(7, buildMenuEyebrow("STAGE", "#80DEEA"), lanMapVoteLabel, lanSelectMapButton);
         mapBox.setAlignment(Pos.CENTER);
-        mapBox.setPadding(new Insets(14, 20, 16, 20));
-        mapBox.setPrefWidth(400);
+        mapBox.setPadding(new Insets(10, 16, 12, 16));
+        mapBox.setPrefWidth(370);
         mapBox.setStyle(MenuTheme.insetPanelStyle("#80DEEA", 18));
 
         lanYourBirdLabel = new Label();
-        lanYourBirdLabel.setFont(Font.font("Arial Black", 22));
+        lanYourBirdLabel.setFont(Font.font("Arial Black", 19));
         lanYourBirdLabel.setTextFill(Color.web("#FFECB3"));
 
-        lanSelectBirdButton = uiFactory.action("SELECT BIRD", 240, 70, 26, "#455A64", 18, () -> showLanBirdSelect(stage));
-        VBox birdBox = new VBox(10, buildMenuEyebrow("FIGHTER", "#FFE082"), lanYourBirdLabel, lanSelectBirdButton);
+        lanSelectBirdButton = uiFactory.action("CHANGE", 200, 54, 20, "#455A64", 16, () -> showLanBirdSelect(stage));
+        VBox birdBox = new VBox(7, buildMenuEyebrow("FIGHTER", "#FFE082"), lanYourBirdLabel, lanSelectBirdButton);
         birdBox.setAlignment(Pos.CENTER);
-        birdBox.setPadding(new Insets(14, 20, 16, 20));
-        birdBox.setPrefWidth(400);
+        birdBox.setPadding(new Insets(10, 16, 12, 16));
+        birdBox.setPrefWidth(370);
         birdBox.setStyle(MenuTheme.insetPanelStyle("#FFE082", 18));
 
         lanRulesNameLabel = new Label();
-        lanRulesNameLabel.setFont(Font.font("Arial Black", 21));
+        lanRulesNameLabel.setFont(Font.font("Arial Black", 19));
         lanRulesNameLabel.setTextFill(Color.web("#E1BEE7"));
         lanRulesNameLabel.setAlignment(Pos.CENTER);
-        lanRulesNameLabel.setMaxWidth(370);
+        lanRulesNameLabel.setMaxWidth(330);
         applyNoEllipsis(lanRulesNameLabel);
-        lanRulesSummaryLabel = new Label();
-        lanRulesSummaryLabel.setFont(Font.font("Consolas", FontWeight.BOLD, 14));
-        lanRulesSummaryLabel.setTextFill(Color.web("#D1C4E9"));
-        lanRulesSummaryLabel.setWrapText(true);
-        lanRulesSummaryLabel.setTextAlignment(TextAlignment.CENTER);
-        lanRulesSummaryLabel.setAlignment(Pos.CENTER);
-        lanRulesSummaryLabel.setMaxWidth(370);
-        lanEditRulesButton = uiFactory.action(lanIsHost ? "EDIT RULES" : "HOST CONTROLLED",
-                240, 58, 20, "#6A1B9A", 16,
+        lanRulesSummaryLabel = null;
+        lanEditRulesButton = uiFactory.action(lanIsHost ? "CHANGE" : "HOST CONTROLLED",
+                200, 54, 18, "#6A1B9A", 16,
                 () -> showLanRulesEditor(stage));
         lanEditRulesButton.setDisable(!lanIsHost);
         VBox rulesBox = new VBox(7, buildMenuEyebrow("RULES", "#CE93D8"), lanRulesNameLabel,
-                lanRulesSummaryLabel, lanEditRulesButton);
+                lanEditRulesButton);
         rulesBox.setAlignment(Pos.CENTER);
-        rulesBox.setPadding(new Insets(12, 18, 14, 18));
-        rulesBox.setPrefWidth(400);
+        rulesBox.setPadding(new Insets(10, 16, 12, 16));
+        rulesBox.setPrefWidth(370);
         rulesBox.setStyle(MenuTheme.insetPanelStyle("#CE93D8", 18));
 
         HBox controls = new HBox(16, mapBox, birdBox, rulesBox);
@@ -36590,10 +36567,10 @@ public class BirdGame3 {
         lanStartButton = null;
         HBox actions = new HBox(16);
         actions.setAlignment(Pos.CENTER);
-        lanReadyButton = uiFactory.action("READY UP", 260, 70, 26, "#2E7D32", 18, this::toggleLanReady);
+        lanReadyButton = uiFactory.action("READY", 240, 64, 24, "#2E7D32", 18, this::toggleLanReady);
         actions.getChildren().add(lanReadyButton);
         if (lanIsHost) {
-            lanStartButton = uiFactory.action("START MATCH", 420, 90, 32, "#00C853", 22, () -> beginLanCountdown(stage));
+            lanStartButton = uiFactory.action("START MATCH", 390, 74, 28, "#00C853", 20, () -> beginLanCountdown(stage));
             actions.getChildren().add(lanStartButton);
         } else {
             Label waiting = new Label("Waiting for host to start...");
@@ -36603,13 +36580,12 @@ public class BirdGame3 {
         }
 
         lanCountdownLabel = new Label();
-        lanCountdownLabel.setFont(Font.font("Impact", FontWeight.BOLD, 42));
+        lanCountdownLabel.setFont(Font.font("Impact", FontWeight.BOLD, 34));
         lanCountdownLabel.setTextFill(Color.web("#FFD54F"));
         applyNoEllipsis(lanCountdownLabel);
         updateLanCountdownLabel();
 
-        VBox content = buildModernMenuPanel("#64B5F6", 1320, 14,
-                buildMenuEyebrow(lanIsHost ? "HOST SESSION" : "CONNECTED SESSION", "#90CAF9"), info);
+        VBox content = buildModernMenuPanel("#64B5F6", 1280, 12, info);
         if (companionBox != null) {
             content.getChildren().add(companionBox);
         }
