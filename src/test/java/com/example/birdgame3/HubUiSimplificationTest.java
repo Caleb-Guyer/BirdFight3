@@ -15,7 +15,7 @@ class HubUiSimplificationTest {
             "src", "main", "java", "com", "example", "birdgame3", "BirdGame3.java");
 
     @Test
-    void primaryHubKeepsModesLargeAndRemovesPermanentTipCopy() throws IOException {
+    void primaryHubKeepsModesLargeAndRetainsItsCompactTopTipStrip() throws IOException {
         String source = Files.readString(GAME_SOURCE).replace("\r\n", "\n");
         String hub = methodBody(source, "private void showHub(Stage stage)");
 
@@ -27,9 +27,9 @@ class HubUiSimplificationTest {
         assertTrue(hub.contains("HubPresentationModel.Destination.FIGHT.description()"));
         assertTrue(hub.contains("buildAdaptivePromptBar("));
         assertTrue(hub.contains("bindFixedFrameScale(scene, frame, 0.0);"));
-        assertFalse(hub.contains("tipPanel"));
-        assertFalse(source.contains("ROOST TIP"));
-        assertFalse(source.contains("randomHubTip()"));
+        assertTrue(hub.contains("buildUltimateHubTipPanel(randomHubTip())"));
+        assertTrue(source.contains("ROOST TIP"));
+        assertTrue(source.contains("private String randomHubTip()"));
     }
 
     @Test

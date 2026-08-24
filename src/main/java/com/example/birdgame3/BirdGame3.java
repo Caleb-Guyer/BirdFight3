@@ -112,6 +112,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.nio.file.Files;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.*;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
@@ -182,6 +183,18 @@ public class BirdGame3 {
     private static final int VERIFIED_COMPETITION_MATCH_BONUS = 20;
     private static final int DAILY_CHALLENGE_FIRST_CLEAR_BONUS = 180;
     private static final int MATCH_HISTORY_LIMIT = 20;
+    private static final String[] HUB_TIPS = {
+            "Recover early and save your jump so you still have options offstage.",
+            "Training is the fastest way to test ranges, confirms, and recovery angles.",
+            "Adventure is the safest route for unlocking birds and learning matchups.",
+            "Boss Rush rewards clean routing more than risky coin-flip scrambles.",
+            "Classic route milestones reward learning several different birds.",
+            "Ground block turns into a fast fall in the air, so use it deliberately.",
+            "Bird Coins come from matches, achievements, and steady route clears.",
+            "Featherpedia lists unlock paths when you need a bird or skin target.",
+            "Test LAN controls before the set so rooms do not stall at the start.",
+            "Tournament mode works best when every player locks a real main first."
+    };
     private static final String UNITED_FINALE_CHAPTER_TITLE = "Chapter 9: Sky of All Wings";
     private static final String UNITED_FINALE_PENULTIMATE_TITLE = "Battle 2: Crack the Crown";
     private static final String UNITED_FINALE_CLIMAX_TITLE = "Battle 3: The Null Rock";
@@ -28833,6 +28846,11 @@ public class BirdGame3 {
         final double medallionTop = 244.0;
         final double medallionLeft = 568.0;
 
+        StackPane tipPanel = buildUltimateHubTipPanel(randomHubTip());
+        AnchorPane.setTopAnchor(tipPanel, 0.0);
+        AnchorPane.setLeftAnchor(tipPanel, 0.0);
+        AnchorPane.setRightAnchor(tipPanel, 0.0);
+
         StackPane medallion = buildUltimateHubCenterMedallion(activeProfile);
         medallion.setScaleX(1.04);
         medallion.setScaleY(1.04);
@@ -28974,7 +28992,7 @@ public class BirdGame3 {
         AnchorPane.setRightAnchor(helpBar, 0.0);
         AnchorPane.setBottomAnchor(helpBar, 0.0);
 
-        frame.getChildren().addAll(fightNode, adventureNode, gamesNode, shopNode, lanNode,
+        frame.getChildren().addAll(tipPanel, fightNode, adventureNode, gamesNode, shopNode, lanNode,
                 medallion, selectorPointer, railShell, helpBar);
         root.getChildren().add(frame);
 
@@ -28996,6 +29014,11 @@ public class BirdGame3 {
             setConsoleHighlightActive(true, scene);
             refreshUltimateHubButtons(hubButtons, helpTitle, helpBody, selectorPointer, medallion);
         });
+    }
+
+    private String randomHubTip() {
+        int index = ThreadLocalRandom.current().nextInt(HUB_TIPS.length);
+        return HUB_TIPS[index];
     }
 
     private Pane buildUltimateHubBackdrop() {
@@ -29337,6 +29360,45 @@ public class BirdGame3 {
         installRegionClip(button, 24, 24);
         applyHubButtonHitShape(button, buildRoundedCornerShape(132, height, 24, 24, 24, 24));
         return button;
+    }
+
+    private StackPane buildUltimateHubTipPanel(String tip, Button... actionButtons) {
+        StackPane panel = new StackPane();
+        lockRegionSize(panel, 1600, 108);
+        panel.setPadding(new Insets(10, 186, 12, 36));
+        panel.setStyle("-fx-background-color: linear-gradient(to right, rgba(0,0,0,0.98), rgba(14,14,14,0.96));"
+                + "-fx-border-color: #E53935 transparent rgba(255,255,255,0.12) transparent;"
+                + "-fx-border-width: 6 0 2 0;"
+                + "-fx-background-radius: 0;"
+                + "-fx-border-radius: 0;");
+
+        Label header = new Label("ROOST TIP");
+        header.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
+        header.setTextFill(Color.web("#FFCDD2"));
+        applyNoEllipsis(header);
+
+        Label tipLabel = new Label(tip);
+        tipLabel.setFont(Font.font("Consolas", 20));
+        tipLabel.setTextFill(Color.WHITE);
+        tipLabel.setWrapText(false);
+        tipLabel.setMaxWidth(1320);
+        applyNoEllipsis(tipLabel);
+        fitLabelSingleLine(tipLabel, 20, 14, 1320);
+
+        VBox tipText = new VBox(4, header, tipLabel);
+        tipText.setAlignment(Pos.CENTER_LEFT);
+        if (actionButtons == null || actionButtons.length == 0) {
+            panel.getChildren().add(tipText);
+        } else {
+            HBox actions = new HBox(10, actionButtons);
+            actions.setAlignment(Pos.CENTER_RIGHT);
+            Region spacer = new Region();
+            HBox.setHgrow(spacer, Priority.ALWAYS);
+            HBox content = new HBox(20, tipText, spacer, actions);
+            content.setAlignment(Pos.CENTER_LEFT);
+            panel.getChildren().add(content);
+        }
+        return panel;
     }
 
     private Group buildUltimateHubSelectorPointer() {
