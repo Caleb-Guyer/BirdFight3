@@ -51953,43 +51953,12 @@ public class BirdGame3 {
                 showMenu(stage);
             }
         });
-        back.setStyle("-fx-background-color: linear-gradient(to bottom, #D61D28, #981019); "
-                + "-fx-text-fill: white; -fx-font-family: 'Arial Black'; -fx-font-size: 17px; "
-                + "-fx-font-weight: bold; -fx-background-radius: 18; -fx-border-color: black; "
-                + "-fx-border-width: 3; -fx-border-radius: 18;");
-
-        Label title = new Label(bossRush ? "BOSS RUSH" : "CLASSIC MODE");
-        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 34));
-        title.setTextFill(Color.web("#111111"));
-        StackPane titleBanner = new StackPane(title);
-        lockRegionSize(titleBanner, 440, 72);
-        titleBanner.setStyle("-fx-background-color: linear-gradient(to bottom, #FFE45C, #F8C528); "
-                + "-fx-background-radius: 12; -fx-border-color: black; -fx-border-width: 4; -fx-border-radius: 12;");
-
-        Label ruleName = new Label(frontEndMatchFlow.rulesPreset().title);
-        ruleName.setFont(Font.font("Arial Black", 14));
-        ruleName.setTextFill(Color.web("#FFF8D6"));
-        Label coins = new Label("COINS  " + birdCoinBalanceText());
-        coins.setFont(Font.font("Consolas", FontWeight.BOLD, 13));
-        coins.setTextFill(Color.web("#CFD8DC"));
-        VBox rulesAndCoins = new VBox(1, ruleName, coins);
-        rulesAndCoins.setAlignment(Pos.CENTER);
-        StackPane coinsChip = new StackPane(rulesAndCoins);
-        coinsChip.setPadding(new Insets(6, 16, 6, 16));
-        coinsChip.setStyle("-fx-background-color: rgba(255,193,7,0.22); -fx-background-radius: 24; "
-                + "-fx-border-color: rgba(255,245,157,0.65); -fx-border-width: 2; -fx-border-radius: 24;");
-
-        BorderPane topChrome = new BorderPane();
-        topChrome.setLeft(back);
-        topChrome.setRight(coinsChip);
-        BorderPane.setAlignment(back, Pos.CENTER_LEFT);
-        BorderPane.setAlignment(coinsChip, Pos.CENTER_RIGHT);
-        StackPane topStrip = new StackPane(topChrome, titleBanner);
-        topStrip.setPadding(new Insets(10, 14, 10, 14));
-        topStrip.setMinHeight(92);
-        topStrip.setStyle("-fx-background-color: linear-gradient(to right, #8E0D16 0%, #C51A24 42%, #111317 42%, #111317 100%); "
-                + "-fx-background-radius: 24; -fx-border-color: black; -fx-border-width: 4; -fx-border-radius: 24;");
-        content.setTop(topStrip);
+        StackPane titleBanner = buildMenuTitleBanner(bossRush ? "BOSS RUSH" : "CLASSIC MODE",
+                440, 72, 34);
+        StackPane statusChip = buildMenuChip(
+                bossRush ? "BOSS GAUNTLET" : "COINS  " + birdCoinBalanceText(),
+                bossRush ? "#6A1B9A" : "#8D6E00", bossRush ? "#E1BEE7" : "#FFF59D");
+        content.setTop(buildMenuTopStrip(back, titleBanner, statusChip));
 
         List<BirdType> availableBirds = unlockedBirdPool();
         BirdType initialPick = isBirdUnlocked(classicSelectedBird) ? classicSelectedBird : firstUnlockedBird();
@@ -52002,9 +51971,7 @@ public class BirdGame3 {
         rosterGrid.setVgap(8);
         rosterGrid.setAlignment(Pos.CENTER);
         rosterGrid.setPadding(new Insets(10));
-        rosterGrid.setStyle("-fx-background-color: linear-gradient(to bottom, rgba(21,25,31,0.98), rgba(7,9,12,0.99)); "
-                + "-fx-background-radius: 22; -fx-border-color: rgba(255,255,255,0.16); "
-                + "-fx-border-width: 2; -fx-border-radius: 22;");
+        rosterGrid.setStyle(MenuTheme.insetPanelStyle("#607D8B", 22));
         lockRegionSize(rosterGrid, 1520, 370);
 
         Map<BirdType, Button> tiles = new EnumMap<>(BirdType.class);
@@ -52042,8 +52009,7 @@ public class BirdGame3 {
             marker.setFont(Font.font("Arial Black", 16));
             marker.setTextFill(Color.WHITE);
             marker.setPadding(new Insets(4, 10, 4, 10));
-            marker.setStyle("-fx-background-color: #D31322; -fx-background-radius: 10; "
-                    + "-fx-border-color: black; -fx-border-width: 2; -fx-border-radius: 10;");
+            marker.setStyle(MenuTheme.chipStyle("#B5121B", "#FF8A80", 10));
             marker.setMouseTransparent(true);
             StackPane tileStack = new StackPane(tile, marker);
             StackPane.setAlignment(marker, Pos.TOP_LEFT);
@@ -52056,8 +52022,7 @@ public class BirdGame3 {
         Canvas portrait = new Canvas(200, 135);
         StackPane portraitFrame = new StackPane(portrait);
         lockRegionSize(portraitFrame, 300, 145);
-        portraitFrame.setStyle("-fx-background-color: linear-gradient(to bottom right, #D51D2B, #5F0910); "
-                + "-fx-border-color: black; -fx-border-width: 5; -fx-background-radius: 20; -fx-border-radius: 20;");
+        portraitFrame.setStyle(MenuTheme.panelStyle("#EF5350", 20));
         Label selectedName = new Label();
         selectedName.setFont(Font.font("Arial Black", 25));
         selectedName.setTextFill(Color.WHITE);
@@ -52086,8 +52051,7 @@ public class BirdGame3 {
         routePanel.setAlignment(Pos.CENTER);
         routePanel.setPadding(new Insets(22));
         lockRegionSize(routePanel, 540, 270);
-        routePanel.setStyle("-fx-background-color: rgba(0,0,0,0.62); -fx-border-color: #F8C528; "
-                + "-fx-border-width: 3; -fx-background-radius: 18; -fx-border-radius: 18;");
+        routePanel.setStyle(MenuTheme.panelStyle("#F8C528", 18));
 
         Label difficultyCaption = new Label(bossRush ? "ROUTE DIFFICULTY" : "STARTING DIFFICULTY");
         difficultyCaption.setFont(Font.font("Consolas", FontWeight.BOLD, 20));
@@ -52098,6 +52062,8 @@ public class BirdGame3 {
         Label coinContinue = new Label("CONTINUE  " + CLASSIC_CONTINUE_BIRD_COIN_COST + " COINS");
         coinContinue.setFont(Font.font("Arial Black", 19));
         coinContinue.setTextFill(Color.WHITE);
+        coinContinue.setVisible(!bossRush);
+        coinContinue.setManaged(!bossRush);
         Label record = new Label();
         record.setFont(Font.font("Consolas", FontWeight.BOLD, 19));
         record.setTextFill(Color.web("#B3E5FC"));
@@ -52106,8 +52072,7 @@ public class BirdGame3 {
         VBox statusPanel = new VBox(7, difficultyCaption, difficulty, coinContinue, record);
         statusPanel.setAlignment(Pos.CENTER);
         lockRegionSize(statusPanel, 420, 270);
-        statusPanel.setStyle("-fx-background-color: rgba(33,41,52,0.92); -fx-border-color: rgba(255,255,255,0.25); "
-                + "-fx-border-width: 3; -fx-background-radius: 18; -fx-border-radius: 18;");
+        statusPanel.setStyle(MenuTheme.panelStyle("#607D8B", 18));
 
         Button start = uiFactory.action("START", 330, 66, 27, "#00C853", 20, () -> {
             if (selected[0] == null) return;
@@ -52134,10 +52099,7 @@ public class BirdGame3 {
             BirdType pick = selected[0];
             for (Map.Entry<BirdType, Button> entry : tiles.entrySet()) {
                 boolean active = entry.getKey() == pick;
-                entry.getValue().setStyle("-fx-background-color: "
-                        + (active ? "linear-gradient(to bottom, #D51D2B, #65090F)" : "linear-gradient(to bottom, #3A485C, #0E1116)")
-                        + "; -fx-background-radius: 16; -fx-border-color: " + (active ? "#FFE45C" : "rgba(255,255,255,0.18)")
-                        + "; -fx-border-width: " + (active ? "4" : "2") + "; -fx-border-radius: 16;");
+                entry.getValue().setStyle(MenuTheme.buttonStyle(active ? "#B5121B" : "#263238", 16));
                 playerMarkers.get(entry.getKey()).setVisible(active);
             }
             boolean hasPick = pick != null;
@@ -52165,7 +52127,11 @@ public class BirdGame3 {
 
         Region bottomSpacer = new Region();
         HBox.setHgrow(bottomSpacer, Priority.ALWAYS);
-        HBox bottom = new HBox(20, endingGallery, bottomSpacer, start);
+        HBox inputPrompt = buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "CHOOSE BIRD"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "SELECT"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "BACK"));
+        HBox bottom = new HBox(20, endingGallery, inputPrompt, bottomSpacer, start);
         bottom.setAlignment(Pos.CENTER);
         bottom.setPadding(new Insets(6, 40, 0, 40));
         content.setBottom(bottom);
@@ -52201,21 +52167,12 @@ public class BirdGame3 {
         Button back = uiFactory.action(vaultSubpageActive ? "BACK TO VAULT" : "BACK",
                 vaultSubpageActive ? 250 : 170, 60, vaultSubpageActive ? 18 : 22, "#B5121B", 16,
                 () -> returnFromVaultSubpage(stage, () -> showClassicBirdSelect(stage)));
-        Label title = new Label("CLASSIC ENDINGS");
-        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 42));
-        title.setTextFill(Color.web("#FFE45C"));
         long unlockedCount = ClassicEndingContent.endings().stream()
                 .filter(ending -> isClassicEndingUnlocked(ending.bird()))
                 .count();
-        Label count = new Label(unlockedCount + "/" + ClassicEndingContent.endings().size() + " ENDINGS UNLOCKED");
-        count.setFont(Font.font("Consolas", FontWeight.BOLD, 20));
-        count.setTextFill(Color.web("#B3E5FC"));
-        Region headerSpacer = new Region();
-        HBox.setHgrow(headerSpacer, Priority.ALWAYS);
-        HBox header = new HBox(24, back, title, headerSpacer, count);
-        header.setAlignment(Pos.CENTER_LEFT);
-        header.setPadding(new Insets(0, 8, 12, 8));
-        content.setTop(header);
+        content.setTop(buildMenuTopStrip(back, buildMenuTitleBanner("CLASSIC ENDINGS", 560, 72, 32),
+                buildMenuChip(unlockedCount + " / " + ClassicEndingContent.endings().size(),
+                        "#5E35B1", "#E1BEE7")));
 
         GridPane grid = new GridPane();
         grid.setHgap(12);
@@ -52244,30 +52201,22 @@ public class BirdGame3 {
             endingTitle.setTextAlignment(TextAlignment.CENTER);
             endingTitle.setAlignment(Pos.CENTER);
             endingTitle.setMaxWidth(250);
-            Label choice = new Label(unlocked ? ending.crownChoice() : "Earn this bird's Classic route badge to unlock.");
-            choice.setFont(Font.font("Consolas", FontWeight.BOLD, 13));
-            choice.setTextFill(Color.web(unlocked ? "#CFD8DC" : "#78909C"));
-            choice.setWrapText(true);
-            choice.setTextAlignment(TextAlignment.CENTER);
-            choice.setAlignment(Pos.CENTER);
-            choice.setMaxWidth(252);
+            Label lockState = new Label(unlocked ? "PLAY ENDING" : "ROUTE BADGE REQUIRED");
+            lockState.setFont(Font.font("Consolas", FontWeight.BOLD, 13));
+            lockState.setTextFill(Color.web(unlocked ? "#B2DFDB" : "#78909C"));
 
-            VBox cardGraphic = new VBox(4, portrait, bird, route, endingTitle, choice);
+            VBox cardGraphic = new VBox(4, portrait, bird, route, endingTitle, lockState);
             cardGraphic.setAlignment(Pos.CENTER);
             Button card = new Button();
             card.setGraphic(cardGraphic);
             card.setPadding(new Insets(10));
-            lockRegionSize(card, 286, 258);
+            lockRegionSize(card, 286, 224);
             String accent = switch (ending.alignment()) {
                 case HOPEFUL -> "#168A86";
                 case AMBIGUOUS -> "#B66A18";
                 case DOMINATING -> "#7B1F45";
             };
-            card.setStyle("-fx-background-color: linear-gradient(to bottom, "
-                    + (unlocked ? accent : "#242A31") + ", #0A0D13); "
-                    + "-fx-background-radius: 18; -fx-border-color: "
-                    + (unlocked ? "#FFE082" : "#455A64")
-                    + "; -fx-border-width: 3; -fx-border-radius: 18;");
+            card.setStyle(MenuTheme.buttonStyle(unlocked ? accent : "#242A31", 18));
             card.setDisable(!unlocked);
             card.setAccessibleText(unlocked
                     ? ending.bird().name + " Classic ending: " + ending.title()
@@ -52292,13 +52241,13 @@ public class BirdGame3 {
         installTransparentScrollViewport(galleryViewport);
         content.setCenter(galleryViewport);
 
-        Label hint = new Label("Every route badge unlocks its bird's alternate Crown epilogue. Select an ending to replay it.");
-        hint.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
-        hint.setTextFill(Color.web("#B0BEC5"));
-        hint.setAlignment(Pos.CENTER);
-        BorderPane.setAlignment(hint, Pos.CENTER);
-        BorderPane.setMargin(hint, new Insets(14, 0, 0, 0));
-        content.setBottom(hint);
+        HBox prompts = buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "CHOOSE ENDING"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "PLAY"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "BACK"));
+        BorderPane.setAlignment(prompts, Pos.CENTER_LEFT);
+        BorderPane.setMargin(prompts, new Insets(14, 0, 0, 0));
+        content.setBottom(prompts);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         bindEscape(scene, back);
@@ -63335,7 +63284,7 @@ public class BirdGame3 {
 
         BorderPane root = buildModernMenuPage();
 
-        Button useContinue = uiFactory.action("CONTINUE  " + CLASSIC_CONTINUE_BIRD_COIN_COST, 500, 120, 40, "#00C853", 30, () -> {
+        Button useContinue = uiFactory.action("CONTINUE", 360, 84, 30, "#00C853", 22, () -> {
             if (!spendBirdCoins(CLASSIC_CONTINUE_BIRD_COIN_COST)) return;
             classicContinuesUsed++;
             saveAchievements();
@@ -63344,7 +63293,7 @@ public class BirdGame3 {
         useContinue.setDisable(!developerInfiniteBirdCoins
                 && birdCoinLedger.balance() < CLASSIC_CONTINUE_BIRD_COIN_COST);
 
-        Button endRun = uiFactory.action("END RUN", 420, 120, 40, "#FF1744", 30, () -> {
+        Button endRun = uiFactory.action("END RUN", 210, 64, 22, "#B5121B", 18, () -> {
             classicDeaths = 0;
             showClassicBirdSelect(stage);
         });
@@ -63356,7 +63305,7 @@ public class BirdGame3 {
         String encounterName = classicEncounter == null ? "CURRENT ENCOUNTER" : classicEncounter.name.toUpperCase(Locale.ROOT);
         String birdName = classicSelectedBird == null ? "CLASSIC ROUTE" : classicSelectedBird.name.toUpperCase(Locale.ROOT);
         Label price = new Label(Integer.toString(CLASSIC_CONTINUE_BIRD_COIN_COST));
-        price.setFont(Font.font("Arial Black", FontWeight.BOLD, 104));
+        price.setFont(Font.font("Arial Black", FontWeight.BOLD, 88));
         price.setTextFill(Color.web("#FFE45C"));
         Label priceUnit = buildMenuEyebrow("BIRD COINS", "#FFE082");
         VBox priceBlock = new VBox(-6, price, priceUnit);
@@ -63370,6 +63319,10 @@ public class BirdGame3 {
                 buildMenuPanelTitle("RETURN TO THE ROUTE?", 42),
                 priceBlock, description, useContinue);
         root.setCenter(card);
+        root.setBottom(buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "CONTINUE"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "END RUN")));
+        BorderPane.setMargin(root.getBottom(), new Insets(14, 0, 0, 0));
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         bindEscape(scene, endRun);
