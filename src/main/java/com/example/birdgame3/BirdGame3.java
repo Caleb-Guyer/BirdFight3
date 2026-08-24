@@ -5584,6 +5584,17 @@ public class BirdGame3 {
     private TournamentEntry tournamentSlotA = null;
     private TournamentEntry tournamentSlotB = null;
     boolean tournamentMatchResolved = false;
+    private VersusRules tournamentRules = tournamentRuleset(VersusRules.competitive());
+    private StageChoice tournamentPendingStage = null;
+    private TournamentRunState suspendedTournamentRun = null;
+    private long tournamentStartedAtMillis = 0L;
+    private int tournamentMatchesCompleted = 0;
+    private int tournamentMatchesSimulated = 0;
+    private int tournamentTotalKos = 0;
+    private long tournamentTotalDamage = 0L;
+    private boolean tournamentChampionshipRewardGranted = false;
+    private VersusRulesPreset tournamentPreviousRulesPreset = null;
+    private VersusRules tournamentPreviousRules = null;
 
     private enum ClassicTwist {
         STORM_LIFTS("Storm Lifts", "Thermal vents surge and reward vertical control."),
@@ -30450,7 +30461,7 @@ public class BirdGame3 {
 
         Pane selectionPane = new Pane();
         double paneW = 1520;
-        double paneH = 430;
+        double paneH = 390;
         selectionPane.setPrefSize(paneW, paneH);
         selectionPane.setMinSize(paneW, paneH);
         selectionPane.setMaxSize(paneW, paneH);
@@ -32060,7 +32071,7 @@ public class BirdGame3 {
                 32,
                 gamesMoreIconTournament(), 4.2, 0.16,
                 new Insets(18, 22, 18, 18),
-                () -> showTournamentSetup(stage));
+                () -> showTournamentMode(stage));
         registerHubInteractiveNode(tournamentBtn, modeButtons, helpTitle, helpBody,
                 buildGamesMoreCardStyle("#F5A623", "#C46A00", "#FFE082", 32, false),
                 buildGamesMoreCardStyle("#F5A623", "#C46A00", "#FFF8E1", 32, true),
@@ -32458,19 +32469,167 @@ public class BirdGame3 {
         return pane;
     }
 
-    private void resetTournamentRun() {
+    private static VersusRules tournamentRuleset(VersusRules rules) {
+        VersusRules safe = rules == null ? VersusRules.competitive() : rules;
+        return safe.withSeriesWins(1);
+    }
+
+    private void clearTournamentRuntimeState() {
+        restoreRulesAfterTournament();
         tournamentModeActive = false;
         tournamentRounds.clear();
         tournamentSeedOrder.clear();
         currentTournamentMatch = null;
         tournamentSlotA = null;
         tournamentSlotB = null;
+        tournamentPendingStage = null;
         tournamentMatchResolved = false;
         for (TournamentEntry entry : tournamentEntries) {
             if (entry != null) {
                 entry.resolvedType = null;
             }
         }
+    }
+
+    private void resetTournamentRun() {
+        clearTournamentRuntimeState();
+        tournamentStartedAtMillis = 0L;
+        tournamentMatchesCompleted = 0;
+        tournamentMatchesSimulated = 0;
+        tournamentTotalKos = 0;
+        tournamentTotalDamage = 0L;
+        tournamentChampionshipRewardGranted = false;
+    }
+
+    private void activateTournamentRules() {
+        if (tournamentPreviousRulesPreset == null) {
+            tournamentPreviousRulesPreset = frontEndMatchFlow.rulesPreset();
+            tournamentPreviousRules = frontEndMatchFlow.rules();
+        }
+        frontEndMatchFlow.selectCustomRules(tournamentRules);
+    }
+
+    private void restoreRulesAfterTournament() {
+        if (tournamentPreviousRulesPreset == null) return;
+        if (tournamentPreviousRulesPreset == VersusRulesPreset.CUSTOM) {
+            frontEndMatchFlow.selectCustomRules(tournamentPreviousRules);
+        } else {
+            frontEndMatchFlow.selectRulesPreset(tournamentPreviousRulesPreset);
+        }
+        tournamentPreviousRulesPreset = null;
+        tournamentPreviousRules = null;
+    }
+
+    private void discardTournamentRun() {
+        suspendedTournamentRun = null;
+        resetTournamentRun();
+        if (profileProgressLoaded) saveAchievements();
+    }
+
+    private void suspendTournamentRun() {
+        if (tournamentModeActive && !tournamentRounds.isEmpty()) {
+            suspendedTournamentRun = captureTournamentRunState();
+        }
+        resetTournamentRun();
+        if (profileProgressLoaded) saveAchievements();
+    }
+
+    private void checkpointTournamentRun() {
+        if (!tournamentModeActive || tournamentRounds.isEmpty()) return;
+        suspendedTournamentRun = captureTournamentRunState();
+        if (profileProgressLoaded) saveAchievements();
+    }
+
+    private TournamentRunState captureTournamentRunState() {
+        List<TournamentRunState.Entry> entries = new ArrayList<>(tournamentEntries.size());
+        for (TournamentEntry entry : tournamentEntries) {
+            entries.add(new TournamentRunState.Entry(entry.id, entry.human,
+                    entry.selectedType == null ? "" : entry.selectedType.name(),
+                    entry.resolvedType == null ? "" : entry.resolvedType.name(),
+                    entry.selectedSkinKey, entry.customName, entry.cpuLevel));
+        }
+        List<Integer> seeds = tournamentSeedOrder.stream().map(entry -> entry.id).toList();
+        List<Integer> winners = new ArrayList<>();
+        for (List<TournamentMatch> round : tournamentRounds) {
+            for (TournamentMatch match : round) {
+                winners.add(match.winner == null ? 0 : match.winner.id);
+            }
+        }
+        return new TournamentRunState(tournamentStartedAtMillis, tournamentEntrantCount,
+                tournamentHumanCount, tournamentMapRandom,
+                tournamentFixedMap == null ? MapType.FOREST.name() : tournamentFixedMap.name(),
+                tournamentRules.encode(), tournamentMatchesCompleted, tournamentMatchesSimulated,
+                tournamentTotalKos, tournamentTotalDamage, tournamentChampionshipRewardGranted,
+                entries, seeds, winners);
+    }
+
+    private boolean restoreTournamentRunState(TournamentRunState state) {
+        if (state == null || !state.usable()) return false;
+        resetTournamentRun();
+        tournamentEntrantCount = state.entrantCount;
+        tournamentHumanCount = state.humanCount;
+        tournamentMapRandom = state.randomMap;
+        try {
+            tournamentFixedMap = MapType.valueOf(state.fixedMap);
+        } catch (IllegalArgumentException ignored) {
+            tournamentFixedMap = MapType.FOREST;
+        }
+        tournamentRules = tournamentRuleset(VersusRules.decode(state.rules, VersusRules.competitive()));
+        tournamentEntries.clear();
+        for (TournamentRunState.Entry saved : state.entries) {
+            TournamentEntry entry = new TournamentEntry(saved.id());
+            entry.human = saved.human();
+            try {
+                entry.selectedType = saved.selectedBird().isBlank() ? null : BirdType.valueOf(saved.selectedBird());
+            } catch (IllegalArgumentException ignored) {
+                entry.selectedType = null;
+            }
+            try {
+                entry.resolvedType = saved.resolvedBird().isBlank() ? null : BirdType.valueOf(saved.resolvedBird());
+            } catch (IllegalArgumentException ignored) {
+                entry.resolvedType = null;
+            }
+            entry.selectedSkinKey = saved.skinKey().isBlank() ? null : saved.skinKey();
+            entry.customName = saved.customName();
+            entry.cpuLevel = saved.cpuLevel();
+            tournamentEntries.add(entry);
+        }
+        tournamentSeedOrder.clear();
+        for (Integer id : state.seedOrder) {
+            TournamentEntry entry = tournamentEntryById(id);
+            if (entry != null) tournamentSeedOrder.add(entry);
+        }
+        syncTournamentEntries();
+        buildTournamentBracket();
+        int winnerIndex = 0;
+        for (List<TournamentMatch> round : tournamentRounds) {
+            for (TournamentMatch match : round) {
+                int winnerId = winnerIndex < state.winners.size() ? state.winners.get(winnerIndex) : 0;
+                winnerIndex++;
+                TournamentEntry winner = tournamentEntryById(winnerId);
+                if (winner != null) advanceTournamentWinner(match, winner, false, false);
+            }
+        }
+        tournamentStartedAtMillis = state.startedAtMillis;
+        tournamentMatchesCompleted = state.completedMatches;
+        tournamentMatchesSimulated = state.simulatedMatches;
+        tournamentTotalKos = state.totalKos;
+        tournamentTotalDamage = state.totalDamage;
+        tournamentChampionshipRewardGranted = state.rewardGranted;
+        tournamentModeActive = true;
+        tournamentMatchResolved = false;
+        currentTournamentMatch = null;
+        tournamentSlotA = null;
+        tournamentSlotB = null;
+        suspendedTournamentRun = state;
+        return true;
+    }
+
+    private TournamentEntry tournamentEntryById(int id) {
+        for (TournamentEntry entry : tournamentEntries) {
+            if (entry.id == id) return entry;
+        }
+        return null;
     }
 
     private void ensureTournamentEntries() {
@@ -32499,6 +32658,20 @@ public class BirdGame3 {
     void setTournamentEntrantCount(int entrantCount) {
         tournamentEntrantCount = Math.clamp(entrantCount, 2, 32);
         tournamentHumanCount = Math.clamp(tournamentHumanCount, 0, tournamentEntrantCount);
+    }
+
+    static int adjacentTournamentFieldSize(int current, int direction) {
+        int[] sizes = {4, 8, 16};
+        if (direction < 0) {
+            for (int i = sizes.length - 1; i >= 0; i--) {
+                if (sizes[i] < current) return sizes[i];
+            }
+            return sizes[0];
+        }
+        for (int size : sizes) {
+            if (size > current) return size;
+        }
+        return sizes[sizes.length - 1];
     }
 
     int tournamentHumanCount() {
@@ -32835,6 +33008,21 @@ public class BirdGame3 {
         return maps.get(random.nextInt(maps.size()));
     }
 
+    private StageChoice pickTournamentStage() {
+        if (!tournamentMapRandom) {
+            return new StageChoice(pickTournamentMap(), MapVariant.STANDARD);
+        }
+        List<StageChoice> pool = new ArrayList<>(availableStageChoices(tournamentRules.randomStagePool()));
+        pool.removeIf(tournamentRules::excludes);
+        if (pool.isEmpty()) {
+            pool = new ArrayList<>(availableStageChoices(StageRandomPool.ALL));
+        }
+        if (pool.isEmpty()) {
+            return new StageChoice(MapType.FOREST, MapVariant.STANDARD);
+        }
+        return pool.get(random.nextInt(pool.size()));
+    }
+
     void buildTournamentBracket() {
         tournamentRounds.clear();
         ensureTournamentEntries();
@@ -32911,8 +33099,17 @@ public class BirdGame3 {
     }
 
     void recordTournamentWinner(TournamentMatch match, TournamentEntry winner) {
+        advanceTournamentWinner(match, winner, true, true);
+    }
+
+    private void advanceTournamentWinner(TournamentMatch match, TournamentEntry winner,
+                                         boolean awardProgress, boolean countMatch) {
         if (match == null || winner == null || match.winner != null) return;
+        if (winner != match.a && winner != match.b) return;
         match.winner = winner;
+        if (countMatch && match.a != null && match.b != null) {
+            tournamentMatchesCompleted++;
+        }
         int nextRoundIndex = match.roundIndex + 1;
         if (nextRoundIndex < tournamentRounds.size()) {
             List<TournamentMatch> nextRound = tournamentRounds.get(nextRoundIndex);
@@ -32922,8 +33119,25 @@ public class BirdGame3 {
             } else {
                 next.b = winner;
             }
-        } else if (winner.human) {
+        } else if (awardProgress && winner.human) {
             profileProgressController.onTournamentChampionshipWon(this::refreshModeAchievementUnlocks);
+            if (!tournamentChampionshipRewardGranted) {
+                tournamentChampionshipRewardGranted = true;
+                grantBirdCoins(tournamentChampionshipReward());
+            }
+        }
+        if (awardProgress) checkpointTournamentRun();
+    }
+
+    private int tournamentChampionshipReward() {
+        return 75 + Math.max(2, tournamentEntrantCount) * 20;
+    }
+
+    void captureTournamentCombatStats() {
+        if (!tournamentModeActive) return;
+        for (int i = 0; i < Math.min(activePlayers, MAX_COMBATANTS); i++) {
+            tournamentTotalKos += Math.max(0, eliminations[i]);
+            tournamentTotalDamage += Math.max(0, damageDealt[i]);
         }
     }
 
@@ -32979,6 +33193,52 @@ public class BirdGame3 {
         if (players[1] != null) {
             players[1].name = tournamentEntryLabel(tournamentSlotB) + ": " + players[1].type.name;
         }
+    }
+
+    private void showTournamentMode(Stage stage) {
+        TournamentRunState saved = suspendedTournamentRun;
+        if (saved == null || !saved.usable()) {
+            showTournamentSetup(stage);
+            return;
+        }
+        playMenuMusic();
+        Button back = uiFactory.action("BACK", 220, 66, 23, "#B5121B", 18, () -> showClassicMoreMenu(stage));
+        Button resume = uiFactory.action("CONTINUE TOURNAMENT", 520, 112, 34, "#1565C0", 24, () -> {
+            if (restoreTournamentRunState(saved)) {
+                showTournamentBracket(stage);
+            } else {
+                discardTournamentRun();
+                showTournamentSetup(stage);
+            }
+        });
+        Button fresh = uiFactory.action("NEW TOURNAMENT", 420, 112, 31, "#00897B", 22, () -> {
+            discardTournamentRun();
+            showTournamentSetup(stage);
+        });
+        HBox actions = new HBox(24, resume, fresh);
+        actions.setAlignment(Pos.CENTER);
+
+        VersusRules savedRules = tournamentRuleset(VersusRules.decode(saved.rules, VersusRules.competitive()));
+        int remaining = Math.max(0, saved.entrantCount - 1 - saved.completedMatches);
+        String body = saved.entrantCount + " entrants  •  " + saved.humanCount + " human"
+                + (saved.humanCount == 1 ? "" : "s") + "  •  " + savedRules.name() + "\n"
+                + savedRules.summary() + "\n"
+                + saved.completedMatches + " matches complete  •  " + remaining + " remaining  •  "
+                + (saved.randomMap ? savedRules.randomPoolText() : saved.fixedMap.replace('_', ' '));
+
+        BorderPane root = buildModernMenuPage();
+        root.setTop(buildMenuTopStrip(back, buildMenuTitleBanner("TOURNAMENT", 520, 72, 34),
+                buildMenuChip("RUN SAVED", "#F5A623", "#FFF59D")));
+        root.setCenter(buildModernMenuPanel("#FFD54F", 1180, 22,
+                buildMenuEyebrow("SUSPENDED BRACKET", "#FFD54F"),
+                buildMenuPanelTitle("THE BRACKET IS WAITING", 48),
+                buildMenuPanelBody(body, 1020), actions));
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, back);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        setScenePreservingFullscreen(stage, scene);
+        resume.requestFocus();
     }
 
     private void showTournamentSetup(Stage stage) {
@@ -33462,7 +33722,7 @@ public class BirdGame3 {
         ui.cpuValue.setTextFill(Color.web("#FFCCBC"));
 
         Button entrantsMinus = uiFactory.action("-", 72, 48, 20, "#455A64", 14, () -> {
-            tournamentEntrantCount = Math.max(2, tournamentEntrantCount - 1);
+            tournamentEntrantCount = adjacentTournamentFieldSize(tournamentEntrantCount, -1);
             if (tournamentHumanCount > tournamentEntrantCount) {
                 tournamentHumanCount = tournamentEntrantCount;
             }
@@ -33471,7 +33731,7 @@ public class BirdGame3 {
             }
         });
         Button entrantsPlus = uiFactory.action("+", 72, 48, 20, "#455A64", 14, () -> {
-            tournamentEntrantCount = Math.min(32, tournamentEntrantCount + 1);
+            tournamentEntrantCount = adjacentTournamentFieldSize(tournamentEntrantCount, 1);
             if (ui.refreshAll[0] != null) {
                 ui.refreshAll[0].run();
             }
@@ -33512,13 +33772,13 @@ public class BirdGame3 {
         humansBox.setStyle("-fx-background-color: rgba(255,255,255,0.05); -fx-background-radius: 18; "
                 + "-fx-border-color: rgba(255,255,255,0.12); -fx-border-width: 2; -fx-border-radius: 18;");
 
-        ui.mapModeBtn = uiFactory.action("MAP: RANDOM", 250, 52, 18, "#6D4C41", 14, () -> {
+        ui.mapModeBtn = uiFactory.action("MAP: RANDOM", 210, 52, 17, "#6D4C41", 14, () -> {
             tournamentMapRandom = !tournamentMapRandom;
             if (ui.refreshMapControls[0] != null) {
                 ui.refreshMapControls[0].run();
             }
         });
-        ui.mapSelectBtn = uiFactory.action("MAP: " + mapDisplayName(tournamentFixedMap), 250, 52, 18, "#00897B", 14, () -> {
+        ui.mapSelectBtn = uiFactory.action("MAP: " + mapDisplayName(tournamentFixedMap), 210, 52, 16, "#00897B", 14, () -> {
             if (tournamentMapRandom) {
                 return;
             }
@@ -33536,7 +33796,7 @@ public class BirdGame3 {
         applyNoEllipsis(ui.mapModeBtn);
         applyNoEllipsis(ui.mapSelectBtn);
 
-        Button allRandomBtn = uiFactory.action("ALL RANDOM", 250, 52, 18, "#7B1FA2", 14, () -> {
+        Button allRandomBtn = uiFactory.action("ALL RANDOM", 210, 52, 17, "#7B1FA2", 14, () -> {
             for (TournamentEntry entry : tournamentEntries) {
                 setTournamentEntrySelection(entry, null);
             }
@@ -33549,7 +33809,7 @@ public class BirdGame3 {
         });
         applyNoEllipsis(allRandomBtn);
 
-        Button shuffleBtn = uiFactory.action("SHUFFLE BRACKET", 250, 52, 18, "#00897B", 14, () -> {
+        Button shuffleBtn = uiFactory.action("SHUFFLE BRACKET", 210, 52, 16, "#00897B", 14, () -> {
             shuffleTournamentSeedOrder();
             if (ui.refreshEntries[0] != null) {
                 ui.refreshEntries[0].run();
@@ -33560,8 +33820,12 @@ public class BirdGame3 {
         });
         applyNoEllipsis(shuffleBtn);
 
-        ui.startBtn = uiFactory.action("START TOURNAMENT", 250, 78, 24, "#00C853", 20, () -> beginTournament(stage));
+        ui.startBtn = uiFactory.action("START TOURNAMENT", 240, 64, 21, "#00C853", 18, () -> beginTournament(stage));
         applyNoEllipsis(ui.startBtn);
+
+        Button rulesBtn = uiFactory.action("RULES: " + tournamentRules.name(), 230, 52, 15, "#EF6C00", 14,
+                () -> showTournamentRules(stage));
+        applyNoEllipsis(rulesBtn);
 
         ui.refreshCounts[0] = () -> {
             tournamentEntrantCount = Math.clamp(tournamentEntrantCount, 2, 32);
@@ -33761,41 +34025,111 @@ public class BirdGame3 {
         FlowPane actionRow = new FlowPane(12, 12,
                 ui.mapModeBtn,
                 ui.mapSelectBtn,
+                rulesBtn,
                 shuffleBtn,
                 allRandomBtn,
                 ui.startBtn
         );
         actionRow.setAlignment(Pos.CENTER_LEFT);
-        actionRow.setPrefWrapLength(980);
+        actionRow.setPrefWrapLength(1440);
 
         Region headerSpacer = new Region();
         HBox.setHgrow(headerSpacer, Priority.ALWAYS);
-        VBox counters = new VBox(0, entrantsBox, humansBox);
+        HBox counters = new HBox(8, entrantsBox, humansBox);
         counters.setAlignment(Pos.CENTER_RIGHT);
-        counters.setFillWidth(false);
-        HBox headerRow = new HBox(14, entrantsStripTitle, headerSpacer, actionRow, counters);
+        HBox headerRow = new HBox(14, entrantsStripTitle, headerSpacer, counters);
         headerRow.setAlignment(Pos.CENTER_LEFT);
 
         BorderPane footerBody = new BorderPane();
-        footerBody.setTop(headerRow);
+        VBox footerHeader = new VBox(8, headerRow, actionRow);
+        footerBody.setTop(footerHeader);
         footerBody.setCenter(entrantScroll);
-        BorderPane.setMargin(headerRow, new Insets(0, 0, 10, 0));
-        entrantScroll.setMinHeight(220);
-        entrantScroll.setPrefViewportHeight(230);
+        BorderPane.setMargin(footerHeader, new Insets(0, 0, 8, 0));
+        entrantScroll.setMinHeight(150);
+        entrantScroll.setPrefViewportHeight(155);
 
         StackPane footerPanel = new StackPane(footerBody);
         footerPanel.setPadding(new Insets(10));
-        footerPanel.setMinHeight(300);
-        footerPanel.setPrefHeight(320);
+        footerPanel.setMinHeight(340);
+        footerPanel.setPrefHeight(360);
         footerPanel.setStyle("-fx-background-color: rgba(4,5,8,0.92); -fx-background-radius: 28; "
                 + "-fx-border-color: rgba(255,255,255,0.12); -fx-border-width: 3; -fx-border-radius: 28;");
         return footerPanel;
+    }
+
+    private void showTournamentRules(Stage stage) {
+        playMenuMusic();
+        Button back = uiFactory.action("BACK TO SETUP", 260, 66, 22, "#B5121B", 18,
+                () -> showTournamentSetup(stage));
+        BorderPane root = buildModernMenuPage();
+        root.setTop(buildMenuTopStrip(back, buildMenuTitleBanner("TOURNAMENT RULES", 620, 72, 31),
+                buildMenuChip("SINGLE ELIMINATION", "#EF6C00", "#FFE0B2")));
+
+        List<VersusRules> choices = new ArrayList<>(List.of(
+                VersusRules.standard(), VersusRules.competitive(), VersusRules.chaos()));
+        for (int i = 0; i < VersusRulesLibrary.SLOT_COUNT; i++) choices.add(versusRulesLibrary.slot(i));
+
+        GridPane grid = new GridPane();
+        grid.setAlignment(Pos.TOP_CENTER);
+        grid.setHgap(22);
+        grid.setVgap(22);
+        for (int i = 0; i < choices.size(); i++) {
+            VersusRules candidate = tournamentRuleset(choices.get(i));
+            boolean selected = candidate.encode().equals(tournamentRules.encode());
+            Button choose = uiFactory.action(selected ? "SELECTED" : "USE RULESET", 260, 58, 18,
+                    selected ? "#2E7D32" : "#EF6C00", 15, () -> {
+                        tournamentRules = candidate;
+                        showTournamentSetup(stage);
+                    });
+            choose.setDisable(selected);
+            Label name = new Label(candidate.name());
+            name.setFont(Font.font("Arial Black", 25));
+            name.setTextFill(Color.WHITE);
+            name.setWrapText(true);
+            name.setTextAlignment(TextAlignment.CENTER);
+            name.setAlignment(Pos.CENTER);
+            name.setMaxWidth(390);
+            Label summary = new Label(candidate.detailSummary() + "\nRandom: "
+                    + candidate.randomPoolText() + "  •  excluded stages " + candidate.excludedStageKeys().size());
+            summary.setFont(Font.font("Consolas", FontWeight.BOLD, 15));
+            summary.setTextFill(Color.web("#CFD8DC"));
+            summary.setWrapText(true);
+            summary.setTextAlignment(TextAlignment.CENTER);
+            summary.setAlignment(Pos.CENTER);
+            summary.setMaxWidth(390);
+            VBox card = new VBox(14,
+                    buildMenuEyebrow(i < 3 ? "QUICK PRESET" : "CUSTOM SLOT " + (i - 2),
+                            selected ? "#A5D6A7" : "#FFCC80"), name, summary, choose);
+            card.setAlignment(Pos.CENTER);
+            card.setPadding(new Insets(24));
+            card.setPrefSize(450, 255);
+            card.setStyle("-fx-background-color: linear-gradient(to bottom right, rgba(28,37,51,0.98), rgba(8,12,18,0.99)); "
+                    + "-fx-background-radius: 24; -fx-border-color: " + (selected ? "#81C784" : "rgba(255,255,255,0.18)")
+                    + "; -fx-border-width: " + (selected ? "4" : "2") + "; -fx-border-radius: 24;");
+            grid.add(card, i % 2, i / 2);
+        }
+        ScrollPane scroll = new ScrollPane(grid);
+        scroll.setFitToWidth(true);
+        scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent; -fx-control-inner-background: transparent;");
+        root.setCenter(scroll);
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, back);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        setScenePreservingFullscreen(stage, scene);
+        back.requestFocus();
     }
 
     private void beginTournament(Stage stage) {
         syncTournamentEntries();
         resolveTournamentEntryBirds();
         tournamentModeActive = true;
+        tournamentStartedAtMillis = System.currentTimeMillis();
+        tournamentMatchesCompleted = 0;
+        tournamentMatchesSimulated = 0;
+        tournamentTotalKos = 0;
+        tournamentTotalDamage = 0L;
+        tournamentChampionshipRewardGranted = false;
         tournamentMatchResolved = false;
         currentTournamentMatch = null;
         tournamentSlotA = null;
@@ -33807,6 +34141,7 @@ public class BirdGame3 {
         competitionRoundNumber = 1;
         buildTournamentBracket();
         resolveTournamentByes();
+        checkpointTournamentRun();
         showTournamentBracket(stage);
     }
 
@@ -33832,7 +34167,9 @@ public class BirdGame3 {
         String mapLine = tournamentMapRandom
                 ? "Map Mode: RANDOM"
                 : "Map: " + mapDisplayName(tournamentFixedMap);
-        Label subtitle = new Label(mapLine + "  |  Entrants: " + tournamentEntrantCount + "  |  Locked random picks are shown in-card");
+        Label subtitle = new Label(mapLine + "  |  Entrants: " + tournamentEntrantCount
+                + "  |  " + tournamentRules.name() + "  |  " + tournamentMatchesCompleted + "/"
+                + Math.max(1, tournamentEntrantCount - 1) + " matches complete");
         subtitle.setFont(Font.font("Consolas", 20));
         subtitle.setTextFill(Color.web("#B3E5FC"));
 
@@ -33844,7 +34181,7 @@ public class BirdGame3 {
         header.setAlignment(Pos.CENTER);
         ScrollPane scroll = buildTournamentBracketScrollPane(nextMatch);
 
-        Button primary = uiFactory.action(complete ? "VIEW CHAMPION" : "START NEXT MATCH", 520, 110, 38, "#1565C0", 26, () -> {
+        Button primary = uiFactory.action(complete ? "VICTORY CEREMONY" : "NEXT MATCH", 520, 110, 38, "#1565C0", 26, () -> {
             if (complete) {
                 showTournamentComplete(stage);
             } else {
@@ -33852,11 +34189,11 @@ public class BirdGame3 {
             }
         });
         Button reset = uiFactory.action("RESET TOURNAMENT", 420, 110, 34, "#00897B", 22, () -> {
-            resetTournamentRun();
+            discardTournamentRun();
             showTournamentSetup(stage);
         });
-        Button exit = uiFactory.action("EXIT TO HUB", 420, 110, 34, "#FF1744", 22, () -> {
-            resetTournamentRun();
+        Button exit = uiFactory.action("SUSPEND + EXIT", 420, 110, 31, "#FF1744", 22, () -> {
+            suspendTournamentRun();
             showMenu(stage);
         });
         HBox buttons = new HBox(24, primary, reset, exit);
@@ -34095,12 +34432,119 @@ public class BirdGame3 {
         tournamentSlotB = next.b;
         tournamentMatchResolved = false;
 
-        if (tournamentSlotA != null && tournamentSlotB != null
-                && !tournamentSlotA.human && !tournamentSlotB.human) {
-            showTournamentCpuChoice(stage, next);
-        } else {
-            launchTournamentMatch(stage, next);
+        tournamentPendingStage = pickTournamentStage();
+        showTournamentMatchIntro(stage, next);
+    }
+
+    private void showTournamentMatchIntro(Stage stage, TournamentMatch match) {
+        playMenuMusic();
+        if (match == null || match.a == null || match.b == null) {
+            showTournamentBracket(stage);
+            return;
         }
+        if (tournamentPendingStage == null) tournamentPendingStage = pickTournamentStage();
+        StageChoice matchStage = tournamentPendingStage;
+
+        Button back = uiFactory.action("BACK TO BRACKET", 270, 66, 21, "#B5121B", 17,
+                () -> showTournamentBracket(stage));
+        Button play = uiFactory.action(match.a.human || match.b.human ? "BEGIN MATCH" : "WATCH MATCH",
+                430, 92, 31, "#1565C0", 22, () -> launchTournamentMatch(stage, match));
+        Button simulate = uiFactory.action("SIMULATE", 300, 92, 27, "#8E24AA", 20,
+                () -> simulateTournamentMatch(stage, match));
+        simulate.setVisible(!match.a.human && !match.b.human);
+        simulate.setManaged(!match.a.human && !match.b.human);
+
+        HBox fighters = new HBox(34,
+                buildTournamentIntroEntrant(match.a, "SEED " + tournamentEntrySeedNumber(match.a), "#1565C0"),
+                buildTournamentVersMark(),
+                buildTournamentIntroEntrant(match.b, "SEED " + tournamentEntrySeedNumber(match.b), "#C62828"));
+        fighters.setAlignment(Pos.CENTER);
+
+        Canvas preview = new Canvas(430, 250);
+        StagePreviewRenderer.draw(preview, matchStage);
+        Label stageName = new Label(stageDisplayName(matchStage.map(), matchStage.variant()).toUpperCase(Locale.ROOT));
+        stageName.setFont(Font.font("Arial Black", 21));
+        stageName.setTextFill(Color.WHITE);
+        stageName.setPadding(new Insets(8, 18, 8, 18));
+        stageName.setStyle("-fx-background-color: rgba(0,0,0,0.84); -fx-background-radius: 8;");
+        StackPane previewFrame = new StackPane(preview, stageName);
+        StackPane.setAlignment(stageName, Pos.BOTTOM_CENTER);
+        previewFrame.setStyle("-fx-background-color: #080B11; -fx-border-color: #FFE082; -fx-border-width: 4;");
+
+        Label rules = new Label(tournamentRules.name() + "  •  " + tournamentRules.summary());
+        rules.setFont(Font.font("Consolas", FontWeight.BOLD, 17));
+        rules.setTextFill(Color.web("#CFD8DC"));
+        rules.setWrapText(true);
+        rules.setTextAlignment(TextAlignment.CENTER);
+        rules.setAlignment(Pos.CENTER);
+        rules.setMaxWidth(1100);
+
+        HBox actions = new HBox(20, play, simulate);
+        actions.setAlignment(Pos.CENTER);
+        HBox showcase = new HBox(28, fighters, previewFrame);
+        showcase.setAlignment(Pos.CENTER);
+        VBox center = new VBox(18, showcase, rules, actions);
+        center.setAlignment(Pos.CENTER);
+
+        if (developerInfiniteBirdCoins) {
+            Button advanceA = uiFactory.action("DEV ADVANCE LEFT", 260, 54, 16, "#5E35B1", 13,
+                    () -> developerAdvanceTournament(stage, match, match.a));
+            Button advanceB = uiFactory.action("DEV ADVANCE RIGHT", 260, 54, 16, "#5E35B1", 13,
+                    () -> developerAdvanceTournament(stage, match, match.b));
+            HBox developer = new HBox(12, advanceA, advanceB);
+            developer.setAlignment(Pos.CENTER);
+            center.getChildren().add(developer);
+        }
+
+        BorderPane root = buildModernMenuPage();
+        root.setTop(buildMenuTopStrip(back,
+                buildMenuTitleBanner(tournamentRoundLabel(match.roundIndex), 540, 72, 32),
+                buildMenuChip("MATCH " + (match.matchIndex + 1), "#F5A623", "#FFF59D")));
+        root.setCenter(center);
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, back);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        setScenePreservingFullscreen(stage, scene);
+        play.requestFocus();
+    }
+
+    private VBox buildTournamentIntroEntrant(TournamentEntry entry, String seedText, String accent) {
+        BirdType type = resolveTournamentEntryBird(entry);
+        Canvas portrait = new Canvas(205, 170);
+        drawRosterSprite(portrait, type, tournamentEntrySkinKey(entry, type), type == null);
+        Label seed = buildMenuEyebrow(seedText, "#FFE082");
+        Label name = buildMenuPanelTitle(tournamentEntryLabel(entry), 32);
+        name.setMaxWidth(310);
+        Label bird = new Label(tournamentBracketBirdLabel(type, tournamentEntrySkinKey(entry, type))
+                + "  •  " + (entry.human ? "HUMAN" : "CPU LV " + tournamentEntryCpuLevel(entry)));
+        bird.setFont(Font.font("Consolas", FontWeight.BOLD, 16));
+        bird.setTextFill(Color.web("#CFD8DC"));
+        VBox card = new VBox(8, seed, portrait, name, bird);
+        card.setAlignment(Pos.CENTER);
+        card.setPadding(new Insets(18));
+        card.setPrefSize(340, 310);
+        card.setStyle("-fx-background-color: linear-gradient(to bottom right, " + accent
+                + ", #080B11 72%); -fx-background-radius: 28; -fx-border-color: rgba(255,255,255,0.28); "
+                + "-fx-border-width: 3; -fx-border-radius: 28;");
+        return card;
+    }
+
+    private Label buildTournamentVersMark() {
+        Label versus = new Label("VS");
+        versus.setFont(Font.font("Arial Black", 62));
+        versus.setTextFill(Color.WHITE);
+        versus.setEffect(new DropShadow(18, Color.rgb(0, 0, 0, 0.72)));
+        return versus;
+    }
+
+    private void developerAdvanceTournament(Stage stage, TournamentMatch match, TournamentEntry winner) {
+        advanceTournamentWinner(match, winner, false, true);
+        tournamentMatchResolved = true;
+        currentTournamentMatch = null;
+        tournamentPendingStage = null;
+        checkpointTournamentRun();
+        showTournamentBracket(stage);
     }
 
     private void launchTournamentMatch(Stage stage, TournamentMatch match) {
@@ -34113,9 +34557,15 @@ public class BirdGame3 {
         tournamentMatchResolved = false;
 
         teamModeEnabled = false;
+        competitionModeEnabled = false;
+        mutatorModeEnabled = tournamentRules.mutatorsEnabled();
         Arrays.fill(playerTeams, 1);
         activePlayers = 2;
-        selectedMap = pickTournamentMap();
+        StageChoice stageChoice = tournamentPendingStage == null ? pickTournamentStage() : tournamentPendingStage;
+        tournamentPendingStage = null;
+        selectedMap = stageChoice.map();
+        selectedMapVariant = stageChoice.variant();
+        activateTournamentRules();
 
         BirdType aType = resolveTournamentEntryBird(tournamentSlotA);
         BirdType bType = resolveTournamentEntryBird(tournamentSlotB);
@@ -34170,7 +34620,7 @@ public class BirdGame3 {
         Button watch = uiFactory.action("WATCH MATCH", 520, 120, 42, "#1565C0", 26, () -> launchTournamentMatch(stage, match));
         Button skip = uiFactory.action("SIMULATE", 420, 120, 38, "#8E24AA", 26, () -> simulateTournamentMatch(stage, match));
         Button exit = uiFactory.action("EXIT TO HUB", 240, 64, 22, "#B5121B", 18, () -> {
-            resetTournamentRun();
+            suspendTournamentRun();
             showMenu(stage);
         });
 
@@ -34188,6 +34638,7 @@ public class BirdGame3 {
             return;
         }
         TournamentEntry winner = simulatedTournamentWinner(match);
+        tournamentMatchesSimulated++;
         recordTournamentWinner(match, winner);
         tournamentMatchResolved = true;
         currentTournamentMatch = null;
@@ -34217,7 +34668,7 @@ public class BirdGame3 {
             }
         });
         Button exit = uiFactory.action("EXIT TO HUB", 240, 64, 22, "#B5121B", 18, () -> {
-            resetTournamentRun();
+            suspendTournamentRun();
             showMenu(stage);
         });
         HBox buttons = new HBox(24, next);
@@ -34239,17 +34690,84 @@ public class BirdGame3 {
             }
         }
 
-        Button setup = uiFactory.action("NEW TOURNAMENT", 520, 120, 38, "#1565C0", 26, () -> showTournamentSetup(stage));
-        Button exit = uiFactory.action("EXIT TO HUB", 240, 64, 22, "#B5121B", 18, () -> {
-            resetTournamentRun();
+        TournamentEntry finalChampion = champion;
+        Button bracket = uiFactory.action("VIEW FINAL BRACKET", 360, 82, 24, "#1565C0", 19,
+                () -> showTournamentBracket(stage));
+        Button setup = uiFactory.action("NEW TOURNAMENT", 360, 82, 24, "#00897B", 19, () -> {
+            discardTournamentRun();
+            showTournamentSetup(stage);
+        });
+        Button exit = uiFactory.action("CLAIM + EXIT", 300, 72, 22, "#B5121B", 18, () -> {
+            discardTournamentRun();
             showMenu(stage);
         });
-        HBox buttons = new HBox(24, setup);
-        buttons.setAlignment(Pos.CENTER);
-        String championText = champion != null ? tournamentEntryLabel(champion).toUpperCase(Locale.ROOT) : "NO CHAMPION";
-        showModernTournamentDecision(stage, "TOURNAMENT COMPLETE", "CHAMPION",
-                championText, champion != null ? "The bracket belongs to the new champion." : "The bracket ended without a champion.",
-                "#FFE082", exit, buttons, setup);
+
+        BirdType championBird = finalChampion == null ? null : tournamentAssignedBird(finalChampion);
+        Canvas portrait = new Canvas(430, 360);
+        drawRosterSprite(portrait, championBird,
+                finalChampion == null ? null : tournamentEntrySkinKey(finalChampion, championBird), championBird == null);
+        StackPane portraitFrame = new StackPane(portrait);
+        portraitFrame.setMinSize(500, 400);
+        portraitFrame.setPrefSize(500, 400);
+        portraitFrame.setMaxSize(500, 400);
+        portraitFrame.setStyle("-fx-background-color: radial-gradient(center 50% 45%, radius 65%, #6D5A16, #151006 72%); "
+                + "-fx-background-radius: 250; -fx-border-color: #FFE082; -fx-border-width: 6; -fx-border-radius: 250;");
+        portraitFrame.setEffect(new DropShadow(38, Color.rgb(255, 213, 79, 0.42)));
+
+        String championText = finalChampion != null
+                ? tournamentEntryLabel(finalChampion).toUpperCase(Locale.ROOT) : "NO CHAMPION";
+        Label crown = buildMenuEyebrow("★  TOURNAMENT CHAMPION  ★", "#FFE082");
+        Label name = buildMenuPanelTitle(championText, 56);
+        Label bird = new Label(championBird == null ? "" : championBird.name.toUpperCase(Locale.ROOT)
+                + (finalChampion == null ? "" : "  •  SEED " + tournamentEntrySeedNumber(finalChampion)));
+        bird.setFont(Font.font("Arial Black", 22));
+        bird.setTextFill(Color.web("#FFF59D"));
+
+        long elapsedSeconds = tournamentStartedAtMillis <= 0L ? 0L
+                : Math.max(0L, (System.currentTimeMillis() - tournamentStartedAtMillis) / 1000L);
+        String elapsed = String.format(Locale.ROOT, "%d:%02d", elapsedSeconds / 60L, elapsedSeconds % 60L);
+        Label stats = new Label("MATCHES " + tournamentMatchesCompleted
+                + "   •   SIMULATED " + tournamentMatchesSimulated
+                + "   •   KOs " + tournamentTotalKos
+                + "   •   DAMAGE " + tournamentTotalDamage
+                + "   •   TIME " + elapsed);
+        stats.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
+        stats.setTextFill(Color.web("#CFD8DC"));
+        stats.setWrapText(true);
+        stats.setTextAlignment(TextAlignment.CENTER);
+        stats.setAlignment(Pos.CENTER);
+        stats.setMaxWidth(880);
+
+        String rewardText = finalChampion != null && finalChampion.human
+                ? "CHAMPIONSHIP REWARD  +" + tournamentChampionshipReward() + " BIRD COINS"
+                : "CPU CHAMPION  •  NO PLAYER REWARD";
+        Label reward = new Label(rewardText);
+        reward.setFont(Font.font("Arial Black", 20));
+        reward.setTextFill(finalChampion != null && finalChampion.human
+                ? Color.web("#FFE082") : Color.web("#B0BEC5"));
+        Label replay = new Label("Every watched battle remains available in Match History → Replays.");
+        replay.setFont(Font.font("Consolas", FontWeight.BOLD, 15));
+        replay.setTextFill(Color.web("#90CAF9"));
+
+        HBox actions = new HBox(18, bracket, setup);
+        actions.setAlignment(Pos.CENTER);
+        VBox details = new VBox(10, crown, name, bird, stats, reward, replay, actions);
+        details.setAlignment(Pos.CENTER);
+        details.setPadding(new Insets(24));
+        details.setMaxWidth(980);
+        HBox ceremony = new HBox(46, portraitFrame, details);
+        ceremony.setAlignment(Pos.CENTER);
+
+        BorderPane root = buildModernMenuPage();
+        root.setTop(buildMenuTopStrip(exit, buildMenuTitleBanner("VICTORY CEREMONY", 610, 72, 31),
+                buildMenuChip(tournamentEntrantCount + " PLAYER BRACKET", "#F5A623", "#FFF59D")));
+        root.setCenter(ceremony);
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, exit);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        setScenePreservingFullscreen(stage, scene);
+        bracket.requestFocus();
     }
 
     private void showLanMenu(Stage stage) {
@@ -64480,7 +64998,7 @@ public class BirdGame3 {
 
     boolean appliesVersusRules() {
         return !trainingModeActive && !campaignModeActive && !storyModeActive
-                && !adventureModeActive && !classicModeActive && !tournamentModeActive;
+                && !adventureModeActive && !classicModeActive;
     }
 
     VersusRules activeVersusRules() {
@@ -73815,7 +74333,7 @@ public class BirdGame3 {
             Button exit = button("EXIT TO HUB", "#9C27B0");
             exit.setOnAction(e -> {
                 resetMatchStats();
-                resetTournamentRun();
+                suspendTournamentRun();
                 showMenu(stage);
             });
             buttons.getChildren().addAll(bracket, exit);
@@ -74142,6 +74660,7 @@ public class BirdGame3 {
     private void loadProfileProgress(Preferences prefs) {
         birdCoinLedger.load(prefs);
         applyProfileProgressState(BirdGame3ProfileProgressState.load(prefs, profileProgressSchema()));
+        suspendedTournamentRun = TournamentRunState.loadFrom(prefs);
     }
 
     void requestProgressSave() {
@@ -74211,6 +74730,9 @@ public class BirdGame3 {
     private void saveProfileProgress(Preferences prefs) {
         birdCoinLedger.save(prefs);
         captureProfileProgressState().saveTo(prefs, profileProgressSchema());
+        TournamentRunState run = tournamentModeActive && !tournamentRounds.isEmpty()
+                ? captureTournamentRunState() : suspendedTournamentRun;
+        TournamentRunState.saveTo(prefs, run);
     }
 
     private BirdGame3ProfileProgressState.Schema profileProgressSchema() {

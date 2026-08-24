@@ -8,7 +8,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BirdGame3TournamentTest {
     @Test
@@ -129,6 +131,81 @@ class BirdGame3TournamentTest {
         entry.cpuLevel = 9;
         game.cycleTournamentEntryCpuLevel(entry);
         assertEquals(1, game.tournamentEntryCpuLevel(entry));
+    }
+
+    @Test
+    void setupFieldSizesCycleOnlyThroughFourEightAndSixteen() {
+        assertEquals(4, BirdGame3.adjacentTournamentFieldSize(4, -1));
+        assertEquals(8, BirdGame3.adjacentTournamentFieldSize(4, 1));
+        assertEquals(4, BirdGame3.adjacentTournamentFieldSize(8, -1));
+        assertEquals(16, BirdGame3.adjacentTournamentFieldSize(8, 1));
+        assertEquals(8, BirdGame3.adjacentTournamentFieldSize(16, -1));
+        assertEquals(16, BirdGame3.adjacentTournamentFieldSize(16, 1));
+    }
+
+    @Test
+    void tournamentRunRestoresSeedsResolvedBirdsAndAdvancement() throws Exception {
+        BirdGame3 source = new BirdGame3();
+        setPrivateField(source, "tournamentEntrantCount", 4);
+        setPrivateField(source, "tournamentHumanCount", 1);
+        invoke(source, "ensureTournamentEntries");
+        invoke(source, "syncTournamentEntries");
+
+        @SuppressWarnings("unchecked")
+        List<BirdGame3.TournamentEntry> entries =
+                (List<BirdGame3.TournamentEntry>) getPrivateField(source, "tournamentEntries");
+        entries.get(0).customName = "Local Champion";
+        source.setTournamentEntrySelection(entries.get(0), BirdGame3.BirdType.PIGEON);
+        source.setTournamentEntrySelection(entries.get(1), BirdGame3.BirdType.EAGLE);
+        source.setTournamentEntrySelection(entries.get(2), BirdGame3.BirdType.FALCON);
+        source.setTournamentEntrySelection(entries.get(3), BirdGame3.BirdType.RAVEN);
+        invoke(source, "resolveTournamentEntryBirds");
+        setPrivateField(source, "tournamentModeActive", true);
+        setPrivateField(source, "tournamentStartedAtMillis", 123456L);
+        invoke(source, "buildTournamentBracket");
+
+        @SuppressWarnings("unchecked")
+        List<List<BirdGame3.TournamentMatch>> sourceRounds =
+                (List<List<BirdGame3.TournamentMatch>>) getPrivateField(source, "tournamentRounds");
+        source.recordTournamentWinner(sourceRounds.getFirst().get(0), sourceRounds.getFirst().get(0).a);
+        source.recordTournamentWinner(sourceRounds.getFirst().get(1), sourceRounds.getFirst().get(1).b);
+
+        Method capture = BirdGame3.class.getDeclaredMethod("captureTournamentRunState");
+        capture.setAccessible(true);
+        TournamentRunState state = (TournamentRunState) capture.invoke(source);
+
+        BirdGame3 restored = new BirdGame3();
+        Method restore = BirdGame3.class.getDeclaredMethod("restoreTournamentRunState", TournamentRunState.class);
+        restore.setAccessible(true);
+        assertTrue((boolean) restore.invoke(restored, state));
+
+        @SuppressWarnings("unchecked")
+        List<List<BirdGame3.TournamentMatch>> restoredRounds =
+                (List<List<BirdGame3.TournamentMatch>>) getPrivateField(restored, "tournamentRounds");
+        assertEquals(1, restoredRounds.getFirst().get(0).winner.id);
+        assertEquals(3, restoredRounds.getFirst().get(1).winner.id);
+        assertEquals(1, restoredRounds.get(1).getFirst().a.id);
+        assertEquals(3, restoredRounds.get(1).getFirst().b.id);
+        assertEquals("Local Champion", restored.tournamentEntries().getFirst().customName);
+        assertEquals(BirdGame3.BirdType.PIGEON, restored.tournamentEntries().getFirst().resolvedType);
+        assertFalse(restored.isTournamentComplete());
+    }
+
+    @Test
+    void tournamentMatchesUseTheirSelectedSmashRules() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        setPrivateField(game, "tournamentModeActive", true);
+        VersusRules rules = VersusRules.chaos().withStockCount(5).withSeriesWins(4);
+        setPrivateField(game, "tournamentRules", rules.withSeriesWins(1));
+        Field flowField = BirdGame3.class.getDeclaredField("frontEndMatchFlow");
+        flowField.setAccessible(true);
+        FrontEndMatchFlow flow = (FrontEndMatchFlow) flowField.get(game);
+        flow.selectCustomRules(rules.withSeriesWins(1));
+
+        assertTrue(game.appliesVersusRules());
+        assertEquals(5, game.smashStartingStocks());
+        assertEquals(1, game.versusSeriesWinsRequired());
+        assertTrue(game.versusStageHazardsEnabled());
     }
 
     private static void invoke(BirdGame3 game, String methodName) throws Exception {
