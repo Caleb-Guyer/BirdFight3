@@ -27,6 +27,21 @@ class VaultUiModernizationTest {
     }
 
     @Test
+    void vaultLandingShowsDestinationsWhileFighterRecordsOwnTheirGrid() throws IOException {
+        String source = Files.readString(GAME_SOURCE);
+        String vault = methodBody(source, "showVault");
+        String records = methodBody(source, "showVaultFighterRecords");
+
+        assertTrue(vault.contains("FIGHTER RECORDS"));
+        assertTrue(vault.contains("libraryGrid.add(destinations[i], i % 3, i / 3)"));
+        assertFalse(vault.contains("buildVaultFighterCard(stage, progress)"));
+        assertFalse(vault.contains("buildVaultSummaryChip"));
+        assertTrue(records.contains("buildVaultFighterCard(stage, progress)"));
+        assertTrue(records.contains("buildAdaptivePromptBar("));
+        assertTrue(records.contains("bindEscape(scene, back)"));
+    }
+
+    @Test
     void achievementsAndFeatherpediaDoNotDuplicateHeaderInformation() throws IOException {
         String source = Files.readString(GAME_SOURCE);
         String achievements = methodBodyAt(source,
