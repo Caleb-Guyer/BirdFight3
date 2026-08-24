@@ -29,8 +29,9 @@ interface NetworkSessionHost {
 
     int companionViewerCount();
 
-    void broadcastLobby(MapType map, MapVariant variant, boolean mapRandom, boolean[] connected, BirdType[] birds,
-                        boolean[] randomBirds, String[] skinKeys, boolean[] ready);
+    void broadcastLobby(MapType map, MapVariant variant, boolean mapRandom, VersusRules rules,
+                        boolean[] connected, BirdType[] birds, boolean[] randomBirds,
+                        String[] skinKeys, boolean[] ready);
 
     void broadcastStart(MapType map, MapVariant variant, long seed, int inputDelayTicks, NetworkSimulationConfig simulationConfig,
                         boolean[] connected, BirdType[] birds, String[] skinKeys);

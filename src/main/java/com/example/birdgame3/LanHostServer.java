@@ -109,11 +109,14 @@ class LanHostServer implements NetworkSessionHost {
     }
 
     @Override
-    public void broadcastLobby(MapType map, MapVariant variant, boolean mapRandom, boolean[] connected, BirdType[] birds, boolean[] randomBirds, String[] skinKeys, boolean[] ready) {
+    public void broadcastLobby(MapType map, MapVariant variant, boolean mapRandom, VersusRules rules,
+                               boolean[] connected, BirdType[] birds, boolean[] randomBirds,
+                               String[] skinKeys, boolean[] ready) {
         try {
             byte[] msg = LanProtocol.buildMessage(LanProtocol.MSG_LOBBY, out -> {
                 out.writeInt(mapRandom ? LanProtocol.MAP_RANDOM : map.ordinal());
                 out.writeInt((variant == null ? MapVariant.STANDARD : variant).ordinal());
+                out.writeUTF((rules == null ? VersusRules.standard() : rules).encode());
                 for (int i = 0; i < 4; i++) {
                     out.writeBoolean(connected[i]);
                     out.writeBoolean(ready != null && ready[i]);

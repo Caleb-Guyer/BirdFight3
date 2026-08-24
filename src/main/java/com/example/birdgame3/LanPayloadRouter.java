@@ -103,6 +103,7 @@ final class LanPayloadRouter {
                 boolean mapRandom = mapOrd == LanProtocol.MAP_RANDOM;
                 MapType map = readMapByOrdinal(mapOrd);
                 MapVariant variant = readMapVariantByOrdinal(msgIn.readInt());
+                VersusRules rules = VersusRules.decode(msgIn.readUTF(), VersusRules.standard());
                 boolean[] connected = new boolean[4];
                 boolean[] ready = new boolean[4];
                 BirdType[] birds = new BirdType[4];
@@ -120,7 +121,8 @@ final class LanPayloadRouter {
                     String skinKey = msgIn.readUTF();
                     skinKeys[i] = skinKey.isBlank() ? null : skinKey;
                 }
-                game.onLanLobbyUpdate(map, variant, mapRandom, connected, birds, randomBirds, skinKeys, ready);
+                game.onLanLobbyUpdate(map, variant, mapRandom, rules,
+                        connected, birds, randomBirds, skinKeys, ready);
             }
             case LanProtocol.MSG_START -> {
                 int mapOrd = msgIn.readInt();

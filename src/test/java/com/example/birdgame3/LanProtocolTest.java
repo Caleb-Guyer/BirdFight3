@@ -16,6 +16,42 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class LanProtocolTest {
     @Test
+    void lobbyMessageCarriesHostRulesBeforePlayersCanReady() throws IOException {
+        VersusRules expected = VersusRules.competitive()
+                .withName("ONLINE SET")
+                .withStockCount(4)
+                .withStageHazardsEnabled(true)
+                .withDamageRatePercent(120);
+        final VersusRules[] receivedRules = {null};
+        final boolean[][] receivedReady = {null};
+        BirdGame3 game = new BirdGame3() {
+            @Override
+            void onLanLobbyUpdate(MapType map, MapVariant variant, boolean mapRandom, VersusRules rules,
+                                  boolean[] connected, BirdType[] birds, boolean[] randomBirds,
+                                  String[] skinKeys, boolean[] ready) {
+                receivedRules[0] = rules;
+                receivedReady[0] = ready;
+            }
+        };
+        byte[] payload = LanProtocol.buildMessage(LanProtocol.MSG_LOBBY, out -> {
+            out.writeInt(MapType.BATTLEFIELD.ordinal());
+            out.writeInt(MapVariant.STANDARD.ordinal());
+            out.writeUTF(expected.encode());
+            for (int i = 0; i < 4; i++) {
+                out.writeBoolean(i < 2);
+                out.writeBoolean(false);
+                out.writeInt(i == 0 ? BirdType.PIGEON.ordinal() : BirdType.EAGLE.ordinal());
+                out.writeUTF("");
+            }
+        });
+
+        LanPayloadRouter.handleServerPayload(game, payload);
+
+        assertEquals(expected, receivedRules[0]);
+        assertArrayEquals(new boolean[]{false, false, false, false}, receivedReady[0]);
+    }
+
+    @Test
     void startMessageCarriesNegotiatedInternetInputDelay() throws IOException {
         final int[] receivedDelay = {-1};
         final MapVariant[] receivedVariant = {MapVariant.STANDARD};

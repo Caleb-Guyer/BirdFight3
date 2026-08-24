@@ -21,7 +21,8 @@ class VersusFrontEndIntegrationTest {
         assertTrue(source.contains("frontEndMatchFlow.confirmRules();"));
         assertTrue(source.contains("frontEndMatchFlow.confirmFighters(true);"));
         assertTrue(source.contains("showVersusLoading(stage, choice, standardFightRandomMapPool);"));
-        assertTrue(source.contains("showRandomStagePoolEditor(stage);"));
+        assertTrue(source.contains("showRandomStagePoolEditor(stage, networkLobby);"),
+                "the shared rules editor should preserve the local or network return path");
         assertTrue(source.contains("CONFIRM BATTLE"));
         assertTrue(source.contains("START BATTLE"));
     }

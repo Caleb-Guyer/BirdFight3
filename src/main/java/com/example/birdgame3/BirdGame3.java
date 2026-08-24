@@ -474,6 +474,9 @@ public class BirdGame3 {
     private Button lanSelectBirdButton;
     private Button lanSelectMapButton;
     private Button lanReadyButton;
+    private Button lanEditRulesButton;
+    private Label lanRulesNameLabel;
+    private Label lanRulesSummaryLabel;
     private Button lanCompanionFeedButton;
     private Label lanCompanionFeedLabel;
     private Timeline lanCountdownTimeline;
@@ -487,6 +490,8 @@ public class BirdGame3 {
     private int lanVoteSignature = 0;
     private long lastLanCompanionSnapshotNs = 0L;
     private int lanLastWinnerIndex = -1;
+    private VersusRulesPreset preNetworkVersusPreset;
+    private VersusRules preNetworkVersusRules;
 
     // === LONG-TERM BALANCE TELEMETRY ===
     private static final boolean ADAPTIVE_BALANCE_ENABLED = false;
@@ -25411,6 +25416,18 @@ public class BirdGame3 {
 
     private void showVersusRules(Stage stage) {
         frontEndMatchFlow.beginVersus();
+        showVersusRulesEditor(stage, false);
+    }
+
+    private void showLanRulesEditor(Stage stage) {
+        if (!lanModeActive || !lanIsHost || stage == null) {
+            if (stage != null) showLanLobby(stage);
+            return;
+        }
+        showVersusRulesEditor(stage, true);
+    }
+
+    private void showVersusRulesEditor(Stage stage, boolean networkLobby) {
         playMenuMusic();
 
         StackPane root = new StackPane();
@@ -25422,7 +25439,7 @@ public class BirdGame3 {
         lockRegionSize(frame, 1600, 950);
         frame.setStyle("-fx-background-color: linear-gradient(to bottom, #080B11 0%, #151B26 100%);");
 
-        Label progress = new Label(frontEndMatchFlow.progressLabel());
+        Label progress = new Label(networkLobby ? "NETWORK LOBBY  ›  HOST RULES" : frontEndMatchFlow.progressLabel());
         progress.setFont(Font.font("Consolas", FontWeight.BOLD, 21));
         progress.setTextFill(Color.web("#FFE082"));
         applyNoEllipsis(progress);
@@ -25430,7 +25447,9 @@ public class BirdGame3 {
         heading.setFont(Font.font("Arial Black", 52));
         heading.setTextFill(Color.WHITE);
         applyNoEllipsis(heading);
-        Label subtitle = new Label("Choose a preset or tune every part of the battle. Custom rules save automatically.");
+        Label subtitle = new Label(networkLobby
+                ? "Everyone in the lobby sees these rules. Any change clears every ready state."
+                : "Choose a preset or tune every part of the battle. Custom rules save automatically.");
         subtitle.setFont(Font.font("Consolas", 20));
         subtitle.setTextFill(Color.web("#B0BEC5"));
         applyNoEllipsis(subtitle);
@@ -25452,6 +25471,7 @@ public class BirdGame3 {
             working[0] = resolved;
             frontEndMatchFlow.selectCustomRules(resolved);
             saveAchievements();
+            if (networkLobby) syncLanHostRulesChange();
             if (refreshAll[0] != null) refreshAll[0].run();
         };
 
@@ -25463,6 +25483,7 @@ public class BirdGame3 {
             Button button = uiFactory.action(preset.title, 260, 54, 16, preset.accent, 14, () -> {
                 frontEndMatchFlow.selectRulesPreset(preset);
                 working[0] = preset.rules;
+                if (networkLobby) syncLanHostRulesChange();
                 if (refreshAll[0] != null) refreshAll[0].run();
             });
             quickPresets.add(button);
@@ -25479,6 +25500,7 @@ public class BirdGame3 {
                 working[0] = versusRulesLibrary.selected();
                 frontEndMatchFlow.selectCustomRules(working[0]);
                 saveAchievements();
+                if (networkLobby) syncLanHostRulesChange();
                 if (refreshAll[0] != null) refreshAll[0].run();
             });
             slotButtons.add(slotButton);
@@ -25546,7 +25568,7 @@ public class BirdGame3 {
         Button randomPoolButton = uiFactory.action("RANDOM POOL", 250, 58, 16, "#00695C", 14,
                 () -> {
                     if (frontEndMatchFlow.rulesPreset() != VersusRulesPreset.CUSTOM) saveCustom.accept(working[0]);
-                    showRandomStagePoolEditor(stage);
+                    showRandomStagePoolEditor(stage, networkLobby);
                 });
         HBox current = new HBox(20, new VBox(3, currentName, currentSummary), randomPoolButton);
         HBox.setHgrow(current.getChildren().getFirst(), Priority.ALWAYS);
@@ -25573,16 +25595,27 @@ public class BirdGame3 {
         center.setPadding(new Insets(20, 48, 18, 48));
         frame.setCenter(center);
 
-        Button backButton = uiFactory.action("BACK", 280, 82, 28, "#8B1E24", 20, () -> {
-            frontEndMatchFlow.back();
-            showMenu(stage);
+        Button backButton = uiFactory.action(networkLobby ? "BACK TO LOBBY" : "BACK",
+                280, 82, 28, "#8B1E24", 20, () -> {
+            if (networkLobby) {
+                showLanLobby(stage);
+            } else {
+                frontEndMatchFlow.back();
+                showMenu(stage);
+            }
         });
-        Button continueButton = uiFactory.action("CHOOSE FIGHTERS", 430, 82, 28, "#00A84F", 20, () -> {
+        Button continueButton = uiFactory.action(networkLobby ? "APPLY & RETURN" : "CHOOSE FIGHTERS",
+                430, 82, 28, "#00A84F", 20, () -> {
             applyVersusRulesPreset();
             for (int i = 1; i < MAX_COMBATANTS; i++) cpuLevels[i] = frontEndMatchFlow.rules().defaultCpuLevel();
             saveAchievements();
-            frontEndMatchFlow.confirmRules();
-            showFightSetup(stage);
+            if (networkLobby) {
+                syncLanHostRulesChange();
+                showLanLobby(stage);
+            } else {
+                frontEndMatchFlow.confirmRules();
+                showFightSetup(stage);
+            }
         });
         Region footerSpacer = new Region();
         HBox.setHgrow(footerSpacer, Priority.ALWAYS);
@@ -25633,7 +25666,7 @@ public class BirdGame3 {
         return enabled ? "ON" : "OFF";
     }
 
-    private void showRandomStagePoolEditor(Stage stage) {
+    private void showRandomStagePoolEditor(Stage stage, boolean networkLobby) {
         VersusRules rules = frontEndMatchFlow.rules();
         Set<String> excluded = new LinkedHashSet<>(rules.excludedStageKeys());
         BorderPane frame = new BorderPane();
@@ -25704,14 +25737,16 @@ public class BirdGame3 {
             VersusRules updated = frontEndMatchFlow.rules().withRandomStagePool(next);
             versusRulesLibrary.setSlot(versusRulesLibrary.selectedSlot(), updated);
             frontEndMatchFlow.selectCustomRules(updated);
-            showRandomStagePoolEditor(stage);
+            if (networkLobby) syncLanHostRulesChange();
+            showRandomStagePoolEditor(stage, networkLobby);
         });
         Button done = uiFactory.action("DONE", 330, 70, 22, "#00A84F", 18, () -> {
             VersusRules updated = frontEndMatchFlow.rules().withExcludedStageKeys(excluded);
             versusRulesLibrary.setSlot(versusRulesLibrary.selectedSlot(), updated);
             frontEndMatchFlow.selectCustomRules(updated);
             saveAchievements();
-            showVersusRules(stage);
+            if (networkLobby) syncLanHostRulesChange();
+            showVersusRulesEditor(stage, networkLobby);
         });
         HBox footer = new HBox(20, all, pool, done);
         footer.setAlignment(Pos.CENTER_RIGHT);
@@ -34611,7 +34646,7 @@ public class BirdGame3 {
         VBox mapBox = new VBox(10, buildMenuEyebrow("STAGE", "#80DEEA"), lanMapVoteLabel, lanSelectMapButton);
         mapBox.setAlignment(Pos.CENTER);
         mapBox.setPadding(new Insets(14, 20, 16, 20));
-        mapBox.setPrefWidth(430);
+        mapBox.setPrefWidth(400);
         mapBox.setStyle(MenuTheme.insetPanelStyle("#80DEEA", 18));
 
         lanYourBirdLabel = new Label();
@@ -34622,10 +34657,34 @@ public class BirdGame3 {
         VBox birdBox = new VBox(10, buildMenuEyebrow("FIGHTER", "#FFE082"), lanYourBirdLabel, lanSelectBirdButton);
         birdBox.setAlignment(Pos.CENTER);
         birdBox.setPadding(new Insets(14, 20, 16, 20));
-        birdBox.setPrefWidth(430);
+        birdBox.setPrefWidth(400);
         birdBox.setStyle(MenuTheme.insetPanelStyle("#FFE082", 18));
 
-        HBox controls = new HBox(18, mapBox, birdBox);
+        lanRulesNameLabel = new Label();
+        lanRulesNameLabel.setFont(Font.font("Arial Black", 21));
+        lanRulesNameLabel.setTextFill(Color.web("#E1BEE7"));
+        lanRulesNameLabel.setAlignment(Pos.CENTER);
+        lanRulesNameLabel.setMaxWidth(370);
+        applyNoEllipsis(lanRulesNameLabel);
+        lanRulesSummaryLabel = new Label();
+        lanRulesSummaryLabel.setFont(Font.font("Consolas", FontWeight.BOLD, 14));
+        lanRulesSummaryLabel.setTextFill(Color.web("#D1C4E9"));
+        lanRulesSummaryLabel.setWrapText(true);
+        lanRulesSummaryLabel.setTextAlignment(TextAlignment.CENTER);
+        lanRulesSummaryLabel.setAlignment(Pos.CENTER);
+        lanRulesSummaryLabel.setMaxWidth(370);
+        lanEditRulesButton = uiFactory.action(lanIsHost ? "EDIT RULES" : "HOST CONTROLLED",
+                240, 58, 20, "#6A1B9A", 16,
+                () -> showLanRulesEditor(stage));
+        lanEditRulesButton.setDisable(!lanIsHost);
+        VBox rulesBox = new VBox(7, buildMenuEyebrow("RULES", "#CE93D8"), lanRulesNameLabel,
+                lanRulesSummaryLabel, lanEditRulesButton);
+        rulesBox.setAlignment(Pos.CENTER);
+        rulesBox.setPadding(new Insets(12, 18, 14, 18));
+        rulesBox.setPrefWidth(400);
+        rulesBox.setStyle(MenuTheme.insetPanelStyle("#CE93D8", 18));
+
+        HBox controls = new HBox(16, mapBox, birdBox, rulesBox);
         controls.setAlignment(Pos.CENTER);
 
         lanStartButton = null;
@@ -34754,6 +34813,8 @@ public class BirdGame3 {
 
     private void prepareNetworkSessionState(boolean hostSession, NetworkSessionMode mode, int port) {
         stopLanSession();
+        preNetworkVersusPreset = frontEndMatchFlow.rulesPreset();
+        preNetworkVersusRules = frontEndMatchFlow.rules();
         lanModeActive = true;
         lanIsHost = hostSession;
         lanIsClient = !hostSession;
@@ -34869,8 +34930,8 @@ public class BirdGame3 {
             }
         }
         boolean canSelect = lanPlayerIndex >= 0;
-        if (lanSelectMapButton != null) lanSelectMapButton.setDisable(!canSelect);
-        if (lanSelectBirdButton != null) lanSelectBirdButton.setDisable(!canSelect);
+        if (lanSelectMapButton != null) lanSelectMapButton.setDisable(!canSelect || lanCountdownTimeline != null);
+        if (lanSelectBirdButton != null) lanSelectBirdButton.setDisable(!canSelect || lanCountdownTimeline != null);
         if (lanReadyButton != null) {
             lanReadyButton.setDisable(!canSelect);
             boolean ready = canSelect && lanReady[lanPlayerIndex];
@@ -34879,8 +34940,22 @@ public class BirdGame3 {
                     ? MenuTheme.buttonStyle("#00C853", 18)
                     : MenuTheme.buttonStyle("#546E7A", 18));
         }
+        VersusRules visibleRules = frontEndMatchFlow.rules();
+        if (lanRulesNameLabel != null) {
+            lanRulesNameLabel.setText(visibleRules.name());
+        }
+        if (lanRulesSummaryLabel != null) {
+            lanRulesSummaryLabel.setText(visibleRules.summary() + "\n"
+                    + (visibleRules.seriesWins() == 1 ? "SINGLE MATCH" : "FIRST TO " + visibleRules.seriesWins())
+                    + "  •  " + visibleRules.randomPoolText());
+        }
+        if (lanEditRulesButton != null) {
+            lanEditRulesButton.setDisable(!lanIsHost || lanCountdownTimeline != null);
+        }
         if (lanStartButton != null) {
-            lanStartButton.setDisable(connectedCount < 2 || lanCountdownTimeline != null);
+            boolean allReady = allConnectedLanPlayersReady();
+            lanStartButton.setDisable(connectedCount < 2 || !allReady || lanCountdownTimeline != null);
+            lanStartButton.setText(allReady ? "START MATCH" : "WAITING FOR READY");
         }
         refreshLanCompanionFeedUI();
         if (lanPortraits != null) {
@@ -34950,6 +35025,9 @@ public class BirdGame3 {
     private void toggleLanReady() {
         if (lanPlayerIndex < 0) return;
         lanReady[lanPlayerIndex] = !lanReady[lanPlayerIndex];
+        if (lanIsHost && !lanReady[lanPlayerIndex]) {
+            cancelLanCountdownAndNotifyClients();
+        }
         if (lanIsHost) {
             broadcastLanLobby();
         } else if (lanClient != null) {
@@ -34962,6 +35040,7 @@ public class BirdGame3 {
         if (!lanIsHost) return;
         if (lanCountdownTimeline != null) return;
         if (countLanConnected() < 2) return;
+        if (!allConnectedLanPlayersReady()) return;
         lanCountdownValue = 5;
         updateLanCountdownLabel();
         if (lanHost != null) {
@@ -34996,6 +35075,14 @@ public class BirdGame3 {
         updateLanCountdownLabel();
     }
 
+    private void cancelLanCountdownAndNotifyClients() {
+        boolean wasCountingDown = lanCountdownTimeline != null || lanCountdownValue > 0;
+        stopLanCountdown();
+        if (wasCountingDown && lanIsHost && lanHost != null) {
+            lanHost.broadcastCountdown(0);
+        }
+    }
+
     private void updateLanCountdownLabel() {
         if (lanCountdownLabel == null) return;
         if (lanCountdownValue > 0) {
@@ -35008,8 +35095,10 @@ public class BirdGame3 {
     private void openLanMapSelect(Stage stage) {
         if (stage == null) return;
         if (lanPlayerIndex < 0) return;
+        if (lanCountdownTimeline != null) return;
         stageSelectReturn = () -> showLanLobby(stage);
         stageSelectHandler = choice -> {
+            lanReady[lanPlayerIndex] = false;
             lanMapVotes[lanPlayerIndex] = choice.map();
             lanMapVariantVotes[lanPlayerIndex] = choice.variant();
             lanMapVoteRandomPools[lanPlayerIndex] = StageRandomPool.NONE;
@@ -35022,6 +35111,7 @@ public class BirdGame3 {
             showLanLobby(stage);
         };
         stageSelectRandomHandler = randomPool -> {
+            lanReady[lanPlayerIndex] = false;
             lanMapVotes[lanPlayerIndex] = null;
             lanMapVariantVotes[lanPlayerIndex] = MapVariant.STANDARD;
             lanMapVoteRandomPools[lanPlayerIndex] = randomPool;
@@ -35038,6 +35128,7 @@ public class BirdGame3 {
 
     private void sendLanSelectionUpdate() {
         if (lanPlayerIndex < 0) return;
+        lanReady[lanPlayerIndex] = false;
         if (lanIsHost) {
             broadcastLanLobby();
         } else if (lanClient != null) {
@@ -35047,6 +35138,10 @@ public class BirdGame3 {
 
     private void showLanBirdSelect(Stage stage) {
         if (stage == null) return;
+        if (lanCountdownTimeline != null) {
+            showLanLobby(stage);
+            return;
+        }
         if (lanPlayerIndex < 0) {
             showLanLobby(stage);
             return;
@@ -35407,6 +35502,24 @@ public class BirdGame3 {
         return count;
     }
 
+    private boolean allConnectedLanPlayersReady() {
+        return NetworkLobbyReadiness.allConnectedPlayersReady(lanSlotConnected, lanReady, 2);
+    }
+
+    private void invalidateLanReadinessForConfigurationChange() {
+        NetworkLobbyReadiness.invalidate(lanReady);
+        cancelLanCountdownAndNotifyClients();
+    }
+
+    private void syncLanHostRulesChange() {
+        if (!lanModeActive || !lanIsHost) return;
+        preNetworkVersusPreset = frontEndMatchFlow.rulesPreset();
+        preNetworkVersusRules = frontEndMatchFlow.rules();
+        invalidateLanReadinessForConfigurationChange();
+        broadcastLanLobby();
+        refreshLanLobbyUI();
+    }
+
     String mapDisplayName(MapType map) {
         if (bossRushModeActive && classicEncounter != null && classicEncounter.map == map) {
             String bossRushName = bossRushArenaName(classicEncounter);
@@ -35545,7 +35658,7 @@ public class BirdGame3 {
         if (lanHost != null) {
             MapType mapToSend = lanSelectedMap != null ? lanSelectedMap : MapType.FOREST;
             boolean mapRandom = lanSelectedMap == null || lanSelectedMapRandom;
-            lanHost.broadcastLobby(mapToSend, lanSelectedMapVariant, mapRandom,
+            lanHost.broadcastLobby(mapToSend, lanSelectedMapVariant, mapRandom, frontEndMatchFlow.rules(),
                     lanSlotConnected, lanSelectedBirds, lanRandomBirds, lanSelectedSkinKeys, lanReady);
         }
         publishLanCompanionSnapshot();
@@ -35556,6 +35669,7 @@ public class BirdGame3 {
             if (!lanModeActive || !lanIsHost) return;
             if (slot < 0 || slot >= LAN_MAX_PLAYERS) return;
             lanSlotConnected[slot] = true;
+            cancelLanCountdownAndNotifyClients();
             lanRandomBirds[slot] = false;
             lanSelectedSkinKeys[slot] = null;
             lanReady[slot] = false;
@@ -35591,6 +35705,7 @@ public class BirdGame3 {
                 }
             }
             lanSlotConnected[slot] = false;
+            cancelLanCountdownAndNotifyClients();
             lanSelectedBirds[slot] = null;
             lanRandomBirds[slot] = false;
             lanSelectedSkinKeys[slot] = null;
@@ -35615,6 +35730,8 @@ public class BirdGame3 {
             lanRandomBirds[slot] = random;
             lanSelectedBirds[slot] = random ? null : type;
             lanSelectedSkinKeys[slot] = random ? null : skinKey;
+            lanReady[slot] = false;
+            cancelLanCountdownAndNotifyClients();
             refreshLanLobbyUI();
             broadcastLanLobby();
         });
@@ -35630,6 +35747,8 @@ public class BirdGame3 {
             lanMapVariantVotes[slot] = resolvedPool == StageRandomPool.NONE && variant != null
                     ? variant
                     : MapVariant.STANDARD;
+            lanReady[slot] = false;
+            cancelLanCountdownAndNotifyClients();
             updateLanMapSelectionFromVotes();
             refreshLanLobbyUI();
             broadcastLanLobby();
@@ -35641,6 +35760,7 @@ public class BirdGame3 {
             if (!lanModeActive || !lanIsHost) return;
             if (slot < 0 || slot >= LAN_MAX_PLAYERS) return;
             lanReady[slot] = ready;
+            if (!ready) cancelLanCountdownAndNotifyClients();
             refreshLanLobbyUI();
             broadcastLanLobby();
         });
@@ -35696,9 +35816,12 @@ public class BirdGame3 {
         });
     }
 
-    void onLanLobbyUpdate(MapType map, MapVariant variant, boolean mapRandom, boolean[] connected, BirdType[] birds, boolean[] randomBirds, String[] skinKeys, boolean[] ready) {
+    void onLanLobbyUpdate(MapType map, MapVariant variant, boolean mapRandom, VersusRules rules,
+                          boolean[] connected, BirdType[] birds, boolean[] randomBirds,
+                          String[] skinKeys, boolean[] ready) {
         javafx.application.Platform.runLater(() -> {
             if (!lanModeActive || !lanIsClient) return;
+            frontEndMatchFlow.selectCustomRules(rules == null ? VersusRules.standard() : rules);
             StageChoice selected = new StageChoice(map, variant);
             lanSelectedMap = selected.map();
             lanSelectedMapVariant = selected.variant();
@@ -35852,6 +35975,7 @@ public class BirdGame3 {
     private void startLanMatchHost(Stage stage) {
         if (!lanIsHost) return;
         if (countLanConnected() < 2) return;
+        if (!allConnectedLanPlayersReady()) return;
         stopLanCountdown();
         resetMatchStats();
         storyModeActive = false;
@@ -35986,6 +36110,8 @@ public class BirdGame3 {
     }
 
     private void stopLanSession() {
+        VersusRulesPreset restorePreset = preNetworkVersusPreset;
+        VersusRules restoreRules = preNetworkVersusRules;
         lanModeActive = false;
         lanIsHost = false;
         lanIsClient = false;
@@ -36033,6 +36159,15 @@ public class BirdGame3 {
             BirdStats.reloadFromDisk();
             networkSimulationConfigApplied = false;
         }
+        if (restoreRules != null) {
+            if (restorePreset == VersusRulesPreset.CUSTOM) {
+                frontEndMatchFlow.selectCustomRules(restoreRules);
+            } else {
+                frontEndMatchFlow.selectRulesPreset(restorePreset);
+            }
+        }
+        preNetworkVersusPreset = null;
+        preNetworkVersusRules = null;
     }
 
     private void confirmLeaveLanMatch(Stage stage) {
