@@ -15,6 +15,7 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.paint.CycleMethod;
 import javafx.scene.paint.LinearGradient;
@@ -81,36 +82,62 @@ public class BirdFight3CompanionProgram extends Application {
         hostField = new TextField(preferences.get("host", "localhost"));
         hostField.setPromptText("Host IP");
         hostField.setPrefColumnCount(18);
-        hostField.setStyle("-fx-font-family: Consolas; -fx-font-size: 16px;");
+        hostField.setPrefHeight(48);
+        hostField.setStyle("-fx-background-color: #071015; -fx-text-fill: white;"
+                + " -fx-prompt-text-fill: #78909C; -fx-font-family: Consolas; -fx-font-size: 16px;"
+                + " -fx-background-radius: 12; -fx-border-color: #455A64; -fx-border-width: 2;"
+                + " -fx-border-radius: 12; -fx-padding: 0 16 0 16;");
+        hostField.setOnAction(e -> connectToHost());
 
-        connectButton = new Button("Connect");
+        connectButton = new Button("CONNECT");
+        connectButton.setPrefSize(150, 48);
+        connectButton.setStyle(companionButtonStyle("#00897B"));
         connectButton.setOnAction(e -> connectToHost());
-        disconnectButton = new Button("Disconnect");
+        disconnectButton = new Button("DISCONNECT");
+        disconnectButton.setPrefSize(170, 48);
+        disconnectButton.setStyle(companionButtonStyle("#C62828"));
         disconnectButton.setDisable(true);
         disconnectButton.setOnAction(e -> disconnect());
 
         statusLabel = new Label(connectionStatus);
-        statusLabel.setFont(Font.font("Consolas", 15));
-        statusLabel.setTextFill(Color.web("#B2DFDB"));
-        HBox.setHgrow(statusLabel, Priority.ALWAYS);
+        statusLabel.setFont(Font.font("Consolas", FontWeight.BOLD, 14));
+        statusLabel.setTextFill(Color.web("#FFCC80"));
+        statusLabel.setPadding(new Insets(9, 16, 9, 16));
+        statusLabel.setStyle(companionStatusStyle(false));
 
-        HBox topBar = new HBox(10,
-                new Label("Host"),
-                hostField,
-                connectButton,
-                disconnectButton,
-                statusLabel);
-        topBar.setAlignment(Pos.CENTER_LEFT);
-        topBar.setPadding(new Insets(10, 14, 10, 14));
-        topBar.setStyle("-fx-background-color: #101820; -fx-text-fill: white;");
-        topBar.getChildren().getFirst().setStyle("-fx-text-fill: #CFD8DC; -fx-font-family: Consolas; -fx-font-size: 15px;");
+        Label eyebrow = new Label("BIRD FIGHT 3");
+        eyebrow.setFont(Font.font("Consolas", FontWeight.BOLD, 13));
+        eyebrow.setTextFill(Color.web("#80CBC4"));
+        Label title = new Label("MATCH COMPANION");
+        title.setFont(Font.font("Arial Black", 25));
+        title.setTextFill(Color.WHITE);
+        VBox brand = new VBox(0, eyebrow, title);
+        HBox.setHgrow(brand, Priority.ALWAYS);
+
+        HBox header = new HBox(18, brand, statusLabel);
+        header.setAlignment(Pos.CENTER_LEFT);
+
+        Label hostLabel = new Label("LAN HOST");
+        hostLabel.setFont(Font.font("Consolas", FontWeight.BOLD, 14));
+        hostLabel.setTextFill(Color.web("#CFD8DC"));
+
+        HBox connectionRow = new HBox(12, hostLabel, hostField, connectButton, disconnectButton);
+        connectionRow.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(hostField, Priority.ALWAYS);
+        hostField.setMaxWidth(430);
+
+        VBox topChrome = new VBox(12, header, connectionRow);
+        topChrome.setPadding(new Insets(16, 22, 18, 22));
+        topChrome.setStyle("-fx-background-color: linear-gradient(to right, #101820, #0B1219);"
+                + " -fx-border-color: transparent transparent #263B47 transparent;"
+                + " -fx-border-width: 0 0 2 0;");
 
         StackPane canvasPane = new StackPane(canvas);
         canvas.widthProperty().bind(canvasPane.widthProperty());
         canvas.heightProperty().bind(canvasPane.heightProperty());
 
         BorderPane root = new BorderPane(canvasPane);
-        root.setTop(topBar);
+        root.setTop(topChrome);
         root.setStyle("-fx-background-color: #071015;");
 
         Scene scene = new Scene(root, 1280, 720);
@@ -254,8 +281,22 @@ public class BirdFight3CompanionProgram extends Application {
             if (statusLabel != null) {
                 statusLabel.setText(connectionStatus);
                 statusLabel.setTextFill(ok ? Color.web("#80CBC4") : Color.web("#FFCC80"));
+                statusLabel.setStyle(companionStatusStyle(ok));
             }
         });
+    }
+
+    private static String companionButtonStyle(String accent) {
+        return "-fx-background-color: " + accent + "; -fx-text-fill: white;"
+                + " -fx-font-family: 'Arial Black'; -fx-font-size: 14px;"
+                + " -fx-background-radius: 12; -fx-border-color: rgba(255,255,255,0.22);"
+                + " -fx-border-width: 2; -fx-border-radius: 12; -fx-cursor: hand;";
+    }
+
+    private static String companionStatusStyle(boolean connected) {
+        String accent = connected ? "#26A69A" : "#EF6C00";
+        return "-fx-background-color: rgba(5,12,18,0.88); -fx-background-radius: 14;"
+                + " -fx-border-color: " + accent + "; -fx-border-width: 2; -fx-border-radius: 14;";
     }
 
     private static String shortError(IOException e) {
