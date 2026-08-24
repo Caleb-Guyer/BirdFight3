@@ -31866,21 +31866,11 @@ public class BirdGame3 {
         stageSelectHandler = null;
         playMenuMusic();
 
-        BorderPane root = new BorderPane();
-        root.setPadding(new Insets(26, 36, 26, 36));
-        root.setStyle("-fx-background-color: linear-gradient(to bottom, #071A27, #13293D);");
-
-        Label title = new Label("TRAINING MODE");
-        title.setFont(Font.font("Impact", FontWeight.BOLD, 88));
-        title.setTextFill(Color.web("#FFE082"));
-        title.setEffect(new DropShadow(35, Color.BLACK));
-
-        Label subtitle = new Label("Single-player practice. Choose your bird, choose a sparring partner, then pick a stage.");
-        subtitle.setFont(Font.font("Consolas", 24));
-        subtitle.setTextFill(Color.web("#80DEEA"));
-
-        VBox top = new VBox(6, title, subtitle);
-        top.setAlignment(Pos.CENTER);
+        BorderPane root = buildModernMenuPage();
+        Button back = uiFactory.action("BACK", 210, 64, 22, "#B5121B", 18, () -> showMenu(stage));
+        StackPane title = buildMenuTitleBanner("TRAINING", 420, 72, 34);
+        root.setTop(buildMenuTopStrip(back, title,
+                buildMenuChip("PRACTICE", "#00838F", "#80DEEA")));
 
         List<BirdType> availableBirds = unlockedBirdPool();
         BirdType playerPick = isBirdUnlocked(trainingPlayerBird) ? trainingPlayerBird : firstUnlockedBird();
@@ -32082,18 +32072,18 @@ public class BirdGame3 {
         oppLabel.setMaxWidth(620);
         applyNoEllipsis(oppLabel);
 
-        Label note = new Label("""
-                Opponent has infinite health.
-                F4 dummy preset  |  F5 reset  |  F6 refill
-                F7 combat boxes  |  F8 slomo  |  F9 freeze  |  F10 step
-                """);
-        note.setFont(Font.font("Consolas", 22));
+        Label note = new Label();
+        note.textProperty().bind(Bindings.createStringBinding(() ->
+                        uiInputTracker.activeDevice() == UiInputPrompts.Device.KEYBOARD_MOUSE
+                                ? "F4 DUMMY  ·  F5 RESET  ·  F6 REFILL  ·  F7 BOXES  ·  F8 SLOMO  ·  F9 FREEZE  ·  F10 STEP"
+                                : "PAUSE DURING TRAINING FOR PRACTICE OPTIONS",
+                uiInputTracker.activeInputProperty()));
+        note.setFont(Font.font("Consolas", FontWeight.BOLD, 16));
         note.setTextFill(Color.web("#B0BEC5"));
         note.setWrapText(true);
         note.setMaxWidth(620);
         applyNoEllipsis(note);
 
-        Button back = uiFactory.action("BACK TO HUB", 360, 96, 34, "#D32F2F", 22, () -> showMenu(stage));
         Button selectMap = uiFactory.action("SELECT MAP", 420, 96, 34, "#00C853", 24, () -> {
             if (selected[0] == null || selected[1] == null) return;
             playButtonClick();
@@ -32113,10 +32103,8 @@ public class BirdGame3 {
         academyLabel.setTextFill(Color.web("#FFF59D"));
         applyNoEllipsis(academyLabel);
 
-        Label academyStatus = new Label(guidedTutorialCompleted
-                ? "Fundamentals complete. Replay any of the 8 lessons whenever you want."
-                : completedGuidedTutorialLessonCount() + " / " + CORE_GUIDED_TUTORIAL_LESSONS.length
-                + " fundamentals complete.");
+        Label academyStatus = new Label(completedGuidedTutorialLessonCount() + " / "
+                + CORE_GUIDED_TUTORIAL_LESSONS.length + " FUNDAMENTALS CLEARED");
         academyStatus.setFont(Font.font("Consolas", 18));
         academyStatus.setTextFill(Color.web("#E1F5FE"));
         academyStatus.setWrapText(true);
@@ -32201,10 +32189,13 @@ public class BirdGame3 {
         HBox center = new HBox(22, selectionPane, rightCard);
         center.setAlignment(Pos.CENTER);
 
-        HBox bottom = new HBox(18, back, selectMap);
+        HBox prompts = buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "CHOOSE FIGHTERS"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "SELECT"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "BACK"));
+        HBox bottom = new HBox(22, prompts, selectMap);
         bottom.setAlignment(Pos.CENTER);
 
-        root.setTop(top);
         root.setCenter(center);
         root.setBottom(bottom);
 
@@ -32372,9 +32363,10 @@ public class BirdGame3 {
         String continueText = guidedTutorialCompleted ? "REPLAY FROM START" : "CONTINUE ACADEMY";
         Button continueButton = uiFactory.action(continueText, 430, 78, 26, "#00A84F", 20,
                 () -> beginGuidedTutorial(stage, firstIncompleteGuidedTutorialLesson(), true));
-        Label footerHint = new Label("Character-specific move drills remain available from the Training screen.");
-        footerHint.setFont(Font.font("Consolas", 17));
-        footerHint.setTextFill(Color.web("#90A4AE"));
+        HBox footerHint = buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "CHOOSE LESSON"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "START"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "TRAINING"));
         Region footerSpacer = new Region();
         HBox.setHgrow(footerSpacer, Priority.ALWAYS);
         HBox footer = new HBox(24, footerHint, footerSpacer, continueButton);
@@ -32385,7 +32377,6 @@ public class BirdGame3 {
 
         root.getChildren().add(frame);
         Scene scene = new Scene(root, WIDTH, HEIGHT);
-        bindEscape(scene, back);
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
         bindEscape(scene, back::fire);
