@@ -35928,21 +35928,18 @@ public class BirdGame3 {
         Button lanBtn = uiFactory.action("LAN PLAY", 340, 82, 29, "#1565C0", 20,
                 () -> showLanDirectMenu(stage));
         VBox internetCard = buildMenuActionCard("ONLINE", "INTERNET PLAY",
-                "Host or join through a public IP or DNS address. Best for trusted players in nearby regions.",
+                "Direct play by public address.",
                 "#CE93D8", internetBtn);
         VBox lanCard = buildMenuActionCard("LOCAL NETWORK", "LAN PLAY",
-                "Connect computers on the same router with low-delay deterministic lockstep for up to "
-                        + LAN_MAX_PLAYERS + " players.", "#81D4FA", lanBtn);
+                "Play with up to " + LAN_MAX_PLAYERS + " computers on the same router.", "#81D4FA", lanBtn);
         HBox cards = new HBox(24, internetCard, lanCard);
         cards.setAlignment(Pos.CENTER);
-
-        Label footer = buildMenuPanelBody(
-                "All players run the same simulation. Use the same game version and a wired connection when possible.",
-                1200);
-        VBox center = new VBox(22, cards, footer);
-        center.setAlignment(Pos.CENTER);
-        center.setPadding(new Insets(28, 0, 0, 0));
-        root.setCenter(center);
+        root.setCenter(cards);
+        root.setBottom(buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "CHOOSE MODE"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "OPEN"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "BACK")));
+        BorderPane.setMargin(root.getBottom(), new Insets(16, 0, 0, 0));
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         bindEscape(scene, back);
@@ -35966,14 +35963,19 @@ public class BirdGame3 {
         Button hostBtn = uiFactory.action("HOST LAN", 320, 82, 29, "#2E7D32", 20, () -> startLanHost(stage));
         Button joinBtn = uiFactory.action("JOIN LAN", 320, 82, 29, "#1565C0", 20, () -> showLanJoin(stage, ""));
         VBox hostCard = buildMenuActionCard("CREATE SESSION", "HOST A LOBBY",
-                "Open a lobby on this computer. Other players on your router can join using its local IP address.",
+                "Open a lobby on this computer.",
                 "#A5D6A7", hostBtn);
         VBox joinCard = buildMenuActionCard("FIND SESSION", "JOIN A LOBBY",
-                "Enter the host computer's local IP address. Router port forwarding is not normally required.",
+                "Connect with the host computer's local IP.",
                 "#90CAF9", joinBtn);
         HBox cards = new HBox(24, hostCard, joinCard);
         cards.setAlignment(Pos.CENTER);
         root.setCenter(cards);
+        root.setBottom(buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "HOST OR JOIN"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "OPEN"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "BACK")));
+        BorderPane.setMargin(root.getBottom(), new Insets(16, 0, 0, 0));
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         bindEscape(scene, back);
@@ -36000,14 +36002,19 @@ public class BirdGame3 {
         Button joinBtn = uiFactory.action("JOIN INTERNET", 340, 82, 28, "#1565C0", 20,
                 () -> showInternetJoin(stage, ""));
         VBox hostCard = buildMenuActionCard("PORT FORWARD", "HOST A MATCH",
-                "Open a direct lobby on a TCP port, then share your public address with players you trust.",
+                "Open a port and share your public address.",
                 "#CE93D8", hostBtn);
         VBox joinCard = buildMenuActionCard("DIRECT ADDRESS", "JOIN A MATCH",
-                "Connect with the host's public IP or DNS name. Add the port when it is not the default.",
+                "Connect with the host's public IP or DNS name.",
                 "#90CAF9", joinBtn);
         HBox cards = new HBox(24, hostCard, joinCard);
         cards.setAlignment(Pos.CENTER);
         root.setCenter(cards);
+        root.setBottom(buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "HOST OR JOIN"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "OPEN"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "BACK")));
+        BorderPane.setMargin(root.getBottom(), new Insets(16, 0, 0, 0));
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         bindEscape(scene, back);
@@ -36058,6 +36065,11 @@ public class BirdGame3 {
                 buildMenuEyebrow("CREATE DIRECT SESSION", "#CE93D8"),
                 buildMenuPanelTitle("OPEN YOUR LOBBY", 38), prompt, fieldBox, status, host);
         root.setCenter(panel);
+        root.setBottom(buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "PORT FIELD"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "OPEN LOBBY"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "BACK")));
+        BorderPane.setMargin(root.getBottom(), new Insets(16, 0, 0, 0));
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         bindEscape(scene, back);
@@ -36106,6 +36118,11 @@ public class BirdGame3 {
                 buildMenuEyebrow("CONNECT TO SESSION", "#90CAF9"),
                 buildMenuPanelTitle("ENTER THE HOST ADDRESS", 36), prompt, fieldBox, status, connect);
         root.setCenter(panel);
+        root.setBottom(buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "ADDRESS FIELD"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "CONNECT"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "BACK")));
+        BorderPane.setMargin(root.getBottom(), new Insets(16, 0, 0, 0));
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         setupKeyboardNavigation(scene);
@@ -36144,6 +36161,9 @@ public class BirdGame3 {
         VBox center = new VBox(22, cards, footer);
         center.setAlignment(Pos.CENTER);
         root.setCenter(center);
+        root.setBottom(buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "BACK TO INTERNET PLAY")));
+        BorderPane.setMargin(root.getBottom(), new Insets(16, 0, 0, 0));
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         bindEscape(scene, back);
@@ -36198,6 +36218,11 @@ public class BirdGame3 {
                 buildMenuEyebrow("FIND LOCAL SESSION", "#80DEEA"),
                 buildMenuPanelTitle("CONNECT TO THE HOST", 36), prompt, fieldBox, status, connect);
         root.setCenter(panel);
+        root.setBottom(buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "ADDRESS FIELD"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "CONNECT"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "BACK")));
+        BorderPane.setMargin(root.getBottom(), new Insets(16, 0, 0, 0));
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         setupKeyboardNavigation(scene);
@@ -36375,6 +36400,11 @@ public class BirdGame3 {
         }
         content.getChildren().addAll(slots, controls, lanCountdownLabel, actions);
         root.setCenter(content);
+        root.setBottom(buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "NAVIGATE LOBBY"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "CHANGE / READY"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "LEAVE")));
+        BorderPane.setMargin(root.getBottom(), new Insets(14, 0, 0, 0));
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         setupKeyboardNavigation(scene);
@@ -36530,7 +36560,7 @@ public class BirdGame3 {
             Label slot = lanSlotLabels[i];
             if (slot == null) continue;
             if (!lanSlotConnected[i]) {
-                slot.setText("Slot " + (i + 1) + ": Open");
+                slot.setText("OPEN");
             } else {
                 String name;
                 if (lanRandomBirds[i]) {
@@ -36540,7 +36570,7 @@ public class BirdGame3 {
                     name = type != null ? type.name : "Selecting...";
                 }
                 String readyState = lanReady[i] ? "READY" : "NOT READY";
-                slot.setText("P" + (i + 1) + ": " + name + " - " + readyState);
+                slot.setText(name + "\n" + readyState);
             }
         }
         if (lanMapLabel != null) {
@@ -36561,9 +36591,9 @@ public class BirdGame3 {
                 } else {
                     vote = "(none)";
                 }
-                lanMapVoteLabel.setText("YOUR VOTE: " + vote);
+                lanMapVoteLabel.setText(vote);
             } else {
-                lanMapVoteLabel.setText("YOUR VOTE: (awaiting slot)");
+                lanMapVoteLabel.setText("AWAITING SLOT");
             }
         }
         if (lanStatusLabel != null) {
@@ -36584,9 +36614,9 @@ public class BirdGame3 {
                     BirdType type = lanSelectedBirds[lanPlayerIndex];
                     name = type != null ? type.name : "Selecting...";
                 }
-                lanYourBirdLabel.setText("YOUR BIRD: " + name);
+                lanYourBirdLabel.setText(name);
             } else {
-                lanYourBirdLabel.setText("YOUR BIRD: (awaiting slot)");
+                lanYourBirdLabel.setText("AWAITING SLOT");
             }
         }
         boolean canSelect = lanPlayerIndex >= 0;
@@ -36807,46 +36837,12 @@ public class BirdGame3 {
             return;
         }
         playMenuMusic();
-        BorderPane root = new BorderPane();
-        root.setPadding(new Insets(14));
-        root.setStyle("-fx-background-color: linear-gradient(to bottom, #06070A, #0D1017 34%, #171B22 100%);");
-
-        Button back = uiFactory.action("BACK TO LOBBY", 220, 58, 22, "#B5121B", 16, () -> showLanLobby(stage));
-        back.setStyle("-fx-background-color: linear-gradient(to bottom, #D61D28, #981019); "
-                + "-fx-text-fill: white; -fx-font-family: 'Arial Black'; -fx-font-size: 17px; "
-                + "-fx-font-weight: bold; -fx-background-radius: 18; -fx-border-color: black; "
-                + "-fx-border-width: 3; -fx-border-radius: 18;");
-        Label title = new Label("NETWORK BATTLE");
-        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 34));
-        title.setTextFill(Color.web("#111111"));
-        StackPane titleBanner = new StackPane(title);
-        titleBanner.setMinSize(470, 72);
-        titleBanner.setPrefSize(470, 72);
-        titleBanner.setMaxSize(470, 72);
-        titleBanner.setStyle("-fx-background-color: linear-gradient(to bottom, #FFE45C, #F8C528); "
-                + "-fx-background-radius: 12; -fx-border-color: black; -fx-border-width: 4; "
-                + "-fx-border-radius: 12;");
-        titleBanner.setEffect(new DropShadow(18, Color.rgb(0, 0, 0, 0.28)));
-
-        Label modeChip = new Label(networkSessionMode == NetworkSessionMode.INTERNET ? "INTERNET" : "LAN");
-        modeChip.setFont(Font.font("Arial Black", 18));
-        modeChip.setTextFill(Color.web("#FFF8D6"));
-        StackPane modeBadge = new StackPane(modeChip);
-        modeBadge.setPadding(new Insets(10, 22, 10, 22));
-        modeBadge.setStyle("-fx-background-color: rgba(255, 193, 7, 0.22); -fx-background-radius: 24; "
-                + "-fx-border-color: rgba(255, 245, 157, 0.65); -fx-border-width: 2; -fx-border-radius: 24;");
-
-        BorderPane topChrome = new BorderPane();
-        topChrome.setLeft(back);
-        topChrome.setRight(modeBadge);
-        StackPane topBar = new StackPane(topChrome, titleBanner);
-        topBar.setPadding(new Insets(10, 14, 10, 14));
-        topBar.setMinHeight(92);
-        topBar.setStyle("-fx-background-color: linear-gradient(to right, #8E0D16 0%, #C51A24 42%, #111317 42%, #111317 100%); "
-                + "-fx-background-radius: 24; -fx-border-color: black; -fx-border-width: 4; -fx-border-radius: 24;");
-        topBar.setEffect(new DropShadow(24, Color.rgb(0, 0, 0, 0.30)));
-        root.setTop(topBar);
-        BorderPane.setMargin(topBar, new Insets(0, 0, 14, 0));
+        BorderPane root = buildModernMenuPage();
+        Button back = uiFactory.action("BACK", 180, 64, 23, "#B5121B", 18,
+                () -> showLanLobby(stage));
+        String sessionLabel = networkSessionMode == NetworkSessionMode.INTERNET ? "INTERNET" : "LAN";
+        root.setTop(buildMenuTopStrip(back, buildMenuTitleBanner("SELECT FIGHTER", 500, 72, 32),
+                buildMenuChip(sessionLabel + " · P" + (lanPlayerIndex + 1), "#1565C0", "#90CAF9")));
 
         List<BirdType> available = unlockedBirdPool();
         if (available.isEmpty()) {
@@ -36876,8 +36872,7 @@ public class BirdGame3 {
         Button skinButton = new Button();
         skinButton.setPrefSize(260, 64);
         skinButton.setFont(Font.font("Arial Black", 16));
-        skinButton.setStyle("-fx-background-color: #37474F; -fx-text-fill: white; "
-                + "-fx-background-radius: 16; -fx-border-color: black; -fx-border-width: 2; -fx-border-radius: 16;");
+        skinButton.setStyle(MenuTheme.buttonStyle("#455A64", 16));
 
         int columns = Math.clamp((int) Math.ceil(gridBirds.size() / 3.0), 8, 12);
         for (int i = 0; i < gridBirds.size(); i++) {
@@ -36947,8 +36942,7 @@ public class BirdGame3 {
         VBox gridCard = new VBox(10, rosterTitle, grid);
         gridCard.setAlignment(Pos.TOP_CENTER);
         gridCard.setPadding(new Insets(12));
-        gridCard.setStyle("-fx-background-color: rgba(4,5,8,0.90); -fx-background-radius: 28; "
-                + "-fx-border-color: rgba(255,255,255,0.16); -fx-border-width: 2; -fx-border-radius: 28;");
+        gridCard.setStyle(MenuTheme.panelStyle("#607D8B", 24));
 
         Label selectedTitle = new Label("YOUR FIGHTER");
         selectedTitle.setFont(Font.font("Arial Black", 20));
@@ -36957,14 +36951,17 @@ public class BirdGame3 {
         previewBox.setAlignment(Pos.CENTER);
         previewBox.setPadding(new Insets(18));
         previewBox.setMinWidth(300);
-        previewBox.setStyle("-fx-background-color: linear-gradient(to bottom, rgba(28,34,43,0.96), rgba(7,9,12,0.99)); "
-                + "-fx-border-color: rgba(255,224,130,0.55); -fx-border-width: 2; "
-                + "-fx-background-radius: 24; -fx-border-radius: 24;");
+        previewBox.setStyle(MenuTheme.panelStyle("#FFE082", 24));
 
         HBox center = new HBox(18, gridCard, previewBox);
         center.setAlignment(Pos.CENTER);
         HBox.setHgrow(gridCard, Priority.ALWAYS);
         root.setCenter(center);
+        root.setBottom(buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "CHOOSE BIRD"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "SELECT"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "LOBBY")));
+        BorderPane.setMargin(root.getBottom(), new Insets(14, 0, 0, 0));
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         StringBuilder nullRockCode = new StringBuilder();
@@ -36999,13 +36996,8 @@ public class BirdGame3 {
         if (lanPlayerIndex < 0) return;
         BirdType selected = lanSelectedBirds[lanPlayerIndex];
         boolean randomPick = lanRandomBirds[lanPlayerIndex];
-        String baseStyle = "-fx-background-color: linear-gradient(to bottom, rgba(58,72,92,0.82), rgba(14,17,22,0.96)); "
-                + "-fx-border-color: rgba(255,255,255,0.18); -fx-border-width: 2; -fx-text-fill: white; "
-                + "-fx-background-radius: 18; -fx-border-radius: 18;";
-        String activeStyle = "-fx-background-color: linear-gradient(to bottom, rgba(255,213,79,0.38), rgba(91,64,4,0.96)); "
-                + "-fx-border-color: #FFD54F; -fx-border-width: 4; -fx-text-fill: white; "
-                + "-fx-background-radius: 18; -fx-border-radius: 18; "
-                + "-fx-effect: dropshadow(gaussian, rgba(255,213,79,0.42), 18, 0.20, 0, 0);";
+        String baseStyle = MenuTheme.buttonStyle("#263238", 18);
+        String activeStyle = MenuTheme.buttonStyle("#F9A825", 18);
         for (Map.Entry<BirdType, Button> entry : buttonByType.entrySet()) {
             boolean active = !randomPick && entry.getKey() == selected;
             entry.getValue().setStyle(active ? activeStyle : baseStyle);
