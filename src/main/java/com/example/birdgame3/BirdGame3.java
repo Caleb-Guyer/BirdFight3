@@ -3856,11 +3856,6 @@ public class BirdGame3 {
     private void applyNoEllipsis(Button b) {
         b.setTextOverrun(OverrunStyle.CLIP);
         b.setEllipsisString("");
-        String style = b.getStyle();
-        if (style == null) style = "";
-        if (!style.contains("-fx-text-overrun: clip")) {
-            b.setStyle(style + (style.isBlank() ? "" : "; ") + "-fx-text-overrun: clip;");
-        }
     }
 
     private void applyNoEllipsis(Label label) {
@@ -26021,7 +26016,15 @@ public class BirdGame3 {
                 showLanLobby(stage);
             } else {
                 frontEndMatchFlow.confirmRules();
-                showFightSetup(stage);
+                try {
+                    showFightSetup(stage);
+                } catch (RuntimeException | Error failure) {
+                    // Keep the visible rules screen and its state machine in sync if fighter-select
+                    // construction fails. Without this rollback, every retry becomes an unrelated
+                    // "transition is not valid from FIGHTERS" error that hides the original cause.
+                    frontEndMatchFlow.beginVersus();
+                    throw failure;
+                }
             }
         });
         HBox inputPrompt = buildAdaptivePromptBar(
