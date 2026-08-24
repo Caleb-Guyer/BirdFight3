@@ -799,7 +799,10 @@ final class MatchController {
                 }
                 game.finishReplayRecording(finalWinner != null ? finalWinner.name : "TIME'S UP");
                 game.recordBalanceOutcome(finalWinner);
-                if (game.tournamentModeActive && game.currentTournamentMatch != null && !game.tournamentMatchResolved) {
+                if (game.squadStrikeModeActive && !game.squadStrikeMatchResolved) {
+                    game.captureSquadStrikeCombatStats();
+                    game.recordSquadStrikeWinner(game.resolveSquadStrikeWinnerTeam(finalWinner), finalWinner, false);
+                } else if (game.tournamentModeActive && game.currentTournamentMatch != null && !game.tournamentMatchResolved) {
                     game.captureTournamentCombatStats();
                     BirdGame3.TournamentEntry winnerEntry = game.resolveTournamentWinnerEntry(finalWinner);
                     if (winnerEntry != null) {

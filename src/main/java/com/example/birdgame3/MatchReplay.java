@@ -49,6 +49,8 @@ final class MatchReplay {
     double[] slotBaseSize;
     double[] slotBasePower;
     double[] slotBaseSpeed;
+    int[] slotInitialStocks;
+    double[] slotInitialHealth;
     long timestampMillis;
     String winnerLabel = "";
 

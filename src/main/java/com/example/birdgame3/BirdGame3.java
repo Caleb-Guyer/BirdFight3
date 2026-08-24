@@ -799,6 +799,7 @@ public class BirdGame3 {
         LEGACY_STORIES,
         ADVENTURE_HUB,
         TOURNAMENT_BRACKET,
+        SQUAD_STRIKE_BOARD,
         FIGHTER_SELECT
     }
 
@@ -5595,6 +5596,69 @@ public class BirdGame3 {
     private boolean tournamentChampionshipRewardGranted = false;
     private VersusRulesPreset tournamentPreviousRulesPreset = null;
     private VersusRules tournamentPreviousRules = null;
+
+    // === SQUAD STRIKE ===
+    enum SquadStrikeFormat {
+        ELIMINATION("ELIMINATION", "The winner stays in with surviving stocks and damage."),
+        RELAY("RELAY", "The winner stays in, but every bout starts fresh."),
+        BEST_OF("BEST OF", "Both squads rotate after every bout; first to a majority wins.");
+
+        final String label;
+        final String description;
+
+        SquadStrikeFormat(String label, String description) {
+            this.label = label;
+            this.description = description;
+        }
+    }
+
+    static class SquadStrikeEntry {
+        final int team;
+        final int slot;
+        BirdType selectedType;
+        BirdType resolvedType;
+        String selectedSkinKey;
+
+        SquadStrikeEntry(int team, int slot) {
+            this.team = team;
+            this.slot = slot;
+        }
+    }
+
+    boolean squadStrikeModeActive = false;
+    private SquadStrikeFormat squadStrikeFormat = SquadStrikeFormat.ELIMINATION;
+    private int squadStrikeSize = 3;
+    private final boolean[] squadStrikeHuman = {true, false};
+    private final int[] squadStrikeCpuLevel = {5, 5};
+    private final List<SquadStrikeEntry> squadStrikeTeamA = new ArrayList<>();
+    private final List<SquadStrikeEntry> squadStrikeTeamB = new ArrayList<>();
+    private boolean squadStrikeMapRandom = true;
+    private MapType squadStrikeFixedMap = MapType.FOREST;
+    private VersusRules squadStrikeRules = tournamentRuleset(VersusRules.competitive());
+    private StageChoice squadStrikePendingStage = null;
+    private SquadStrikeEntry squadStrikeSlotA = null;
+    private SquadStrikeEntry squadStrikeSlotB = null;
+    private int squadStrikeTeamAIndex = 0;
+    private int squadStrikeTeamBIndex = 0;
+    private int squadStrikeTeamAWins = 0;
+    private int squadStrikeTeamBWins = 0;
+    private int squadStrikeBoutsCompleted = 0;
+    private int squadStrikeBoutsSimulated = 0;
+    private int squadStrikeTotalKos = 0;
+    private long squadStrikeTotalDamage = 0L;
+    private int squadStrikeCarryTeam = -1;
+    private int squadStrikeCarryStocks = 0;
+    private double squadStrikeCarryHealth = 0.0;
+    private int squadStrikeChampionTeam = -1;
+    private boolean squadStrikeComplete = false;
+    boolean squadStrikeMatchResolved = false;
+    private boolean squadStrikeRewardGranted = false;
+    private long squadStrikeStartedAtMillis = 0L;
+    private long squadStrikeSeed = 0L;
+    private final List<Integer> squadStrikeWinnerHistory = new ArrayList<>();
+    private SquadStrikeRunState suspendedSquadStrikeRun = null;
+    private VersusRulesPreset squadStrikePreviousRulesPreset = null;
+    private VersusRules squadStrikePreviousRules = null;
 
     private enum ClassicTwist {
         STORM_LIFTS("Storm Lifts", "Thermal vents surge and reward vertical control."),
@@ -25809,6 +25873,7 @@ public class BirdGame3 {
         clearAshfallTrialState();
         clearActiveDailyChallengeRun();
         resetTournamentRun();
+        resetSquadStrikeRun();
         competitionSeriesActive = false;
         Arrays.fill(competitionRoundWins, 0);
         Arrays.fill(competitionTeamWins, 0);
@@ -32066,10 +32131,10 @@ public class BirdGame3 {
         Button tournamentBtn = buildGamesMoreModeButton(
                 "BRACKET PLAY",
                 "TOURNAMENT",
-                790, 186, 40,
-                new Insets(18, 190, 24, 28),
+                520, 186, 34,
+                new Insets(18, 116, 24, 28),
                 32,
-                gamesMoreIconTournament(), 4.2, 0.16,
+                gamesMoreIconTournament(), 3.0, 0.16,
                 new Insets(18, 22, 18, 18),
                 () -> showTournamentMode(stage));
         registerHubInteractiveNode(tournamentBtn, modeButtons, helpTitle, helpBody,
@@ -32081,13 +32146,31 @@ public class BirdGame3 {
         AnchorPane.setTopAnchor(tournamentBtn, 556.0);
         AnchorPane.setLeftAnchor(tournamentBtn, 0.0);
 
+        Button squadStrikeBtn = buildGamesMoreModeButton(
+                "SQUAD BATTLE",
+                "SQUAD STRIKE",
+                520, 186, 34,
+                new Insets(18, 116, 24, 28),
+                32,
+                gamesMoreIconSquadStrike(), 3.0, 0.17,
+                new Insets(18, 22, 18, 18),
+                () -> showSquadStrikeMode(stage));
+        registerHubInteractiveNode(squadStrikeBtn, modeButtons, helpTitle, helpBody,
+                buildGamesMoreCardStyle("#7E57C2", "#311B92", "#D1C4E9", 32, false),
+                buildGamesMoreCardStyle("#7E57C2", "#311B92", "#F3E5F5", 32, true),
+                "SQUAD STRIKE",
+                "Build two ordered 3- or 5-bird squads for Elimination, Relay, or Best Of battles.",
+                null, null);
+        AnchorPane.setTopAnchor(squadStrikeBtn, 556.0);
+        AnchorPane.setLeftAnchor(squadStrikeBtn, 540.0);
+
         Button trainingBtn = buildGamesMoreModeButton(
                 "LAB WORK",
                 "TRAINING",
-                790, 186, 40,
-                new Insets(18, 198, 24, 28),
+                520, 186, 34,
+                new Insets(18, 116, 24, 28),
                 32,
-                gamesMoreIconTraining(), 4.2, 0.16,
+                gamesMoreIconTraining(), 3.0, 0.16,
                 new Insets(18, 22, 18, 18),
                 () -> showTrainingSetup(stage));
         registerHubInteractiveNode(trainingBtn, modeButtons, helpTitle, helpBody,
@@ -32097,7 +32180,7 @@ public class BirdGame3 {
                 "Use the lab to test confirms, dummy behavior, slow motion, and movement checks.",
                 null, null);
         AnchorPane.setTopAnchor(trainingBtn, 556.0);
-        AnchorPane.setLeftAnchor(trainingBtn, 810.0);
+        AnchorPane.setLeftAnchor(trainingBtn, 1080.0);
 
         StackPane helpBar = new StackPane();
         lockRegionSize(helpBar, 1600, 104);
@@ -32127,6 +32210,7 @@ public class BirdGame3 {
                 bossRushBtn,
                 episodesBtn,
                 tournamentBtn,
+                squadStrikeBtn,
                 trainingBtn,
                 helpBar
         );
@@ -32443,6 +32527,26 @@ public class BirdGame3 {
         return pane;
     }
 
+    private Node gamesMoreIconSquadStrike() {
+        Pane pane = hubIconPane();
+        Circle a1 = new Circle(14, 18, 7, Color.web("#80DEEA"));
+        Circle a2 = new Circle(14, 31, 7, Color.web("#4DD0E1"));
+        Circle a3 = new Circle(14, 44, 7, Color.web("#26C6DA"));
+        Circle b1 = new Circle(42, 18, 7, Color.web("#FF8A80"));
+        Circle b2 = new Circle(42, 31, 7, Color.web("#FF5252"));
+        Circle b3 = new Circle(42, 44, 7, Color.web("#F44336"));
+        Line clashA = new Line(22, 18, 34, 44);
+        clashA.setStroke(Color.web("#FFF8E1"));
+        clashA.setStrokeWidth(4);
+        clashA.setStrokeLineCap(StrokeLineCap.ROUND);
+        Line clashB = new Line(34, 18, 22, 44);
+        clashB.setStroke(Color.web("#FFF8E1"));
+        clashB.setStrokeWidth(4);
+        clashB.setStrokeLineCap(StrokeLineCap.ROUND);
+        pane.getChildren().addAll(a1, a2, a3, b1, b2, b3, clashA, clashB);
+        return pane;
+    }
+
     private Node gamesMoreIconTraining() {
         Pane pane = hubIconPane();
         Rectangle leftWeight = new Rectangle(10, 18, 8, 20);
@@ -32467,6 +32571,819 @@ public class BirdGame3 {
         rightWeight.setFill(Color.web("#B2EBF2"));
         pane.getChildren().addAll(leftWeight, leftPlate, bar, rightPlate, rightWeight);
         return pane;
+    }
+
+    private void ensureSquadStrikeEntries() {
+        while (squadStrikeTeamA.size() < 5) squadStrikeTeamA.add(new SquadStrikeEntry(0, squadStrikeTeamA.size()));
+        while (squadStrikeTeamB.size() < 5) squadStrikeTeamB.add(new SquadStrikeEntry(1, squadStrikeTeamB.size()));
+        List<BirdType> pool = unlockedBirdPool();
+        for (int i = 0; i < 5; i++) {
+            if (squadStrikeTeamA.get(i).selectedType == null && squadStrikeTeamA.get(i).resolvedType == null && i < pool.size()) {
+                squadStrikeTeamA.get(i).selectedType = pool.get(i);
+            }
+            int b = i + 5;
+            if (squadStrikeTeamB.get(i).selectedType == null && squadStrikeTeamB.get(i).resolvedType == null && b < pool.size()) {
+                squadStrikeTeamB.get(i).selectedType = pool.get(b);
+            }
+        }
+    }
+
+    private List<SquadStrikeEntry> squadStrikeTeam(int team) {
+        ensureSquadStrikeEntries();
+        return team == 0 ? squadStrikeTeamA : squadStrikeTeamB;
+    }
+
+    List<SquadStrikeEntry> squadStrikeActiveTeam(int team) {
+        return List.copyOf(squadStrikeTeam(team).subList(0, squadStrikeSize));
+    }
+
+    int squadStrikeTargetWins() {
+        return squadStrikeSize / 2 + 1;
+    }
+
+    private void clearSquadStrikeRuntimeState() {
+        restoreRulesAfterSquadStrike();
+        squadStrikeModeActive = false;
+        squadStrikePendingStage = null;
+        squadStrikeSlotA = null;
+        squadStrikeSlotB = null;
+        squadStrikeMatchResolved = false;
+    }
+
+    private void resetSquadStrikeRun() {
+        clearSquadStrikeRuntimeState();
+        squadStrikeTeamAIndex = 0;
+        squadStrikeTeamBIndex = 0;
+        squadStrikeTeamAWins = 0;
+        squadStrikeTeamBWins = 0;
+        squadStrikeBoutsCompleted = 0;
+        squadStrikeBoutsSimulated = 0;
+        squadStrikeTotalKos = 0;
+        squadStrikeTotalDamage = 0L;
+        squadStrikeCarryTeam = -1;
+        squadStrikeCarryStocks = 0;
+        squadStrikeCarryHealth = 0.0;
+        squadStrikeChampionTeam = -1;
+        squadStrikeComplete = false;
+        squadStrikeRewardGranted = false;
+        squadStrikeStartedAtMillis = 0L;
+        squadStrikeSeed = 0L;
+        squadStrikeWinnerHistory.clear();
+        for (SquadStrikeEntry entry : squadStrikeTeamA) entry.resolvedType = null;
+        for (SquadStrikeEntry entry : squadStrikeTeamB) entry.resolvedType = null;
+    }
+
+    private void activateSquadStrikeRules() {
+        if (squadStrikePreviousRulesPreset == null) {
+            squadStrikePreviousRulesPreset = frontEndMatchFlow.rulesPreset();
+            squadStrikePreviousRules = frontEndMatchFlow.rules();
+        }
+        frontEndMatchFlow.selectCustomRules(squadStrikeRules);
+    }
+
+    private void restoreRulesAfterSquadStrike() {
+        if (squadStrikePreviousRulesPreset == null) return;
+        if (squadStrikePreviousRulesPreset == VersusRulesPreset.CUSTOM) {
+            frontEndMatchFlow.selectCustomRules(squadStrikePreviousRules);
+        } else {
+            frontEndMatchFlow.selectRulesPreset(squadStrikePreviousRulesPreset);
+        }
+        squadStrikePreviousRulesPreset = null;
+        squadStrikePreviousRules = null;
+    }
+
+    private void discardSquadStrikeRun() {
+        suspendedSquadStrikeRun = null;
+        resetSquadStrikeRun();
+        if (profileProgressLoaded) saveAchievements();
+    }
+
+    private void suspendSquadStrikeRun() {
+        if (squadStrikeModeActive) suspendedSquadStrikeRun = captureSquadStrikeRunState();
+        resetSquadStrikeRun();
+        if (profileProgressLoaded) saveAchievements();
+    }
+
+    private void checkpointSquadStrikeRun() {
+        if (!squadStrikeModeActive) return;
+        suspendedSquadStrikeRun = captureSquadStrikeRunState();
+        if (profileProgressLoaded) saveAchievements();
+    }
+
+    private SquadStrikeRunState captureSquadStrikeRunState() {
+        return new SquadStrikeRunState(squadStrikeStartedAtMillis, squadStrikeSeed, squadStrikeFormat.name(),
+                squadStrikeSize, squadStrikeHuman[0], squadStrikeHuman[1], squadStrikeCpuLevel[0],
+                squadStrikeCpuLevel[1], squadStrikeMapRandom,
+                (squadStrikeFixedMap == null ? MapType.FOREST : squadStrikeFixedMap).name(),
+                squadStrikeRules.encode(), squadStrikeTeamAIndex, squadStrikeTeamBIndex,
+                squadStrikeTeamAWins, squadStrikeTeamBWins, squadStrikeBoutsCompleted,
+                squadStrikeBoutsSimulated, squadStrikeTotalKos, squadStrikeTotalDamage,
+                squadStrikeCarryTeam, squadStrikeCarryStocks, squadStrikeCarryHealth,
+                squadStrikeComplete, squadStrikeChampionTeam, squadStrikeRewardGranted,
+                squadStrikeStateTeam(squadStrikeTeamA), squadStrikeStateTeam(squadStrikeTeamB),
+                squadStrikeWinnerHistory);
+    }
+
+    private List<SquadStrikeRunState.Fighter> squadStrikeStateTeam(List<SquadStrikeEntry> team) {
+        List<SquadStrikeRunState.Fighter> result = new ArrayList<>(squadStrikeSize);
+        for (int i = 0; i < squadStrikeSize; i++) {
+            SquadStrikeEntry entry = team.get(i);
+            result.add(new SquadStrikeRunState.Fighter(i,
+                    entry.selectedType == null ? "" : entry.selectedType.name(),
+                    entry.resolvedType == null ? "" : entry.resolvedType.name(), entry.selectedSkinKey));
+        }
+        return result;
+    }
+
+    private boolean restoreSquadStrikeRunState(SquadStrikeRunState state) {
+        if (state == null || !state.usable()) return false;
+        resetSquadStrikeRun();
+        ensureSquadStrikeEntries();
+        try {
+            squadStrikeFormat = SquadStrikeFormat.valueOf(state.format);
+        } catch (IllegalArgumentException ignored) {
+            return false;
+        }
+        squadStrikeSize = state.squadSize;
+        squadStrikeHuman[0] = state.teamAHuman;
+        squadStrikeHuman[1] = state.teamBHuman;
+        squadStrikeCpuLevel[0] = state.teamACpuLevel;
+        squadStrikeCpuLevel[1] = state.teamBCpuLevel;
+        squadStrikeMapRandom = state.randomMap;
+        try {
+            squadStrikeFixedMap = MapType.valueOf(state.fixedMap);
+        } catch (IllegalArgumentException ignored) {
+            squadStrikeFixedMap = MapType.FOREST;
+        }
+        squadStrikeRules = tournamentRuleset(VersusRules.decode(state.rules, VersusRules.competitive()));
+        restoreSquadStrikeTeam(state.teamA, squadStrikeTeamA);
+        restoreSquadStrikeTeam(state.teamB, squadStrikeTeamB);
+        squadStrikeTeamAIndex = state.teamAIndex;
+        squadStrikeTeamBIndex = state.teamBIndex;
+        squadStrikeTeamAWins = state.teamAWins;
+        squadStrikeTeamBWins = state.teamBWins;
+        squadStrikeBoutsCompleted = state.boutsCompleted;
+        squadStrikeBoutsSimulated = state.boutsSimulated;
+        squadStrikeTotalKos = state.totalKos;
+        squadStrikeTotalDamage = state.totalDamage;
+        squadStrikeCarryTeam = state.carryTeam;
+        squadStrikeCarryStocks = state.carryStocks;
+        squadStrikeCarryHealth = state.carryHealth;
+        squadStrikeComplete = state.complete;
+        squadStrikeChampionTeam = state.championTeam;
+        squadStrikeRewardGranted = state.rewardGranted;
+        squadStrikeStartedAtMillis = state.startedAtMillis;
+        squadStrikeSeed = state.seed;
+        squadStrikeWinnerHistory.addAll(state.winnerHistory);
+        squadStrikeModeActive = true;
+        suspendedSquadStrikeRun = state;
+        return squadStrikeSelectionsValid(true);
+    }
+
+    private void restoreSquadStrikeTeam(List<SquadStrikeRunState.Fighter> saved, List<SquadStrikeEntry> target) {
+        for (SquadStrikeRunState.Fighter fighter : saved) {
+            SquadStrikeEntry entry = target.get(fighter.slot());
+            entry.selectedType = parseUnlockedBird(fighter.selectedBird());
+            entry.resolvedType = parseUnlockedBird(fighter.resolvedBird());
+            BirdType skinType = entry.selectedType != null ? entry.selectedType : entry.resolvedType;
+            entry.selectedSkinKey = normalizeAdventureSkinChoice(skinType,
+                    fighter.skinKey().isBlank() ? null : fighter.skinKey());
+        }
+    }
+
+    private BirdType parseUnlockedBird(String name) {
+        if (name == null || name.isBlank()) return null;
+        try {
+            BirdType type = BirdType.valueOf(name);
+            return isBirdUnlocked(type) ? type : null;
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
+    }
+
+    private void showSquadStrikeMode(Stage stage) {
+        SquadStrikeRunState saved = suspendedSquadStrikeRun;
+        if (saved == null || !saved.usable()) {
+            showSquadStrikeSetup(stage);
+            return;
+        }
+        playMenuMusic();
+        Button back = uiFactory.action("BACK", 220, 66, 23, "#B5121B", 18, () -> showClassicMoreMenu(stage));
+        Button resume = uiFactory.action("CONTINUE STRIKE", 500, 108, 33, "#5E35B1", 23, () -> {
+            if (restoreSquadStrikeRunState(saved)) showSquadStrikeBoard(stage);
+            else {
+                discardSquadStrikeRun();
+                showSquadStrikeSetup(stage);
+            }
+        });
+        Button fresh = uiFactory.action("NEW STRIKE", 390, 108, 30, "#00897B", 22, () -> {
+            discardSquadStrikeRun();
+            showSquadStrikeSetup(stage);
+        });
+        HBox actions = new HBox(24, resume, fresh);
+        actions.setAlignment(Pos.CENTER);
+        String body = saved.format.replace('_', ' ') + "  •  " + saved.squadSize + " VS " + saved.squadSize
+                + "  •  " + saved.boutsCompleted + " bouts complete\n"
+                + tournamentRuleset(VersusRules.decode(saved.rules, VersusRules.competitive())).summary();
+        BorderPane root = buildModernMenuPage();
+        root.setTop(buildMenuTopStrip(back, buildMenuTitleBanner("SQUAD STRIKE", 580, 72, 33),
+                buildMenuChip("RUN SAVED", "#5E35B1", "#D1C4E9")));
+        root.setCenter(buildModernMenuPanel("#B39DDB", 1120, 22,
+                buildMenuEyebrow("SUSPENDED SQUADS", "#D1C4E9"),
+                buildMenuPanelTitle("THE NEXT BOUT IS READY", 46), buildMenuPanelBody(body, 960), actions));
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, back);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        setScenePreservingFullscreen(stage, scene);
+        resume.requestFocus();
+    }
+
+    private void showSquadStrikeSetup(Stage stage) {
+        storyModeActive = false;
+        adventureModeActive = false;
+        classicModeActive = false;
+        trainingModeActive = false;
+        lanModeActive = false;
+        resetTournamentRun();
+        clearSquadStrikeRuntimeState();
+        ensureSquadStrikeEntries();
+        playMenuMusic();
+
+        Button back = uiFactory.action("BACK", 200, 62, 22, "#B5121B", 17, () -> showClassicMoreMenu(stage));
+        Button size = uiFactory.action(squadStrikeSize + " VS " + squadStrikeSize, 210, 62, 21,
+                "#455A64", 16, () -> {
+                    squadStrikeSize = squadStrikeSize == 3 ? 5 : 3;
+                    showSquadStrikeSetup(stage);
+                });
+        Button format = uiFactory.action(squadStrikeFormat.label, 280, 62, 20, "#5E35B1", 16, () -> {
+            SquadStrikeFormat[] values = SquadStrikeFormat.values();
+            squadStrikeFormat = values[(squadStrikeFormat.ordinal() + 1) % values.length];
+            showSquadStrikeSetup(stage);
+        });
+        Button rules = uiFactory.action("RULES: " + squadStrikeRules.name(), 350, 62, 17, "#EF6C00", 15,
+                () -> showSquadStrikeRules(stage));
+        Button map = uiFactory.action(squadStrikeMapRandom ? "STAGE: RANDOM" : "STAGE: " + squadStrikeFixedMap.name().replace('_', ' '),
+                330, 62, 17, "#00695C", 15, () -> {
+                    cycleSquadStrikeMap();
+                    showSquadStrikeSetup(stage);
+                });
+        HBox settings = new HBox(14, size, format, rules, map);
+        settings.setAlignment(Pos.CENTER);
+
+        VBox teamA = buildSquadStrikeSetupTeam(stage, 0, "TEAM A", "#1565C0");
+        VBox teamB = buildSquadStrikeSetupTeam(stage, 1, "TEAM B", "#C62828");
+        HBox teams = new HBox(24, teamA, teamB);
+        teams.setAlignment(Pos.CENTER);
+
+        Label description = new Label(squadStrikeFormat.description);
+        description.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
+        description.setTextFill(Color.web("#D1C4E9"));
+        Button start = uiFactory.action("START SQUAD STRIKE", 470, 78, 27, "#00A84F", 20,
+                () -> beginSquadStrike(stage));
+        VBox body = new VBox(18, settings, teams, description, start);
+        body.setAlignment(Pos.CENTER);
+        body.setPadding(new Insets(18));
+
+        BorderPane root = buildModernMenuPage();
+        root.setTop(buildMenuTopStrip(back, buildMenuTitleBanner("SQUAD STRIKE", 580, 72, 33),
+                buildMenuChip("ORDER YOUR FIGHTERS", "#5E35B1", "#EDE7F6")));
+        root.setCenter(body);
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, back);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        setScenePreservingFullscreen(stage, scene);
+        start.requestFocus();
+    }
+
+    private VBox buildSquadStrikeSetupTeam(Stage stage, int team, String titleText, String accent) {
+        Button controller = uiFactory.action(squadStrikeHuman[team] ? "HUMAN" : "CPU LV " + squadStrikeCpuLevel[team],
+                210, 48, 16, accent, 13, () -> {
+                    if (squadStrikeHuman[team]) squadStrikeHuman[team] = false;
+                    else if (squadStrikeCpuLevel[team] < 9) squadStrikeCpuLevel[team]++;
+                    else squadStrikeHuman[team] = true;
+                    showSquadStrikeSetup(stage);
+                });
+        Label title = buildMenuPanelTitle(titleText, 30);
+        HBox heading = new HBox(16, title, controller);
+        heading.setAlignment(Pos.CENTER);
+        HBox cards = new HBox(10);
+        cards.setAlignment(Pos.CENTER);
+        List<SquadStrikeEntry> entries = squadStrikeTeam(team);
+        for (int i = 0; i < squadStrikeSize; i++) cards.getChildren().add(buildSquadStrikeSetupCard(stage, entries.get(i), accent));
+        VBox panel = new VBox(12, heading, cards);
+        panel.setAlignment(Pos.CENTER);
+        panel.setPadding(new Insets(18));
+        panel.setPrefWidth(740);
+        panel.setStyle("-fx-background-color: linear-gradient(to bottom, " + accent + ", #080B11 62%);"
+                + "-fx-background-radius: 26; -fx-border-color: rgba(255,255,255,0.25);"
+                + "-fx-border-width: 3; -fx-border-radius: 26;");
+        return panel;
+    }
+
+    private VBox buildSquadStrikeSetupCard(Stage stage, SquadStrikeEntry entry, String accent) {
+        BirdType type = entry.selectedType;
+        Canvas portrait = new Canvas(squadStrikeSize == 3 ? 116 : 82, squadStrikeSize == 3 ? 104 : 78);
+        drawRosterSprite(portrait, type, squadStrikeEntrySkinKey(entry, type), type == null);
+        Label order = new Label("#" + squadStrikeOrder(entry));
+        order.setFont(Font.font("Arial Black", 17));
+        order.setTextFill(Color.web("#FFE082"));
+        Label name = new Label(type == null ? "RANDOM" : type.name.toUpperCase(Locale.ROOT));
+        name.setFont(Font.font("Arial Black", squadStrikeSize == 3 ? 15 : 11));
+        name.setTextFill(Color.WHITE);
+        name.setMaxWidth(squadStrikeSize == 3 ? 180 : 116);
+        applyNoEllipsis(name);
+        Button bird = uiFactory.action("NEXT BIRD", squadStrikeSize == 3 ? 160 : 112, 36, 12, accent, 10, () -> {
+            cycleSquadStrikeEntryBird(entry, 1);
+            showSquadStrikeSetup(stage);
+        });
+        Button skin = uiFactory.action("SKIN", squadStrikeSize == 3 ? 76 : 54, 34, 11, "#455A64", 9, () -> {
+            cycleSquadStrikeEntrySkin(entry);
+            showSquadStrikeSetup(stage);
+        });
+        Button up = uiFactory.action("◀", squadStrikeSize == 3 ? 54 : 40, 34, 14, "#37474F", 9, () -> {
+            moveSquadStrikeEntry(entry, -1);
+            showSquadStrikeSetup(stage);
+        });
+        Button down = uiFactory.action("▶", squadStrikeSize == 3 ? 54 : 40, 34, 14, "#37474F", 9, () -> {
+            moveSquadStrikeEntry(entry, 1);
+            showSquadStrikeSetup(stage);
+        });
+        HBox lower = new HBox(5, up, skin, down);
+        lower.setAlignment(Pos.CENTER);
+        VBox card = new VBox(6, order, portrait, name, bird, lower);
+        card.setAlignment(Pos.CENTER);
+        card.setPadding(new Insets(9));
+        card.setPrefWidth(squadStrikeSize == 3 ? 210 : 126);
+        card.setStyle("-fx-background-color: rgba(5,8,13,0.86); -fx-background-radius: 18;"
+                + "-fx-border-color: rgba(255,255,255,0.20); -fx-border-width: 2; -fx-border-radius: 18;");
+        return card;
+    }
+
+    private void cycleSquadStrikeEntryBird(SquadStrikeEntry entry, int direction) {
+        List<BirdType> choices = new ArrayList<>(unlockedBirdPool());
+        choices.add(null);
+        int index = choices.indexOf(entry.selectedType);
+        for (int attempt = 0; attempt < choices.size(); attempt++) {
+            index = Math.floorMod(index + direction, choices.size());
+            BirdType candidate = choices.get(index);
+            if (candidate == null || !squadStrikeSelectedElsewhere(entry, candidate)) {
+                entry.selectedType = candidate;
+                entry.resolvedType = null;
+                entry.selectedSkinKey = normalizeAdventureSkinChoice(candidate, entry.selectedSkinKey);
+                return;
+            }
+        }
+    }
+
+    private boolean squadStrikeSelectedElsewhere(SquadStrikeEntry source, BirdType type) {
+        if (type == null) return false;
+        for (int team = 0; team < 2; team++) {
+            for (SquadStrikeEntry entry : squadStrikeActiveTeam(team)) {
+                if (entry != source && entry.selectedType == type) return true;
+            }
+        }
+        return false;
+    }
+
+    private void cycleSquadStrikeEntrySkin(SquadStrikeEntry entry) {
+        if (entry == null || entry.selectedType == null) return;
+        List<String> options = adventureSkinOptions(entry.selectedType);
+        if (options.size() <= 1) {
+            entry.selectedSkinKey = null;
+            return;
+        }
+        String current = normalizeAdventureSkinChoice(entry.selectedType, entry.selectedSkinKey);
+        int index = Math.max(0, options.indexOf(current));
+        entry.selectedSkinKey = options.get((index + 1) % options.size());
+    }
+
+    private void moveSquadStrikeEntry(SquadStrikeEntry entry, int direction) {
+        List<SquadStrikeEntry> team = squadStrikeTeam(entry.team);
+        int index = team.indexOf(entry);
+        int target = Math.clamp(index + direction, 0, squadStrikeSize - 1);
+        if (target != index) Collections.swap(team, index, target);
+    }
+
+    private int squadStrikeOrder(SquadStrikeEntry entry) {
+        if (entry == null) return 0;
+        int index = squadStrikeTeam(entry.team).indexOf(entry);
+        return index < 0 ? entry.slot + 1 : index + 1;
+    }
+
+    private String squadStrikeEntrySkinKey(SquadStrikeEntry entry, BirdType type) {
+        if (entry == null || type == null) return null;
+        entry.selectedSkinKey = normalizeAdventureSkinChoice(type, entry.selectedSkinKey);
+        return entry.selectedSkinKey;
+    }
+
+    private void cycleSquadStrikeMap() {
+        if (squadStrikeMapRandom) {
+            squadStrikeMapRandom = false;
+            squadStrikeFixedMap = tournamentMapPool().getFirst();
+            return;
+        }
+        List<MapType> maps = tournamentMapPool();
+        int index = maps.indexOf(squadStrikeFixedMap);
+        if (index < 0 || index + 1 >= maps.size()) squadStrikeMapRandom = true;
+        else squadStrikeFixedMap = maps.get(index + 1);
+    }
+
+    private void showSquadStrikeRules(Stage stage) {
+        playMenuMusic();
+        Button back = uiFactory.action("BACK TO SETUP", 260, 66, 22, "#B5121B", 18, () -> showSquadStrikeSetup(stage));
+        BorderPane root = buildModernMenuPage();
+        root.setTop(buildMenuTopStrip(back, buildMenuTitleBanner("SQUAD STRIKE RULES", 680, 72, 29),
+                buildMenuChip("ONE BOUT AT A TIME", "#5E35B1", "#D1C4E9")));
+        List<VersusRules> choices = new ArrayList<>(List.of(VersusRules.standard(), VersusRules.competitive(), VersusRules.chaos()));
+        for (int i = 0; i < VersusRulesLibrary.SLOT_COUNT; i++) choices.add(versusRulesLibrary.slot(i));
+        GridPane grid = new GridPane();
+        grid.setAlignment(Pos.CENTER);
+        grid.setHgap(20);
+        grid.setVgap(20);
+        for (int i = 0; i < choices.size(); i++) {
+            VersusRules candidate = tournamentRuleset(choices.get(i));
+            boolean selected = candidate.encode().equals(squadStrikeRules.encode());
+            Button choose = uiFactory.action(selected ? "SELECTED" : "USE RULESET", 240, 54, 17,
+                    selected ? "#2E7D32" : "#5E35B1", 14, () -> {
+                        squadStrikeRules = candidate;
+                        showSquadStrikeSetup(stage);
+                    });
+            choose.setDisable(selected);
+            Label name = buildMenuPanelTitle(candidate.name(), 23);
+            Label detail = buildMenuPanelBody(candidate.detailSummary(), 350);
+            VBox card = new VBox(12, name, detail, choose);
+            card.setAlignment(Pos.CENTER);
+            card.setPadding(new Insets(20));
+            card.setPrefSize(430, 220);
+            card.setStyle("-fx-background-color: #111923; -fx-background-radius: 22; -fx-border-color: "
+                    + (selected ? "#81C784" : "rgba(255,255,255,0.18)") + "; -fx-border-width: 3; -fx-border-radius: 22;");
+            grid.add(card, i % 3, i / 3);
+        }
+        root.setCenter(grid);
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, back);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        setScenePreservingFullscreen(stage, scene);
+    }
+
+    private boolean squadStrikeSelectionsValid(boolean requireResolved) {
+        Set<BirdType> used = new HashSet<>();
+        for (int team = 0; team < 2; team++) {
+            for (SquadStrikeEntry entry : squadStrikeActiveTeam(team)) {
+                BirdType type = requireResolved ? entry.resolvedType : entry.selectedType;
+                if (requireResolved && (type == null || !isBirdUnlocked(type))) return false;
+                if (type != null && !used.add(type)) return false;
+            }
+        }
+        return true;
+    }
+
+    private void resolveSquadStrikeBirds() {
+        Random picker = new Random(squadStrikeSeed);
+        List<BirdType> available = new ArrayList<>(unlockedBirdPool());
+        Set<BirdType> used = new HashSet<>();
+        for (int team = 0; team < 2; team++) {
+            for (SquadStrikeEntry entry : squadStrikeActiveTeam(team)) {
+                if (entry.selectedType != null && isBirdUnlocked(entry.selectedType) && used.add(entry.selectedType)) {
+                    entry.resolvedType = entry.selectedType;
+                    continue;
+                }
+                List<BirdType> candidates = available.stream().filter(type -> !used.contains(type)).toList();
+                BirdType resolved = candidates.isEmpty() ? firstUnlockedBird() : candidates.get(picker.nextInt(candidates.size()));
+                entry.resolvedType = resolved;
+                used.add(resolved);
+            }
+        }
+    }
+
+    private void beginSquadStrike(Stage stage) {
+        ensureSquadStrikeEntries();
+        resetSquadStrikeRun();
+        squadStrikeStartedAtMillis = System.currentTimeMillis();
+        squadStrikeSeed = System.nanoTime() ^ ((long) saveRepository.activeProfile().id().hashCode() << 32);
+        resolveSquadStrikeBirds();
+        if (!squadStrikeSelectionsValid(true)) {
+            showSquadStrikeSetup(stage);
+            return;
+        }
+        squadStrikeModeActive = true;
+        checkpointSquadStrikeRun();
+        showSquadStrikeBoard(stage);
+    }
+
+    private StageChoice pickSquadStrikeStage() {
+        if (!squadStrikeMapRandom) return new StageChoice(squadStrikeFixedMap, MapVariant.STANDARD);
+        List<StageChoice> pool = new ArrayList<>(availableStageChoices(squadStrikeRules.randomStagePool()));
+        pool.removeIf(squadStrikeRules::excludes);
+        if (pool.isEmpty()) pool.add(new StageChoice(MapType.FOREST, MapVariant.STANDARD));
+        long mixed = squadStrikeSeed ^ ((long) squadStrikeBoutsCompleted * 0x9E3779B97F4A7C15L);
+        return pool.get(new Random(mixed).nextInt(pool.size()));
+    }
+
+    private void showSquadStrikeBoard(Stage stage) {
+        playMenuMusic();
+        if (!squadStrikeModeActive) {
+            showSquadStrikeMode(stage);
+            return;
+        }
+        Button exit = uiFactory.action("SUSPEND + EXIT", 270, 66, 21, "#B5121B", 17, () -> {
+            suspendSquadStrikeRun();
+            showMenu(stage);
+        });
+        Button next = uiFactory.action(squadStrikeComplete ? "VICTORY CEREMONY" : "NEXT BOUT", 430, 82, 28,
+                squadStrikeComplete ? "#F5A623" : "#00A84F", 20,
+                () -> {
+                    if (squadStrikeComplete) showSquadStrikeComplete(stage);
+                    else startNextSquadStrikeBout(stage);
+                });
+        HBox rosters = new HBox(28, buildSquadStrikeBoardTeam(0, "TEAM A", "#1565C0"),
+                buildSquadStrikeBoardTeam(1, "TEAM B", "#C62828"));
+        rosters.setAlignment(Pos.CENTER);
+        String scoreText = squadStrikeFormat == SquadStrikeFormat.BEST_OF
+                ? "TEAM A  " + squadStrikeTeamAWins + "  —  " + squadStrikeTeamBWins + "  TEAM B"
+                : "TEAM A  " + Math.max(0, squadStrikeSize - squadStrikeTeamAIndex) + " LEFT  —  "
+                + Math.max(0, squadStrikeSize - squadStrikeTeamBIndex) + " LEFT  TEAM B";
+        Label score = buildMenuPanelTitle(scoreText, 36);
+        Label detail = buildMenuPanelBody(squadStrikeFormat.description + "\n" + squadStrikeRules.summary()
+                + "  •  Bouts " + squadStrikeBoutsCompleted, 1200);
+        VBox center = new VBox(20, score, rosters, detail, next);
+        center.setAlignment(Pos.CENTER);
+        BorderPane root = buildModernMenuPage();
+        root.setTop(buildMenuTopStrip(exit, buildMenuTitleBanner("SQUAD STRIKE", 580, 72, 33),
+                buildMenuChip(squadStrikeFormat.label, "#5E35B1", "#EDE7F6")));
+        root.setCenter(center);
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, exit);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        setScenePreservingFullscreen(stage, scene);
+        next.requestFocus();
+    }
+
+    private VBox buildSquadStrikeBoardTeam(int team, String titleText, String accent) {
+        HBox fighters = new HBox(10);
+        fighters.setAlignment(Pos.CENTER);
+        List<SquadStrikeEntry> entries = squadStrikeActiveTeam(team);
+        int current = team == 0 ? squadStrikeTeamAIndex : squadStrikeTeamBIndex;
+        for (int i = 0; i < entries.size(); i++) {
+            SquadStrikeEntry entry = entries.get(i);
+            Canvas portrait = new Canvas(squadStrikeSize == 3 ? 125 : 86, squadStrikeSize == 3 ? 112 : 82);
+            drawRosterSprite(portrait, entry.resolvedType, squadStrikeEntrySkinKey(entry, entry.resolvedType), false);
+            String state = i < current ? "OUT" : i == current && !squadStrikeComplete ? "NEXT" : "WAIT";
+            if (squadStrikeComplete && squadStrikeChampionTeam == team) state = "WIN";
+            Label status = new Label(state);
+            status.setFont(Font.font("Arial Black", 13));
+            status.setTextFill(i < current ? Color.web("#90A4AE") : Color.web("#FFE082"));
+            Label name = new Label(entry.resolvedType == null ? "?" : entry.resolvedType.name.toUpperCase(Locale.ROOT));
+            name.setFont(Font.font("Arial Black", squadStrikeSize == 3 ? 14 : 10));
+            name.setTextFill(i < current ? Color.web("#78909C") : Color.WHITE);
+            name.setMaxWidth(squadStrikeSize == 3 ? 170 : 105);
+            applyNoEllipsis(name);
+            VBox card = new VBox(5, status, portrait, name);
+            card.setAlignment(Pos.CENTER);
+            card.setPadding(new Insets(10));
+            card.setOpacity(i < current ? 0.38 : 1.0);
+            card.setStyle("-fx-background-color: rgba(4,7,12,0.88); -fx-background-radius: 18;"
+                    + "-fx-border-color: " + (i == current ? "#FFE082" : "rgba(255,255,255,0.18)")
+                    + "; -fx-border-width: 2.5; -fx-border-radius: 18;");
+            fighters.getChildren().add(card);
+        }
+        Label title = buildMenuPanelTitle(titleText + (squadStrikeHuman[team] ? "  •  HUMAN" : "  •  CPU LV " + squadStrikeCpuLevel[team]), 27);
+        VBox panel = new VBox(12, title, fighters);
+        panel.setAlignment(Pos.CENTER);
+        panel.setPadding(new Insets(18));
+        panel.setPrefWidth(730);
+        panel.setStyle("-fx-background-color: linear-gradient(to bottom, " + accent + ", #090D14 58%);"
+                + "-fx-background-radius: 26; -fx-border-color: rgba(255,255,255,0.22); -fx-border-width: 3; -fx-border-radius: 26;");
+        return panel;
+    }
+
+    private void startNextSquadStrikeBout(Stage stage) {
+        if (!squadStrikeModeActive || squadStrikeComplete) {
+            showSquadStrikeBoard(stage);
+            return;
+        }
+        if (squadStrikeTeamAIndex >= squadStrikeSize || squadStrikeTeamBIndex >= squadStrikeSize) {
+            finishSquadStrike(squadStrikeTeamAIndex < squadStrikeSize ? 0 : 1);
+            showSquadStrikeBoard(stage);
+            return;
+        }
+        squadStrikeSlotA = squadStrikeTeamA.get(squadStrikeTeamAIndex);
+        squadStrikeSlotB = squadStrikeTeamB.get(squadStrikeTeamBIndex);
+        squadStrikeMatchResolved = false;
+        squadStrikePendingStage = pickSquadStrikeStage();
+        showSquadStrikeMatchIntro(stage);
+    }
+
+    private void showSquadStrikeMatchIntro(Stage stage) {
+        playMenuMusic();
+        if (squadStrikeSlotA == null || squadStrikeSlotB == null) {
+            showSquadStrikeBoard(stage);
+            return;
+        }
+        StageChoice choice = squadStrikePendingStage == null ? pickSquadStrikeStage() : squadStrikePendingStage;
+        Button back = uiFactory.action("BACK TO BOARD", 260, 64, 21, "#B5121B", 17, () -> showSquadStrikeBoard(stage));
+        Button play = uiFactory.action(squadStrikeHuman[0] || squadStrikeHuman[1] ? "BEGIN BOUT" : "WATCH BOUT",
+                390, 80, 28, "#1565C0", 20, () -> launchSquadStrikeBout(stage));
+        Button simulate = uiFactory.action("SIMULATE", 260, 80, 24, "#8E24AA", 18,
+                () -> simulateSquadStrikeBout(stage));
+        simulate.setVisible(!squadStrikeHuman[0] && !squadStrikeHuman[1]);
+        simulate.setManaged(!squadStrikeHuman[0] && !squadStrikeHuman[1]);
+        HBox versus = new HBox(24, buildSquadStrikeIntroFighter(squadStrikeSlotA, "TEAM A", "#1565C0"),
+                buildTournamentVersMark(), buildSquadStrikeIntroFighter(squadStrikeSlotB, "TEAM B", "#C62828"));
+        versus.setAlignment(Pos.CENTER);
+        Canvas preview = new Canvas(390, 220);
+        StagePreviewRenderer.draw(preview, choice);
+        Label stageName = buildMenuEyebrow(stageDisplayName(choice.map(), choice.variant()).toUpperCase(Locale.ROOT), "#FFE082");
+        VBox stageCard = new VBox(8, preview, stageName);
+        stageCard.setAlignment(Pos.CENTER);
+        stageCard.setPadding(new Insets(12));
+        stageCard.setStyle("-fx-background-color: #080B11; -fx-background-radius: 18; -fx-border-color: #FFE082; -fx-border-width: 3; -fx-border-radius: 18;");
+        HBox actions = new HBox(18, play, simulate);
+        actions.setAlignment(Pos.CENTER);
+        VBox center = new VBox(18, new HBox(24, versus, stageCard), buildMenuPanelBody(squadStrikeRules.summary(), 1100), actions);
+        center.setAlignment(Pos.CENTER);
+        if (developerInfiniteBirdCoins) {
+            Button a = uiFactory.action("DEV: TEAM A WINS", 260, 48, 15, "#5E35B1", 12, () -> developerAdvanceSquadStrike(stage, 0));
+            Button b = uiFactory.action("DEV: TEAM B WINS", 260, 48, 15, "#5E35B1", 12, () -> developerAdvanceSquadStrike(stage, 1));
+            HBox dev = new HBox(12, a, b);
+            dev.setAlignment(Pos.CENTER);
+            center.getChildren().add(dev);
+        }
+        BorderPane root = buildModernMenuPage();
+        root.setTop(buildMenuTopStrip(back, buildMenuTitleBanner("BOUT " + (squadStrikeBoutsCompleted + 1), 520, 72, 32),
+                buildMenuChip(squadStrikeFormat.label, "#5E35B1", "#EDE7F6")));
+        root.setCenter(center);
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, back);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        setScenePreservingFullscreen(stage, scene);
+        play.requestFocus();
+    }
+
+    private VBox buildSquadStrikeIntroFighter(SquadStrikeEntry entry, String team, String accent) {
+        Canvas portrait = new Canvas(190, 160);
+        drawRosterSprite(portrait, entry.resolvedType, squadStrikeEntrySkinKey(entry, entry.resolvedType), false);
+        Label name = buildMenuPanelTitle(entry.resolvedType == null ? "RANDOM" : entry.resolvedType.name.toUpperCase(Locale.ROOT), 27);
+        Label order = buildMenuEyebrow(team + "  •  ORDER " + squadStrikeOrder(entry), "#FFE082");
+        VBox card = new VBox(8, order, portrait, name);
+        card.setAlignment(Pos.CENTER);
+        card.setPadding(new Insets(16));
+        card.setPrefSize(290, 270);
+        card.setStyle("-fx-background-color: linear-gradient(to bottom right, " + accent + ", #080B11 72%);"
+                + "-fx-background-radius: 24; -fx-border-color: rgba(255,255,255,0.25); -fx-border-width: 3; -fx-border-radius: 24;");
+        return card;
+    }
+
+    private void launchSquadStrikeBout(Stage stage) {
+        if (squadStrikeSlotA == null || squadStrikeSlotB == null) {
+            startNextSquadStrikeBout(stage);
+            return;
+        }
+        teamModeEnabled = false;
+        competitionModeEnabled = false;
+        mutatorModeEnabled = squadStrikeRules.mutatorsEnabled();
+        Arrays.fill(playerTeams, 1);
+        activePlayers = 2;
+        StageChoice choice = squadStrikePendingStage == null ? pickSquadStrikeStage() : squadStrikePendingStage;
+        squadStrikePendingStage = null;
+        selectedMap = choice.map();
+        selectedMapVariant = choice.variant();
+        activateSquadStrikeRules();
+        fightSetupSelection.selectBirdWithSkin(0, squadStrikeSlotA.resolvedType,
+                squadStrikeEntrySkinKey(squadStrikeSlotA, squadStrikeSlotA.resolvedType));
+        fightSetupSelection.selectBirdWithSkin(1, squadStrikeSlotB.resolvedType,
+                squadStrikeEntrySkinKey(squadStrikeSlotB, squadStrikeSlotB.resolvedType));
+        isAI[0] = !squadStrikeHuman[0];
+        isAI[1] = !squadStrikeHuman[1];
+        cpuLevels[0] = squadStrikeCpuLevel[0];
+        cpuLevels[1] = squadStrikeCpuLevel[1];
+        competitionSeriesActive = false;
+        resetMatchStats();
+        startMatch(stage);
+    }
+
+    private void applySquadStrikeCarryState() {
+        if (squadStrikeFormat != SquadStrikeFormat.ELIMINATION || squadStrikeCarryTeam < 0) return;
+        int player = squadStrikeCarryTeam;
+        if (player >= activePlayers || players[player] == null) return;
+        scores[player] = Math.max(1, squadStrikeCarryStocks);
+        players[player].health = Math.max(1.0, squadStrikeCarryHealth);
+    }
+
+    void captureSquadStrikeCombatStats() {
+        if (!squadStrikeModeActive) return;
+        for (int i = 0; i < Math.min(2, activePlayers); i++) {
+            squadStrikeTotalKos += Math.max(0, eliminations[i]);
+            squadStrikeTotalDamage += Math.max(0, damageDealt[i]);
+        }
+    }
+
+    int resolveSquadStrikeWinnerTeam(Bird winner) {
+        if (winner != null && winner.playerIndex >= 0 && winner.playerIndex < 2) return winner.playerIndex;
+        return new Random(squadStrikeSeed ^ (squadStrikeBoutsCompleted * 0xD1B54A32D192ED03L)).nextBoolean() ? 0 : 1;
+    }
+
+    void recordSquadStrikeWinner(int winnerTeam, Bird winner, boolean simulated) {
+        if (!squadStrikeModeActive || squadStrikeComplete || squadStrikeMatchResolved) return;
+        winnerTeam = winnerTeam == 1 ? 1 : 0;
+        int loserTeam = 1 - winnerTeam;
+        squadStrikeWinnerHistory.add(winnerTeam);
+        squadStrikeBoutsCompleted++;
+        if (simulated) squadStrikeBoutsSimulated++;
+        if (squadStrikeFormat == SquadStrikeFormat.BEST_OF) {
+            if (winnerTeam == 0) squadStrikeTeamAWins++; else squadStrikeTeamBWins++;
+            squadStrikeTeamAIndex++;
+            squadStrikeTeamBIndex++;
+            squadStrikeCarryTeam = -1;
+            if (squadStrikeTeamAWins >= squadStrikeTargetWins() || squadStrikeTeamBWins >= squadStrikeTargetWins()) {
+                finishSquadStrike(winnerTeam);
+            }
+        } else {
+            if (loserTeam == 0) squadStrikeTeamAIndex++; else squadStrikeTeamBIndex++;
+            if (squadStrikeFormat == SquadStrikeFormat.ELIMINATION && !simulated && winner != null) {
+                squadStrikeCarryTeam = winnerTeam;
+                squadStrikeCarryStocks = Math.max(1, scores[winner.playerIndex]);
+                squadStrikeCarryHealth = Math.max(1.0, winner.health);
+            } else {
+                squadStrikeCarryTeam = -1;
+                squadStrikeCarryStocks = 0;
+                squadStrikeCarryHealth = 0.0;
+            }
+            if ((loserTeam == 0 ? squadStrikeTeamAIndex : squadStrikeTeamBIndex) >= squadStrikeSize) {
+                finishSquadStrike(winnerTeam);
+            }
+        }
+        squadStrikeMatchResolved = true;
+        squadStrikeSlotA = null;
+        squadStrikeSlotB = null;
+        squadStrikePendingStage = null;
+        checkpointSquadStrikeRun();
+    }
+
+    private void finishSquadStrike(int championTeam) {
+        squadStrikeComplete = true;
+        squadStrikeChampionTeam = championTeam == 1 ? 1 : 0;
+        if (!squadStrikeRewardGranted && squadStrikeHuman[squadStrikeChampionTeam]) {
+            squadStrikeRewardGranted = true;
+            grantBirdCoins(100 + squadStrikeSize * 30);
+        }
+    }
+
+    private void simulateSquadStrikeBout(Stage stage) {
+        double a = squadStrikeHuman[0] ? 5.0 : squadStrikeCpuLevel[0];
+        double b = squadStrikeHuman[1] ? 5.0 : squadStrikeCpuLevel[1];
+        Random picker = new Random(squadStrikeSeed ^ ((long) squadStrikeBoutsCompleted * 0x94D049BB133111EBL));
+        int winner = picker.nextDouble() * (a + b) < a ? 0 : 1;
+        recordSquadStrikeWinner(winner, null, true);
+        showSquadStrikeBoard(stage);
+    }
+
+    private void developerAdvanceSquadStrike(Stage stage, int team) {
+        recordSquadStrikeWinner(team, null, true);
+        showSquadStrikeBoard(stage);
+    }
+
+    private void showSquadStrikeComplete(Stage stage) {
+        playMenuMusic();
+        String champion = squadStrikeChampionTeam == 0 ? "TEAM A" : "TEAM B";
+        int reward = squadStrikeHuman[squadStrikeChampionTeam] ? 100 + squadStrikeSize * 30 : 0;
+        Button rematch = uiFactory.action("NEW SQUAD STRIKE", 450, 86, 28, "#00897B", 20, () -> {
+            discardSquadStrikeRun();
+            showSquadStrikeSetup(stage);
+        });
+        Button history = uiFactory.action("MATCH HISTORY", 400, 86, 25, "#1565C0", 19, () -> {
+            discardSquadStrikeRun();
+            showMatchHistory(stage);
+        });
+        Button exit = uiFactory.action("BACK TO MODES", 360, 86, 24, "#B5121B", 18, () -> {
+            discardSquadStrikeRun();
+            showClassicMoreMenu(stage);
+        });
+        HBox actions = new HBox(18, rematch, history, exit);
+        actions.setAlignment(Pos.CENTER);
+        String body = squadStrikeFormat.label + "  •  " + squadStrikeSize + " VS " + squadStrikeSize
+                + "\n" + squadStrikeBoutsCompleted + " bouts  •  " + squadStrikeBoutsSimulated + " simulated"
+                + "  •  " + squadStrikeTotalKos + " KOs  •  " + squadStrikeTotalDamage + " damage"
+                + (reward > 0 ? "\nCHAMPIONSHIP REWARD  +" + reward + " BIRD COINS" : "")
+                + "\nWatched bouts are saved under Match History → Replays.";
+        BorderPane root = buildModernMenuPage();
+        root.setTop(buildMenuTopStrip(buildMenuChip("COMPLETE", "#F5A623", "#FFF59D"),
+                buildMenuTitleBanner("SQUAD STRIKE", 580, 72, 33),
+                buildMenuChip(champion + " WINS", squadStrikeChampionTeam == 0 ? "#1565C0" : "#C62828", "#FFFFFF")));
+        root.setCenter(buildModernMenuPanel("#FFD54F", 1240, 22,
+                buildMenuEyebrow("FINAL RESULT", "#FFE082"), buildMenuPanelTitle(champion + " STANDS TALL", 52),
+                buildMenuPanelBody(body, 1080), actions));
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, exit);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        setScenePreservingFullscreen(stage, scene);
+        rematch.requestFocus();
     }
 
     private static VersusRules tournamentRuleset(VersusRules rules) {
@@ -66942,6 +67859,8 @@ public class BirdGame3 {
         replay.slotBaseSize = new double[activePlayers];
         replay.slotBasePower = new double[activePlayers];
         replay.slotBaseSpeed = new double[activePlayers];
+        replay.slotInitialStocks = new int[activePlayers];
+        replay.slotInitialHealth = new double[activePlayers];
         for (int i = 0; i < activePlayers; i++) {
             Bird b = players[i];
             if (b == null || b.type == null) continue;
@@ -66952,6 +67871,8 @@ public class BirdGame3 {
             replay.slotBaseSize[i] = b.baseSizeMultiplier;
             replay.slotBasePower[i] = b.basePowerMultiplier;
             replay.slotBaseSpeed[i] = b.baseSpeedMultiplier;
+            replay.slotInitialStocks[i] = scores[i];
+            replay.slotInitialHealth[i] = b.health;
         }
         replayRecording = replay;
     }
@@ -67041,6 +67962,21 @@ public class BirdGame3 {
         replayPlaybackActive = true;
         clearReplayInputs();
         startMatch(stage);
+        applyReplayInitialState(replay);
+    }
+
+    private void applyReplayInitialState(MatchReplay replay) {
+        if (replay == null) return;
+        for (int i = 0; i < activePlayers; i++) {
+            if (replay.slotInitialStocks != null && i < replay.slotInitialStocks.length
+                    && replay.slotInitialStocks[i] >= 0) {
+                scores[i] = replay.slotInitialStocks[i];
+            }
+            if (players[i] != null && replay.slotInitialHealth != null && i < replay.slotInitialHealth.length
+                    && Double.isFinite(replay.slotInitialHealth[i]) && replay.slotInitialHealth[i] > 0.0) {
+                players[i].health = replay.slotInitialHealth[i];
+            }
+        }
     }
 
     boolean canPlayReplay(MatchReplay replay) {
@@ -67086,6 +68022,7 @@ public class BirdGame3 {
         adventureModeActive = false;
         classicModeActive = false;
         tournamentModeActive = false;
+        squadStrikeModeActive = false;
         competitionModeEnabled = false;
         lanModeActive = false;
         MapVariant replayVariant = r.mapVariantName == null
@@ -67416,6 +68353,7 @@ public class BirdGame3 {
         classicModeActive = false;
         clearAshfallTrialState();
         tournamentModeActive = false;
+        squadStrikeModeActive = false;
         competitionModeEnabled = false;
         mutatorModeEnabled = false;
         teamModeEnabled = false;
@@ -69297,7 +70235,8 @@ public class BirdGame3 {
                 || storyModeActive
                 || adventureModeActive
                 || classicModeActive
-                || tournamentModeActive) {
+                || tournamentModeActive
+                || squadStrikeModeActive) {
             return;
         }
         Random mapRandom = new Random(currentMatchSeed ^ 0x6D1F_92AB_C0DE_73A5L);
@@ -69870,6 +70809,7 @@ public class BirdGame3 {
             }
         }
 
+        applySquadStrikeCarryState();
         beginReplayRecordingForMatch();
 
         if (tournamentModeActive) {
@@ -72521,6 +73461,8 @@ public class BirdGame3 {
         if (storyModeActive) return "STORY";
         if (adventureModeActive) return "ADVENTURE";
         if (trainingModeActive) return "TRAINING";
+        if (squadStrikeModeActive) return "SQUAD STRIKE";
+        if (tournamentModeActive) return "TOURNAMENT";
         if (competitionModeEnabled) return "COMPETITION";
         return "FIGHT";
     }
@@ -72551,6 +73493,11 @@ public class BirdGame3 {
             if (battle != null) {
                 details.add(battle.title);
             }
+        } else if (squadStrikeModeActive) {
+            details.add(squadStrikeFormat.label + " " + squadStrikeSize + "v" + squadStrikeSize);
+            details.add("Bout " + Math.max(1, squadStrikeBoutsCompleted));
+        } else if (tournamentModeActive && currentTournamentMatch != null) {
+            details.add(tournamentRoundLabel(currentTournamentMatch.roundIndex));
         } else if (competitionModeEnabled) {
             details.add("Round " + competitionRoundNumber);
         }
@@ -74324,6 +75271,20 @@ public class BirdGame3 {
                 showLegacyStories(stage);
             });
             buttons.getChildren().addAll(continueAdventure, hub, menu);
+        } else if (squadStrikeModeActive) {
+            Button board = button(squadStrikeComplete ? "VICTORY CEREMONY" : "STRIKE BOARD", "#1565C0");
+            board.setOnAction(e -> {
+                resetMatchStats();
+                if (squadStrikeComplete) showSquadStrikeComplete(stage);
+                else showSquadStrikeBoard(stage);
+            });
+            Button exit = button("SUSPEND + EXIT", "#9C27B0");
+            exit.setOnAction(e -> {
+                resetMatchStats();
+                suspendSquadStrikeRun();
+                showMenu(stage);
+            });
+            buttons.getChildren().addAll(board, exit);
         } else if (tournamentModeActive) {
             Button bracket = button("VIEW BRACKET", "#1565C0");
             bracket.setOnAction(e -> {
@@ -74661,6 +75622,7 @@ public class BirdGame3 {
         birdCoinLedger.load(prefs);
         applyProfileProgressState(BirdGame3ProfileProgressState.load(prefs, profileProgressSchema()));
         suspendedTournamentRun = TournamentRunState.loadFrom(prefs);
+        suspendedSquadStrikeRun = SquadStrikeRunState.loadFrom(prefs);
     }
 
     void requestProgressSave() {
@@ -74733,6 +75695,9 @@ public class BirdGame3 {
         TournamentRunState run = tournamentModeActive && !tournamentRounds.isEmpty()
                 ? captureTournamentRunState() : suspendedTournamentRun;
         TournamentRunState.saveTo(prefs, run);
+        SquadStrikeRunState strikeRun = squadStrikeModeActive
+                ? captureSquadStrikeRunState() : suspendedSquadStrikeRun;
+        SquadStrikeRunState.saveTo(prefs, strikeRun);
     }
 
     private BirdGame3ProfileProgressState.Schema profileProgressSchema() {
@@ -77058,6 +78023,7 @@ public class BirdGame3 {
         if (campaignModeActive) return "THE STILL SKY";
         if (storyModeActive) return "EPISODE";
         if (adventureModeActive) return "ADVENTURE";
+        if (squadStrikeModeActive) return "SQUAD STRIKE";
         if (tournamentModeActive) return "TOURNAMENT";
         if (competitionModeEnabled) return "COMPETITION";
         return "VERSUS";
@@ -77467,6 +78433,7 @@ public class BirdGame3 {
         if (campaignModeActive) return "Mission progress is committed only at its authored checkpoints and results screens.";
         if (storyModeActive) return "This battle belongs to an active legacy episode.";
         if (adventureModeActive) return "This battle belongs to the current Adventure chapter.";
+        if (squadStrikeModeActive) return "This bout belongs to an active Squad Strike. Results are checkpointed only when the bout ends.";
         if (tournamentModeActive) return "Tournament results are recorded only after a completed match.";
         return "Change your decision without changing the match: resume, restart from the opening countdown, or return to fighter select.";
     }
@@ -77503,6 +78470,7 @@ public class BirdGame3 {
         if (campaignModeActive) return "EXIT TO STORY";
         if (storyModeActive) return "EXIT EPISODE";
         if (adventureModeActive) return "EXIT TO ADVENTURE";
+        if (squadStrikeModeActive) return "EXIT TO STRIKE BOARD";
         if (tournamentModeActive) return "EXIT TO BRACKET";
         if (classicModeActive) return "ABANDON RUN";
         return "EXIT TO FIGHTERS";
@@ -77514,6 +78482,7 @@ public class BirdGame3 {
         if (campaignModeActive) return PauseExitDestination.STORY_HUB;
         if (storyModeActive) return PauseExitDestination.LEGACY_STORIES;
         if (adventureModeActive) return PauseExitDestination.ADVENTURE_HUB;
+        if (squadStrikeModeActive) return PauseExitDestination.SQUAD_STRIKE_BOARD;
         if (tournamentModeActive) return PauseExitDestination.TOURNAMENT_BRACKET;
         return PauseExitDestination.FIGHTER_SELECT;
     }
@@ -77609,6 +78578,7 @@ public class BirdGame3 {
             case LEGACY_STORIES -> showLegacyStories(stage);
             case ADVENTURE_HUB -> showAdventureHub(stage);
             case TOURNAMENT_BRACKET -> showTournamentBracket(stage);
+            case SQUAD_STRIKE_BOARD -> showSquadStrikeBoard(stage);
             case FIGHTER_SELECT -> {
                 frontEndMatchFlow.showFighters();
                 showFightSetup(stage);

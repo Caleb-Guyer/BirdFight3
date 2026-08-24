@@ -35,6 +35,8 @@ class ReplayStoreTest {
         replay.slotBaseSize = new double[]{1.0, 1.05};
         replay.slotBasePower = new double[]{1.1, 0.95};
         replay.slotBaseSpeed = new double[]{1.0, 1.0};
+        replay.slotInitialStocks = new int[]{2, 3};
+        replay.slotInitialHealth = new double[]{72.5, 100.0};
         replay.frames.add(new int[]{0b101, 0});
         replay.frames.add(new int[]{0b001, 0b110});
         replay.frames.add(new int[]{0, 1 << 30});
@@ -70,6 +72,8 @@ class ReplayStoreTest {
         assertArrayEquals(original.slotBaseSize, loaded.slotBaseSize);
         assertArrayEquals(original.slotBasePower, loaded.slotBasePower);
         assertArrayEquals(original.slotBaseSpeed, loaded.slotBaseSpeed);
+        assertArrayEquals(original.slotInitialStocks, loaded.slotInitialStocks);
+        assertArrayEquals(original.slotInitialHealth, loaded.slotInitialHealth);
         assertEquals(original.frames.size(), loaded.frames.size());
         for (int i = 0; i < original.frames.size(); i++) {
             assertArrayEquals(original.frames.get(i), loaded.frames.get(i));

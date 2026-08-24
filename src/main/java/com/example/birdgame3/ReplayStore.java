@@ -31,7 +31,7 @@ final class ReplayStore {
     static final String FILE_EXTENSION = ".bf3replay";
     static final int MAX_KEPT = 30;
     private static final int MAGIC = 0x42463352; // "BF3R"
-    static final int VERSION = 4;
+    static final int VERSION = 5;
     private static final DateTimeFormatter FILE_STAMP =
             DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss", Locale.ROOT);
 
@@ -166,6 +166,10 @@ final class ReplayStore {
             out.writeDouble(replay.slotBaseSize[i]);
             out.writeDouble(replay.slotBasePower[i]);
             out.writeDouble(replay.slotBaseSpeed[i]);
+            out.writeInt(replay.slotInitialStocks == null || i >= replay.slotInitialStocks.length
+                    ? -1 : replay.slotInitialStocks[i]);
+            out.writeDouble(replay.slotInitialHealth == null || i >= replay.slotInitialHealth.length
+                    ? Double.NaN : replay.slotInitialHealth[i]);
         }
         out.writeInt(replay.dashTaps.size());
         for (MatchReplay.DashTap tap : replay.dashTaps) {
@@ -210,6 +214,10 @@ final class ReplayStore {
         replay.slotBaseSize = new double[playerCount];
         replay.slotBasePower = new double[playerCount];
         replay.slotBaseSpeed = new double[playerCount];
+        replay.slotInitialStocks = new int[playerCount];
+        replay.slotInitialHealth = new double[playerCount];
+        java.util.Arrays.fill(replay.slotInitialStocks, -1);
+        java.util.Arrays.fill(replay.slotInitialHealth, Double.NaN);
         for (int i = 0; i < playerCount; i++) {
             replay.slotBirdTypes[i] = emptyToNull(in.readUTF());
             replay.slotIsAi[i] = in.readBoolean();
@@ -218,6 +226,10 @@ final class ReplayStore {
             replay.slotBaseSize[i] = in.readDouble();
             replay.slotBasePower[i] = in.readDouble();
             replay.slotBaseSpeed[i] = in.readDouble();
+            if (version >= 5) {
+                replay.slotInitialStocks[i] = in.readInt();
+                replay.slotInitialHealth[i] = in.readDouble();
+            }
         }
         int tapCount = in.readInt();
         if (tapCount < 0 || tapCount > 1_000_000) {
