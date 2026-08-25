@@ -39,14 +39,35 @@ final class HubPresentationModel {
         ASHFALL("ASHFALL TRIAL", "A three-rite Phoenix challenge."),
         BOSS_RUSH("BOSS RUSH", "Fight the boss roster back to back."),
         LEGACY("LEGACY STORIES", "Replay the original adventures and episodes."),
-        TOURNAMENT("TOURNAMENT", "Build and play a local bracket."),
-        SQUAD_STRIKE("SQUAD STRIKE", "Battle with ordered three- or five-bird squads."),
         TRAINING("TRAINING", "Practice movement and combat.");
 
         private final String title;
         private final String description;
 
         ExtraMode(String title, String description) {
+            this.title = title;
+            this.description = description;
+        }
+
+        String title() {
+            return title;
+        }
+
+        String description() {
+            return description;
+        }
+    }
+
+    enum FightMode {
+        BIRD_BATTLE("BIRD BATTLE", "Set the rules for a local battle."),
+        FLOCK_STRIKE("FLOCK STRIKE", "Battle with ordered three- or five-bird flocks."),
+        ROOST_BRACKET("ROOST BRACKET", "Build and play a local elimination bracket."),
+        WILD_RULES("WILD RULES", "Create unusual battles with stamina and mutators.");
+
+        private final String title;
+        private final String description;
+
+        FightMode(String title, String description) {
             this.title = title;
             this.description = description;
         }

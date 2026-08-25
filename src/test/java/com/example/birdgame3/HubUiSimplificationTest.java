@@ -104,11 +104,55 @@ class HubUiSimplificationTest {
         String source = Files.readString(GAME_SOURCE).replace("\r\n", "\n");
         String games = methodBody(source, "private void showClassicMoreMenu(Stage stage)");
 
-        assertEquals(7, occurrences(games, "registerHubInteractiveNode("));
+        assertEquals(5, occurrences(games, "registerHubInteractiveNode("));
         assertTrue(games.contains("HubPresentationModel.ExtraMode.CLASSIC.description()"));
         assertTrue(games.contains("HubPresentationModel.ExtraMode.TRAINING.description()"));
+        assertFalse(games.contains("showTournamentMode(stage)"),
+                "the bracket belongs under Fight, not Games & More");
+        assertFalse(games.contains("showSquadStrikeMode(stage)"),
+                "ordered flock battles belong under Fight, not Games & More");
         assertFalse(games.contains("Pick a route"));
         assertFalse(games.contains("route ladder with branching encounters"));
+    }
+
+    @Test
+    void fightDashboardOwnsEveryLocalBattleFormatWithoutDuplicatingThem() throws IOException {
+        String source = Files.readString(GAME_SOURCE).replace("\r\n", "\n");
+        String hub = methodBody(source, "private void showHub(Stage stage)");
+        String fight = methodBody(source, "private void showFightMenu(Stage stage)");
+
+        assertTrue(hub.contains("animateFightMenuExit(frame, () -> showFightMenu(stage))"),
+                "Fight should enter its dashboard through the shared clean transition");
+        assertEquals(HubPresentationModel.FightMode.values().length,
+                occurrences(fight, "registerHubInteractiveNode("));
+        assertTrue(fight.contains("showVersusRules(stage)"));
+        assertTrue(fight.contains("showSquadStrikeMode(stage)"));
+        assertTrue(fight.contains("showTournamentMode(stage)"));
+        assertTrue(fight.contains("showWildRules(stage)"));
+        assertTrue(fight.contains("fightMenuIconBirdBattle()"));
+        assertTrue(fight.contains("gamesMoreIconSquadStrike()"));
+        assertTrue(fight.contains("gamesMoreIconTournament()"));
+        assertTrue(fight.contains("fightMenuIconWildRules()"));
+        assertTrue(fight.contains("buildFightMenuHeroArt()"),
+                "the lead battle destination should have dedicated posed-bird artwork");
+        assertTrue(fight.contains("playFightMenuEntrance("));
+        assertTrue(fight.contains("animateFightMenuExit("));
+    }
+
+    @Test
+    void movedBattleModesReturnToFightAndRulesUseBirdFightLanguage() throws IOException {
+        String source = Files.readString(GAME_SOURCE).replace("\r\n", "\n");
+        String squad = methodBody(source, "private void showSquadStrikeMode(Stage stage)");
+        String bracket = methodBody(source, "private void showTournamentMode(Stage stage)");
+        String rulesets = methodBody(source, "private void showVersusRulesets(Stage stage, boolean networkLobby)");
+        String editor = methodBody(source, "private void showVersusRulesEditor(Stage stage, boolean networkLobby)");
+
+        assertTrue(squad.contains("showFightMenu(stage)"));
+        assertTrue(bracket.contains("showFightMenu(stage)"));
+        assertTrue(rulesets.contains("FIGHT  ›  RULESETS"));
+        assertTrue(editor.contains("FIGHT  ›  RULESETS  ›  EDIT"));
+        assertFalse(rulesets.contains("SMASH  ›  RULESETS"));
+        assertFalse(editor.contains("SMASH  ›  RULESETS  ›  EDIT"));
     }
 
     private static int occurrences(String value, String token) {

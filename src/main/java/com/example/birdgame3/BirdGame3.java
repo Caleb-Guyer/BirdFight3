@@ -25953,7 +25953,7 @@ public class BirdGame3 {
         lockRegionSize(frame, 1600, 950);
         frame.setStyle("-fx-background-color: linear-gradient(to bottom right, #12091D 0%, #090C13 55%, #151926 100%);");
 
-        Label breadcrumb = new Label(networkLobby ? "NETWORK LOBBY  ›  RULESETS" : "SMASH  ›  RULESETS");
+        Label breadcrumb = new Label(networkLobby ? "NETWORK LOBBY  ›  RULESETS" : "FIGHT  ›  RULESETS");
         breadcrumb.setFont(Font.font("Arial Black", FontWeight.BOLD, 28));
         breadcrumb.setTextFill(Color.WHITE);
         applyNoEllipsis(breadcrumb);
@@ -26108,7 +26108,7 @@ public class BirdGame3 {
                         showLanLobby(stage);
                     } else {
                         frontEndMatchFlow.back();
-                        showMenu(stage);
+                        showFightMenu(stage);
                     }
                 });
         Button useButton = uiFactory.action(networkLobby ? "USE RULESET" : "CHOOSE FIGHTERS",
@@ -26253,7 +26253,7 @@ public class BirdGame3 {
 
         Label progress = new Label(networkLobby
                 ? "NETWORK LOBBY  ›  RULESETS  ›  EDIT"
-                : "SMASH  ›  RULESETS  ›  EDIT");
+                : "FIGHT  ›  RULESETS  ›  EDIT");
         progress.setFont(Font.font("Consolas", FontWeight.BOLD, 21));
         progress.setTextFill(Color.web("#FFE082"));
         applyNoEllipsis(progress);
@@ -30019,7 +30019,7 @@ public class BirdGame3 {
                 "VERSUS BATTLES", "FIGHT",
                 hubLeftWidth, hubFightHeight, 82, new Insets(18, 220, 24, 34),
                 Pos.CENTER_LEFT, hubIconFight(), 3.2, 0.16,
-                38, 0, 0, 0, () -> showVersusRules(stage));
+                38, 0, 0, 0, () -> animateFightMenuExit(frame, () -> showFightMenu(stage)));
         registerHubInteractiveNode(fightNode, hubButtons, helpTitle, helpBody,
                 buildUltimateHubStyle("#D62828", "#8B0000", "#FFD7C2", 38, 0, 0, 0, false),
                 buildUltimateHubStyle("#D62828", "#8B0000", "#FFF8E1", 38, 0, 0, 0, true),
@@ -34216,6 +34216,328 @@ public class BirdGame3 {
         return card;
     }
 
+    private void showFightMenu(Stage stage) {
+        playMenuMusic();
+
+        StackPane root = new StackPane();
+        root.getProperties().put("noAutoScale", true);
+        root.setStyle("-fx-background-color: linear-gradient(to bottom right, #130206 0%, #35050A 46%, #08090D 100%);");
+
+        AnchorPane frame = new AnchorPane();
+        frame.setId("uiFrame");
+        lockRegionSize(frame, 1600, 950);
+        frame.getChildren().add(buildFightMenuBackdrop());
+
+        Button back = uiFactory.action("BACK TO HUB", 276, 72, 26, "#7E1018", 20,
+                () -> animateFightMenuExit(frame, () -> showMenu(stage)));
+        StackPane titleBanner = buildMenuTitleBanner("FIGHT", 390, 74, 31);
+        StackPane sectionChip = buildMenuChip("LOCAL BATTLE MODES", "#641019", "#FFCDD2");
+        StackPane topStrip = buildMenuTopStrip(back, titleBanner, sectionChip);
+        lockRegionSize(topStrip, 1600, 96);
+        topStrip.setStyle("-fx-background-color: linear-gradient(to right, #A50F1C 0%, #D7202C 43%, #22070B 43%, #08090D 100%);"
+                + "-fx-background-radius: 0;"
+                + "-fx-border-color: rgba(255,255,255,0.22);"
+                + "-fx-border-width: 0 0 3 0;");
+        AnchorPane.setTopAnchor(topStrip, 0.0);
+        AnchorPane.setLeftAnchor(topStrip, 0.0);
+        AnchorPane.setRightAnchor(topStrip, 0.0);
+
+        Label helpTitle = new Label(HubPresentationModel.IDLE_TITLE);
+        helpTitle.setFont(Font.font("Arial Black", 30));
+        helpTitle.setTextFill(Color.web("#FFE082"));
+        applyNoEllipsis(helpTitle);
+
+        Label helpBody = new Label(HubPresentationModel.IDLE_DESCRIPTION);
+        helpBody.setFont(Font.font("Consolas", 20));
+        helpBody.setTextFill(Color.web("#F5F5F5"));
+        helpBody.setWrapText(true);
+        helpBody.setMaxWidth(Double.MAX_VALUE);
+        helpBody.setMinWidth(0);
+        applyNoEllipsis(helpBody);
+
+        HBox footerMeta = buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "NAVIGATE"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "SELECT"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "HUB"));
+        footerMeta.setAlignment(Pos.CENTER_RIGHT);
+
+        List<Node> modeButtons = new ArrayList<>();
+
+        Button battleBtn = buildGamesMoreModeButton(
+                "LOCAL VERSUS",
+                "BIRD BATTLE",
+                1040, 270, 62,
+                new Insets(26, 280, 34, 42),
+                36,
+                fightMenuIconBirdBattle(), 5.2, 0.18,
+                new Insets(18, 54, 18, 18),
+                () -> animateFightMenuExit(frame, () -> showVersusRules(stage)));
+        registerHubInteractiveNode(battleBtn, modeButtons, helpTitle, helpBody,
+                buildGamesMoreCardStyle("#E6212D", "#7B0711", "#FFCDD2", 36, false),
+                buildGamesMoreCardStyle("#F22D39", "#8E0713", "#FFF8E1", 36, true),
+                HubPresentationModel.FightMode.BIRD_BATTLE.title(),
+                HubPresentationModel.FightMode.BIRD_BATTLE.description(), null, null);
+        AnchorPane.setTopAnchor(battleBtn, 112.0);
+        AnchorPane.setLeftAnchor(battleBtn, 0.0);
+
+        StackPane heroArt = buildFightMenuHeroArt();
+        AnchorPane.setTopAnchor(heroArt, 112.0);
+        AnchorPane.setLeftAnchor(heroArt, 1060.0);
+
+        Button flockBtn = buildGamesMoreModeButton(
+                "ORDERED TEAM BATTLES",
+                "FLOCK STRIKE",
+                520, 428, 43,
+                new Insets(24, 122, 34, 30),
+                34,
+                gamesMoreIconSquadStrike(), 4.2, 0.24,
+                new Insets(24, 36, 18, 18),
+                () -> animateFightMenuExit(frame, () -> showSquadStrikeMode(stage)));
+        registerHubInteractiveNode(flockBtn, modeButtons, helpTitle, helpBody,
+                buildGamesMoreCardStyle("#7E2FB5", "#310A5D", "#E1BEE7", 34, false),
+                buildGamesMoreCardStyle("#963CCB", "#3E0B75", "#FFF8E1", 34, true),
+                HubPresentationModel.FightMode.FLOCK_STRIKE.title(),
+                HubPresentationModel.FightMode.FLOCK_STRIKE.description(), null, null);
+        AnchorPane.setTopAnchor(flockBtn, 402.0);
+        AnchorPane.setLeftAnchor(flockBtn, 0.0);
+
+        Button bracketBtn = buildGamesMoreModeButton(
+                "LOCAL ELIMINATION",
+                "ROOST BRACKET",
+                520, 428, 41,
+                new Insets(24, 122, 34, 30),
+                34,
+                gamesMoreIconTournament(), 4.2, 0.24,
+                new Insets(24, 36, 18, 18),
+                () -> animateFightMenuExit(frame, () -> showTournamentMode(stage)));
+        registerHubInteractiveNode(bracketBtn, modeButtons, helpTitle, helpBody,
+                buildGamesMoreCardStyle("#F0A515", "#9E4F00", "#FFE082", 34, false),
+                buildGamesMoreCardStyle("#FFB81F", "#B35A00", "#FFF8E1", 34, true),
+                HubPresentationModel.FightMode.ROOST_BRACKET.title(),
+                HubPresentationModel.FightMode.ROOST_BRACKET.description(), null, null);
+        AnchorPane.setTopAnchor(bracketBtn, 402.0);
+        AnchorPane.setLeftAnchor(bracketBtn, 540.0);
+
+        Button wildBtn = buildGamesMoreModeButton(
+                "CUSTOM BATTLE LAB",
+                "WILD RULES",
+                520, 428, 43,
+                new Insets(24, 122, 34, 30),
+                34,
+                fightMenuIconWildRules(), 4.2, 0.24,
+                new Insets(24, 36, 18, 18),
+                () -> animateFightMenuExit(frame, () -> showWildRules(stage)));
+        registerHubInteractiveNode(wildBtn, modeButtons, helpTitle, helpBody,
+                buildGamesMoreCardStyle("#087A7F", "#03464E", "#80DEEA", 34, false),
+                buildGamesMoreCardStyle("#0B959B", "#045863", "#FFF8E1", 34, true),
+                HubPresentationModel.FightMode.WILD_RULES.title(),
+                HubPresentationModel.FightMode.WILD_RULES.description(), null, null);
+        AnchorPane.setTopAnchor(wildBtn, 402.0);
+        AnchorPane.setLeftAnchor(wildBtn, 1080.0);
+
+        StackPane helpBar = new StackPane();
+        lockRegionSize(helpBar, 1600, 104);
+        helpBar.setPadding(new Insets(14, 28, 14, 28));
+        helpBar.setStyle("-fx-background-color: linear-gradient(to right, rgba(0,0,0,0.98), rgba(20,8,10,0.97));"
+                + "-fx-border-color: rgba(255,255,255,0.12) transparent transparent transparent;"
+                + "-fx-border-width: 3 0 0 0;");
+        Region helpSpacer = new Region();
+        HBox.setHgrow(helpSpacer, Priority.ALWAYS);
+        VBox helpText = new VBox(4, helpTitle, helpBody);
+        helpText.setAlignment(Pos.CENTER_LEFT);
+        helpText.setMinWidth(0);
+        helpText.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(helpText, Priority.ALWAYS);
+        HBox helpContent = new HBox(24, helpText, helpSpacer, footerMeta);
+        helpContent.setAlignment(Pos.CENTER_LEFT);
+        helpBar.getChildren().add(helpContent);
+        AnchorPane.setLeftAnchor(helpBar, 0.0);
+        AnchorPane.setRightAnchor(helpBar, 0.0);
+        AnchorPane.setBottomAnchor(helpBar, 0.0);
+        installGamesMoreHelpTextFitting(helpTitle, helpBody, helpText, footerMeta, helpBar);
+
+        frame.getChildren().addAll(topStrip, battleBtn, heroArt, flockBtn, bracketBtn, wildBtn, helpBar);
+        root.getChildren().add(frame);
+
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, back);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        bindFixedFrameScale(scene, frame, 0.0);
+        setScenePreservingFullscreen(stage, scene);
+        javafx.application.Platform.runLater(() -> {
+            battleBtn.requestFocus();
+            setConsoleHighlightActive(true, scene);
+            refreshUltimateHubButtons(modeButtons, helpTitle, helpBody, null, null);
+            playFightMenuEntrance(frame, List.of(battleBtn, heroArt, flockBtn, bracketBtn, wildBtn));
+        });
+    }
+
+    private void showWildRules(Stage stage) {
+        frontEndMatchFlow.beginVersus();
+        frontEndMatchFlow.selectCustomRules(versusRulesLibrary.selected());
+        showVersusRulesEditor(stage, false);
+    }
+
+    private Pane buildFightMenuBackdrop() {
+        Pane backdrop = new Pane();
+        lockRegionSize(backdrop, 1600, 950);
+        backdrop.setMouseTransparent(true);
+
+        Circle leftGlow = new Circle(220, 330, 360, Color.web("#D71929", 0.20));
+        Circle rightGlow = new Circle(1340, 570, 430, Color.web("#FF6F00", 0.10));
+        Region slashA = new Region();
+        lockRegionSize(slashA, 1260, 170);
+        slashA.relocate(120, 116);
+        slashA.setRotate(-10);
+        slashA.setStyle("-fx-background-color: linear-gradient(to right, rgba(255,255,255,0.16), rgba(255,255,255,0));"
+                + "-fx-background-radius: 100;");
+        Region slashB = new Region();
+        lockRegionSize(slashB, 980, 150);
+        slashB.relocate(460, 620);
+        slashB.setRotate(-10);
+        slashB.setStyle("-fx-background-color: linear-gradient(to right, rgba(255,193,7,0.14), rgba(255,255,255,0));"
+                + "-fx-background-radius: 100;");
+        backdrop.getChildren().addAll(leftGlow, rightGlow, slashA, slashB);
+        return backdrop;
+    }
+
+    private StackPane buildFightMenuHeroArt() {
+        StackPane shell = new StackPane();
+        lockRegionSize(shell, 540, 270);
+        shell.setMouseTransparent(true);
+        shell.setStyle("-fx-background-color: linear-gradient(to bottom right, #111A25 0%, #29070C 58%, #610D16 100%);"
+                + "-fx-background-radius: 36; -fx-border-color: rgba(255,255,255,0.34);"
+                + "-fx-border-width: 3; -fx-border-radius: 36;");
+        installRegionClip(shell, 36, 36);
+
+        Pane art = new Pane();
+        lockRegionSize(art, 540, 270);
+        Region beam = new Region();
+        lockRegionSize(beam, 520, 92);
+        beam.relocate(24, 80);
+        beam.setRotate(-13);
+        beam.setStyle("-fx-background-color: linear-gradient(to right, rgba(255,193,7,0), rgba(255,193,7,0.36), rgba(255,255,255,0));"
+                + "-fx-background-radius: 70;");
+
+        Canvas eagle = new Canvas(220, 220);
+        Canvas pigeon = new Canvas(188, 188);
+        Canvas roadrunner = new Canvas(178, 178);
+        drawVaultShowcasePortrait(eagle, vaultActor(BirdType.EAGLE, Bird.VisualAuditPose.FLAP, false));
+        drawVaultShowcasePortrait(pigeon, vaultActor(BirdType.PIGEON, Bird.VisualAuditPose.ATTACK, true));
+        drawVaultShowcasePortrait(roadrunner, vaultActor(BirdType.ROADRUNNER, Bird.VisualAuditPose.RUN, false));
+        eagle.relocate(154, -20);
+        eagle.setRotate(-8);
+        pigeon.relocate(18, 70);
+        pigeon.setRotate(-4);
+        roadrunner.relocate(348, 80);
+        roadrunner.setRotate(5);
+
+        Label callout = new Label("CHOOSE YOUR BATTLE");
+        callout.setFont(Font.font("Arial Black", 22));
+        callout.setTextFill(Color.web("#FFF8E1"));
+        callout.setPadding(new Insets(7, 16, 7, 16));
+        callout.setStyle("-fx-background-color: rgba(0,0,0,0.72); -fx-background-radius: 18;"
+                + "-fx-border-color: rgba(255,224,130,0.72); -fx-border-width: 2; -fx-border-radius: 18;");
+        callout.relocate(148, 218);
+        art.getChildren().addAll(beam, eagle, pigeon, roadrunner, callout);
+        shell.getChildren().add(art);
+        return shell;
+    }
+
+    private Node fightMenuIconBirdBattle() {
+        Pane pane = hubIconPane();
+        Circle left = new Circle(18, 28, 12, Color.web("#FFF8E1"));
+        Circle right = new Circle(38, 28, 12, Color.web("#FFE0B2"));
+        Circle leftEye = new Circle(21, 25, 2.2, Color.web("#17191E"));
+        Circle rightEye = new Circle(35, 25, 2.2, Color.web("#17191E"));
+        Polygon leftBeak = new Polygon(28, 29, 35, 33, 28, 35);
+        Polygon rightBeak = new Polygon(28, 29, 21, 33, 28, 35);
+        leftBeak.setFill(Color.web("#FFB300"));
+        rightBeak.setFill(Color.web("#FF6F00"));
+        Polygon burst = new Polygon(28, 4, 32, 19, 49, 13, 38, 27, 52, 36, 34, 35,
+                28, 52, 22, 35, 4, 36, 18, 27, 7, 13, 24, 19);
+        burst.setFill(Color.web("#FF5252", 0.52));
+        pane.getChildren().addAll(burst, left, right, leftEye, rightEye, leftBeak, rightBeak);
+        return pane;
+    }
+
+    private Node fightMenuIconWildRules() {
+        Pane pane = hubIconPane();
+        Polygon feather = new Polygon(9, 42, 18, 15, 38, 7, 45, 16, 35, 31, 18, 42);
+        feather.setFill(Color.web("#B2EBF2"));
+        feather.setStroke(Color.web("#E0F7FA"));
+        feather.setStrokeWidth(1.8);
+        Line quill = new Line(10, 46, 37, 16);
+        quill.setStroke(Color.web("#006064"));
+        quill.setStrokeWidth(3);
+        Polygon star = new Polygon(45, 29, 48, 35, 55, 36, 50, 41, 51, 49,
+                45, 45, 39, 49, 40, 41, 35, 36, 42, 35);
+        star.setFill(Color.web("#FFF176"));
+        Circle die = new Circle(18, 17, 7, Color.web("#FF8A80"));
+        Circle pip = new Circle(18, 17, 2, Color.web("#4A1015"));
+        pane.getChildren().addAll(feather, quill, star, die, pip);
+        return pane;
+    }
+
+    private void playFightMenuEntrance(Node frame, List<Node> cards) {
+        if (frame == null) return;
+        Object old = frame.getProperties().remove("fightMenuTransition");
+        if (old instanceof Animation animation) animation.stop();
+
+        frame.setOpacity(0.0);
+        frame.setTranslateX(54.0);
+        FadeTransition frameFade = new FadeTransition(Duration.millis(220), frame);
+        frameFade.setFromValue(0.0);
+        frameFade.setToValue(1.0);
+        TranslateTransition frameSlide = new TranslateTransition(Duration.millis(290), frame);
+        frameSlide.setFromX(54.0);
+        frameSlide.setToX(0.0);
+        frameSlide.setInterpolator(javafx.animation.Interpolator.EASE_OUT);
+        ParallelTransition entrance = new ParallelTransition(frameFade, frameSlide);
+
+        if (cards != null) {
+            for (int i = 0; i < cards.size(); i++) {
+                Node card = cards.get(i);
+                if (card == null) continue;
+                card.setOpacity(0.0);
+                card.setTranslateY(24.0);
+                FadeTransition fade = new FadeTransition(Duration.millis(170), card);
+                fade.setToValue(1.0);
+                TranslateTransition rise = new TranslateTransition(Duration.millis(220), card);
+                rise.setToY(0.0);
+                rise.setInterpolator(javafx.animation.Interpolator.EASE_OUT);
+                ParallelTransition reveal = new ParallelTransition(fade, rise);
+                entrance.getChildren().add(new SequentialTransition(
+                        new PauseTransition(Duration.millis(35L * i)), reveal));
+            }
+        }
+        entrance.setOnFinished(event -> frame.getProperties().remove("fightMenuTransition"));
+        frame.getProperties().put("fightMenuTransition", entrance);
+        entrance.play();
+    }
+
+    private void animateFightMenuExit(Node frame, Runnable destination) {
+        if (destination == null) return;
+        if (frame == null || frame.getScene() == null) {
+            destination.run();
+            return;
+        }
+        if (Boolean.TRUE.equals(frame.getProperties().get("fightMenuExitRunning"))) return;
+        frame.getProperties().put("fightMenuExitRunning", Boolean.TRUE);
+        Object old = frame.getProperties().remove("fightMenuTransition");
+        if (old instanceof Animation animation) animation.stop();
+        FadeTransition fade = new FadeTransition(Duration.millis(170), frame);
+        fade.setToValue(0.0);
+        TranslateTransition slide = new TranslateTransition(Duration.millis(220), frame);
+        slide.setToX(-72.0);
+        slide.setInterpolator(javafx.animation.Interpolator.EASE_IN);
+        ParallelTransition exit = new ParallelTransition(fade, slide);
+        exit.setOnFinished(event -> destination.run());
+        frame.getProperties().put("fightMenuTransition", exit);
+        exit.play();
+    }
+
     private void showClassicMoreMenu(Stage stage) {
         clearActiveDailyChallengeRun();
         clearBossRushState();
@@ -34343,50 +34665,14 @@ public class BirdGame3 {
         AnchorPane.setTopAnchor(episodesBtn, 350.0);
         AnchorPane.setLeftAnchor(episodesBtn, 1080.0);
 
-        Button tournamentBtn = buildGamesMoreModeButton(
-                "BRACKET PLAY",
-                "TOURNAMENT",
-                520, 186, 34,
-                new Insets(18, 116, 24, 28),
-                32,
-                gamesMoreIconTournament(), 3.0, 0.16,
-                new Insets(18, 22, 18, 18),
-                () -> showTournamentMode(stage));
-        registerHubInteractiveNode(tournamentBtn, modeButtons, helpTitle, helpBody,
-                buildGamesMoreCardStyle("#F5A623", "#C46A00", "#FFE082", 32, false),
-                buildGamesMoreCardStyle("#F5A623", "#C46A00", "#FFF8E1", 32, true),
-                HubPresentationModel.ExtraMode.TOURNAMENT.title(),
-                HubPresentationModel.ExtraMode.TOURNAMENT.description(),
-                null, null);
-        AnchorPane.setTopAnchor(tournamentBtn, 556.0);
-        AnchorPane.setLeftAnchor(tournamentBtn, 0.0);
-
-        Button squadStrikeBtn = buildGamesMoreModeButton(
-                "SQUAD BATTLE",
-                "SQUAD STRIKE",
-                520, 186, 34,
-                new Insets(18, 116, 24, 28),
-                32,
-                gamesMoreIconSquadStrike(), 3.0, 0.17,
-                new Insets(18, 22, 18, 18),
-                () -> showSquadStrikeMode(stage));
-        registerHubInteractiveNode(squadStrikeBtn, modeButtons, helpTitle, helpBody,
-                buildGamesMoreCardStyle("#7E57C2", "#311B92", "#D1C4E9", 32, false),
-                buildGamesMoreCardStyle("#7E57C2", "#311B92", "#F3E5F5", 32, true),
-                HubPresentationModel.ExtraMode.SQUAD_STRIKE.title(),
-                HubPresentationModel.ExtraMode.SQUAD_STRIKE.description(),
-                null, null);
-        AnchorPane.setTopAnchor(squadStrikeBtn, 556.0);
-        AnchorPane.setLeftAnchor(squadStrikeBtn, 540.0);
-
         Button trainingBtn = buildGamesMoreModeButton(
                 "LAB WORK",
                 "TRAINING",
-                520, 186, 34,
-                new Insets(18, 116, 24, 28),
+                1600, 186, 42,
+                new Insets(18, 310, 24, 34),
                 32,
-                gamesMoreIconTraining(), 3.0, 0.16,
-                new Insets(18, 22, 18, 18),
+                gamesMoreIconTraining(), 4.2, 0.15,
+                new Insets(18, 62, 18, 18),
                 () -> showTrainingSetup(stage));
         registerHubInteractiveNode(trainingBtn, modeButtons, helpTitle, helpBody,
                 buildGamesMoreCardStyle("#00ACC1", "#006064", "#B2EBF2", 34, false),
@@ -34395,7 +34681,7 @@ public class BirdGame3 {
                 HubPresentationModel.ExtraMode.TRAINING.description(),
                 null, null);
         AnchorPane.setTopAnchor(trainingBtn, 556.0);
-        AnchorPane.setLeftAnchor(trainingBtn, 1080.0);
+        AnchorPane.setLeftAnchor(trainingBtn, 0.0);
 
         StackPane helpBar = new StackPane();
         lockRegionSize(helpBar, 1600, 104);
@@ -34424,8 +34710,6 @@ public class BirdGame3 {
                 ashfallTrialBtn,
                 bossRushBtn,
                 episodesBtn,
-                tournamentBtn,
-                squadStrikeBtn,
                 trainingBtn,
                 helpBar
         );
@@ -34983,7 +35267,7 @@ public class BirdGame3 {
             return;
         }
         playMenuMusic();
-        Button back = uiFactory.action("BACK", 220, 66, 23, "#B5121B", 18, () -> showClassicMoreMenu(stage));
+        Button back = uiFactory.action("BACK", 220, 66, 23, "#B5121B", 18, () -> showFightMenu(stage));
         Button resume = uiFactory.action("CONTINUE STRIKE", 500, 108, 33, "#5E35B1", 23, () -> {
             if (restoreSquadStrikeRunState(saved)) showSquadStrikeBoard(stage);
             else {
@@ -35001,7 +35285,7 @@ public class BirdGame3 {
                 + "  •  " + saved.boutsCompleted + " bouts complete\n"
                 + tournamentRuleset(VersusRules.decode(saved.rules, VersusRules.competitive())).summary();
         BorderPane root = buildModernMenuPage();
-        root.setTop(buildMenuTopStrip(back, buildMenuTitleBanner("SQUAD STRIKE", 580, 72, 33),
+        root.setTop(buildMenuTopStrip(back, buildMenuTitleBanner("FLOCK STRIKE", 580, 72, 33),
                 buildMenuChip("RUN SAVED", "#5E35B1", "#D1C4E9")));
         root.setCenter(buildModernMenuPanel("#B39DDB", 1120, 22,
                 buildMenuEyebrow("SUSPENDED SQUADS", "#D1C4E9"),
@@ -35025,7 +35309,7 @@ public class BirdGame3 {
         ensureSquadStrikeEntries();
         playMenuMusic();
 
-        Button back = uiFactory.action("BACK", 200, 62, 22, "#B5121B", 17, () -> showClassicMoreMenu(stage));
+        Button back = uiFactory.action("BACK", 200, 62, 22, "#B5121B", 17, () -> showFightMenu(stage));
         Button size = uiFactory.action(squadStrikeSize + " VS " + squadStrikeSize, 210, 62, 21,
                 "#455A64", 16, () -> {
                     squadStrikeSize = squadStrikeSize == 3 ? 5 : 3;
@@ -35054,14 +35338,14 @@ public class BirdGame3 {
         Label description = new Label(squadStrikeFormat.description);
         description.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
         description.setTextFill(Color.web("#D1C4E9"));
-        Button start = uiFactory.action("START SQUAD STRIKE", 470, 78, 27, "#00A84F", 20,
+        Button start = uiFactory.action("START FLOCK STRIKE", 470, 78, 27, "#00A84F", 20,
                 () -> beginSquadStrike(stage));
         VBox body = new VBox(18, settings, teams, description, start);
         body.setAlignment(Pos.CENTER);
         body.setPadding(new Insets(18));
 
         BorderPane root = buildModernMenuPage();
-        root.setTop(buildMenuTopStrip(back, buildMenuTitleBanner("SQUAD STRIKE", 580, 72, 33),
+        root.setTop(buildMenuTopStrip(back, buildMenuTitleBanner("FLOCK STRIKE", 580, 72, 33),
                 buildMenuChip("ORDER YOUR FIGHTERS", "#5E35B1", "#EDE7F6")));
         root.setCenter(body);
         Scene scene = new Scene(root, WIDTH, HEIGHT);
@@ -35209,7 +35493,7 @@ public class BirdGame3 {
         playMenuMusic();
         Button back = uiFactory.action("BACK TO SETUP", 260, 66, 22, "#B5121B", 18, () -> showSquadStrikeSetup(stage));
         BorderPane root = buildModernMenuPage();
-        root.setTop(buildMenuTopStrip(back, buildMenuTitleBanner("SQUAD STRIKE RULES", 680, 72, 29),
+        root.setTop(buildMenuTopStrip(back, buildMenuTitleBanner("FLOCK STRIKE RULES", 680, 72, 29),
                 buildMenuChip("ONE BOUT AT A TIME", "#5E35B1", "#D1C4E9")));
         List<VersusRules> choices = new ArrayList<>(List.of(VersusRules.standard(), VersusRules.competitive(), VersusRules.chaos()));
         for (int i = 0; i < VersusRulesLibrary.SLOT_COUNT; i++) choices.add(versusRulesLibrary.slot(i));
@@ -35327,7 +35611,7 @@ public class BirdGame3 {
         VBox center = new VBox(20, score, rosters, detail, next);
         center.setAlignment(Pos.CENTER);
         BorderPane root = buildModernMenuPage();
-        root.setTop(buildMenuTopStrip(exit, buildMenuTitleBanner("SQUAD STRIKE", 580, 72, 33),
+        root.setTop(buildMenuTopStrip(exit, buildMenuTitleBanner("FLOCK STRIKE", 580, 72, 33),
                 buildMenuChip(squadStrikeFormat.label, "#5E35B1", "#EDE7F6")));
         root.setCenter(center);
         Scene scene = new Scene(root, WIDTH, HEIGHT);
@@ -35567,7 +35851,7 @@ public class BirdGame3 {
         playMenuMusic();
         String champion = squadStrikeChampionTeam == 0 ? "TEAM A" : "TEAM B";
         int reward = squadStrikeHuman[squadStrikeChampionTeam] ? 100 + squadStrikeSize * 30 : 0;
-        Button rematch = uiFactory.action("NEW SQUAD STRIKE", 450, 86, 28, "#00897B", 20, () -> {
+        Button rematch = uiFactory.action("NEW FLOCK STRIKE", 450, 86, 28, "#00897B", 20, () -> {
             discardSquadStrikeRun();
             showSquadStrikeSetup(stage);
         });
@@ -35577,7 +35861,7 @@ public class BirdGame3 {
         });
         Button exit = uiFactory.action("BACK TO MODES", 360, 86, 24, "#B5121B", 18, () -> {
             discardSquadStrikeRun();
-            showClassicMoreMenu(stage);
+            showFightMenu(stage);
         });
         HBox actions = new HBox(18, rematch, history, exit);
         actions.setAlignment(Pos.CENTER);
@@ -35588,7 +35872,7 @@ public class BirdGame3 {
                 + "\nWatched bouts are saved under Match History → Replays.";
         BorderPane root = buildModernMenuPage();
         root.setTop(buildMenuTopStrip(buildMenuChip("COMPLETE", "#F5A623", "#FFF59D"),
-                buildMenuTitleBanner("SQUAD STRIKE", 580, 72, 33),
+                buildMenuTitleBanner("FLOCK STRIKE", 580, 72, 33),
                 buildMenuChip(champion + " WINS", squadStrikeChampionTeam == 0 ? "#1565C0" : "#C62828", "#FFFFFF")));
         root.setCenter(buildModernMenuPanel("#FFD54F", 1240, 22,
                 buildMenuEyebrow("FINAL RESULT", "#FFE082"), buildMenuPanelTitle(champion + " STANDS TALL", 52),
@@ -36335,8 +36619,8 @@ public class BirdGame3 {
             return;
         }
         playMenuMusic();
-        Button back = uiFactory.action("BACK", 220, 66, 23, "#B5121B", 18, () -> showClassicMoreMenu(stage));
-        Button resume = uiFactory.action("CONTINUE TOURNAMENT", 520, 112, 34, "#1565C0", 24, () -> {
+        Button back = uiFactory.action("BACK", 220, 66, 23, "#B5121B", 18, () -> showFightMenu(stage));
+        Button resume = uiFactory.action("CONTINUE BRACKET", 520, 112, 34, "#1565C0", 24, () -> {
             if (restoreTournamentRunState(saved)) {
                 showTournamentBracket(stage);
             } else {
@@ -36344,7 +36628,7 @@ public class BirdGame3 {
                 showTournamentSetup(stage);
             }
         });
-        Button fresh = uiFactory.action("NEW TOURNAMENT", 420, 112, 31, "#00897B", 22, () -> {
+        Button fresh = uiFactory.action("NEW BRACKET", 420, 112, 31, "#00897B", 22, () -> {
             discardTournamentRun();
             showTournamentSetup(stage);
         });
@@ -36360,7 +36644,7 @@ public class BirdGame3 {
                 + (saved.randomMap ? savedRules.randomPoolText() : saved.fixedMap.replace('_', ' '));
 
         BorderPane root = buildModernMenuPage();
-        root.setTop(buildMenuTopStrip(back, buildMenuTitleBanner("TOURNAMENT", 520, 72, 34),
+        root.setTop(buildMenuTopStrip(back, buildMenuTitleBanner("ROOST BRACKET", 520, 72, 34),
                 buildMenuChip("RUN SAVED", "#F5A623", "#FFF59D")));
         root.setCenter(buildModernMenuPanel("#FFD54F", 1180, 22,
                 buildMenuEyebrow("SUSPENDED BRACKET", "#FFD54F"),
@@ -36477,14 +36761,14 @@ public class BirdGame3 {
     }
 
     private StackPane buildTournamentSetupTopStrip(Stage stage, TournamentSetupUi ui) {
-        ui.backBtn = uiFactory.action("BACK", 156, 56, 22, "#B5121B", 16, () -> showClassicMoreMenu(stage));
+        ui.backBtn = uiFactory.action("BACK", 156, 56, 22, "#B5121B", 16, () -> showFightMenu(stage));
         ui.backBtn.setStyle("-fx-background-color: linear-gradient(to bottom, #D61D28, #981019); "
                 + "-fx-text-fill: white; -fx-font-family: 'Arial Black'; -fx-font-size: 17px; "
                 + "-fx-font-weight: bold; -fx-background-radius: 18; -fx-border-color: black; "
                 + "-fx-border-width: 3; -fx-border-radius: 18;");
         applyNoEllipsis(ui.backBtn);
 
-        Label title = new Label("TOURNAMENT MODE");
+        Label title = new Label("ROOST BRACKET");
         title.setFont(Font.font("Arial Black", FontWeight.BOLD, 34));
         title.setTextFill(Color.web("#111111"));
         StackPane titleBanner = new StackPane(title);
@@ -36953,7 +37237,7 @@ public class BirdGame3 {
         });
         applyNoEllipsis(shuffleBtn);
 
-        ui.startBtn = uiFactory.action("START TOURNAMENT", 240, 64, 21, "#00C853", 18, () -> beginTournament(stage));
+        ui.startBtn = uiFactory.action("START BRACKET", 240, 64, 21, "#00C853", 18, () -> beginTournament(stage));
         applyNoEllipsis(ui.startBtn);
 
         Button rulesBtn = uiFactory.action("RULES: " + tournamentRules.name(), 230, 52, 15, "#EF6C00", 14,
@@ -37195,7 +37479,7 @@ public class BirdGame3 {
         Button back = uiFactory.action("BACK TO SETUP", 260, 66, 22, "#B5121B", 18,
                 () -> showTournamentSetup(stage));
         BorderPane root = buildModernMenuPage();
-        root.setTop(buildMenuTopStrip(back, buildMenuTitleBanner("TOURNAMENT RULES", 620, 72, 31),
+        root.setTop(buildMenuTopStrip(back, buildMenuTitleBanner("ROOST BRACKET RULES", 620, 72, 31),
                 buildMenuChip("SINGLE ELIMINATION", "#EF6C00", "#FFE0B2")));
 
         List<VersusRules> choices = new ArrayList<>(List.of(
@@ -37293,7 +37577,7 @@ public class BirdGame3 {
         root.setPadding(new Insets(20, 24, 20, 24));
         root.setStyle("-fx-background-color: linear-gradient(to bottom, #07111F, #142849 58%, #1B365E);");
 
-        Label title = new Label("TOURNAMENT BRACKET");
+        Label title = new Label("ROOST BRACKET");
         title.setFont(Font.font("Arial Black", FontWeight.BOLD, 72));
         title.setTextFill(Color.GOLD);
 
@@ -37321,7 +37605,7 @@ public class BirdGame3 {
                 startNextTournamentMatch(stage);
             }
         });
-        Button reset = uiFactory.action("RESET TOURNAMENT", 420, 110, 34, "#00897B", 22, () -> {
+        Button reset = uiFactory.action("RESET BRACKET", 420, 110, 34, "#00897B", 22, () -> {
             discardTournamentRun();
             showTournamentSetup(stage);
         });
@@ -37733,7 +38017,7 @@ public class BirdGame3 {
         StackPane title = buildMenuTitleBanner(titleText, 560, 72, 31);
         root.setTop(buildMenuTopStrip(exit, title, buildMenuChip(chipText, accentHex, "#FFF59D")));
         VBox panel = buildModernMenuPanel(accentHex, 1120, 20,
-                buildMenuEyebrow("TOURNAMENT CONTROL", accentHex),
+                buildMenuEyebrow("ROOST BRACKET CONTROL", accentHex),
                 buildMenuPanelTitle(headline, 44),
                 buildMenuPanelBody(body, 960), actions);
         root.setCenter(panel);
@@ -37759,7 +38043,7 @@ public class BirdGame3 {
 
         HBox buttons = new HBox(24, watch, skip);
         buttons.setAlignment(Pos.CENTER);
-        showModernTournamentDecision(stage, "TOURNAMENT MATCH", "CPU VS CPU",
+        showModernTournamentDecision(stage, "ROOST BRACKET MATCH", "CPU VS CPU",
                 left + "\nVS\n" + right,
                 "Watch the full battle or resolve it immediately with the tournament simulation.",
                 "#64B5F6", exit, buttons, watch);
@@ -37826,7 +38110,7 @@ public class BirdGame3 {
         TournamentEntry finalChampion = champion;
         Button bracket = uiFactory.action("VIEW FINAL BRACKET", 360, 82, 24, "#1565C0", 19,
                 () -> showTournamentBracket(stage));
-        Button setup = uiFactory.action("NEW TOURNAMENT", 360, 82, 24, "#00897B", 19, () -> {
+        Button setup = uiFactory.action("NEW BRACKET", 360, 82, 24, "#00897B", 19, () -> {
             discardTournamentRun();
             showTournamentSetup(stage);
         });
@@ -37849,7 +38133,7 @@ public class BirdGame3 {
 
         String championText = finalChampion != null
                 ? tournamentEntryLabel(finalChampion).toUpperCase(Locale.ROOT) : "NO CHAMPION";
-        Label crown = buildMenuEyebrow("★  TOURNAMENT CHAMPION  ★", "#FFE082");
+        Label crown = buildMenuEyebrow("★  ROOST CHAMPION  ★", "#FFE082");
         Label name = buildMenuPanelTitle(championText, 56);
         Label bird = new Label(championBird == null ? "" : championBird.name.toUpperCase(Locale.ROOT)
                 + (finalChampion == null ? "" : "  •  SEED " + tournamentEntrySeedNumber(finalChampion)));
@@ -75729,8 +76013,8 @@ public class BirdGame3 {
         if (storyModeActive) return "STORY";
         if (adventureModeActive) return "ADVENTURE";
         if (trainingModeActive) return "TRAINING";
-        if (squadStrikeModeActive) return "SQUAD STRIKE";
-        if (tournamentModeActive) return "TOURNAMENT";
+        if (squadStrikeModeActive) return "FLOCK STRIKE";
+        if (tournamentModeActive) return "ROOST BRACKET";
         if (competitionModeEnabled) return "COMPETITION";
         return "FIGHT";
     }
@@ -80237,8 +80521,8 @@ public class BirdGame3 {
         if (campaignModeActive) return "THE STILL SKY";
         if (storyModeActive) return "EPISODE";
         if (adventureModeActive) return "ADVENTURE";
-        if (squadStrikeModeActive) return "SQUAD STRIKE";
-        if (tournamentModeActive) return "TOURNAMENT";
+        if (squadStrikeModeActive) return "FLOCK STRIKE";
+        if (tournamentModeActive) return "ROOST BRACKET";
         if (competitionModeEnabled) return "COMPETITION";
         return "VERSUS";
     }

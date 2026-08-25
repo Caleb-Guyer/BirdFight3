@@ -77,7 +77,7 @@ class VersusFrontEndIntegrationTest {
         String transition = methodBody(source,
                 "private void continueFromVersusRulesSelection(Stage stage, boolean networkLobby)");
 
-        assertTrue(browser.contains("SMASH  ›  RULESETS"));
+        assertTrue(browser.contains("FIGHT  ›  RULESETS"));
         assertTrue(browser.contains("CREATE RULESET"));
         assertTrue(browser.contains("CUSTOMIZE COPY"));
         assertTrue(browser.contains("buildVersusRulesetChoice"));

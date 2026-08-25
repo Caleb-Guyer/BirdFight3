@@ -11,12 +11,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class HubPresentationModelTest {
     @Test
     void contextualHelpStaysShortEnoughForOneLine() {
-        Stream.concat(
+        Stream.of(
                 Arrays.stream(HubPresentationModel.Destination.values())
                         .map(HubPresentationModel.Destination::description),
                 Arrays.stream(HubPresentationModel.ExtraMode.values())
-                        .map(HubPresentationModel.ExtraMode::description)
-        ).forEach(description -> {
+                        .map(HubPresentationModel.ExtraMode::description),
+                Arrays.stream(HubPresentationModel.FightMode.values())
+                        .map(HubPresentationModel.FightMode::description)
+        ).flatMap(stream -> stream).forEach(description -> {
             assertFalse(description.isBlank());
             assertTrue(description.length() <= HubPresentationModel.MAX_DESCRIPTION_LENGTH,
                     () -> "dashboard copy is too verbose: " + description);
