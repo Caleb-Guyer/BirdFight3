@@ -107,6 +107,10 @@ class HubUiSimplificationTest {
         assertEquals(5, occurrences(games, "registerHubInteractiveNode("));
         assertTrue(games.contains("HubPresentationModel.ExtraMode.CLASSIC.description()"));
         assertTrue(games.contains("HubPresentationModel.ExtraMode.TRAINING.description()"));
+        assertEquals(5, occurrences(games, "installHubSelectionPreview("));
+        assertTrue(games.contains("updateGamesMoreHeroArt("));
+        assertTrue(games.contains("playFightMenuEntrance("));
+        assertTrue(games.contains("animateFightMenuExit("));
         assertFalse(games.contains("showTournamentMode(stage)"),
                 "the bracket belongs under Fight, not Games & More");
         assertFalse(games.contains("showSquadStrikeMode(stage)"),

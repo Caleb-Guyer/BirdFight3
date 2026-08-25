@@ -34969,9 +34969,11 @@ public class BirdGame3 {
         lockRegionSize(frame, 1600, 950);
         frame.getChildren().add(buildGamesMoreBackdrop());
 
-        Button back = uiFactory.action("BACK TO HUB", 276, 72, 26, "#C62828", 20, () -> showMenu(stage));
+        Button back = uiFactory.action("BACK TO HUB", 276, 72, 26, "#1556A0", 20,
+                () -> animateFightMenuExit(frame, () -> showMenu(stage)));
         StackPane titleBanner = buildMenuTitleBanner("GAMES & MORE", 430, 74, 28);
-        StackPane topStrip = buildMenuTopStrip(back, titleBanner, null);
+        StackPane sectionChip = buildMenuChip("ARCADE & CHALLENGES", "#0A4B92", "#BBDEFB");
+        StackPane topStrip = buildMenuTopStrip(back, titleBanner, sectionChip);
         lockRegionSize(topStrip, 1600, 96);
         topStrip.setStyle("-fx-background-color: linear-gradient(to right, #0E58B5 0%, #18A7E2 43%, #0C1219 43%, #070B10 100%);"
                 + "-fx-background-radius: 0;"
@@ -35005,16 +35007,16 @@ public class BirdGame3 {
         Button classicBtn = buildGamesMoreModeButton(
                 "FEATURED ROUTE",
                 "CLASSIC MODE",
-                1600, 220, 58,
-                new Insets(24, 320, 30, 42),
+                980, 330, 58,
+                new Insets(24, 230, 34, 42),
                 40,
-                hubIconClassic(), 5.8, 0.14,
-                new Insets(16, 34, 18, 18),
-                () -> {
+                hubIconClassic(), 5.2, 0.17,
+                new Insets(18, 34, 18, 18),
+                () -> animateFightMenuExit(frame, () -> {
                     bossRushModeActive = false;
                     clearAshfallTrialState();
                     showClassicBirdSelect(stage);
-                });
+                }));
         registerHubInteractiveNode(classicBtn, modeButtons, helpTitle, helpBody,
                 buildGamesMoreCardStyle("#08B2F0", "#1457C0", "#FFF176", 42, false),
                 buildGamesMoreCardStyle("#08B2F0", "#1457C0", "#FFFDE7", 42, true),
@@ -35024,81 +35026,95 @@ public class BirdGame3 {
         AnchorPane.setTopAnchor(classicBtn, 112.0);
         AnchorPane.setLeftAnchor(classicBtn, 0.0);
 
+        StackPane heroArt = buildGamesMoreHeroArt();
+        installHubSelectionPreview(classicBtn,
+                () -> updateGamesMoreHeroArt(heroArt, HubPresentationModel.ExtraMode.CLASSIC, true));
+        AnchorPane.setTopAnchor(heroArt, 112.0);
+        AnchorPane.setLeftAnchor(heroArt, 1000.0);
+
         Button ashfallTrialBtn = buildGamesMoreModeButton(
                 "REBIRTH ROUTE",
                 "ASHFALL TRIAL",
-                520, 186, 40,
-                new Insets(18, 118, 24, 28),
+                385, 370, 36,
+                new Insets(20, 84, 30, 26),
                 32,
-                gamesMoreIconAshfallTrial(), 3.0, 0.16,
-                new Insets(18, 22, 18, 18),
-                () -> showAshfallTrialBriefing(stage));
+                gamesMoreIconAshfallTrial(), 3.6, 0.25,
+                new Insets(24, 26, 18, 18),
+                () -> animateFightMenuExit(frame, () -> showAshfallTrialBriefing(stage)));
         registerHubInteractiveNode(ashfallTrialBtn, modeButtons, helpTitle, helpBody,
                 buildGamesMoreCardStyle("#F4511E", "#7A1C00", "#FFCC80", 32, false),
                 buildGamesMoreCardStyle("#F4511E", "#7A1C00", "#FFF3E0", 32, true),
                 HubPresentationModel.ExtraMode.ASHFALL.title(),
                 HubPresentationModel.ExtraMode.ASHFALL.description(),
                 null, null);
-        AnchorPane.setTopAnchor(ashfallTrialBtn, 350.0);
+        installHubSelectionPreview(ashfallTrialBtn,
+                () -> updateGamesMoreHeroArt(heroArt, HubPresentationModel.ExtraMode.ASHFALL, true));
+        AnchorPane.setTopAnchor(ashfallTrialBtn, 462.0);
         AnchorPane.setLeftAnchor(ashfallTrialBtn, 0.0);
 
         Button bossRushBtn = buildGamesMoreModeButton(
                 "BOSS GAUNTLET",
                 "BOSS RUSH",
-                520, 186, 40,
-                new Insets(18, 118, 24, 28),
+                385, 370, 36,
+                new Insets(20, 84, 30, 26),
                 32,
-                gamesMoreIconBossRush(), 3.0, 0.16,
-                new Insets(18, 22, 18, 18),
-                () -> {
+                gamesMoreIconBossRush(), 3.6, 0.25,
+                new Insets(24, 26, 18, 18),
+                () -> animateFightMenuExit(frame, () -> {
                     bossRushModeActive = true;
                     clearAshfallTrialState();
                     showClassicBirdSelect(stage);
-                });
+                }));
         registerHubInteractiveNode(bossRushBtn, modeButtons, helpTitle, helpBody,
                 buildGamesMoreCardStyle("#D84343", "#6A1010", "#FFCDD2", 32, false),
                 buildGamesMoreCardStyle("#D84343", "#6A1010", "#FFF5F6", 32, true),
                 HubPresentationModel.ExtraMode.BOSS_RUSH.title(),
                 HubPresentationModel.ExtraMode.BOSS_RUSH.description(),
                 null, null);
-        AnchorPane.setTopAnchor(bossRushBtn, 350.0);
-        AnchorPane.setLeftAnchor(bossRushBtn, 540.0);
+        installHubSelectionPreview(bossRushBtn,
+                () -> updateGamesMoreHeroArt(heroArt, HubPresentationModel.ExtraMode.BOSS_RUSH, true));
+        AnchorPane.setTopAnchor(bossRushBtn, 462.0);
+        AnchorPane.setLeftAnchor(bossRushBtn, 405.0);
 
         Button episodesBtn = buildGamesMoreModeButton(
                 "ARCHIVED ROUTES",
                 "LEGACY STORIES",
-                520, 186, 40,
-                new Insets(18, 120, 24, 28),
+                385, 370, 34,
+                new Insets(20, 82, 30, 24),
                 32,
-                gamesMoreIconEpisodes(), 3.0, 0.16,
-                new Insets(18, 22, 18, 18),
-                () -> showLegacyStories(stage));
+                gamesMoreIconEpisodes(), 3.6, 0.25,
+                new Insets(24, 26, 18, 18),
+                () -> animateFightMenuExit(frame, () -> showLegacyStories(stage)));
         registerHubInteractiveNode(episodesBtn, modeButtons, helpTitle, helpBody,
                 buildGamesMoreCardStyle("#9334C8", "#4A148C", "#E1BEE7", 32, false),
                 buildGamesMoreCardStyle("#9334C8", "#4A148C", "#F6E7FF", 32, true),
                 HubPresentationModel.ExtraMode.LEGACY.title(),
                 HubPresentationModel.ExtraMode.LEGACY.description(),
                 null, null);
-        AnchorPane.setTopAnchor(episodesBtn, 350.0);
-        AnchorPane.setLeftAnchor(episodesBtn, 1080.0);
+        installHubSelectionPreview(episodesBtn,
+                () -> updateGamesMoreHeroArt(heroArt, HubPresentationModel.ExtraMode.LEGACY, true));
+        AnchorPane.setTopAnchor(episodesBtn, 462.0);
+        AnchorPane.setLeftAnchor(episodesBtn, 810.0);
 
         Button trainingBtn = buildGamesMoreModeButton(
                 "LAB WORK",
                 "TRAINING",
-                1600, 186, 42,
-                new Insets(18, 310, 24, 34),
+                385, 370, 36,
+                new Insets(20, 84, 30, 26),
                 32,
-                gamesMoreIconTraining(), 4.2, 0.15,
-                new Insets(18, 62, 18, 18),
-                () -> showTrainingSetup(stage));
+                gamesMoreIconTraining(), 3.6, 0.25,
+                new Insets(24, 26, 18, 18),
+                () -> animateFightMenuExit(frame, () -> showTrainingSetup(stage)));
         registerHubInteractiveNode(trainingBtn, modeButtons, helpTitle, helpBody,
                 buildGamesMoreCardStyle("#00ACC1", "#006064", "#B2EBF2", 34, false),
                 buildGamesMoreCardStyle("#00ACC1", "#006064", "#E0F7FA", 34, true),
                 HubPresentationModel.ExtraMode.TRAINING.title(),
                 HubPresentationModel.ExtraMode.TRAINING.description(),
                 null, null);
-        AnchorPane.setTopAnchor(trainingBtn, 556.0);
-        AnchorPane.setLeftAnchor(trainingBtn, 0.0);
+        installHubSelectionPreview(trainingBtn,
+                () -> updateGamesMoreHeroArt(heroArt, HubPresentationModel.ExtraMode.TRAINING, true));
+        AnchorPane.setTopAnchor(trainingBtn, 462.0);
+        AnchorPane.setLeftAnchor(trainingBtn, 1215.0);
 
         StackPane helpBar = new StackPane();
         lockRegionSize(helpBar, 1600, 104);
@@ -35124,6 +35140,7 @@ public class BirdGame3 {
         frame.getChildren().addAll(
                 topStrip,
                 classicBtn,
+                heroArt,
                 ashfallTrialBtn,
                 bossRushBtn,
                 episodesBtn,
@@ -35142,6 +35159,8 @@ public class BirdGame3 {
             classicBtn.requestFocus();
             setConsoleHighlightActive(true, scene);
             refreshUltimateHubButtons(modeButtons, helpTitle, helpBody, null, null);
+            playFightMenuEntrance(frame, List.of(classicBtn, heroArt, ashfallTrialBtn,
+                    bossRushBtn, episodesBtn, trainingBtn));
         });
     }
 
@@ -35196,6 +35215,196 @@ public class BirdGame3 {
                 bottomLine
         );
         return backdrop;
+    }
+
+    private StackPane buildGamesMoreHeroArt() {
+        StackPane shell = new StackPane();
+        lockRegionSize(shell, 600, 330);
+        shell.setMouseTransparent(true);
+        installRegionClip(shell, 40, 40);
+        updateGamesMoreHeroArt(shell, HubPresentationModel.ExtraMode.CLASSIC, false);
+        return shell;
+    }
+
+    private void updateGamesMoreHeroArt(StackPane shell,
+                                        HubPresentationModel.ExtraMode mode,
+                                        boolean animated) {
+        if (shell == null) return;
+        HubPresentationModel.ExtraMode resolved = mode == null
+                ? HubPresentationModel.ExtraMode.CLASSIC : mode;
+        String style = switch (resolved) {
+            case CLASSIC -> fightPreviewShellStyle("#05245A", "#088FD2", "#FFF176");
+            case ASHFALL -> fightPreviewShellStyle("#3A0D05", "#B52C0A", "#FFCC80");
+            case BOSS_RUSH -> fightPreviewShellStyle("#250307", "#8A1018", "#FFCDD2");
+            case LEGACY -> fightPreviewShellStyle("#16082A", "#5D2387", "#E1BEE7");
+            case TRAINING -> fightPreviewShellStyle("#032B39", "#00778A", "#B2EBF2");
+        };
+        swapFightPreview(shell, resolved, buildGamesMoreHeroScene(resolved), style, animated);
+    }
+
+    private Pane buildGamesMoreHeroScene(HubPresentationModel.ExtraMode mode) {
+        Pane art = new Pane();
+        lockRegionSize(art, 600, 330);
+
+        Region sweep = new Region();
+        lockRegionSize(sweep, 690, 116);
+        sweep.relocate(-42, 66);
+        sweep.setRotate(-10);
+        sweep.setStyle("-fx-background-color: linear-gradient(to right, rgba(255,255,255,0.02),"
+                + " rgba(255,255,255,0.20), rgba(255,255,255,0.01)); -fx-background-radius: 90;");
+        art.getChildren().add(sweep);
+
+        String kicker;
+        String callout;
+        switch (mode) {
+            case CLASSIC -> {
+                addGamesMoreRouteMotif(art);
+                addFightPreviewBird(art, BirdType.PIGEON, Bird.VisualAuditPose.ATTACK,
+                        false, 216, 194, 18, -4);
+                addFightPreviewBird(art, BirdType.EAGLE, Bird.VisualAuditPose.FLAP,
+                        true, 174, 22, 66, 8);
+                addFightPreviewBird(art, BirdType.FALCON, Bird.VisualAuditPose.FLAP,
+                        false, 170, 414, 60, -8);
+                kicker = "A ROUTE FOR EVERY BIRD";
+                callout = "EIGHT ROUNDS · ONE FINAL BOSS";
+            }
+            case ASHFALL -> {
+                addGamesMoreFlameMotif(art);
+                addFightPreviewBird(art, BirdType.PHOENIX, Bird.VisualAuditPose.FLAP,
+                        false, 236, 182, 7, -4);
+                addFightPreviewBird(art, BirdType.TURKEY, Bird.VisualAuditPose.HIT,
+                        true, 162, 34, 90, -7);
+                addFightPreviewBird(art, BirdType.VULTURE, Bird.VisualAuditPose.ATTACK,
+                        false, 170, 424, 80, 9);
+                kicker = "THE PHOENIX RITES";
+                callout = "SURVIVE THE REBIRTH TRIAL";
+            }
+            case BOSS_RUSH -> {
+                addGamesMoreCrownMotif(art);
+                addFightPreviewBird(art, BirdType.PIGEON, Bird.VisualAuditPose.ATTACK,
+                        false, 194, 36, 68, -5);
+                addFightPreviewBird(art, BirdType.VULTURE, Bird.VisualAuditPose.FLAP,
+                        true, 228, 338, 18, 8);
+                addFightPreviewBird(art, BirdType.RAVEN, Bird.VisualAuditPose.ATTACK,
+                        true, 170, 236, 92, 0);
+                kicker = "NO BREAKS BETWEEN THREATS";
+                callout = "FACE THE ENTIRE BOSS ROSTER";
+            }
+            case LEGACY -> {
+                addGamesMoreArchiveMotif(art);
+                addFightPreviewBird(art, BirdType.PIGEON, Bird.VisualAuditPose.RUN,
+                        false, 194, 200, 34, -3);
+                addFightPreviewBird(art, BirdType.BAT, Bird.VisualAuditPose.FLAP,
+                        false, 158, 45, 84, -12);
+                addFightPreviewBird(art, BirdType.PELICAN, Bird.VisualAuditPose.IDLE,
+                        true, 196, 410, 52, 7);
+                kicker = "THE ORIGINAL TALES";
+                callout = "REVISIT THREE ARCHIVED PATHS";
+            }
+            case TRAINING -> {
+                addGamesMoreTrainingMotif(art);
+                addFightPreviewBird(art, BirdType.SHOEBILL, Bird.VisualAuditPose.ATTACK,
+                        false, 202, 200, 30, -2);
+                addFightPreviewBird(art, BirdType.ROADRUNNER, Bird.VisualAuditPose.RUN,
+                        false, 170, 30, 91, -8);
+                addFightPreviewBird(art, BirdType.TITMOUSE, Bird.VisualAuditPose.FLAP,
+                        true, 160, 432, 84, 7);
+                kicker = "THE PRACTICE ROOST";
+                callout = "TEST MOVEMENT, COMBOS, AND RECOVERY";
+            }
+            default -> throw new IllegalStateException("Unhandled Games & More mode " + mode);
+        }
+
+        Region caption = new Region();
+        lockRegionSize(caption, 600, 96);
+        caption.relocate(0, 234);
+        caption.setStyle("-fx-background-color: linear-gradient(to top, rgba(0,0,0,0.96), rgba(0,0,0,0.44));");
+        Label kickerLabel = new Label(kicker);
+        kickerLabel.setFont(Font.font("Arial Black", 24));
+        kickerLabel.setTextFill(Color.WHITE);
+        kickerLabel.relocate(24, 250);
+        kickerLabel.setMaxWidth(552);
+        applyNoEllipsis(kickerLabel);
+        fitLabelSingleLine(kickerLabel, 24, 18, 552);
+        Label calloutLabel = new Label(callout);
+        calloutLabel.setFont(Font.font("Consolas", FontWeight.BOLD, 15));
+        calloutLabel.setTextFill(Color.web("#FFF59D"));
+        calloutLabel.relocate(26, 290);
+        art.getChildren().addAll(caption, kickerLabel, calloutLabel);
+        return art;
+    }
+
+    private void addGamesMoreRouteMotif(Pane art) {
+        double[] x = {48, 166, 286, 408, 538};
+        double[] y = {182, 116, 168, 98, 158};
+        for (int i = 0; i < x.length; i++) {
+            if (i < x.length - 1) {
+                Line line = new Line(x[i], y[i], x[i + 1], y[i + 1]);
+                line.setStroke(Color.web("#D9F4FF", 0.56));
+                line.setStrokeWidth(6);
+                art.getChildren().add(line);
+            }
+            Circle node = new Circle(x[i], y[i], i == x.length - 1 ? 15 : 10,
+                    Color.web(i == x.length - 1 ? "#FFF176" : "#81D4FA", 0.94));
+            node.setStroke(Color.WHITE);
+            node.setStrokeWidth(3);
+            art.getChildren().add(node);
+        }
+    }
+
+    private void addGamesMoreFlameMotif(Pane art) {
+        for (int i = 0; i < 7; i++) {
+            double x = 38 + i * 90;
+            Polygon flame = new Polygon(x, 212, x + 18, 154 - (i % 3) * 22,
+                    x + 42, 212, x + 25, 190, x + 12, 212);
+            flame.setFill(Color.web(i % 2 == 0 ? "#FFB300" : "#FF7043", 0.34));
+            flame.setStroke(Color.web("#FFE0B2", 0.36));
+            flame.setStrokeWidth(2);
+            art.getChildren().add(flame);
+        }
+    }
+
+    private void addGamesMoreCrownMotif(Pane art) {
+        Polygon crown = new Polygon(168, 198, 194, 72, 260, 150, 300, 48,
+                342, 150, 410, 72, 436, 198);
+        crown.setFill(Color.web("#FFCA28", 0.17));
+        crown.setStroke(Color.web("#FFE082", 0.64));
+        crown.setStrokeWidth(8);
+        Line base = new Line(172, 200, 432, 200);
+        base.setStroke(Color.web("#FFE082", 0.76));
+        base.setStrokeWidth(12);
+        art.getChildren().addAll(crown, base);
+    }
+
+    private void addGamesMoreArchiveMotif(Pane art) {
+        Polygon left = new Polygon(62, 82, 292, 118, 292, 218, 52, 178);
+        Polygon right = new Polygon(292, 118, 548, 76, 554, 178, 292, 218);
+        left.setFill(Color.web("#E1BEE7", 0.18));
+        right.setFill(Color.web("#CE93D8", 0.18));
+        left.setStroke(Color.web("#F3E5F5", 0.58));
+        right.setStroke(Color.web("#F3E5F5", 0.58));
+        left.setStrokeWidth(5);
+        right.setStrokeWidth(5);
+        Line spine = new Line(292, 118, 292, 218);
+        spine.setStroke(Color.web("#FFF59D", 0.72));
+        spine.setStrokeWidth(5);
+        art.getChildren().addAll(left, right, spine);
+    }
+
+    private void addGamesMoreTrainingMotif(Pane art) {
+        for (int i = 0; i < 3; i++) {
+            Circle ring = new Circle(300, 142, 42 + i * 34, Color.TRANSPARENT);
+            ring.setStroke(Color.web(i % 2 == 0 ? "#B2EBF2" : "#80DEEA", 0.42));
+            ring.setStrokeWidth(5);
+            art.getChildren().add(ring);
+        }
+        Line horizontal = new Line(72, 142, 528, 142);
+        Line vertical = new Line(300, 28, 300, 226);
+        horizontal.setStroke(Color.web("#E0F7FA", 0.30));
+        vertical.setStroke(Color.web("#E0F7FA", 0.30));
+        horizontal.setStrokeWidth(3);
+        vertical.setStrokeWidth(3);
+        art.getChildren().addAll(horizontal, vertical);
     }
 
     private void installGamesMoreHelpTextFitting(Label helpTitle, Label helpBody, VBox helpText,
