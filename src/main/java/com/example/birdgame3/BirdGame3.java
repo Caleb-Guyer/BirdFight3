@@ -78,6 +78,7 @@ import javafx.scene.shape.MoveTo;
 import javafx.scene.shape.Path;
 import javafx.scene.shape.PathElement;
 import javafx.scene.shape.Polygon;
+import javafx.scene.shape.Polyline;
 import javafx.scene.shape.QuadCurveTo;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.shape.Arc;
@@ -28860,10 +28861,16 @@ public class BirdGame3 {
         card.setAccessibleText(title + ". " + status);
         Runnable showPreview = () -> updateVaultShowcase(showcase, destination, true);
         card.hoverProperty().addListener((obs, oldValue, active) -> {
-            if (active) showPreview.run();
+            if (active) {
+                showPreview.run();
+                playVaultIconBounce(icon);
+            }
         });
         card.focusedProperty().addListener((obs, oldValue, active) -> {
-            if (active) showPreview.run();
+            if (active) {
+                showPreview.run();
+                playVaultIconBounce(icon);
+            }
         });
         card.setOnAction(event -> {
             playButtonClick();
@@ -28874,41 +28881,199 @@ public class BirdGame3 {
 
     private Node vaultDestinationIcon(VaultDestination destination, boolean notification) {
         return switch (destination) {
-            case FIGHTER_RECORDS, MATCH_HISTORY -> hubIconHistory();
-            case ACHIEVEMENTS -> hubIconAchievements(notification);
-            case FEATHERPEDIA -> hubIconFeatherpedia();
-            case CLASSIC_ENDINGS -> hubIconClassic();
-            case STORY_MOVIES -> vaultFilmIcon(false);
-            case REPLAYS -> vaultFilmIcon(true);
+            case FIGHTER_RECORDS -> vaultFighterRecordsIcon();
+            case ACHIEVEMENTS -> vaultAchievementIcon(notification);
+            case FEATHERPEDIA -> vaultFeatherpediaIcon();
+            case CLASSIC_ENDINGS -> vaultClassicEndingIcon();
+            case STORY_MOVIES -> vaultMovieIcon();
+            case MATCH_HISTORY -> vaultMatchHistoryIcon();
+            case REPLAYS -> vaultReplayIcon();
             case SOUNDTRACK -> vaultSoundIcon();
             case TIPS -> vaultTipsIcon();
-            case SHOP -> hubIconShop();
+            case SHOP -> vaultShopIcon();
         };
     }
 
-    private Node vaultFilmIcon(boolean replay) {
+    private Pane vaultIconPlate(String topColor, String bottomColor, String accentColor) {
         Pane pane = hubIconPane();
-        Rectangle film = new Rectangle(8, 13, 40, 32);
-        film.setArcWidth(7);
-        film.setArcHeight(7);
-        film.setFill(Color.web(replay ? "#6A1B9A" : "#00695C"));
-        film.setStroke(Color.web("#FCE4EC"));
-        film.setStrokeWidth(2.5);
-        for (int i = 0; i < 4; i++) {
-            Rectangle top = new Rectangle(12 + i * 9, 16, 5, 4);
-            Rectangle bottom = new Rectangle(12 + i * 9, 38, 5, 4);
-            top.setFill(Color.web("#F8BBD0"));
-            bottom.setFill(Color.web("#F8BBD0"));
-            pane.getChildren().addAll(top, bottom);
+        Circle shadow = new Circle(29, 30, 25, Color.rgb(0, 0, 0, 0.32));
+        Circle plate = new Circle(28, 27, 24);
+        plate.setFill(new LinearGradient(0, 0, 1, 1, true, CycleMethod.NO_CYCLE,
+                new Stop(0, Color.web(topColor)), new Stop(1, Color.web(bottomColor))));
+        plate.setStroke(Color.web(accentColor));
+        plate.setStrokeWidth(2.4);
+        Circle shine = new Circle(20, 16, 8, Color.rgb(255, 255, 255, 0.13));
+        Circle sparkle = new Circle(45, 10, 2.2, Color.web(accentColor));
+        pane.getChildren().addAll(shadow, plate, shine, sparkle);
+        return pane;
+    }
+
+    private Node vaultFighterRecordsIcon() {
+        Pane pane = vaultIconPlate("#42A5F5", "#0D47A1", "#B3E5FC");
+        Rectangle third = new Rectangle(9, 35, 11, 10);
+        Rectangle first = new Rectangle(22, 28, 12, 17);
+        Rectangle second = new Rectangle(36, 32, 11, 13);
+        third.setFill(Color.web("#80CBC4"));
+        first.setFill(Color.web("#FFD54F"));
+        second.setFill(Color.web("#FF8A65"));
+        Circle bird = new Circle(27, 19, 7, Color.web("#FFF8E1"));
+        Circle eye = new Circle(29, 17, 1.8, Color.web("#17202A"));
+        Polygon beak = new Polygon(33, 19, 41, 22, 33, 24);
+        beak.setFill(Color.web("#FFB300"));
+        Polygon crown = new Polygon(20, 12, 23, 7, 27, 12, 31, 7, 35, 12);
+        crown.setFill(Color.web("#FFE082"));
+        pane.getChildren().addAll(third, first, second, bird, eye, beak, crown);
+        return pane;
+    }
+
+    private Node vaultAchievementIcon(boolean notification) {
+        Pane pane = vaultIconPlate("#FFCA28", "#EF6C00", "#FFF8E1");
+        Polygon cup = new Polygon(15, 15, 41, 15, 37, 32, 19, 32);
+        cup.setFill(Color.web("#FFE082"));
+        cup.setStroke(Color.web("#FFFDE7"));
+        cup.setStrokeWidth(1.5);
+        Arc leftHandle = new Arc(15, 21, 8, 8, 90, 180);
+        Arc rightHandle = new Arc(41, 21, 8, 8, -90, 180);
+        for (Arc handle : new Arc[]{leftHandle, rightHandle}) {
+            handle.setType(ArcType.OPEN);
+            handle.setFill(Color.TRANSPARENT);
+            handle.setStroke(Color.web("#FFD54F"));
+            handle.setStrokeWidth(3);
         }
-        Polygon play = new Polygon(24, 22, 24, 36, 37, 29);
+        Rectangle stem = new Rectangle(25, 31, 6, 8);
+        Rectangle base = new Rectangle(19, 39, 18, 5);
+        stem.setFill(Color.web("#FFF3E0"));
+        base.setFill(Color.web("#FFF3E0"));
+        Polygon star = new Polygon(28, 18, 30, 22, 35, 22, 31, 25, 33, 30,
+                28, 27, 23, 30, 25, 25, 21, 22, 26, 22);
+        star.setFill(Color.web("#F57F17"));
+        pane.getChildren().addAll(leftHandle, rightHandle, cup, stem, base, star);
+        if (notification) {
+            Circle badge = new Circle(45, 12, 8, Color.web("#FF1744"));
+            badge.setStroke(Color.WHITE);
+            badge.setStrokeWidth(2);
+            Text mark = new Text("!");
+            mark.setFont(Font.font("Arial Black", FontWeight.BOLD, 12));
+            mark.setFill(Color.WHITE);
+            mark.setX(42.3);
+            mark.setY(16.2);
+            pane.getChildren().addAll(badge, mark);
+        }
+        return pane;
+    }
+
+    private Node vaultFeatherpediaIcon() {
+        Pane pane = vaultIconPlate("#AB47BC", "#4527A0", "#E1BEE7");
+        Polygon leftPage = new Polygon(8, 17, 26, 14, 27, 42, 10, 39);
+        Polygon rightPage = new Polygon(29, 14, 48, 17, 46, 39, 29, 42);
+        leftPage.setFill(Color.web("#F3E5F5"));
+        rightPage.setFill(Color.web("#E8EAF6"));
+        leftPage.setStroke(Color.web("#CE93D8"));
+        rightPage.setStroke(Color.web("#CE93D8"));
+        Line spine = new Line(28, 15, 28, 42);
+        spine.setStroke(Color.web("#7E57C2"));
+        spine.setStrokeWidth(2);
+        Polygon feather = new Polygon(17, 35, 20, 19, 28, 16, 25, 25, 20, 31);
+        feather.setFill(Color.web("#80DEEA"));
+        Line quill = new Line(17, 36, 25, 21);
+        quill.setStroke(Color.web("#006064"));
+        quill.setStrokeWidth(1.7);
+        Rectangle bookmark = new Rectangle(37, 15, 5, 15);
+        bookmark.setFill(Color.web("#FF80AB"));
+        pane.getChildren().addAll(leftPage, rightPage, spine, bookmark, feather, quill);
+        return pane;
+    }
+
+    private Node vaultClassicEndingIcon() {
+        Pane pane = vaultIconPlate("#EC407A", "#880E4F", "#F8BBD0");
+        Circle sunset = new Circle(28, 24, 13, Color.web("#FFB74D"));
+        Rectangle horizon = new Rectangle(10, 29, 36, 13);
+        horizon.setArcWidth(8);
+        horizon.setArcHeight(8);
+        horizon.setFill(Color.web("#4A1035"));
+        Polygon crown = new Polygon(15, 31, 18, 18, 25, 26, 29, 16, 35, 26, 42, 18, 40, 31);
+        crown.setFill(Color.web("#FFE082"));
+        crown.setStroke(Color.web("#FFF8E1"));
+        crown.setStrokeWidth(1.3);
+        Rectangle ribbon = new Rectangle(15, 36, 27, 7);
+        ribbon.setArcWidth(5);
+        ribbon.setArcHeight(5);
+        ribbon.setFill(Color.web("#FCE4EC"));
+        pane.getChildren().addAll(sunset, horizon, crown, ribbon);
+        return pane;
+    }
+
+    private Node vaultMovieIcon() {
+        Pane pane = vaultIconPlate("#26A69A", "#004D40", "#B2DFDB");
+        Rectangle body = new Rectangle(10, 20, 37, 25);
+        body.setArcWidth(6);
+        body.setArcHeight(6);
+        body.setFill(Color.web("#00695C"));
+        body.setStroke(Color.web("#E0F2F1"));
+        body.setStrokeWidth(2);
+        Rectangle clapper = new Rectangle(10, 12, 38, 10);
+        clapper.setArcWidth(4);
+        clapper.setArcHeight(4);
+        clapper.setFill(Color.web("#E0F2F1"));
+        clapper.setStroke(Color.web("#004D40"));
+        clapper.setStrokeWidth(1.5);
+        pane.getChildren().addAll(body, clapper);
+        for (int i = 0; i < 4; i++) {
+            Line stripe = new Line(14 + i * 9, 13, 20 + i * 9, 21);
+            stripe.setStroke(Color.web("#26A69A"));
+            stripe.setStrokeWidth(3);
+            pane.getChildren().add(stripe);
+        }
+        Polygon play = new Polygon(24, 27, 24, 39, 36, 33);
+        play.setFill(Color.web("#FFF8E1"));
+        pane.getChildren().add(play);
+        return pane;
+    }
+
+    private Node vaultMatchHistoryIcon() {
+        Pane pane = vaultIconPlate("#29B6F6", "#01579B", "#B3E5FC");
+        Line axisX = new Line(12, 43, 45, 43);
+        Line axisY = new Line(12, 16, 12, 43);
+        axisX.setStroke(Color.web("#E1F5FE"));
+        axisY.setStroke(Color.web("#E1F5FE"));
+        axisX.setStrokeWidth(2.5);
+        axisY.setStrokeWidth(2.5);
+        Rectangle barOne = new Rectangle(17, 33, 6, 10);
+        Rectangle barTwo = new Rectangle(27, 25, 6, 18);
+        Rectangle barThree = new Rectangle(37, 17, 6, 26);
+        barOne.setFill(Color.web("#80DEEA"));
+        barTwo.setFill(Color.web("#FFD54F"));
+        barThree.setFill(Color.web("#FF8A80"));
+        Polyline trend = new Polyline(18, 28, 28, 20, 39, 12);
+        trend.setFill(Color.TRANSPARENT);
+        trend.setStroke(Color.web("#FFF8E1"));
+        trend.setStrokeWidth(2.5);
+        Circle latest = new Circle(39, 12, 3, Color.web("#FFF176"));
+        pane.getChildren().addAll(axisX, axisY, barOne, barTwo, barThree, trend, latest);
+        return pane;
+    }
+
+    private Node vaultReplayIcon() {
+        Pane pane = vaultIconPlate("#7E57C2", "#311B92", "#D1C4E9");
+        Arc rewind = new Arc(28, 29, 17, 17, 35, 285);
+        rewind.setType(ArcType.OPEN);
+        rewind.setFill(Color.TRANSPARENT);
+        rewind.setStroke(Color.web("#EDE7F6"));
+        rewind.setStrokeWidth(4);
+        rewind.setStrokeLineCap(StrokeLineCap.ROUND);
+        Polygon arrow = new Polygon(10, 19, 20, 17, 16, 27);
+        arrow.setFill(Color.web("#FFD54F"));
+        Circle screen = new Circle(29, 29, 10, Color.web("#4527A0"));
+        screen.setStroke(Color.web("#B39DDB"));
+        screen.setStrokeWidth(1.5);
+        Polygon play = new Polygon(26, 23, 26, 35, 36, 29);
         play.setFill(Color.WHITE);
-        pane.getChildren().addAll(film, play);
+        pane.getChildren().addAll(rewind, arrow, screen, play);
         return pane;
     }
 
     private Node vaultSoundIcon() {
-        Pane pane = hubIconPane();
+        Pane pane = vaultIconPlate("#FF9800", "#E65100", "#FFE0B2");
         Arc band = new Arc(28, 29, 17, 17, 20, 140);
         band.setType(ArcType.OPEN);
         band.setFill(Color.TRANSPARENT);
@@ -28922,12 +29087,20 @@ public class BirdGame3 {
         right.setArcHeight(5);
         left.setFill(Color.web("#FFB74D"));
         right.setFill(Color.web("#FFB74D"));
-        pane.getChildren().addAll(band, left, right);
+        Circle noteA = new Circle(20, 17, 3, Color.web("#FFF176"));
+        Circle noteB = new Circle(39, 11, 3, Color.web("#80DEEA"));
+        Line stemA = new Line(23, 17, 23, 8);
+        Line stemB = new Line(42, 11, 42, 4);
+        stemA.setStroke(Color.web("#FFF8E1"));
+        stemB.setStroke(Color.web("#FFF8E1"));
+        stemA.setStrokeWidth(2);
+        stemB.setStrokeWidth(2);
+        pane.getChildren().addAll(band, left, right, noteA, stemA, noteB, stemB);
         return pane;
     }
 
     private Node vaultTipsIcon() {
-        Pane pane = hubIconPane();
+        Pane pane = vaultIconPlate("#26C6DA", "#006064", "#B2EBF2");
         Circle bulb = new Circle(28, 23, 13, Color.web("#FFF59D"));
         bulb.setStroke(Color.web("#FFB300"));
         bulb.setStrokeWidth(2.5);
@@ -28938,8 +29111,63 @@ public class BirdGame3 {
         Line base = new Line(23, 46, 33, 46);
         base.setStroke(Color.web("#FFF8E1"));
         base.setStrokeWidth(3);
-        pane.getChildren().addAll(bulb, neck, base);
+        for (int i = 0; i < 7; i++) {
+            double angle = Math.toRadians(-150 + i * 50);
+            Line ray = new Line(28 + Math.cos(angle) * 18, 23 + Math.sin(angle) * 18,
+                    28 + Math.cos(angle) * 22, 23 + Math.sin(angle) * 22);
+            ray.setStroke(Color.web("#FFF59D"));
+            ray.setStrokeWidth(2);
+            ray.setStrokeLineCap(StrokeLineCap.ROUND);
+            pane.getChildren().add(ray);
+        }
+        Circle eye = new Circle(24, 21, 1.8, Color.web("#4E342E"));
+        Polygon beak = new Polygon(38, 23, 45, 26, 38, 28);
+        beak.setFill(Color.web("#FF8F00"));
+        pane.getChildren().addAll(bulb, neck, base, eye, beak);
         return pane;
+    }
+
+    private Node vaultShopIcon() {
+        Pane pane = vaultIconPlate("#F06292", "#880E4F", "#F8BBD0");
+        Rectangle bag = new Rectangle(12, 20, 34, 25);
+        bag.setArcWidth(8);
+        bag.setArcHeight(8);
+        bag.setFill(Color.web("#FCE4EC"));
+        bag.setStroke(Color.web("#FF80AB"));
+        bag.setStrokeWidth(2);
+        Arc handle = new Arc(29, 21, 11, 10, 0, 180);
+        handle.setType(ArcType.OPEN);
+        handle.setFill(Color.TRANSPARENT);
+        handle.setStroke(Color.web("#FFF8E1"));
+        handle.setStrokeWidth(3);
+        Circle coin = new Circle(29, 32, 9, Color.web("#FFD54F"));
+        coin.setStroke(Color.web("#FFF8E1"));
+        coin.setStrokeWidth(1.5);
+        Text birdCoin = new Text("B");
+        birdCoin.setFont(Font.font("Arial Black", FontWeight.BOLD, 11));
+        birdCoin.setFill(Color.web("#6D4C00"));
+        birdCoin.setX(25.2);
+        birdCoin.setY(36.0);
+        Polygon sparkle = new Polygon(45, 10, 47, 15, 52, 17, 47, 19, 45, 24, 43, 19, 38, 17, 43, 15);
+        sparkle.setFill(Color.web("#FFF176"));
+        pane.getChildren().addAll(handle, bag, coin, birdCoin, sparkle);
+        return pane;
+    }
+
+    private void playVaultIconBounce(Node icon) {
+        if (icon == null || icon.getScene() == null) return;
+        Object prior = icon.getProperties().remove("vaultIconBounce");
+        if (prior instanceof Animation animation) animation.stop();
+        ScaleTransition lift = new ScaleTransition(Duration.millis(90), icon);
+        lift.setToX(1.18);
+        lift.setToY(1.18);
+        ScaleTransition settle = new ScaleTransition(Duration.millis(130), icon);
+        settle.setToX(1.05);
+        settle.setToY(1.05);
+        SequentialTransition bounce = new SequentialTransition(lift, settle);
+        bounce.setOnFinished(event -> icon.getProperties().remove("vaultIconBounce"));
+        icon.getProperties().put("vaultIconBounce", bounce);
+        bounce.play();
     }
 
     private StackPane buildVaultShowcase(VaultDestination initialDestination) {

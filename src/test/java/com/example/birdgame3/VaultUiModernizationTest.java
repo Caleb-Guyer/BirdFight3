@@ -69,6 +69,38 @@ class VaultUiModernizationTest {
     }
 
     @Test
+    void everyVaultDestinationHasItsOwnColorfulIconAndSelectionBounce() throws IOException {
+        String source = Files.readString(GAME_SOURCE).replace("\r\n", "\n");
+        String dispatch = methodBody(source, "vaultDestinationIcon");
+        String card = methodBody(source, "buildVaultDestinationCard");
+        String bounce = methodBody(source, "playVaultIconBounce");
+
+        String[][] icons = {
+                {"FIGHTER_RECORDS", "vaultFighterRecordsIcon()"},
+                {"ACHIEVEMENTS", "vaultAchievementIcon(notification)"},
+                {"FEATHERPEDIA", "vaultFeatherpediaIcon()"},
+                {"CLASSIC_ENDINGS", "vaultClassicEndingIcon()"},
+                {"STORY_MOVIES", "vaultMovieIcon()"},
+                {"MATCH_HISTORY", "vaultMatchHistoryIcon()"},
+                {"REPLAYS", "vaultReplayIcon()"},
+                {"SOUNDTRACK", "vaultSoundIcon()"},
+                {"TIPS", "vaultTipsIcon()"},
+                {"SHOP", "vaultShopIcon()"}
+        };
+        for (String[] icon : icons) {
+            assertTrue(dispatch.contains("case " + icon[0] + " -> " + icon[1]),
+                    icon[0] + " should not reuse another Vault destination's symbol");
+        }
+        assertTrue(source.contains("private Pane vaultIconPlate("),
+                "Vault icons should share a polished colorful medallion treatment");
+        assertTrue(card.contains("playVaultIconBounce(icon)"),
+                "hover and focus should give destination icons a restrained playful response");
+        assertTrue(bounce.contains("SequentialTransition"));
+        assertTrue(bounce.contains("vaultIconBounce"),
+                "the bounce must replace an in-flight animation instead of stacking transitions");
+    }
+
+    @Test
     void achievementsAndFeatherpediaDoNotDuplicateHeaderInformation() throws IOException {
         String source = Files.readString(GAME_SOURCE);
         String achievements = methodBodyAt(source,
@@ -109,6 +141,7 @@ class VaultUiModernizationTest {
     private static String methodBody(String source, String methodName) {
         int name = source.indexOf("private void " + methodName + "(");
         if (name < 0) name = source.indexOf("private Button " + methodName + "(");
+        if (name < 0) name = source.indexOf("private Node " + methodName + "(");
         assertTrue(name >= 0, "Missing method " + methodName);
         return methodBodyAt(source, source.substring(name, source.indexOf('{', name)), methodName);
     }
