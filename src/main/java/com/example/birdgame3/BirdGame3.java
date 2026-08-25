@@ -793,6 +793,10 @@ public class BirdGame3 {
         SHOP
     }
 
+    private record VaultShowcaseActor(BirdType bird, Bird.VisualAuditPose pose,
+                                      boolean facingRight) {
+    }
+
     private enum PausePanel {
         MOVES("MOVE LIST"),
         CONTROLS("CONTROLS"),
@@ -29184,9 +29188,11 @@ public class BirdGame3 {
         Canvas backdrop = new Canvas(432, 606);
         Canvas primary = new Canvas(250, 250);
         Canvas secondary = new Canvas(176, 176);
+        Canvas tertiary = new Canvas(150, 150);
         primary.relocate(96, 224);
         secondary.relocate(-4, 328);
-        artLayer.getChildren().addAll(backdrop, secondary, primary);
+        tertiary.relocate(278, 318);
+        artLayer.getChildren().addAll(backdrop, tertiary, secondary, primary);
 
         Label eyebrow = new Label("VAULT COLLECTION");
         eyebrow.setFont(Font.font("Consolas", FontWeight.BOLD, 14));
@@ -29214,6 +29220,7 @@ public class BirdGame3 {
         showcase.getProperties().put("vaultShowcaseBackdrop", backdrop);
         showcase.getProperties().put("vaultShowcasePrimary", primary);
         showcase.getProperties().put("vaultShowcaseSecondary", secondary);
+        showcase.getProperties().put("vaultShowcaseTertiary", tertiary);
         showcase.getProperties().put("vaultShowcaseTitle", title);
         showcase.getProperties().put("vaultShowcaseDescription", description);
         showcase.getChildren().addAll(artLayer, caption);
@@ -29260,44 +29267,79 @@ public class BirdGame3 {
         Object backdropObject = showcase.getProperties().get("vaultShowcaseBackdrop");
         Object primaryObject = showcase.getProperties().get("vaultShowcasePrimary");
         Object secondaryObject = showcase.getProperties().get("vaultShowcaseSecondary");
+        Object tertiaryObject = showcase.getProperties().get("vaultShowcaseTertiary");
         Object titleObject = showcase.getProperties().get("vaultShowcaseTitle");
         Object descriptionObject = showcase.getProperties().get("vaultShowcaseDescription");
         if (!(backdropObject instanceof Canvas backdrop)
                 || !(primaryObject instanceof Canvas primary)
                 || !(secondaryObject instanceof Canvas secondary)
+                || !(tertiaryObject instanceof Canvas tertiary)
                 || !(titleObject instanceof Label title)
                 || !(descriptionObject instanceof Label description)) {
             return;
         }
 
         drawVaultShowcaseBackdrop(backdrop, destination);
-        BirdType primaryBird = switch (destination) {
-            case FIGHTER_RECORDS -> BirdType.PIGEON;
-            case ACHIEVEMENTS -> BirdType.ROOSTER;
-            case FEATHERPEDIA -> BirdType.SHOEBILL;
-            case CLASSIC_ENDINGS -> BirdType.EAGLE;
-            case STORY_MOVIES -> BirdType.RAVEN;
-            case MATCH_HISTORY -> BirdType.RAZORBILL;
-            case REPLAYS -> BirdType.ROADRUNNER;
-            case SOUNDTRACK -> BirdType.HUMMINGBIRD;
-            case TIPS -> BirdType.TITMOUSE;
-            case SHOP -> BirdType.TURKEY;
-        };
-        BirdType secondaryBird = switch (destination) {
-            case FIGHTER_RECORDS -> BirdType.EAGLE;
-            case ACHIEVEMENTS -> BirdType.PHOENIX;
-            case FEATHERPEDIA -> BirdType.KIWI;
-            case CLASSIC_ENDINGS -> BirdType.PIGEON;
-            case STORY_MOVIES -> BirdType.PIGEON;
-            case MATCH_HISTORY -> BirdType.FALCON;
-            case REPLAYS -> BirdType.MOCKINGBIRD;
-            case SOUNDTRACK -> BirdType.BAT;
-            case TIPS -> BirdType.PELICAN;
-            case SHOP -> BirdType.HUMMINGBIRD;
-        };
-        drawUltimateHubPreviewPortrait(primary, primaryBird);
-        drawUltimateHubPreviewPortrait(secondary, secondaryBird);
-        layoutVaultShowcasePortraits(primary, secondary, destination);
+        VaultShowcaseActor primaryActor;
+        VaultShowcaseActor secondaryActor;
+        VaultShowcaseActor tertiaryActor;
+        switch (destination) {
+            case FIGHTER_RECORDS -> {
+                primaryActor = vaultActor(BirdType.PIGEON, Bird.VisualAuditPose.IDLE, true);
+                secondaryActor = vaultActor(BirdType.EAGLE, Bird.VisualAuditPose.ATTACK, false);
+                tertiaryActor = vaultActor(BirdType.ROOSTER, Bird.VisualAuditPose.FLAP, true);
+            }
+            case ACHIEVEMENTS -> {
+                primaryActor = vaultActor(BirdType.ROOSTER, Bird.VisualAuditPose.FLAP, true);
+                secondaryActor = vaultActor(BirdType.PHOENIX, Bird.VisualAuditPose.FLAP, false);
+                tertiaryActor = vaultActor(BirdType.PIGEON, Bird.VisualAuditPose.RUN, true);
+            }
+            case FEATHERPEDIA -> {
+                primaryActor = vaultActor(BirdType.SHOEBILL, Bird.VisualAuditPose.IDLE, true);
+                secondaryActor = vaultActor(BirdType.KIWI, Bird.VisualAuditPose.RUN, false);
+                tertiaryActor = vaultActor(BirdType.HUMMINGBIRD, Bird.VisualAuditPose.FLAP, false);
+            }
+            case CLASSIC_ENDINGS -> {
+                primaryActor = vaultActor(BirdType.EAGLE, Bird.VisualAuditPose.FLAP, true);
+                secondaryActor = vaultActor(BirdType.PIGEON, Bird.VisualAuditPose.IDLE, false);
+                tertiaryActor = vaultActor(BirdType.RAVEN, Bird.VisualAuditPose.IDLE, true);
+            }
+            case STORY_MOVIES -> {
+                primaryActor = vaultActor(BirdType.RAVEN, Bird.VisualAuditPose.IDLE, true);
+                secondaryActor = vaultActor(BirdType.PIGEON, Bird.VisualAuditPose.ATTACK, false);
+                tertiaryActor = vaultActor(BirdType.MOCKINGBIRD, Bird.VisualAuditPose.FLAP, true);
+            }
+            case MATCH_HISTORY -> {
+                primaryActor = vaultActor(BirdType.ROADRUNNER, Bird.VisualAuditPose.RUN, true);
+                secondaryActor = vaultActor(BirdType.RAZORBILL, Bird.VisualAuditPose.ATTACK, false);
+                tertiaryActor = vaultActor(BirdType.FALCON, Bird.VisualAuditPose.FLAP, true);
+            }
+            case REPLAYS -> {
+                primaryActor = vaultActor(BirdType.MOCKINGBIRD, Bird.VisualAuditPose.ATTACK, true);
+                secondaryActor = vaultActor(BirdType.ROADRUNNER, Bird.VisualAuditPose.RUN, true);
+                tertiaryActor = vaultActor(BirdType.RAVEN, Bird.VisualAuditPose.FLAP, false);
+            }
+            case SOUNDTRACK -> {
+                primaryActor = vaultActor(BirdType.ROOSTER, Bird.VisualAuditPose.ATTACK, true);
+                secondaryActor = vaultActor(BirdType.HUMMINGBIRD, Bird.VisualAuditPose.FLAP, false);
+                tertiaryActor = vaultActor(BirdType.BAT, Bird.VisualAuditPose.FLAP, true);
+            }
+            case TIPS -> {
+                primaryActor = vaultActor(BirdType.PELICAN, Bird.VisualAuditPose.IDLE, false);
+                secondaryActor = vaultActor(BirdType.TITMOUSE, Bird.VisualAuditPose.FLAP, true);
+                tertiaryActor = vaultActor(BirdType.SHOEBILL, Bird.VisualAuditPose.IDLE, false);
+            }
+            case SHOP -> {
+                primaryActor = vaultActor(BirdType.TURKEY, Bird.VisualAuditPose.IDLE, true);
+                secondaryActor = vaultActor(BirdType.GRINCHHAWK, Bird.VisualAuditPose.RUN, true);
+                tertiaryActor = vaultActor(BirdType.HUMMINGBIRD, Bird.VisualAuditPose.FLAP, false);
+            }
+            default -> throw new IllegalStateException("Unhandled Vault destination " + destination);
+        }
+        drawVaultShowcasePortrait(primary, primaryActor);
+        drawVaultShowcasePortrait(secondary, secondaryActor);
+        drawVaultShowcasePortrait(tertiary, tertiaryActor);
+        layoutVaultShowcasePortraits(primary, secondary, tertiary, destination);
         title.setText(vaultDestinationTitle(destination));
         description.setText(vaultDestinationDescription(destination));
 
@@ -29323,43 +29365,177 @@ public class BirdGame3 {
         }
     }
 
-    private void layoutVaultShowcasePortraits(Canvas primary, Canvas secondary,
+    private VaultShowcaseActor vaultActor(BirdType bird, Bird.VisualAuditPose pose,
+                                          boolean facingRight) {
+        return new VaultShowcaseActor(bird, pose, facingRight);
+    }
+
+    private void drawVaultShowcasePortrait(Canvas canvas, VaultShowcaseActor actor) {
+        if (canvas == null) return;
+        GraphicsContext g = canvas.getGraphicsContext2D();
+        g.clearRect(0, 0, canvas.getWidth(), canvas.getHeight());
+        canvas.setVisible(actor != null && actor.bird() != null);
+        if (actor == null || actor.bird() == null) return;
+
+        Bird preview = new Bird(0, actor.bird(), 0, this);
+        applySkinChoiceToBird(preview, actor.bird(), null);
+        double baseSize = Math.min(canvas.getWidth(), canvas.getHeight());
+        double extentFactor = rosterSpriteExtentFactor(actor.bird(), null);
+        preview.sizeMultiplier = Math.clamp((baseSize - 14.0) / (80.0 * extentFactor),
+                rosterSpriteMinScale(actor.bird(), null), rosterSpriteMaxScale(actor.bird(), null));
+        preview.prepareVisualAuditPose(actor.pose());
+        preview.suppressSelectEffects = true;
+        preview.facingRight = actor.facingRight();
+        preview.resetCutsceneVisualPose();
+
+        double drawSize = 80.0 * preview.sizeMultiplier;
+        double targetX = (canvas.getWidth() - drawSize) * 0.5
+                + canvas.getWidth() * rosterSpriteXBias(actor.bird(), null);
+        double targetY = (canvas.getHeight() - drawSize) * 0.5
+                + canvas.getHeight() * rosterSpriteYBias(actor.bird(), null);
+        g.save();
+        g.translate(targetX - preview.x, targetY - preview.y);
+        preview.draw(g);
+        g.restore();
+    }
+
+    private void layoutVaultShowcasePortraits(Canvas primary, Canvas secondary, Canvas tertiary,
                                               VaultDestination destination) {
         resetUltimateHubPreviewPortrait(primary, 96, 224);
         resetUltimateHubPreviewPortrait(secondary, -4, 328);
-        primary.setScaleX(0.90);
-        primary.setScaleY(0.90);
-        secondary.setScaleX(-0.78);
-        secondary.setScaleY(0.78);
+        resetUltimateHubPreviewPortrait(tertiary, 278, 318);
         switch (destination) {
-            case STORY_MOVIES, CLASSIC_ENDINGS -> {
-                primary.relocate(120, 194);
-                primary.setScaleX(0.82);
-                primary.setScaleY(0.82);
-                secondary.relocate(8, 300);
-            }
-            case SOUNDTRACK -> {
-                primary.relocate(116, 208);
-                primary.setScaleX(0.80);
-                primary.setScaleY(0.80);
-                secondary.relocate(-18, 314);
+            case FIGHTER_RECORDS -> {
+                primary.relocate(94, 172);
+                primary.setScaleX(0.72);
+                primary.setScaleY(0.72);
+                secondary.relocate(-8, 250);
                 secondary.setScaleX(0.70);
                 secondary.setScaleY(0.70);
+                secondary.setRotate(-8);
+                tertiary.relocate(280, 268);
+                tertiary.setScaleX(0.62);
+                tertiary.setScaleY(0.62);
+                tertiary.setRotate(8);
             }
-            case SHOP -> {
-                primary.relocate(126, 240);
-                primary.setScaleX(0.76);
-                primary.setScaleY(0.76);
-                secondary.relocate(6, 326);
-                secondary.setScaleX(-0.66);
-                secondary.setScaleY(0.66);
+            case ACHIEVEMENTS -> {
+                primary.relocate(62, 128);
+                primary.setScaleX(0.88);
+                primary.setScaleY(0.88);
+                primary.setRotate(-7);
+                secondary.relocate(250, 126);
+                secondary.setScaleX(-0.72);
+                secondary.setScaleY(0.72);
+                secondary.setRotate(13);
+                tertiary.relocate(18, 306);
+                tertiary.setScaleX(0.52);
+                tertiary.setScaleY(0.52);
             }
-            case REPLAYS, MATCH_HISTORY -> {
-                primary.relocate(118, 218);
+            case FEATHERPEDIA -> {
+                primary.relocate(32, 156);
+                primary.setScaleX(0.72);
+                primary.setScaleY(0.72);
+                primary.setRotate(-4);
+                secondary.relocate(244, 264);
+                secondary.setScaleX(-0.64);
+                secondary.setScaleY(0.64);
+                tertiary.relocate(262, 74);
+                tertiary.setScaleX(-0.48);
+                tertiary.setScaleY(0.48);
+                tertiary.setRotate(-12);
+            }
+            case CLASSIC_ENDINGS -> {
+                primary.relocate(94, 112);
+                primary.setScaleX(0.86);
+                primary.setScaleY(0.86);
+                primary.setRotate(-5);
+                secondary.relocate(-10, 292);
+                secondary.setScaleX(-0.62);
+                secondary.setScaleY(0.62);
+                tertiary.relocate(286, 282);
+                tertiary.setScaleX(0.55);
+                tertiary.setScaleY(0.55);
+            }
+            case STORY_MOVIES -> {
+                primary.relocate(10, 210);
+                primary.setScaleX(0.68);
+                primary.setScaleY(0.68);
+                secondary.relocate(246, 238);
+                secondary.setScaleX(-0.72);
+                secondary.setScaleY(0.72);
+                secondary.setRotate(-10);
+                tertiary.relocate(146, 76);
+                tertiary.setScaleX(0.48);
+                tertiary.setScaleY(0.48);
+                tertiary.setRotate(8);
+            }
+            case MATCH_HISTORY -> {
+                primary.relocate(104, 238);
                 primary.setScaleX(0.82);
                 primary.setScaleY(0.82);
+                primary.setRotate(-9);
+                secondary.relocate(250, 106);
+                secondary.setScaleX(-0.68);
+                secondary.setScaleY(0.68);
+                secondary.setRotate(-22);
+                tertiary.relocate(8, 148);
+                tertiary.setScaleX(0.56);
+                tertiary.setScaleY(0.56);
+                tertiary.setRotate(16);
             }
-            case FIGHTER_RECORDS, ACHIEVEMENTS, FEATHERPEDIA, TIPS -> { }
+            case REPLAYS -> {
+                primary.relocate(90, 190);
+                primary.setScaleX(0.84);
+                primary.setScaleY(0.84);
+                primary.setRotate(5);
+                secondary.relocate(-18, 286);
+                secondary.setScaleX(0.62);
+                secondary.setScaleY(0.62);
+                secondary.setOpacity(0.48);
+                tertiary.relocate(286, 238);
+                tertiary.setScaleX(-0.58);
+                tertiary.setScaleY(0.58);
+                tertiary.setOpacity(0.72);
+            }
+            case SOUNDTRACK -> {
+                primary.relocate(82, 206);
+                primary.setScaleX(0.78);
+                primary.setScaleY(0.78);
+                primary.setRotate(-6);
+                secondary.relocate(250, 126);
+                secondary.setScaleX(-0.55);
+                secondary.setScaleY(0.55);
+                secondary.setRotate(-14);
+                tertiary.relocate(8, 34);
+                tertiary.setScaleX(-0.62);
+                tertiary.setScaleY(0.62);
+                tertiary.setRotate(180);
+            }
+            case TIPS -> {
+                primary.relocate(112, 250);
+                primary.setScaleX(-0.66);
+                primary.setScaleY(0.66);
+                secondary.relocate(-16, 142);
+                secondary.setScaleX(0.66);
+                secondary.setScaleY(0.66);
+                secondary.setRotate(-12);
+                tertiary.relocate(270, 84);
+                tertiary.setScaleX(-0.58);
+                tertiary.setScaleY(0.58);
+            }
+            case SHOP -> {
+                primary.relocate(92, 244);
+                primary.setScaleX(0.72);
+                primary.setScaleY(0.72);
+                secondary.relocate(-12, 260);
+                secondary.setScaleX(0.60);
+                secondary.setScaleY(0.60);
+                secondary.setRotate(-9);
+                tertiary.relocate(278, 126);
+                tertiary.setScaleX(-0.54);
+                tertiary.setScaleY(0.54);
+                tertiary.setRotate(-16);
+            }
         }
     }
 

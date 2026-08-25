@@ -101,6 +101,34 @@ class VaultUiModernizationTest {
     }
 
     @Test
+    void vaultPreviewsStageBirdsAsDifferentPosedMiniScenes() throws IOException {
+        String source = Files.readString(GAME_SOURCE).replace("\r\n", "\n");
+        String build = methodBody(source, "buildVaultShowcase");
+        String updater = methodBody(source, "updateVaultShowcase");
+        String portrait = methodBody(source, "drawVaultShowcasePortrait");
+        String layout = methodBody(source, "layoutVaultShowcasePortraits");
+
+        assertTrue(build.contains("vaultShowcaseTertiary"),
+                "Vault previews need enough actors for real scenes instead of the same two-bird template");
+        assertTrue(updater.contains("Bird.VisualAuditPose.RUN"));
+        assertTrue(updater.contains("Bird.VisualAuditPose.FLAP"));
+        assertTrue(updater.contains("Bird.VisualAuditPose.ATTACK"));
+        assertTrue(updater.contains("drawVaultShowcasePortrait(tertiary, tertiaryActor)"));
+        assertTrue(portrait.contains("preview.prepareVisualAuditPose(actor.pose())"),
+                "preview birds should use their authored gameplay poses");
+        for (String destination : new String[]{"FIGHTER_RECORDS", "ACHIEVEMENTS", "FEATHERPEDIA",
+                "CLASSIC_ENDINGS", "STORY_MOVIES", "MATCH_HISTORY", "REPLAYS", "SOUNDTRACK",
+                "TIPS", "SHOP"}) {
+            assertTrue(layout.contains("case " + destination),
+                    "missing destination-specific actor staging for " + destination);
+        }
+        assertTrue(layout.contains("setRotate(180)"),
+                "the soundtrack scene should pose Bat hanging upside down");
+        assertTrue(layout.contains("setOpacity(0.48)"),
+                "the replay scene should stage a faded action echo");
+    }
+
+    @Test
     void achievementsAndFeatherpediaDoNotDuplicateHeaderInformation() throws IOException {
         String source = Files.readString(GAME_SOURCE);
         String achievements = methodBodyAt(source,
@@ -142,6 +170,8 @@ class VaultUiModernizationTest {
         int name = source.indexOf("private void " + methodName + "(");
         if (name < 0) name = source.indexOf("private Button " + methodName + "(");
         if (name < 0) name = source.indexOf("private Node " + methodName + "(");
+        if (name < 0) name = source.indexOf("private StackPane " + methodName + "(");
+        if (name < 0) name = source.indexOf("private VaultShowcaseActor " + methodName + "(");
         assertTrue(name >= 0, "Missing method " + methodName);
         return methodBodyAt(source, source.substring(name, source.indexOf('{', name)), methodName);
     }
