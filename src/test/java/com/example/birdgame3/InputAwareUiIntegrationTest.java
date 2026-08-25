@@ -15,7 +15,7 @@ class InputAwareUiIntegrationTest {
 
     @Test
     void highTrafficFrontEndScreensUseAdaptivePrompts() throws IOException {
-        String source = Files.readString(GAME_SOURCE);
+        String source = readGameSource();
         String title = methodBody(source, "showTitleScreen");
         assertTrue(title.contains("bindTitleCardAdvance(scene, startButton)"));
         assertFalse(title.contains("buildAdaptivePromptBar("),
@@ -32,7 +32,7 @@ class InputAwareUiIntegrationTest {
 
     @Test
     void pauseReferenceShowsOnlyTheSelectedPlayersActiveDevice() throws IOException {
-        String source = Files.readString(GAME_SOURCE);
+        String source = readGameSource();
         String moveCard = methodBody(source, "buildPauseMoveCard");
         String controls = methodBody(source, "buildPauseControlsPanel");
 
@@ -46,7 +46,7 @@ class InputAwareUiIntegrationTest {
 
     @Test
     void backNavigationRemainsInstalledOnTheModernizedScreens() throws IOException {
-        String source = Files.readString(GAME_SOURCE);
+        String source = readGameSource();
         assertTrue(methodBody(source, "showTitleScreen").contains("bindEscape(scene"));
         assertTrue(methodBody(source, "showHub").contains("KeyCode.ESCAPE"));
         assertTrue(methodBody(source, "showClassicMoreMenu").contains("bindEscape(scene, back)"));
@@ -55,7 +55,7 @@ class InputAwareUiIntegrationTest {
 
     @Test
     void settingsShowOneInputFamilyAndKeyboardPlayerAtATime() throws IOException {
-        String source = Files.readString(GAME_SOURCE);
+        String source = readGameSource();
         String settings = methodBody(source, "showMainSettings");
 
         assertTrue(settings.contains("ControlSettingsPresentation.pageFor(activeInput.device())"));
@@ -68,6 +68,10 @@ class InputAwareUiIntegrationTest {
         assertFalse(settings.contains("new VBox(16, controlsInfo, controlsStatus, wiimoteInfo"));
         assertTrue(source.contains("settingsReturn = () -> showFightSetup(stage);\n            showMainSettings(stage);"),
                 "the fighter-select gear should open the unified settings page");
+    }
+
+    private static String readGameSource() throws IOException {
+        return Files.readString(GAME_SOURCE).replace("\r\n", "\n");
     }
 
     private static String methodBody(String source, String methodName) {
