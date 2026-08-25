@@ -19,8 +19,8 @@ class HubUiSimplificationTest {
         String source = Files.readString(GAME_SOURCE).replace("\r\n", "\n");
         String hub = methodBody(source, "private void showHub(Stage stage)");
 
-        assertEquals(5, occurrences(hub, "buildUltimateHubMainTileButton("),
-                "the hub should keep a small set of large primary destinations");
+        assertEquals(4, occurrences(hub, "buildUltimateHubMainTileButton("),
+                "the hub should keep only the four primary play destinations large");
         assertEquals(4, occurrences(hub, "buildUltimateHubRailButton("),
                 "utilities should remain on the compact side rail");
         assertTrue(hub.contains("HubPresentationModel.IDLE_TITLE"));
@@ -38,6 +38,12 @@ class HubUiSimplificationTest {
                 "the utility drawer should start in its compact state");
         assertTrue(hub.contains("if (utilityDrawerExpanded[0])"),
                 "Escape should close the open drawer before leaving the hub");
+        assertTrue(hub.contains("buildUltimateHubRailButton(\"SHOP\""),
+                "Shop and the collection libraries should live on the utility drawer");
+        assertTrue(hub.contains("animateVaultExit(frame, () -> showVault(stage))"),
+                "entering the Shop/Vault area should use the dedicated transition");
+        assertFalse(hub.contains("Button shopNode"),
+                "Shop should no longer consume one of the four primary play tiles");
         assertTrue(source.contains("ROOST TIP"));
         assertTrue(source.contains("private String randomHubTip()"));
     }

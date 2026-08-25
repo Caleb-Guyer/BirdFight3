@@ -10,9 +10,8 @@ final class HubPresentationModel {
         FIGHT("FIGHT", "Local battles and custom rules."),
         STORY("STORY — THE STILL SKY", "Continue the main story campaign."),
         GAMES("GAMES & MORE", "Arcade routes and focused challenges."),
-        SHOP("SHOP", "Spend Bird Coins on unlocks and cosmetics."),
+        SHOP("SHOP", "Browse your collection and spend Bird Coins."),
         NETWORK("NETWORK PLAY", "Host or join local and Internet matches."),
-        VAULT("THE VAULT", "Review records and your collection."),
         SETTINGS("SETTINGS", "Tune how the game looks and controls."),
         PROFILES("PROFILES", "Switch or manage save profiles."),
         EXIT("EXIT", "Close Bird Fight 3.");

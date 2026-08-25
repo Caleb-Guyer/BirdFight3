@@ -56,16 +56,20 @@ class BirdGame3VaultTest {
         String hub = methodBody(source, "showHub");
         String vault = methodBody(source, "showVault");
 
-        assertTrue(hub.contains("buildUltimateHubRailButton(\"VAULT\""));
+        assertTrue(hub.contains("buildUltimateHubRailButton(\"SHOP\""));
+        assertFalse(hub.contains("buildUltimateHubRailButton(\"VAULT\""));
+        assertFalse(hub.contains("Button shopNode"));
         assertFalse(hub.contains("buildUltimateHubRailButton(\"HISTORY\""));
         assertFalse(hub.contains("buildUltimateHubRailButton(\"FEATHERPEDIA\""));
         assertFalse(hub.contains("buildUltimateHubRailButton(\"ACHIEVEMENTS\""));
         for (String destination : new String[]{
-                "ACHIEVEMENTS", "FEATHERPEDIA", "CLASSIC ENDINGS", "STORY MOVIES",
-                "MATCH RECORDS", "REPLAYS", "SOUND & CREDITS", "BIRD COIN SHOP"}) {
+                "CHALLENGES", "FEATHERPEDIA", "CLASSIC ENDINGS", "MOVIES",
+                "MATCH RECORDS", "REPLAYS", "SOUNDS", "TIPS", "BIRD COIN SHOP"}) {
             assertTrue(vault.contains(destination), "Vault lost " + destination);
         }
         assertTrue(vault.contains("vaultFighterProgress()"));
+        assertTrue(vault.contains("buildVaultShowcase(VaultDestination.FIGHTER_RECORDS)"));
+        assertTrue(vault.contains("playVaultEntrance(frame)"));
     }
 
     private static String methodBody(String source, String methodName) {

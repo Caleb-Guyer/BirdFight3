@@ -788,6 +788,7 @@ public class BirdGame3 {
         MATCH_HISTORY,
         REPLAYS,
         SOUNDTRACK,
+        TIPS,
         SHOP
     }
 
@@ -28569,7 +28570,7 @@ public class BirdGame3 {
 
         StackPane root = new StackPane();
         root.getProperties().put("noAutoScale", true);
-        root.setStyle("-fx-background-color: linear-gradient(to bottom right, #03060B 0%, #101A28 52%, #05070C 100%);");
+        root.setStyle("-fx-background-color: linear-gradient(to bottom right, #140614 0%, #5A0D3C 50%, #170714 100%);");
 
         BorderPane frame = new BorderPane();
         frame.setId("uiFrame");
@@ -28577,7 +28578,8 @@ public class BirdGame3 {
         frame.setPadding(new Insets(18, 28, 22, 28));
         root.getChildren().add(frame);
 
-        Button back = uiFactory.action("BACK", 220, 68, 24, "#B5121B", 18, () -> showMenu(stage));
+        Button back = uiFactory.action("BACK", 220, 68, 24, "#B5121B", 18,
+                () -> animateVaultExit(frame, () -> showMenu(stage)));
         StackPane title = buildMenuTitleBanner("THE VAULT", 420, 72, 34);
         StackPane coins = buildMenuChip("BIRD COINS  " + birdCoinBalanceText(), "#5D4037", "#FFE082");
         StackPane topStrip = buildMenuTopStrip(back, title, coins);
@@ -28594,52 +28596,82 @@ public class BirdGame3 {
 
         frame.setTop(topStrip);
 
+        StackPane showcase = buildVaultShowcase(VaultDestination.FIGHTER_RECORDS);
+
         GridPane libraryGrid = new GridPane();
-        libraryGrid.setHgap(18);
-        libraryGrid.setVgap(18);
+        libraryGrid.setHgap(14);
+        libraryGrid.setVgap(14);
         libraryGrid.setAlignment(Pos.CENTER);
 
         List<ReplayStore.SavedReplay> savedReplays = ReplayStore.listAll();
-        Button fighterRecords = buildVaultDestinationCard(
+        Button fighterRecords = buildVaultDestinationCard(VaultDestination.FIGHTER_RECORDS,
                 "FIGHTER RECORDS", unlockedBirds + " FIGHTERS  •  " + ownedSkins + " SKINS",
-                "#1565C0", () -> openVaultDestination(stage, VaultDestination.FIGHTER_RECORDS));
-        Button achievements = buildVaultDestinationCard(
-                "ACHIEVEMENTS", hasClaimableAchievementRewards()
+                "#1565C0", vaultDestinationIcon(VaultDestination.FIGHTER_RECORDS, false), showcase,
+                () -> animateVaultExit(frame,
+                        () -> openVaultDestination(stage, VaultDestination.FIGHTER_RECORDS)));
+        Button achievements = buildVaultDestinationCard(VaultDestination.ACHIEVEMENTS,
+                "CHALLENGES", hasClaimableAchievementRewards()
                         ? countAllClaimableAchievementRewards() + " REWARDS READY"
                         : unlockedAchievements + " COMPLETED",
-                "#F9A825", () -> openVaultDestination(stage, VaultDestination.ACHIEVEMENTS));
-        Button featherpedia = buildVaultDestinationCard(
+                "#F9A825", vaultDestinationIcon(VaultDestination.ACHIEVEMENTS,
+                        hasClaimableAchievementRewards()), showcase,
+                () -> animateVaultExit(frame,
+                        () -> openVaultDestination(stage, VaultDestination.ACHIEVEMENTS)));
+        Button featherpedia = buildVaultDestinationCard(VaultDestination.FEATHERPEDIA,
                 "FEATHERPEDIA", unlockedBirds + " BIRDS  •  " + unlockedMaps + " MAPS",
-                "#5E35B1", () -> openVaultDestination(stage, VaultDestination.FEATHERPEDIA));
-        Button endings = buildVaultDestinationCard(
+                "#5E35B1", vaultDestinationIcon(VaultDestination.FEATHERPEDIA, false), showcase,
+                () -> animateVaultExit(frame,
+                        () -> openVaultDestination(stage, VaultDestination.FEATHERPEDIA)));
+        Button endings = buildVaultDestinationCard(VaultDestination.CLASSIC_ENDINGS,
                 "CLASSIC ENDINGS", earnedBadges + " BADGES EARNED",
-                "#AD1457", () -> openVaultDestination(stage, VaultDestination.CLASSIC_ENDINGS));
-        Button movies = buildVaultDestinationCard(
-                "STORY MOVIES", "THE STILL SKY ARCHIVE",
-                "#00897B", () -> openVaultDestination(stage, VaultDestination.STORY_MOVIES));
-        Button history = buildVaultDestinationCard(
+                "#AD1457", vaultDestinationIcon(VaultDestination.CLASSIC_ENDINGS, false), showcase,
+                () -> animateVaultExit(frame,
+                        () -> openVaultDestination(stage, VaultDestination.CLASSIC_ENDINGS)));
+        Button movies = buildVaultDestinationCard(VaultDestination.STORY_MOVIES,
+                "MOVIES", "THE STILL SKY ARCHIVE",
+                "#00897B", vaultDestinationIcon(VaultDestination.STORY_MOVIES, false), showcase,
+                () -> animateVaultExit(frame,
+                        () -> openVaultDestination(stage, VaultDestination.STORY_MOVIES)));
+        Button history = buildVaultDestinationCard(VaultDestination.MATCH_HISTORY,
                 "MATCH RECORDS", matchHistory.size() + " RECENT MATCHES",
-                "#1565C0", () -> openVaultDestination(stage, VaultDestination.MATCH_HISTORY));
-        Button replays = buildVaultDestinationCard(
+                "#1565C0", vaultDestinationIcon(VaultDestination.MATCH_HISTORY, false), showcase,
+                () -> animateVaultExit(frame,
+                        () -> openVaultDestination(stage, VaultDestination.MATCH_HISTORY)));
+        Button replays = buildVaultDestinationCard(VaultDestination.REPLAYS,
                 "REPLAYS", savedReplays.size() + " SAVED",
-                "#6A1B9A", () -> openVaultDestination(stage, VaultDestination.REPLAYS));
-        Button soundtrack = buildVaultDestinationCard(
-                "SOUND & CREDITS", VAULT_TRACKS.size() + " MUSIC TRACKS",
-                "#EF6C00", () -> openVaultDestination(stage, VaultDestination.SOUNDTRACK));
-        Button shop = buildVaultDestinationCard(
+                "#6A1B9A", vaultDestinationIcon(VaultDestination.REPLAYS, false), showcase,
+                () -> animateVaultExit(frame,
+                        () -> openVaultDestination(stage, VaultDestination.REPLAYS)));
+        Button soundtrack = buildVaultDestinationCard(VaultDestination.SOUNDTRACK,
+                "SOUNDS", VAULT_TRACKS.size() + " MUSIC TRACKS",
+                "#EF6C00", vaultDestinationIcon(VaultDestination.SOUNDTRACK, false), showcase,
+                () -> animateVaultExit(frame,
+                        () -> openVaultDestination(stage, VaultDestination.SOUNDTRACK)));
+        Button tips = buildVaultDestinationCard(VaultDestination.TIPS,
+                "TIPS", HUB_TIPS.length + " FIELD NOTES",
+                "#00838F", vaultDestinationIcon(VaultDestination.TIPS, false), showcase,
+                () -> animateVaultExit(frame,
+                        () -> openVaultDestination(stage, VaultDestination.TIPS)));
+        Button shop = buildVaultDestinationCard(VaultDestination.SHOP,
                 "BIRD COIN SHOP", birdCoinBalanceText() + " COINS",
-                "#C2185B", () -> openVaultDestination(stage, VaultDestination.SHOP));
+                "#C2185B", vaultDestinationIcon(VaultDestination.SHOP, false), showcase,
+                () -> animateVaultExit(frame,
+                        () -> openVaultDestination(stage, VaultDestination.SHOP)));
         Button[] destinations = {fighterRecords, achievements, featherpedia, endings, movies,
-                history, replays, soundtrack, shop};
+                history, replays, soundtrack, tips, shop};
         for (int i = 0; i < destinations.length; i++) {
             libraryGrid.add(destinations[i], i % 3, i / 3);
         }
 
-        VBox libraryPanel = new VBox(libraryGrid);
+        StackPane gridShell = new StackPane(libraryGrid);
+        gridShell.setPadding(new Insets(14));
+        gridShell.setStyle("-fx-background-color: rgba(28,3,20,0.82); -fx-background-radius: 24;"
+                + "-fx-border-color: rgba(255,255,255,0.18); -fx-border-width: 2; -fx-border-radius: 24;");
+        HBox libraryPanel = new HBox(20, showcase, gridShell);
         libraryPanel.setAlignment(Pos.CENTER);
-        libraryPanel.setPadding(new Insets(24));
-        libraryPanel.setMaxSize(1460, 650);
-        libraryPanel.setStyle(MenuTheme.panelStyle("#7C6322", 24));
+        libraryPanel.setPadding(new Insets(18));
+        libraryPanel.setMaxSize(1480, 650);
+        libraryPanel.setStyle(MenuTheme.panelStyle("#F06292", 26));
         frame.setCenter(libraryPanel);
 
         HBox prompts = buildAdaptivePromptBar(
@@ -28655,7 +28687,10 @@ public class BirdGame3 {
         applyConsoleHighlight(scene);
         bindFixedFrameScale(scene, frame, 0.0);
         setScenePreservingFullscreen(stage, scene);
-        javafx.application.Platform.runLater(fighterRecords::requestFocus);
+        javafx.application.Platform.runLater(() -> {
+            fighterRecords.requestFocus();
+            playVaultEntrance(frame);
+        });
     }
 
     private Button buildVaultFighterCard(Stage stage, VaultFighterProgress progress) {
@@ -28781,31 +28816,474 @@ public class BirdGame3 {
         return tag;
     }
 
-    private Button buildVaultDestinationCard(String title, String status, String color, Runnable action) {
+    private Button buildVaultDestinationCard(VaultDestination destination,
+                                             String title, String status, String color,
+                                             Node icon, StackPane showcase, Runnable action) {
+        StackPane iconFrame = new StackPane();
+        lockRegionSize(iconFrame, 64, 64);
+        iconFrame.setStyle("-fx-background-color: rgba(0,0,0,0.30); -fx-background-radius: 17;"
+                + "-fx-border-color: rgba(255,255,255,0.20); -fx-border-radius: 17;");
+        iconFrame.setMouseTransparent(true);
+        if (icon != null) {
+            icon.setScaleX(1.05);
+            icon.setScaleY(1.05);
+            icon.setMouseTransparent(true);
+            iconFrame.getChildren().add(icon);
+        }
+
         Label heading = new Label(title);
-        heading.setFont(Font.font("Arial Black", 24));
+        heading.setFont(Font.font("Arial Black", 19));
         heading.setTextFill(Color.WHITE);
         heading.setWrapText(true);
-        heading.setTextAlignment(TextAlignment.CENTER);
+        heading.setTextAlignment(TextAlignment.LEFT);
+        heading.setMaxWidth(186);
+        applyNoEllipsis(heading);
         Label detail = new Label(status);
-        detail.setFont(Font.font("Consolas", FontWeight.BOLD, 14));
+        detail.setFont(Font.font("Consolas", FontWeight.BOLD, 11));
         detail.setTextFill(Color.web("#ECEFF1"));
         detail.setWrapText(true);
-        detail.setTextAlignment(TextAlignment.CENTER);
-        VBox graphic = new VBox(8, heading, detail);
-        graphic.setAlignment(Pos.CENTER);
+        detail.setTextAlignment(TextAlignment.LEFT);
+        detail.setMaxWidth(186);
+        VBox copy = new VBox(5, heading, detail);
+        copy.setAlignment(Pos.CENTER_LEFT);
+        HBox graphic = new HBox(12, iconFrame, copy);
+        graphic.setAlignment(Pos.CENTER_LEFT);
+        graphic.setPadding(new Insets(10, 12, 10, 12));
         Button card = new Button();
         card.setGraphic(graphic);
         card.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
-        lockRegionSize(card, 440, 176);
+        card.setAlignment(Pos.CENTER_LEFT);
+        lockRegionSize(card, 284, 137);
         card.setStyle("-fx-background-color: linear-gradient(to bottom, " + color + ", #090C12);"
                 + "-fx-background-radius: 17; -fx-border-color: rgba(255,255,255,0.34);"
                 + "-fx-border-width: 3; -fx-border-radius: 17; -fx-cursor: hand;");
+        card.setAccessibleText(title + ". " + status);
+        Runnable showPreview = () -> updateVaultShowcase(showcase, destination, true);
+        card.hoverProperty().addListener((obs, oldValue, active) -> {
+            if (active) showPreview.run();
+        });
+        card.focusedProperty().addListener((obs, oldValue, active) -> {
+            if (active) showPreview.run();
+        });
         card.setOnAction(event -> {
             playButtonClick();
             action.run();
         });
         return card;
+    }
+
+    private Node vaultDestinationIcon(VaultDestination destination, boolean notification) {
+        return switch (destination) {
+            case FIGHTER_RECORDS, MATCH_HISTORY -> hubIconHistory();
+            case ACHIEVEMENTS -> hubIconAchievements(notification);
+            case FEATHERPEDIA -> hubIconFeatherpedia();
+            case CLASSIC_ENDINGS -> hubIconClassic();
+            case STORY_MOVIES -> vaultFilmIcon(false);
+            case REPLAYS -> vaultFilmIcon(true);
+            case SOUNDTRACK -> vaultSoundIcon();
+            case TIPS -> vaultTipsIcon();
+            case SHOP -> hubIconShop();
+        };
+    }
+
+    private Node vaultFilmIcon(boolean replay) {
+        Pane pane = hubIconPane();
+        Rectangle film = new Rectangle(8, 13, 40, 32);
+        film.setArcWidth(7);
+        film.setArcHeight(7);
+        film.setFill(Color.web(replay ? "#6A1B9A" : "#00695C"));
+        film.setStroke(Color.web("#FCE4EC"));
+        film.setStrokeWidth(2.5);
+        for (int i = 0; i < 4; i++) {
+            Rectangle top = new Rectangle(12 + i * 9, 16, 5, 4);
+            Rectangle bottom = new Rectangle(12 + i * 9, 38, 5, 4);
+            top.setFill(Color.web("#F8BBD0"));
+            bottom.setFill(Color.web("#F8BBD0"));
+            pane.getChildren().addAll(top, bottom);
+        }
+        Polygon play = new Polygon(24, 22, 24, 36, 37, 29);
+        play.setFill(Color.WHITE);
+        pane.getChildren().addAll(film, play);
+        return pane;
+    }
+
+    private Node vaultSoundIcon() {
+        Pane pane = hubIconPane();
+        Arc band = new Arc(28, 29, 17, 17, 20, 140);
+        band.setType(ArcType.OPEN);
+        band.setFill(Color.TRANSPARENT);
+        band.setStroke(Color.web("#FFF3E0"));
+        band.setStrokeWidth(5);
+        Rectangle left = new Rectangle(8, 28, 8, 17);
+        Rectangle right = new Rectangle(40, 28, 8, 17);
+        left.setArcWidth(5);
+        left.setArcHeight(5);
+        right.setArcWidth(5);
+        right.setArcHeight(5);
+        left.setFill(Color.web("#FFB74D"));
+        right.setFill(Color.web("#FFB74D"));
+        pane.getChildren().addAll(band, left, right);
+        return pane;
+    }
+
+    private Node vaultTipsIcon() {
+        Pane pane = hubIconPane();
+        Circle bulb = new Circle(28, 23, 13, Color.web("#FFF59D"));
+        bulb.setStroke(Color.web("#FFB300"));
+        bulb.setStrokeWidth(2.5);
+        Rectangle neck = new Rectangle(23, 35, 10, 7);
+        neck.setArcWidth(4);
+        neck.setArcHeight(4);
+        neck.setFill(Color.web("#FFE082"));
+        Line base = new Line(23, 46, 33, 46);
+        base.setStroke(Color.web("#FFF8E1"));
+        base.setStrokeWidth(3);
+        pane.getChildren().addAll(bulb, neck, base);
+        return pane;
+    }
+
+    private StackPane buildVaultShowcase(VaultDestination initialDestination) {
+        StackPane showcase = new StackPane();
+        lockRegionSize(showcase, 432, 606);
+        showcase.setStyle("-fx-background-color: linear-gradient(to bottom right, #230719, #09070D);"
+                + "-fx-background-radius: 28; -fx-border-color: rgba(255,255,255,0.34);"
+                + "-fx-border-width: 3; -fx-border-radius: 28;");
+        installRegionClip(showcase, 28, 28);
+
+        Pane artLayer = new Pane();
+        lockRegionSize(artLayer, 432, 606);
+        artLayer.setMouseTransparent(true);
+        Canvas backdrop = new Canvas(432, 606);
+        Canvas primary = new Canvas(250, 250);
+        Canvas secondary = new Canvas(176, 176);
+        primary.relocate(96, 224);
+        secondary.relocate(-4, 328);
+        artLayer.getChildren().addAll(backdrop, secondary, primary);
+
+        Label eyebrow = new Label("VAULT COLLECTION");
+        eyebrow.setFont(Font.font("Consolas", FontWeight.BOLD, 14));
+        eyebrow.setTextFill(Color.web("#FFD1E4"));
+        Label title = new Label("FIGHTER RECORDS");
+        title.setFont(Font.font("Arial Black", 30));
+        title.setTextFill(Color.WHITE);
+        title.setWrapText(true);
+        title.setMaxWidth(360);
+        applyNoEllipsis(title);
+        Label description = new Label(vaultDestinationDescription(initialDestination));
+        description.setFont(Font.font("Consolas", FontWeight.BOLD, 15));
+        description.setTextFill(Color.web("#F8DDE9"));
+        description.setWrapText(true);
+        description.setMaxWidth(360);
+        VBox caption = new VBox(5, eyebrow, title, description);
+        caption.setPadding(new Insets(18, 22, 18, 22));
+        caption.setStyle("-fx-background-color: linear-gradient(to top, rgba(0,0,0,0.96), rgba(0,0,0,0.64));"
+                + "-fx-background-radius: 22;");
+        caption.setMaxWidth(392);
+        StackPane.setAlignment(caption, Pos.BOTTOM_CENTER);
+        StackPane.setMargin(caption, new Insets(0, 18, 18, 18));
+
+        showcase.getProperties().put("vaultShowcaseLayer", artLayer);
+        showcase.getProperties().put("vaultShowcaseBackdrop", backdrop);
+        showcase.getProperties().put("vaultShowcasePrimary", primary);
+        showcase.getProperties().put("vaultShowcaseSecondary", secondary);
+        showcase.getProperties().put("vaultShowcaseTitle", title);
+        showcase.getProperties().put("vaultShowcaseDescription", description);
+        showcase.getChildren().addAll(artLayer, caption);
+        updateVaultShowcase(showcase, initialDestination, false);
+        return showcase;
+    }
+
+    private String vaultDestinationTitle(VaultDestination destination) {
+        return switch (destination) {
+            case FIGHTER_RECORDS -> "FIGHTER RECORDS";
+            case ACHIEVEMENTS -> "CHALLENGES";
+            case FEATHERPEDIA -> "FEATHERPEDIA";
+            case CLASSIC_ENDINGS -> "CLASSIC ENDINGS";
+            case STORY_MOVIES -> "MOVIES";
+            case MATCH_HISTORY -> "MATCH RECORDS";
+            case REPLAYS -> "REPLAYS";
+            case SOUNDTRACK -> "SOUNDS";
+            case TIPS -> "TIPS";
+            case SHOP -> "BIRD COIN SHOP";
+        };
+    }
+
+    private String vaultDestinationDescription(VaultDestination destination) {
+        return switch (destination) {
+            case FIGHTER_RECORDS -> "Fighter usage, Classic badges, skins, and personal records.";
+            case ACHIEVEMENTS -> "Challenges, earned milestones, and rewards ready to claim.";
+            case FEATHERPEDIA -> "Every discovered bird, skin, arena, item, and unlock path.";
+            case CLASSIC_ENDINGS -> "Replay the Crown epilogues earned by completing Classic routes.";
+            case STORY_MOVIES -> "Watch unlocked Still Sky chapters and cinematic moments.";
+            case MATCH_HISTORY -> "Review recent winners, stages, damage, and battle results.";
+            case REPLAYS -> "Rewatch complete saved battles with their original match state.";
+            case SOUNDTRACK -> "Listen to the soundtrack and review the game's audio credits.";
+            case TIPS -> "Quick field notes for movement, progression, recovery, and modes.";
+            case SHOP -> "Spend Bird Coins on birds, skins, arenas, and cosmetic packs.";
+        };
+    }
+
+    private void updateVaultShowcase(StackPane showcase, VaultDestination destination, boolean animate) {
+        if (showcase == null || destination == null) return;
+        Object previous = showcase.getProperties().get("vaultShowcaseDestination");
+        if (previous == destination) return;
+        showcase.getProperties().put("vaultShowcaseDestination", destination);
+
+        Object backdropObject = showcase.getProperties().get("vaultShowcaseBackdrop");
+        Object primaryObject = showcase.getProperties().get("vaultShowcasePrimary");
+        Object secondaryObject = showcase.getProperties().get("vaultShowcaseSecondary");
+        Object titleObject = showcase.getProperties().get("vaultShowcaseTitle");
+        Object descriptionObject = showcase.getProperties().get("vaultShowcaseDescription");
+        if (!(backdropObject instanceof Canvas backdrop)
+                || !(primaryObject instanceof Canvas primary)
+                || !(secondaryObject instanceof Canvas secondary)
+                || !(titleObject instanceof Label title)
+                || !(descriptionObject instanceof Label description)) {
+            return;
+        }
+
+        drawVaultShowcaseBackdrop(backdrop, destination);
+        BirdType primaryBird = switch (destination) {
+            case FIGHTER_RECORDS -> BirdType.PIGEON;
+            case ACHIEVEMENTS -> BirdType.ROOSTER;
+            case FEATHERPEDIA -> BirdType.SHOEBILL;
+            case CLASSIC_ENDINGS -> BirdType.EAGLE;
+            case STORY_MOVIES -> BirdType.RAVEN;
+            case MATCH_HISTORY -> BirdType.RAZORBILL;
+            case REPLAYS -> BirdType.ROADRUNNER;
+            case SOUNDTRACK -> BirdType.HUMMINGBIRD;
+            case TIPS -> BirdType.TITMOUSE;
+            case SHOP -> BirdType.TURKEY;
+        };
+        BirdType secondaryBird = switch (destination) {
+            case FIGHTER_RECORDS -> BirdType.EAGLE;
+            case ACHIEVEMENTS -> BirdType.PHOENIX;
+            case FEATHERPEDIA -> BirdType.KIWI;
+            case CLASSIC_ENDINGS -> BirdType.PIGEON;
+            case STORY_MOVIES -> BirdType.PIGEON;
+            case MATCH_HISTORY -> BirdType.FALCON;
+            case REPLAYS -> BirdType.MOCKINGBIRD;
+            case SOUNDTRACK -> BirdType.BAT;
+            case TIPS -> BirdType.PELICAN;
+            case SHOP -> BirdType.HUMMINGBIRD;
+        };
+        drawUltimateHubPreviewPortrait(primary, primaryBird);
+        drawUltimateHubPreviewPortrait(secondary, secondaryBird);
+        layoutVaultShowcasePortraits(primary, secondary, destination);
+        title.setText(vaultDestinationTitle(destination));
+        description.setText(vaultDestinationDescription(destination));
+
+        Object layerObject = showcase.getProperties().get("vaultShowcaseLayer");
+        if (layerObject instanceof Node layer) {
+            Object old = layer.getProperties().remove("vaultShowcaseTransition");
+            if (old instanceof ParallelTransition transition) transition.stop();
+            if (animate && layer.getScene() != null) {
+                FadeTransition fade = new FadeTransition(Duration.millis(170), layer);
+                fade.setFromValue(0.38);
+                fade.setToValue(1.0);
+                TranslateTransition slide = new TranslateTransition(Duration.millis(190), layer);
+                slide.setFromX(22.0);
+                slide.setToX(0.0);
+                ParallelTransition transition = new ParallelTransition(fade, slide);
+                transition.setOnFinished(e -> layer.getProperties().remove("vaultShowcaseTransition"));
+                layer.getProperties().put("vaultShowcaseTransition", transition);
+                transition.play();
+            } else {
+                layer.setOpacity(1.0);
+                layer.setTranslateX(0.0);
+            }
+        }
+    }
+
+    private void layoutVaultShowcasePortraits(Canvas primary, Canvas secondary,
+                                              VaultDestination destination) {
+        resetUltimateHubPreviewPortrait(primary, 96, 224);
+        resetUltimateHubPreviewPortrait(secondary, -4, 328);
+        primary.setScaleX(0.90);
+        primary.setScaleY(0.90);
+        secondary.setScaleX(-0.78);
+        secondary.setScaleY(0.78);
+        switch (destination) {
+            case STORY_MOVIES, CLASSIC_ENDINGS -> {
+                primary.relocate(120, 194);
+                primary.setScaleX(0.82);
+                primary.setScaleY(0.82);
+                secondary.relocate(8, 300);
+            }
+            case SOUNDTRACK -> {
+                primary.relocate(116, 208);
+                primary.setScaleX(0.80);
+                primary.setScaleY(0.80);
+                secondary.relocate(-18, 314);
+                secondary.setScaleX(0.70);
+                secondary.setScaleY(0.70);
+            }
+            case SHOP -> {
+                primary.relocate(126, 240);
+                primary.setScaleX(0.76);
+                primary.setScaleY(0.76);
+                secondary.relocate(6, 326);
+                secondary.setScaleX(-0.66);
+                secondary.setScaleY(0.66);
+            }
+            case REPLAYS, MATCH_HISTORY -> {
+                primary.relocate(118, 218);
+                primary.setScaleX(0.82);
+                primary.setScaleY(0.82);
+            }
+            case FIGHTER_RECORDS, ACHIEVEMENTS, FEATHERPEDIA, TIPS -> { }
+        }
+    }
+
+    private void drawVaultShowcaseBackdrop(Canvas canvas, VaultDestination destination) {
+        GraphicsContext g = canvas.getGraphicsContext2D();
+        double w = canvas.getWidth();
+        double h = canvas.getHeight();
+        g.clearRect(0, 0, w, h);
+
+        Color top = switch (destination) {
+            case FIGHTER_RECORDS -> Color.web("#1565C0");
+            case ACHIEVEMENTS -> Color.web("#F9A825");
+            case FEATHERPEDIA -> Color.web("#673AB7");
+            case CLASSIC_ENDINGS -> Color.web("#AD1457");
+            case STORY_MOVIES -> Color.web("#00897B");
+            case MATCH_HISTORY -> Color.web("#0D47A1");
+            case REPLAYS -> Color.web("#6A1B9A");
+            case SOUNDTRACK -> Color.web("#EF6C00");
+            case TIPS -> Color.web("#00838F");
+            case SHOP -> Color.web("#C2185B");
+        };
+        g.setFill(new LinearGradient(0, 0, 1, 1, true, CycleMethod.NO_CYCLE,
+                new Stop(0, top), new Stop(0.58, top.deriveColor(0, 0.80, 0.58, 1.0)),
+                new Stop(1, Color.web("#08060B"))));
+        g.fillRect(0, 0, w, h);
+        g.setStroke(Color.color(1, 1, 1, 0.10));
+        g.setLineWidth(2);
+        for (int i = -4; i < 14; i++) {
+            g.strokeLine(i * 54, 0, i * 54 + 310, h);
+        }
+
+        switch (destination) {
+            case FIGHTER_RECORDS -> {
+                g.setFill(Color.web("#06111F", 0.68));
+                g.fillRoundRect(40, 70, 352, 190, 28, 28);
+                g.setFill(Color.web("#90CAF9", 0.74));
+                for (int i = 0; i < 5; i++) g.fillRoundRect(72, 104 + i * 28, 230 - i * 24, 10, 8, 8);
+                g.setFill(Color.web("#FFD54F", 0.88));
+                g.fillPolygon(new double[]{322, 346, 370, 358, 364, 346, 328, 334},
+                        new double[]{126, 88, 126, 150, 184, 166, 184, 150}, 8);
+            }
+            case ACHIEVEMENTS -> {
+                g.setStroke(Color.web("#FFF59D", 0.34));
+                g.setLineWidth(5);
+                for (int i = 0; i < 16; i++) {
+                    double angle = Math.PI * 2 * i / 16.0;
+                    g.strokeLine(216 + Math.cos(angle) * 80, 160 + Math.sin(angle) * 80,
+                            216 + Math.cos(angle) * 168, 160 + Math.sin(angle) * 168);
+                }
+                for (int i = 0; i < 3; i++) {
+                    g.setFill(Color.web(i == 1 ? "#FFF176" : "#FFCC80", 0.88));
+                    g.fillOval(104 + i * 82, 92 + Math.abs(1 - i) * 32, 58, 58);
+                }
+            }
+            case FEATHERPEDIA -> {
+                g.setFill(Color.web("#F3E5F5", 0.90));
+                g.fillRoundRect(50, 76, 160, 190, 14, 14);
+                g.fillRoundRect(222, 76, 160, 190, 14, 14);
+                g.setStroke(Color.web("#4527A0", 0.54));
+                g.setLineWidth(3);
+                for (int i = 0; i < 5; i++) {
+                    g.strokeLine(74, 116 + i * 28, 184, 116 + i * 28);
+                    g.strokeLine(246, 116 + i * 28, 356, 116 + i * 28);
+                }
+                g.strokeLine(216, 82, 216, 260);
+            }
+            case CLASSIC_ENDINGS -> {
+                g.setFill(Color.web("#05030A", 0.58));
+                g.fillOval(78, 62, 276, 210);
+                g.setFill(Color.web("#FFD54F", 0.92));
+                g.fillPolygon(new double[]{116, 154, 194, 216, 240, 280, 318, 300, 132},
+                        new double[]{162, 104, 154, 82, 154, 104, 162, 214, 214}, 9);
+                g.setFill(Color.web("#7B1F4B"));
+                g.fillRoundRect(128, 184, 176, 45, 18, 18);
+            }
+            case STORY_MOVIES -> {
+                g.setFill(Color.web("#001B19", 0.74));
+                g.fillRoundRect(36, 62, 360, 222, 22, 22);
+                g.setStroke(Color.web("#B2DFDB"));
+                g.setLineWidth(5);
+                g.strokeRoundRect(58, 84, 316, 176, 14, 14);
+                g.setFill(Color.web("#E0F2F1"));
+                g.fillPolygon(new double[]{188, 188, 266}, new double[]{118, 226, 172}, 3);
+                for (int i = 0; i < 7; i++) {
+                    g.fillRect(44 + i * 50, 68, 24, 10);
+                    g.fillRect(44 + i * 50, 268, 24, 10);
+                }
+            }
+            case MATCH_HISTORY -> {
+                g.setFill(Color.web("#06111F", 0.72));
+                g.fillRoundRect(42, 74, 348, 208, 24, 24);
+                g.setStroke(Color.web("#90CAF9"));
+                g.setLineWidth(6);
+                g.strokePolyline(new double[]{72, 128, 184, 238, 292, 354},
+                        new double[]{234, 194, 216, 142, 166, 98}, 6);
+                g.setFill(Color.web("#FFD54F"));
+                for (double[] point : new double[][]{{72,234},{128,194},{184,216},{238,142},{292,166},{354,98}}) {
+                    g.fillOval(point[0] - 7, point[1] - 7, 14, 14);
+                }
+            }
+            case REPLAYS -> {
+                g.setFill(Color.web("#18051F", 0.76));
+                g.fillRoundRect(34, 74, 364, 206, 24, 24);
+                g.setStroke(Color.web("#F3E5F5"));
+                g.setLineWidth(5);
+                g.strokeRoundRect(54, 94, 324, 166, 16, 16);
+                g.setFill(Color.web("#FFFFFF", 0.92));
+                g.fillPolygon(new double[]{184, 184, 270}, new double[]{116, 238, 177}, 3);
+                g.setStroke(Color.web("#CE93D8"));
+                g.strokeArc(118, 92, 196, 170, 35, 286, ArcType.OPEN);
+            }
+            case SOUNDTRACK -> {
+                g.setFill(Color.web("#211004", 0.72));
+                g.fillOval(108, 58, 216, 216);
+                g.setFill(Color.web("#FFCC80", 0.84));
+                g.fillOval(180, 130, 72, 72);
+                g.setFill(Color.web("#120B08"));
+                g.fillOval(205, 155, 22, 22);
+                for (int i = 0; i < 11; i++) {
+                    double bar = 26 + (i % 4) * 18;
+                    g.setFill(Color.web(i % 2 == 0 ? "#FFE082" : "#FF8A65", 0.82));
+                    g.fillRoundRect(36 + i * 34, 290 - bar, 18, bar, 8, 8);
+                }
+            }
+            case TIPS -> {
+                g.setFill(Color.web("#E0F7FA", 0.92));
+                g.fillOval(134, 66, 164, 164);
+                g.setFill(Color.web("#FFD54F", 0.92));
+                g.fillRoundRect(184, 216, 64, 28, 12, 12);
+                g.setStroke(Color.web("#B2EBF2", 0.70));
+                g.setLineWidth(5);
+                for (int i = 0; i < 8; i++) {
+                    double angle = Math.PI * 2 * i / 8.0;
+                    g.strokeLine(216 + Math.cos(angle) * 102, 148 + Math.sin(angle) * 102,
+                            216 + Math.cos(angle) * 140, 148 + Math.sin(angle) * 140);
+                }
+            }
+            case SHOP -> {
+                g.setFill(Color.web("#3A071F", 0.78));
+                g.fillRoundRect(34, 66, 364, 220, 24, 24);
+                g.setStroke(Color.web("#F8BBD0"));
+                g.setLineWidth(5);
+                g.strokeLine(58, 136, 374, 136);
+                g.strokeLine(58, 220, 374, 220);
+                for (int row = 0; row < 2; row++) {
+                    for (int col = 0; col < 4; col++) {
+                        g.setFill(Color.web((row + col) % 2 == 0 ? "#FFD54F" : "#80DEEA", 0.90));
+                        g.fillRoundRect(74 + col * 76, 88 + row * 84, 44, 34, 10, 10);
+                    }
+                }
+            }
+        }
     }
 
     private List<VaultFighterProgress> vaultFighterProgress() {
@@ -28860,6 +29338,7 @@ public class BirdGame3 {
                     case STORY_MOVIES -> showCampaignGallery(stage);
                     case MATCH_HISTORY -> showMatchHistory(stage);
                     case REPLAYS -> showReplayBrowser(stage);
+                    case TIPS -> showVaultTips(stage);
                     case SHOP -> showShop(stage);
                     case FIGHTER_RECORDS -> throw new IllegalStateException("Fighter records handled above");
                     case SOUNDTRACK -> throw new IllegalStateException("Soundtrack handled above");
@@ -28875,6 +29354,105 @@ public class BirdGame3 {
         } else if (fallback != null) {
             fallback.run();
         }
+    }
+
+    private void playVaultEntrance(Node node) {
+        if (node == null) return;
+        Object old = node.getProperties().remove("vaultSceneTransition");
+        if (old instanceof ParallelTransition transition) transition.stop();
+        node.setOpacity(0.0);
+        node.setTranslateX(64.0);
+        FadeTransition fade = new FadeTransition(Duration.millis(230), node);
+        fade.setFromValue(0.0);
+        fade.setToValue(1.0);
+        TranslateTransition slide = new TranslateTransition(Duration.millis(280), node);
+        slide.setFromX(64.0);
+        slide.setToX(0.0);
+        slide.setInterpolator(javafx.animation.Interpolator.EASE_OUT);
+        ParallelTransition transition = new ParallelTransition(fade, slide);
+        transition.setOnFinished(e -> node.getProperties().remove("vaultSceneTransition"));
+        node.getProperties().put("vaultSceneTransition", transition);
+        transition.play();
+    }
+
+    private void animateVaultExit(Node node, Runnable destination) {
+        if (destination == null) return;
+        if (node == null || node.getScene() == null) {
+            destination.run();
+            return;
+        }
+        if (Boolean.TRUE.equals(node.getProperties().get("vaultExitRunning"))) return;
+        node.getProperties().put("vaultExitRunning", Boolean.TRUE);
+        Object old = node.getProperties().remove("vaultSceneTransition");
+        if (old instanceof ParallelTransition transition) transition.stop();
+        FadeTransition fade = new FadeTransition(Duration.millis(190), node);
+        fade.setToValue(0.0);
+        TranslateTransition slide = new TranslateTransition(Duration.millis(220), node);
+        slide.setToX(-58.0);
+        slide.setInterpolator(javafx.animation.Interpolator.EASE_IN);
+        ParallelTransition transition = new ParallelTransition(fade, slide);
+        transition.setOnFinished(e -> destination.run());
+        node.getProperties().put("vaultSceneTransition", transition);
+        transition.play();
+    }
+
+    private void showVaultTips(Stage stage) {
+        playMenuMusic();
+        StackPane root = new StackPane();
+        root.getProperties().put("noAutoScale", true);
+        root.setStyle("-fx-background-color: linear-gradient(to bottom right, #031316, #0A3A40, #05070B);");
+
+        BorderPane frame = new BorderPane();
+        frame.setId("uiFrame");
+        lockRegionSize(frame, 1600, 950);
+        frame.setPadding(new Insets(20, 34, 24, 34));
+        root.getChildren().add(frame);
+
+        Button back = uiFactory.action("BACK", 220, 68, 23, "#B5121B", 18, () -> showVault(stage));
+        StackPane title = buildMenuTitleBanner("FIELD TIPS", 520, 72, 32);
+        frame.setTop(buildMenuTopStrip(back, title,
+                buildMenuChip(HUB_TIPS.length + " NOTES", "#006064", "#B2EBF2")));
+
+        GridPane tips = new GridPane();
+        tips.setHgap(18);
+        tips.setVgap(18);
+        tips.setAlignment(Pos.CENTER);
+        for (int i = 0; i < HUB_TIPS.length; i++) {
+            Label number = new Label(String.format(Locale.ROOT, "%02d", i + 1));
+            number.setFont(Font.font("Arial Black", 24));
+            number.setTextFill(Color.web("#FFE082"));
+            Label copy = new Label(HUB_TIPS[i]);
+            copy.setFont(Font.font("Consolas", FontWeight.BOLD, 17));
+            copy.setTextFill(Color.WHITE);
+            copy.setWrapText(true);
+            copy.setMaxWidth(560);
+            HBox card = new HBox(16, number, copy);
+            card.setAlignment(Pos.CENTER_LEFT);
+            card.setPadding(new Insets(18));
+            lockRegionSize(card, 710, 94);
+            card.setStyle("-fx-background-color: linear-gradient(to right, rgba(0,96,100,0.88), rgba(4,14,18,0.94));"
+                    + "-fx-background-radius: 18; -fx-border-color: rgba(178,235,242,0.42);"
+                    + "-fx-border-width: 2; -fx-border-radius: 18;");
+            tips.add(card, i % 2, i / 2);
+        }
+        StackPane panel = new StackPane(tips);
+        panel.setPadding(new Insets(20));
+        panel.setStyle(MenuTheme.panelStyle("#00838F", 24));
+        frame.setCenter(panel);
+        BorderPane.setMargin(panel, new Insets(16, 0, 0, 0));
+
+        HBox prompts = buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "VAULT"));
+        frame.setBottom(prompts);
+        BorderPane.setMargin(prompts, new Insets(12, 0, 0, 0));
+
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, back);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        bindFixedFrameScale(scene, frame, 0.0);
+        setScenePreservingFullscreen(stage, scene);
+        javafx.application.Platform.runLater(back::requestFocus);
     }
 
     private void showVaultSoundtrack(Stage stage) {
@@ -29012,8 +29590,6 @@ public class BirdGame3 {
         final double hubRightLeft = 744.0;
         final double hubRightWidth = 712.0;
         final double hubFightHeight = 428.0;
-        final double hubGamesHeight = 246.0;
-        final double hubShopHeight = 182.0;
         final double hubBottomHeight = 314.0;
         final double medallionTop = 244.0;
         final double medallionLeft = 568.0;
@@ -29064,7 +29640,7 @@ public class BirdGame3 {
 
         Button gamesNode = buildUltimateHubMainTileButton(
                 "EXTRAS & CHALLENGES", "GAMES & MORE",
-                hubRightWidth, hubGamesHeight, 50, new Insets(16, 34, 14, 132),
+                hubRightWidth, hubFightHeight, 58, new Insets(18, 34, 24, 132),
                 Pos.CENTER, hubIconClassic(), 2.7, 0.16,
                 0, 38, 0, 0, () -> showClassicMoreMenu(stage));
         registerHubInteractiveNode(gamesNode, hubButtons, helpTitle, helpBody,
@@ -29075,20 +29651,6 @@ public class BirdGame3 {
         tagUltimateHubDestination(gamesNode, HubPresentationModel.Destination.GAMES);
         AnchorPane.setTopAnchor(gamesNode, hubMainTop);
         AnchorPane.setLeftAnchor(gamesNode, hubRightLeft);
-
-        Button shopNode = buildUltimateHubMainTileButton(
-                "SKINS & UNLOCKS", "SHOP",
-                hubRightWidth, hubShopHeight, 50, new Insets(16, 30, 16, 176),
-                Pos.CENTER, hubIconShop(), 2.7, 0.17,
-                0, 0, 0, 0, () -> showShop(stage));
-        registerHubInteractiveNode(shopNode, hubButtons, helpTitle, helpBody,
-                buildUltimateHubStyle("#FF4FA1", "#C2185B", "#FFE3F3", 0, false),
-                buildUltimateHubStyle("#FF4FA1", "#C2185B", "#FFF6FB", 0, true),
-                HubPresentationModel.Destination.SHOP.title(),
-                HubPresentationModel.Destination.SHOP.description(), selectorPointer, medallion);
-        tagUltimateHubDestination(shopNode, HubPresentationModel.Destination.SHOP);
-        AnchorPane.setTopAnchor(shopNode, hubMainTop + hubGamesHeight);
-        AnchorPane.setLeftAnchor(shopNode, hubRightLeft);
 
         Button lanNode = buildUltimateHubMainTileButton(
                 "NETWORK MATCHES", "NETWORK PLAY",
@@ -29104,14 +29666,14 @@ public class BirdGame3 {
         AnchorPane.setTopAnchor(lanNode, hubMidline);
         AnchorPane.setLeftAnchor(lanNode, hubRightLeft);
 
-        boolean claimableRewards = hasClaimableAchievementRewards();
-        Button vaultBtn = buildUltimateHubRailButton("VAULT", 160, hubIconVault(claimableRewards), () -> showVault(stage));
-        registerHubInteractiveNode(vaultBtn, hubButtons, helpTitle, helpBody,
-                buildUltimateHubStyle("#101214", "#050607", "#FFD54F", 24, false),
-                buildUltimateHubStyle("#101214", "#050607", "#FFF8E1", 24, true),
-                HubPresentationModel.Destination.VAULT.title(),
-                HubPresentationModel.Destination.VAULT.description(), selectorPointer, medallion);
-        tagUltimateHubDestination(vaultBtn, HubPresentationModel.Destination.VAULT);
+        Button shopBtn = buildUltimateHubRailButton("SHOP", 160, hubIconShop(),
+                () -> animateVaultExit(frame, () -> showVault(stage)));
+        registerHubInteractiveNode(shopBtn, hubButtons, helpTitle, helpBody,
+                buildUltimateHubStyle("#101214", "#050607", "#FF80B9", 24, false),
+                buildUltimateHubStyle("#101214", "#050607", "#FFF4FA", 24, true),
+                HubPresentationModel.Destination.SHOP.title(),
+                HubPresentationModel.Destination.SHOP.description(), selectorPointer, medallion);
+        tagUltimateHubDestination(shopBtn, HubPresentationModel.Destination.SHOP);
 
         Button settingsBtn = buildUltimateHubRailButton("SETTINGS", 112, hubIconSettings(), () -> {
             settingsReturn = () -> showMenu(stage);
@@ -29140,8 +29702,8 @@ public class BirdGame3 {
                 HubPresentationModel.Destination.EXIT.description(), selectorPointer, medallion);
         tagUltimateHubDestination(exitBtn, HubPresentationModel.Destination.EXIT);
 
-        List<Node> primaryHubButtons = List.of(fightNode, adventureNode, gamesNode, shopNode, lanNode);
-        List<Node> utilityHubButtons = List.of(vaultBtn, settingsBtn, profilesBtn, exitBtn);
+        List<Node> primaryHubButtons = List.of(fightNode, adventureNode, gamesNode, lanNode);
+        List<Node> utilityHubButtons = List.of(shopBtn, settingsBtn, profilesBtn, exitBtn);
         utilityHubButtons.forEach(node -> node.getProperties().put("hubUtilityButton", Boolean.TRUE));
 
         Region railSpacer = new Region();
@@ -29171,7 +29733,7 @@ public class BirdGame3 {
         drawerToggle.setGraphic(drawerToggleGraphic);
         drawerToggle.setStyle(buildUltimateHubStyle("#20252B", "#080A0D", "#FFE082", 22, false));
 
-        VBox railButtons = new VBox(12, drawerToggle, vaultBtn, settingsBtn, profilesBtn, railSpacer, exitBtn);
+        VBox railButtons = new VBox(12, drawerToggle, shopBtn, settingsBtn, profilesBtn, railSpacer, exitBtn);
         railButtons.setAlignment(Pos.TOP_CENTER);
 
         StackPane railShell = new StackPane(railButtons);
@@ -29239,7 +29801,7 @@ public class BirdGame3 {
         AnchorPane.setRightAnchor(helpBar, 0.0);
         AnchorPane.setBottomAnchor(helpBar, 0.0);
 
-        frame.getChildren().addAll(tipPanel, fightNode, adventureNode, gamesNode, shopNode, lanNode,
+        frame.getChildren().addAll(tipPanel, fightNode, adventureNode, gamesNode, lanNode,
                 medallion, selectorPointer, railShell, helpBar);
         root.getChildren().add(frame);
 
@@ -29861,10 +30423,6 @@ public class BirdGame3 {
                 secondaryBird = BirdType.EAGLE;
                 tertiaryBird = BirdType.FALCON;
             }
-            case VAULT -> {
-                previewName = "THE VAULT";
-                primaryBird = BirdType.PENGUIN;
-            }
             case SETTINGS -> previewName = "SETTINGS";
             case PROFILES -> {
                 previewName = "PROFILES";
@@ -29967,11 +30525,6 @@ public class BirdGame3 {
                 tertiary.setScaleX(-0.96);
                 tertiary.setScaleY(0.96);
             }
-            case VAULT -> {
-                primary.relocate(92, 104);
-                primary.setScaleX(0.66);
-                primary.setScaleY(0.66);
-            }
             case PROFILES -> {
                 primary.relocate(62, 110);
                 primary.setScaleX(0.56);
@@ -30026,7 +30579,6 @@ public class BirdGame3 {
             case GAMES -> { top = Color.web("#1267B4"); bottom = Color.web("#071629"); }
             case SHOP -> { top = Color.web("#C22A78"); bottom = Color.web("#31091F"); }
             case NETWORK -> { top = Color.web("#CC7B00"); bottom = Color.web("#261606"); }
-            case VAULT -> { top = Color.web("#344A5B"); bottom = Color.web("#080B0F"); }
             case SETTINGS -> { top = Color.web("#375A64"); bottom = Color.web("#0B1114"); }
             case PROFILES -> { top = Color.web("#3E4F87"); bottom = Color.web("#0D1021"); }
             case EXIT -> { top = Color.web("#6E161D"); bottom = Color.web("#130406"); }
@@ -30129,21 +30681,6 @@ public class BirdGame3 {
                 for (double[] point : points) g.fillOval(point[0] - 9, point[1] - 9, 18, 18);
                 g.strokeLine(50, 206, 138, 42);
                 g.strokeLine(138, 42, 226, 206);
-            }
-            case VAULT -> {
-                g.setStroke(Color.web("#B3E5FC", 0.14));
-                g.setLineWidth(2);
-                for (int i = 0; i < 12; i++) g.strokeLine(18, 26 + i * 20, 258, 26 + i * 20);
-                g.setFill(Color.web("#071018", 0.76));
-                g.fillRoundRect(30, 52, 216, 168, 18, 18);
-                g.setStroke(Color.web("#B3E5FC"));
-                g.setLineWidth(4);
-                g.strokeRoundRect(48, 72, 78, 58, 10, 10);
-                g.strokeRoundRect(150, 72, 78, 58, 10, 10);
-                g.strokeRoundRect(48, 148, 180, 48, 10, 10);
-                g.setFill(Color.web("#FFE082"));
-                g.fillPolygon(new double[]{138, 145, 160, 143, 150, 138, 126, 131, 116},
-                        new double[]{150, 170, 172, 184, 206, 192, 206, 184, 172}, 9);
             }
             case SETTINGS -> {
                 g.setStroke(Color.web("#9CCBD2", 0.18));

@@ -42,6 +42,33 @@ class VaultUiModernizationTest {
     }
 
     @Test
+    void vaultSelectionDrivesUniqueArtworkAndUsesCleanSceneTransitions() throws IOException {
+        String source = Files.readString(GAME_SOURCE).replace("\r\n", "\n");
+        String vault = methodBody(source, "showVault");
+        String updater = methodBody(source, "updateVaultShowcase");
+        String backdrop = methodBody(source, "drawVaultShowcaseBackdrop");
+        String card = methodBody(source, "buildVaultDestinationCard");
+        String enter = methodBody(source, "playVaultEntrance");
+        String exit = methodBody(source, "animateVaultExit");
+
+        assertTrue(vault.contains("buildVaultShowcase(VaultDestination.FIGHTER_RECORDS)"));
+        assertTrue(vault.contains("playVaultEntrance(frame)"));
+        assertTrue(card.contains("updateVaultShowcase(showcase, destination, true)"));
+        assertTrue(card.contains("hoverProperty()"));
+        assertTrue(card.contains("focusedProperty()"));
+        for (String destination : new String[]{"FIGHTER_RECORDS", "ACHIEVEMENTS", "FEATHERPEDIA",
+                "CLASSIC_ENDINGS", "STORY_MOVIES", "MATCH_HISTORY", "REPLAYS", "SOUNDTRACK",
+                "TIPS", "SHOP"}) {
+            assertTrue(updater.contains("case " + destination), "missing preview birds for " + destination);
+            assertTrue(backdrop.contains("case " + destination), "missing preview art for " + destination);
+        }
+        assertTrue(updater.contains("ParallelTransition"));
+        assertTrue(enter.contains("FadeTransition"));
+        assertTrue(enter.contains("TranslateTransition"));
+        assertTrue(exit.contains("vaultExitRunning"));
+    }
+
+    @Test
     void achievementsAndFeatherpediaDoNotDuplicateHeaderInformation() throws IOException {
         String source = Files.readString(GAME_SOURCE);
         String achievements = methodBodyAt(source,
