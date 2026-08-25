@@ -1175,6 +1175,7 @@ public class BirdGame3 {
     private final UIFactory uiFactory = new UIFactory(this::playButtonClick, this::applyNoEllipsis, this::fitMainMenuButtonSingleLine);
     private final FrontEndMatchFlow frontEndMatchFlow = new FrontEndMatchFlow();
     private final VersusRulesLibrary versusRulesLibrary = new VersusRulesLibrary();
+    private boolean wildRulesMenuContext = false;
     private Runnable stageSelectReturn = null;
     private Consumer<StageChoice> stageSelectHandler = null;
     private Consumer<StageRandomPool> stageSelectRandomHandler = null;
@@ -25929,6 +25930,7 @@ public class BirdGame3 {
     }
 
     private void showVersusRules(Stage stage) {
+        wildRulesMenuContext = false;
         frontEndMatchFlow.beginVersus();
         showVersusRulesets(stage, false);
     }
@@ -25953,7 +25955,9 @@ public class BirdGame3 {
         lockRegionSize(frame, 1600, 950);
         frame.setStyle("-fx-background-color: linear-gradient(to bottom right, #12091D 0%, #090C13 55%, #151926 100%);");
 
-        Label breadcrumb = new Label(networkLobby ? "NETWORK LOBBY  ›  RULESETS" : "FIGHT  ›  RULESETS");
+        Label breadcrumb = new Label(networkLobby
+                ? "NETWORK LOBBY  ›  RULESETS"
+                : (wildRulesMenuContext ? "FIGHT  ›  WILD RULES" : "FIGHT  ›  RULESETS"));
         breadcrumb.setFont(Font.font("Arial Black", FontWeight.BOLD, 28));
         breadcrumb.setTextFill(Color.WHITE);
         applyNoEllipsis(breadcrumb);
@@ -26108,7 +26112,10 @@ public class BirdGame3 {
                         showLanLobby(stage);
                     } else {
                         frontEndMatchFlow.back();
-                        showFightMenu(stage);
+                        animateFightMenuExit(frame, () -> {
+                            if (wildRulesMenuContext) showWildRules(stage);
+                            else showFightMenu(stage);
+                        });
                     }
                 });
         Button useButton = uiFactory.action(networkLobby ? "USE RULESET" : "CHOOSE FIGHTERS",
@@ -26253,7 +26260,9 @@ public class BirdGame3 {
 
         Label progress = new Label(networkLobby
                 ? "NETWORK LOBBY  ›  RULESETS  ›  EDIT"
-                : "FIGHT  ›  RULESETS  ›  EDIT");
+                : (wildRulesMenuContext
+                ? "FIGHT  ›  WILD RULES  ›  EDIT"
+                : "FIGHT  ›  RULESETS  ›  EDIT"));
         progress.setFont(Font.font("Consolas", FontWeight.BOLD, 21));
         progress.setTextFill(Color.web("#FFE082"));
         applyNoEllipsis(progress);
@@ -31230,6 +31239,11 @@ public class BirdGame3 {
         });
     }
 
+    private void installHubSelectionPreview(Node node, Runnable previewUpdate) {
+        if (node == null || previewUpdate == null) return;
+        node.getProperties().put("hubSelectionPreview", previewUpdate);
+    }
+
     private void refreshUltimateHubButtons(List<Node> buttons, Label helpTitle, Label helpBody,
                                            Group selectorPointer, Node medallion) {
         if (buttons == null || buttons.isEmpty()) {
@@ -31283,6 +31297,10 @@ public class BirdGame3 {
                     ? HubPresentationModel.IDLE_DESCRIPTION
                     : Objects.toString(selected.getProperties().get("hubHelpBody"),
                     HubPresentationModel.IDLE_DESCRIPTION));
+        }
+        if (selected != null) {
+            Object previewUpdate = selected.getProperties().get("hubSelectionPreview");
+            if (previewUpdate instanceof Runnable runnable) runnable.run();
         }
         HubPresentationModel.Destination previewDestination = HubPresentationModel.Destination.FIGHT;
         if (selected != null) {
@@ -34217,6 +34235,7 @@ public class BirdGame3 {
     }
 
     private void showFightMenu(Stage stage) {
+        wildRulesMenuContext = false;
         playMenuMusic();
 
         StackPane root = new StackPane();
@@ -34281,6 +34300,8 @@ public class BirdGame3 {
         AnchorPane.setLeftAnchor(battleBtn, 0.0);
 
         StackPane heroArt = buildFightMenuHeroArt();
+        installHubSelectionPreview(battleBtn,
+                () -> updateFightMenuHeroArt(heroArt, HubPresentationModel.FightMode.BIRD_BATTLE, true));
         AnchorPane.setTopAnchor(heroArt, 112.0);
         AnchorPane.setLeftAnchor(heroArt, 1060.0);
 
@@ -34298,6 +34319,8 @@ public class BirdGame3 {
                 buildGamesMoreCardStyle("#963CCB", "#3E0B75", "#FFF8E1", 34, true),
                 HubPresentationModel.FightMode.FLOCK_STRIKE.title(),
                 HubPresentationModel.FightMode.FLOCK_STRIKE.description(), null, null);
+        installHubSelectionPreview(flockBtn,
+                () -> updateFightMenuHeroArt(heroArt, HubPresentationModel.FightMode.FLOCK_STRIKE, true));
         AnchorPane.setTopAnchor(flockBtn, 402.0);
         AnchorPane.setLeftAnchor(flockBtn, 0.0);
 
@@ -34315,6 +34338,8 @@ public class BirdGame3 {
                 buildGamesMoreCardStyle("#FFB81F", "#B35A00", "#FFF8E1", 34, true),
                 HubPresentationModel.FightMode.ROOST_BRACKET.title(),
                 HubPresentationModel.FightMode.ROOST_BRACKET.description(), null, null);
+        installHubSelectionPreview(bracketBtn,
+                () -> updateFightMenuHeroArt(heroArt, HubPresentationModel.FightMode.ROOST_BRACKET, true));
         AnchorPane.setTopAnchor(bracketBtn, 402.0);
         AnchorPane.setLeftAnchor(bracketBtn, 540.0);
 
@@ -34332,6 +34357,8 @@ public class BirdGame3 {
                 buildGamesMoreCardStyle("#0B959B", "#045863", "#FFF8E1", 34, true),
                 HubPresentationModel.FightMode.WILD_RULES.title(),
                 HubPresentationModel.FightMode.WILD_RULES.description(), null, null);
+        installHubSelectionPreview(wildBtn,
+                () -> updateFightMenuHeroArt(heroArt, HubPresentationModel.FightMode.WILD_RULES, true));
         AnchorPane.setTopAnchor(wildBtn, 402.0);
         AnchorPane.setLeftAnchor(wildBtn, 1080.0);
 
@@ -34374,9 +34401,176 @@ public class BirdGame3 {
     }
 
     private void showWildRules(Stage stage) {
+        wildRulesMenuContext = true;
+        playMenuMusic();
+
+        StackPane root = new StackPane();
+        root.getProperties().put("noAutoScale", true);
+        root.setStyle("-fx-background-color: linear-gradient(to bottom right, #180207 0%, #4D0812 48%, #09080D 100%);");
+
+        AnchorPane frame = new AnchorPane();
+        frame.setId("uiFrame");
+        lockRegionSize(frame, 1600, 950);
+        frame.getChildren().add(buildFightMenuBackdrop());
+
+        Button back = uiFactory.action("BACK TO FIGHT", 276, 72, 25, "#7E1018", 19,
+                () -> animateFightMenuExit(frame, () -> showFightMenu(stage)));
+        StackPane titleBanner = buildMenuTitleBanner("WILD RULES", 450, 74, 29);
+        StackPane sectionChip = buildMenuChip("SPECIAL BATTLES", "#641019", "#FFCDD2");
+        StackPane topStrip = buildMenuTopStrip(back, titleBanner, sectionChip);
+        lockRegionSize(topStrip, 1600, 96);
+        topStrip.setStyle("-fx-background-color: linear-gradient(to right, #A50F1C 0%, #D7202C 43%, #22070B 43%, #08090D 100%);"
+                + "-fx-border-color: rgba(255,255,255,0.22); -fx-border-width: 0 0 3 0;");
+        AnchorPane.setTopAnchor(topStrip, 0.0);
+        AnchorPane.setLeftAnchor(topStrip, 0.0);
+        AnchorPane.setRightAnchor(topStrip, 0.0);
+
+        Label helpTitle = new Label(HubPresentationModel.WildMode.CUSTOM_ROOST.title());
+        helpTitle.setFont(Font.font("Arial Black", 30));
+        helpTitle.setTextFill(Color.web("#FFE082"));
+        applyNoEllipsis(helpTitle);
+        Label helpBody = new Label(HubPresentationModel.WildMode.CUSTOM_ROOST.description());
+        helpBody.setFont(Font.font("Consolas", 20));
+        helpBody.setTextFill(Color.web("#F5F5F5"));
+        helpBody.setWrapText(true);
+        helpBody.setMaxWidth(Double.MAX_VALUE);
+        helpBody.setMinWidth(0);
+        applyNoEllipsis(helpBody);
+
+        HBox footerMeta = buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "NAVIGATE"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "SELECT"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "FIGHT"));
+        footerMeta.setAlignment(Pos.CENTER_RIGHT);
+
+        List<Node> modeButtons = new ArrayList<>();
+        StackPane heroArt = buildWildRulesHeroArt();
+        AnchorPane.setTopAnchor(heroArt, 112.0);
+        AnchorPane.setLeftAnchor(heroArt, 1060.0);
+
+        Button customBtn = buildGamesMoreModeButton(
+                "YOUR BIRDS · YOUR RULES",
+                "BUILD-A-BRAWL",
+                1040, 270, 58,
+                new Insets(26, 280, 34, 42),
+                36,
+                fightMenuIconWildRules(), 5.2, 0.18,
+                new Insets(18, 54, 18, 18),
+                () -> animateFightMenuExit(frame,
+                        () -> openWildRulesMode(stage, HubPresentationModel.WildMode.CUSTOM_ROOST)));
+        registerHubInteractiveNode(customBtn, modeButtons, helpTitle, helpBody,
+                buildGamesMoreCardStyle("#E6212D", "#7B0711", "#FFCDD2", 36, false),
+                buildGamesMoreCardStyle("#F22D39", "#8E0713", "#FFF8E1", 36, true),
+                HubPresentationModel.WildMode.CUSTOM_ROOST.title(),
+                HubPresentationModel.WildMode.CUSTOM_ROOST.description(), null, null);
+        installHubSelectionPreview(customBtn,
+                () -> updateWildRulesHeroArt(heroArt, HubPresentationModel.WildMode.CUSTOM_ROOST, true));
+        AnchorPane.setTopAnchor(customBtn, 112.0);
+        AnchorPane.setLeftAnchor(customBtn, 0.0);
+
+        Button staminaBtn = buildGamesMoreModeButton(
+                "150 HP · LAST BIRD STANDING",
+                "STAMINA CLASH",
+                780, 428, 43,
+                new Insets(24, 168, 34, 30),
+                34,
+                fightMenuIconStaminaClash(), 4.3, 0.23,
+                new Insets(24, 36, 18, 18),
+                () -> animateFightMenuExit(frame,
+                        () -> openWildRulesMode(stage, HubPresentationModel.WildMode.STAMINA_CLASH)));
+        registerHubInteractiveNode(staminaBtn, modeButtons, helpTitle, helpBody,
+                buildGamesMoreCardStyle("#00897B", "#004D40", "#B2DFDB", 34, false),
+                buildGamesMoreCardStyle("#00A896", "#00695C", "#FFF8E1", 34, true),
+                HubPresentationModel.WildMode.STAMINA_CLASH.title(),
+                HubPresentationModel.WildMode.STAMINA_CLASH.description(), null, null);
+        installHubSelectionPreview(staminaBtn,
+                () -> updateWildRulesHeroArt(heroArt, HubPresentationModel.WildMode.STAMINA_CLASH, true));
+        AnchorPane.setTopAnchor(staminaBtn, 402.0);
+        AnchorPane.setLeftAnchor(staminaBtn, 0.0);
+
+        Button launchBtn = buildGamesMoreModeButton(
+                "MAXIMUM LAUNCH FORCE",
+                "LAUNCHSTORM",
+                780, 428, 43,
+                new Insets(24, 168, 34, 30),
+                34,
+                fightMenuIconLaunchstorm(), 4.3, 0.23,
+                new Insets(24, 36, 18, 18),
+                () -> animateFightMenuExit(frame,
+                        () -> openWildRulesMode(stage, HubPresentationModel.WildMode.LAUNCHSTORM)));
+        registerHubInteractiveNode(launchBtn, modeButtons, helpTitle, helpBody,
+                buildGamesMoreCardStyle("#EF6C00", "#8A2D00", "#FFE0B2", 34, false),
+                buildGamesMoreCardStyle("#FF8500", "#A63B00", "#FFF8E1", 34, true),
+                HubPresentationModel.WildMode.LAUNCHSTORM.title(),
+                HubPresentationModel.WildMode.LAUNCHSTORM.description(), null, null);
+        installHubSelectionPreview(launchBtn,
+                () -> updateWildRulesHeroArt(heroArt, HubPresentationModel.WildMode.LAUNCHSTORM, true));
+        AnchorPane.setTopAnchor(launchBtn, 402.0);
+        AnchorPane.setLeftAnchor(launchBtn, 800.0);
+
+        StackPane helpBar = new StackPane();
+        lockRegionSize(helpBar, 1600, 104);
+        helpBar.setPadding(new Insets(14, 28, 14, 28));
+        helpBar.setStyle("-fx-background-color: linear-gradient(to right, rgba(0,0,0,0.98), rgba(20,8,10,0.97));"
+                + "-fx-border-color: rgba(255,255,255,0.12) transparent transparent transparent;"
+                + "-fx-border-width: 3 0 0 0;");
+        Region helpSpacer = new Region();
+        HBox.setHgrow(helpSpacer, Priority.ALWAYS);
+        VBox helpText = new VBox(4, helpTitle, helpBody);
+        helpText.setAlignment(Pos.CENTER_LEFT);
+        helpText.setMinWidth(0);
+        helpText.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(helpText, Priority.ALWAYS);
+        HBox helpContent = new HBox(24, helpText, helpSpacer, footerMeta);
+        helpContent.setAlignment(Pos.CENTER_LEFT);
+        helpBar.getChildren().add(helpContent);
+        AnchorPane.setLeftAnchor(helpBar, 0.0);
+        AnchorPane.setRightAnchor(helpBar, 0.0);
+        AnchorPane.setBottomAnchor(helpBar, 0.0);
+        installGamesMoreHelpTextFitting(helpTitle, helpBody, helpText, footerMeta, helpBar);
+
+        frame.getChildren().addAll(topStrip, customBtn, heroArt, staminaBtn, launchBtn, helpBar);
+        root.getChildren().add(frame);
+
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, back);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        bindFixedFrameScale(scene, frame, 0.0);
+        setScenePreservingFullscreen(stage, scene);
+        javafx.application.Platform.runLater(() -> {
+            customBtn.requestFocus();
+            setConsoleHighlightActive(true, scene);
+            refreshUltimateHubButtons(modeButtons, helpTitle, helpBody, null, null);
+            playFightMenuEntrance(frame, List.of(customBtn, heroArt, staminaBtn, launchBtn));
+        });
+    }
+
+    private void openWildRulesMode(Stage stage, HubPresentationModel.WildMode mode) {
+        wildRulesMenuContext = true;
         frontEndMatchFlow.beginVersus();
-        frontEndMatchFlow.selectCustomRules(versusRulesLibrary.selected());
-        showVersusRulesEditor(stage, false);
+        HubPresentationModel.WildMode resolved = mode == null
+                ? HubPresentationModel.WildMode.CUSTOM_ROOST : mode;
+        switch (resolved) {
+            case CUSTOM_ROOST -> {
+                frontEndMatchFlow.selectCustomRules(versusRulesLibrary.selected());
+                showVersusRulesEditor(stage, false);
+            }
+            case STAMINA_CLASH -> {
+                frontEndMatchFlow.selectRulesPreset(VersusRulesPreset.STAMINA);
+                continueFromVersusRulesSelection(stage, false);
+            }
+            case LAUNCHSTORM -> {
+                VersusRules launchstorm = VersusRules.standard()
+                        .withName("LAUNCHSTORM")
+                        .withStockCount(2)
+                        .withTimeLimitSeconds(120)
+                        .withLaunchRatePercent(200)
+                        .withDamageRatePercent(150);
+                frontEndMatchFlow.selectCustomRules(launchstorm);
+                continueFromVersusRulesSelection(stage, false);
+            }
+        }
     }
 
     private Pane buildFightMenuBackdrop() {
@@ -34403,46 +34597,238 @@ public class BirdGame3 {
     }
 
     private StackPane buildFightMenuHeroArt() {
+        StackPane shell = buildFightPreviewShell();
+        updateFightMenuHeroArt(shell, HubPresentationModel.FightMode.BIRD_BATTLE, false);
+        return shell;
+    }
+
+    private StackPane buildWildRulesHeroArt() {
+        StackPane shell = buildFightPreviewShell();
+        updateWildRulesHeroArt(shell, HubPresentationModel.WildMode.CUSTOM_ROOST, false);
+        return shell;
+    }
+
+    private StackPane buildFightPreviewShell() {
         StackPane shell = new StackPane();
         lockRegionSize(shell, 540, 270);
         shell.setMouseTransparent(true);
-        shell.setStyle("-fx-background-color: linear-gradient(to bottom right, #111A25 0%, #29070C 58%, #610D16 100%);"
-                + "-fx-background-radius: 36; -fx-border-color: rgba(255,255,255,0.34);"
-                + "-fx-border-width: 3; -fx-border-radius: 36;");
         installRegionClip(shell, 36, 36);
+        return shell;
+    }
 
+    private void updateFightMenuHeroArt(StackPane shell, HubPresentationModel.FightMode mode,
+                                        boolean animated) {
+        if (shell == null) return;
+        HubPresentationModel.FightMode resolved = mode == null
+                ? HubPresentationModel.FightMode.BIRD_BATTLE : mode;
+        String style = switch (resolved) {
+            case BIRD_BATTLE -> fightPreviewShellStyle("#111A25", "#610D16", "#FFD180");
+            case FLOCK_STRIKE -> fightPreviewShellStyle("#170D2D", "#542078", "#E1BEE7");
+            case ROOST_BRACKET -> fightPreviewShellStyle("#241407", "#8A4300", "#FFE082");
+            case WILD_RULES -> fightPreviewShellStyle("#032B31", "#075E66", "#80DEEA");
+        };
+        swapFightPreview(shell, resolved, buildFightMenuHeroScene(resolved), style, animated);
+    }
+
+    private void updateWildRulesHeroArt(StackPane shell, HubPresentationModel.WildMode mode,
+                                        boolean animated) {
+        if (shell == null) return;
+        HubPresentationModel.WildMode resolved = mode == null
+                ? HubPresentationModel.WildMode.CUSTOM_ROOST : mode;
+        String style = switch (resolved) {
+            case CUSTOM_ROOST -> fightPreviewShellStyle("#151021", "#6A0B35", "#FFCDD2");
+            case STAMINA_CLASH -> fightPreviewShellStyle("#032721", "#00796B", "#B2DFDB");
+            case LAUNCHSTORM -> fightPreviewShellStyle("#351004", "#A83A00", "#FFE0B2");
+        };
+        swapFightPreview(shell, resolved, buildWildRulesHeroScene(resolved), style, animated);
+    }
+
+    private String fightPreviewShellStyle(String start, String end, String border) {
+        return "-fx-background-color: linear-gradient(to bottom right, " + start + " 0%, " + end + " 100%);"
+                + "-fx-background-radius: 36; -fx-border-color: " + border + ";"
+                + "-fx-border-width: 3; -fx-border-radius: 36;";
+    }
+
+    private void swapFightPreview(StackPane shell, Object key, Pane next, String style,
+                                  boolean animated) {
+        if (Objects.equals(shell.getProperties().get("fightPreviewKey"), key)) return;
+        Object oldAnimation = shell.getProperties().remove("fightPreviewAnimation");
+        if (oldAnimation instanceof Animation animation) animation.stop();
+        Node previous = shell.getChildren().isEmpty() ? null : shell.getChildren().getLast();
+        if (previous != null) shell.getChildren().setAll(previous);
+        shell.getProperties().put("fightPreviewKey", key);
+        shell.setStyle(style);
+        if (!animated || previous == null) {
+            shell.getChildren().setAll(next);
+            return;
+        }
+
+        next.setOpacity(0.0);
+        next.setTranslateX(44.0);
+        shell.getChildren().add(next);
+        FadeTransition oldFade = new FadeTransition(Duration.millis(135), previous);
+        oldFade.setToValue(0.0);
+        TranslateTransition oldSlide = new TranslateTransition(Duration.millis(165), previous);
+        oldSlide.setToX(-28.0);
+        FadeTransition nextFade = new FadeTransition(Duration.millis(180), next);
+        nextFade.setToValue(1.0);
+        TranslateTransition nextSlide = new TranslateTransition(Duration.millis(220), next);
+        nextSlide.setToX(0.0);
+        nextSlide.setInterpolator(javafx.animation.Interpolator.EASE_OUT);
+        ParallelTransition transition = new ParallelTransition(oldFade, oldSlide, nextFade, nextSlide);
+        transition.setOnFinished(event -> {
+            shell.getChildren().setAll(next);
+            shell.getProperties().remove("fightPreviewAnimation");
+        });
+        shell.getProperties().put("fightPreviewAnimation", transition);
+        transition.play();
+    }
+
+    private Pane buildFightMenuHeroScene(HubPresentationModel.FightMode mode) {
         Pane art = new Pane();
         lockRegionSize(art, 540, 270);
+        addFightPreviewBeam(art, mode == HubPresentationModel.FightMode.WILD_RULES ? "#80DEEA" : "#FFD54F");
+        switch (mode) {
+            case BIRD_BATTLE -> {
+                addFightPreviewBird(art, BirdType.EAGLE, Bird.VisualAuditPose.FLAP,
+                        false, 220, 154, -20, -8);
+                addFightPreviewBird(art, BirdType.PIGEON, Bird.VisualAuditPose.ATTACK,
+                        true, 188, 18, 70, -4);
+                addFightPreviewBird(art, BirdType.ROADRUNNER, Bird.VisualAuditPose.RUN,
+                        false, 178, 348, 80, 5);
+                addFightPreviewCallout(art, "PICK YOUR RIVALS", 150);
+            }
+            case FLOCK_STRIKE -> {
+                addFightPreviewBird(art, BirdType.ROOSTER, Bird.VisualAuditPose.ATTACK,
+                        false, 214, 162, -8, -5);
+                addFightPreviewBird(art, BirdType.TURKEY, Bird.VisualAuditPose.FLAP,
+                        true, 178, 22, 86, 2);
+                addFightPreviewBird(art, BirdType.TITMOUSE, Bird.VisualAuditPose.ATTACK,
+                        false, 170, 354, 83, -3);
+                addFightPreviewCallout(art, "THREE BIRDS · ONE FLOCK", 112);
+            }
+            case ROOST_BRACKET -> {
+                addFightPreviewBird(art, BirdType.RAVEN, Bird.VisualAuditPose.ATTACK,
+                        false, 222, 55, 20, -8);
+                addFightPreviewBird(art, BirdType.PHOENIX, Bird.VisualAuditPose.FLAP,
+                        true, 222, 274, 20, 8);
+                drawFightPreviewBracket(art);
+                addFightPreviewCallout(art, "ONLY ONE ROOST REMAINS", 106);
+            }
+            case WILD_RULES -> {
+                addFightPreviewBird(art, BirdType.MOCKINGBIRD, Bird.VisualAuditPose.ATTACK,
+                        false, 214, 158, -10, -6);
+                addFightPreviewBird(art, BirdType.HUMMINGBIRD, Bird.VisualAuditPose.FLAP,
+                        true, 156, 22, 96, 7);
+                addFightPreviewBird(art, BirdType.OPIUMBIRD, Bird.VisualAuditPose.HIT,
+                        false, 170, 363, 74, -11);
+                addFightPreviewCallout(art, "BEND THE BATTLE", 157);
+            }
+        }
+        return art;
+    }
+
+    private Pane buildWildRulesHeroScene(HubPresentationModel.WildMode mode) {
+        Pane art = new Pane();
+        lockRegionSize(art, 540, 270);
+        switch (mode) {
+            case CUSTOM_ROOST -> {
+                addFightPreviewBeam(art, "#FF80AB");
+                addFightPreviewBird(art, BirdType.MOCKINGBIRD, Bird.VisualAuditPose.ATTACK,
+                        false, 218, 152, -16, -5);
+                addFightPreviewBird(art, BirdType.HUMMINGBIRD, Bird.VisualAuditPose.FLAP,
+                        true, 154, 22, 90, 8);
+                addFightPreviewBird(art, BirdType.BAT, Bird.VisualAuditPose.FLAP,
+                        false, 164, 364, 76, -10);
+                addFightPreviewCallout(art, "MAKE IT YOURS", 171);
+            }
+            case STAMINA_CLASH -> {
+                addFightPreviewBeam(art, "#80CBC4");
+                addFightPreviewBird(art, BirdType.PELICAN, Bird.VisualAuditPose.ATTACK,
+                        false, 226, 48, 18, -4);
+                addFightPreviewBird(art, BirdType.RAZORBILL, Bird.VisualAuditPose.ATTACK,
+                        true, 214, 284, 24, 5);
+                drawFightPreviewHealthBars(art);
+                addFightPreviewCallout(art, "150 HP · HOLD THE LINE", 111);
+            }
+            case LAUNCHSTORM -> {
+                addFightPreviewBeam(art, "#FFB74D");
+                addFightPreviewBird(art, BirdType.EAGLE, Bird.VisualAuditPose.ATTACK,
+                        false, 222, 30, 8, -8);
+                addFightPreviewBird(art, BirdType.ROADRUNNER, Bird.VisualAuditPose.HIT,
+                        true, 182, 328, 48, 15);
+                drawFightPreviewSpeedLines(art);
+                addFightPreviewCallout(art, "MAXIMUM LAUNCH", 163);
+            }
+        }
+        return art;
+    }
+
+    private void addFightPreviewBeam(Pane art, String color) {
         Region beam = new Region();
         lockRegionSize(beam, 520, 92);
         beam.relocate(24, 80);
         beam.setRotate(-13);
-        beam.setStyle("-fx-background-color: linear-gradient(to right, rgba(255,193,7,0), rgba(255,193,7,0.36), rgba(255,255,255,0));"
-                + "-fx-background-radius: 70;");
+        Color glow = Color.web(color, 0.42);
+        beam.setStyle("-fx-background-color: linear-gradient(to right, rgba(255,255,255,0), "
+                + toRgba(glow, glow.getOpacity()) + ", rgba(255,255,255,0)); -fx-background-radius: 70;");
+        art.getChildren().add(beam);
+    }
 
-        Canvas eagle = new Canvas(220, 220);
-        Canvas pigeon = new Canvas(188, 188);
-        Canvas roadrunner = new Canvas(178, 178);
-        drawVaultShowcasePortrait(eagle, vaultActor(BirdType.EAGLE, Bird.VisualAuditPose.FLAP, false));
-        drawVaultShowcasePortrait(pigeon, vaultActor(BirdType.PIGEON, Bird.VisualAuditPose.ATTACK, true));
-        drawVaultShowcasePortrait(roadrunner, vaultActor(BirdType.ROADRUNNER, Bird.VisualAuditPose.RUN, false));
-        eagle.relocate(154, -20);
-        eagle.setRotate(-8);
-        pigeon.relocate(18, 70);
-        pigeon.setRotate(-4);
-        roadrunner.relocate(348, 80);
-        roadrunner.setRotate(5);
+    private void addFightPreviewBird(Pane art, BirdType type, Bird.VisualAuditPose pose,
+                                     boolean faceLeft, double size, double x, double y,
+                                     double rotation) {
+        Canvas bird = new Canvas(size, size);
+        drawVaultShowcasePortrait(bird, vaultActor(type, pose, faceLeft));
+        bird.relocate(x, y);
+        bird.setRotate(rotation);
+        art.getChildren().add(bird);
+    }
 
-        Label callout = new Label("CHOOSE YOUR BATTLE");
-        callout.setFont(Font.font("Arial Black", 22));
+    private void addFightPreviewCallout(Pane art, String text, double x) {
+        Label callout = new Label(text);
+        callout.setFont(Font.font("Arial Black", 20));
         callout.setTextFill(Color.web("#FFF8E1"));
         callout.setPadding(new Insets(7, 16, 7, 16));
-        callout.setStyle("-fx-background-color: rgba(0,0,0,0.72); -fx-background-radius: 18;"
-                + "-fx-border-color: rgba(255,224,130,0.72); -fx-border-width: 2; -fx-border-radius: 18;");
-        callout.relocate(148, 218);
-        art.getChildren().addAll(beam, eagle, pigeon, roadrunner, callout);
-        shell.getChildren().add(art);
-        return shell;
+        callout.setStyle("-fx-background-color: rgba(0,0,0,0.76); -fx-background-radius: 18;"
+                + "-fx-border-color: rgba(255,224,130,0.76); -fx-border-width: 2; -fx-border-radius: 18;");
+        callout.relocate(x, 218);
+        art.getChildren().add(callout);
+    }
+
+    private void drawFightPreviewBracket(Pane art) {
+        for (int row = 0; row < 3; row++) {
+            Line left = new Line(210, 52 + row * 45, 270, 52 + row * 45);
+            Line right = new Line(270, 52 + row * 45, 330, 52 + row * 45);
+            left.setStroke(Color.web("#FFE082", 0.72));
+            right.setStroke(Color.web("#FFE082", 0.72));
+            left.setStrokeWidth(4);
+            right.setStrokeWidth(4);
+            art.getChildren().addAll(left, right);
+        }
+    }
+
+    private void drawFightPreviewHealthBars(Pane art) {
+        Region left = new Region();
+        Region right = new Region();
+        lockRegionSize(left, 170, 16);
+        lockRegionSize(right, 170, 16);
+        left.relocate(44, 184);
+        right.relocate(326, 184);
+        left.setStyle("-fx-background-color: linear-gradient(to right, #26A69A 72%, #263238 72%);"
+                + "-fx-background-radius: 8; -fx-border-color: #B2DFDB; -fx-border-radius: 8;");
+        right.setStyle("-fx-background-color: linear-gradient(to right, #FFB300 48%, #263238 48%);"
+                + "-fx-background-radius: 8; -fx-border-color: #FFE082; -fx-border-radius: 8;");
+        art.getChildren().addAll(left, right);
+    }
+
+    private void drawFightPreviewSpeedLines(Pane art) {
+        for (int i = 0; i < 7; i++) {
+            Line line = new Line(230 + i * 18, 48 + i * 17, 420 + i * 12, 62 + i * 17);
+            line.setStroke(Color.web(i % 2 == 0 ? "#FFF8E1" : "#FFB74D", 0.64));
+            line.setStrokeWidth(5 - (i % 3));
+            art.getChildren().add(line);
+        }
     }
 
     private Node fightMenuIconBirdBattle() {
@@ -34477,6 +34863,37 @@ public class BirdGame3 {
         Circle die = new Circle(18, 17, 7, Color.web("#FF8A80"));
         Circle pip = new Circle(18, 17, 2, Color.web("#4A1015"));
         pane.getChildren().addAll(feather, quill, star, die, pip);
+        return pane;
+    }
+
+    private Node fightMenuIconStaminaClash() {
+        Pane pane = hubIconPane();
+        Polygon heart = new Polygon(29, 49, 8, 29, 8, 18, 14, 11, 22, 11, 29, 19,
+                36, 11, 44, 11, 51, 18, 51, 29);
+        heart.setFill(Color.web("#EF5350"));
+        heart.setStroke(Color.web("#FFCDD2"));
+        heart.setStrokeWidth(2);
+        Label hp = new Label("HP");
+        hp.setFont(Font.font("Arial Black", 15));
+        hp.setTextFill(Color.WHITE);
+        hp.relocate(18, 21);
+        pane.getChildren().addAll(heart, hp);
+        return pane;
+    }
+
+    private Node fightMenuIconLaunchstorm() {
+        Pane pane = hubIconPane();
+        Polygon burst = new Polygon(30, 3, 35, 19, 51, 11, 43, 27, 57, 34,
+                39, 37, 42, 55, 29, 43, 17, 56, 19, 38, 2, 35, 16, 26, 7, 12, 24, 19);
+        burst.setFill(Color.web("#FFB300"));
+        burst.setStroke(Color.web("#FFF3E0"));
+        burst.setStrokeWidth(1.8);
+        Polygon feather = new Polygon(7, 39, 18, 20, 42, 18, 46, 25, 31, 37, 13, 45);
+        feather.setFill(Color.web("#FFF8E1"));
+        Line quill = new Line(8, 44, 39, 22);
+        quill.setStroke(Color.web("#BF360C"));
+        quill.setStrokeWidth(3);
+        pane.getChildren().addAll(burst, feather, quill);
         return pane;
     }
 

@@ -17,7 +17,9 @@ class HubPresentationModelTest {
                 Arrays.stream(HubPresentationModel.ExtraMode.values())
                         .map(HubPresentationModel.ExtraMode::description),
                 Arrays.stream(HubPresentationModel.FightMode.values())
-                        .map(HubPresentationModel.FightMode::description)
+                        .map(HubPresentationModel.FightMode::description),
+                Arrays.stream(HubPresentationModel.WildMode.values())
+                        .map(HubPresentationModel.WildMode::description)
         ).flatMap(stream -> stream).forEach(description -> {
             assertFalse(description.isBlank());
             assertTrue(description.length() <= HubPresentationModel.MAX_DESCRIPTION_LENGTH,

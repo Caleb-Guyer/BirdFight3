@@ -81,6 +81,28 @@ final class HubPresentationModel {
         }
     }
 
+    enum WildMode {
+        CUSTOM_ROOST("BUILD-A-BRAWL", "Create and save a completely custom battle."),
+        STAMINA_CLASH("STAMINA CLASH", "Drain every rival's HP before they drain yours."),
+        LAUNCHSTORM("LAUNCHSTORM", "A volatile ruleset with maximum launch force.");
+
+        private final String title;
+        private final String description;
+
+        WildMode(String title, String description) {
+            this.title = title;
+            this.description = description;
+        }
+
+        String title() {
+            return title;
+        }
+
+        String description() {
+            return description;
+        }
+    }
+
     private HubPresentationModel() {
     }
 }

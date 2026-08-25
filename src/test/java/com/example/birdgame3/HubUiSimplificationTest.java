@@ -135,8 +135,43 @@ class HubUiSimplificationTest {
         assertTrue(fight.contains("fightMenuIconWildRules()"));
         assertTrue(fight.contains("buildFightMenuHeroArt()"),
                 "the lead battle destination should have dedicated posed-bird artwork");
+        assertEquals(HubPresentationModel.FightMode.values().length,
+                occurrences(fight, "updateFightMenuHeroArt(heroArt,"),
+                "every Fight tile should own a distinct selection-driven picture");
+        assertEquals(HubPresentationModel.FightMode.values().length,
+                occurrences(fight, "installHubSelectionPreview("));
         assertTrue(fight.contains("playFightMenuEntrance("));
         assertTrue(fight.contains("animateFightMenuExit("));
+    }
+
+    @Test
+    void wildRulesIsAnAnimatedFunctionalDashboardWithChangingArt() throws IOException {
+        String source = Files.readString(GAME_SOURCE).replace("\r\n", "\n");
+        String wild = methodBody(source, "private void showWildRules(Stage stage)");
+        String openMode = methodBody(source,
+                "private void openWildRulesMode(Stage stage, HubPresentationModel.WildMode mode)");
+        String swap = methodBody(source,
+                "private void swapFightPreview(StackPane shell, Object key, Pane next, String style,");
+
+        assertEquals(HubPresentationModel.WildMode.values().length,
+                occurrences(wild, "registerHubInteractiveNode("));
+        assertEquals(HubPresentationModel.WildMode.values().length,
+                occurrences(wild, "updateWildRulesHeroArt(heroArt,"),
+                "every Wild Rules tile should swap in its own posed-bird scene");
+        assertTrue(wild.contains("buildWildRulesHeroArt()"));
+        assertTrue(wild.contains("fightMenuIconWildRules()"));
+        assertTrue(wild.contains("fightMenuIconStaminaClash()"));
+        assertTrue(wild.contains("fightMenuIconLaunchstorm()"));
+        assertTrue(wild.contains("playFightMenuEntrance("));
+        assertTrue(wild.contains("animateFightMenuExit("));
+
+        assertTrue(openMode.contains("VersusRulesPreset.STAMINA"),
+                "Stamina Clash must use the real stamina simulation rules");
+        assertTrue(openMode.contains("withLaunchRatePercent(200)"),
+                "Launchstorm must use the real maximum launch-rate setting");
+        assertTrue(openMode.contains("continueFromVersusRulesSelection(stage, false)"));
+        assertTrue(swap.contains("FadeTransition"));
+        assertTrue(swap.contains("TranslateTransition"));
     }
 
     @Test
