@@ -47267,6 +47267,213 @@ public class BirdGame3 {
         competitionSeriesActive = false;
         playMenuMusic();
 
+        StoryCampaign.Mission current = stillSkyCampaign.mission(stillSkyProgress.currentMissionId);
+        if (current == null) current = stillSkyCampaign.firstMission();
+        StoryCampaign.Mission continueMission = current;
+        int currentActIndex = Math.max(0, stillSkyCampaign.actIndexForMission(current.id()));
+
+        AnchorPane frame = new AnchorPane();
+        frame.setId("uiFrame");
+        lockRegionSize(frame, 1600, 950);
+        frame.getChildren().add(buildAdventureHubBackdrop());
+
+        Button back = uiFactory.action("BACK TO HUB", 276, 72, 25, "#174B2B", 19,
+                () -> animateFightMenuExit(frame, () -> showMenu(stage)));
+        StackPane titleBanner = buildMenuTitleBanner("THE STILL SKY", 470, 74, 29);
+        StackPane sectionChip = buildMenuChip("ADVENTURE", "#145B2C", "#C8F7B8");
+        StackPane topStrip = buildMenuTopStrip(back, titleBanner, sectionChip);
+        lockRegionSize(topStrip, 1600, 96);
+        topStrip.setStyle("-fx-background-color: linear-gradient(to right, #0C6A2A 0%, #38A83F 43%, #07130B 43%, #050807 100%);"
+                + "-fx-background-radius: 0; -fx-border-color: rgba(232,255,225,0.30);"
+                + "-fx-border-width: 0 0 3 0;");
+        AnchorPane.setTopAnchor(topStrip, 0.0);
+        AnchorPane.setLeftAnchor(topStrip, 0.0);
+        AnchorPane.setRightAnchor(topStrip, 0.0);
+
+        Label helpTitle = new Label(HubPresentationModel.AdventureMode.CONTINUE.title());
+        helpTitle.setFont(Font.font("Arial Black", 29));
+        helpTitle.setTextFill(Color.web("#DFFF9F"));
+        applyNoEllipsis(helpTitle);
+        Label helpBody = new Label(HubPresentationModel.AdventureMode.CONTINUE.description());
+        helpBody.setFont(Font.font("Consolas", 19));
+        helpBody.setTextFill(Color.web("#F3FFF0"));
+        helpBody.setWrapText(true);
+        helpBody.setMaxWidth(Double.MAX_VALUE);
+        helpBody.setMinWidth(0);
+        applyNoEllipsis(helpBody);
+
+        List<Node> destinations = new ArrayList<>();
+        Button continueButton = buildUltimateHubButtonBase(1008, 728,
+                () -> animateFightMenuExit(frame,
+                        () -> showCampaignMissionBriefing(stage, continueMission)));
+        continueButton.setAccessibleText("Continue Adventure: " + current.title());
+        registerHubInteractiveNode(continueButton, destinations, helpTitle, helpBody,
+                buildGamesMoreCardStyle("#1C8C32", "#07451D", "#B6F59B", 42, false),
+                buildGamesMoreCardStyle("#32B846", "#096426", "#FFF7A8", 42, true),
+                HubPresentationModel.AdventureMode.CONTINUE.title(),
+                HubPresentationModel.AdventureMode.CONTINUE.description(), null, null);
+        AnchorPane.setTopAnchor(continueButton, 108.0);
+        AnchorPane.setLeftAnchor(continueButton, 0.0);
+
+        StackPane heroArt = new StackPane();
+        lockRegionSize(heroArt, 1008, 728);
+        heroArt.setMouseTransparent(true);
+        updateAdventureHubHeroArt(heroArt, HubPresentationModel.AdventureMode.CONTINUE,
+                current, currentActIndex, false);
+        installRegionClip(heroArt, 42, 42);
+        AnchorPane.setTopAnchor(heroArt, 108.0);
+        AnchorPane.setLeftAnchor(heroArt, 0.0);
+        installHubSelectionPreview(continueButton,
+                () -> updateAdventureHubHeroArt(heroArt, HubPresentationModel.AdventureMode.CONTINUE,
+                        continueMission, currentActIndex, true));
+
+        Button missionBoard = buildGamesMoreModeButton(
+                "CHOOSE YOUR PATH", "MISSION BOARD", 572, 230, 38,
+                new Insets(24, 118, 28, 30), 34,
+                adventureHubIconRoute(), 4.0, 0.32,
+                new Insets(22, 36, 16, 18),
+                () -> animateFightMenuExit(frame, () -> showCampaignRouteMap(stage)));
+        registerHubInteractiveNode(missionBoard, destinations, helpTitle, helpBody,
+                buildGamesMoreCardStyle("#17673E", "#082E21", "#A5D6A7", 34, false),
+                buildGamesMoreCardStyle("#218A4E", "#0B4430", "#FFF59D", 34, true),
+                HubPresentationModel.AdventureMode.MISSION_BOARD.title(),
+                HubPresentationModel.AdventureMode.MISSION_BOARD.description(), null, null);
+        installHubSelectionPreview(missionBoard,
+                () -> updateAdventureHubHeroArt(heroArt, HubPresentationModel.AdventureMode.MISSION_BOARD,
+                        continueMission, currentActIndex, true));
+        AnchorPane.setTopAnchor(missionBoard, 108.0);
+        AnchorPane.setLeftAnchor(missionBoard, 1028.0);
+
+        Button chronicle = buildGamesMoreModeButton(
+                "UNLOCKED CINEMATICS", "CHRONICLE", 276, 240, 30,
+                new Insets(22, 68, 26, 24), 30,
+                adventureHubIconChronicle(), 3.3, 0.30,
+                new Insets(20, 24, 18, 12),
+                () -> animateFightMenuExit(frame, () -> showCampaignGallery(stage)));
+        registerHubInteractiveNode(chronicle, destinations, helpTitle, helpBody,
+                buildGamesMoreCardStyle("#087B63", "#043D36", "#B2DFDB", 30, false),
+                buildGamesMoreCardStyle("#0A9B79", "#03574B", "#FFF59D", 30, true),
+                HubPresentationModel.AdventureMode.CHRONICLE.title(),
+                HubPresentationModel.AdventureMode.CHRONICLE.description(), null, null);
+        installHubSelectionPreview(chronicle,
+                () -> updateAdventureHubHeroArt(heroArt, HubPresentationModel.AdventureMode.CHRONICLE,
+                        continueMission, currentActIndex, true));
+        AnchorPane.setTopAnchor(chronicle, 358.0);
+        AnchorPane.setLeftAnchor(chronicle, 1028.0);
+
+        Button legacy = buildGamesMoreModeButton(
+                "ORIGINAL ADVENTURES", "LEGACY TALES", 276, 240, 28,
+                new Insets(22, 62, 26, 22), 30,
+                adventureHubIconLegacy(), 3.2, 0.30,
+                new Insets(20, 24, 18, 12),
+                () -> animateFightMenuExit(frame, () -> showLegacyStories(stage)));
+        registerHubInteractiveNode(legacy, destinations, helpTitle, helpBody,
+                buildGamesMoreCardStyle("#486B21", "#263710", "#DCEDC8", 30, false),
+                buildGamesMoreCardStyle("#668E2E", "#354D16", "#FFF59D", 30, true),
+                HubPresentationModel.AdventureMode.LEGACY_TALES.title(),
+                HubPresentationModel.AdventureMode.LEGACY_TALES.description(), null, null);
+        installHubSelectionPreview(legacy,
+                () -> updateAdventureHubHeroArt(heroArt, HubPresentationModel.AdventureMode.LEGACY_TALES,
+                        continueMission, currentActIndex, true));
+        AnchorPane.setTopAnchor(legacy, 358.0);
+        AnchorPane.setLeftAnchor(legacy, 1324.0);
+
+        Button difficulty = buildGamesMoreModeButton(
+                "STORY CHALLENGE", stillSkyProgress.difficulty.label.toUpperCase(Locale.ROOT),
+                276, 218, 28, new Insets(20, 58, 24, 22), 30,
+                adventureHubIconDifficulty(), 3.1, 0.28,
+                new Insets(18, 22, 16, 10),
+                () -> animateFightMenuExit(frame, () -> {
+                    StoryCampaign.Difficulty[] values = StoryCampaign.Difficulty.values();
+                    stillSkyProgress.difficulty =
+                            values[(stillSkyProgress.difficulty.ordinal() + 1) % values.length];
+                    saveAchievements();
+                    showCampaignHub(stage);
+                }));
+        registerHubInteractiveNode(difficulty, destinations, helpTitle, helpBody,
+                buildGamesMoreCardStyle("#2D6756", "#13352C", "#B2DFDB", 30, false),
+                buildGamesMoreCardStyle("#39806C", "#184A3C", "#FFF59D", 30, true),
+                HubPresentationModel.AdventureMode.DIFFICULTY.title(),
+                HubPresentationModel.AdventureMode.DIFFICULTY.description(), null, null);
+        installHubSelectionPreview(difficulty,
+                () -> updateAdventureHubHeroArt(heroArt, HubPresentationModel.AdventureMode.DIFFICULTY,
+                        continueMission, currentActIndex, true));
+        AnchorPane.setTopAnchor(difficulty, 618.0);
+        AnchorPane.setLeftAnchor(difficulty, 1028.0);
+
+        Button newStory = buildGamesMoreModeButton(
+                "RESET CAMPAIGN", "NEW STORY", 276, 218, 29,
+                new Insets(20, 58, 24, 22), 30,
+                adventureHubIconNewStory(), 3.1, 0.28,
+                new Insets(18, 22, 16, 10),
+                () -> confirmNewCampaign(stage));
+        registerHubInteractiveNode(newStory, destinations, helpTitle, helpBody,
+                buildGamesMoreCardStyle("#65451A", "#34220A", "#FFE0B2", 30, false),
+                buildGamesMoreCardStyle("#8A5D20", "#4A2E0C", "#FFF59D", 30, true),
+                HubPresentationModel.AdventureMode.NEW_STORY.title(),
+                HubPresentationModel.AdventureMode.NEW_STORY.description(), null, null);
+        installHubSelectionPreview(newStory,
+                () -> updateAdventureHubHeroArt(heroArt, HubPresentationModel.AdventureMode.NEW_STORY,
+                        continueMission, currentActIndex, true));
+        AnchorPane.setTopAnchor(newStory, 618.0);
+        AnchorPane.setLeftAnchor(newStory, 1324.0);
+
+        HBox footerMeta = buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "NAVIGATE"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "SELECT"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "HUB"));
+        footerMeta.setAlignment(Pos.CENTER_RIGHT);
+        Region helpSpacer = new Region();
+        HBox.setHgrow(helpSpacer, Priority.ALWAYS);
+        VBox helpText = new VBox(3, helpTitle, helpBody);
+        helpText.setAlignment(Pos.CENTER_LEFT);
+        helpText.setMinWidth(0);
+        helpText.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(helpText, Priority.ALWAYS);
+        HBox footerContent = new HBox(24, helpText, helpSpacer, footerMeta);
+        footerContent.setAlignment(Pos.CENTER_LEFT);
+        StackPane helpBar = new StackPane(footerContent);
+        lockRegionSize(helpBar, 1600, 104);
+        helpBar.setPadding(new Insets(14, 28, 14, 28));
+        helpBar.setStyle("-fx-background-color: linear-gradient(to right, rgba(1,11,6,0.99), rgba(4,24,12,0.97));"
+                + "-fx-border-color: rgba(222,255,212,0.18) transparent transparent transparent;"
+                + "-fx-border-width: 3 0 0 0;");
+        AnchorPane.setLeftAnchor(helpBar, 0.0);
+        AnchorPane.setRightAnchor(helpBar, 0.0);
+        AnchorPane.setBottomAnchor(helpBar, 0.0);
+        installGamesMoreHelpTextFitting(helpTitle, helpBody, helpText, footerMeta, helpBar);
+
+        frame.getChildren().addAll(topStrip, continueButton, heroArt, missionBoard,
+                chronicle, legacy, difficulty, newStory, helpBar);
+        installFixedCampaignScene(stage, frame, continueButton, back);
+        Scene scene = stage.getScene();
+        javafx.application.Platform.runLater(() -> {
+            continueButton.requestFocus();
+            setConsoleHighlightActive(true, scene);
+            refreshUltimateHubButtons(destinations, helpTitle, helpBody, null, null);
+            playFightMenuEntrance(frame, List.of(continueButton, heroArt, missionBoard,
+                    chronicle, legacy, difficulty, newStory));
+        });
+    }
+
+    private void showCampaignRouteMap(Stage stage) {
+        campaignModeActive = true;
+        currentCampaignMission = null;
+        campaignMissionController = null;
+        campaignMissionWon = false;
+        storyModeActive = false;
+        storyReplayMode = false;
+        adventureModeActive = false;
+        adventureReplayMode = false;
+        classicModeActive = false;
+        classicEncounter = null;
+        classicRun.clear();
+        trainingModeActive = false;
+        clearBossRushState();
+        clearAshfallTrialState();
+        competitionSeriesActive = false;
+        playMenuMusic();
+
         StackPane content = new StackPane();
         lockRegionSize(content, 1600, 950);
         Canvas backdrop = new Canvas(1600, 950);
@@ -47463,7 +47670,7 @@ public class BirdGame3 {
         Button newStory = uiFactory.action("NEW STORY", 180, 58, 16, "#812A32", 14,
                 () -> confirmNewCampaign(stage));
         Button back = uiFactory.action("BACK TO HUB", 180, 58, 16, "#344854", 14,
-                () -> showMenu(stage));
+                () -> showCampaignHub(stage));
         HBox utilityRail = new HBox(12, difficulty, gallery, legacy, newStory, back);
         utilityRail.setAlignment(Pos.CENTER);
         utilityRail.setLayoutX(250);
@@ -47479,6 +47686,361 @@ public class BirdGame3 {
         overlay.getChildren().addAll(eyebrow, title, subtitle, dossier,
                 routePanel, utilityRail, inputPrompt);
         installFixedCampaignScene(stage, content, continueButton, back);
+    }
+
+    private Pane buildAdventureHubBackdrop() {
+        Pane backdrop = new Pane();
+        lockRegionSize(backdrop, 1600, 950);
+        backdrop.setMouseTransparent(true);
+
+        Region base = new Region();
+        lockRegionSize(base, 1600, 950);
+        base.setStyle("-fx-background-color: linear-gradient(to bottom right, #021108 0%, #0A3920 52%, #031008 100%);");
+        backdrop.getChildren().add(base);
+
+        String[] colors = {"#65C466", "#0C7C44", "#9CCC65", "#26A69A", "#D4E157"};
+        double[][] shards = {
+                {-120, 130, 470, 55, 720, 330, 160, 420},
+                {380, -90, 980, 0, 760, 390, 320, 270},
+                {1030, 20, 1680, 120, 1540, 500, 920, 390},
+                {-80, 590, 540, 430, 730, 900, 20, 1010},
+                {690, 470, 1460, 330, 1700, 860, 900, 1010}
+        };
+        for (int i = 0; i < shards.length; i++) {
+            double[] p = shards[i];
+            Polygon shard = new Polygon(p);
+            shard.setFill(Color.web(colors[i], i == 4 ? 0.075 : 0.10));
+            shard.setStroke(Color.web("#D9FFD1", 0.055));
+            shard.setStrokeWidth(2);
+            backdrop.getChildren().add(shard);
+        }
+        for (int i = 0; i < 8; i++) {
+            Line wind = new Line(-80 + i * 245, 870, 440 + i * 245, 84);
+            wind.setStroke(Color.web(i % 2 == 0 ? "#7BE087" : "#B9F6CA", 0.045));
+            wind.setStrokeWidth(i % 3 == 0 ? 26 : 12);
+            backdrop.getChildren().add(wind);
+        }
+        return backdrop;
+    }
+
+    private void updateAdventureHubHeroArt(StackPane shell,
+                                            HubPresentationModel.AdventureMode mode,
+                                            StoryCampaign.Mission current,
+                                            int currentActIndex,
+                                            boolean animated) {
+        if (shell == null || current == null) return;
+        HubPresentationModel.AdventureMode resolved = mode == null
+                ? HubPresentationModel.AdventureMode.CONTINUE : mode;
+        String style = switch (resolved) {
+            case CONTINUE -> fightPreviewShellStyle("#072D17", "#15943A", "#C6FF9B");
+            case MISSION_BOARD -> fightPreviewShellStyle("#06271D", "#13704A", "#B9F6CA");
+            case CHRONICLE -> fightPreviewShellStyle("#042B2A", "#087F72", "#B2DFDB");
+            case LEGACY_TALES -> fightPreviewShellStyle("#22320D", "#63802A", "#DCEDC8");
+            case DIFFICULTY -> fightPreviewShellStyle("#123228", "#2F7860", "#B2DFDB");
+            case NEW_STORY -> fightPreviewShellStyle("#342106", "#8B5C15", "#FFE0B2");
+        };
+        swapFightPreview(shell, resolved,
+                buildAdventureHubHeroScene(resolved, current, currentActIndex), style, animated);
+    }
+
+    private Pane buildAdventureHubHeroScene(HubPresentationModel.AdventureMode mode,
+                                             StoryCampaign.Mission current,
+                                             int currentActIndex) {
+        Pane art = new Pane();
+        lockRegionSize(art, 1008, 728);
+
+        Region horizon = new Region();
+        lockRegionSize(horizon, 1120, 260);
+        horizon.relocate(-46, 164);
+        horizon.setRotate(-7);
+        horizon.setStyle("-fx-background-color: linear-gradient(to right, rgba(255,255,255,0.02),"
+                + " rgba(220,255,190,0.16), rgba(255,255,255,0.01)); -fx-background-radius: 120;");
+        art.getChildren().add(horizon);
+
+        switch (mode) {
+            case CONTINUE -> {
+                addAdventureRouteMotif(art, 92, 116, 6, "#DFFF8D");
+                addFightPreviewBird(art, BirdType.PIGEON, Bird.VisualAuditPose.ATTACK,
+                        false, 340, 346, 72, -5);
+                addFightPreviewBird(art, BirdType.RAVEN, Bird.VisualAuditPose.FLAP,
+                        true, 250, 76, 176, 8);
+                addFightPreviewBird(art, BirdType.PHOENIX, Bird.VisualAuditPose.FLAP,
+                        false, 228, 718, 142, -9);
+            }
+            case MISSION_BOARD -> {
+                addAdventureRouteMotif(art, 74, 112, 9, "#B9F6CA");
+                addFightPreviewBird(art, BirdType.EAGLE, Bird.VisualAuditPose.FLAP,
+                        false, 278, 74, 80, -8);
+                addFightPreviewBird(art, BirdType.ROADRUNNER, Bird.VisualAuditPose.RUN,
+                        false, 244, 662, 215, 4);
+                addFightPreviewBird(art, BirdType.PIGEON, Bird.VisualAuditPose.IDLE,
+                        true, 265, 372, 164, 0);
+            }
+            case CHRONICLE -> {
+                addAdventureFilmstrip(art);
+                addFightPreviewBird(art, BirdType.RAVEN, Bird.VisualAuditPose.IDLE,
+                        false, 310, 92, 100, -5);
+                addFightPreviewBird(art, BirdType.PHOENIX, Bird.VisualAuditPose.FLAP,
+                        true, 292, 594, 112, 7);
+                addFightPreviewBird(art, BirdType.MOCKINGBIRD, Bird.VisualAuditPose.ATTACK,
+                        false, 216, 402, 210, -2);
+            }
+            case LEGACY_TALES -> {
+                addAdventureBookMotif(art);
+                addFightPreviewBird(art, BirdType.BAT, Bird.VisualAuditPose.FLAP,
+                        false, 226, 88, 86, -12);
+                addFightPreviewBird(art, BirdType.PELICAN, Bird.VisualAuditPose.IDLE,
+                        true, 305, 612, 132, 7);
+                addFightPreviewBird(art, BirdType.PIGEON, Bird.VisualAuditPose.RUN,
+                        false, 274, 354, 166, -2);
+            }
+            case DIFFICULTY -> {
+                addAdventureDifficultyMotif(art);
+                addFightPreviewBird(art, BirdType.FALCON, Bird.VisualAuditPose.FLAP,
+                        false, 294, 92, 135, -11);
+                addFightPreviewBird(art, BirdType.TITMOUSE, Bird.VisualAuditPose.ATTACK,
+                        true, 225, 398, 82, 4);
+                addFightPreviewBird(art, BirdType.VULTURE, Bird.VisualAuditPose.ATTACK,
+                        true, 304, 655, 150, 10);
+            }
+            case NEW_STORY -> {
+                addAdventureSunriseMotif(art);
+                addFightPreviewBird(art, BirdType.PIGEON, Bird.VisualAuditPose.IDLE,
+                        false, 338, 332, 100, 0);
+                addFightPreviewBird(art, BirdType.HUMMINGBIRD, Bird.VisualAuditPose.FLAP,
+                        true, 178, 142, 202, -8);
+            }
+        }
+
+        String eyebrow;
+        String title;
+        String detail;
+        String status;
+        switch (mode) {
+            case CONTINUE -> {
+                eyebrow = String.format(Locale.ROOT, "ACT %02d  /  NEXT MISSION", currentActIndex + 1);
+                title = current.title().toUpperCase(Locale.ROOT);
+                detail = stageDisplayName(current.map(), current.mapVariant()).toUpperCase(Locale.ROOT)
+                        + "  ·  " + current.phases().size() + " OBJECTIVE"
+                        + (current.phases().size() == 1 ? "" : "S");
+                status = stillSkyProgress.completedCount() + " / "
+                        + stillSkyCampaign.orderedMissions.size() + " MISSIONS CLEARED";
+            }
+            case MISSION_BOARD -> {
+                eyebrow = "THE STILL SKY  /  ROUTE MAP";
+                title = "MISSION BOARD";
+                detail = "CHOOSE AN AVAILABLE ACT OR REPLAY A CLEARED MISSION";
+                status = "CURRENT POSITION  ·  ACT " + String.format(Locale.ROOT, "%02d", currentActIndex + 1);
+            }
+            case CHRONICLE -> {
+                eyebrow = "THE STILL SKY  /  ARCHIVE";
+                title = "STORY CHRONICLE";
+                detail = "REWATCH EVERY CINEMATIC YOU HAVE UNLOCKED";
+                status = stillSkyProgress.seenSceneIds().size() + " MOMENTS RECOVERED";
+            }
+            case LEGACY_TALES -> {
+                eyebrow = "FROM THE EARLY DAYS";
+                title = "LEGACY TALES";
+                detail = "THE ORIGINAL ADVENTURES AND CHARACTER EPISODES";
+                status = "THREE ARCHIVED STORY PATHS";
+            }
+            case DIFFICULTY -> {
+                eyebrow = "STORY CHALLENGE";
+                title = stillSkyProgress.difficulty.label.toUpperCase(Locale.ROOT);
+                detail = "SELECT TO CYCLE THE CAMPAIGN DIFFICULTY";
+                status = "CPU LEVEL " + stillSkyProgress.difficulty.cpuLevel;
+            }
+            case NEW_STORY -> {
+                eyebrow = "BEGIN AGAIN";
+                title = "NEW STORY";
+                detail = "RETURN MISSION PROGRESS TO THE OPENING OF ACT ONE";
+                status = "UNLOCKS, COINS, AND LEGACY STORIES STAY SAFE";
+            }
+            default -> throw new IllegalStateException("Unhandled Adventure destination " + mode);
+        }
+
+        Region captionShade = new Region();
+        lockRegionSize(captionShade, 1008, 222);
+        captionShade.relocate(0, 506);
+        captionShade.setStyle("-fx-background-color: linear-gradient(to top, rgba(0,0,0,0.98), rgba(0,0,0,0.52));");
+        Label eyebrowLabel = new Label(eyebrow);
+        eyebrowLabel.setFont(Font.font("Consolas", FontWeight.BOLD, 17));
+        eyebrowLabel.setTextFill(Color.web("#DFFF9F"));
+        eyebrowLabel.relocate(42, 532);
+        Label titleLabel = new Label(title);
+        titleLabel.setFont(Font.font("Arial Black", 46));
+        titleLabel.setTextFill(Color.WHITE);
+        titleLabel.setMaxWidth(912);
+        applyNoEllipsis(titleLabel);
+        fitLabelSingleLine(titleLabel, 46, 30, 912);
+        titleLabel.relocate(40, 558);
+        Label detailLabel = new Label(detail);
+        detailLabel.setFont(Font.font("Consolas", FontWeight.BOLD, 17));
+        detailLabel.setTextFill(Color.web("#F2FFF0"));
+        detailLabel.relocate(43, 626);
+        Label statusLabel = new Label(status);
+        statusLabel.setFont(Font.font("Consolas", FontWeight.BOLD, 14));
+        statusLabel.setTextFill(Color.web("#A8D9B1"));
+        statusLabel.relocate(43, 664);
+        art.getChildren().addAll(captionShade, eyebrowLabel, titleLabel, detailLabel, statusLabel);
+        return art;
+    }
+
+    private void addAdventureRouteMotif(Pane art, double startX, double y,
+                                         int nodes, String color) {
+        double spacing = nodes <= 6 ? 152 : 96;
+        for (int i = 0; i < nodes; i++) {
+            double x = startX + i * spacing;
+            if (i < nodes - 1) {
+                Line path = new Line(x + 13, y + (i % 2) * 56,
+                        x + spacing - 13, y + ((i + 1) % 2) * 56);
+                path.setStroke(Color.web(color, 0.46));
+                path.setStrokeWidth(7);
+                art.getChildren().add(path);
+            }
+            Circle node = new Circle(x, y + (i % 2) * 56, i == nodes - 1 ? 18 : 12,
+                    Color.web(i == nodes - 1 ? "#FFF176" : color, 0.88));
+            node.setStroke(Color.web("#F5FFE9"));
+            node.setStrokeWidth(3);
+            art.getChildren().add(node);
+        }
+    }
+
+    private void addAdventureFilmstrip(Pane art) {
+        Region strip = new Region();
+        lockRegionSize(strip, 760, 230);
+        strip.relocate(124, 105);
+        strip.setRotate(-4);
+        strip.setStyle("-fx-background-color: rgba(2,19,19,0.72); -fx-border-color: #80CBC4;"
+                + " -fx-border-width: 8 3 8 3; -fx-border-style: segments(18, 10, 18, 10);"
+                + " -fx-background-radius: 12; -fx-border-radius: 12;");
+        art.getChildren().add(strip);
+        for (int i = 0; i < 4; i++) {
+            Region frame = new Region();
+            lockRegionSize(frame, 150, 148);
+            frame.relocate(162 + i * 174, 143);
+            frame.setRotate(-4);
+            frame.setStyle("-fx-background-color: rgba(83,188,168,0.12); -fx-border-color: rgba(224,255,248,0.52);"
+                    + " -fx-border-width: 3;");
+            art.getChildren().add(frame);
+        }
+    }
+
+    private void addAdventureBookMotif(Pane art) {
+        Polygon leftPage = new Polygon(132, 132, 474, 170, 474, 400, 116, 338);
+        Polygon rightPage = new Polygon(474, 170, 854, 118, 872, 338, 474, 400);
+        leftPage.setFill(Color.web("#F1F8C4", 0.16));
+        rightPage.setFill(Color.web("#FFF9C4", 0.19));
+        leftPage.setStroke(Color.web("#DCEDC8", 0.62));
+        rightPage.setStroke(Color.web("#DCEDC8", 0.62));
+        leftPage.setStrokeWidth(5);
+        rightPage.setStrokeWidth(5);
+        Line spine = new Line(474, 170, 474, 400);
+        spine.setStroke(Color.web("#FFF59D", 0.78));
+        spine.setStrokeWidth(6);
+        art.getChildren().addAll(leftPage, rightPage, spine);
+    }
+
+    private void addAdventureDifficultyMotif(Pane art) {
+        Arc arc = new Arc(504, 292, 334, 224, 205, 130);
+        arc.setType(ArcType.OPEN);
+        arc.setFill(Color.TRANSPARENT);
+        arc.setStroke(Color.web("#B2DFDB", 0.58));
+        arc.setStrokeWidth(24);
+        Line needle = new Line(504, 292, 715, 178);
+        needle.setStroke(Color.web("#FFF176", 0.88));
+        needle.setStrokeWidth(11);
+        Circle center = new Circle(504, 292, 24, Color.web("#E0F2F1"));
+        art.getChildren().addAll(arc, needle, center);
+    }
+
+    private void addAdventureSunriseMotif(Pane art) {
+        Circle sun = new Circle(504, 282, 154, Color.web("#FFF176", 0.22));
+        sun.setStroke(Color.web("#FFE082", 0.72));
+        sun.setStrokeWidth(9);
+        Line horizon = new Line(100, 398, 908, 398);
+        horizon.setStroke(Color.web("#FFF3C4", 0.58));
+        horizon.setStrokeWidth(10);
+        art.getChildren().addAll(sun, horizon);
+        for (int i = 0; i < 9; i++) {
+            double x = 174 + i * 82;
+            Line ray = new Line(504, 282, x, 60 + Math.abs(4 - i) * 24);
+            ray.setStroke(Color.web("#FFE082", 0.22));
+            ray.setStrokeWidth(7);
+            art.getChildren().add(ray);
+        }
+    }
+
+    private Node adventureHubIconRoute() {
+        Pane pane = hubIconPane();
+        Line a = new Line(8, 44, 27, 18);
+        Line b = new Line(27, 18, 51, 39);
+        a.setStroke(Color.web("#E8F5E9"));
+        b.setStroke(Color.web("#E8F5E9"));
+        a.setStrokeWidth(5);
+        b.setStrokeWidth(5);
+        Circle first = new Circle(8, 44, 7, Color.web("#81C784"));
+        Circle middle = new Circle(27, 18, 7, Color.web("#A5D6A7"));
+        Circle last = new Circle(51, 39, 9, Color.web("#FFF176"));
+        pane.getChildren().addAll(a, b, first, middle, last);
+        return pane;
+    }
+
+    private Node adventureHubIconChronicle() {
+        Pane pane = hubIconPane();
+        Rectangle film = new Rectangle(7, 12, 48, 38);
+        film.setArcWidth(8);
+        film.setArcHeight(8);
+        film.setFill(Color.web("#E0F2F1", 0.22));
+        film.setStroke(Color.web("#E0F2F1"));
+        film.setStrokeWidth(3);
+        Polygon play = new Polygon(25, 20, 25, 43, 44, 31.5);
+        play.setFill(Color.web("#80CBC4"));
+        pane.getChildren().addAll(film, play);
+        return pane;
+    }
+
+    private Node adventureHubIconLegacy() {
+        Pane pane = hubIconPane();
+        Polygon pages = new Polygon(4, 15, 28, 20, 28, 51, 5, 43,
+                28, 20, 54, 14, 55, 43, 28, 51);
+        pages.setFill(Color.web("#F1F8E9", 0.24));
+        pages.setStroke(Color.web("#F1F8E9"));
+        pages.setStrokeWidth(2.5);
+        Line spine = new Line(28, 20, 28, 51);
+        spine.setStroke(Color.web("#FFF176"));
+        spine.setStrokeWidth(3);
+        pane.getChildren().addAll(pages, spine);
+        return pane;
+    }
+
+    private Node adventureHubIconDifficulty() {
+        Pane pane = hubIconPane();
+        Arc meter = new Arc(30, 37, 23, 23, 205, 130);
+        meter.setType(ArcType.OPEN);
+        meter.setFill(Color.TRANSPARENT);
+        meter.setStroke(Color.web("#E0F2F1"));
+        meter.setStrokeWidth(6);
+        Line needle = new Line(30, 37, 45, 20);
+        needle.setStroke(Color.web("#FFF176"));
+        needle.setStrokeWidth(5);
+        Circle hub = new Circle(30, 37, 5, Color.web("#E0F2F1"));
+        pane.getChildren().addAll(meter, needle, hub);
+        return pane;
+    }
+
+    private Node adventureHubIconNewStory() {
+        Pane pane = hubIconPane();
+        Circle sun = new Circle(31, 34, 14, Color.web("#FFF176"));
+        Arc arrow = new Arc(31, 34, 25, 25, 38, 245);
+        arrow.setType(ArcType.OPEN);
+        arrow.setFill(Color.TRANSPARENT);
+        arrow.setStroke(Color.web("#FFF8E1"));
+        arrow.setStrokeWidth(5);
+        Polygon head = new Polygon(7, 17, 20, 16, 14, 28);
+        head.setFill(Color.web("#FFF8E1"));
+        pane.getChildren().addAll(sun, arrow, head);
+        return pane;
     }
 
     private void showCampaignActMissionSelect(Stage stage, int actIndex) {

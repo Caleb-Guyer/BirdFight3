@@ -54,6 +54,23 @@ class StoryUiModernizationTest {
     }
 
     @Test
+    void stillSkyEntryUsesAnAnimatedDestinationDashboardBeforeTheRouteMap() throws IOException {
+        String source = Files.readString(GAME_SOURCE);
+        String hub = methodBody(source, "showCampaignHub");
+        String routeMap = methodBody(source, "showCampaignRouteMap");
+
+        assertTrue(hub.contains("updateAdventureHubHeroArt("));
+        assertTrue(hub.contains("installHubSelectionPreview("));
+        assertTrue(hub.contains("playFightMenuEntrance("));
+        assertTrue(hub.contains("animateFightMenuExit("));
+        assertTrue(hub.contains("buildAdaptivePromptBar("));
+        assertFalse(hub.contains("drawStillSkyActRoute("));
+
+        assertTrue(routeMap.contains("drawStillSkyActRoute("));
+        assertTrue(routeMap.contains("() -> showCampaignHub(stage)"));
+    }
+
+    @Test
     void legacyAdventureFlowUsesFocusedFixedWidthPresentation() throws IOException {
         String source = Files.readString(GAME_SOURCE);
         String hub = methodBody(source, "showAdventureHub");

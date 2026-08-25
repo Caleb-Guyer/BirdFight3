@@ -103,6 +103,31 @@ final class HubPresentationModel {
         }
     }
 
+    enum AdventureMode {
+        CONTINUE("CONTINUE ADVENTURE", "Return to the next Still Sky mission."),
+        MISSION_BOARD("MISSION BOARD", "Choose an act or replay a cleared mission."),
+        CHRONICLE("STORY CHRONICLE", "Replay unlocked Still Sky cinematics."),
+        LEGACY_TALES("LEGACY TALES", "Visit the original adventures and episodes."),
+        DIFFICULTY("DIFFICULTY", "Change the challenge level for story battles."),
+        NEW_STORY("NEW STORY", "Restart Still Sky mission progress from Act One.");
+
+        private final String title;
+        private final String description;
+
+        AdventureMode(String title, String description) {
+            this.title = title;
+            this.description = description;
+        }
+
+        String title() {
+            return title;
+        }
+
+        String description() {
+            return description;
+        }
+    }
+
     private HubPresentationModel() {
     }
 }
