@@ -51,14 +51,17 @@ class BirdGame3VaultTest {
     }
 
     @Test
-    void hubRoutesCollectionsThroughOneVaultAndVaultOwnsAllLibraries() throws Exception {
+    void hubKeepsVaultLargeAndRoutesSidebarShopDirectlyToTheStore() throws Exception {
         String source = Files.readString(GAME_SOURCE);
         String hub = methodBody(source, "showHub");
         String vault = methodBody(source, "showVault");
 
         assertTrue(hub.contains("buildUltimateHubRailButton(\"SHOP\""));
         assertFalse(hub.contains("buildUltimateHubRailButton(\"VAULT\""));
-        assertFalse(hub.contains("Button shopNode"));
+        assertTrue(hub.contains("Button vaultNode"));
+        assertTrue(hub.contains("\"COLLECTION & RECORDS\", \"VAULT\""));
+        assertTrue(hub.contains("animateVaultExit(frame, () -> showVault(stage))"));
+        assertTrue(hub.contains("animateVaultExit(frame, () -> showShop(stage))"));
         assertFalse(hub.contains("buildUltimateHubRailButton(\"HISTORY\""));
         assertFalse(hub.contains("buildUltimateHubRailButton(\"FEATHERPEDIA\""));
         assertFalse(hub.contains("buildUltimateHubRailButton(\"ACHIEVEMENTS\""));

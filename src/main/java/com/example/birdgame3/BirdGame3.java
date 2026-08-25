@@ -29590,6 +29590,8 @@ public class BirdGame3 {
         final double hubRightLeft = 744.0;
         final double hubRightWidth = 712.0;
         final double hubFightHeight = 428.0;
+        final double hubGamesHeight = 246.0;
+        final double hubVaultHeight = 182.0;
         final double hubBottomHeight = 314.0;
         final double medallionTop = 244.0;
         final double medallionLeft = 568.0;
@@ -29640,7 +29642,7 @@ public class BirdGame3 {
 
         Button gamesNode = buildUltimateHubMainTileButton(
                 "EXTRAS & CHALLENGES", "GAMES & MORE",
-                hubRightWidth, hubFightHeight, 58, new Insets(18, 34, 24, 132),
+                hubRightWidth, hubGamesHeight, 50, new Insets(16, 34, 14, 132),
                 Pos.CENTER, hubIconClassic(), 2.7, 0.16,
                 0, 38, 0, 0, () -> showClassicMoreMenu(stage));
         registerHubInteractiveNode(gamesNode, hubButtons, helpTitle, helpBody,
@@ -29651,6 +29653,21 @@ public class BirdGame3 {
         tagUltimateHubDestination(gamesNode, HubPresentationModel.Destination.GAMES);
         AnchorPane.setTopAnchor(gamesNode, hubMainTop);
         AnchorPane.setLeftAnchor(gamesNode, hubRightLeft);
+
+        boolean claimableRewards = hasClaimableAchievementRewards();
+        Button vaultNode = buildUltimateHubMainTileButton(
+                "COLLECTION & RECORDS", "VAULT",
+                hubRightWidth, hubVaultHeight, 50, new Insets(16, 30, 16, 176),
+                Pos.CENTER, hubIconVault(claimableRewards), 2.7, 0.17,
+                0, 0, 0, 0, () -> animateVaultExit(frame, () -> showVault(stage)));
+        registerHubInteractiveNode(vaultNode, hubButtons, helpTitle, helpBody,
+                buildUltimateHubStyle("#FF4FA1", "#C2185B", "#FFE3F3", 0, false),
+                buildUltimateHubStyle("#FF4FA1", "#C2185B", "#FFF6FB", 0, true),
+                HubPresentationModel.Destination.VAULT.title(),
+                HubPresentationModel.Destination.VAULT.description(), selectorPointer, medallion);
+        tagUltimateHubDestination(vaultNode, HubPresentationModel.Destination.VAULT);
+        AnchorPane.setTopAnchor(vaultNode, hubMainTop + hubGamesHeight);
+        AnchorPane.setLeftAnchor(vaultNode, hubRightLeft);
 
         Button lanNode = buildUltimateHubMainTileButton(
                 "NETWORK MATCHES", "NETWORK PLAY",
@@ -29667,7 +29684,7 @@ public class BirdGame3 {
         AnchorPane.setLeftAnchor(lanNode, hubRightLeft);
 
         Button shopBtn = buildUltimateHubRailButton("SHOP", 160, hubIconShop(),
-                () -> animateVaultExit(frame, () -> showVault(stage)));
+                () -> animateVaultExit(frame, () -> showShop(stage)));
         registerHubInteractiveNode(shopBtn, hubButtons, helpTitle, helpBody,
                 buildUltimateHubStyle("#101214", "#050607", "#FF80B9", 24, false),
                 buildUltimateHubStyle("#101214", "#050607", "#FFF4FA", 24, true),
@@ -29702,7 +29719,7 @@ public class BirdGame3 {
                 HubPresentationModel.Destination.EXIT.description(), selectorPointer, medallion);
         tagUltimateHubDestination(exitBtn, HubPresentationModel.Destination.EXIT);
 
-        List<Node> primaryHubButtons = List.of(fightNode, adventureNode, gamesNode, lanNode);
+        List<Node> primaryHubButtons = List.of(fightNode, adventureNode, gamesNode, vaultNode, lanNode);
         List<Node> utilityHubButtons = List.of(shopBtn, settingsBtn, profilesBtn, exitBtn);
         utilityHubButtons.forEach(node -> node.getProperties().put("hubUtilityButton", Boolean.TRUE));
 
@@ -29801,7 +29818,7 @@ public class BirdGame3 {
         AnchorPane.setRightAnchor(helpBar, 0.0);
         AnchorPane.setBottomAnchor(helpBar, 0.0);
 
-        frame.getChildren().addAll(tipPanel, fightNode, adventureNode, gamesNode, lanNode,
+        frame.getChildren().addAll(tipPanel, fightNode, adventureNode, gamesNode, vaultNode, lanNode,
                 medallion, selectorPointer, railShell, helpBar);
         root.getChildren().add(frame);
 
@@ -30413,6 +30430,12 @@ public class BirdGame3 {
                 secondaryBird = BirdType.HUMMINGBIRD;
                 tertiaryBird = BirdType.SHOEBILL;
             }
+            case VAULT -> {
+                previewName = "THE VAULT";
+                primaryBird = BirdType.PENGUIN;
+                secondaryBird = BirdType.RAVEN;
+                tertiaryBird = BirdType.TURKEY;
+            }
             case SHOP -> {
                 previewName = "SHOP";
                 primaryBird = BirdType.HUMMINGBIRD;
@@ -30509,6 +30532,17 @@ public class BirdGame3 {
                 tertiary.setScaleX(-0.74);
                 tertiary.setScaleY(0.74);
             }
+            case VAULT -> {
+                primary.relocate(84, 82);
+                primary.setScaleX(0.70);
+                primary.setScaleY(0.70);
+                secondary.relocate(0, 138);
+                secondary.setScaleX(0.64);
+                secondary.setScaleY(0.64);
+                tertiary.relocate(178, 142);
+                tertiary.setScaleX(-0.62);
+                tertiary.setScaleY(0.62);
+            }
             case SHOP -> {
                 primary.relocate(92, 46);
                 primary.setScaleX(0.70);
@@ -30577,6 +30611,7 @@ public class BirdGame3 {
             case FIGHT -> { top = Color.web("#A70E18"); bottom = Color.web("#19060A"); }
             case STORY -> { top = Color.web("#234D68"); bottom = Color.web("#08111D"); }
             case GAMES -> { top = Color.web("#1267B4"); bottom = Color.web("#071629"); }
+            case VAULT -> { top = Color.web("#9C1B63"); bottom = Color.web("#200715"); }
             case SHOP -> { top = Color.web("#C22A78"); bottom = Color.web("#31091F"); }
             case NETWORK -> { top = Color.web("#CC7B00"); bottom = Color.web("#261606"); }
             case SETTINGS -> { top = Color.web("#375A64"); bottom = Color.web("#0B1114"); }
@@ -30640,6 +30675,23 @@ public class BirdGame3 {
                 g.strokeOval(190, 30, 58, 58);
                 g.strokeLine(219, 30, 219, 88);
                 g.strokeLine(190, 59, 248, 59);
+            }
+            case VAULT -> {
+                g.setStroke(Color.web("#FFD6EA", 0.18));
+                g.setLineWidth(2);
+                for (int i = 0; i < 9; i++) {
+                    g.strokeLine(18, 30 + i * 26, 258, 30 + i * 26);
+                }
+                g.setFill(Color.web("#170813", 0.76));
+                g.fillRoundRect(24, 46, 228, 178, 24, 24);
+                g.setStroke(Color.web("#FFB4D8"));
+                g.setLineWidth(4);
+                g.strokeRoundRect(42, 66, 84, 58, 12, 12);
+                g.strokeRoundRect(150, 66, 84, 58, 12, 12);
+                g.strokeRoundRect(42, 146, 192, 52, 12, 12);
+                g.setFill(Color.web("#FFE082"));
+                g.fillPolygon(new double[]{138, 145, 160, 143, 150, 138, 126, 131, 116},
+                        new double[]{150, 170, 172, 184, 206, 192, 206, 184, 172}, 9);
             }
             case SHOP -> {
                 g.setFill(Color.web("#FFE4F2", 0.22));

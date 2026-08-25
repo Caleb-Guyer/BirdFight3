@@ -19,8 +19,8 @@ class HubUiSimplificationTest {
         String source = Files.readString(GAME_SOURCE).replace("\r\n", "\n");
         String hub = methodBody(source, "private void showHub(Stage stage)");
 
-        assertEquals(4, occurrences(hub, "buildUltimateHubMainTileButton("),
-                "the hub should keep only the four primary play destinations large");
+        assertEquals(5, occurrences(hub, "buildUltimateHubMainTileButton("),
+                "the hub should keep the four play destinations plus the Vault large");
         assertEquals(4, occurrences(hub, "buildUltimateHubRailButton("),
                 "utilities should remain on the compact side rail");
         assertTrue(hub.contains("HubPresentationModel.IDLE_TITLE"));
@@ -39,11 +39,15 @@ class HubUiSimplificationTest {
         assertTrue(hub.contains("if (utilityDrawerExpanded[0])"),
                 "Escape should close the open drawer before leaving the hub");
         assertTrue(hub.contains("buildUltimateHubRailButton(\"SHOP\""),
-                "Shop and the collection libraries should live on the utility drawer");
+                "the Bird Coin Shop should live on the utility drawer");
+        assertTrue(hub.contains("Button vaultNode"),
+                "the collection Vault should remain a large main-screen destination");
+        assertTrue(hub.contains("hubIconVault(claimableRewards)"),
+                "the restored Vault tile should use the Vault icon and reward marker");
         assertTrue(hub.contains("animateVaultExit(frame, () -> showVault(stage))"),
-                "entering the Shop/Vault area should use the dedicated transition");
-        assertFalse(hub.contains("Button shopNode"),
-                "Shop should no longer consume one of the four primary play tiles");
+                "entering the Vault should use the dedicated transition");
+        assertTrue(hub.contains("animateVaultExit(frame, () -> showShop(stage))"),
+                "the sidebar Shop should open the actual Bird Coin Shop smoothly");
         assertTrue(source.contains("ROOST TIP"));
         assertTrue(source.contains("private String randomHubTip()"));
     }
