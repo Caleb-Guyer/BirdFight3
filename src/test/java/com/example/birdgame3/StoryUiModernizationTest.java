@@ -1,11 +1,13 @@
 package com.example.birdgame3;
 
+import javafx.geometry.Insets;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -68,6 +70,21 @@ class StoryUiModernizationTest {
 
         assertTrue(routeMap.contains("drawStillSkyActRoute("));
         assertTrue(routeMap.contains("() -> showCampaignHub(stage)"));
+    }
+
+    @Test
+    void adventureCardsFitAllCopyInsideTheirActualTextLane() throws IOException {
+        String source = Files.readString(GAME_SOURCE).replace("\r\n", "\n");
+
+        assertTrue(source.contains("double safeWidth = hubCardTextWidth(width, textInsets);"));
+        assertTrue(source.contains("titleLabel.setMaxWidth(safeWidth)"));
+        assertTrue(source.contains("fitLabelSingleLine(eyebrowLabel"));
+        assertFalse(source.contains("double safeWidth = Math.max(240"),
+                "narrow cards must not claim a text lane wider than their visible bounds");
+        assertEquals(192.0,
+                BirdGame3.hubCardTextWidth(276.0, new Insets(22, 62, 26, 22)),
+                0.001,
+                "Legacy Tales should fit within the card after its real margins are removed");
     }
 
     @Test

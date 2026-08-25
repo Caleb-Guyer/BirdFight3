@@ -812,6 +812,7 @@ public class BirdGame3 {
     private enum PauseExitDestination {
         TRAINING_SETUP,
         MAIN_HUB,
+        GAMES_MORE,
         STORY_HUB,
         LEGACY_STORIES,
         ADVENTURE_HUB,
@@ -3887,16 +3888,24 @@ public class BirdGame3 {
         if (label == null) return;
         String text = label.getText();
         if (text == null || text.isBlank()) return;
-        double size = maxSize;
-        while (size > minSize) {
+        double availableWidth = Math.max(1.0, maxWidth);
+        double size = Math.max(1.0, maxSize);
+        double preferredFloor = Math.max(1.0, Math.min(size, minSize));
+        while (size > preferredFloor) {
             Font f = Font.font("Arial Black", size);
-            if (measureTextWidth(text, f) <= maxWidth) {
+            if (measureTextWidth(text, f) <= availableWidth) {
                 label.setFont(f);
                 return;
             }
-            size -= 1.0;
+            size -= 0.5;
         }
-        label.setFont(Font.font("Arial Black", minSize));
+        // A minimum size is a visual preference, not permission to crop a label.
+        // Controlled menu copy stays comfortably above this fallback; the extra
+        // loop protects narrow cards and future localized strings.
+        while (size > 1.0 && measureTextWidth(text, Font.font("Arial Black", size)) > availableWidth) {
+            size -= 0.5;
+        }
+        label.setFont(Font.font("Arial Black", Math.max(1.0, size)));
     }
 
     private void fitButtonSingleLine(Button button) {
@@ -35522,7 +35531,11 @@ public class BirdGame3 {
                 + "-fx-border-radius: 18;");
         eyebrowChip.setMouseTransparent(true);
 
-        double safeWidth = Math.max(240, width - textInsets.getLeft() - textInsets.getRight() - Math.min(150.0, width * 0.18));
+        double safeWidth = hubCardTextWidth(width, textInsets);
+        double eyebrowTextWidth = Math.max(1.0, safeWidth - 24.0);
+        eyebrowLabel.setMaxWidth(eyebrowTextWidth);
+        fitLabelSingleLine(eyebrowLabel, height >= 250 ? 18 : 15, 10, eyebrowTextWidth);
+        eyebrowChip.setMaxWidth(safeWidth);
 
         Label titleLabel = new Label(title);
         titleLabel.setFont(Font.font("Arial Black", titleSize));
@@ -35530,7 +35543,9 @@ public class BirdGame3 {
         titleLabel.setEffect(new DropShadow(18, Color.rgb(0, 0, 0, 0.82)));
         titleLabel.setMouseTransparent(true);
         applyNoEllipsis(titleLabel);
-        fitLabelSingleLine(titleLabel, titleSize, Math.max(24, titleSize - 20), safeWidth);
+        titleLabel.setMinWidth(0);
+        titleLabel.setMaxWidth(safeWidth);
+        fitLabelSingleLine(titleLabel, titleSize, Math.max(18, titleSize - 20), safeWidth);
 
         VBox textBox = new VBox(height >= 250 ? 16 : 12, eyebrowChip, titleLabel);
         textBox.setAlignment(Pos.BOTTOM_LEFT);
@@ -35559,6 +35574,11 @@ public class BirdGame3 {
         applyHubButtonHitShape(button, buildRoundedCornerShape(width, height, radius, radius, radius, radius));
         button.setStyle("-fx-background-color: transparent; -fx-border-color: transparent; -fx-padding: 0;");
         return button;
+    }
+
+    static double hubCardTextWidth(double cardWidth, Insets textInsets) {
+        Insets resolvedInsets = textInsets == null ? Insets.EMPTY : textInsets;
+        return Math.max(72.0, cardWidth - resolvedInsets.getLeft() - resolvedInsets.getRight());
     }
 
     private String buildGamesMoreCardStyle(String primary, String secondary, String accent, double radius, boolean selected) {
@@ -56416,8 +56436,7 @@ public class BirdGame3 {
 
         Button menu = uiFactory.action("BACK", 150, 62, 22, "#8E0D16", 16, () -> {
             if (dailyChallengeModeActive) showDailyChallengeSetup(stage);
-            else if (ashfallTrialModeActive) showAshfallTrialBriefing(stage);
-            else if (bossRushModeActive) showClassicBirdSelect(stage);
+            else if (ashfallTrialModeActive || bossRushModeActive) showClassicMoreMenu(stage);
             else showClassicBirdSelect(stage);
         });
         menu.setLayoutX(25);
@@ -82141,12 +82160,16 @@ public class BirdGame3 {
         if (adventureModeActive) return "EXIT TO ADVENTURE";
         if (squadStrikeModeActive) return "EXIT TO STRIKE BOARD";
         if (tournamentModeActive) return "EXIT TO BRACKET";
+        if (classicModeActive && (ashfallTrialModeActive || bossRushModeActive)) return "EXIT TO GAMES & MORE";
         if (classicModeActive) return "ABANDON RUN";
         return "EXIT TO FIGHTERS";
     }
 
     private PauseExitDestination pauseExitDestination() {
         if (trainingModeActive) return PauseExitDestination.TRAINING_SETUP;
+        if (classicModeActive && (ashfallTrialModeActive || bossRushModeActive)) {
+            return PauseExitDestination.GAMES_MORE;
+        }
         if (classicModeActive) return PauseExitDestination.MAIN_HUB;
         if (campaignModeActive) return PauseExitDestination.STORY_HUB;
         if (storyModeActive) return PauseExitDestination.LEGACY_STORIES;
@@ -82169,6 +82192,9 @@ public class BirdGame3 {
     }
 
     private String pauseExitWarning() {
+        if (classicModeActive && (ashfallTrialModeActive || bossRushModeActive)) {
+            return "Leave this challenge and return to Games & More? Current challenge progress will be reset.";
+        }
         if (classicModeActive) return "Abandon the entire current Classic run and return to the hub?";
         if (campaignModeActive) return "Leave this mission? Only previously reached story checkpoints remain saved.";
         if (trainingModeActive) return "Leave the current training session? Academy and drill completion already earned remains saved.";
@@ -82243,6 +82269,7 @@ public class BirdGame3 {
         switch (destination) {
             case TRAINING_SETUP -> showTrainingSetup(stage);
             case MAIN_HUB -> showMenu(stage);
+            case GAMES_MORE -> showClassicMoreMenu(stage);
             case STORY_HUB -> showCampaignHub(stage);
             case LEGACY_STORIES -> showLegacyStories(stage);
             case ADVENTURE_HUB -> showAdventureHub(stage);

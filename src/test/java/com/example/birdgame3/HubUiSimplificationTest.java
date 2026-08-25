@@ -103,6 +103,10 @@ class HubUiSimplificationTest {
     void gamesDashboardUsesTheSameConciseContextContract() throws IOException {
         String source = Files.readString(GAME_SOURCE).replace("\r\n", "\n");
         String games = methodBody(source, "private void showClassicMoreMenu(Stage stage)");
+        String encounterIntro = methodBody(source, "private void showClassicEncounterIntro(Stage stage)");
+        int backStart = encounterIntro.indexOf("Button menu = uiFactory.action(\"BACK\"");
+        int backEnd = encounterIntro.indexOf("menu.setLayoutX", backStart);
+        String backAction = encounterIntro.substring(backStart, backEnd);
 
         assertEquals(5, occurrences(games, "registerHubInteractiveNode("));
         assertTrue(games.contains("HubPresentationModel.ExtraMode.CLASSIC.description()"));
@@ -117,6 +121,12 @@ class HubUiSimplificationTest {
                 "ordered flock battles belong under Fight, not Games & More");
         assertFalse(games.contains("Pick a route"));
         assertFalse(games.contains("route ladder with branching encounters"));
+        assertTrue(backAction.contains(
+                        "else if (ashfallTrialModeActive || bossRushModeActive) showClassicMoreMenu(stage);"),
+                "Phoenix Trial and Boss Rush must be able to return to their owning Games & More screen");
+        assertFalse(backAction.contains(
+                        "else if (ashfallTrialModeActive) showAshfallTrialBriefing(stage);"),
+                "the Phoenix Trial Back action must not reopen itself");
     }
 
     @Test

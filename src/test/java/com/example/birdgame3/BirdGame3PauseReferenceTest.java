@@ -81,6 +81,17 @@ class BirdGame3PauseReferenceTest {
         assertEquals("MAIN_HUB", invokeObject(game, "pauseExitDestination").toString());
     }
 
+    @Test
+    void phoenixTrialCanExitBackToItsOwningGamesMenu() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        set(game, "classicModeActive", true);
+        set(game, "ashfallTrialModeActive", true);
+
+        assertEquals("EXIT TO GAMES & MORE", invokeString(game, "pauseExitLabel"));
+        assertEquals("GAMES_MORE", invokeObject(game, "pauseExitDestination").toString());
+        assertTrue(invokeString(game, "pauseExitWarning").contains("Current challenge progress will be reset"));
+    }
+
     @SuppressWarnings({"unchecked", "rawtypes"})
     private static Object enumValue(Class<?> type, String name) {
         return Enum.valueOf((Class<? extends Enum>) type.asSubclass(Enum.class), name);
