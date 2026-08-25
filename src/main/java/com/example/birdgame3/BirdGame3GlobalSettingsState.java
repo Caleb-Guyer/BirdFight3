@@ -12,6 +12,7 @@ final class BirdGame3GlobalSettingsState {
     private static final String KEY_SFX_VOLUME = "setting_sfx_volume";
     private static final String KEY_SCREEN_SHAKE = "setting_shake";
     private static final String KEY_FULLSCREEN = "setting_fullscreen";
+    private static final String KEY_DISPLAY_BRIGHTNESS = "setting_display_brightness";
     private static final String KEY_PARTICLES = "setting_particles";
     private static final String KEY_AMBIENT_FX = "setting_ambient_fx";
     private static final String KEY_FPS_CAP = "setting_fps_cap";
@@ -32,6 +33,7 @@ final class BirdGame3GlobalSettingsState {
     double sfxVolume = 1.0;
     boolean screenShakeEnabled = true;
     boolean fullscreenEnabled = true;
+    double displayBrightness = 0.5;
     boolean particleEffectsEnabled = true;
     boolean ambientEffectsEnabled = true;
     int fpsCap = 60;
@@ -73,6 +75,7 @@ final class BirdGame3GlobalSettingsState {
         state.sfxEnabled = !isMutedVolume(state.sfxVolume);
         state.screenShakeEnabled = prefs.getBoolean(KEY_SCREEN_SHAKE, true);
         state.fullscreenEnabled = prefs.getBoolean(KEY_FULLSCREEN, true);
+        state.displayBrightness = sanitizeBrightness(prefs.getDouble(KEY_DISPLAY_BRIGHTNESS, 0.5));
         state.particleEffectsEnabled = prefs.getBoolean(KEY_PARTICLES, true);
         state.ambientEffectsEnabled = prefs.getBoolean(KEY_AMBIENT_FX, true);
         state.fpsCap = FrameRateLimiter.sanitizeFpsCap(prefs.getInt(KEY_FPS_CAP, 60));
@@ -126,6 +129,7 @@ final class BirdGame3GlobalSettingsState {
         prefs.putDouble(KEY_SFX_VOLUME, sanitizeVolume(sfxVolume));
         prefs.putBoolean(KEY_SCREEN_SHAKE, screenShakeEnabled);
         prefs.putBoolean(KEY_FULLSCREEN, fullscreenEnabled);
+        prefs.putDouble(KEY_DISPLAY_BRIGHTNESS, sanitizeBrightness(displayBrightness));
         prefs.putBoolean(KEY_PARTICLES, particleEffectsEnabled);
         prefs.putBoolean(KEY_AMBIENT_FX, ambientEffectsEnabled);
         prefs.putInt(KEY_FPS_CAP, FrameRateLimiter.sanitizeFpsCap(fpsCap));
@@ -160,6 +164,13 @@ final class BirdGame3GlobalSettingsState {
 
     private static boolean isMutedVolume(double value) {
         return sanitizeVolume(value) <= 0.0001;
+    }
+
+    static double sanitizeBrightness(double value) {
+        if (Double.isNaN(value) || Double.isInfinite(value)) {
+            return 0.5;
+        }
+        return Math.clamp(value, 0.0, 1.0);
     }
 
     private static int sanitizePort(int value) {

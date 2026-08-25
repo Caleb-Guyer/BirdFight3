@@ -14,15 +14,20 @@ class SettingsAndProfileUiSimplificationTest {
             "src", "main", "java", "com", "example", "birdgame3", "BirdGame3.java");
 
     @Test
-    void settingsUseOneCategoryRailAndOneDetailPane() throws IOException {
+    void settingsUseAFocusedCategoryDashboardAndDetailPages() throws IOException {
         String source = Files.readString(GAME_SOURCE);
-        String settings = methodBody(source, "showMainSettings");
+        String dashboard = methodBody(source, "showMainSettings");
+        String settings = methodBody(source, "showSettingsDetail");
         String volume = methodBody(source, "buildVolumeSettingsRow");
 
-        assertTrue(settings.contains("HBox card = new HBox"));
-        assertTrue(settings.contains("VBox tabs = new VBox"));
+        assertTrue(dashboard.contains("SettingsSection.values()"));
+        assertTrue(dashboard.contains("buildSettingsCategoryCard"));
+        assertTrue(dashboard.contains("CHOOSE A CATEGORY"));
+        assertFalse(dashboard.contains("VBox tabs = new VBox"));
         assertTrue(settings.contains("contentHolder.getChildren().setAll"));
         assertTrue(settings.contains("ControlSettingsPresentation.pageFor(activeInput.device())"));
+        assertTrue(settings.contains("buildBrightnessSettingsRow()"));
+        assertTrue(settings.contains("showSettingsMoveGuideRoster(stage)"));
         assertFalse(settings.contains("Camera jolts on big hits."));
         assertFalse(settings.contains("Update history and optional unlock codes"));
         assertFalse(settings.contains("Ready to edit controls."));
@@ -47,7 +52,7 @@ class SettingsAndProfileUiSimplificationTest {
 
     private static String methodBody(String source, String methodName) {
         int name = -1;
-        for (String returnType : new String[]{"void", "VBox"}) {
+        for (String returnType : new String[]{"void", "VBox", "Node", "HBox", "Button"}) {
             name = source.indexOf("private " + returnType + " " + methodName + "(");
             if (name >= 0) break;
         }

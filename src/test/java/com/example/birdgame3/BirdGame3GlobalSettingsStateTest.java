@@ -59,6 +59,22 @@ class BirdGame3GlobalSettingsStateTest {
     }
 
     @Test
+    void displayBrightnessPersistsAndSanitizesInvalidValues() {
+        prefs.putDouble("setting_display_brightness", 0.72);
+
+        BirdGame3GlobalSettingsState state = BirdGame3GlobalSettingsState.load(prefs, new String[0], 0);
+        assertEquals(0.72, state.displayBrightness, 0.0001);
+
+        state.displayBrightness = 2.0;
+        state.saveTo(prefs, new String[0]);
+        assertEquals(1.0, prefs.getDouble("setting_display_brightness", -1.0), 0.0001);
+
+        prefs.putDouble("setting_display_brightness", Double.NaN);
+        state = BirdGame3GlobalSettingsState.load(prefs, new String[0], 0);
+        assertEquals(0.5, state.displayBrightness, 0.0001);
+    }
+
+    @Test
     void loadAndSaveRoundTripsVersusRulesPreset() {
         prefs.put("versus_rules_preset", "competitive");
 

@@ -809,6 +809,25 @@ public class BirdGame3 {
         }
     }
 
+    private enum SettingsSection {
+        GAME("GAMEPLAY", "Match presentation and optional battle systems.", "#7E57C2"),
+        CONTROLS("CONTROLS", "Bindings for the input device and player currently in use.", "#5C6BC0"),
+        AUDIO("AUDIO", "Music and sound-effect levels with immediate previews.", "#26A69A"),
+        DISPLAY("DISPLAY", "Brightness, fullscreen, effects, shake, and frame rate.", "#42A5F5"),
+        NETWORK("NETWORK", "Internet connection help and saved host information.", "#29B6F6"),
+        HELP("HELP & LANGUAGE", "English text, update tools, and every fighter's move guide.", "#AB47BC");
+
+        final String title;
+        final String description;
+        final String accent;
+
+        SettingsSection(String title, String description, String accent) {
+            this.title = title;
+            this.description = description;
+            this.accent = accent;
+        }
+    }
+
     private enum PauseExitDestination {
         TRAINING_SETUP,
         MAIN_HUB,
@@ -1188,6 +1207,7 @@ public class BirdGame3 {
     private double sfxVolume = 1.0;
     private boolean screenShakeEnabled = true;
     private boolean fullscreenEnabled = true;
+    private double displayBrightness = 0.5;
     private boolean particleEffectsEnabled = true;
     private boolean ambientEffectsEnabled = true;
     private boolean stageCaptureBackdropEnabled = false;
@@ -4474,6 +4494,7 @@ public class BirdGame3 {
         state.sfxVolume = sfxVolume;
         state.screenShakeEnabled = screenShakeEnabled;
         state.fullscreenEnabled = fullscreenEnabled;
+        state.displayBrightness = displayBrightness;
         state.particleEffectsEnabled = particleEffectsEnabled;
         state.ambientEffectsEnabled = ambientEffectsEnabled;
         state.fpsCap = fpsCap;
@@ -4499,6 +4520,7 @@ public class BirdGame3 {
         sfxEnabled = !isMutedVolume(sfxVolume);
         screenShakeEnabled = resolved.screenShakeEnabled;
         fullscreenEnabled = resolved.fullscreenEnabled;
+        displayBrightness = BirdGame3GlobalSettingsState.sanitizeBrightness(resolved.displayBrightness);
         particleEffectsEnabled = resolved.particleEffectsEnabled;
         ambientEffectsEnabled = resolved.ambientEffectsEnabled;
         fpsCap = sanitizeFpsCap(resolved.fpsCap);
@@ -4625,6 +4647,7 @@ public class BirdGame3 {
         seedSceneTargetSize(stage, scene);
         ensureSceneAutoScaled(scene);
         Scene installedScene = installScenePreservingCurrentFullscreen(stage, scene);
+        applySceneBrightness(installedScene);
         restoreDisplayModeAfterSceneSwap(stage);
         installWiimoteMenuPointerTracking(installedScene);
         if (usesWiimoteUiPointer(installedScene)) {
@@ -4640,6 +4663,31 @@ public class BirdGame3 {
         }
         tryShowQueuedAchievementToast();
         return installedScene;
+    }
+
+    private void applySceneBrightness(Scene scene) {
+        if (scene == null || scene.getRoot() == null) {
+            return;
+        }
+        Parent root = scene.getRoot();
+        double normalized = BirdGame3GlobalSettingsState.sanitizeBrightness(displayBrightness);
+        if (Math.abs(normalized - 0.5) < 0.0001) {
+            if (Boolean.TRUE.equals(root.getProperties().remove("birdFightDisplayBrightness"))) {
+                root.setEffect(null);
+            }
+            return;
+        }
+        ColorAdjust adjustment = new ColorAdjust();
+        adjustment.setBrightness((normalized - 0.5) * 0.72);
+        root.setEffect(adjustment);
+        root.getProperties().put("birdFightDisplayBrightness", true);
+    }
+
+    private void setDisplayBrightness(double value) {
+        displayBrightness = BirdGame3GlobalSettingsState.sanitizeBrightness(value);
+        if (currentStage != null) {
+            applySceneBrightness(currentStage.getScene());
+        }
     }
 
     private Scene installScenePreservingCurrentFullscreen(Stage stage, Scene scene) {
@@ -26229,6 +26277,53 @@ public class BirdGame3 {
         valuePane.setStyle("-fx-background-color: #F6F5F7; -fx-background-radius: 0 24 24 0;");
         HBox row = new HBox(key, valuePane);
         row.setAlignment(Pos.CENTER);
+        return row;
+    }
+
+    private VBox buildBrightnessSettingsRow() {
+        Canvas preview = new Canvas(480, 188);
+        StagePreviewRenderer.draw(preview, StageChoice.main(MapType.BATTLEFIELD));
+        StackPane previewFrame = new StackPane(preview);
+        previewFrame.setPadding(new Insets(8));
+        previewFrame.setStyle("-fx-background-color: #080B10; -fx-background-radius: 12;"
+                + "-fx-border-color: #90CAF9; -fx-border-width: 3; -fx-border-radius: 12;");
+
+        Label title = new Label("BRIGHTNESS");
+        title.setFont(Font.font("Arial Black", 25));
+        title.setTextFill(Color.WHITE);
+        Label value = new Label(Math.round(displayBrightness * 100.0) + "%");
+        value.setFont(Font.font("Consolas", FontWeight.BOLD, 24));
+        value.setTextFill(Color.web("#FFE082"));
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        HBox header = new HBox(14, title, spacer, value);
+        header.setAlignment(Pos.CENTER_LEFT);
+        header.setMaxWidth(720);
+
+        Slider slider = new Slider(0, 100, displayBrightness * 100.0);
+        slider.setBlockIncrement(5);
+        slider.setPrefWidth(520);
+        slider.setMaxWidth(520);
+        slider.setStyle("-fx-accent: #42A5F5;");
+        slider.valueProperty().addListener((obs, oldValue, newValue) -> {
+            double normalized = BirdGame3GlobalSettingsState.sanitizeBrightness(newValue.doubleValue() / 100.0);
+            value.setText(Math.round(normalized * 100.0) + "%");
+            setDisplayBrightness(normalized);
+            saveAchievements();
+        });
+        Button reset = uiFactory.action("RESET TO 50%", 250, 62, 18, "#455A64", 16, () -> slider.setValue(50));
+        HBox adjustment = new HBox(18, slider, reset);
+        adjustment.setAlignment(Pos.CENTER_LEFT);
+
+        VBox controls = new VBox(12, header, adjustment,
+                buildMenuPanelBody("Adjust until dark details remain visible without washing out bright effects.", 720));
+        controls.setAlignment(Pos.CENTER_LEFT);
+        HBox rowContent = new HBox(24, previewFrame, controls);
+        rowContent.setAlignment(Pos.CENTER_LEFT);
+
+        VBox row = new VBox(rowContent);
+        row.setPadding(new Insets(16));
+        row.setStyle(MenuTheme.insetPanelStyle("#90CAF9", 20));
         return row;
     }
 
@@ -51059,18 +51154,205 @@ public class BirdGame3 {
     private void showMainSettings(Stage stage) {
         playMenuMusic();
 
+        StackPane root = new StackPane();
+        root.getProperties().put("noAutoScale", true);
+        root.setStyle("-fx-background-color: linear-gradient(to bottom right, #170A25, #31104A 42%, #07090F 100%);");
+
+        BorderPane frame = new BorderPane();
+        frame.setId("uiFrame");
+        lockRegionSize(frame, 1600, 950);
+
+        Runnable leaveSettings = () -> {
+            Runnable target = settingsReturn;
+            settingsReturn = null;
+            if (target != null) target.run(); else showMenu(stage);
+        };
+        Button back = uiFactory.action("BACK", 220, 68, 24, "#6A1B9A", 18,
+                () -> animateFightMenuExit(frame, leaveSettings));
+        StackPane title = buildMenuTitleBanner("OPTIONS", 420, 72, 34);
+        StackPane chip = buildMenuChip("CHOOSE A CATEGORY", "#512DA8", "#E1BEE7");
+        StackPane top = buildMenuTopStrip(back, title, chip);
+        top.setStyle("-fx-background-color: linear-gradient(to right, #4A148C, #8E24AA 48%, #15071E);"
+                + "-fx-border-color: rgba(255,255,255,0.24); -fx-border-width: 0 0 3 0;");
+        frame.setTop(top);
+
+        Label helpTitle = new Label("OPTIONS");
+        helpTitle.setFont(Font.font("Arial Black", 28));
+        helpTitle.setTextFill(Color.web("#FFE082"));
+        applyNoEllipsis(helpTitle);
+        Label helpBody = new Label("Choose one focused page. Settings save automatically.");
+        helpBody.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
+        helpBody.setTextFill(Color.web("#F5F5F5"));
+        helpBody.setWrapText(true);
+        applyNoEllipsis(helpBody);
+
+        GridPane categories = new GridPane();
+        categories.setHgap(22);
+        categories.setVgap(18);
+        categories.setAlignment(Pos.CENTER);
+        List<Node> categoryCards = new ArrayList<>();
+        SettingsSection[] sections = SettingsSection.values();
+        for (int i = 0; i < sections.length; i++) {
+            SettingsSection section = sections[i];
+            Button card = buildSettingsCategoryCard(section,
+                    () -> animateFightMenuExit(frame, () -> showSettingsDetail(stage, section)));
+            card.focusedProperty().addListener((obs, wasFocused, focused) -> {
+                if (focused) {
+                    helpTitle.setText(section.title);
+                    helpBody.setText(section.description);
+                }
+            });
+            card.setOnMouseEntered(event -> {
+                helpTitle.setText(section.title);
+                helpBody.setText(section.description);
+            });
+            categories.add(card, i % 2, i / 2);
+            categoryCards.add(card);
+        }
+        VBox center = new VBox(categories);
+        center.setAlignment(Pos.CENTER);
+        center.setPadding(new Insets(28, 58, 24, 58));
+        center.setStyle("-fx-background-color: linear-gradient(to bottom, rgba(250,250,252,0.98), rgba(228,225,235,0.98));");
+        frame.setCenter(center);
+
+        HBox prompts = buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "CHOOSE CATEGORY"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "OPEN"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "BACK"));
+        Region footerSpacer = new Region();
+        HBox.setHgrow(footerSpacer, Priority.ALWAYS);
+        VBox helpText = new VBox(2, helpTitle, helpBody);
+        helpText.setMinWidth(0);
+        HBox.setHgrow(helpText, Priority.ALWAYS);
+        HBox footer = new HBox(24, helpText, footerSpacer, prompts);
+        footer.setAlignment(Pos.CENTER_LEFT);
+        footer.setPadding(new Insets(16, 32, 18, 32));
+        footer.setStyle("-fx-background-color: rgba(4,5,9,0.98); -fx-border-color: rgba(255,255,255,0.14) transparent transparent transparent; -fx-border-width: 2 0 0 0;");
+        frame.setBottom(footer);
+
+        root.getChildren().add(frame);
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, back);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        bindFixedFrameScale(scene, frame, 0.0);
+        setScenePreservingFullscreen(stage, scene);
+        javafx.application.Platform.runLater(() -> {
+            if (!categoryCards.isEmpty()) categoryCards.getFirst().requestFocus();
+            playFightMenuEntrance(frame, categoryCards);
+        });
+    }
+
+    private Button buildSettingsCategoryCard(SettingsSection section, Runnable action) {
+        Canvas icon = buildSettingsCategoryIcon(section);
+        Label title = new Label(section.title);
+        title.setFont(Font.font("Arial Black", 31));
+        title.setTextFill(Color.web("#202631"));
+        applyNoEllipsis(title);
+        Label description = new Label(section.description);
+        description.setFont(Font.font("Consolas", FontWeight.BOLD, 16));
+        description.setTextFill(Color.web("#46515D"));
+        description.setWrapText(true);
+        description.setMaxWidth(470);
+        description.setMinHeight(42);
+        VBox copy = new VBox(7, title, description);
+        copy.setAlignment(Pos.CENTER_LEFT);
+        copy.setMinWidth(0);
+        HBox.setHgrow(copy, Priority.ALWAYS);
+        HBox graphic = new HBox(22, icon, copy);
+        graphic.setAlignment(Pos.CENTER_LEFT);
+        graphic.setPadding(new Insets(18, 24, 18, 24));
+
+        Button card = new Button();
+        card.setGraphic(graphic);
+        card.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+        lockRegionSize(card, 690, 190);
+        card.setAccessibleText(section.title + ". " + section.description);
+        String idle = "-fx-background-color: linear-gradient(to right, #FDFDFE, #E7EBF2);"
+                + "-fx-background-radius: 8; -fx-border-color: " + section.accent + ";"
+                + "-fx-border-width: 3; -fx-border-radius: 8; -fx-cursor: hand;";
+        String focused = "-fx-background-color: linear-gradient(to right, #FFFDE7, #FFF8D1);"
+                + "-fx-background-radius: 8; -fx-border-color: #F9A825;"
+                + "-fx-border-width: 7; -fx-border-radius: 8; -fx-cursor: hand;";
+        card.setStyle(idle);
+        card.focusedProperty().addListener((obs, oldValue, newValue) -> card.setStyle(newValue ? focused : idle));
+        card.setOnMouseEntered(event -> card.setStyle(focused));
+        card.setOnMouseExited(event -> card.setStyle(card.isFocused() ? focused : idle));
+        card.setOnAction(event -> {
+            playButtonClick();
+            if (action != null) action.run();
+        });
+        return card;
+    }
+
+    private Canvas buildSettingsCategoryIcon(SettingsSection section) {
+        Canvas canvas = new Canvas(118, 118);
+        GraphicsContext g = canvas.getGraphicsContext2D();
+        g.setFill(Color.web(section.accent));
+        g.fillRoundRect(3, 3, 112, 112, 26, 26);
+        g.setStroke(Color.WHITE);
+        g.setFill(Color.WHITE);
+        g.setLineWidth(7);
+        g.setLineCap(StrokeLineCap.ROUND);
+        switch (section) {
+            case GAME -> {
+                g.strokeOval(23, 35, 72, 49);
+                g.strokeLine(36, 59, 54, 59);
+                g.strokeLine(45, 50, 45, 68);
+                g.fillOval(73, 49, 9, 9);
+                g.fillOval(84, 62, 9, 9);
+            }
+            case CONTROLS -> {
+                g.strokeRoundRect(22, 31, 31, 58, 12, 12);
+                g.strokeRoundRect(65, 31, 31, 58, 12, 12);
+                g.fillOval(31, 44, 7, 7);
+                g.fillOval(75, 66, 7, 7);
+                g.fillOval(83, 48, 7, 7);
+            }
+            case AUDIO -> {
+                g.fillPolygon(new double[]{23, 43, 61, 61, 43, 23},
+                        new double[]{44, 44, 29, 89, 74, 74}, 6);
+                g.strokeArc(64, 39, 25, 40, -62, 124, ArcType.OPEN);
+                g.strokeArc(66, 28, 39, 62, -62, 124, ArcType.OPEN);
+            }
+            case DISPLAY -> {
+                g.strokeRoundRect(20, 24, 78, 56, 8, 8);
+                g.strokeLine(59, 80, 59, 94);
+                g.strokeLine(42, 95, 76, 95);
+                g.fillOval(49, 42, 20, 20);
+            }
+            case NETWORK -> {
+                g.strokeArc(21, 34, 76, 64, 35, 110, ArcType.OPEN);
+                g.strokeArc(34, 48, 50, 40, 36, 108, ArcType.OPEN);
+                g.strokeArc(47, 63, 24, 18, 38, 104, ArcType.OPEN);
+                g.fillOval(53, 84, 12, 12);
+            }
+            case HELP -> {
+                g.strokeOval(27, 20, 64, 64);
+                g.setFont(Font.font("Arial Black", 48));
+                g.fillText("?", 43, 70);
+                g.fillRoundRect(34, 91, 50, 7, 7, 7);
+            }
+        }
+        return canvas;
+    }
+
+    private void showSettingsDetail(Stage stage, SettingsSection initialSection) {
+        playMenuMusic();
+
         VBox root = new VBox(14);
         root.setAlignment(Pos.CENTER);
         root.setPadding(new Insets(26, 34, 24, 34));
         root.setStyle(MenuTheme.pageBackground());
 
-        StackPane title = buildMenuTitleBanner("SETTINGS", 460, 68, 31);
+        SettingsSection section = initialSection == null ? SettingsSection.GAME : initialSection;
+        StackPane title = buildMenuTitleBanner("OPTIONS  ›  " + section.title, 720, 68, 29);
 
         HBox card = new HBox(20);
         card.setAlignment(Pos.TOP_LEFT);
         card.setPadding(new Insets(20));
         card.setMaxWidth(1460);
-        card.setStyle(MenuTheme.panelStyle("#90CAF9", 22));
+        card.setStyle(MenuTheme.panelStyle(section.accent, 22));
 
         Button shakeToggle = uiFactory.action("", 820, 72, 25, "#546E7A", 21, () -> {});
         Button displayModeToggle = uiFactory.action("", 820, 72, 25, "#546E7A", 21, () -> {});
@@ -51155,15 +51437,12 @@ public class BirdGame3 {
         audioPanel.setPadding(new Insets(14, 16, 14, 16));
         audioPanel.setStyle(MenuTheme.insetPanelStyle("#64B5F6", 22));
 
-        VBox displayPanel = new VBox(16, shakeRow, displayModeRow);
+        VBox brightnessRow = buildBrightnessSettingsRow();
+        VBox displayPanel = new VBox(16, brightnessRow, displayModeRow, shakeRow,
+                particlesRow, ambientRow, fpsRow);
         displayPanel.setAlignment(Pos.CENTER_LEFT);
         displayPanel.setPadding(new Insets(14, 16, 14, 16));
         displayPanel.setStyle(MenuTheme.insetPanelStyle("#90CAF9", 22));
-
-        VBox graphicsPanel = new VBox(16, particlesRow, ambientRow, fpsRow);
-        graphicsPanel.setAlignment(Pos.CENTER_LEFT);
-        graphicsPanel.setPadding(new Insets(14, 16, 14, 16));
-        graphicsPanel.setStyle(MenuTheme.insetPanelStyle("#FFE082", 22));
 
         final ControlBindingTarget[] pendingBinding = new ControlBindingTarget[1];
         Map<String, Button> bindingButtons = new HashMap<>();
@@ -51417,125 +51696,137 @@ public class BirdGame3 {
         refreshWiimoteControls.run();
         refreshControlPage[0].run();
 
+        Button mutatorToggle = uiFactory.action("", 900, 74, 23, "#546E7A", 20, null);
+        Button competitionToggle = uiFactory.action("", 900, 74, 23, "#546E7A", 20, null);
+        Runnable refreshGameToggles = () -> {
+            refreshSettingsToggleButton(mutatorToggle, "MUTATOR MODE", mutatorModeEnabled);
+            refreshSettingsToggleButton(competitionToggle, "COMPETITION MODE", competitionModeEnabled);
+        };
+        mutatorToggle.setOnAction(event -> {
+            playButtonClick();
+            mutatorModeEnabled = !mutatorModeEnabled;
+            if (mutatorModeEnabled) competitionModeEnabled = false;
+            frontEndMatchFlow.selectRulesPreset(mutatorModeEnabled
+                    ? VersusRulesPreset.CHAOS
+                    : (competitionModeEnabled ? VersusRulesPreset.COMPETITIVE : VersusRulesPreset.STANDARD));
+            refreshGameToggles.run();
+            saveAchievements();
+        });
+        competitionToggle.setOnAction(event -> {
+            playButtonClick();
+            competitionModeEnabled = !competitionModeEnabled;
+            if (competitionModeEnabled) mutatorModeEnabled = false;
+            if (!competitionModeEnabled) {
+                competitionSeriesActive = false;
+                Arrays.fill(competitionRoundWins, 0);
+                Arrays.fill(competitionTeamWins, 0);
+                competitionRoundNumber = 1;
+            }
+            frontEndMatchFlow.selectRulesPreset(competitionModeEnabled
+                    ? VersusRulesPreset.COMPETITIVE
+                    : (mutatorModeEnabled ? VersusRulesPreset.CHAOS : VersusRulesPreset.STANDARD));
+            refreshGameToggles.run();
+            saveAchievements();
+        });
+        refreshGameToggles.run();
+        Label gameNote = buildMenuPanelBody(
+                "These are optional global battle styles. Normal versus rules are chosen from the Fight menu.", 980);
+        VBox gamePanel = new VBox(16, buildSettingsRow(mutatorToggle, "#CE93D8"),
+                buildSettingsRow(competitionToggle, "#FFE082"), gameNote);
+        gamePanel.setAlignment(Pos.CENTER_LEFT);
+        gamePanel.setPadding(new Insets(16));
+        gamePanel.setStyle(MenuTheme.insetPanelStyle("#CE93D8", 22));
+
         VBox contentHolder = new VBox(18);
         contentHolder.setAlignment(Pos.CENTER_LEFT);
-        contentHolder.getChildren().add(audioPanel);
 
         Button enterCode = buildEnterCodeButton(stage);
         Button whatsNew = uiFactory.action("WHAT'S NEW", 300, 100, 30, "#FB8C00", 22,
-                () -> showUpdateSplashBrowser(stage, () -> showMainSettings(stage)));
-        HBox aboutActions = new HBox(18, whatsNew, enterCode);
-        aboutActions.setAlignment(Pos.CENTER_LEFT);
-        VBox aboutPanel = new VBox(aboutActions);
-        aboutPanel.setAlignment(Pos.CENTER_LEFT);
-        aboutPanel.setPadding(new Insets(18));
-        aboutPanel.setStyle(MenuTheme.insetPanelStyle("#FB8C00", 22));
+                () -> animateFightMenuExit(root,
+                        () -> showUpdateSplashBrowser(stage,
+                                () -> showSettingsDetail(stage, SettingsSection.HELP))));
+        Button moveGuide = uiFactory.action("FIGHTER MOVE GUIDE", 560, 100, 29, "#00838F", 21,
+                () -> animateFightMenuExit(root, () -> showSettingsMoveGuideRoster(stage)));
+        Button language = uiFactory.action("LANGUAGE  •  ENGLISH", 560, 100, 26, "#5E35B1", 20,
+                () -> animateFightMenuExit(root, () -> showSettingsLanguage(stage)));
+        Label languageNote = buildMenuPanelBody(
+                "Bird Fight 3 currently ships in English. The move guide uses the active player's current input device.", 1160);
+        HBox helpActions = new HBox(18, moveGuide, language);
+        helpActions.setAlignment(Pos.CENTER_LEFT);
+        HBox utilityActions = new HBox(18, whatsNew, enterCode);
+        utilityActions.setAlignment(Pos.CENTER_LEFT);
+        VBox helpPanel = new VBox(18, helpActions, languageNote, utilityActions);
+        helpPanel.setAlignment(Pos.CENTER_LEFT);
+        helpPanel.setPadding(new Insets(18));
+        helpPanel.setStyle(MenuTheme.insetPanelStyle("#CE93D8", 22));
 
-        Button audioTab = uiFactory.action("AUDIO", 240, 62, 20, "#455A64", 16, null);
-        Button displayTab = uiFactory.action("DISPLAY", 240, 62, 20, "#455A64", 16, null);
-        Button graphicsTab = uiFactory.action("GRAPHICS", 240, 62, 20, "#455A64", 16, null);
-        Button controlsTab = uiFactory.action("CONTROLS", 240, 62, 20, "#455A64", 16, null);
-        Button aboutTab = uiFactory.action("OTHER", 240, 62, 20, "#455A64", 16, null);
+        Button openNetwork = uiFactory.action("OPEN NETWORK PLAY", 520, 96, 28, "#1565C0", 21,
+                () -> animateFightMenuExit(root, () -> showLanMenu(stage)));
+        Label savedEndpoint = buildMenuPanelBody(
+                "Saved internet address: "
+                        + ((internetLastEndpoint == null || internetLastEndpoint.isBlank()) ? "None" : internetLastEndpoint)
+                        + "\nHost TCP port: " + internetHostPort
+                        + "\nDirect play uses lockstep networking. Hosting normally requires TCP port forwarding.", 1120);
+        VBox networkPanel = new VBox(18, openNetwork, savedEndpoint);
+        networkPanel.setAlignment(Pos.CENTER_LEFT);
+        networkPanel.setPadding(new Insets(18));
+        networkPanel.setStyle(MenuTheme.insetPanelStyle("#64B5F6", 22));
 
-        Runnable showAudio = () -> {
-            setSettingsTabActive(audioTab, true);
-            setSettingsTabActive(displayTab, false);
-            setSettingsTabActive(graphicsTab, false);
-            setSettingsTabActive(controlsTab, false);
-            setSettingsTabActive(aboutTab, false);
-            contentHolder.getChildren().setAll(audioPanel);
-        };
-        Runnable showDisplay = () -> {
-            setSettingsTabActive(audioTab, false);
-            setSettingsTabActive(displayTab, true);
-            setSettingsTabActive(graphicsTab, false);
-            setSettingsTabActive(controlsTab, false);
-            setSettingsTabActive(aboutTab, false);
-            contentHolder.getChildren().setAll(displayPanel);
-        };
-        Runnable showGraphics = () -> {
-            setSettingsTabActive(audioTab, false);
-            setSettingsTabActive(displayTab, false);
-            setSettingsTabActive(graphicsTab, true);
-            setSettingsTabActive(controlsTab, false);
-            setSettingsTabActive(aboutTab, false);
-            contentHolder.getChildren().setAll(graphicsPanel);
-        };
-        Runnable showControls = () -> {
-            setSettingsTabActive(audioTab, false);
-            setSettingsTabActive(displayTab, false);
-            setSettingsTabActive(graphicsTab, false);
-            setSettingsTabActive(controlsTab, true);
-            setSettingsTabActive(aboutTab, false);
-            UiInputTracker.ActiveInput activeInput = uiInputTracker.activeInputProperty().get();
-            controlPage[0] = ControlSettingsPresentation.pageFor(activeInput.device());
-            if (controlPage[0] == ControlSettingsPresentation.Page.KEYBOARD) {
-                keyboardPlayer[0] = Math.clamp(activeInput.playerIndex(), 0, 3);
+        Node initialFocus;
+        switch (section) {
+            case GAME -> {
+                contentHolder.getChildren().setAll(gamePanel);
+                initialFocus = mutatorToggle;
             }
-            refreshControlPage[0].run();
-            contentHolder.getChildren().setAll(controlsPanel);
-        };
-        Runnable showAbout = () -> {
-            setSettingsTabActive(audioTab, false);
-            setSettingsTabActive(displayTab, false);
-            setSettingsTabActive(graphicsTab, false);
-            setSettingsTabActive(controlsTab, false);
-            setSettingsTabActive(aboutTab, true);
-            contentHolder.getChildren().setAll(aboutPanel);
-        };
-
-        audioTab.setOnAction(e -> {
-            playButtonClick();
-            showAudio.run();
-        });
-        displayTab.setOnAction(e -> {
-            playButtonClick();
-            showDisplay.run();
-        });
-        graphicsTab.setOnAction(e -> {
-            playButtonClick();
-            showGraphics.run();
-        });
-        controlsTab.setOnAction(e -> {
-            playButtonClick();
-            showControls.run();
-        });
-        aboutTab.setOnAction(e -> {
-            playButtonClick();
-            showAbout.run();
-        });
-
-        Label categoryLabel = buildMenuEyebrow("OPTIONS", "#90CAF9");
-        VBox tabs = new VBox(10, categoryLabel, audioTab, displayTab, graphicsTab, controlsTab, aboutTab);
-        tabs.setAlignment(Pos.TOP_CENTER);
-        tabs.setPrefWidth(250);
-
-        showAudio.run();
+            case CONTROLS -> {
+                UiInputTracker.ActiveInput activeInput = uiInputTracker.activeInputProperty().get();
+                controlPage[0] = ControlSettingsPresentation.pageFor(activeInput.device());
+                if (controlPage[0] == ControlSettingsPresentation.Page.KEYBOARD) {
+                    keyboardPlayer[0] = Math.clamp(activeInput.playerIndex(), 0, 3);
+                }
+                refreshControlPage[0].run();
+                contentHolder.getChildren().setAll(controlsPanel);
+                initialFocus = switch (controlPage[0]) {
+                    case KEYBOARD -> keyboardDeviceTab;
+                    case CONTROLLER -> controllerDeviceTab;
+                    case WIIMOTE -> wiimoteDeviceTab;
+                };
+            }
+            case AUDIO -> {
+                contentHolder.getChildren().setAll(audioPanel);
+                initialFocus = musicRow.getChildren().get(1);
+            }
+            case DISPLAY -> {
+                contentHolder.getChildren().setAll(displayPanel);
+                initialFocus = displayModeToggle;
+            }
+            case NETWORK -> {
+                contentHolder.getChildren().setAll(networkPanel);
+                initialFocus = openNetwork;
+            }
+            case HELP -> {
+                contentHolder.getChildren().setAll(helpPanel);
+                initialFocus = moveGuide;
+            }
+            default -> throw new IllegalStateException("Unexpected settings section: " + section);
+        }
 
         ScrollPane contentScroll = new ScrollPane(contentHolder);
         contentScroll.setFitToWidth(true);
         contentScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         contentScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
-        contentScroll.setPrefViewportWidth(1080);
+        contentScroll.setPrefViewportWidth(1360);
         contentScroll.setPrefViewportHeight(620);
         contentScroll.setMaxHeight(640);
         contentScroll.setStyle("-fx-background-color: transparent; -fx-background: transparent; -fx-control-inner-background: transparent;");
         installTransparentScrollViewport(contentScroll);
         HBox.setHgrow(contentScroll, Priority.ALWAYS);
         card.setMaxHeight(700);
-        card.getChildren().addAll(tabs, contentScroll);
+        card.getChildren().add(contentScroll);
 
         HBox buttons = new HBox(20);
         buttons.setAlignment(Pos.CENTER);
-        Runnable backAction = () -> {
-            Runnable target = settingsReturn;
-            settingsReturn = null;
-            if (target != null) {
-                target.run();
-            } else {
-                showMenu(stage);
-            }
-        };
+        Runnable backAction = () -> animateFightMenuExit(root, () -> showMainSettings(stage));
         Button back = uiFactory.action("BACK", 300, 82, 30, "#FF1744", 23, backAction);
         HBox inputPrompt = buildAdaptivePromptBar(
                 UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "NAVIGATE"),
@@ -51575,7 +51866,353 @@ public class BirdGame3 {
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
         setScenePreservingFullscreen(stage, scene);
-        audioTab.requestFocus();
+        javafx.application.Platform.runLater(() -> {
+            initialFocus.requestFocus();
+            playFightMenuEntrance(root, List.of(card, buttons));
+        });
+    }
+
+    private void showSettingsLanguage(Stage stage) {
+        playMenuMusic();
+        StackPane root = new StackPane();
+        root.getProperties().put("noAutoScale", true);
+        root.setStyle("-fx-background-color: linear-gradient(to bottom right, #190829, #59218A 48%, #08060D);");
+
+        BorderPane frame = new BorderPane();
+        frame.setId("uiFrame");
+        lockRegionSize(frame, 1600, 950);
+        Button back = uiFactory.action("BACK", 220, 68, 24, "#6A1B9A", 18,
+                () -> animateFightMenuExit(frame,
+                        () -> showSettingsDetail(stage, SettingsSection.HELP)));
+        frame.setTop(buildMenuTopStrip(back,
+                buildMenuTitleBanner("OPTIONS  ›  LANGUAGE", 720, 72, 30),
+                buildMenuChip("DISPLAY LANGUAGE", "#6A1B9A", "#E1BEE7")));
+
+        Label heading = new Label("CHOOSE YOUR LANGUAGE");
+        heading.setFont(Font.font("Arial Black", 38));
+        heading.setTextFill(Color.web("#202631"));
+        applyNoEllipsis(heading);
+        Button english = uiFactory.action("ENGLISH\nACTIVE", 720, 150, 34, "#7B1FA2", 25,
+                this::playButtonClick);
+        english.setAccessibleText("English, active display language");
+        Label note = new Label("Bird Fight 3 is currently authored in English. "
+                + "Future translated text packs will appear here without changing your save or controls.");
+        note.setFont(Font.font("Consolas", FontWeight.BOLD, 20));
+        note.setTextFill(Color.web("#455A64"));
+        note.setWrapText(true);
+        note.setMaxWidth(900);
+        note.setTextAlignment(TextAlignment.CENTER);
+        VBox languagePanel = new VBox(28, heading, english, note);
+        languagePanel.setAlignment(Pos.CENTER);
+        languagePanel.setPadding(new Insets(64, 120, 64, 120));
+        languagePanel.setStyle("-fx-background-color: linear-gradient(to bottom, #FFFFFF, #EDE7F6);");
+        frame.setCenter(languagePanel);
+        frame.setBottom(buildSettingsGuideFooter(
+                "Menu text and the fighter move guide use the selected display language."));
+
+        root.getChildren().add(frame);
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, back);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        bindFixedFrameScale(scene, frame, 0.0);
+        setScenePreservingFullscreen(stage, scene);
+        javafx.application.Platform.runLater(() -> {
+            english.requestFocus();
+            playFightMenuEntrance(frame, List.of(english));
+        });
+    }
+
+    private void showSettingsMoveGuideRoster(Stage stage) {
+        playMenuMusic();
+        StackPane root = new StackPane();
+        root.getProperties().put("noAutoScale", true);
+        root.setStyle("-fx-background-color: linear-gradient(to bottom right, #06131A, #0A3040 52%, #04070A);");
+
+        BorderPane frame = new BorderPane();
+        frame.setId("uiFrame");
+        lockRegionSize(frame, 1600, 950);
+        Button back = uiFactory.action("BACK", 210, 66, 23, "#006064", 18,
+                () -> animateFightMenuExit(frame,
+                        () -> showSettingsDetail(stage, SettingsSection.HELP)));
+        frame.setTop(buildMenuTopStrip(back,
+                buildMenuTitleBanner("HELP  ›  MOVE GUIDE", 660, 72, 30),
+                buildMenuChip("ALL FIGHTERS", "#00838F", "#B2EBF2")));
+
+        GridPane roster = new GridPane();
+        roster.setHgap(11);
+        roster.setVgap(11);
+        roster.setAlignment(Pos.CENTER);
+        List<Node> cards = new ArrayList<>();
+        BirdType[] rosterBirds = BirdType.values();
+        for (int i = 0; i < rosterBirds.length; i++) {
+            BirdType type = rosterBirds[i];
+            Button card = buildSettingsMoveGuideRosterCard(type,
+                    () -> animateFightMenuExit(frame, () -> showSettingsMoveGuide(stage, type)));
+            roster.add(card, i % 6, i / 6);
+            cards.add(card);
+        }
+        VBox rosterShell = new VBox(roster);
+        rosterShell.setAlignment(Pos.CENTER);
+        rosterShell.setPadding(new Insets(18, 42, 16, 42));
+        rosterShell.setStyle("-fx-background-color: linear-gradient(to bottom, rgba(247,249,251,0.99), rgba(219,229,235,0.99));");
+        frame.setCenter(rosterShell);
+        frame.setBottom(buildSettingsGuideFooter("Choose a fighter to see all four specials, recovery, Ultimate, and live controls."));
+
+        root.getChildren().add(frame);
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, back);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        bindFixedFrameScale(scene, frame, 0.0);
+        setScenePreservingFullscreen(stage, scene);
+        javafx.application.Platform.runLater(() -> {
+            if (!cards.isEmpty()) cards.getFirst().requestFocus();
+            playFightMenuEntrance(frame, cards);
+        });
+    }
+
+    private Button buildSettingsMoveGuideRosterCard(BirdType type, Runnable action) {
+        Canvas portrait = new Canvas(112, 82);
+        drawRosterSprite(portrait, type, null, false);
+        Label name = new Label(type.name.toUpperCase(Locale.ROOT));
+        name.setFont(Font.font("Arial Black", 15));
+        name.setTextFill(Color.web("#1B2730"));
+        name.setAlignment(Pos.CENTER);
+        name.setMaxWidth(190);
+        fitLabelSingleLine(name, 15, 10, 190);
+        VBox graphic = new VBox(4, portrait, name);
+        graphic.setAlignment(Pos.CENTER);
+        Button card = new Button();
+        card.setGraphic(graphic);
+        card.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+        lockRegionSize(card, 228, 152);
+        card.setAccessibleText(type.name + " move guide");
+        String idle = "-fx-background-color: linear-gradient(to bottom, #FFFFFF, #DDE5EA);"
+                + "-fx-background-radius: 5; -fx-border-color: #607D8B; -fx-border-width: 3; -fx-border-radius: 5;";
+        String focus = "-fx-background-color: linear-gradient(to bottom, #FFFDE7, #FFE082);"
+                + "-fx-background-radius: 5; -fx-border-color: #F9A825; -fx-border-width: 7; -fx-border-radius: 5;";
+        card.setStyle(idle);
+        card.focusedProperty().addListener((obs, oldValue, focused) -> card.setStyle(focused ? focus : idle));
+        card.setOnMouseEntered(event -> card.setStyle(focus));
+        card.setOnMouseExited(event -> card.setStyle(card.isFocused() ? focus : idle));
+        card.setOnAction(event -> {
+            playButtonClick();
+            if (action != null) action.run();
+        });
+        return card;
+    }
+
+    private void showSettingsMoveGuide(Stage stage, BirdType selectedType) {
+        BirdType type = selectedType == null ? BirdType.PIGEON : selectedType;
+        FighterMoveGuide.Guide guide = FighterMoveGuide.forBird(type);
+        int playerIdx = Math.clamp(uiInputTracker.activeInputProperty().get().playerIndex(), 0, 3);
+
+        StackPane root = new StackPane();
+        root.getProperties().put("noAutoScale", true);
+        root.setStyle("-fx-background-color: linear-gradient(to bottom right, #06131A, #12394A 52%, #04070A);");
+        BorderPane frame = new BorderPane();
+        frame.setId("uiFrame");
+        lockRegionSize(frame, 1600, 950);
+
+        Button list = uiFactory.action("FIGHTER LIST", 250, 66, 22, "#006064", 17,
+                () -> animateFightMenuExit(frame, () -> showSettingsMoveGuideRoster(stage)));
+        Button previous = uiFactory.action("‹", 70, 66, 31, "#37474F", 20,
+                () -> showSettingsMoveGuide(stage, shiftSettingsMoveGuideBird(type, -1)));
+        Button next = uiFactory.action("›", 70, 66, 31, "#37474F", 20,
+                () -> showSettingsMoveGuide(stage, shiftSettingsMoveGuideBird(type, 1)));
+        Label birdName = new Label(String.format(Locale.ROOT, "%02d  %s", type.ordinal() + 1,
+                type.name.toUpperCase(Locale.ROOT)));
+        birdName.setFont(Font.font("Arial Black", 28));
+        birdName.setTextFill(Color.WHITE);
+        birdName.setAlignment(Pos.CENTER);
+        lockRegionSize(birdName, 600, 64);
+        birdName.setStyle("-fx-background-color: #05080C; -fx-background-radius: 8;"
+                + "-fx-border-color: #80DEEA; -fx-border-width: 2; -fx-border-radius: 8;");
+        HBox selector = new HBox(10, previous, birdName, next);
+        selector.setAlignment(Pos.CENTER);
+        frame.setTop(buildMenuTopStrip(list, selector,
+                buildMenuChip(guide.role().toUpperCase(Locale.ROOT), "#006064", "#B2EBF2")));
+
+        GridPane moveGrid = new GridPane();
+        moveGrid.setHgap(12);
+        moveGrid.setVgap(12);
+        List<FighterMoveGuide.Move> moves = guide.moves();
+        for (int i = 0; i < moves.size(); i++) {
+            moveGrid.add(buildSettingsMoveGuideCard(type, moves.get(i), playerIdx), 0, i);
+        }
+
+        Canvas ultimateArt = buildSettingsMoveArt(type, "ULTIMATE", "#EC407A", 470, 250);
+        Label ultimateInput = buildSettingsMoveInputLabel(playerIdx, "NEUTRAL", true);
+        Label ultimateName = new Label(guide.ultimateName().toUpperCase(Locale.ROOT));
+        ultimateName.setFont(Font.font("Arial Black", 28));
+        ultimateName.setTextFill(Color.WHITE);
+        ultimateName.setWrapText(true);
+        ultimateName.setMaxWidth(450);
+        Label ultimateDescription = new Label(guide.ultimateDescription());
+        ultimateDescription.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
+        ultimateDescription.setTextFill(Color.web("#263238"));
+        ultimateDescription.setWrapText(true);
+        ultimateDescription.setMaxWidth(450);
+        Label mechanic = new Label(guide.mechanic());
+        mechanic.setFont(Font.font("Consolas", FontWeight.BOLD, 16));
+        mechanic.setTextFill(Color.web("#4A148C"));
+        mechanic.setWrapText(true);
+        mechanic.setMaxWidth(450);
+        VBox ultimate = new VBox(10, ultimateArt, ultimateInput, ultimateName, ultimateDescription, mechanic);
+        ultimate.setAlignment(Pos.TOP_LEFT);
+        ultimate.setPadding(new Insets(16));
+        lockRegionSize(ultimate, 500, 696);
+        ultimate.setStyle("-fx-background-color: linear-gradient(to bottom, #AD1457 0%, #EC407A 36%, #FCE4EC 36%);"
+                + "-fx-background-radius: 12; -fx-border-color: #FF80AB; -fx-border-width: 4; -fx-border-radius: 12;");
+
+        HBox content = new HBox(18, moveGrid, ultimate);
+        content.setAlignment(Pos.CENTER);
+        content.setPadding(new Insets(16, 34, 14, 34));
+        content.setStyle("-fx-background-color: linear-gradient(to bottom, #EDF2F5, #D7E0E6);");
+        frame.setCenter(content);
+        frame.setBottom(buildSettingsGuideFooter("Move prompts follow the active input device. Ultimate activates with Neutral Special only when the meter is ready."));
+
+        root.getChildren().add(frame);
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, list);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        bindFixedFrameScale(scene, frame, 0.0);
+        setScenePreservingFullscreen(stage, scene);
+        javafx.application.Platform.runLater(() -> {
+            previous.requestFocus();
+            playFightMenuEntrance(frame, List.of(moveGrid, ultimate));
+        });
+    }
+
+    private BirdType shiftSettingsMoveGuideBird(BirdType type, int delta) {
+        BirdType[] types = BirdType.values();
+        int current = type == null ? 0 : type.ordinal();
+        return types[Math.floorMod(current + delta, types.length)];
+    }
+
+    private VBox buildSettingsMoveGuideCard(BirdType type, FighterMoveGuide.Move move, int playerIdx) {
+        String accent = switch (move.direction()) {
+            case "NEUTRAL" -> "#C62828";
+            case "SIDE" -> "#1565C0";
+            case "UP" -> "#EF6C00";
+            case "DOWN" -> "#008C4A";
+            default -> "#455A64";
+        };
+        Canvas art = buildSettingsMoveArt(type, move.direction(), accent, 270, 122);
+        Label direction = new Label(move.direction() + (move.recovery() ? "  •  RECOVERY" : " SPECIAL"));
+        direction.setFont(Font.font("Consolas", FontWeight.BOLD, 15));
+        direction.setTextFill(Color.web(accent));
+        Label name = new Label(move.name().toUpperCase(Locale.ROOT));
+        name.setFont(Font.font("Arial Black", 23));
+        name.setTextFill(Color.web("#172027"));
+        name.setWrapText(true);
+        name.setMaxWidth(420);
+        Label input = buildSettingsMoveInputLabel(playerIdx, move.direction(), false);
+        Label description = new Label(move.description());
+        description.setFont(Font.font("Consolas", FontWeight.BOLD, 15));
+        description.setTextFill(Color.web("#34424C"));
+        description.setWrapText(true);
+        description.setMaxWidth(420);
+        VBox copy = new VBox(3, direction, name, input, description);
+        copy.setAlignment(Pos.CENTER_LEFT);
+        HBox row = new HBox(16, art, copy);
+        row.setAlignment(Pos.CENTER_LEFT);
+        VBox card = new VBox(row);
+        card.setPadding(new Insets(10, 14, 10, 14));
+        lockRegionSize(card, 960, 159);
+        card.setStyle("-fx-background-color: linear-gradient(to right, " + accent + " 0%, " + accent
+                + " 4%, #FFFFFF 4%, #E8EEF2 100%); -fx-background-radius: 10;"
+                + "-fx-border-color: #78909C; -fx-border-width: 2; -fx-border-radius: 10;");
+        return card;
+    }
+
+    private Label buildSettingsMoveInputLabel(int playerIdx, String direction, boolean ultimate) {
+        Label input = new Label();
+        input.textProperty().bind(Bindings.createStringBinding(() -> {
+            UiInputPrompts.Device device = uiInputTracker.playerDevice(playerIdx);
+            String binding = pauseDirectionalSpecialBindingForDevice(playerIdx, direction, device);
+            return pauseDeviceLabel(playerIdx) + "  •  " + binding + (ultimate ? "  •  ULT READY" : "");
+        }, uiInputTracker.playerDeviceProperty(playerIdx)));
+        input.setFont(Font.font("Consolas", FontWeight.BOLD, 13));
+        input.setTextFill(ultimate ? Color.web("#FFF59D") : Color.web("#1565C0"));
+        applyNoEllipsis(input);
+        return input;
+    }
+
+    private Canvas buildSettingsMoveArt(BirdType type, String direction, String accent, double width, double height) {
+        Canvas art = new Canvas(width, height);
+        GraphicsContext g = art.getGraphicsContext2D();
+        g.setFill(Color.web("#071019"));
+        g.fillRoundRect(0, 0, width, height, 18, 18);
+        g.setFill(Color.web(accent, 0.34));
+        g.fillPolygon(new double[]{0, width * 0.70, width, width * 0.28},
+                new double[]{height, 0, 0, height}, 4);
+        double birdX = direction.equals("SIDE") ? width * 0.38 : width * 0.22;
+        double birdY = direction.equals("UP") ? height * 0.02 : height * 0.08;
+        double birdWidth = width * 0.54;
+        double birdHeight = height * 0.88;
+        Bird preview = new Bird(0, type, 0, this);
+        preview.suppressSelectEffects = true;
+        applySkinChoiceToBird(preview, type, null);
+        double baseSize = Math.min(birdWidth, birdHeight);
+        double pad = Math.min(8, baseSize * 0.08);
+        double extentFactor = rosterSpriteExtentFactor(type, null);
+        preview.sizeMultiplier = Math.clamp((baseSize - pad * 2) / (80.0 * extentFactor),
+                rosterSpriteMinScale(type, null), rosterSpriteMaxScale(type, null));
+        double drawSize = 80 * preview.sizeMultiplier;
+        preview.x = birdX + (birdWidth - drawSize) / 2.0 + birdWidth * rosterSpriteXBias(type, null);
+        preview.y = birdY + (birdHeight - drawSize) / 2.0 + pad + birdHeight * rosterSpriteYBias(type, null);
+        preview.facingRight = true;
+        preview.draw(g);
+        g.setStroke(Color.web(accent));
+        g.setLineWidth(Math.max(4.0, height * 0.035));
+        g.setLineCap(StrokeLineCap.ROUND);
+        switch (direction) {
+            case "NEUTRAL" -> {
+                g.strokeLine(width * 0.15, height * 0.55, width * 0.52, height * 0.55);
+                g.strokeLine(width * 0.47, height * 0.44, width * 0.55, height * 0.55);
+                g.strokeLine(width * 0.47, height * 0.66, width * 0.55, height * 0.55);
+            }
+            case "SIDE" -> {
+                for (int i = 0; i < 3; i++) g.strokeLine(width * 0.08, height * (0.36 + i * 0.14), width * 0.42, height * (0.36 + i * 0.14));
+            }
+            case "UP" -> {
+                g.strokeLine(width * 0.30, height * 0.78, width * 0.30, height * 0.20);
+                g.strokeLine(width * 0.22, height * 0.31, width * 0.30, height * 0.20);
+                g.strokeLine(width * 0.38, height * 0.31, width * 0.30, height * 0.20);
+            }
+            case "DOWN" -> {
+                g.strokeLine(width * 0.30, height * 0.20, width * 0.30, height * 0.79);
+                g.strokeLine(width * 0.22, height * 0.68, width * 0.30, height * 0.79);
+                g.strokeLine(width * 0.38, height * 0.68, width * 0.30, height * 0.79);
+            }
+            default -> {
+                g.strokeOval(width * 0.08, height * 0.10, width * 0.72, height * 0.78);
+                g.strokeOval(width * 0.17, height * 0.20, width * 0.54, height * 0.58);
+            }
+        }
+        return art;
+    }
+
+    private HBox buildSettingsGuideFooter(String text) {
+        Label help = new Label(text);
+        help.setFont(Font.font("Consolas", FontWeight.BOLD, 17));
+        help.setTextFill(Color.WHITE);
+        help.setWrapText(true);
+        help.setMaxWidth(940);
+        HBox prompts = buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "NAVIGATE"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "OPEN"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "BACK"));
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        HBox footer = new HBox(20, help, spacer, prompts);
+        footer.setAlignment(Pos.CENTER_LEFT);
+        footer.setPadding(new Insets(16, 28, 16, 28));
+        footer.setStyle("-fx-background-color: rgba(2,5,8,0.98); -fx-border-color: rgba(255,255,255,0.14) transparent transparent transparent; -fx-border-width: 2 0 0 0;");
+        return footer;
     }
 
     boolean isClassicCompleted(BirdType type) {

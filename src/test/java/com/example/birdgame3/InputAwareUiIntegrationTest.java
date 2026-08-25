@@ -56,7 +56,7 @@ class InputAwareUiIntegrationTest {
     @Test
     void settingsShowOneInputFamilyAndKeyboardPlayerAtATime() throws IOException {
         String source = readGameSource();
-        String settings = methodBody(source, "showMainSettings");
+        String settings = methodBody(source, "showSettingsDetail");
 
         assertTrue(settings.contains("ControlSettingsPresentation.pageFor(activeInput.device())"));
         assertTrue(settings.contains("Button keyboardDeviceTab"));
