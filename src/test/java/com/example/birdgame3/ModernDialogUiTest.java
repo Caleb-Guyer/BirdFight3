@@ -25,7 +25,9 @@ class ModernDialogUiTest {
         assertTrue(css.contains(".dialog-pane .text-field"));
         assertTrue(css.contains("-fx-min-width: 128px"));
         assertTrue(css.contains("-fx-text-overrun: clip"));
-        assertTrue(theme.contains("button.setMinWidth(ACTION_BUTTON_MIN_WIDTH)"));
+        assertTrue(theme.contains("double width = actionWidth(button.getText())"));
+        assertTrue(theme.contains("button.setMinWidth(width)"));
+        assertTrue(theme.contains("button.setPrefWidth(width)"));
         assertTrue(theme.contains("button.setTextOverrun(OverrunStyle.CLIP)"));
         assertTrue(theme.contains("button.setEllipsisString(\"\")"));
     }

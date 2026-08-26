@@ -159,10 +159,11 @@ class VaultUiModernizationTest {
     void vaultArchivesAndRewardCardsExposeInputAwareNavigation() throws IOException {
         String source = Files.readString(GAME_SOURCE);
         for (String method : new String[]{"showVaultSoundtrack", "showMatchHistory", "showReplayBrowser",
-                "showPackResult", "showUnlockCard"}) {
+                "showPackResult", "showRewardReveal"}) {
             assertTrue(methodBody(source, method).contains("buildAdaptivePromptBar("),
                     method + " must show controls for only the active input device");
         }
+        assertTrue(methodBody(source, "showUnlockCard").contains("showRewardReveal("));
         assertTrue(methodBody(source, "showPackResult").contains("bindEscape(scene, back)"));
     }
 

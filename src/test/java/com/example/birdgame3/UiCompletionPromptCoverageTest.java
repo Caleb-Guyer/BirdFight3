@@ -18,11 +18,13 @@ class UiCompletionPromptCoverageTest {
         String source = Files.readString(GAME_SOURCE);
         String dialogue = methodBody(source, "private void showAdventureDialogue");
         String reward = methodBody(source, "private void showAchievementRewardPreviewCard");
+        String reveal = methodBody(source, "private void showRewardReveal");
 
         assertTrue(dialogue.contains("buildAdaptivePromptBar"));
         assertTrue(dialogue.contains("UiInputPrompts.Command.SELECT, \"CONTINUE\""));
-        assertTrue(reward.contains("buildAdaptivePromptBar"));
-        assertTrue(reward.contains("UiInputPrompts.Command.SELECT, \"CONTINUE\""));
+        assertTrue(reward.contains("showRewardReveal"));
+        assertTrue(reveal.contains("buildAdaptivePromptBar"));
+        assertTrue(reveal.contains("UiInputPrompts.Command.SELECT, \"CONTINUE\""));
         assertFalse(dialogue.contains("PRESS ENTER"));
         assertFalse(reward.contains("PRESS ENTER"));
     }

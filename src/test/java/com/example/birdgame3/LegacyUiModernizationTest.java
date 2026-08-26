@@ -20,13 +20,28 @@ class LegacyUiModernizationTest {
                 "showLanMenu", "showLanDirectMenu", "showInternetMenu",
                 "showInternetHostSetup", "showInternetJoin", "showInternetHelp",
                 "showLanJoin", "showLanLobby", "showClassicContinuePrompt",
-                "showStoryDialogue", "showUnlockCard", "showAchievementRewardPreviewCard",
+                "showStoryDialogue",
                 "showModernTournamentDecision"}) {
             String body = methodBody(source, method);
             assertTrue(body.contains("buildModernMenuPage()"), method + " lost the shared modern page shell");
             assertTrue(body.contains("buildMenuTopStrip("), method + " lost the shared top strip");
             assertFalse(body.contains("MenuLayout.buildMenuRoot"), method + " regressed to the legacy stacked layout");
         }
+    }
+
+    @Test
+    void rewardScreensUseTheDedicatedRevealInsteadOfAnEncyclopediaSidebar() throws IOException {
+        String source = Files.readString(GAME_SOURCE);
+        for (String method : new String[]{"showUnlockCard", "showAchievementRewardPreviewCard"}) {
+            String body = methodBody(source, method);
+            assertTrue(body.contains("showRewardReveal("));
+            assertFalse(body.contains("showBirdSidebar("));
+            assertFalse(body.contains("showSkinSidebar("));
+            assertFalse(body.contains("showMapSidebar("));
+        }
+        String reveal = methodBody(source, "showRewardReveal");
+        assertTrue(reveal.contains("RewardRevealView.build("));
+        assertTrue(reveal.contains("bindFixedFrameScale(scene, frame, 0.0)"));
     }
 
     @Test

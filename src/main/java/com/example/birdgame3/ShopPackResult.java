@@ -2,9 +2,16 @@ package com.example.birdgame3;
 
 import java.util.List;
 
-record ShopPackResult(String title, List<String> lines) {
+/** Immutable receipt of rewards already granted by the purchase, not another grant command. */
+record ShopPackResult(String title, List<Reward> rewards) {
+    record Reward(String label, ShopPreview preview) { }
+
+    ShopPackResult {
+        rewards = List.copyOf(rewards);
+    }
 
     String message() {
-        return String.join("\n", lines);
+        return rewards.stream().map(reward -> "- " + reward.label())
+                .collect(java.util.stream.Collectors.joining("\n"));
     }
 }

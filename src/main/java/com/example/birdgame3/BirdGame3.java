@@ -25765,6 +25765,7 @@ public class BirdGame3 {
         DialogPane pane = dialog.getDialogPane();
 
         dialog.setOnShown(event -> {
+            ModernDialogTheme.focusSafeAction(dialog);
             Scene dialogScene = pane.getScene();
             if (dialogScene != null) {
                 applyFocusRingStyle(dialogScene);
@@ -35002,7 +35003,9 @@ public class BirdGame3 {
     }
 
     private void playFightMenuEntrance(Node frame, List<Node> cards) {
-        if (frame == null) return;
+        // A fast confirm can start leaving before the deferred entrance runs.
+        // Never cancel that exit (and its destination callback) with an entrance.
+        if (frame == null || Boolean.TRUE.equals(frame.getProperties().get("fightMenuExitRunning"))) return;
         Object old = frame.getProperties().remove("fightMenuTransition");
         if (old instanceof Animation animation) animation.stop();
 
@@ -42120,7 +42123,9 @@ public class BirdGame3 {
     }
 
     private PackReward coinReward(int amount, int weight) {
-        return new PackReward("Bird Coins +" + amount, weight, () -> true, () -> grantBirdCoins(amount));
+        return new PackReward("Bird Coins +" + amount,
+                new ShopPreview(null, null, "Bird Coins +" + amount, amount),
+                weight, () -> true, () -> grantBirdCoins(amount));
     }
 
     private void addSkinRewards(List<PackReward> pool, List<ShopPreview> previews, int weightPerItem) {
@@ -42128,6 +42133,7 @@ public class BirdGame3 {
         for (ShopPreview preview : previews) {
             pool.add(new PackReward(
                     shopPreviewName(preview) + " Skin",
+                    preview,
                     weightPerItem,
                     () -> !isShopPreviewOwned(preview),
                     () -> unlockShopPreview(preview)
@@ -42140,6 +42146,7 @@ public class BirdGame3 {
         for (ShopPreview preview : previews) {
             pool.add(new PackReward(
                     shopPreviewName(preview) + " Character",
+                    preview,
                     weightPerItem,
                     () -> !isShopPreviewOwned(preview),
                     () -> unlockShopPreview(preview)
@@ -42152,6 +42159,7 @@ public class BirdGame3 {
         for (ShopPreview preview : previews) {
             pool.add(new PackReward(
                     shopPreviewName(preview),
+                    preview,
                     weightPerItem,
                     () -> !isShopPreviewOwned(preview),
                     () -> unlockShopPreview(preview)
@@ -42216,12 +42224,12 @@ public class BirdGame3 {
 
     private ShopPackResult openCardPack(String packName, int pulls, List<PackReward> pool) {
         int safePulls = Math.max(1, pulls);
-        List<String> lines = new ArrayList<>();
+        List<ShopPackResult.Reward> rewards = new ArrayList<>();
         int remaining = safePulls;
         PackReward guaranteed = pickNonCoinReward(pool);
         if (guaranteed != null) {
             guaranteed.grant().run();
-            lines.add("- " + guaranteed.label());
+            rewards.add(new ShopPackResult.Reward(guaranteed.label(), guaranteed.preview()));
             remaining--;
         }
         for (int i = 0; i < remaining; i++) {
@@ -42230,15 +42238,15 @@ public class BirdGame3 {
                 reward = coinReward(150, 1);
             }
             reward.grant().run();
-            lines.add("- " + reward.label());
+            rewards.add(new ShopPackResult.Reward(reward.label(), reward.preview()));
         }
-        return new ShopPackResult(packName + " Opened", lines);
+        return new ShopPackResult(packName + " Opened", rewards);
     }
 
     private ShopPackResult openGuaranteedBirdPack(List<ShopPreview> birdPool,
                                                   List<ShopPreview> legendarySkins, List<PackReward> extraPool) {
         int safePulls = Math.max(1, 3);
-        List<String> lines = new ArrayList<>();
+        List<ShopPackResult.Reward> rewards = new ArrayList<>();
         boolean preferLegendary = areAllBirdsUnlocked();
         ShopPreview primaryReward;
         String suffix = " Character";
@@ -42260,10 +42268,10 @@ public class BirdGame3 {
         }
         if (primaryReward != null) {
             unlockShopPreview(primaryReward);
-            lines.add("- " + shopPreviewName(primaryReward) + suffix);
+            rewards.add(new ShopPackResult.Reward(shopPreviewName(primaryReward) + suffix, primaryReward));
         } else {
             grantBirdCoins(300);
-            lines.add("- Bird Coins +300");
+            rewards.add(new ShopPackResult.Reward("Bird Coins +300", coinReward(300, 1).preview()));
         }
         int extraPulls = Math.max(0, safePulls - 1);
         boolean needsNonCoin = primaryReward == null;
@@ -42276,12 +42284,12 @@ public class BirdGame3 {
                 reward = coinReward(200, 1);
             }
             reward.grant().run();
-            lines.add("- " + reward.label());
+            rewards.add(new ShopPackResult.Reward(reward.label(), reward.preview()));
             if (!isCoinReward(reward)) {
                 needsNonCoin = false;
             }
         }
-        return new ShopPackResult("Ascendant Pack" + " Opened", lines);
+        return new ShopPackResult("Ascendant Pack" + " Opened", rewards);
     }
 
     private List<ShopItem> buildShopItems() {
@@ -42678,47 +42686,87 @@ public class BirdGame3 {
             return;
         }
         playMenuMusic();
-        VBox root = MenuLayout.buildMenuRoot(MenuTheme.pageBackground(),
-                MENU_PADDING, 30);
+        AnchorPane frame = RewardRevealView.frame(RewardPresentation.Kind.SKIN);
+        Label title = RewardRevealView.label(result.title().toUpperCase(Locale.ROOT), 54,
+                1440, 96, Color.web("#FFE67B"), false);
+        RewardRevealView.place(frame, title, new RewardRevealView.Box(80, 24, 1440, 96));
+        Label receipt = RewardRevealView.label("ADDED TO YOUR COLLECTION", 23,
+                820, 34, Color.WHITE, false);
+        RewardRevealView.place(frame, receipt, new RewardRevealView.Box(80, 175, 820, 34));
 
-        StackPane title = buildMenuTitleBanner(result.title().toUpperCase(Locale.ROOT), 760, 74, 32);
+        HBox cards = new HBox(26);
+        cards.setAlignment(Pos.CENTER);
+        RewardRevealView.place(frame, cards, new RewardRevealView.Box(72, 221, 1456, 570));
+        int[] page = {0};
+        int pageCount = Math.max(1, (result.rewards().size() + 2) / 3);
+        Label pageLabel = RewardRevealView.label("", 23, 130, 48, Color.WHITE, true);
+        Button previous = uiFactory.action("<", 64, 48, 24, "#254052", 12, () -> { });
+        Button next = uiFactory.action(">", 64, 48, 24, "#254052", 12, () -> { });
+        previous.setAccessibleText("Previous rewards");
+        next.setAccessibleText("Next rewards");
+        Runnable refresh = () -> {
+            cards.getChildren().clear();
+            int start = page[0] * 3;
+            for (int i = start; i < Math.min(start + 3, result.rewards().size()); i++) {
+                ShopPackResult.Reward pulled = result.rewards().get(i);
+                RewardPresentation reward = rewardPresentationForPreview(pulled.preview(), "");
+                cards.getChildren().add(buildPackReceiptCard(reward));
+            }
+            pageLabel.setText((page[0] + 1) + " / " + pageCount);
+            previous.setDisable(page[0] == 0);
+            next.setDisable(page[0] + 1 >= pageCount);
+        };
+        previous.setOnAction(event -> { if (page[0] > 0) { page[0]--; refresh.run(); } });
+        next.setOnAction(event -> { if (page[0] + 1 < pageCount) { page[0]++; refresh.run(); } });
+        HBox pages = new HBox(10, previous, pageLabel, next);
+        pages.setAlignment(Pos.CENTER);
+        pages.setVisible(pageCount > 1);
+        RewardRevealView.place(frame, pages, new RewardRevealView.Box(1228, 156, 280, 48));
+        refresh.run();
 
-        VBox card = new VBox(18);
-        card.setAlignment(Pos.CENTER_LEFT);
-        card.setPadding(new Insets(32));
-        card.setMaxWidth(1100);
-        card.setStyle(MenuTheme.panelStyle("#64B5F6", 24));
-
-        Label header = new Label("Cards Pulled");
-        header.setFont(Font.font("Arial Black", 36));
-        header.setTextFill(Color.web("#80DEEA"));
-
-        Label text = new Label(result.message());
-        text.setFont(Font.font("Consolas", 28));
-        text.setTextFill(Color.web("#CFD8DC"));
-        text.setWrapText(true);
-        text.setMaxWidth(1000);
-        applyNoEllipsis(text);
-
-        card.getChildren().addAll(header, text);
-
-        Button back = uiFactory.action("SHOP", 340, 86, 30, "#00A854", 22, () -> showShop(stage));
-        Button menu = uiFactory.action("HUB", 340, 86, 30, "#B5121B", 22, () -> showMenu(stage));
-        HBox buttons = new HBox(24, back, menu);
-        buttons.setAlignment(Pos.CENTER);
-
+        Button back = uiFactory.action("SHOP", 250, 76, 28, "#12685D", 14,
+                () -> animateFightMenuExit(frame, () -> showShop(stage)));
+        Button menu = uiFactory.action("HUB", 220, 76, 28, "#254052", 14,
+                () -> animateFightMenuExit(frame, () -> showMenu(stage)));
         HBox prompt = buildAdaptivePromptBar(
-                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "CHOOSE"),
                 UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "OPEN"),
                 UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "SHOP"));
-        root.getChildren().addAll(title, card, buttons, prompt);
-
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        HBox footer = new HBox(20, prompt, spacer, menu, back);
+        footer.setAlignment(Pos.CENTER_LEFT);
+        RewardRevealView.place(frame, footer, RewardRevealView.FOOTER);
+        StackPane root = new StackPane(frame);
+        root.getProperties().put("noAutoScale", true);
+        root.setStyle("-fx-background-color: #070B12;");
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         bindEscape(scene, back);
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
+        bindFixedFrameScale(scene, frame, 0.0);
         setScenePreservingFullscreen(stage, scene);
-        back.requestFocus();
+        javafx.application.Platform.runLater(() -> {
+            if (frame.getScene() != stage.getScene()) return;
+            back.requestFocus();
+            playFightMenuEntrance(frame, new ArrayList<>(cards.getChildren()));
+        });
+    }
+
+    private Node buildPackReceiptCard(RewardPresentation reward) {
+        VBox card = new VBox(12);
+        card.setAlignment(Pos.TOP_CENTER);
+        card.setPadding(new Insets(24, 22, 22, 22));
+        lockRegionSize(card, 468, 570);
+        card.setStyle("-fx-background-color: #0C1522; -fx-border-color: " + reward.kind().accent
+                + "; -fx-border-width: 3; -fx-background-radius: 6; -fx-border-radius: 6;");
+        Label category = RewardRevealView.label(reward.kind() == RewardPresentation.Kind.BIRD
+                        ? "FIGHTER" : reward.kind().category.replace(" UNLOCKED", ""),
+                23, 418, 40, Color.web("#FFE67B"), true);
+        Node art = buildRewardRevealArt(reward, 416, 328);
+        Label name = RewardRevealView.label(reward.name(), 33, 418, 118, Color.WHITE, true);
+        name.setId("pack-reward-name");
+        card.getChildren().addAll(category, art, name);
+        return card;
     }
 
     void queueBirdUnlockCard(BirdType type) {
@@ -42770,8 +42818,6 @@ public class BirdGame3 {
             if (onComplete != null) onComplete.run();
             return;
         }
-        playMenuMusic();
-
         Runnable advance = () -> {
             if (pendingUnlockCards.isEmpty()) {
                 if (onComplete != null) onComplete.run();
@@ -42779,62 +42825,105 @@ public class BirdGame3 {
                 showNextUnlockCard(stage, onComplete);
             }
         };
-        BorderPane root = buildModernMenuPage();
-        String unlockType = card.map != null ? "MAP UNLOCKED" : (card.skinKey != null ? "SKIN UNLOCKED" : "BIRD UNLOCKED");
-        StackPane title = buildMenuTitleBanner("NEW FEATHERPEDIA ENTRY", 700, 72, 29);
-        StackPane queueChip = buildMenuChip(unlockType, "#00838F", "#80DEEA");
-        root.setTop(buildMenuTopStrip(buildMenuChip("NEW DISCOVERY", "#FFC107", "#FFF59D"), title, queueChip));
-
-        VBox sidebar = new VBox(14);
-        sidebar.setAlignment(Pos.TOP_CENTER);
-        sidebar.setPadding(new Insets(24));
-        sidebar.setPrefWidth(620);
-        sidebar.setMaxWidth(620);
-        sidebar.setStyle(MenuTheme.panelStyle("#64B5F6", 24));
-
+        RewardPresentation reward;
         if (card.map != null) {
-            MapEntry entry = findMapEntry(card.map);
-            if (entry == null) {
-                entry = new MapEntry(card.map, mapDisplayName(card.map), mapDescription(card.map), mapHowToGet(card.map));
-            }
-            showMapSidebar(sidebar, entry);
+            reward = new RewardPresentation(RewardPresentation.Kind.STAGE, mapDisplayName(card.map),
+                    "Ready to choose in stage selection.", null, null, card.map);
         } else if (card.skinKey != null) {
-            SkinEntry entry = findSkinEntry(card.bird, card.skinKey);
-            if (entry == null) {
-                String name = skinDisplayName(card.skinKey, card.bird);
-                entry = new SkinEntry(card.bird, card.skinKey, name,
-                        skinDescription(card.skinKey, card.bird), skinHowToGet(card.skinKey, card.bird));
-            }
-            showSkinSidebar(sidebar, entry);
-        } else if (card.bird != null) {
-            showBirdSidebar(sidebar, card.bird);
+            reward = new RewardPresentation(RewardPresentation.Kind.SKIN, skinDisplayName(card.skinKey, card.bird),
+                    "A new look for " + card.bird.name + ".", card.bird, card.skinKey, null);
+        } else {
+            reward = new RewardPresentation(RewardPresentation.Kind.BIRD, card.bird.name,
+                    "Ready for your next fight.", card.bird, null, null);
         }
+        showRewardReveal(stage, reward, pendingUnlockCards.isEmpty() ? "" : pendingUnlockCards.size() + " MORE TO REVEAL",
+                pendingUnlockCards.isEmpty() ? "CONTINUE" : "NEXT UNLOCK", advance);
+    }
 
-        Button continueButton = uiFactory.action(
-                pendingUnlockCards.isEmpty() ? "CONTINUE" : "NEXT UNLOCK",
-                380, 86, 30, "#00A152", 22, advance);
-        VBox center = new VBox(20,
-                buildMenuEyebrow("ENTRY ADDED TO YOUR COLLECTION", "#80DEEA"), sidebar, continueButton);
-        center.setAlignment(Pos.CENTER);
-        root.setCenter(center);
-        root.setBottom(buildAdaptivePromptBar(
-                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT,
-                        pendingUnlockCards.isEmpty() ? "CONTINUE" : "NEXT UNLOCK")));
-        BorderPane.setMargin(root.getBottom(), new Insets(12, 0, 0, 0));
+    private RewardPresentation rewardPresentationForPreview(ShopPreview preview, String detail) {
+        MapType map = mapTypeForPreview(preview);
+        RewardPresentation.Kind kind = map != null ? RewardPresentation.Kind.STAGE
+                : isShopPreviewCoin(preview) ? RewardPresentation.Kind.COINS
+                : isShopPreviewContinue(preview) ? RewardPresentation.Kind.CONTINUE
+                : isShopPreviewCharacter(preview) || preview.skinKey() == null ? RewardPresentation.Kind.BIRD
+                : RewardPresentation.Kind.SKIN;
+        String skin = kind == RewardPresentation.Kind.SKIN ? preview.skinKey() : null;
+        return new RewardPresentation(kind, shopPreviewName(preview), detail, preview.type(), skin, map);
+    }
 
+    private Node buildRewardRevealArt(RewardPresentation reward, double width, double height) {
+        Canvas art = new Canvas(width, height);
+        if (reward.map() != null) {
+            // This is the same actual stage capture used by the selector and Featherpedia.
+            drawMapPreview(art, reward.map());
+        } else if (reward.bird() != null) {
+            // Show the actual unlocked look, generously framed without combat trails,
+            // cooldown rings, or the small scale cap used by roster thumbnails.
+            Bird actor = createCampaignCutsceneBird(reward.bird(), reward.skinKey());
+            ClassicPortraitLayout fit = classicPortraitLayout(reward.bird(), reward.skinKey(), width, height);
+            actor.sizeMultiplier = fit.sizeMultiplier();
+            actor.x = fit.x();
+            actor.y = fit.y();
+            if (reward.bird() == BirdType.TURKEY && STOCK_PHOTO_TURKEY_SKIN.equals(reward.skinKey())) {
+                // The tall photo is feet-anchored, not body-centered like vector birds.
+                actor.y += 32.0 * actor.sizeMultiplier;
+            }
+            actor.facingRight = true;
+            actor.draw(art.getGraphicsContext2D());
+        } else if (reward.kind() == RewardPresentation.Kind.CONTINUE) {
+            drawContinueIcon(art);
+        } else {
+            drawCoinIcon(art);
+        }
+        return art;
+    }
+
+    private void showRewardReveal(Stage stage, RewardPresentation reward, String queueLabel,
+                                  String continueText, Runnable onComplete) {
+        playMenuMusic();
+        RewardRevealView.Layout layout = RewardRevealView.layout(reward.kind());
+        Node art = buildRewardRevealArt(reward, layout.art().width() - 24, layout.art().height() - 24);
+        Button continueButton = uiFactory.action(continueText, 326, 76, 27, "#14695E", 14, () -> { });
+        HBox prompt = buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "CONTINUE"));
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        HBox footer = new HBox(24, prompt, spacer, continueButton);
+        footer.setAlignment(Pos.CENTER_LEFT);
+        AnchorPane frame = RewardRevealView.build(reward, art, footer, queueLabel);
+        StackPane root = new StackPane(frame);
+        root.getProperties().put("noAutoScale", true);
+        root.setStyle("-fx-background-color: #070B12;");
         Scene scene = new Scene(root, WIDTH, HEIGHT);
-        setupKeyboardNavigation(scene);
-        applyConsoleHighlight(scene);
-        setScenePreservingFullscreen(stage, scene);
-
-        addSceneEventFilter(scene, KeyEvent.KEY_PRESSED, e -> {
-            if (e.getCode() == KeyCode.SPACE || e.getCode() == KeyCode.ENTER) {
-                playButtonClick();
-                advance.run();
-                e.consume();
+        continueButton.setOnAction(event -> {
+            if (frame.getScene() != stage.getScene()) return;
+            playButtonClick();
+            animateFightMenuExit(frame, () -> { if (onComplete != null) onComplete.run(); });
+        });
+        // A held Enter must not burn through the queue. Confirm on release, and ignore
+        // the release of the shop/achievement button which originally opened this scene.
+        Set<KeyCode> pressedHere = EnumSet.noneOf(KeyCode.class);
+        addSceneEventFilter(scene, KeyEvent.KEY_PRESSED, event -> {
+            if (event.getCode() == KeyCode.ENTER || event.getCode() == KeyCode.SPACE || event.getCode() == KeyCode.ESCAPE) {
+                pressedHere.add(event.getCode());
+                event.consume();
             }
         });
-        continueButton.requestFocus();
+        addSceneEventFilter(scene, KeyEvent.KEY_RELEASED, event -> {
+            if (pressedHere.remove(event.getCode())) {
+                continueButton.fire();
+                event.consume();
+            }
+        });
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        bindFixedFrameScale(scene, frame, 0.0);
+        setScenePreservingFullscreen(stage, scene);
+        javafx.application.Platform.runLater(() -> {
+            if (frame.getScene() != stage.getScene()) return;
+            continueButton.requestFocus();
+            playFightMenuEntrance(frame, List.of(art, frame.lookup("#reward-name")));
+        });
     }
 
     private SkinEntry findSkinEntry(BirdType bird, String key) {
@@ -81220,68 +81309,10 @@ public class BirdGame3 {
             if (onComplete != null) onComplete.run();
             return;
         }
-        playMenuMusic();
-
-        Color accent = achievementAccentColor(achievementIndex);
-        String accentHex = toHex(accent);
-        Runnable advance = () -> {
-            if (onComplete != null) onComplete.run();
-        };
-
-        BorderPane root = buildModernMenuPage();
         String achievementName = achievementForIndex(
-                Math.clamp(achievementIndex, 0, ACHIEVEMENT_COUNT - 1)).displayName.toUpperCase(Locale.ROOT);
-        StackPane title = buildMenuTitleBanner("REWARD CLAIMED", 500, 72, 32);
-        root.setTop(buildMenuTopStrip(
-                buildMenuChip("ACHIEVEMENT", "#FFC107", "#FFF59D"), title,
-                buildMenuChip(shopPreviewCategory(preview), accentHex, "#FFFFFF")));
-
-        VBox card = new VBox(14);
-        card.setAlignment(Pos.TOP_CENTER);
-        card.setPadding(new Insets(24));
-        card.setPrefWidth(620);
-        card.setMaxWidth(620);
-        card.setStyle(MenuTheme.panelStyle(accentHex, 24));
-
-        Label rewardType = buildMenuEyebrow(achievementName, accentHex);
-
-        Label rewardName = new Label(shopPreviewName(preview).toUpperCase(Locale.ROOT));
-        rewardName.setFont(Font.font("Arial Black", 34));
-        rewardName.setTextFill(Color.WHITE);
-        rewardName.setWrapText(true);
-        rewardName.setTextAlignment(TextAlignment.CENTER);
-        rewardName.setMaxWidth(480);
-
-        Node art = buildShopPreviewArt(preview, accent, 440);
-        Label detail = new Label(description == null ? "" : description);
-        detail.setFont(Font.font("Consolas", 20));
-        detail.setTextFill(Color.web("#CFD8DC"));
-        detail.setWrapText(true);
-        detail.setTextAlignment(TextAlignment.CENTER);
-        detail.setMaxWidth(500);
-
-        card.getChildren().addAll(rewardType, rewardName, art, detail);
-        Button continueButton = uiFactory.action("CONTINUE", 360, 82, 29, "#00A152", 20, advance);
-        VBox center = new VBox(18, card, continueButton);
-        center.setAlignment(Pos.CENTER);
-        root.setCenter(center);
-        root.setBottom(buildAdaptivePromptBar(
-                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "CONTINUE")));
-        BorderPane.setMargin(root.getBottom(), new Insets(12, 0, 0, 0));
-
-        Scene scene = new Scene(root, WIDTH, HEIGHT);
-        setupKeyboardNavigation(scene);
-        applyConsoleHighlight(scene);
-        setScenePreservingFullscreen(stage, scene);
-
-        addSceneEventFilter(scene, KeyEvent.KEY_PRESSED, e -> {
-            if (e.getCode() == KeyCode.SPACE || e.getCode() == KeyCode.ENTER) {
-                playButtonClick();
-                advance.run();
-                e.consume();
-            }
-        });
-        continueButton.requestFocus();
+                Math.clamp(achievementIndex, 0, ACHIEVEMENT_COUNT - 1)).displayName;
+        String detail = achievementName + (description == null || description.isBlank() ? "" : " — " + description);
+        showRewardReveal(stage, rewardPresentationForPreview(preview, detail), "", "CONTINUE", onComplete);
     }
 
     private void migrateRepurposedAchievementSlots(int loadedAchievementSchemaVersion) {
