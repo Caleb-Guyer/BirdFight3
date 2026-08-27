@@ -80692,9 +80692,9 @@ public class BirdGame3 {
         achievementEvaluator.onTaunt(bird);
     }
 
-    void recordPelicanPlungeAchievement() {
+    void recordPelicanPlungeAchievement(Bird bird) {
         if (replayPlaybackActive) return;
-        achievementEvaluator.onPelicanPlunge();
+        achievementEvaluator.onPelicanPlunge(bird);
     }
 
     void recordHighRooftopJumpAchievement(int playerIndex) {

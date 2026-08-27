@@ -147,7 +147,7 @@ final class BirdGame3AchievementEvaluator {
     }
 
     void onMatchWinner(Bird winner, BirdGame3.MapType map, boolean trainingModeActive) {
-        if (winner == null || trainingModeActive) {
+        if (!isProfileEligibleActor(winner) || trainingModeActive) {
             return;
         }
         BirdGame3ProgressionService.WinnerMapProgressResult result =
@@ -185,7 +185,7 @@ final class BirdGame3AchievementEvaluator {
     }
 
     void onCombatStatsUpdated(Bird bird) {
-        if (bird == null) {
+        if (!isProfileEligibleActor(bird)) {
             return;
         }
         int idx = bird.playerIndex;
@@ -212,7 +212,8 @@ final class BirdGame3AchievementEvaluator {
     }
 
     void onLeanFrame(Bird bird) {
-        if (bird == null || bird.type != BirdGame3.BirdType.OPIUMBIRD || game.isAchievementUnlocked(BirdGame3Achievement.LEAN_GOD)) {
+        if (!isProfileEligibleActor(bird) || bird.type != BirdGame3.BirdType.OPIUMBIRD
+                || game.isAchievementUnlocked(BirdGame3Achievement.LEAN_GOD)) {
             return;
         }
         if (game.incrementAchievementProgress(BirdGame3Achievement.LEAN_GOD.legacyIndex) >= 1800) {
@@ -221,7 +222,7 @@ final class BirdGame3AchievementEvaluator {
     }
 
     void onLoungeHealing(Bird bird, double healedAmount) {
-        if (bird == null || bird.type != BirdGame3.BirdType.MOCKINGBIRD
+        if (!isProfileEligibleActor(bird) || bird.type != BirdGame3.BirdType.MOCKINGBIRD
                 || healedAmount <= 0.0 || game.isAchievementUnlocked(BirdGame3Achievement.LOUNGE_LIZARD)) {
             return;
         }
@@ -234,7 +235,7 @@ final class BirdGame3AchievementEvaluator {
     }
 
     void onPowerUpPickup(Bird bird) {
-        if (bird == null) {
+        if (!isProfileEligibleActor(bird)) {
             return;
         }
         if (game.incrementPowerUpPickupMatchCount(bird.playerIndex) >= 10) {
@@ -243,7 +244,7 @@ final class BirdGame3AchievementEvaluator {
     }
 
     void onTaunt(Bird bird) {
-        if (bird == null || game.isAchievementUnlocked(BirdGame3Achievement.TAUNT_LORD)) {
+        if (!isProfileEligibleActor(bird) || game.isAchievementUnlocked(BirdGame3Achievement.TAUNT_LORD)) {
             return;
         }
         if (game.incrementAchievementProgress(BirdGame3Achievement.TAUNT_LORD.legacyIndex) >= 10) {
@@ -251,14 +252,17 @@ final class BirdGame3AchievementEvaluator {
         }
     }
 
-    void onPelicanPlunge() {
+    void onPelicanPlunge(Bird bird) {
+        if (!isProfileEligibleActor(bird)) {
+            return;
+        }
         if (game.incrementAchievementProgress(BirdGame3Achievement.PELICAN_KING.legacyIndex) >= 15) {
             unlockIfNeeded(BirdGame3Achievement.PELICAN_KING);
         }
     }
 
     void onHighRooftopJump(int playerIndex) {
-        if (playerIndex < 0 || playerIndex >= game.rooftopJumps.length) {
+        if (!isProfileEligibleActor(playerIndex) || playerIndex >= game.rooftopJumps.length) {
             return;
         }
         game.rooftopJumps[playerIndex]++;
@@ -268,7 +272,7 @@ final class BirdGame3AchievementEvaluator {
     }
 
     void onHighCliffJump(int playerIndex) {
-        if (playerIndex < 0 || playerIndex >= game.highCliffJumps.length) {
+        if (!isProfileEligibleActor(playerIndex) || playerIndex >= game.highCliffJumps.length) {
             return;
         }
         game.highCliffJumps[playerIndex]++;
@@ -278,7 +282,7 @@ final class BirdGame3AchievementEvaluator {
     }
 
     void onStageFall(int playerIndex, boolean trainingModeActive) {
-        if (trainingModeActive) {
+        if (trainingModeActive || !isProfileEligibleActor(playerIndex)) {
             return;
         }
         if (game.incrementAchievementProgress(BirdGame3Achievement.FALL_GUY.legacyIndex) >= 3) {
@@ -287,7 +291,7 @@ final class BirdGame3AchievementEvaluator {
     }
 
     void onAshfallGeyserSurvival(Bird bird, boolean trainingModeActive) {
-        if (trainingModeActive || bird == null || bird.health <= 0.0) {
+        if (trainingModeActive || !isProfileEligibleActor(bird) || bird.health <= 0.0) {
             return;
         }
         game.maxAchievementProgress(BirdGame3Achievement.GEYSER_RIDER, 1);
@@ -295,7 +299,7 @@ final class BirdGame3AchievementEvaluator {
     }
 
     void onNeonPickup(int playerIndex) {
-        if (playerIndex < 0 || playerIndex >= game.neonPickups.length) {
+        if (!isProfileEligibleActor(playerIndex) || playerIndex >= game.neonPickups.length) {
             return;
         }
         game.neonPickups[playerIndex]++;
@@ -305,7 +309,7 @@ final class BirdGame3AchievementEvaluator {
     }
 
     void onThermalPickup(int playerIndex) {
-        if (playerIndex < 0 || playerIndex >= game.thermalPickups.length) {
+        if (!isProfileEligibleActor(playerIndex) || playerIndex >= game.thermalPickups.length) {
             return;
         }
         game.thermalPickups[playerIndex]++;
@@ -315,7 +319,7 @@ final class BirdGame3AchievementEvaluator {
     }
 
     void onVineGrapplePickup(int playerIndex) {
-        if (playerIndex < 0 || playerIndex >= game.vineGrapplePickups.length) {
+        if (!isProfileEligibleActor(playerIndex) || playerIndex >= game.vineGrapplePickups.length) {
             return;
         }
         game.vineGrapplePickups[playerIndex]++;
@@ -327,6 +331,17 @@ final class BirdGame3AchievementEvaluator {
     private void completeEpisodeAchievement(BirdGame3Achievement achievement) {
         game.maxAchievementProgress(achievement, 1);
         unlockIfNeeded(achievement);
+    }
+
+    private boolean isProfileEligibleActor(Bird bird) {
+        return bird != null && isProfileEligibleActor(bird.playerIndex);
+    }
+
+    private boolean isProfileEligibleActor(int playerIndex) {
+        return playerIndex >= 0
+                && playerIndex < game.activePlayers
+                && playerIndex < game.isAI.length
+                && !game.isAI[playerIndex];
     }
 
     private void unlockIfNeeded(BirdGame3Achievement achievement) {

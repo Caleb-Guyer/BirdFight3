@@ -18149,7 +18149,7 @@ public class Bird {
         pelicanKeelDiveActive = false;
         pelicanUpTimer = 0;
         plungeTimer = 0;
-        game.recordPelicanPlungeAchievement();
+        game.recordPelicanPlungeAchievement(this);
     }
 
     private void handlePelicanBilgeCharge() {
