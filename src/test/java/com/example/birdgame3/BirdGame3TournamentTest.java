@@ -104,7 +104,9 @@ class BirdGame3TournamentTest {
 
         game.setTournamentEntrySelection(entry, BirdGame3.BirdType.EAGLE);
         game.cycleTournamentEntrySkin(entry);
-        assertEquals("SKIN: STOCK PHOTO", game.tournamentEntrySkinLabel(entry, BirdGame3.BirdType.EAGLE));
+        assertEquals("SKIN: SKY KING", game.tournamentEntrySkinLabel(entry, BirdGame3.BirdType.EAGLE));
+        game.cycleTournamentEntrySkin(entry);
+        assertEquals("SKIN: BASE", game.tournamentEntrySkinLabel(entry, BirdGame3.BirdType.EAGLE));
 
         game.setTournamentEntrySelection(entry, BirdGame3.BirdType.TURKEY);
 

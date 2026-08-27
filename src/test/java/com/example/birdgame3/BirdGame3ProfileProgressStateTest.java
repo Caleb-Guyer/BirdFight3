@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import java.util.UUID;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.EnumSet;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 
@@ -61,6 +62,34 @@ class BirdGame3ProfileProgressStateTest {
         assertTrue(state.cityPigeonUnlocked);
         assertTrue(state.eagleSkinUnlocked);
         assertFalse(state.falconUnlocked);
+        assertEquals(EnumSet.noneOf(CollectibleUnlock.class), state.collectibleUnlocks);
+        assertFalse(state.legacyStarterVariantsUnlocked);
+    }
+
+    @Test
+    void reducedStarterCatalogRoundTripsWithoutBecomingLegacyContent() {
+        BirdGame3ProfileProgressState fresh = BirdGame3ProfileProgressState.load(prefs, schema());
+        fresh.saveTo(prefs, schema());
+
+        BirdGame3ProfileProgressState loaded = BirdGame3ProfileProgressState.load(prefs, schema());
+
+        assertEquals(EnumSet.noneOf(CollectibleUnlock.class), loaded.collectibleUnlocks);
+        assertFalse(loaded.legacyStarterVariantsUnlocked);
+        assertEquals(1, prefs.getInt("starter_catalog_version", 0));
+    }
+
+    @Test
+    void establishedSavesKeepFormerStarterContentAndVariants() {
+        prefs.putInt("city_wins_0", 2);
+
+        BirdGame3ProfileProgressState migrated = BirdGame3ProfileProgressState.load(prefs, schema());
+
+        assertEquals(EnumSet.allOf(CollectibleUnlock.class), migrated.collectibleUnlocks);
+        assertTrue(migrated.legacyStarterVariantsUnlocked);
+        migrated.saveTo(prefs, schema());
+        BirdGame3ProfileProgressState reloaded = BirdGame3ProfileProgressState.load(prefs, schema());
+        assertEquals(EnumSet.allOf(CollectibleUnlock.class), reloaded.collectibleUnlocks);
+        assertTrue(reloaded.legacyStarterVariantsUnlocked);
     }
 
     @Test

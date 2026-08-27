@@ -2,6 +2,7 @@ package com.example.birdgame3;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
@@ -51,6 +52,12 @@ final class BirdGame3ProfileProgressState {
     private static final String KEY_REDLINE_CANYON_UNLOCKED = "map_variant_redline_canyon_unlocked";
     private static final String KEY_LAST_ICE_SHELF_UNLOCKED = "map_variant_last_ice_shelf_unlocked";
     private static final String KEY_STILLWATER_MARSH_UNLOCKED = "map_variant_stillwater_marsh_unlocked";
+    private static final String KEY_STARTER_CATALOG_VERSION = "starter_catalog_version";
+    private static final String KEY_COLLECTIBLE_PREFIX = "content_unlocked_";
+    private static final String KEY_LEGACY_STARTER_VARIANTS = "legacy_starter_variants_unlocked";
+
+    EnumSet<CollectibleUnlock> collectibleUnlocks = EnumSet.noneOf(CollectibleUnlock.class);
+    boolean legacyStarterVariantsUnlocked = false;
 
     int achievementSchemaVersion = 0;
     BirdGame3AchievementProfile achievementProfile = new BirdGame3AchievementProfile();
@@ -162,6 +169,16 @@ final class BirdGame3ProfileProgressState {
             return state;
         }
 
+        // Old versions never saved ownership of their always-free content.
+        // Preserve that access only for existing saves, never for an empty slot.
+        boolean legacyCatalog = prefs.getInt(KEY_STARTER_CATALOG_VERSION, 0) < 1
+                && hasStoredProfileProgress(prefs);
+        for (CollectibleUnlock unlock : CollectibleUnlock.values()) {
+            if (prefs.getBoolean(KEY_COLLECTIBLE_PREFIX + unlock.key, legacyCatalog)) {
+                state.collectibleUnlocks.add(unlock);
+            }
+        }
+        state.legacyStarterVariantsUnlocked = prefs.getBoolean(KEY_LEGACY_STARTER_VARIANTS, legacyCatalog);
         state.achievementSchemaVersion = Math.max(0, prefs.getInt(KEY_ACHIEVEMENT_SCHEMA_VERSION, 0));
         loadAchievements(prefs, state);
         loadMatchHistory(prefs, schema.matchHistoryLimit(), state);
@@ -203,6 +220,11 @@ final class BirdGame3ProfileProgressState {
         if (prefs == null) {
             return;
         }
+        prefs.putInt(KEY_STARTER_CATALOG_VERSION, 1);
+        for (CollectibleUnlock unlock : CollectibleUnlock.values()) {
+            prefs.putBoolean(KEY_COLLECTIBLE_PREFIX + unlock.key, collectibleUnlocks.contains(unlock));
+        }
+        prefs.putBoolean(KEY_LEGACY_STARTER_VARIANTS, legacyStarterVariantsUnlocked);
         prefs.remove("start_here_completed");
         removeLegacyProgressionPrefs(prefs);
         prefs.putInt(KEY_ACHIEVEMENT_SCHEMA_VERSION, Math.max(0, achievementSchemaVersion));

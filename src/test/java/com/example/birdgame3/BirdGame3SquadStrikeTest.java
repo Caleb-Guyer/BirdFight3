@@ -98,6 +98,7 @@ class BirdGame3SquadStrikeTest {
 
         SquadStrikeRunState state = (SquadStrikeRunState) invoke(source, "captureSquadStrikeRunState");
         BirdGame3 restored = new BirdGame3();
+        invoke(restored, "unlockEverythingForDeveloperProfile");
         Method restore = BirdGame3.class.getDeclaredMethod("restoreSquadStrikeRunState", SquadStrikeRunState.class);
         restore.setAccessible(true);
 
@@ -126,6 +127,7 @@ class BirdGame3SquadStrikeTest {
 
     private static BirdGame3 preparedGame(int size, BirdGame3.SquadStrikeFormat format) throws Exception {
         BirdGame3 game = new BirdGame3();
+        invoke(game, "unlockEverythingForDeveloperProfile");
         set(game, "squadStrikeSize", size);
         set(game, "squadStrikeFormat", format);
         invoke(game, "ensureSquadStrikeEntries");

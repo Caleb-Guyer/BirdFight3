@@ -5267,6 +5267,8 @@ public class BirdGame3 {
     public boolean ravenUnlocked = false;
     public boolean roadrunnerUnlocked = false;
     public boolean roosterUnlocked = false;
+    private final EnumSet<CollectibleUnlock> collectibleUnlocks = EnumSet.noneOf(CollectibleUnlock.class);
+    private boolean legacyStarterVariantsUnlocked = false;
     private boolean developerInfiniteBirdCoins = false;
     private int developerBadgePolicyVersion = 0;
 
@@ -9923,6 +9925,9 @@ public class BirdGame3 {
     }
 
     private boolean isBirdUnlocked(BirdType type) {
+        if (developerInfiniteBirdCoins) return true;
+        CollectibleUnlock collectible = CollectibleUnlock.forBird(type);
+        if (collectible != null) return collectibleUnlocks.contains(collectible);
         return switch (type) {
             case BAT -> batUnlocked;
             case FALCON -> falconUnlocked;
@@ -9941,6 +9946,8 @@ public class BirdGame3 {
         // booleans existed when the code was entered.  Bypass every individual
         // unlock gate so old developer saves also receive maps added later.
         if (developerInfiniteBirdCoins) return true;
+        CollectibleUnlock collectible = CollectibleUnlock.forMap(map);
+        if (collectible != null) return collectibleUnlocks.contains(collectible);
         if (map == MapType.DESERT) return desertMapUnlocked;
         if (map == MapType.CAVE) return caveMapUnlocked;
         if (map == MapType.BATTLEFIELD) return battlefieldMapUnlocked;
@@ -9972,6 +9979,15 @@ public class BirdGame3 {
     private boolean isMapVariantUnlocked(MapVariant variant) {
         if (developerInfiniteBirdCoins) return true;
         if (variant == null || variant == MapVariant.STANDARD) return true;
+        if (variant == MapVariant.SKYBREAK_SPIRES) {
+            return legacyStarterVariantsUnlocked || isClassicCompleted(BirdType.FALCON);
+        }
+        if (variant == MapVariant.ASHFALL_REBIRTH) {
+            return legacyStarterVariantsUnlocked || isClassicCompleted(BirdType.PHOENIX);
+        }
+        if (variant == MapVariant.CARRION_THRONE) {
+            return legacyStarterVariantsUnlocked || isClassicCompleted(BirdType.VULTURE);
+        }
         if (variant == MapVariant.ROOFTOP_RELAY) return rooftopRelayUnlocked;
         if (variant == MapVariant.TEMPEST_SUMMIT) return tempestSummitUnlocked;
         if (variant == MapVariant.PEREGRINE_RUN) return peregrineRunUnlocked;
@@ -10024,14 +10040,14 @@ public class BirdGame3 {
         options.add(null);
         if (type == null) return options;
         if (type == BirdType.PIGEON) {
-            options.add(PREMIUM_PIGEON_SKIN);
+            if (isSkinUnlocked(PREMIUM_PIGEON_SKIN, type)) options.add(PREMIUM_PIGEON_SKIN);
             if (cityPigeonUnlocked) options.add("CITY_PIGEON");
             if (noirPigeonUnlocked) options.add("NOIR_PIGEON");
             if (freemanPigeonUnlocked) options.add(FREEMAN_PIGEON_SKIN);
             if (beaconPigeonUnlocked) options.add(BEACON_PIGEON_SKIN);
             if (stormPigeonUnlocked) options.add(STORM_PIGEON_SKIN);
         } else if (type == BirdType.EAGLE) {
-            options.add(STOCK_PHOTO_EAGLE_SKIN);
+            if (isSkinUnlocked(STOCK_PHOTO_EAGLE_SKIN, type)) options.add(STOCK_PHOTO_EAGLE_SKIN);
             if (eagleSkinUnlocked) options.add("SKY_KING_EAGLE");
         } else if (type == BirdType.PHOENIX) {
             if (isClassicRewardUnlocked(type)) options.add(classicSkinDataKey(type));
@@ -10044,7 +10060,9 @@ public class BirdGame3 {
             case FALCON -> {
                 if (duneFalconUnlocked) options.add(DUNE_FALCON_SKIN);
             }
-            case TURKEY -> options.add(STOCK_PHOTO_TURKEY_SKIN);
+            case TURKEY -> {
+                if (isSkinUnlocked(STOCK_PHOTO_TURKEY_SKIN, type)) options.add(STOCK_PHOTO_TURKEY_SKIN);
+            }
             case ROADRUNNER -> {
                 if (mirageRoadrunnerUnlocked) options.add(MIRAGE_ROADRUNNER_SKIN);
             }
@@ -10093,15 +10111,16 @@ public class BirdGame3 {
 
     private String normalizeAdventureSkinChoice(BirdType type, String skinKey) {
         if (type == null || skinKey == null) return null;
-        if (PREMIUM_PIGEON_SKIN.equals(skinKey) && type == BirdType.PIGEON) return skinKey;
+        CollectibleUnlock collectible = CollectibleUnlock.forKey(skinKey);
+        if (collectible != null) {
+            return collectible.isSkin() && collectible.bird == type && isSkinUnlocked(skinKey, type) ? skinKey : null;
+        }
         if (OLD_SPARROW_SKIN.equals(skinKey) && type == BirdType.TITMOUSE) return skinKey;
         if ("CITY_PIGEON".equals(skinKey) && type == BirdType.PIGEON && cityPigeonUnlocked) return skinKey;
         if ("NOIR_PIGEON".equals(skinKey) && type == BirdType.PIGEON && noirPigeonUnlocked) return skinKey;
         if (FREEMAN_PIGEON_SKIN.equals(skinKey) && type == BirdType.PIGEON && freemanPigeonUnlocked) return skinKey;
         if (BEACON_PIGEON_SKIN.equals(skinKey) && type == BirdType.PIGEON && beaconPigeonUnlocked) return skinKey;
         if (STORM_PIGEON_SKIN.equals(skinKey) && type == BirdType.PIGEON && stormPigeonUnlocked) return skinKey;
-        if (STOCK_PHOTO_EAGLE_SKIN.equals(skinKey) && type == BirdType.EAGLE) return skinKey;
-        if (STOCK_PHOTO_TURKEY_SKIN.equals(skinKey) && type == BirdType.TURKEY) return skinKey;
         if ("SKY_KING_EAGLE".equals(skinKey) && type == BirdType.EAGLE && eagleSkinUnlocked) return skinKey;
         if (NOVA_PHOENIX_SKIN.equals(skinKey) && type == BirdType.PHOENIX && novaPhoenixUnlocked) return skinKey;
         if (ASHEN_SOVEREIGN_PHOENIX_SKIN.equals(skinKey) && type == BirdType.PHOENIX && ashenSovereignPhoenixUnlocked) return skinKey;
@@ -28140,6 +28159,8 @@ public class BirdGame3 {
 
     private boolean isCharacterKey(String key) {
         if (key == null) return false;
+        CollectibleUnlock collectible = CollectibleUnlock.forKey(key);
+        if (collectible != null) return collectible.isBird();
         return CHAR_BAT_KEY.equals(key)
                 || CHAR_FALCON_KEY.equals(key)
                 || CHAR_HEISENBIRD_KEY.equals(key)
@@ -28163,6 +28184,8 @@ public class BirdGame3 {
     private boolean isShopPreviewMap(ShopPreview preview) {
         if (preview == null) return false;
         String key = preview.skinKey();
+        CollectibleUnlock collectible = CollectibleUnlock.forKey(key);
+        if (collectible != null) return collectible.map != null;
         return MAP_DESERT_KEY.equals(key) || MAP_CAVE_KEY.equals(key) || MAP_BATTLEFIELD_KEY.equals(key)
                 || MAP_DOCK_KEY.equals(key) || MAP_PRISON_KEY.equals(key);
     }
@@ -28185,6 +28208,8 @@ public class BirdGame3 {
 
     private MapType mapTypeForPreview(ShopPreview preview) {
         if (preview == null) return null;
+        CollectibleUnlock collectible = CollectibleUnlock.forKey(preview.skinKey());
+        if (collectible != null) return collectible.map;
         if (MAP_DESERT_KEY.equals(preview.skinKey())) return MapType.DESERT;
         if (MAP_CAVE_KEY.equals(preview.skinKey())) return MapType.CAVE;
         if (MAP_BATTLEFIELD_KEY.equals(preview.skinKey())) return MapType.BATTLEFIELD;
@@ -41491,6 +41516,8 @@ public class BirdGame3 {
     private boolean isShopPreviewOwned(ShopPreview preview) {
         if (preview == null || preview.skinKey() == null) return false;
         String key = preview.skinKey();
+        CollectibleUnlock collectible = CollectibleUnlock.forKey(key);
+        if (collectible != null) return developerInfiniteBirdCoins || collectibleUnlocks.contains(collectible);
         switch (key) {
             case CLASSIC_CONTINUE_KEY -> {
                 return false;
@@ -41622,6 +41649,19 @@ public class BirdGame3 {
             return;
         }
         if (isShopPreviewOwned(preview)) {
+            return;
+        }
+        CollectibleUnlock collectible = CollectibleUnlock.forKey(key);
+        if (collectible != null) {
+            collectibleUnlocks.add(collectible);
+            if (collectible.isBird()) {
+                setAdventureBirdUnlocked(AdventureRoute.MAIN, collectible.bird, true);
+                queueUnlockCardForBird(collectible.bird);
+            } else if (collectible.map != null) {
+                queueUnlockCardForMap(collectible.map);
+            } else {
+                queueUnlockCardForSkin(collectible.bird, collectible.key);
+            }
             return;
         }
         switch (key) {
@@ -41881,14 +41921,10 @@ public class BirdGame3 {
     }
 
     private boolean areAllBirdsUnlocked() {
-        return batUnlocked
-                && falconUnlocked
-                && heisenbirdUnlocked
-                && phoenixUnlocked
-                && titmouseUnlocked
-                && ravenUnlocked
-                && roadrunnerUnlocked
-                && roosterUnlocked;
+        for (BirdType type : BirdType.values()) {
+            if (!isBirdUnlocked(type)) return false;
+        }
+        return true;
     }
 
     private void applyDeveloperBirdCoinMode() {
@@ -41961,6 +41997,8 @@ public class BirdGame3 {
     }
 
     private void unlockEverythingForDeveloperProfile() {
+        collectibleUnlocks.addAll(EnumSet.allOf(CollectibleUnlock.class));
+        legacyStarterVariantsUnlocked = true;
         desertMapUnlocked = true;
         caveMapUnlocked = true;
         battlefieldMapUnlocked = true;
@@ -42303,7 +42341,7 @@ public class BirdGame3 {
         ShopPreview coins600 = new ShopPreview(null, null, "Bird Coins +600");
         ShopPreview coins700 = new ShopPreview(null, null, "Bird Coins +700");
         ShopPreview coins900 = new ShopPreview(null, null, "Bird Coins +900");
-        List<ShopPreview> birdRewards = List.of(
+        List<ShopPreview> birdRewards = new ArrayList<>(List.of(
                 new ShopPreview(BirdType.BAT, CHAR_BAT_KEY, "Bat"),
                 new ShopPreview(BirdType.FALCON, CHAR_FALCON_KEY, "Falcon"),
                 new ShopPreview(BirdType.HEISENBIRD, CHAR_HEISENBIRD_KEY, "Heisenbird"),
@@ -42312,14 +42350,20 @@ public class BirdGame3 {
                 new ShopPreview(BirdType.RAVEN, CHAR_RAVEN_KEY, "Raven"),
                 new ShopPreview(BirdType.ROADRUNNER, CHAR_ROADRUNNER_KEY, "Roadrunner"),
                 new ShopPreview(BirdType.ROOSTER, CHAR_ROOSTER_KEY, "Rooster")
-        );
-        List<ShopPreview> mapRewards = List.of(
+        ));
+        for (CollectibleUnlock unlock : CollectibleUnlock.values()) {
+            if (unlock.isBird()) birdRewards.add(unlock.preview());
+        }
+        List<ShopPreview> mapRewards = new ArrayList<>(List.of(
                 new ShopPreview(null, MAP_DESERT_KEY, "Sunscorch Flats Map"),
                 new ShopPreview(null, MAP_CAVE_KEY, "Echo Cavern Map"),
                 new ShopPreview(null, MAP_BATTLEFIELD_KEY, "Battlefield Map"),
                 new ShopPreview(null, MAP_DOCK_KEY, "Broken Harbor Map"),
                 new ShopPreview(null, MAP_PRISON_KEY, "Crownlock Prison Map")
-        );
+        ));
+        for (CollectibleUnlock unlock : CollectibleUnlock.values()) {
+            if (unlock.map != null) mapRewards.add(unlock.preview());
+        }
 
         ShopPreview dunePreview = new ShopPreview(BirdType.FALCON, DUNE_FALCON_SKIN, null);
         ShopPreview mintPreview = new ShopPreview(BirdType.PENGUIN, MINT_PENGUIN_SKIN, null);
@@ -42343,7 +42387,10 @@ public class BirdGame3 {
 
         List<ShopPreview> commonSkins = List.of(dunePreview, sunflarePreview);
         List<ShopPreview> uncommonSkins = List.of(mintPreview, glacierPreview);
-        List<ShopPreview> rareSkins = List.of(cityPreview, circuitPreview, tidePreview, freemanPreview);
+        List<ShopPreview> rareSkins = new ArrayList<>(List.of(cityPreview, circuitPreview, tidePreview, freemanPreview));
+        rareSkins.add(CollectibleUnlock.PREMIUM_PIGEON.preview());
+        rareSkins.add(CollectibleUnlock.STOCK_PHOTO_EAGLE.preview());
+        rareSkins.add(CollectibleUnlock.STOCK_PHOTO_TURKEY.preview());
         List<ShopPreview> epicSkins = List.of(noirPreview, skyPreview, prismPreview, eclipsePreview, miragePreview);
         List<ShopPreview> legendarySkins = List.of(novaPreview, auroraPreview, umbraPreview, sunforgePreview, loreAccuratePreview, voidHeraldPreview);
 
@@ -47184,6 +47231,10 @@ public class BirdGame3 {
     }
 
     private String birdHowToGet(BirdType type) {
+        if (type == BirdType.GRINCHHAWK || type == BirdType.VULTURE || type == BirdType.OPIUMBIRD) {
+            return "Recruit in The Still Sky or find in Card Packs";
+        }
+        if (CollectibleUnlock.forBird(type) != null) return "Card Packs";
         return switch (type) {
             case FALCON, PHOENIX, ROOSTER, HEISENBIRD, RAVEN, ROADRUNNER -> "Card Packs";
             case BAT -> "Defeat Vulture in Episode 1 or Card Packs";
@@ -47194,8 +47245,13 @@ public class BirdGame3 {
 
     private boolean isSkinUnlocked(String key, BirdType type) {
         if (key == null) return false;
+        CollectibleUnlock collectible = CollectibleUnlock.forKey(key);
+        if (collectible != null) {
+            return collectible.isSkin() && collectible.bird == type
+                    && (developerInfiniteBirdCoins || collectibleUnlocks.contains(collectible));
+        }
         switch (key) {
-            case PREMIUM_PIGEON_SKIN, OLD_SPARROW_SKIN -> {
+            case OLD_SPARROW_SKIN -> {
                 return true;
             }
             case "CITY_PIGEON" -> {
@@ -47212,9 +47268,6 @@ public class BirdGame3 {
             }
             case STORM_PIGEON_SKIN -> {
                 return stormPigeonUnlocked;
-            }
-            case STOCK_PHOTO_EAGLE_SKIN, STOCK_PHOTO_TURKEY_SKIN -> {
-                return true;
             }
             case "SKY_KING_EAGLE" -> {
                 return eagleSkinUnlocked;
@@ -47283,9 +47336,9 @@ public class BirdGame3 {
 
     private String skinHowToGet(String key, BirdType type) {
         if (key == null) return "Card Packs";
+        if (CollectibleUnlock.forKey(key) != null) return "Card Packs";
         switch (key) {
-            case "CITY_PIGEON", PREMIUM_PIGEON_SKIN, OLD_SPARROW_SKIN,
-                    STOCK_PHOTO_EAGLE_SKIN, STOCK_PHOTO_TURKEY_SKIN -> {
+            case "CITY_PIGEON", OLD_SPARROW_SKIN -> {
                 return "Unlocked by default";
             }
             case "NOIR_PIGEON" -> {
@@ -47548,6 +47601,7 @@ public class BirdGame3 {
     }
 
     private String mapHowToGet(MapType map) {
+        if (CollectibleUnlock.forMap(map) != null) return "Card Packs";
         if (map == MapType.DESERT) {
             return "Card Packs";
         }
@@ -48951,6 +49005,8 @@ public class BirdGame3 {
     private void unlockCampaignRecruit(BirdType type) {
         if (type == null) return;
         boolean newlyUnlocked = !isBirdUnlocked(type);
+        CollectibleUnlock collectible = CollectibleUnlock.forBird(type);
+        if (collectible != null) collectibleUnlocks.add(collectible);
         switch (type) {
             case BAT -> batUnlocked = true;
             case FALCON -> falconUnlocked = true;
@@ -80049,8 +80105,12 @@ public class BirdGame3 {
     }
 
     private void loadProfileProgress(Preferences prefs) {
-        birdCoinLedger.load(prefs);
         applyProfileProgressState(BirdGame3ProfileProgressState.load(prefs, profileProgressSchema()));
+        // Load profile ownership before the ledger migrates an empty save by
+        // writing its checksum keys. Otherwise a brand-new slot looks like an
+        // established pre-catalog profile and is incorrectly grandfathered
+        // into all of the former starter content.
+        birdCoinLedger.load(prefs);
         suspendedTournamentRun = TournamentRunState.loadFrom(prefs);
         suspendedSquadStrikeRun = SquadStrikeRunState.loadFrom(prefs);
     }
@@ -80199,6 +80259,8 @@ public class BirdGame3 {
         state.ravenUnlocked = ravenUnlocked;
         state.roadrunnerUnlocked = roadrunnerUnlocked;
         state.roosterUnlocked = roosterUnlocked;
+        state.collectibleUnlocks = EnumSet.copyOf(collectibleUnlocks);
+        state.legacyStarterVariantsUnlocked = legacyStarterVariantsUnlocked;
         state.developerInfiniteBirdCoins = developerInfiniteBirdCoins;
         state.developerBadgePolicyVersion = developerBadgePolicyVersion;
         state.guidedTutorialCompleted = guidedTutorialCompleted;
@@ -80343,6 +80405,9 @@ public class BirdGame3 {
         ravenUnlocked = resolved.ravenUnlocked;
         roadrunnerUnlocked = resolved.roadrunnerUnlocked;
         roosterUnlocked = resolved.roosterUnlocked;
+        collectibleUnlocks.clear();
+        collectibleUnlocks.addAll(resolved.collectibleUnlocks);
+        legacyStarterVariantsUnlocked = resolved.legacyStarterVariantsUnlocked;
         developerInfiniteBirdCoins = resolved.developerInfiniteBirdCoins;
         developerBadgePolicyVersion = resolved.developerBadgePolicyVersion;
         applyDeveloperBirdCoinMode();
