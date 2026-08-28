@@ -43,6 +43,7 @@ import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Slider;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextInputDialog;
+import javafx.scene.control.Tooltip;
 import javafx.scene.control.Alert;
 import javafx.scene.control.ButtonType;
 import javafx.scene.effect.ColorAdjust;
@@ -11427,7 +11428,7 @@ public class BirdGame3 {
         achievementProfile.setRewardClaimed(index, true);
     }
 
-    void setAchievementRewardClaimed(BirdGame3Achievement achievement) {
+    void clearAchievementRewardClaimed(BirdGame3Achievement achievement) {
         achievementProfile.setRewardClaimed(achievement, false);
     }
 
@@ -28838,6 +28839,7 @@ public class BirdGame3 {
     }
 
     private Button buildVaultFighterCard(Stage stage, VaultFighterProgress progress) {
+        String unlockGuide = ContentUnlockGuide.bird(progress.bird());
         Node portrait = progress.fighterUnlocked()
                 ? buildRosterSelectionIcon(progress.bird(), false, 80, false)
                 : buildLockedTileIcon(Color.web("#607D8B"));
@@ -28848,9 +28850,13 @@ public class BirdGame3 {
         name.setTextFill(progress.fighterUnlocked() ? Color.WHITE : Color.web("#78909C"));
         name.setWrapText(true);
         name.setMaxWidth(185);
-        Label access = new Label(progress.fighterUnlocked() ? "FIGHTER UNLOCKED" : "LOCKED FIGHTER");
+        Label access = new Label(progress.fighterUnlocked()
+                ? "FIGHTER UNLOCKED"
+                : "LOCKED  •  " + ContentUnlockGuide.birdShort(progress.bird()));
         access.setFont(Font.font("Consolas", FontWeight.BOLD, 12));
         access.setTextFill(Color.web(progress.fighterUnlocked() ? "#80CBC4" : "#EF9A9A"));
+        access.setWrapText(true);
+        access.setMaxWidth(185);
         VBox identity = new VBox(2, name, access);
         identity.setAlignment(Pos.CENTER_LEFT);
         HBox top = new HBox(10, portrait, identity);
@@ -28881,11 +28887,18 @@ public class BirdGame3 {
         card.setStyle("-fx-background-color: linear-gradient(to bottom right, rgba(28,39,53,0.96), rgba(5,9,14,0.98));"
                 + "-fx-background-radius: 18; -fx-border-color: " + border + "; -fx-border-width: 3;"
                 + "-fx-border-radius: 18; -fx-cursor: hand;");
-        card.setDisable(!progress.fighterUnlocked());
         card.setAccessibleText(progress.bird().name + " Vault record. "
-                + (progress.routeBadgeEarned() ? "Classic badge earned." : "Classic badge not earned."));
+                + (progress.routeBadgeEarned() ? "Classic badge earned. " : "Classic badge not earned. ")
+                + (progress.fighterUnlocked() ? "Fighter unlocked." : unlockGuide));
+        card.setTooltip(new Tooltip(progress.fighterUnlocked()
+                ? "Open " + progress.bird().name + " Classic record"
+                : unlockGuide));
         card.setOnAction(event -> {
             playButtonClick();
+            if (!progress.fighterUnlocked()) {
+                showInfoAlert(stage, "Fighter Locked", "How to unlock " + progress.bird().name, unlockGuide);
+                return;
+            }
             classicSelectedBird = progress.bird();
             showClassicBirdSelect(stage);
         });
@@ -42147,10 +42160,10 @@ public class BirdGame3 {
     }
 
     private int calculateVerifiedBirdCoinsForMatch(Bird winner) {
-        if (trainingModeActive || campaignModeActive) return 0;
+        if (trainingModeActive || campaignModeActive || !profileHumanSideWonMatch(winner)) return 0;
         int playerCount = lanModeActive ? countLanConnected() : activePlayers;
-        int coins = VERIFIED_MATCH_BASE_BIRD_COINS + playerCount * VERIFIED_MATCH_PLAYER_BIRD_COINS;
-        if (winner != null) coins += VERIFIED_MATCH_WIN_BONUS;
+        int coins = VERIFIED_MATCH_BASE_BIRD_COINS + playerCount * VERIFIED_MATCH_PLAYER_BIRD_COINS
+                + VERIFIED_MATCH_WIN_BONUS;
         if (bossRushModeActive && classicModeActive) coins += VERIFIED_BOSS_RUSH_MATCH_BONUS;
         else if (classicModeActive) coins += VERIFIED_CLASSIC_MATCH_BONUS;
         else if (adventureModeActive) coins += VERIFIED_ADVENTURE_MATCH_BONUS;
@@ -47127,6 +47140,7 @@ public class BirdGame3 {
         sidebar.getChildren().clear();
         boolean unlocked = isMapUnlocked(entry.map);
         Color accent = mapAccentColor(entry.map);
+        String variants = mapVariantGuide(entry.map);
         Label name = bookTitle(entry.name, 30);
         FlowPane meta = featherpediaMetaRow(
                 bookStatus(unlocked),
@@ -47136,6 +47150,10 @@ public class BirdGame3 {
         if (!unlocked) {
             sidebar.getChildren().add(featherpediaSection("Unlock Route", accent,
                     featherpediaBody(entry.howToGet, 18)));
+            if (!variants.isBlank()) {
+                sidebar.getChildren().add(featherpediaSection("Stage Variants", accent,
+                        featherpediaBody(variants, 15)));
+            }
             return;
         }
         Canvas preview = new Canvas(360, 200);
@@ -47145,6 +47163,10 @@ public class BirdGame3 {
                 featherpediaSection("Overview", accent, featherpediaBody(entry.description, 18)),
                 featherpediaSection("Unlock Route", accent, featherpediaBody(entry.howToGet, 16))
         );
+        if (!variants.isBlank()) {
+            sidebar.getChildren().add(featherpediaSection("Stage Variants", accent,
+                    featherpediaBody(variants, 15)));
+        }
     }
 
     private StackPane buildBirdBookArt(BirdType type, String skinKey, MapType map) {
@@ -47231,16 +47253,7 @@ public class BirdGame3 {
     }
 
     private String birdHowToGet(BirdType type) {
-        if (type == BirdType.GRINCHHAWK || type == BirdType.VULTURE || type == BirdType.OPIUMBIRD) {
-            return "Recruit in The Still Sky or find in Card Packs";
-        }
-        if (CollectibleUnlock.forBird(type) != null) return "Card Packs";
-        return switch (type) {
-            case FALCON, PHOENIX, ROOSTER, HEISENBIRD, RAVEN, ROADRUNNER -> "Card Packs";
-            case BAT -> "Defeat Vulture in Episode 1 or Card Packs";
-            case TITMOUSE -> "Clear Classic with Hummingbird or Card Packs";
-            default -> "Unlocked by default";
-        };
+        return ContentUnlockGuide.bird(type);
     }
 
     private boolean isSkinUnlocked(String key, BirdType type) {
@@ -47335,44 +47348,7 @@ public class BirdGame3 {
     }
 
     private String skinHowToGet(String key, BirdType type) {
-        if (key == null) return "Card Packs";
-        if (CollectibleUnlock.forKey(key) != null) return "Card Packs";
-        switch (key) {
-            case "CITY_PIGEON", OLD_SPARROW_SKIN -> {
-                return "Unlocked by default";
-            }
-            case "NOIR_PIGEON" -> {
-                return "Complete Pigeon Episode or Classic with Pigeon, or Card Packs";
-            }
-            case FREEMAN_PIGEON_SKIN, SUNFORGE_ROOSTER_SKIN -> {
-                return "Card Packs";
-            }
-            case BEACON_PIGEON_SKIN -> {
-                return "Complete Adventure Chapter 5: Signal of the Beacon";
-            }
-            case STORM_PIGEON_SKIN -> {
-                return "Claim the Rooftop Legacy achievement reward";
-            }
-            case NULL_ROCK_VULTURE_SKIN -> {
-                return "Complete Adventure Chapter 9: Sky of All Wings";
-            }
-            case IRONCLAD_PELICAN_SKIN -> {
-                return "Claim the Iron Tempest achievement reward";
-            }
-            case RESONANCE_BAT_SKIN -> {
-                return "Claim the Echo Sovereign achievement reward";
-            }
-            case "SKY_KING_EAGLE" -> {
-                return "Complete Pelican Episode or Classic with Eagle, or Card Packs";
-            }
-            case ASHEN_SOVEREIGN_PHOENIX_SKIN -> {
-                return "Complete Ashfall Trial";
-            }
-        }
-        if (key.startsWith("CLASSIC_SKIN_")) {
-            return "Complete Classic with " + type.name + " or Card Packs";
-        }
-        return "Card Packs";
+        return ContentUnlockGuide.skin(key, type);
     }
 
     private String skinDescription(String key, BirdType type) {
@@ -47601,45 +47577,17 @@ public class BirdGame3 {
     }
 
     private String mapHowToGet(MapType map) {
-        if (CollectibleUnlock.forMap(map) != null) return "Card Packs";
-        if (map == MapType.DESERT) {
-            return "Card Packs";
+        return ContentUnlockGuide.map(map);
+    }
+
+    private String mapVariantGuide(MapType map) {
+        StringJoiner guide = new StringJoiner("\n\n");
+        for (MapVariant variant : MapVariant.values()) {
+            if (variant == MapVariant.STANDARD || variant.baseMap != map) continue;
+            String state = isMapVariantUnlocked(variant) ? "UNLOCKED" : "LOCKED";
+            guide.add(state + "  •  " + variant.displayName + "\n" + ContentUnlockGuide.variant(variant));
         }
-        if (map == MapType.CAVE) {
-            return "Card Packs";
-        }
-        if (map == MapType.BATTLEFIELD) {
-            return "Card Packs";
-        }
-        if (map == MapType.DOCK) {
-            return "Complete Tempest Run or find it in Card Packs";
-        }
-        if (map == MapType.PRISON) {
-            return "Complete The Still Sky mission Blackout Key or find it in Card Packs";
-        }
-        if (map == MapType.BEACON_CROWN) {
-            return "Complete Adventure Chapter 9: Sky of All Wings";
-        }
-        if (map == MapType.RESONANCE_HALL || map == MapType.SIGNAL_SPIRE
-                || map == MapType.SILENT_AMPHITHEATER) {
-            return "Complete Charles's Classic route: No Voice But His Own";
-        }
-        if (map == MapType.GLASSWIND_CAUSEWAY || map == MapType.WORLDSEAM) {
-            return "Complete Razorbill's Classic route: The Line Between Worlds";
-        }
-        if (map == MapType.MIDNIGHT_WORKSHOP) {
-            return "Complete Grinch-Hawk's Classic route: The Longest Night";
-        }
-        if (map == MapType.CARRION_EXCHANGE) {
-            return "Complete Vulture's Classic route: Nothing Goes to Waste";
-        }
-        if (map == MapType.ONEIRIC_OBSERVATORY) {
-            return "Complete Opium Bird's Classic route: The Twelfth Future";
-        }
-        if (map == MapType.STORMGLASS_REFINERY) {
-            return "Complete Heisenbird's Classic route: The Perfect Product";
-        }
-        return "Unlocked by default";
+        return guide.toString();
     }
 
     private String mapDescription(MapType map) {
@@ -53015,6 +52963,14 @@ public class BirdGame3 {
 
     int incrementBossRushClearCount() {
         return ++bossRushClearCount;
+    }
+
+    int bossRushClearCountForProgression() {
+        return bossRushClearCount;
+    }
+
+    boolean profileProgressionWritesAllowed() {
+        return !replayPlaybackActive && !headlessHarnessMode;
     }
 
     void recordBossRushProfileCompletion(BirdType type, String rank, long elapsedMillis, boolean perfectRouteCompleted) {
@@ -77883,10 +77839,9 @@ public class BirdGame3 {
     }
 
     private int awardBirdCoinsForMatch(Bird winner) {
-        if (trainingModeActive || campaignModeActive) return 0;
+        if (trainingModeActive || campaignModeActive || !profileHumanSideWonMatch(winner)) return 0;
         int playerCount = lanModeActive ? countLanConnected() : activePlayers;
-        int requestedCoins = 30 + playerCount * 10;
-        if (winner != null) requestedCoins += 10;
+        int requestedCoins = 40 + playerCount * 10;
         if (classicModeActive) requestedCoins += 60;
         else if (adventureModeActive) requestedCoins += 40;
         else if (storyModeActive) requestedCoins += 30;
@@ -77907,6 +77862,25 @@ public class BirdGame3 {
         }
         saveAchievements();
         return coins;
+    }
+
+    private boolean profileHumanSideWonMatch(Bird winner) {
+        return winner != null && profileHumanSideWonMatch(winner.playerIndex);
+    }
+
+    boolean profileHumanSideWonMatch(int winnerIndex) {
+        if (!profileProgressionWritesAllowed()) return false;
+        int slotCount = lanModeActive ? LAN_MAX_PLAYERS : activePlayers;
+        if (winnerIndex < 0 || winnerIndex >= slotCount || winnerIndex >= isAI.length) return false;
+        if (!isMatchHistoryTeamMode()) return !isAI[winnerIndex];
+
+        int winningTeam = getEffectiveTeam(winnerIndex);
+        if (winningTeam < 0) return false;
+        for (int i = 0; i < Math.min(slotCount, isAI.length); i++) {
+            if (lanModeActive && players[i] == null && !lanSlotConnected[i]) continue;
+            if (!isAI[i] && getEffectiveTeam(i) == winningTeam) return true;
+        }
+        return false;
     }
 
     private boolean isMatchHistoryTeamMode() {
@@ -81390,7 +81364,7 @@ public class BirdGame3 {
         }) {
             setAchievementUnlocked(achievement, false);
             setAchievementProgressValue(achievement, 0);
-            setAchievementRewardClaimed(achievement);
+            clearAchievementRewardClaimed(achievement);
         }
     }
 

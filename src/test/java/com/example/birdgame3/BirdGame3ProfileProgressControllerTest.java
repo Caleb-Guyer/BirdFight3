@@ -62,6 +62,36 @@ class BirdGame3ProfileProgressControllerTest {
         assertTrue(getPrivateBoolean(game, "ironcladPelicanUnlocked"));
     }
 
+    @Test
+    void replayAndHeadlessCompletionsCannotWriteProfileProgress() throws Exception {
+        BirdGame3 replay = new BirdGame3();
+        replay.replayPlaybackActive = true;
+        BirdGame3ProfileProgressController replayController =
+                new BirdGame3ProfileProgressController(replay, progressionService);
+        int[] replayCallbacks = new int[1];
+
+        replayController.onClassicRunCompleted(BirdGame3.BirdType.HUMMINGBIRD, () -> replayCallbacks[0]++);
+        assertFalse(replayController.onEpisodeCompleted(BirdGame3.BirdType.PIGEON, () -> replayCallbacks[0]++));
+        replayController.onTournamentChampionshipWon(() -> replayCallbacks[0]++);
+        assertEquals(0, replayController.onBossRushCompleted(
+                BirdGame3.BirdType.PIGEON, "S", 1_000L, true, ignored -> replayCallbacks[0]++));
+
+        assertFalse(replay.isClassicCompleted(BirdGame3.BirdType.HUMMINGBIRD));
+        assertFalse(replay.isClassicRewardUnlocked(BirdGame3.BirdType.HUMMINGBIRD));
+        assertFalse(replay.isTitmouseUnlocked());
+        assertFalse(replay.isEpisodeCompletedForBird(BirdGame3.BirdType.PIGEON));
+        assertEquals(0, getPrivateInt(replay, "tournamentChampionshipsWon"));
+        assertEquals(0, replayCallbacks[0]);
+
+        BirdGame3 headless = new BirdGame3();
+        headless.headlessHarnessMode = true;
+        BirdGame3ProfileProgressController headlessController =
+                new BirdGame3ProfileProgressController(headless, progressionService);
+        headlessController.onClassicRunCompleted(BirdGame3.BirdType.HUMMINGBIRD, null);
+        assertFalse(headless.isClassicCompleted(BirdGame3.BirdType.HUMMINGBIRD));
+        assertFalse(headless.isTitmouseUnlocked());
+    }
+
     private boolean getPrivateBoolean(Object target, String fieldName) throws Exception {
         Field field = target.getClass().getDeclaredField(fieldName);
         field.setAccessible(true);

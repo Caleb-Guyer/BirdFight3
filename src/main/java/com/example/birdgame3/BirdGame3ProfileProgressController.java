@@ -54,7 +54,8 @@ final class BirdGame3ProfileProgressController {
     }
 
     void applyAdventureBattleUnlock(BirdGame3.BirdType unlockReward) {
-        if (unlockReward == null || game.isAdventureBirdAvailableForCurrentRoute(unlockReward)) {
+        if (!game.profileProgressionWritesAllowed()
+                || unlockReward == null || game.isAdventureBirdAvailableForCurrentRoute(unlockReward)) {
             return;
         }
         game.unlockAdventureBirdForCurrentRoute(unlockReward);
@@ -67,6 +68,9 @@ final class BirdGame3ProfileProgressController {
                                      boolean beaconPigeonUnlocked, boolean nullRockVultureUnlocked,
                                      boolean beaconCrownMapUnlocked, boolean ironcladPelicanUnlocked,
                                      boolean dockMapUnlocked) {
+        if (!game.profileProgressionWritesAllowed()) {
+            return;
+        }
         BirdGame3ProgressionService.AdventureChapterRewards rewards =
                 progressionService.evaluateAdventureChapterRewards(
                         tempestRoute,
@@ -102,7 +106,7 @@ final class BirdGame3ProfileProgressController {
     }
 
     void onClassicRunCompleted(BirdGame3.BirdType selectedBird, Runnable afterCompletion) {
-        if (selectedBird == null) {
+        if (!game.profileProgressionWritesAllowed() || selectedBird == null) {
             return;
         }
         game.setClassicCompleted(selectedBird);
@@ -118,7 +122,8 @@ final class BirdGame3ProfileProgressController {
     }
 
     boolean onEpisodeCompleted(BirdGame3.BirdType playerType, Runnable afterCompletion) {
-        if (playerType == null || game.isEpisodeCompletedForBird(playerType)) {
+        if (!game.profileProgressionWritesAllowed()
+                || playerType == null || game.isEpisodeCompletedForBird(playerType)) {
             return false;
         }
         game.setEpisodeCompletedForBird(playerType);
@@ -131,6 +136,9 @@ final class BirdGame3ProfileProgressController {
 
     int onBossRushCompleted(BirdGame3.BirdType selectedBird, String rank, long elapsedMillis,
                             boolean perfectRouteCompleted, IntConsumer afterClearCountUpdated) {
+        if (!game.profileProgressionWritesAllowed()) {
+            return game.bossRushClearCountForProgression();
+        }
         int clearCount = game.incrementBossRushClearCount();
         if (afterClearCountUpdated != null) {
             afterClearCountUpdated.accept(clearCount);
@@ -141,6 +149,9 @@ final class BirdGame3ProfileProgressController {
     }
 
     void onTournamentChampionshipWon(Runnable afterIncrement) {
+        if (!game.profileProgressionWritesAllowed()) {
+            return;
+        }
         game.incrementTournamentChampionshipsWon();
         if (afterIncrement != null) {
             afterIncrement.run();

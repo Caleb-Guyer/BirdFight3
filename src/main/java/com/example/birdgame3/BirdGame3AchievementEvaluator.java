@@ -374,7 +374,7 @@ final class BirdGame3AchievementEvaluator {
     private void clearRewardClaimsForLockedAchievements() {
         for (BirdGame3Achievement achievement : BirdGame3Achievement.values()) {
             if (game.achievementProfileState().isRewardClaimed(achievement) && !game.isAchievementUnlocked(achievement)) {
-                game.setAchievementRewardClaimed(achievement);
+                game.clearAchievementRewardClaimed(achievement);
             }
         }
     }
