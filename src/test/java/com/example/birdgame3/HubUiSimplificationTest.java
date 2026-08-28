@@ -25,7 +25,7 @@ class HubUiSimplificationTest {
                 "utilities should remain on the compact side rail");
         assertTrue(hub.contains("HubPresentationModel.IDLE_TITLE"));
         assertTrue(hub.contains("HubPresentationModel.Destination.FIGHT.description()"));
-        assertTrue(hub.contains("buildAdaptivePromptBar("));
+        assertTrue(hub.contains("buildFrontEndJourneyPromptBar(FrontEndMatchFlow.Screen.HUB)"));
         assertTrue(hub.contains("bindFixedFrameScale(scene, frame, 0.0);"));
         assertTrue(hub.contains("buildUltimateHubTipPanel(randomHubTip())"));
         assertEquals(HubPresentationModel.Destination.values().length,

@@ -43,6 +43,24 @@ class UiInputPromptsTest {
     }
 
     @Test
+    void fighterPointerAndReadyPromptsMatchTheActualDeviceControls() {
+        UiInputPrompts.Prompt[] prompts = {
+                UiInputPrompts.prompt(UiInputPrompts.Command.POINTER, "Move cursor"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.POINTER_SELECT, "Pick / release"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.READY, "Ready")
+        };
+
+        assertEquals("MOUSE  MOVE CURSOR   •   LEFT CLICK  PICK / RELEASE   •   ENTER  READY",
+                UiInputPrompts.render(UiInputPrompts.Device.KEYBOARD_MOUSE, prompts));
+        assertEquals("LEFT STICK  MOVE CURSOR   •   A  PICK / RELEASE   •   B / RT  READY",
+                UiInputPrompts.render(UiInputPrompts.Device.GAMEPAD, prompts));
+        assertEquals("D-PAD  MOVE CURSOR   •   1 / 2  PICK / RELEASE   •   SHAKE  READY",
+                UiInputPrompts.render(UiInputPrompts.Device.WIIMOTE_SIDEWAYS, prompts));
+        assertEquals("STICK / D-PAD  MOVE CURSOR   •   A / C  PICK / RELEASE   •   B / TWIST  READY",
+                UiInputPrompts.render(UiInputPrompts.Device.WIIMOTE_NUNCHUK, prompts));
+    }
+
+    @Test
     void gameplayReferenceUsesOneDeviceVocabularyAtATime() {
         assertEquals("B / RT", UiInputPrompts.gameplayBinding(
                 UiInputPrompts.Device.GAMEPAD, UiInputPrompts.GameplayAction.SPECIAL));

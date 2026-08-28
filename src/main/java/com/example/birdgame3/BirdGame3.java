@@ -23,6 +23,7 @@ import javafx.geometry.Pos;
 import javafx.geometry.Point2D;
 import javafx.geometry.Bounds;
 import javafx.scene.Group;
+import javafx.scene.AccessibleRole;
 import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
@@ -2349,6 +2350,8 @@ public class BirdGame3 {
     }
 
     private void setupKeyboardNavigation(Scene scene) {
+        scene.getRoot().applyCss();
+        scene.getRoot().layout();
         fitSceneButtons(scene.getRoot());
         javafx.application.Platform.runLater(() -> {
             Scene targetScene = activeSceneFor(scene);
@@ -3657,15 +3660,16 @@ public class BirdGame3 {
         Font baseFont = (Font) b.getProperties().computeIfAbsent("baseFont", k ->
                 b.getFont() != null ? b.getFont() : Font.font("Arial Black", 30));
         double size = baseFont.getSize();
-        double minSize = Math.min(12, size);
+        double visualFloor = Math.min(12, size);
+        double emergencyFloor = Math.min(6, visualFloor);
         double width = b.getPrefWidth() > 0 ? b.getPrefWidth() : 420;
         double height = b.getPrefHeight() > 0 ? b.getPrefHeight() : 96;
-        double availableW = Math.max(110, width - 40);
-        double availableH = Math.max(40, height - 16);
+        double availableW = Math.max(1, width - 40);
+        double availableH = Math.max(1, height - 16);
 
         List<String> bestLines = List.of(original);
-        double chosen = minSize;
-        while (size > minSize) {
+        double chosen = emergencyFloor;
+        while (size >= emergencyFloor) {
             Font trial = Font.font(baseFont.getFamily(), size);
             List<String> lines = wrapTextToLines(original, trial, availableW);
             double lineH = measureTextHeight(trial) * 1.12;
@@ -3676,13 +3680,13 @@ public class BirdGame3 {
                 chosen = size;
                 break;
             }
-            size -= 2;
+            size -= size > visualFloor ? 2 : 0.5;
         }
 
-        if (size <= minSize) {
-            Font trial = Font.font(baseFont.getFamily(), minSize);
+        if (size < emergencyFloor) {
+            Font trial = Font.font(baseFont.getFamily(), emergencyFloor);
             bestLines = wrapTextToLines(original, trial, availableW);
-            chosen = minSize;
+            chosen = emergencyFloor;
         }
 
         setLockedButtonFont(b, Font.font(baseFont.getFamily(), chosen));
@@ -25903,6 +25907,15 @@ public class BirdGame3 {
         return bar;
     }
 
+    private HBox buildFrontEndJourneyPromptBar(FrontEndMatchFlow.Screen screen) {
+        FrontEndMatchFlow.ScreenGuide guide = FrontEndMatchFlow.guideFor(screen);
+        HBox bar = buildAdaptivePromptBar(guide.prompts().toArray(UiInputPrompts.Prompt[]::new));
+        bar.getProperties().put("frontEndFlowScreen", screen);
+        bar.setAccessibleText(guide.primaryAction()
+                + (guide.backAction().isBlank() ? "" : "; back to " + guide.backAction()));
+        return bar;
+    }
+
     private void bindAdaptivePrompt(Label label, StringProperty verb, UiInputPrompts.Command command) {
         if (label == null || verb == null || command == null) return;
         label.textProperty().bind(Bindings.createStringBinding(() -> {
@@ -25981,17 +25994,23 @@ public class BirdGame3 {
         center.setPadding(new Insets(30, 60, 24, 60));
         frame.setCenter(center);
 
-        Button later = uiFactory.action("NOT NOW", 300, 82, 28, "#37474F", 20, () -> {
-            resolveFirstLaunchTutorialPrompt();
-            showMenu(stage);
-        });
-        Button start = uiFactory.action("START ACADEMY", 420, 82, 28, "#00A84F", 22, () -> {
-            resolveFirstLaunchTutorialPrompt();
-            showGuidedTutorialHub(stage);
-        });
+        Button later = uiFactory.action("NOT NOW", 300, 82, 28, "#37474F", 20,
+                () -> animateFrontEndJourneyExit(frame, true, () -> {
+                    resolveFirstLaunchTutorialPrompt();
+                    showMenu(stage);
+                }));
+        Button start = uiFactory.action("START ACADEMY", 420, 82, 28, "#00A84F", 22,
+                () -> animateFrontEndJourneyExit(frame, false, () -> {
+                    resolveFirstLaunchTutorialPrompt();
+                    showGuidedTutorialHub(stage);
+                }));
+        HBox inputPrompt = buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "CHOOSE"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "CONFIRM"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "NOT NOW"));
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
-        HBox footer = new HBox(22, later, spacer, start);
+        HBox footer = new HBox(22, later, inputPrompt, spacer, start);
         footer.setAlignment(Pos.CENTER);
         footer.setPadding(new Insets(24, 66, 40, 66));
         footer.setStyle("-fx-background-color: rgba(2,5,9,0.92); -fx-border-color: rgba(255,255,255,0.12) transparent transparent transparent; -fx-border-width: 2 0 0 0;");
@@ -26004,7 +26023,10 @@ public class BirdGame3 {
         bindEscape(scene, later::fire);
         bindFixedFrameScale(scene, frame, 0.0);
         setScenePreservingFullscreen(stage, scene);
-        javafx.application.Platform.runLater(start::requestFocus);
+        javafx.application.Platform.runLater(() -> {
+            start.requestFocus();
+            playFrontEndJourneyEntrance(frame);
+        });
     }
 
     private void showVersusRules(Stage stage) {
@@ -26185,24 +26207,26 @@ public class BirdGame3 {
         frame.setCenter(center);
 
         Button backButton = uiFactory.action(networkLobby ? "BACK TO LOBBY" : "BACK",
-                280, 78, 26, "#8B1E24", 19, () -> {
+                280, 78, 26, "#8B1E24", 19,
+                () -> animateFrontEndJourneyExit(frame, true, () -> {
                     if (networkLobby) {
                         showLanLobby(stage);
                     } else {
                         frontEndMatchFlow.back();
-                        animateFightMenuExit(frame, () -> {
-                            if (wildRulesMenuContext) showWildRules(stage);
-                            else showFightMenu(stage);
-                        });
+                        if (wildRulesMenuContext) showWildRules(stage);
+                        else showFightMenu(stage);
                     }
-                });
+                }));
         Button useButton = uiFactory.action(networkLobby ? "USE RULESET" : "CHOOSE FIGHTERS",
                 410, 78, 26, "#00A84F", 19,
-                () -> continueFromVersusRulesSelection(stage, networkLobby));
-        HBox inputPrompt = buildAdaptivePromptBar(
-                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "CHOOSE"),
-                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "SELECT"),
-                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "BACK"));
+                () -> animateFrontEndJourneyExit(frame, false,
+                        () -> continueFromVersusRulesSelection(stage, networkLobby)));
+        HBox inputPrompt = networkLobby
+                ? buildAdaptivePromptBar(
+                        UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "CHOOSE"),
+                        UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "SELECT"),
+                        UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "BACK"))
+                : buildFrontEndJourneyPromptBar(FrontEndMatchFlow.Screen.RULES);
         Region footerSpacer = new Region();
         HBox.setHgrow(footerSpacer, Priority.ALWAYS);
         HBox footer = new HBox(22, backButton, inputPrompt, footerSpacer, useButton);
@@ -26226,6 +26250,7 @@ public class BirdGame3 {
                 (index >= 0 ? presetButtons.get(index) : createRuleset).requestFocus();
             }
             setConsoleHighlightActive(true, scene);
+            playFrontEndJourneyEntrance(frame);
         });
     }
 
@@ -30134,10 +30159,7 @@ public class BirdGame3 {
         helpBody.setMaxWidth(860);
         applyNoEllipsis(helpBody);
 
-        HBox footerPrompts = buildAdaptivePromptBar(
-                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "NAVIGATE"),
-                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "SELECT"),
-                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "TITLE"));
+        HBox footerPrompts = buildFrontEndJourneyPromptBar(FrontEndMatchFlow.Screen.HUB);
 
         List<Node> hubButtons = new ArrayList<>();
         final double hubMainTop = 112.0;
@@ -32934,8 +32956,10 @@ public class BirdGame3 {
         root.getChildren().add(content);
 
         Button back = uiFactory.action("BACK", 156, 56, 22, "#B5121B", 16, () -> {
-            frontEndMatchFlow.back();
-            showVersusRules(stage);
+            animateFrontEndJourneyExit(content, true, () -> {
+                frontEndMatchFlow.back();
+                showVersusRules(stage);
+            });
         });
         back.setStyle("-fx-background-color: linear-gradient(to bottom, #D61D28, #981019); "
                 + "-fx-text-fill: white; -fx-font-family: 'Arial Black'; -fx-font-size: 17px; "
@@ -33122,12 +33146,14 @@ public class BirdGame3 {
         Runnable[] syncTeamButtons = new Runnable[4];
 
         Runnable startBattle = () -> {
-            frontEndMatchFlow.confirmFighters(true);
-            stageSelectReturn = () -> {
-                frontEndMatchFlow.showFighters();
-                showFightSetup(stage);
-            };
-            showStageSelect(stage);
+            animateFrontEndJourneyExit(content, false, () -> {
+                frontEndMatchFlow.confirmFighters(true);
+                stageSelectReturn = () -> {
+                    frontEndMatchFlow.showFighters();
+                    showFightSetup(stage);
+                };
+                showStageSelect(stage);
+            });
         };
         Label readyText = new Label("READY TO FIGHT!");
         readyText.setFont(Font.font("Arial Black", FontWeight.BOLD, 20));
@@ -33136,6 +33162,9 @@ public class BirdGame3 {
 
         StackPane readyBanner = new StackPane(readyText);
         readyBanner.setMouseTransparent(false);
+        readyBanner.setFocusTraversable(true);
+        readyBanner.setAccessibleRole(AccessibleRole.BUTTON);
+        readyBanner.setAccessibleText("Ready; choose the stage");
         readyBanner.setPrefSize(292, 64);
         readyBanner.setMinSize(292, 64);
         readyBanner.setMaxSize(292, 64);
@@ -33198,6 +33227,7 @@ public class BirdGame3 {
         Runnable updateReadyBanner = () -> {
             boolean allReady = fightSetupSelection.allReady(activePlayers);
             readyBanner.setStyle(allReady ? readyBannerEnabledStyle : readyBannerDisabledStyle);
+            readyText.setText(allReady ? "READY TO FIGHT!" : "CHOOSE FIGHTERS");
             readyText.setTextFill(allReady ? Color.web("#08090B") : Color.web("#94A3AF"));
             readyBanner.setCursor(allReady ? Cursor.HAND : Cursor.DEFAULT);
             if (allReady && !lastAllReady[0]) {
@@ -33650,10 +33680,7 @@ public class BirdGame3 {
 
         refreshLayout.run();
 
-        HBox rosterPrompt = buildAdaptivePromptBar(
-                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "MOVE CURSOR"),
-                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "PICK / READY"),
-                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "RELEASE"));
+        HBox rosterPrompt = buildFrontEndJourneyPromptBar(FrontEndMatchFlow.Screen.FIGHTERS);
 
         VBox rosterCard = new VBox(selectionPane);
         rosterCard.setPadding(new Insets(12));
@@ -33694,6 +33721,9 @@ public class BirdGame3 {
             startBattle.run();
             return true;
         };
+        readyBanner.getProperties().put("uiAction", (Runnable) () -> {
+            if (fightSetupSelection.allReady(activePlayers)) startBattle.run();
+        });
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         scene.setFill(Color.web("#06070A"));
@@ -33745,7 +33775,10 @@ public class BirdGame3 {
         applyConsoleHighlight(scene);
         bindFixedFrameScale(scene, content);
         setScenePreservingFullscreen(stage, scene);
-        back.requestFocus();
+        javafx.application.Platform.runLater(() -> {
+            readyBanner.requestFocus();
+            playFrontEndJourneyEntrance(content);
+        });
     }
 
     private static StackPane getStackPane(String accentHex, VBox slot) {
@@ -35097,6 +35130,48 @@ public class BirdGame3 {
         ParallelTransition exit = new ParallelTransition(fade, slide);
         exit.setOnFinished(event -> destination.run());
         frame.getProperties().put("fightMenuTransition", exit);
+        exit.play();
+    }
+
+    private void playFrontEndJourneyEntrance(Node frame) {
+        if (frame == null || Boolean.TRUE.equals(frame.getProperties().get("frontEndJourneyExitRunning"))) return;
+        Object old = frame.getProperties().remove("frontEndJourneyTransition");
+        if (old instanceof Animation animation) animation.stop();
+
+        frame.setOpacity(0.0);
+        frame.setTranslateX(42.0);
+        FadeTransition fade = new FadeTransition(Duration.millis(190), frame);
+        fade.setFromValue(0.0);
+        fade.setToValue(1.0);
+        TranslateTransition slide = new TranslateTransition(Duration.millis(250), frame);
+        slide.setFromX(42.0);
+        slide.setToX(0.0);
+        slide.setInterpolator(javafx.animation.Interpolator.EASE_OUT);
+        ParallelTransition entrance = new ParallelTransition(fade, slide);
+        entrance.setOnFinished(event -> frame.getProperties().remove("frontEndJourneyTransition"));
+        frame.getProperties().put("frontEndJourneyTransition", entrance);
+        entrance.play();
+    }
+
+    private void animateFrontEndJourneyExit(Node frame, boolean back, Runnable destination) {
+        if (destination == null) return;
+        if (frame == null || frame.getScene() == null) {
+            destination.run();
+            return;
+        }
+        if (Boolean.TRUE.equals(frame.getProperties().get("frontEndJourneyExitRunning"))) return;
+        frame.getProperties().put("frontEndJourneyExitRunning", Boolean.TRUE);
+        Object old = frame.getProperties().remove("frontEndJourneyTransition");
+        if (old instanceof Animation animation) animation.stop();
+
+        FadeTransition fade = new FadeTransition(Duration.millis(150), frame);
+        fade.setToValue(0.0);
+        TranslateTransition slide = new TranslateTransition(Duration.millis(190), frame);
+        slide.setToX(back ? 58.0 : -58.0);
+        slide.setInterpolator(javafx.animation.Interpolator.EASE_IN);
+        ParallelTransition exit = new ParallelTransition(fade, slide);
+        exit.setOnFinished(event -> destination.run());
+        frame.getProperties().put("frontEndJourneyTransition", exit);
         exit.play();
     }
 
@@ -67688,7 +67763,7 @@ public class BirdGame3 {
         root.setStyle("-fx-background-color: "
                 + "linear-gradient(from 0% 0% to 100% 100%, #05070D 0%, #101827 58%, #250B18 100%);");
 
-        Runnable backAction = () -> {
+        Runnable navigateBack = () -> {
             Runnable target = stageSelectReturn;
             stageSelectReturn = null;
             stageSelectHandler = null;
@@ -67699,6 +67774,7 @@ public class BirdGame3 {
                 showMenu(stage);
             }
         };
+        Runnable backAction = () -> animateFrontEndJourneyExit(root, true, navigateBack);
         Button backArrow = uiFactory.action("\u2190", 92, StageSelectLayout.TOP_BAR_HEIGHT, 48,
                 "#C3172C", 20, backAction);
 
@@ -67824,13 +67900,15 @@ public class BirdGame3 {
 
         List<Button> stageTiles = new ArrayList<>();
         Button randomTile = buildStageSelectTile(null, true,
-                () -> selectRandom.accept(randomPoolForScreen), showRandomPreview);
+                () -> animateFrontEndJourneyExit(root, false,
+                        () -> selectRandom.accept(randomPoolForScreen)), showRandomPreview);
         stageTiles.add(randomTile);
         stageGrid.add(randomTile, 0, 0);
         for (int i = 0; i < stages.size(); i++) {
             StageChoice choice = stages.get(i);
             Button tile = buildStageSelectTile(choice, false,
-                    () -> selectStage.accept(choice), () -> showPreview.accept(choice));
+                    () -> animateFrontEndJourneyExit(root, false,
+                            () -> selectStage.accept(choice)), () -> showPreview.accept(choice));
             stageTiles.add(tile);
             int gridIndex = i + 1;
             stageGrid.add(tile, gridIndex % StageSelectLayout.GRID_COLUMNS,
@@ -67850,10 +67928,12 @@ public class BirdGame3 {
         content.setPrefHeight(StageSelectLayout.PREVIEW_HEIGHT);
         content.setMaxHeight(StageSelectLayout.PREVIEW_HEIGHT);
 
-        HBox footer = buildAdaptivePromptBar(
-                UiInputPrompts.prompt(UiInputPrompts.Command.PREVIEW, "PREVIEW"),
-                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "SELECT"),
-                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "BACK"));
+        HBox footer = localVersusFlow
+                ? buildFrontEndJourneyPromptBar(FrontEndMatchFlow.Screen.STAGES)
+                : buildAdaptivePromptBar(
+                        UiInputPrompts.prompt(UiInputPrompts.Command.PREVIEW, "PREVIEW"),
+                        UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "SELECT"),
+                        UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "BACK"));
         footer.setAlignment(Pos.CENTER);
         footer.setMaxWidth(Double.MAX_VALUE);
         footer.setMinHeight(StageSelectLayout.FOOTER_HEIGHT);
@@ -67871,7 +67951,10 @@ public class BirdGame3 {
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
         setScenePreservingFullscreen(stage, scene);
-        javafx.application.Platform.runLater(randomTile::requestFocus);
+        javafx.application.Platform.runLater(() -> {
+            randomTile.requestFocus();
+            playFrontEndJourneyEntrance(root);
+        });
     }
 
     private Label stageSelectPreviewLabel(String text, double size, String color) {
@@ -68225,35 +68308,36 @@ public class BirdGame3 {
         AnchorPane.setLeftAnchor(fighters, 68.0);
         AnchorPane.setTopAnchor(fighters, 300.0);
 
-        Label loadingHint = new Label("REVIEW THE FIGHTERS, STAGE, AND RULES BEFORE STARTING");
-        loadingHint.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
-        loadingHint.setTextFill(Color.web("#B0BEC5"));
-        applyNoEllipsis(loadingHint);
-        AnchorPane.setLeftAnchor(loadingHint, 70.0);
-        AnchorPane.setBottomAnchor(loadingHint, 64.0);
+        HBox loadingPrompt = buildFrontEndJourneyPromptBar(FrontEndMatchFlow.Screen.LOADING);
+        loadingPrompt.setPrefWidth(620);
+        loadingPrompt.setMaxWidth(620);
+        AnchorPane.setLeftAnchor(loadingPrompt, 490.0);
+        AnchorPane.setBottomAnchor(loadingPrompt, 68.0);
 
         Button backButton = uiFactory.action("BACK TO STAGES", 320, 76, 24, "#8B1E24", 18, () -> {
-            frontEndMatchFlow.back();
-            stageSelectReturn = () -> {
-                frontEndMatchFlow.showFighters();
-                showFightSetup(stage);
-            };
-            showStageSelect(stage);
+            animateFrontEndJourneyExit(frame, true, () -> {
+                frontEndMatchFlow.back();
+                stageSelectReturn = () -> {
+                    frontEndMatchFlow.showFighters();
+                    showFightSetup(stage);
+                };
+                showStageSelect(stage);
+            });
         });
         AnchorPane.setLeftAnchor(backButton, 68.0);
         AnchorPane.setBottomAnchor(backButton, 54.0);
         Button launchButton = uiFactory.action("START BATTLE", 390, 76, 24, "#00A84F", 20, () -> {
             if (frontEndMatchFlow.screen() != FrontEndMatchFlow.Screen.LOADING) return;
-            frontEndMatchFlow.beginBattle();
-            startMatch(stage);
+            animateFrontEndJourneyExit(frame, false, () -> {
+                frontEndMatchFlow.beginBattle();
+                startMatch(stage);
+            });
         });
         AnchorPane.setRightAnchor(launchButton, 68.0);
         AnchorPane.setBottomAnchor(launchButton, 54.0);
-        AnchorPane.setLeftAnchor(loadingHint, 450.0);
-        AnchorPane.setBottomAnchor(loadingHint, 78.0);
 
         frame.getChildren().addAll(slash, ready, rules, fighters, previewFrame, stageLabel,
-                loadingHint, backButton, launchButton);
+                loadingPrompt, backButton, launchButton);
         root.getChildren().add(frame);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
@@ -68262,7 +68346,10 @@ public class BirdGame3 {
         bindEscape(scene, backButton::fire);
         bindFixedFrameScale(scene, frame, 0.0);
         setScenePreservingFullscreen(stage, scene);
-        javafx.application.Platform.runLater(launchButton::requestFocus);
+        javafx.application.Platform.runLater(() -> {
+            launchButton.requestFocus();
+            playFrontEndJourneyEntrance(frame);
+        });
     }
 
     private void beginTrainingMatchOnMap(Stage stage, MapType map) {
@@ -78145,11 +78232,33 @@ public class BirdGame3 {
         HBox buttons = buildSummaryButtons(stage, winner);
         buttons.setOpacity(0.0);
         buttons.setTranslateY(80);
-        StackPane buttonDock = new StackPane(buttons);
-        lockRegionSize(buttonDock, WIDTH, 132);
+        VBox dockContent = new VBox(8, buttons);
+        dockContent.setAlignment(Pos.CENTER);
+        boolean localResults = buttons.getProperties().get("summaryEscapeButton") instanceof Button;
+        if (!buttons.getChildren().isEmpty() && buttons.getChildren().getFirst() instanceof Button) {
+            HBox resultsPrompt = localResults
+                    ? buildFrontEndJourneyPromptBar(FrontEndMatchFlow.Screen.RESULTS)
+                    : buildAdaptivePromptBar(
+                            UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "CHOOSE ACTION"),
+                            UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "CONFIRM"));
+            resultsPrompt.setMaxWidth(780);
+            resultsPrompt.opacityProperty().bind(buttons.opacityProperty());
+            dockContent.getChildren().add(resultsPrompt);
+        }
+        StackPane buttonDock = new StackPane(dockContent);
+        lockRegionSize(buttonDock, WIDTH, 174);
         buttonDock.setLayoutX(0);
-        buttonDock.setLayoutY(930);
+        buttonDock.setLayoutY(888);
         buttonDock.setAlignment(Pos.CENTER);
+        if (localResults) {
+            for (Node child : buttons.getChildren()) {
+                if (!(child instanceof Button actionButton) || actionButton.getOnAction() == null) continue;
+                EventHandler<ActionEvent> action = actionButton.getOnAction();
+                boolean back = "HUB".equals(actionButton.getText());
+                actionButton.setOnAction(event -> animateFrontEndJourneyExit(frame, back,
+                        () -> action.handle(new ActionEvent(actionButton, actionButton))));
+            }
+        }
         stageLayer.getChildren().add(buttonDock);
 
         // JavaFX's Direct3D pipeline can lose the render texture backing a large

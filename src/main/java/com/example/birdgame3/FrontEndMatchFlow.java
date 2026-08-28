@@ -1,5 +1,6 @@
 package com.example.birdgame3;
 
+import java.util.List;
 import java.util.Objects;
 
 /** Headless state machine for the local-versus front-end journey. */
@@ -13,6 +14,16 @@ final class FrontEndMatchFlow {
         LOADING,
         BATTLE,
         RESULTS
+    }
+
+    record ScreenGuide(String breadcrumb, String primaryAction, String backAction,
+                       List<UiInputPrompts.Prompt> prompts) {
+        ScreenGuide {
+            breadcrumb = breadcrumb == null ? "" : breadcrumb;
+            primaryAction = primaryAction == null ? "" : primaryAction;
+            backAction = backAction == null ? "" : backAction;
+            prompts = prompts == null ? List.of() : List.copyOf(prompts);
+        }
     }
 
     private Screen screen = Screen.TITLE;
@@ -104,7 +115,12 @@ final class FrontEndMatchFlow {
     }
 
     Screen back() {
-        screen = switch (screen) {
+        screen = backTarget();
+        return screen;
+    }
+
+    Screen backTarget() {
+        return switch (screen) {
             case RULES -> Screen.HUB;
             case FIGHTERS -> Screen.RULES;
             case STAGES -> Screen.FIGHTERS;
@@ -113,14 +129,69 @@ final class FrontEndMatchFlow {
             case LOADING -> Screen.STAGES;
             case BATTLE -> screen;
         };
-        return screen;
+    }
+
+    boolean canGoBack() {
+        return backTarget() != screen;
+    }
+
+    ScreenGuide guide() {
+        return guideFor(screen);
+    }
+
+    static ScreenGuide guideFor(Screen screen) {
+        Objects.requireNonNull(screen, "screen");
+        return switch (screen) {
+            case TITLE -> guide("BIRD FIGHT 3", "START", "EXIT",
+                    prompt(UiInputPrompts.Command.START, "START"),
+                    prompt(UiInputPrompts.Command.BACK, "EXIT"),
+                    prompt(UiInputPrompts.Command.FULLSCREEN, "FULLSCREEN"));
+            case HUB -> guide("BIRD FIGHT 3", "SELECT MODE", "TITLE",
+                    prompt(UiInputPrompts.Command.MOVE, "CHOOSE"),
+                    prompt(UiInputPrompts.Command.SELECT, "SELECT"),
+                    prompt(UiInputPrompts.Command.BACK, "TITLE"));
+            case RULES -> guide("1  RULES   ›   2  FIGHTERS   ›   3  STAGE",
+                    "CHOOSE FIGHTERS", "FIGHT MENU",
+                    prompt(UiInputPrompts.Command.MOVE, "CHOOSE"),
+                    prompt(UiInputPrompts.Command.SELECT, "SELECT"),
+                    prompt(UiInputPrompts.Command.BACK, "BACK"));
+            case FIGHTERS -> guide("1  RULES   ›   2  FIGHTERS   ›   3  STAGE",
+                    "CHOOSE STAGE", "RULESETS",
+                    prompt(UiInputPrompts.Command.POINTER, "MOVE CURSOR"),
+                    prompt(UiInputPrompts.Command.POINTER_SELECT, "PICK / RELEASE"),
+                    prompt(UiInputPrompts.Command.READY, "READY"),
+                    prompt(UiInputPrompts.Command.BACK, "RULESETS"));
+            case STAGES -> guide("1  RULES   ›   2  FIGHTERS   ›   3  STAGE",
+                    "CONFIRM BATTLE", "FIGHTERS",
+                    prompt(UiInputPrompts.Command.PREVIEW, "PREVIEW"),
+                    prompt(UiInputPrompts.Command.SELECT, "SELECT"),
+                    prompt(UiInputPrompts.Command.BACK, "FIGHTERS"));
+            case LOADING -> guide("BATTLE READY", "START BATTLE", "STAGES",
+                    prompt(UiInputPrompts.Command.SELECT, "START BATTLE"),
+                    prompt(UiInputPrompts.Command.BACK, "STAGES"));
+            case BATTLE -> guide("BATTLE", "FIGHT", "",
+                    prompt(UiInputPrompts.Command.PAUSE, "PAUSE"));
+            case RESULTS -> guide("RESULTS", "REMATCH", "HUB",
+                    prompt(UiInputPrompts.Command.MOVE, "CHOOSE ACTION"),
+                    prompt(UiInputPrompts.Command.SELECT, "CONFIRM"),
+                    prompt(UiInputPrompts.Command.BACK, "HUB"));
+        };
+    }
+
+    private static ScreenGuide guide(String breadcrumb, String primaryAction, String backAction,
+                                     UiInputPrompts.Prompt... prompts) {
+        return new ScreenGuide(breadcrumb, primaryAction, backAction,
+                prompts == null ? List.of() : List.of(prompts));
+    }
+
+    private static UiInputPrompts.Prompt prompt(UiInputPrompts.Command command, String verb) {
+        return UiInputPrompts.prompt(command, verb);
     }
 
     String progressLabel() {
         return switch (screen) {
-            case RULES -> "1  RULES   ›   2  FIGHTERS   ›   3  STAGE";
-            case FIGHTERS -> "1  RULES   ›   2  FIGHTERS   ›   3  STAGE";
-            case STAGES, LOADING -> "1  RULES   ›   2  FIGHTERS   ›   3  STAGE";
+            case RULES, FIGHTERS, STAGES -> guide().breadcrumb();
+            case LOADING -> "1  RULES   ›   2  FIGHTERS   ›   3  STAGE";
             default -> "";
         };
     }

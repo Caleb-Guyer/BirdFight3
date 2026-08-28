@@ -20,7 +20,8 @@ class InputAwareUiIntegrationTest {
         assertTrue(title.contains("bindTitleCardAdvance(scene, startButton)"));
         assertFalse(title.contains("buildAdaptivePromptBar("),
                 "the device-neutral title prompt should stay visually minimal");
-        assertTrue(methodBody(source, "showHub").contains("buildAdaptivePromptBar("));
+        assertTrue(methodBody(source, "showHub")
+                .contains("buildFrontEndJourneyPromptBar(FrontEndMatchFlow.Screen.HUB)"));
         assertTrue(methodBody(source, "showClassicMoreMenu").contains("buildAdaptivePromptBar("));
         assertTrue(methodBody(source, "showStageSelect").contains("buildAdaptivePromptBar("));
         assertTrue(methodBody(source, "showMainSettings").contains("buildAdaptivePromptBar("));

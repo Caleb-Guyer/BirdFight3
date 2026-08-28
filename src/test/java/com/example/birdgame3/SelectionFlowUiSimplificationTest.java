@@ -27,7 +27,10 @@ class SelectionFlowUiSimplificationTest {
         assertTrue(method.contains("skinButtons[idx].setManaged(skinChoiceAvailable)"));
         assertTrue(method.contains("inputBtn.setVisible(active && !cpu)"));
         assertTrue(method.contains("inputBtn.setManaged(active && !cpu)"));
-        assertTrue(method.contains("buildAdaptivePromptBar("));
+        assertTrue(method.contains("buildFrontEndJourneyPromptBar(FrontEndMatchFlow.Screen.FIGHTERS)"));
+        assertTrue(method.contains("readyBanner.requestFocus()"),
+                "initial confirm input must target the real ready action instead of Back");
+        assertTrue(method.contains("readyBanner.getProperties().put(\"uiAction\""));
         assertTrue(method.contains("bindFixedFrameScale(scene, content)"));
     }
 

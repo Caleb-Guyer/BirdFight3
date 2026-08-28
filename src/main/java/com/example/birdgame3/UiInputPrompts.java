@@ -36,8 +36,11 @@ final class UiInputPrompts {
     enum Command {
         MOVE,
         PREVIEW,
+        POINTER,
+        POINTER_SELECT,
         SELECT,
         START,
+        READY,
         BACK,
         PAUSE,
         FULLSCREEN
@@ -90,27 +93,39 @@ final class UiInputPrompts {
             case KEYBOARD_MOUSE -> switch (command) {
                 case MOVE -> "WASD / ARROWS";
                 case PREVIEW -> "MOUSE / ARROWS";
+                case POINTER -> "MOUSE";
+                case POINTER_SELECT -> "LEFT CLICK";
                 case SELECT, START -> "ENTER";
+                case READY -> "ENTER";
                 case BACK, PAUSE -> "ESC";
                 case FULLSCREEN -> "F11";
             };
             case GAMEPAD -> switch (command) {
                 case MOVE, PREVIEW -> "LEFT STICK / D-PAD";
+                case POINTER -> "LEFT STICK";
+                case POINTER_SELECT -> "A";
                 case SELECT, START -> "A";
+                case READY -> "B / RT";
                 case BACK -> "B";
                 case PAUSE -> "MENU";
                 case FULLSCREEN -> "";
             };
             case WIIMOTE_SIDEWAYS -> switch (command) {
                 case MOVE, PREVIEW -> "D-PAD";
+                case POINTER -> "D-PAD";
+                case POINTER_SELECT -> "1 / 2";
                 case SELECT, START -> "1 / 2";
+                case READY -> "SHAKE";
                 case BACK -> "B / −";
                 case PAUSE -> "HOME";
                 case FULLSCREEN -> "";
             };
             case WIIMOTE_NUNCHUK -> switch (command) {
                 case MOVE, PREVIEW -> "STICK / D-PAD";
+                case POINTER -> "STICK / D-PAD";
+                case POINTER_SELECT -> "A / C";
                 case SELECT, START -> "A / C";
+                case READY -> "B / TWIST";
                 case BACK -> "B / Z";
                 case PAUSE -> "HOME";
                 case FULLSCREEN -> "";

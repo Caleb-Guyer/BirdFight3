@@ -62,7 +62,12 @@ class VersusFrontEndIntegrationTest {
         assertTrue(source.contains("GridPane advancedOptions = new GridPane();"));
         assertTrue(source.contains("CORE RULES · EVERYTHING NEEDED TO START"));
         assertTrue(source.contains("FightSetupInputPresentation.resolve("));
-        assertTrue(source.contains("UiInputPrompts.Command.SELECT, \"PICK / READY\""));
+        assertTrue(source.contains("buildFrontEndJourneyPromptBar(FrontEndMatchFlow.Screen.FIGHTERS)"));
+        String flowSource = Files.readString(Path.of(
+                "src", "main", "java", "com", "example", "birdgame3", "FrontEndMatchFlow.java"));
+        assertTrue(flowSource.contains("UiInputPrompts.Command.POINTER, \"MOVE CURSOR\""));
+        assertTrue(flowSource.contains("UiInputPrompts.Command.POINTER_SELECT, \"PICK / RELEASE\""));
+        assertTrue(flowSource.contains("UiInputPrompts.Command.READY, \"READY\""));
         assertFalse(source.contains("INPUT: KEYBOARD"),
                 "fighter slots should name the active device instead of assuming keyboard");
         assertFalse(source.contains("SPECIALS REVEALED AT START"),
