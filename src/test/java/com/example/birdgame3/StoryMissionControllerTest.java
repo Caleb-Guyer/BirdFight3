@@ -203,6 +203,29 @@ class StoryMissionControllerTest {
     }
 
     @Test
+    void stolenWinterAdvancesWhenGrinchHawkFallsBeforeTheGlacierShelf() {
+        StoryCampaign.Mission mission = StoryCampaignContent.create().mission("stolen_winter");
+        StoryMissionController controller = new StoryMissionController(
+                mission, StoryCampaign.Difficulty.NORMAL, 6000, 1);
+        StoryMissionController.Participant player =
+                new StoryMissionController.Participant(0, 1, 3000, 124, 100);
+        StoryMissionController.Participant defeatedGrinchHawk =
+                new StoryMissionController.Participant(1, 2, 3900, 0, 320);
+        List<StoryMissionController.Participant> clearedRoster =
+                List.of(player, defeatedGrinchHawk);
+
+        assertEquals(StoryCampaign.ObjectiveType.REACH_EXIT,
+                controller.currentPhase().objective());
+        assertEquals(StoryMissionController.Outcome.PHASE_ADVANCED,
+                controller.tick(clearedRoster).outcome());
+        assertEquals(StoryCampaign.ObjectiveType.ELIMINATION,
+                controller.currentPhase().objective());
+        assertEquals(StoryMissionController.Outcome.COMPLETE,
+                controller.tick(clearedRoster).outcome());
+        assertTrue(controller.complete());
+    }
+
+    @Test
     void timedCombatPhaseDoesNotEarlyClearBeforeAnyEnemyHasSpawned() {
         StoryMissionController.Participant player =
                 new StoryMissionController.Participant(0, 1, 3000, 100, 100);

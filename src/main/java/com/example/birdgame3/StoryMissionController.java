@@ -330,10 +330,24 @@ final class StoryMissionController {
                         && Math.abs(p.x() - exit.x()) <= 145.0
                         && Math.abs(p.y() - (exit.surfaceY() - CAPTURE_ZONE_CENTER_Y_OFFSET))
                         <= CAPTURE_ZONE_VERTICAL_RADIUS);
-        if (!reached && phase.targetTicks() > 0 && phaseTicks > scaledTargetTicks(phase)) {
+        boolean chaseTargetDefeated = nextPhaseIsCombat()
+                && allHostilesDefeated(roster);
+        if (!reached && !chaseTargetDefeated
+                && phase.targetTicks() > 0 && phaseTicks > scaledTargetTicks(phase)) {
             failed = true;
         }
-        return reached;
+        return reached || chaseTargetDefeated;
+    }
+
+    private boolean nextPhaseIsCombat() {
+        int nextPhaseIndex = phaseIndex + 1;
+        if (nextPhaseIndex >= mission.phases().size()) {
+            return false;
+        }
+        return switch (mission.phases().get(nextPhaseIndex).objective()) {
+            case ELIMINATION, GAUNTLET, BOSS_PHASES -> true;
+            default -> false;
+        };
     }
 
     private boolean tickBossPhase(StoryCampaign.MissionPhase phase, List<Participant> roster) {
