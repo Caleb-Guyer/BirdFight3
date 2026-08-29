@@ -595,7 +595,7 @@ final class StoryCampaignContent {
                 fighters(enemy(OPIUMBIRD, "Haze Keeper"), enemy(RAVEN, "Ledger Shadow")),
                 phases(
                         phase(PROTECT, "Protect the sabotage ledger", 42, 1, true),
-                        phase(CAPTURE, "Decode the Crown routes", 36, 3, true)
+                        eliminate("Defeat the ledger guards")
                 ),
                 "s49_terms_dark", "s50_vulture_truth", null, false);
     }

@@ -180,6 +180,29 @@ class StoryMissionControllerTest {
     }
 
     @Test
+    void termsInDarkCompletesAfterBothLedgerGuardsAreDefeated() {
+        StoryCampaign.Mission mission = StoryCampaignContent.create().mission("terms_in_dark");
+        StoryMissionController controller = new StoryMissionController(
+                mission, StoryCampaign.Difficulty.NORMAL, 6000);
+        StoryMissionController.Participant player =
+                new StoryMissionController.Participant(0, 1, 3000, 100, 100);
+        StoryMissionController.Participant hazeKeeper =
+                new StoryMissionController.Participant(1, 2, 3900, 0, 100);
+        StoryMissionController.Participant ledgerShadow =
+                new StoryMissionController.Participant(2, 2, 4500, 0, 100);
+        List<StoryMissionController.Participant> clearedRoster =
+                List.of(player, hazeKeeper, ledgerShadow);
+
+        assertEquals(StoryMissionController.Outcome.PHASE_ADVANCED,
+                controller.tick(clearedRoster).outcome());
+        assertEquals(StoryCampaign.ObjectiveType.ELIMINATION,
+                controller.currentPhase().objective());
+        assertEquals(StoryMissionController.Outcome.COMPLETE,
+                controller.tick(clearedRoster).outcome());
+        assertTrue(controller.complete());
+    }
+
+    @Test
     void timedCombatPhaseDoesNotEarlyClearBeforeAnyEnemyHasSpawned() {
         StoryMissionController.Participant player =
                 new StoryMissionController.Participant(0, 1, 3000, 100, 100);
