@@ -78405,7 +78405,7 @@ public class BirdGame3 {
         if (node == null) return;
         node.setEffect(null);
         String inlineStyle = node.getStyle();
-        if (inlineStyle != null && !inlineStyle.isBlank()) {
+        if (inlineStyle != null && !inlineStyle.isBlank() && !node.styleProperty().isBound()) {
             node.setStyle(inlineStyle.replaceAll("(?i)-fx-effect\\s*:[^;]*;?", ""));
         }
         if (node instanceof Parent parent) {

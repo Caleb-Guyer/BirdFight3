@@ -1,19 +1,31 @@
 package com.example.birdgame3;
 
+import javafx.application.Platform;
+import javafx.animation.PauseTransition;
+import javafx.beans.property.SimpleStringProperty;
 import javafx.scene.Group;
 import javafx.scene.Node;
 import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.layout.StackPane;
 import javafx.scene.shape.Rectangle;
+import javafx.stage.Stage;
+import javafx.util.Duration;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.prefs.Preferences;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -52,7 +64,11 @@ class MatchSummaryPresentationTest {
     void cinematicSummaryEffectCleanupIncludesNestedNodes() {
         Rectangle nested = new Rectangle(120.0, 40.0);
         nested.setEffect(new DropShadow());
-        Group inner = new Group(nested);
+        Rectangle boundStyle = new Rectangle(80.0, 30.0);
+        boundStyle.setEffect(new DropShadow());
+        SimpleStringProperty liveStyle = new SimpleStringProperty("-fx-fill: blue;");
+        boundStyle.styleProperty().bind(liveStyle);
+        Group inner = new Group(nested, boundStyle);
         inner.setEffect(new DropShadow());
         Group root = new Group(inner);
         root.setEffect(new DropShadow());
@@ -63,7 +79,11 @@ class MatchSummaryPresentationTest {
         assertNull(root.getEffect());
         assertNull(inner.getEffect());
         assertNull(nested.getEffect());
+        assertNull(boundStyle.getEffect());
         assertFalse(nested.getStyle().contains("-fx-effect"));
+        assertTrue(boundStyle.styleProperty().isBound(),
+                "device-aware UI bindings must survive result effect cleanup");
+        assertEquals("-fx-fill: blue;", boundStyle.getStyle());
     }
 
     @Test
@@ -142,6 +162,95 @@ class MatchSummaryPresentationTest {
         StackPane pose = (StackPane) builder.invoke(game, pigeon, 760.0);
 
         assertEquals(1, countCanvases(pose));
+    }
+
+    @Test
+    void firstStoryClearCanBuildTheCompleteResultsTree() throws Exception {
+        CountDownLatch completed = new CountDownLatch(1);
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        Platform.startup(() -> {
+            try {
+                Platform.setImplicitExit(false);
+                BirdGame3 game = new BirdGame3(Preferences.userRoot().node(
+                        "/birdfight3-tests/first-story-results/" + UUID.randomUUID()));
+                game.campaignModeActive = true;
+                game.activePlayers = 3;
+                setField(game, "campaignMissionWon", true);
+                setField(game, "currentCampaignMission",
+                        StoryCampaignContent.create().mission("dead_air"));
+
+                Bird pigeon = new Bird(0, BirdGame3.BirdType.PIGEON, 0, game);
+                Bird charles = new Bird(0, BirdGame3.BirdType.MOCKINGBIRD, 1, game);
+                Bird raven = new Bird(0, BirdGame3.BirdType.RAVEN, 2, game);
+                game.players[0] = pigeon;
+                game.players[1] = charles;
+                game.players[2] = raven;
+                Stage stage = new Stage();
+                game.showMatchSummary(stage, pigeon);
+
+                PauseTransition waitForIntro = new PauseTransition(Duration.millis(2_200));
+                waitForIntro.setOnFinished(event -> {
+                    try {
+                        Scene scene = stage.getScene();
+                        assertNotNull(scene, "the results scene must be installed");
+                        assertEquals("responsiveContainer", scene.getRoot().getId());
+                        Label missionComplete = findNode(scene.getRoot(), Label.class, "MISSION COMPLETE");
+                        Button continueStory = findNode(scene.getRoot(), Button.class, "CONTINUE STORY");
+                        assertNotNull(missionComplete, "the first-clear headline must be in the live scene");
+                        assertNotNull(continueStory, "the first-clear action must be in the live scene");
+                        assertTrue(treeOpacity(missionComplete) > 0.95,
+                                "the intro must reveal the mission headline");
+                        assertTrue(treeOpacity(continueStory) > 0.95,
+                                "the intro must reveal the story actions");
+                    } catch (Throwable thrown) {
+                        failure.set(thrown);
+                    } finally {
+                        completed.countDown();
+                    }
+                });
+                waitForIntro.play();
+            } catch (Throwable thrown) {
+                failure.set(thrown);
+                completed.countDown();
+            }
+        });
+
+        assertTrue(completed.await(10, TimeUnit.SECONDS), "JavaFX results build timed out");
+        if (failure.get() != null) {
+            throw new AssertionError("First story results UI failed to build", failure.get());
+        }
+        Platform.exit();
+    }
+
+    private static <T extends Node> T findNode(Node node, Class<T> type, String text) {
+        if (type.isInstance(node)) {
+            String nodeText = node instanceof Button button ? button.getAccessibleText()
+                    : node instanceof Label label ? label.getText() : "";
+            if (text.equals(nodeText)) {
+                return type.cast(node);
+            }
+        }
+        if (node instanceof Parent parent) {
+            for (Node child : parent.getChildrenUnmodifiable()) {
+                T found = findNode(child, type, text);
+                if (found != null) return found;
+            }
+        }
+        return null;
+    }
+
+    private static double treeOpacity(Node node) {
+        double opacity = 1.0;
+        for (Node current = node; current != null; current = current.getParent()) {
+            opacity *= current.getOpacity();
+        }
+        return opacity;
+    }
+
+    private static void setField(BirdGame3 game, String fieldName, Object value) throws Exception {
+        Field field = BirdGame3.class.getDeclaredField(fieldName);
+        field.setAccessible(true);
+        field.set(game, value);
     }
 
     private static int countCanvases(Node node) {
