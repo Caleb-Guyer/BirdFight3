@@ -77170,11 +77170,7 @@ public class BirdGame3 {
         List<String> lines = new ArrayList<>();
         if (campaignModeActive && currentCampaignMission != null && campaignMissionController != null) {
             lines.add("THE STILL SKY  |  " + currentCampaignMission.title().toUpperCase(Locale.ROOT));
-            StoryCampaign.MissionPhase phase = campaignMissionController.currentPhase();
-            int percent = (int) Math.round(campaignMissionController.objectiveProgressRatio() * 100.0);
-            lines.add("OBJECTIVE " + (campaignMissionController.phaseIndex() + 1)
-                    + "/" + currentCampaignMission.phases().size()
-                    + "  " + phase.label().toUpperCase(Locale.ROOT) + "  " + percent + "%");
+            lines.add(campaignObjectiveHudLine(currentCampaignMission, campaignMissionController));
             return compactFightHudInfoLines(lines);
         }
         if (classicModeActive && classicEncounter != null) {
@@ -77377,6 +77373,26 @@ public class BirdGame3 {
         }
 
         return compactFightHudInfoLines(lines);
+    }
+
+    static String campaignObjectiveHudLine(StoryCampaign.Mission mission,
+                                           StoryMissionController controller) {
+        StoryCampaign.MissionPhase phase = controller.currentPhase();
+        String line = "OBJECTIVE " + (controller.phaseIndex() + 1)
+                + "/" + mission.phases().size()
+                + "  " + phase.label().toUpperCase(Locale.ROOT);
+        if (campaignObjectiveShowsProgress(phase.objective())) {
+            int percent = (int) Math.round(controller.objectiveProgressRatio() * 100.0);
+            line += "  " + percent + "%";
+        }
+        return line;
+    }
+
+    static boolean campaignObjectiveShowsProgress(StoryCampaign.ObjectiveType objective) {
+        return switch (objective) {
+            case SURVIVE, PROTECT, CAPTURE, HOLD_ZONE, BOSS_PHASES -> true;
+            case ELIMINATION, REACH_EXIT, GAUNTLET -> false;
+        };
     }
 
     private void drawFightHud(GraphicsContext g, FightHudLayout layout) {

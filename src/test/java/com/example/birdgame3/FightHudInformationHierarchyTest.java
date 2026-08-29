@@ -50,4 +50,35 @@ class FightHudInformationHierarchyTest {
                 "DIFFICULTY 6.0  SCORE 12,000"
         )));
     }
+
+    @Test
+    void campaignPercentageOnlyAppearsForMeasurableObjectives() {
+        StoryCampaign campaign = StoryCampaignContent.create();
+        StoryCampaign.Mission eliminationMission = campaign.mission("carrion_audience");
+        StoryMissionController elimination = new StoryMissionController(
+                eliminationMission, StoryCampaign.Difficulty.NORMAL, 6000);
+
+        assertEquals("OBJECTIVE 1/2  BREAK THE CARRION GUARD",
+                BirdGame3.campaignObjectiveHudLine(eliminationMission, elimination));
+
+        StoryCampaign.Mission captureMission = campaign.mission("dead_air");
+        StoryMissionController capture = new StoryMissionController(
+                captureMission, StoryCampaign.Difficulty.NORMAL, 6000);
+        assertEquals("OBJECTIVE 1/2  RESTART THE ROOFTOP VENTS  0%",
+                BirdGame3.campaignObjectiveHudLine(captureMission, capture));
+    }
+
+    @Test
+    void binaryCampaignObjectivesDoNotAdvertiseFakeProgress() {
+        assertFalse(BirdGame3.campaignObjectiveShowsProgress(
+                StoryCampaign.ObjectiveType.ELIMINATION));
+        assertFalse(BirdGame3.campaignObjectiveShowsProgress(
+                StoryCampaign.ObjectiveType.REACH_EXIT));
+        assertFalse(BirdGame3.campaignObjectiveShowsProgress(
+                StoryCampaign.ObjectiveType.GAUNTLET));
+        assertTrue(BirdGame3.campaignObjectiveShowsProgress(
+                StoryCampaign.ObjectiveType.PROTECT));
+        assertTrue(BirdGame3.campaignObjectiveShowsProgress(
+                StoryCampaign.ObjectiveType.CAPTURE));
+    }
 }
