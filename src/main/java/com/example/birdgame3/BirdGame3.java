@@ -298,6 +298,8 @@ public class BirdGame3 {
     private SequentialTransition achievementToastAnimation;
     private boolean achievementToastShowing = false;
     final Set<KeyCode> pressedKeys = new HashSet<>();
+    private final Set<KeyCode> campaignCutsceneHeldDirections = new HashSet<>();
+    private boolean campaignCutsceneInputCaptureActive = false;
     private final boolean[][] localActionPressed = new boolean[MAX_COMBATANTS][ControlAction.values().length];
     private final boolean[][] aiActionPressed = new boolean[MAX_COMBATANTS][ControlAction.values().length];
     private final boolean[][] lanActionPressed = new boolean[MAX_COMBATANTS][ControlAction.values().length];
@@ -27082,6 +27084,57 @@ public class BirdGame3 {
         resetRenderTimer();
     }
 
+    void beginCampaignCutsceneInputCapture() {
+        campaignCutsceneHeldDirections.clear();
+        for (KeyCode code : pressedKeys) {
+            if (isCampaignCutsceneDirectionKey(code)) {
+                campaignCutsceneHeldDirections.add(code);
+            }
+        }
+        campaignCutsceneInputCaptureActive = true;
+        clearGameplayInputs();
+        clearCampaignSequenceActions();
+    }
+
+    void noteCampaignCutsceneKeyState(KeyCode code, boolean down) {
+        if (!campaignCutsceneInputCaptureActive || !isCampaignCutsceneDirectionKey(code)) {
+            return;
+        }
+        if (down) {
+            campaignCutsceneHeldDirections.add(code);
+        } else {
+            campaignCutsceneHeldDirections.remove(code);
+        }
+    }
+
+    void finishCampaignCutsceneInputCapture(boolean resumeGameplay) {
+        Set<KeyCode> heldDirections = Set.copyOf(campaignCutsceneHeldDirections);
+        campaignCutsceneHeldDirections.clear();
+        campaignCutsceneInputCaptureActive = false;
+        clearGameplayInputs();
+        clearCampaignSequenceActions();
+        if (!resumeGameplay) {
+            return;
+        }
+        for (KeyCode code : heldDirections) {
+            pressedKeys.add(code);
+            setLocalActionsForKey(code, true);
+        }
+    }
+
+    private boolean isCampaignCutsceneDirectionKey(KeyCode code) {
+        if (code == null) return false;
+        int maxPlayers = Math.min(activePlayers, isAI.length);
+        for (int i = 0; i < maxPlayers; i++) {
+            if (isAI[i]) continue;
+            ControlAction action = effectiveKeyboardActionForKey(i, code);
+            if (action == ControlAction.LEFT || action == ControlAction.RIGHT) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private void drawRosterSprite(Canvas canvas, BirdType type, String skinKey, boolean randomPick, boolean forceSkin) {
         GraphicsContext g = canvas.getGraphicsContext2D();
         double w = canvas.getWidth();
@@ -49111,7 +49164,7 @@ public class BirdGame3 {
             if (after != null) after.run();
             return;
         }
-        storyCutscenePlayer.play(stage, cutscene, campaignSelectedBird, campaignSelectedSkinKey, () -> {
+        storyCutscenePlayer.play(stage, cutscene, campaignSelectedBird, campaignSelectedSkinKey, false, () -> {
             stillSkyProgress.markSceneSeen(cutscene.id());
             saveAchievements();
             if (after != null) after.run();
@@ -72094,7 +72147,7 @@ public class BirdGame3 {
                     false
             );
         }
-        storyCutscenePlayer.play(currentStage, beat, campaignSelectedBird, campaignSelectedSkinKey, () -> {
+        storyCutscenePlayer.play(currentStage, beat, campaignSelectedBird, campaignSelectedSkinKey, true, () -> {
             setCampaignScene(currentStage, resumeScene);
             resetAfterCampaignCutscene();
             gameplayTimer.start();

@@ -83,17 +83,19 @@ final class StoryCutscenePlayer {
     private Button pauseButton;
     private Button textModeButton;
     private Runnable onFinished;
+    private boolean resumeGameplayOnFinish;
 
     StoryCutscenePlayer(BirdGame3 game) {
         this.game = game;
     }
 
     void play(Stage stage, StoryCampaign.Cutscene scene, BirdGame3.BirdType selectedBird,
-              String selectedSkinKey, Runnable onFinished) {
+              String selectedSkinKey, boolean resumeGameplayOnFinish, Runnable onFinished) {
         if (timer != null) {
             timer.stop();
             timer = null;
         }
+        game.beginCampaignCutsceneInputCapture();
         game.resetAfterCampaignCutscene();
         this.scene = scene;
         this.selectedBird = selectedBird;
@@ -107,6 +109,7 @@ final class StoryCutscenePlayer {
         this.pausedAtNanos = 0L;
         this.accumulatedPauseNanos = 0L;
         this.onFinished = onFinished;
+        this.resumeGameplayOnFinish = resumeGameplayOnFinish;
         prepareActors(selectedSkinKey);
 
         // A missing/invalid dialogue script must never strand the player on an
@@ -160,7 +163,8 @@ final class StoryCutscenePlayer {
         root.setStyle("-fx-background-color: black;");
         Scene fxScene = new Scene(root, LOGICAL_WIDTH, LOGICAL_HEIGHT, Color.BLACK);
         game.prepareCampaignCutsceneScene(fxScene, root, content);
-        fxScene.addEventFilter(KeyEvent.KEY_PRESSED, event -> {
+        game.addCampaignSceneEventFilter(fxScene, KeyEvent.KEY_PRESSED, event -> {
+            game.noteCampaignCutsceneKeyState(event.getCode(), true);
             if (event.getCode() == KeyCode.SPACE || event.getCode() == KeyCode.ENTER) {
                 moveLine(1);
             } else if (event.getCode() == KeyCode.P) {
@@ -175,6 +179,8 @@ final class StoryCutscenePlayer {
             }
             event.consume();
         });
+        game.addCampaignSceneEventFilter(fxScene, KeyEvent.KEY_RELEASED,
+                event -> game.noteCampaignCutsceneKeyState(event.getCode(), false));
         canvas.setOnMouseClicked(event -> moveLine(1));
 
         // Paint before handing the scene to the Stage. AnimationTimer does not
@@ -1118,6 +1124,7 @@ final class StoryCutscenePlayer {
             timer.stop();
             timer = null;
         }
+        game.finishCampaignCutsceneInputCapture(resumeGameplayOnFinish);
         game.resetAfterCampaignCutscene();
         Runnable callback = onFinished;
         onFinished = null;
