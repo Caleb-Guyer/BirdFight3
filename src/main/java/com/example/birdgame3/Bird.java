@@ -18359,6 +18359,12 @@ public class Bird {
         refreshAirDodge();
     }
 
+    boolean isAttachedToPlatform(Platform platform) {
+        return platform != null
+                && ((batHanging && batHangPlatform == platform)
+                || (ledgeHanging && ledgePlatform == platform));
+    }
+
     private Platform findBatHangablePlatform() {
         Platform best = null;
         double bestDist = Double.MAX_VALUE;

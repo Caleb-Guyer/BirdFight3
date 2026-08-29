@@ -12945,7 +12945,7 @@ public class BirdGame3 {
                 boolean wasRiding = feetX >= previousX && feetX <= previousX + platform.w
                         && Math.abs(feetY - previousY) <= 12.0
                         && bird.y <= previousY + 2.0;
-                if (wasRiding) {
+                if (wasRiding || bird.isAttachedToPlatform(platform)) {
                     bird.x += deltaX;
                     bird.y += deltaY;
                 }

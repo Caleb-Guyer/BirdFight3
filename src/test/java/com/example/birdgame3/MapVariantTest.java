@@ -244,10 +244,21 @@ class MapVariantTest {
         rider.y = tray.y - rider.bodyHeight();
         game.players[0] = rider;
 
+        Bird hangingBat = new Bird(tray.x + tray.w * 0.5 - 40.0,
+                BirdGame3.BirdType.BAT, 1, game);
+        hangingBat.y = tray.y + tray.h + 2.0;
+        hangingBat.batHanging = true;
+        Field batHangPlatform = Bird.class.getDeclaredField("batHangPlatform");
+        batHangPlatform.setAccessible(true);
+        batHangPlatform.set(hangingBat, tray);
+        game.players[1] = hangingBat;
+
         double previousTrayX = tray.x;
         double previousTrayY = tray.y;
         double previousRiderX = rider.x;
         double previousRiderY = rider.y;
+        double previousBatX = hangingBat.x;
+        double previousBatY = hangingBat.y;
         game.simTick++;
         game.updateSwingingPlatformsFixed();
 
@@ -258,6 +269,10 @@ class MapVariantTest {
         assertEquals(tray.y - previousTrayY, rider.y - previousRiderY, 0.000_001);
         assertSame(tray, rider.findCurrentSupportPlatform(),
                 "a carried fighter must remain grounded on the moving surface");
+        assertEquals(tray.x - previousTrayX, hangingBat.x - previousBatX, 0.000_001);
+        assertEquals(tray.y - previousTrayY, hangingBat.y - previousBatY, 0.000_001);
+        assertTrue(hangingBat.isAttachedToPlatform(tray),
+                "Bat should remain attached beneath the same moving tray");
     }
 
     @Test
