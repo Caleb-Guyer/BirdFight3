@@ -1,10 +1,13 @@
 package com.example.birdgame3;
 
+import javafx.scene.canvas.Canvas;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.UUID;
+import java.util.prefs.Preferences;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -184,6 +187,48 @@ class StoryCutsceneDeterminismAuditTest {
         assertFalse(source.contains("canvas.widthProperty().bind"));
         assertFalse(source.contains("canvas.heightProperty().bind"));
         assertTrue(source.contains("game.prepareCampaignCutsceneScene(fxScene, root, content);"));
+    }
+
+    @Test
+    void cutscenePaintsBeforeSceneInstallationAndRecoversFromRenderingFailures() throws IOException {
+        String source = Files.readString(Path.of(
+                "src", "main", "java", "com", "example", "birdgame3", "StoryCutscenePlayer.java"));
+
+        int firstPaint = source.indexOf("renderSafely(firstFrameNanos)");
+        int sceneInstall = source.indexOf("game.setCampaignScene(stage, fxScene)");
+        int guardedPulse = source.indexOf("if (!renderSafely(now))");
+        int guard = source.indexOf("private boolean renderSafely(long now)");
+        int finishOnFailure = source.indexOf("finish();", guard);
+
+        assertTrue(firstPaint >= 0, "The first cutscene frame must be painted synchronously");
+        assertTrue(sceneInstall > firstPaint,
+                "The rendered frame must exist before the Stage can expose the cutscene");
+        assertTrue(guardedPulse > sceneInstall,
+                "Every later animation pulse must use the same guarded renderer");
+        assertTrue(guard > guardedPulse);
+        assertTrue(finishOnFailure > guard,
+                "A presentation failure must continue the completed campaign mission");
+    }
+
+    @Test
+    void firstMissionPostSceneRendersEveryAuthoredBeat() {
+        BirdGame3 game = new BirdGame3(Preferences.userRoot().node(
+                "/birdfight3-tests/first-story-post-scene/" + UUID.randomUUID()));
+        StoryCutscenePlayer player = new StoryCutscenePlayer(game);
+        StoryCampaign.Cutscene postScene = StoryCampaignContent.create().scene("s02_rooftop_after");
+        Canvas frame = new Canvas(1920, 1080);
+
+        assertFalse(postScene.linesFor(BirdGame3.BirdType.PIGEON).isEmpty());
+        for (int line = 0; line < postScene.linesFor(BirdGame3.BirdType.PIGEON).size(); line++) {
+            int authoredLine = line;
+            assertDoesNotThrow(() -> player.renderTrailerFrame(
+                    frame.getGraphicsContext2D(),
+                    postScene,
+                    BirdGame3.BirdType.PIGEON,
+                    null,
+                    authoredLine,
+                    0.75), "First-mission post-scene line " + authoredLine);
+        }
     }
 
     @Test

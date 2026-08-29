@@ -109,6 +109,17 @@ final class StoryCutscenePlayer {
         this.onFinished = onFinished;
         prepareActors(selectedSkinKey);
 
+        // A missing/invalid dialogue script must never strand the player on an
+        // empty scene. Campaign content validation normally prevents this,
+        // but continuing is safer than turning a recoverable content problem
+        // into a permanent black screen.
+        if (lines.isEmpty()) {
+            System.err.println("Story cutscene has no dialogue: " + scene.id()
+                    + "; continuing campaign.");
+            finish();
+            return;
+        }
+
         if (canvas == null) {
             canvas = new Canvas(BACKING_WIDTH, BACKING_HEIGHT);
             canvas.setScaleX(LOGICAL_WIDTH / BACKING_WIDTH);
@@ -165,11 +176,20 @@ final class StoryCutscenePlayer {
             event.consume();
         });
         canvas.setOnMouseClicked(event -> moveLine(1));
+
+        // Paint before handing the scene to the Stage. AnimationTimer does not
+        // promise an immediate pulse, so relying on its first callback exposes
+        // a fully black frame during the results -> story transition. It also
+        // meant a render exception could leave that black frame installed
+        // forever with no visible way forward.
+        long firstFrameNanos = System.nanoTime();
+        lineStartNanos = firstFrameNanos;
+        if (!renderSafely(firstFrameNanos)) {
+            return;
+        }
         game.setCampaignScene(stage, fxScene);
         game.startCampaignCutscenePresentation(scene);
-        if (!lines.isEmpty()) {
-            game.presentCampaignCutsceneLine(scene, lines.getFirst());
-        }
+        game.presentCampaignCutsceneLine(scene, lines.getFirst());
 
         timer = new AnimationTimer() {
             @Override
@@ -177,8 +197,10 @@ final class StoryCutscenePlayer {
                 if (lineStartNanos == 0L) {
                     lineStartNanos = now;
                 }
-                render(now);
-                if (!paused && !manual && !lines.isEmpty()
+                if (!renderSafely(now)) {
+                    return;
+                }
+                if (!paused && !manual
                         && elapsedSeconds(now) >= automaticDuration(lines.get(lineIndex).text())) {
                     moveLine(1);
                 }
@@ -277,16 +299,39 @@ final class StoryCutscenePlayer {
         double width = canvas.getWidth();
         double height = canvas.getHeight();
         g.save();
-        g.scale(width / LOGICAL_WIDTH, height / LOGICAL_HEIGHT);
-        drawBackground(g, now);
-        if (!lines.isEmpty()) {
-            StoryCampaign.DialogueLine line = lines.get(lineIndex);
-            drawShot(g, line, now);
-            drawCinematicOverlay(g, line, now);
-            drawSubtitle(g, line);
+        try {
+            g.scale(width / LOGICAL_WIDTH, height / LOGICAL_HEIGHT);
+            drawBackground(g, now);
+            if (!lines.isEmpty()) {
+                StoryCampaign.DialogueLine line = lines.get(lineIndex);
+                drawShot(g, line, now);
+                drawCinematicOverlay(g, line, now);
+                drawSubtitle(g, line);
+            }
+            drawLetterbox(g);
+        } finally {
+            g.restore();
         }
-        drawLetterbox(g);
-        g.restore();
+    }
+
+    /**
+     * Keeps a presentation-only drawing failure from trapping the campaign on
+     * a blank Canvas. The exception remains visible in the console for repair,
+     * while the player's completed mission continues through its normal
+     * callback exactly once.
+     */
+    private boolean renderSafely(long now) {
+        try {
+            render(now);
+            return true;
+        } catch (RuntimeException failure) {
+            String sceneId = scene == null ? "<unknown>" : scene.id();
+            System.err.println("Story cutscene rendering failed for " + sceneId
+                    + "; continuing campaign.");
+            failure.printStackTrace(System.err);
+            finish();
+            return false;
+        }
     }
 
     private void drawBackground(GraphicsContext g, long now) {
