@@ -31,7 +31,10 @@ class ResultsUiModernizationTest {
         String achievement = methodBody(source, "public void unlockAchievement");
 
         assertTrue(rewards.contains("BIRD COINS"));
-        assertTrue(rewards.contains("birdCoinBalanceText()"));
+        assertTrue(rewards.contains("overview.coinBalanceText()"));
+        assertTrue(rewards.contains("overview.claimableText()"));
+        assertTrue(rewards.contains("overview.nextGoal()"));
+        assertTrue(rewards.contains("ProgressBar"));
         assertFalse(rewards.contains("MATCH HIGHLIGHT"));
         assertFalse(rewards.contains("postMatchTelemetryMoveRows"));
         assertTrue(table.contains("Math.min(6"));

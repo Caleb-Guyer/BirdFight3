@@ -30,8 +30,10 @@ class ShopRewardReceiptTest {
         for (var reward : receipt.rewards()) {
             assertEquals("Bird Coins +150", reward.label());
             assertEquals(150, reward.preview().value());
+            assertEquals(ShopPackResult.Outcome.CURRENCY, reward.outcome());
             assertEquals(RewardPresentation.Kind.COINS, presentation(reward.preview()).kind());
         }
+        assertEquals("3 CURRENCY REWARDS", receipt.summaryLine());
         assertEquals(450, ledger().balance(), "Rebuilding presentation data must not grant coins");
     }
 
@@ -45,11 +47,34 @@ class ShopRewardReceiptTest {
         assertEquals(1, grants.get());
         assertEquals(300, ledger().balance());
         assertSame(preview, receipt.rewards().getFirst().preview());
+        assertEquals(ShopPackResult.Outcome.NEW_UNLOCK, receipt.rewards().getFirst().outcome());
+        assertEquals(1, receipt.newUnlockCount());
+        assertEquals(2, receipt.currencyRewardCount());
         RewardPresentation presentation = presentation(preview);
         assertEquals(RewardPresentation.Kind.SKIN, presentation.kind());
         assertEquals(BirdGame3.BirdType.PIGEON, presentation.bird());
         assertEquals("NOIR_PIGEON", presentation.skinKey());
         assertEquals(1, grants.get());
+    }
+
+    @Test
+    void everyAvailablePullPrefersANewUnlockBeforeUsingCoinFallbacks() throws Exception {
+        AtomicInteger firstGrant = new AtomicInteger();
+        AtomicInteger secondGrant = new AtomicInteger();
+        PackReward first = new PackReward("Dune Falcon Skin",
+                new ShopPreview(BirdGame3.BirdType.FALCON, "DUNE_FALCON", "Dune Falcon"),
+                1, () -> firstGrant.get() == 0, firstGrant::incrementAndGet);
+        PackReward second = new PackReward("Mint Penguin Skin",
+                new ShopPreview(BirdGame3.BirdType.PENGUIN, "MINT_PENGUIN", "Mint Penguin"),
+                1, () -> secondGrant.get() == 0, secondGrant::incrementAndGet);
+
+        ShopPackResult receipt = openPack(2, List.of(first, second));
+
+        assertEquals(1, firstGrant.get());
+        assertEquals(1, secondGrant.get());
+        assertEquals(2, receipt.newUnlockCount());
+        assertEquals(0, receipt.currencyRewardCount());
+        assertEquals("2 NEW UNLOCKS", receipt.summaryLine());
     }
 
     @Test
@@ -85,6 +110,7 @@ class ShopRewardReceiptTest {
         assertEquals(1, receipt.rewards().size());
         assertThrows(UnsupportedOperationException.class, () -> receipt.rewards().clear());
         assertEquals("- Bird Coins +150", receipt.message());
+        assertEquals("1 CURRENCY REWARD", receipt.summaryLine());
     }
 
     private ShopPackResult openPack(int count, List<PackReward> rewards) throws Exception {

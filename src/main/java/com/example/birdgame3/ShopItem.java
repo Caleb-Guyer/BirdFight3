@@ -1,6 +1,9 @@
 package com.example.birdgame3;
 
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.function.Predicate;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 
@@ -34,5 +37,19 @@ class ShopItem {
         this.purchase = purchase;
         this.owned = owned;
         this.available = available;
+    }
+
+    List<ShopPreview> uniqueUnlockPreviews() {
+        Map<String, ShopPreview> unique = new LinkedHashMap<>();
+        for (ShopPreview preview : previews) {
+            if (preview == null || preview.skinKey() == null || preview.skinKey().isBlank()) continue;
+            unique.putIfAbsent(preview.skinKey(), preview);
+        }
+        return List.copyOf(unique.values());
+    }
+
+    int remainingUniqueUnlocks(Predicate<ShopPreview> ownedPredicate) {
+        if (ownedPredicate == null) return uniqueUnlockPreviews().size();
+        return (int) uniqueUnlockPreviews().stream().filter(preview -> !ownedPredicate.test(preview)).count();
     }
 }

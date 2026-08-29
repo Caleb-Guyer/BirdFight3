@@ -701,6 +701,8 @@ public class BirdGame3 {
 
     private record AchievementClaimResult(ShopPreview preview, String detail, boolean usesUnlockCards) {}
 
+    private record AchievementClaimBatch(int rewardsClaimed, int coinRewards, int newUnlocks) {}
+
     // === MAPS ===
     public enum MapType {
         FOREST, CITY, SKYCLIFFS, VIBRANT_JUNGLE, DESERT, CAVE, BATTLEFIELD, BEACON_CROWN,
@@ -28751,7 +28753,8 @@ public class BirdGame3 {
         Button back = uiFactory.action("BACK", 220, 68, 24, "#B5121B", 18,
                 () -> animateVaultExit(frame, () -> showMenu(stage)));
         StackPane title = buildMenuTitleBanner("THE VAULT", 420, 72, 34);
-        StackPane coins = buildMenuChip("BIRD COINS  " + birdCoinBalanceText(), "#5D4037", "#FFE082");
+        ProgressionOverview progression = progressionOverview();
+        StackPane coins = buildMenuChip("BIRD COINS  " + progression.coinBalanceText(), "#5D4037", "#FFE082");
         StackPane topStrip = buildMenuTopStrip(back, title, coins);
 
         List<VaultFighterProgress> fighters = vaultFighterProgress();
@@ -28842,7 +28845,10 @@ public class BirdGame3 {
         libraryPanel.setPadding(new Insets(18));
         libraryPanel.setMaxSize(1480, 650);
         libraryPanel.setStyle(MenuTheme.panelStyle("#F06292", 26));
-        frame.setCenter(libraryPanel);
+        Node progressStrip = buildVaultProgressStrip(progression);
+        VBox vaultBody = new VBox(12, progressStrip, libraryPanel);
+        vaultBody.setAlignment(Pos.CENTER);
+        frame.setCenter(vaultBody);
 
         HBox prompts = buildAdaptivePromptBar(
                 UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "BROWSE"),
@@ -28861,6 +28867,52 @@ public class BirdGame3 {
             fighterRecords.requestFocus();
             playVaultEntrance(frame);
         });
+    }
+
+    private Node buildVaultProgressStrip(ProgressionOverview overview) {
+        VBox rewards = new VBox(2);
+        Label rewardHeader = new Label("CLAIMABLE");
+        rewardHeader.setFont(Font.font("Consolas", FontWeight.BOLD, 13));
+        rewardHeader.setTextFill(Color.web("#FFD180"));
+        Label rewardValue = new Label(overview.claimableText());
+        rewardValue.setFont(Font.font("Arial Black", 18));
+        rewardValue.setTextFill(overview.claimableRewards() > 0 ? Color.web("#FFF176") : Color.web("#B0BEC5"));
+        rewards.getChildren().addAll(rewardHeader, rewardValue);
+        lockRegionSize(rewards, 280, 58);
+
+        VBox collection = new VBox(2);
+        Label collectionHeader = new Label("COLLECTION");
+        collectionHeader.setFont(Font.font("Consolas", FontWeight.BOLD, 13));
+        collectionHeader.setTextFill(Color.web("#80DEEA"));
+        Label collectionValue = new Label(overview.collectionText());
+        collectionValue.setFont(Font.font("Arial Black", 18));
+        collectionValue.setTextFill(Color.WHITE);
+        collection.getChildren().addAll(collectionHeader, collectionValue);
+        lockRegionSize(collection, 330, 58);
+
+        VBox goalBox = new VBox(2);
+        Label goalHeader = new Label("NEXT GOAL");
+        goalHeader.setFont(Font.font("Consolas", FontWeight.BOLD, 13));
+        goalHeader.setTextFill(Color.web("#CE93D8"));
+        ProgressionOverview.Goal goal = overview.nextGoal().orElse(null);
+        Label goalValue = new Label(goal == null
+                ? "ALL CHALLENGES COMPLETE"
+                : goal.title().toUpperCase(Locale.ROOT) + "  •  " + goal.progressText()
+                + "  •  REWARD: " + goal.reward());
+        goalValue.setFont(Font.font("Consolas", FontWeight.BOLD, 15));
+        goalValue.setTextFill(Color.WHITE);
+        goalValue.setWrapText(true);
+        goalValue.setMaxWidth(710);
+        goalBox.getChildren().addAll(goalHeader, goalValue);
+        lockRegionSize(goalBox, 730, 58);
+
+        HBox strip = new HBox(22, rewards, collection, goalBox);
+        strip.setAlignment(Pos.CENTER_LEFT);
+        strip.setPadding(new Insets(9, 18, 9, 18));
+        strip.setMaxWidth(1480);
+        strip.setStyle("-fx-background-color: rgba(12,4,16,0.90); -fx-background-radius: 16;"
+                + "-fx-border-color: rgba(255,224,130,0.34); -fx-border-width: 2; -fx-border-radius: 16;");
+        return strip;
     }
 
     private Button buildVaultFighterCard(Stage stage, VaultFighterProgress progress) {
@@ -42304,7 +42356,7 @@ public class BirdGame3 {
             }
         }
         if (total <= 0) return null;
-        int roll = random.nextInt(total);
+        int roll = ThreadLocalRandom.current().nextInt(total);
         for (PackReward reward : available) {
             roll -= reward.weight();
             if (roll < 0) return reward;
@@ -42328,7 +42380,7 @@ public class BirdGame3 {
             }
         }
         if (total <= 0) return null;
-        int roll = random.nextInt(total);
+        int roll = ThreadLocalRandom.current().nextInt(total);
         for (PackReward reward : available) {
             roll -= reward.weight();
             if (roll < 0) return reward;
@@ -42345,7 +42397,7 @@ public class BirdGame3 {
             }
         }
         if (available.isEmpty()) return null;
-        return available.get(random.nextInt(available.size()));
+        return available.get(ThreadLocalRandom.current().nextInt(available.size()));
     }
 
     private ShopPackResult openCardPack(String packName, int pulls, List<PackReward> pool) {
@@ -42355,16 +42407,21 @@ public class BirdGame3 {
         PackReward guaranteed = pickNonCoinReward(pool);
         if (guaranteed != null) {
             guaranteed.grant().run();
-            rewards.add(new ShopPackResult.Reward(guaranteed.label(), guaranteed.preview()));
+            rewards.add(new ShopPackResult.Reward(guaranteed.label(), guaranteed.preview(),
+                    ShopPackResult.Outcome.NEW_UNLOCK));
             remaining--;
         }
         for (int i = 0; i < remaining; i++) {
-            PackReward reward = pickPackReward(pool);
+            PackReward reward = pickNonCoinReward(pool);
+            if (reward == null) {
+                reward = pickPackReward(pool);
+            }
             if (reward == null) {
                 reward = coinReward(150, 1);
             }
             reward.grant().run();
-            rewards.add(new ShopPackResult.Reward(reward.label(), reward.preview()));
+            rewards.add(new ShopPackResult.Reward(reward.label(), reward.preview(),
+                    isCoinReward(reward) ? ShopPackResult.Outcome.CURRENCY : ShopPackResult.Outcome.NEW_UNLOCK));
         }
         return new ShopPackResult(packName + " Opened", rewards);
     }
@@ -42378,31 +42435,26 @@ public class BirdGame3 {
         String suffix = " Character";
         if (preferLegendary) {
             primaryReward = pickAvailablePreview(legendarySkins);
-            if (primaryReward == null && legendarySkins != null && !legendarySkins.isEmpty()) {
-                primaryReward = legendarySkins.get(random.nextInt(legendarySkins.size()));
-            }
             suffix = " Skin";
         } else {
             primaryReward = pickAvailablePreview(birdPool);
             if (primaryReward == null) {
                 primaryReward = pickAvailablePreview(legendarySkins);
-                if (primaryReward == null && legendarySkins != null && !legendarySkins.isEmpty()) {
-                    primaryReward = legendarySkins.get(random.nextInt(legendarySkins.size()));
-                }
                 suffix = " Skin";
             }
         }
         if (primaryReward != null) {
             unlockShopPreview(primaryReward);
-            rewards.add(new ShopPackResult.Reward(shopPreviewName(primaryReward) + suffix, primaryReward));
+            rewards.add(new ShopPackResult.Reward(shopPreviewName(primaryReward) + suffix, primaryReward,
+                    ShopPackResult.Outcome.NEW_UNLOCK));
         } else {
             grantBirdCoins(300);
-            rewards.add(new ShopPackResult.Reward("Bird Coins +300", coinReward(300, 1).preview()));
+            rewards.add(new ShopPackResult.Reward("Bird Coins +300", coinReward(300, 1).preview(),
+                    ShopPackResult.Outcome.CURRENCY));
         }
         int extraPulls = Math.max(0, safePulls - 1);
-        boolean needsNonCoin = primaryReward == null;
         for (int i = 0; i < extraPulls; i++) {
-            PackReward reward = needsNonCoin ? pickNonCoinReward(extraPool) : null;
+            PackReward reward = pickNonCoinReward(extraPool);
             if (reward == null) {
                 reward = pickPackReward(extraPool);
             }
@@ -42410,12 +42462,21 @@ public class BirdGame3 {
                 reward = coinReward(200, 1);
             }
             reward.grant().run();
-            rewards.add(new ShopPackResult.Reward(reward.label(), reward.preview()));
-            if (!isCoinReward(reward)) {
-                needsNonCoin = false;
-            }
+            rewards.add(new ShopPackResult.Reward(reward.label(), reward.preview(),
+                    isCoinReward(reward) ? ShopPackResult.Outcome.CURRENCY : ShopPackResult.Outcome.NEW_UNLOCK));
         }
         return new ShopPackResult("Ascendant Pack" + " Opened", rewards);
+    }
+
+    private boolean hasUnownedShopReward(List<ShopPreview> previews) {
+        if (previews == null) return false;
+        Set<String> seen = new HashSet<>();
+        for (ShopPreview preview : previews) {
+            if (preview == null || preview.skinKey() == null || preview.skinKey().isBlank()) continue;
+            if (!seen.add(preview.skinKey())) continue;
+            if (!isShopPreviewOwned(preview)) return true;
+        }
+        return false;
     }
 
     private List<ShopItem> buildShopItems() {
@@ -42578,52 +42639,52 @@ public class BirdGame3 {
 
         items.add(new ShopItem(
                 "Street Pack",
-                "Cheap cards with Bird Coins and common skins.",
+                "1 card. Guarantees one new skin while this pack has an unlock left.",
                 550,
                 streetPreviews,
                 ShopRarity.COMMON,
                 () -> openCardPack("Street Pack", 1, streetPool),
-                () -> true
+                () -> hasUnownedShopReward(streetPreviews)
         ));
 
         items.add(new ShopItem(
                 "Rooftop Pack",
-                "Mid pack with wider skins plus character, map, and Bird Coin chances.",
+                "2 cards. New unlocks fill every slot available; exhausted slots become Bird Coin bonuses.",
                 1100,
                 rooftopPreviews,
                 ShopRarity.UNCOMMON,
                 () -> openCardPack("Rooftop Pack", 2, rooftopPool),
-                () -> true
+                () -> hasUnownedShopReward(rooftopPreviews)
         ));
 
         items.add(new ShopItem(
                 "Skyline Pack",
-                "Rare pack with classic skins, higher character odds, maps, and Bird Coins.",
+                "2 cards. New unlocks fill every slot available; duplicate collection items never appear.",
                 2100,
                 skylinePreviews,
                 ShopRarity.RARE,
                 () -> openCardPack("Skyline Pack", 2, skylinePool),
-                () -> true
+                () -> hasUnownedShopReward(skylinePreviews)
         ));
 
         items.add(new ShopItem(
                 "Nebula Pack",
-                "Epic pack loaded with high-tier skins, characters, maps, and Bird Coins.",
+                "3 cards. New featured unlocks fill every slot available; exhausted slots become coin bonuses.",
                 3400,
                 nebulaPreviews,
                 ShopRarity.EPIC,
                 () -> openCardPack("Nebula Pack", 3, nebulaPool),
-                () -> true
+                () -> hasUnownedShopReward(nebulaPreviews)
         ));
 
         items.add(new ShopItem(
                 "Ascendant Pack",
-                "Legendary pack. Guaranteed bird (or legendary skin if all birds owned) plus elite rewards.",
+                "3 cards. Prioritizes a new fighter, then legendary skins and other new rewards—never duplicates.",
                 5700,
                 ascendantPreviews,
                 ShopRarity.LEGENDARY,
                 () -> openGuaranteedBirdPack(birdRewards, legendarySkins, ascendantExtras),
-                () -> true
+                () -> hasUnownedShopReward(ascendantPreviews)
         ));
 
         return items;
@@ -42654,6 +42715,8 @@ public class BirdGame3 {
             boolean owned = item.owned.getAsBoolean();
             boolean available = item.available.getAsBoolean();
             int previewCount = item.previews.size();
+            int uniqueUnlocks = item.uniqueUnlockPreviews().size();
+            int remainingUnlocks = item.remainingUniqueUnlocks(this::isShopPreviewOwned);
             double cardW = item.bundle ? 500 : 420;
             double cardH = item.bundle ? 520 : 480;
 
@@ -42698,11 +42761,9 @@ public class BirdGame3 {
             rarity.setTextAlignment(TextAlignment.CENTER);
             rarity.setStyle(MenuTheme.chipStyle(border, "#FFF8E1", 12) + "-fx-padding: 4 12 4 12;");
 
-            String priceText = item.cost + " BIRD COINS";
+            String priceText = available ? item.cost + " BIRD COINS" : "COLLECTION COMPLETE";
             if (owned) {
                 priceText += " (OWNED)";
-            } else if (!available) {
-                priceText += " (UNAVAILABLE)";
             }
             Label price = new Label(priceText);
             price.setFont(Font.font("Consolas", 22));
@@ -42739,6 +42800,16 @@ public class BirdGame3 {
                 ownedLabel.setMaxWidth(cardW - 40);
             }
 
+            Label unlockStatus = new Label(remainingUnlocks > 0
+                    ? remainingUnlocks + " / " + uniqueUnlocks + " NEW UNLOCKS LEFT"
+                    : "ALL " + uniqueUnlocks + " UNLOCKS OWNED  •  NO DUPLICATE PACKS");
+            unlockStatus.setFont(Font.font("Consolas", FontWeight.BOLD, 15));
+            unlockStatus.setTextFill(remainingUnlocks > 0 ? Color.web("#B9F6CA") : Color.web("#90A4AE"));
+            unlockStatus.setWrapText(true);
+            unlockStatus.setAlignment(Pos.CENTER);
+            unlockStatus.setTextAlignment(TextAlignment.CENTER);
+            unlockStatus.setMaxWidth(cardW - 36);
+
             double previewCardW = Math.clamp(cardW - 60, 260, 420);
             Node previewCard = buildShopPreviewCarousel(item.previews, item.rarity.color, previewCardW);
             if (item.rarity == ShopRarity.LEGENDARY || item.rarity == ShopRarity.BUNDLE) {
@@ -42756,7 +42827,7 @@ public class BirdGame3 {
             desc.setMaxWidth(cardW - 36);
 
             final int purchaseCost = effectiveCost;
-            String buyLabel = owned ? "OWNED" : (available ? "BUY" : "UNAVAILABLE");
+            String buyLabel = owned ? "OWNED" : (available ? "BUY" : "COMPLETE");
             String buyColor = owned ? "#455A64" : (available ? "#00C853" : "#455A64");
             Button buy = uiFactory.action(buyLabel, 240, 64, 28, buyColor, 20, () -> {
                 if (owned || !available) return;
@@ -42784,6 +42855,7 @@ public class BirdGame3 {
             parts.add(price);
             if (discounted != null) parts.add(discounted);
             if (ownedLabel != null) parts.add(ownedLabel);
+            parts.add(unlockStatus);
             parts.add(previewWrap);
             parts.add(desc);
             parts.add(row);
@@ -42825,7 +42897,7 @@ public class BirdGame3 {
         Label title = RewardRevealView.label(result.title().toUpperCase(Locale.ROOT), 54,
                 1440, 96, Color.web("#FFE67B"), false);
         RewardRevealView.place(frame, title, new RewardRevealView.Box(80, 24, 1440, 96));
-        Label receipt = RewardRevealView.label("ADDED TO YOUR COLLECTION", 23,
+        Label receipt = RewardRevealView.label(result.summaryLine(), 23,
                 820, 34, Color.WHITE, false);
         RewardRevealView.place(frame, receipt, new RewardRevealView.Box(80, 175, 820, 34));
 
@@ -42844,8 +42916,7 @@ public class BirdGame3 {
             int start = page[0] * 3;
             for (int i = start; i < Math.min(start + 3, result.rewards().size()); i++) {
                 ShopPackResult.Reward pulled = result.rewards().get(i);
-                RewardPresentation reward = rewardPresentationForPreview(pulled.preview(), "");
-                cards.getChildren().add(buildPackReceiptCard(reward));
+                cards.getChildren().add(buildPackReceiptCard(pulled));
             }
             pageLabel.setText((page[0] + 1) + " / " + pageCount);
             previous.setDisable(page[0] == 0);
@@ -42887,20 +42958,27 @@ public class BirdGame3 {
         });
     }
 
-    private Node buildPackReceiptCard(RewardPresentation reward) {
+    private Node buildPackReceiptCard(ShopPackResult.Reward pulled) {
+        RewardPresentation reward = rewardPresentationForPreview(pulled.preview(), "");
         VBox card = new VBox(12);
         card.setAlignment(Pos.TOP_CENTER);
         card.setPadding(new Insets(24, 22, 22, 22));
         lockRegionSize(card, 468, 570);
         card.setStyle("-fx-background-color: #0C1522; -fx-border-color: " + reward.kind().accent
                 + "; -fx-border-width: 3; -fx-background-radius: 6; -fx-border-radius: 6;");
-        Label category = RewardRevealView.label(reward.kind() == RewardPresentation.Kind.BIRD
-                        ? "FIGHTER" : reward.kind().category.replace(" UNLOCKED", ""),
+        String categoryText = reward.kind() == RewardPresentation.Kind.BIRD
+                ? "FIGHTER" : reward.kind().category.replace(" UNLOCKED", "");
+        if (pulled.outcome() == ShopPackResult.Outcome.NEW_UNLOCK) categoryText = "NEW " + categoryText;
+        Label category = RewardRevealView.label(categoryText,
                 23, 418, 40, Color.web("#FFE67B"), true);
-        Node art = buildRewardRevealArt(reward, 416, 328);
-        Label name = RewardRevealView.label(reward.name(), 33, 418, 118, Color.WHITE, true);
+        Node art = buildRewardRevealArt(reward, 416, 300);
+        Label name = RewardRevealView.label(reward.name(), 33, 418, 96, Color.WHITE, true);
         name.setId("pack-reward-name");
-        card.getChildren().addAll(category, art, name);
+        Label state = RewardRevealView.label(
+                pulled.outcome() == ShopPackResult.Outcome.NEW_UNLOCK
+                        ? "ADDED TO COLLECTION" : "BALANCE UPDATED",
+                15, 418, 28, Color.web("#B9F6CA"), true);
+        card.getChildren().addAll(category, art, name, state);
         return card;
     }
 
@@ -78707,16 +78785,39 @@ public class BirdGame3 {
     }
 
     private VBox buildCinematicRewardSummary(int coinsEarned) {
-        VBox box = new VBox(6);
-        box.setAlignment(Pos.CENTER);
+        ProgressionOverview overview = progressionOverview();
+        VBox box = new VBox(4);
+        box.setAlignment(Pos.CENTER_LEFT);
+        box.setPadding(new Insets(10, 18, 10, 18));
         lockRegionSize(box, 470, 214);
 
-        Label title = cinematicResultsLabel("REWARD", 18, Color.web("#80DEEA"), true);
-        Label earned = cinematicResultsLabel("+" + coinsEarned, 48, Color.web("#FFE082"), true);
-        Label currency = cinematicResultsLabel("BIRD COINS", 20, Color.WHITE, true);
-        Label total = cinematicResultsLabel("TOTAL  " + birdCoinBalanceText(),
-                16, Color.web("#B8C7E8"), false);
-        box.getChildren().addAll(title, earned, currency, total);
+        Label title = cinematicResultsLabel("MATCH REWARD", 16, Color.web("#80DEEA"), true);
+        Label earned = cinematicResultsLabel(coinsEarned > 0 ? "+" + coinsEarned + " BIRD COINS" : "NO COIN PAYOUT",
+                31, coinsEarned > 0 ? Color.web("#FFE082") : Color.web("#90A4AE"), true);
+        Label total = cinematicResultsLabel("BALANCE  " + overview.coinBalanceText(),
+                14, Color.web("#B8C7E8"), false);
+        Label ready = cinematicResultsLabel(overview.claimableText() + (overview.claimableRewards() > 0 ? "  •  VAULT" : ""),
+                14, overview.claimableRewards() > 0 ? Color.web("#FFF176") : Color.web("#90A4AE"), true);
+        box.getChildren().addAll(title, earned, total, ready);
+
+        ProgressionOverview.Goal goal = overview.nextGoal().orElse(null);
+        if (goal != null) {
+            Label next = cinematicResultsLabel("NEXT GOAL  " + goal.title().toUpperCase(Locale.ROOT),
+                    14, Color.web("#CE93D8"), true);
+            next.setMaxWidth(430);
+            Label progress = cinematicResultsLabel(goal.progressText() + "  •  " + goal.reward(),
+                    13, Color.WHITE, false);
+            progress.setWrapText(true);
+            progress.setMaxWidth(430);
+            ProgressBar meter = new ProgressBar(goal.completionRatio());
+            meter.setPrefSize(430, 9);
+            meter.setMaxSize(430, 9);
+            meter.setStyle("-fx-accent: #CE93D8;");
+            box.getChildren().addAll(next, progress, meter);
+        } else {
+            box.getChildren().add(cinematicResultsLabel("ALL CHALLENGES COMPLETE", 14,
+                    Color.web("#B9F6CA"), true));
+        }
         box.setStyle("-fx-background-color:rgba(255,255,255,0.04); -fx-background-radius:16;"
                 + "-fx-border-color:rgba(128,222,234,0.36); -fx-border-width:2; -fx-border-radius:16;");
         return box;
@@ -81330,6 +81431,97 @@ public class BirdGame3 {
         };
     }
 
+    private int achievementGoalTarget(BirdGame3Achievement achievement) {
+        return switch (achievement) {
+            case FIRST_BLOOD, CLUTCH_GOD, CLASSIC_CREST, ECHOES_BELOW, BOSS_BREAKER,
+                    CROWN_UNBROKEN, ROOFTOP_LEGACY, ECHO_SOVEREIGN, IRON_TEMPEST,
+                    BRACKET_BOSS, ASHFALL_INITIATE, GEYSER_RIDER, PHOENIX_PILGRIMAGE -> 1;
+            case DOMINATOR, TURKEY_SLAM_MASTER, FALL_GUY -> 3;
+            case ANNIHILATOR -> Math.max(1, activePlayers - 1);
+            case LEAN_GOD -> 30;
+            case LOUNGE_LIZARD -> 100;
+            case POWER_UP_HOARDER, TAUNT_LORD, THERMAL_RIDER -> 10;
+            case ROOFTOP_RUNNER -> 20;
+            case NEON_ADDICT, VINE_SWINGER -> 8;
+            case URBAN_KING, SKY_EMPEROR, CANOPY_KING, ASHFALL_ASCENDANT -> 5;
+            case CLIFF_DIVER, PELICAN_KING -> 15;
+            case STORY_KEEPER -> Math.max(1, mainAdventureChapterCompletedState().length);
+            case ROUTE_PIONEER -> BirdGame3Achievement.ROUTE_PIONEER_GOAL;
+            case CLASSIC_VIRTUOSO -> BirdGame3Achievement.CLASSIC_VIRTUOSO_GOAL;
+            case STILL_SKY -> Math.max(1, stillSkyCampaign.orderedMissions.size());
+        };
+    }
+
+    private int achievementGoalCurrent(BirdGame3Achievement achievement) {
+        if (isAchievementUnlocked(achievement)) return achievementGoalTarget(achievement);
+        return switch (achievement) {
+            case FIRST_BLOOD, DOMINATOR, ANNIHILATOR -> maxProgressAcrossPlayers(eliminations);
+            case TURKEY_SLAM_MASTER -> maxProgressAcrossPlayers(groundPounds);
+            case LEAN_GOD -> achievementProgressValue(achievement) / 60;
+            case LOUNGE_LIZARD -> achievementProgressValue(achievement) / 10;
+            case POWER_UP_HOARDER -> maxProgressAcrossPlayers(powerUpsCollectedMatch);
+            case CLUTCH_GOD -> 0;
+            case CLASSIC_CREST -> countCompleted(classicCompleted);
+            case ECHOES_BELOW -> isAdventureChapterComplete() ? 1 : 0;
+            case STORY_KEEPER -> countCompleted(mainAdventureChapterCompletedState());
+            case BOSS_BREAKER -> Math.max(achievementProgressValue(achievement), bossRushClearCount);
+            case ROUTE_PIONEER, CLASSIC_VIRTUOSO ->
+                    Math.max(achievementProgressValue(achievement), countCompleted(classicCompleted));
+            case ROOFTOP_LEGACY -> pigeonEpisodeCompleted ? 1 : 0;
+            case ECHO_SOVEREIGN -> batEpisodeCompleted ? 1 : 0;
+            case IRON_TEMPEST -> pelicanEpisodeCompleted ? 1 : 0;
+            case BRACKET_BOSS -> Math.max(achievementProgressValue(achievement),
+                    tournamentChampionshipsWon > 0 ? 1 : 0);
+            case STILL_SKY -> stillSkyProgress.completedCount();
+            default -> achievementProgressValue(achievement);
+        };
+    }
+
+    private ProgressionOverview.Goal progressionGoalFor(int index) {
+        BirdGame3Achievement achievement = achievementForIndex(index);
+        return new ProgressionOverview.Goal(
+                achievement,
+                achievement.displayName,
+                sanitizeAchievementText(achievement.description),
+                achievementRewardLabel(index),
+                achievementProgressText(index),
+                achievementGoalCurrent(achievement),
+                achievementGoalTarget(achievement),
+                isAchievementUnlocked(achievement),
+                isAchievementRewardClaimable(index)
+        );
+    }
+
+    private List<ShopPreview> allUniqueShopUnlocks() {
+        Map<String, ShopPreview> unique = new LinkedHashMap<>();
+        for (ShopItem item : buildShopItems()) {
+            for (ShopPreview preview : item.uniqueUnlockPreviews()) {
+                unique.putIfAbsent(preview.skinKey(), preview);
+            }
+        }
+        return List.copyOf(unique.values());
+    }
+
+    private ProgressionOverview progressionOverview() {
+        List<ProgressionOverview.Goal> goals = new ArrayList<>(ACHIEVEMENT_COUNT);
+        int claimable = 0;
+        for (int i = 0; i < ACHIEVEMENT_COUNT; i++) {
+            ProgressionOverview.Goal goal = progressionGoalFor(i);
+            goals.add(goal);
+            if (goal.rewardClaimable()) claimable++;
+        }
+        List<ShopPreview> shopUnlocks = allUniqueShopUnlocks();
+        int owned = (int) shopUnlocks.stream().filter(this::isShopPreviewOwned).count();
+        return new ProgressionOverview(
+                birdCoinLedger.balance(),
+                developerInfiniteBirdCoins,
+                claimable,
+                owned,
+                shopUnlocks.size(),
+                goals
+        );
+    }
+
     private boolean isAdventureChapterComplete() {
         boolean[] completedAdventure = mainAdventureChapterCompletedState();
         return 1 < completedAdventure.length
@@ -81475,6 +81667,48 @@ public class BirdGame3 {
             setAchievementProgressValue(achievement, 0);
             clearAchievementRewardClaimed(achievement);
         }
+    }
+
+    private AchievementClaimBatch claimAllAchievementRewardsInternal() {
+        int claimed = 0;
+        int coins = 0;
+        int unlocks = 0;
+        for (int index = 0; index < ACHIEVEMENT_COUNT; index++) {
+            if (!isAchievementRewardClaimable(index)) continue;
+            AchievementClaimResult result = claimAchievementRewardInternal(index);
+            if (result == null) continue;
+            claimed++;
+            if (result.usesUnlockCards()) {
+                unlocks++;
+            } else if (result.preview() != null) {
+                coins += Math.max(0, result.preview().value());
+            }
+        }
+        return new AchievementClaimBatch(claimed, coins, unlocks);
+    }
+
+    private void claimAllAchievementRewards(Stage stage, BirdGame3AchievementCategory currentCategory) {
+        AchievementClaimBatch batch = claimAllAchievementRewardsInternal();
+        if (batch.rewardsClaimed() <= 0 || stage == null) return;
+        Runnable backToAchievements = () -> showAchievements(stage, currentCategory);
+        Runnable afterUnlocks = () -> {
+            if (batch.coinRewards() <= 0) {
+                backToAchievements.run();
+                return;
+            }
+            String detail = batch.rewardsClaimed() + " achievement rewards claimed"
+                    + (batch.newUnlocks() > 0 ? "  •  " + batch.newUnlocks() + " new collection unlocks" : "");
+            RewardPresentation reward = new RewardPresentation(
+                    RewardPresentation.Kind.COINS,
+                    "Bird Coins +" + batch.coinRewards(),
+                    detail,
+                    null,
+                    null,
+                    null
+            );
+            showRewardReveal(stage, reward, "", "CONTINUE", backToAchievements);
+        };
+        runAfterUnlockCards(stage, afterUnlocks);
     }
 
     private Color achievementAccentColor(int index) {
@@ -82229,6 +82463,7 @@ public class BirdGame3 {
         boolean unlocked = isAchievementUnlocked(index);
         boolean claimable = isAchievementRewardClaimable(index);
         boolean claimed = unlocked && isAchievementRewardClaimed(index);
+        ProgressionOverview.Goal goal = progressionGoalFor(index);
         Color accent = achievementAccentColor(index);
         String border = claimable ? "#FFE082" : (unlocked ? "#66BB6A" : toHex(accent));
 
@@ -82269,7 +82504,13 @@ public class BirdGame3 {
         progressLabel.setWrapText(true);
         progressLabel.setMaxWidth(900);
 
-        VBox textBox = new VBox(8, header, descLabel, progressLabel);
+        ProgressBar progressMeter = new ProgressBar(goal.completionRatio());
+        progressMeter.setPrefSize(760, 10);
+        progressMeter.setMaxSize(760, 10);
+        progressMeter.setStyle("-fx-accent: " + (unlocked ? "#66BB6A" : toHex(accent)) + ";");
+        progressMeter.setAccessibleText(goal.title() + " progress: " + goal.progressText());
+
+        VBox textBox = new VBox(8, header, descLabel, progressLabel, progressMeter);
         textBox.setAlignment(Pos.CENTER_LEFT);
         HBox.setHgrow(textBox, Priority.ALWAYS);
 
@@ -82378,7 +82619,16 @@ public class BirdGame3 {
                 claimableCount > 0 ? "#FFE082" : "#80DEEA",
                 "#FFF8E1"
         );
-        StackPane header = buildMenuTopStrip(back, title, summaryChip);
+        Node summaryActions = summaryChip;
+        if (claimableCount > 1) {
+            Button claimAll = uiFactory.action("CLAIM ALL", 190, 62, 20, "#2E7D32", 16,
+                    () -> claimAllAchievementRewards(stage, category));
+            claimAll.setAccessibleText("Claim all " + claimableCount + " achievement rewards");
+            HBox right = new HBox(10, summaryChip, claimAll);
+            right.setAlignment(Pos.CENTER_RIGHT);
+            summaryActions = right;
+        }
+        StackPane header = buildMenuTopStrip(back, title, summaryActions);
 
         HBox tabs = new HBox(14);
         tabs.setAlignment(Pos.CENTER);
