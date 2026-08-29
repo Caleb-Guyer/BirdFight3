@@ -120,9 +120,11 @@ causes silent desyncs. Rules:
   missions headlessly on Easy, Normal, and Hard through the real campaign
   objective controller. The player pilot stays fixed at CPU 5 while enemy AI,
   health, objective windows, Easy assists, teams, variants, phases, and bosses
-  use the selected difficulty. Targets are 75% (60–90%) on Easy, 55% (40–70%)
-  on Normal, and 35% (20–50%) on Hard. Objective results intentionally measure
-  routing reliability; headless cutoffs fail the manual audit.
+  use the selected difficulty. Mid-campaign targets are 50% on Easy, 35% on
+  Normal, and 15% on Hard, each with a ±10-point band. Mission targets rise by
+  up to 10 points early, fall by up to 10 late, and fall another 5 points for
+  bosses (8 for the final boss). Objective results intentionally measure routing
+  reliability; headless cutoffs fail the manual audit.
 - **Null Rock cooldowns**: player-controlled Null Rock uses four independent
   directional reuse timers; CPU Null Rock deliberately retains one shared,
   difficulty-scaled boss timer so higher difficulties increase cadence safely.

@@ -75,13 +75,33 @@ class AdventureBalanceLabTest {
         AdventureBalanceLab.TargetBand hard = AdventureBalanceLab.targetBand(
                 StoryCampaign.Difficulty.HARD);
 
-        assertEquals(0.75, easy.target(), 0.0001);
-        assertEquals(0.55, normal.target(), 0.0001);
-        assertEquals(0.35, hard.target(), 0.0001);
+        assertEquals(0.50, easy.target(), 0.0001);
+        assertEquals(0.35, normal.target(), 0.0001);
+        assertEquals(0.15, hard.target(), 0.0001);
         assertTrue(easy.target() > normal.target());
         assertTrue(normal.target() > hard.target());
-        assertTrue(easy.contains(0.75));
-        assertFalse(hard.contains(0.75));
+        assertTrue(easy.contains(0.50));
+        assertFalse(hard.contains(0.50));
+    }
+
+    @Test
+    void missionTargetsBecomeHarderAcrossTheCampaignAndForBosses() {
+        AdventureBalanceLab.TargetBand early = AdventureBalanceLab.targetBand(
+                StoryCampaign.Difficulty.NORMAL, 1, false, false);
+        AdventureBalanceLab.TargetBand middle = AdventureBalanceLab.targetBand(
+                StoryCampaign.Difficulty.NORMAL, 20, false, false);
+        AdventureBalanceLab.TargetBand late = AdventureBalanceLab.targetBand(
+                StoryCampaign.Difficulty.NORMAL, 40, false, false);
+        AdventureBalanceLab.TargetBand lateBoss = AdventureBalanceLab.targetBand(
+                StoryCampaign.Difficulty.NORMAL, 40, true, false);
+        AdventureBalanceLab.TargetBand finalBoss = AdventureBalanceLab.targetBand(
+                StoryCampaign.Difficulty.NORMAL, 40, true, true);
+
+        assertEquals(0.45, early.target(), 0.0001);
+        assertTrue(early.target() > middle.target());
+        assertTrue(middle.target() > late.target());
+        assertTrue(late.target() > lateBoss.target());
+        assertTrue(lateBoss.target() > finalBoss.target());
     }
 
     @Test
@@ -109,9 +129,10 @@ class AdventureBalanceLabTest {
         assertEquals(Set.of(StoryCampaign.Difficulty.values()),
                 report.summaries().stream().map(AdventureBalanceLab.MissionSummary::difficulty)
                         .collect(java.util.stream.Collectors.toSet()));
-        assertTrue(report.markdown().contains("Easy | 3 | 75% | 60%–90%"));
-        assertTrue(report.markdown().contains("Normal | 5 | 55% | 40%–70%"));
-        assertTrue(report.markdown().contains("Hard | 7 | 35% | 20%–50%"));
+        assertTrue(report.markdown().contains("Easy | 3 | 50% | 40%–60%"));
+        assertTrue(report.markdown().contains("Normal | 5 | 35% | 25%–45%"));
+        assertTrue(report.markdown().contains("Hard | 7 | 15% | 5%–25%"));
+        assertTrue(report.markdown().contains("Earlier missions rise by up to 10 points"));
         assertEquals(0.30, AdventureBalanceLab.attemptClearRate(3, 10), 0.0001);
     }
 

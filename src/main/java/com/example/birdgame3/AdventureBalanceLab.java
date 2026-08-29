@@ -35,11 +35,11 @@ final class AdventureBalanceLab {
         }
     }
 
-    private static final Map<StoryCampaign.Difficulty, TargetBand> TARGETS = new EnumMap<>(
+    private static final Map<StoryCampaign.Difficulty, TargetBand> BASELINE_TARGETS = new EnumMap<>(
             Map.of(
-                    StoryCampaign.Difficulty.EASY, new TargetBand(0.75, 0.60, 0.90),
-                    StoryCampaign.Difficulty.NORMAL, new TargetBand(0.55, 0.40, 0.70),
-                    StoryCampaign.Difficulty.HARD, new TargetBand(0.35, 0.20, 0.50)
+                    StoryCampaign.Difficulty.EASY, new TargetBand(0.50, 0.40, 0.60),
+                    StoryCampaign.Difficulty.NORMAL, new TargetBand(0.35, 0.25, 0.45),
+                    StoryCampaign.Difficulty.HARD, new TargetBand(0.15, 0.05, 0.25)
             ));
 
     record Config(List<String> missionIds,
@@ -139,7 +139,10 @@ final class AdventureBalanceLab {
             sb.append("- Metric: attempt-based mission clear rate using real teams, objectives, map variants, assists, and boss phases; harness cutoffs are failed clears\n\n");
 
             sb.append("## Difficulty targets\n\n");
-            sb.append("| Difficulty | Enemy AI | Target | Accepted band |\n");
+            sb.append("These are the mid-campaign baselines. Earlier missions rise by up to 10 points, ")
+                    .append("later missions fall by up to 10, and boss missions fall another 5 points ")
+                    .append("(8 for the final boss). Each mission uses a ±10-point accepted band.\n\n");
+            sb.append("| Difficulty | Enemy AI | Baseline target | Baseline band |\n");
             sb.append("|---|---:|---:|---:|\n");
             for (StoryCampaign.Difficulty difficulty : StoryCampaign.Difficulty.values()) {
                 TargetBand band = targetBand(difficulty);
@@ -198,7 +201,20 @@ final class AdventureBalanceLab {
     static TargetBand targetBand(StoryCampaign.Difficulty difficulty) {
         StoryCampaign.Difficulty resolved = difficulty == null
                 ? StoryCampaign.Difficulty.NORMAL : difficulty;
-        return TARGETS.get(resolved);
+        return BASELINE_TARGETS.get(resolved);
+    }
+
+    static TargetBand targetBand(StoryCampaign.Difficulty difficulty,
+                                 int missionNumber,
+                                 boolean bossMission,
+                                 boolean finalBoss) {
+        TargetBand baseline = targetBand(difficulty);
+        double progress = Math.clamp((missionNumber - 1) / 39.0, 0.0, 1.0);
+        double progressionAdjustment = 0.10 - progress * 0.20;
+        double bossAdjustment = finalBoss ? -0.08 : bossMission ? -0.05 : 0.0;
+        double target = Math.clamp(baseline.target() + progressionAdjustment + bossAdjustment,
+                0.05, 0.80);
+        return new TargetBand(target, Math.max(0.0, target - 0.10), Math.min(1.0, target + 0.10));
     }
 
     static Report run(Config config, Consumer<String> progress) {
@@ -291,7 +307,8 @@ final class AdventureBalanceLab {
         }
         int matches = outcomes.size();
         return new MissionSummary(missionNumber, mission.id(), mission.title(), mapName(mission),
-                objectiveNames(mission), difficulty, targetBand(difficulty), matches,
+                objectiveNames(mission), difficulty,
+                targetBand(difficulty, missionNumber, isBossMission(mission), mission.finalBoss()), matches,
                 wins, losses, cutoffs, attemptClearRate(wins, matches),
                 matches == 0 ? 0.0 : totalTicks / (double) matches,
                 matches == 0 ? 0.0 : totalDamage / (double) matches);
@@ -321,6 +338,13 @@ final class AdventureBalanceLab {
                 .distinct()
                 .map(objective -> titleCase(objective.name().replace('_', ' ')))
                 .collect(Collectors.joining(" + "));
+    }
+
+    private static boolean isBossMission(StoryCampaign.Mission mission) {
+        return mission.finalBoss()
+                || mission.enemies().stream().anyMatch(StoryCampaign.Fighter::boss)
+                || mission.phases().stream().anyMatch(phase ->
+                phase.objective() == StoryCampaign.ObjectiveType.BOSS_PHASES);
     }
 
     private static String mapName(StoryCampaign.Mission mission) {
