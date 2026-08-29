@@ -22,6 +22,10 @@ are known debt — work within them; don't attempt a grand refactor.
 - Classic encounter lab (headless, ~12s for one route):
   `.\mvnw.cmd test -Dtest=ClassicBalanceLabRun -DclassicBird=ROADRUNNER -DclassicMatches=64`
   → writes `audit/classic-balance-report.md`; use `-DclassicBird=ALL` for every route
+- Adventure mission lab (headless, all 40 Still Sky missions × Easy/Normal/Hard):
+  `.\mvnw.cmd test -Dtest=AdventureBalanceLabRun -DadventureMatches=24`
+  → writes `audit/adventure-balance-report.md`; narrow with `-DadventureMission=dead_air`
+  or `-DadventureDifficulty=HARD`; add `-DadventureEnforceTargets=true` to fail on target-band misses
 
 ## THE DETERMINISM CONTRACT (most important thing in this file)
 
@@ -112,6 +116,13 @@ causes silent desyncs. Rules:
   timers, and route mechanics. It reports each combat round independently;
   objective rounds are excluded by default because their result primarily
   measures AI navigation. Later Roadrunner rounds preload prior Redline Bolts.
+- **Adventure balance lab**: `AdventureBalanceLab` runs all 40 Still Sky
+  missions headlessly on Easy, Normal, and Hard through the real campaign
+  objective controller. The player pilot stays fixed at CPU 5 while enemy AI,
+  health, objective windows, Easy assists, teams, variants, phases, and bosses
+  use the selected difficulty. Targets are 75% (60–90%) on Easy, 55% (40–70%)
+  on Normal, and 35% (20–50%) on Hard. Objective results intentionally measure
+  routing reliability; headless cutoffs fail the manual audit.
 - **Null Rock cooldowns**: player-controlled Null Rock uses four independent
   directional reuse timers; CPU Null Rock deliberately retains one shared,
   difficulty-scaled boss timer so higher difficulties increase cadence safely.

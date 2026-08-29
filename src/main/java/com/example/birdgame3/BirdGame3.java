@@ -6535,6 +6535,7 @@ public class BirdGame3 {
     private String campaignSelectedSkinKey = null;
     private boolean campaignMissionWon = false;
     private int campaignRetryPhaseIndex = 0;
+    private int headlessCampaignPlayerCpuLevel = 0;
     private final double[] campaignStartingHealth = new double[MAX_COMBATANTS];
     private final boolean[] campaignBossSlots = new boolean[MAX_COMBATANTS];
     private final boolean[] campaignReservedBossSlots = new boolean[MAX_COMBATANTS];
@@ -12846,8 +12847,11 @@ public class BirdGame3 {
         }
         updateSwingingVines();
 
-        for (Iterator<CrowMinion> it = crowMinions.iterator(); it.hasNext(); ) {
-            CrowMinion c = it.next();
+        // Crow contact can synchronously trigger bird passives or campaign
+        // phase effects that add another crow. Iterate a tick-start snapshot so
+        // those deterministic additions begin updating next tick instead of
+        // invalidating this traversal with ConcurrentModificationException.
+        for (CrowMinion c : List.copyOf(crowMinions)) {
             c.age++;
             if (c.overflowProtectionFrames > 0) {
                 c.overflowProtectionFrames--;
@@ -12863,7 +12867,7 @@ public class BirdGame3 {
             }
             if (c.guardsAnchor()) {
                 if (updateAnchoredCrowMinion(c)) {
-                    it.remove();
+                    crowMinions.remove(c);
                 }
                 continue;
             }
@@ -12912,7 +12916,7 @@ public class BirdGame3 {
                     double oldHealth = closest.health;
                     double dealtDamage = closest.receiveOwnedMinionDamage(damage, c.owner);
                     if (dealtDamage <= 0) {
-                        it.remove();
+                        crowMinions.remove(c);
                         continue;
                     }
                     int shownDamage = (int) Math.round(dealtDamage);
@@ -12953,7 +12957,7 @@ public class BirdGame3 {
                         c.target = null;
                         c.retargetCooldown = 18;
                     } else {
-                        it.remove();
+                        crowMinions.remove(c);
                         continue;
                     }
                 }
@@ -12966,7 +12970,7 @@ public class BirdGame3 {
                 c.vx *= 0.96;
             }
             if (c.age > 1800 || c.x < -1500 || c.x > WORLD_WIDTH + 1500 || c.y < -1500 || c.y > WORLD_HEIGHT + 1500) {
-                it.remove();
+                crowMinions.remove(c);
             }
         }
 
@@ -71995,6 +71999,12 @@ public class BirdGame3 {
     }
 
     private void playCampaignMidMissionCutscene(String nextObjective) {
+        // The balance harness advances every authored campaign phase without a
+        // JavaFX toolkit. The objective transition itself has already happened;
+        // only the presentation pause must be skipped here.
+        if (headlessHarnessMode) {
+            return;
+        }
         if (currentStage == null || gameplayScene == null || timer == null
                 || currentCampaignMission == null) {
             showCampaignPhaseBanner(nextObjective);
@@ -72982,6 +72992,19 @@ public class BirdGame3 {
         lockstepSession = null;
         lanModeActive = false;
         trainingModeActive = false;
+        campaignModeActive = false;
+        currentCampaignMission = null;
+        campaignMissionController = null;
+        campaignMissionWon = false;
+        campaignRetryPhaseIndex = 0;
+        campaignMatchTimerOverride = -1;
+        campaignTeamMode = false;
+        headlessCampaignPlayerCpuLevel = 0;
+        Arrays.fill(campaignTeams, 1);
+        Arrays.fill(campaignStartingHealth, 0.0);
+        Arrays.fill(campaignBossSlots, false);
+        Arrays.fill(campaignReservedBossSlots, false);
+        Arrays.fill(campaignEnemyEliminated, false);
         storyModeActive = false;
         adventureModeActive = false;
         classicModeActive = false;
@@ -72997,6 +73020,79 @@ public class BirdGame3 {
         killFeed.clear();
         Arrays.fill(damageDealt, 0);
         clearGameplayInputs();
+    }
+
+    /** Returns all 40 authored Still Sky missions in their real campaign order. */
+    List<StoryCampaign.Mission> harnessAdventureMissions() {
+        return List.copyOf(stillSkyCampaign.orderedMissions);
+    }
+
+    /**
+     * Sets up one real Still Sky mission for headless AI play. The player AI
+     * stays at a fixed skill level while the authored enemy CPU, health, timing,
+     * assists, objectives, teams, map variant, and runtime mechanics use the
+     * selected campaign difficulty. This makes Easy/Normal/Hard results
+     * comparable instead of changing both sides' pilot skill together.
+     */
+    StoryCampaign.Mission harnessPrepareAdventureMission(
+            String missionId,
+            StoryCampaign.Difficulty difficulty,
+            BirdType playerType,
+            int playerCpuLevel,
+            long seed) {
+        resetHeadlessHarness(seed);
+        resetMatchStats();
+
+        StoryCampaign.Mission mission = stillSkyCampaign.mission(missionId);
+        if (mission == null) {
+            throw new IllegalArgumentException("Unknown Still Sky mission: " + missionId);
+        }
+        StoryCampaign.Difficulty resolvedDifficulty = difficulty == null
+                ? StoryCampaign.Difficulty.NORMAL : difficulty;
+        List<BirdType> allowedBirds = mission.playable().resolvedBirds();
+        BirdType resolvedPlayer = playerType == null
+                ? allowedBirds.getFirst() : playerType;
+        if (!allowedBirds.contains(resolvedPlayer)) {
+            throw new IllegalArgumentException(resolvedPlayer
+                    + " is not playable in Still Sky mission " + mission.id());
+        }
+
+        campaignModeActive = true;
+        currentCampaignMission = mission;
+        stillSkyProgress.difficulty = resolvedDifficulty;
+        campaignSelectedBird = resolvedPlayer;
+        campaignSelectedSkinKey = null;
+        campaignRetryPhaseIndex = 0;
+        headlessCampaignPlayerCpuLevel = Math.clamp(playerCpuLevel, 1, 9);
+        selectedMap = mission.map();
+        selectedMapVariant = mission.mapVariant();
+
+        Arrays.fill(players, null);
+        Arrays.fill(isAI, false);
+        setupCampaignMissionRoster(mission);
+        isAI[0] = true;
+        smashCombatRulesActive = false;
+
+        setupMatchArenaGeometry();
+        applySelectedMapVariantArena();
+        applyCampaignMissionArenaModifiers(mission);
+        setupCampaignMissionController(mission);
+        if (campaignMatchTimerOverride > 0) {
+            matchTimer = campaignMatchTimerOverride;
+        }
+        configureMatchModes();
+        positionBattlefieldSpawns();
+        matchIntroOverlayFrames = 0;
+        matchIntroLastAnnouncedPhase = -1;
+        return mission;
+    }
+
+    boolean harnessCampaignMissionWon() {
+        return matchEnded && campaignMissionWon;
+    }
+
+    int harnessCampaignPhaseIndex() {
+        return campaignMissionController == null ? -1 : campaignMissionController.phaseIndex();
     }
 
     /** Returns the deterministic authored route used by the Classic balance lab. */
@@ -73633,7 +73729,9 @@ public class BirdGame3 {
     public int getCpuLevel(int playerIdx) {
         int level = 5;
         if (campaignModeActive) {
-            level = stillSkyProgress.difficulty.cpuLevel;
+            level = headlessHarnessMode && playerIdx == 0 && headlessCampaignPlayerCpuLevel > 0
+                    ? headlessCampaignPlayerCpuLevel
+                    : stillSkyProgress.difficulty.cpuLevel;
         } else if (adventureModeActive && currentAdventureBattle != null) {
             level = currentAdventureBattle.cpuLevel;
         } else if (classicModeActive && classicEncounter != null) {
