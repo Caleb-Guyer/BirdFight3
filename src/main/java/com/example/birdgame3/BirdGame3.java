@@ -12263,6 +12263,7 @@ public class BirdGame3 {
             } else {
                 captureReplayFrame();
             }
+            updateSwingingPlatformsFixed();
             long playerUpdateNs = 0L;
             long worldUpdateNs = 0L;
             long effectsUpdateNs = 0L;
@@ -12923,6 +12924,33 @@ public class BirdGame3 {
     private double cameraMaxYForZoom(double zoomLevel) {
         double safeZoom = Math.max(0.01, zoomLevel);
         return Math.max(0.0, WORLD_HEIGHT - HEIGHT / safeZoom);
+    }
+
+    /** Advances deterministic moving platforms and keeps grounded riders attached. */
+    void updateSwingingPlatformsFixed() {
+        for (Platform platform : platforms) {
+            if (!platform.swinging) continue;
+
+            double previousX = platform.x;
+            double previousY = platform.y;
+            platform.updateSwing(simTick);
+            double deltaX = platform.x - previousX;
+            double deltaY = platform.y - previousY;
+            if (Math.abs(deltaX) < 0.000_001 && Math.abs(deltaY) < 0.000_001) continue;
+
+            for (Bird bird : players) {
+                if (bird == null || bird.health <= 0) continue;
+                double feetX = bird.bodyCenterX();
+                double feetY = bird.bodyBottomY();
+                boolean wasRiding = feetX >= previousX && feetX <= previousX + platform.w
+                        && Math.abs(feetY - previousY) <= 12.0
+                        && bird.y <= previousY + 2.0;
+                if (wasRiding) {
+                    bird.x += deltaX;
+                    bird.y += deltaY;
+                }
+            }
+        }
     }
 
     private void updateWorldFixed() {
@@ -16346,8 +16374,12 @@ public class BirdGame3 {
         g.setFill(accent.deriveColor(0, 0.82, 1.0, 0.72));
         g.fillRect(390.0, 158.0, 5_220.0, 13.0);
 
-        // The marquee makes the location identifiable in gameplay and photos.
-        double signWidth = sorting ? 1_540.0 : core ? 1_480.0 : 1_780.0;
+        // Sorting Floor is already identified by its moving suspended trays;
+        // leave the playfield clean instead of covering it with a giant label.
+        if (sorting) return;
+
+        // The other Exchange layouts retain their location marquee.
+        double signWidth = core ? 1_480.0 : 1_780.0;
         double signX = 3_000.0 - signWidth * 0.5;
         g.setStroke(Color.web("#655746", 0.92));
         g.setLineWidth(14.0);
@@ -16361,12 +16393,11 @@ public class BirdGame3 {
         g.setTextAlign(TextAlignment.CENTER);
         g.setFill(Color.web("#FFF0C8"));
         g.setFont(Font.font("Impact", FontWeight.BOLD, 86.0));
-        g.fillText(core ? "RECLAMATION CORE" : sorting ? "SORTING FLOOR" : "CARRION EXCHANGE",
+        g.fillText(core ? "RECLAMATION CORE" : "CARRION EXCHANGE",
                 3_000.0, 565.0);
         g.setFill(accent.deriveColor(0, 0.84, 1.08, 0.90));
         g.setFont(Font.font("Consolas", FontWeight.BOLD, 29.0));
         g.fillText(core ? "ALL DEBTS RETURN TO THE FURNACE"
-                        : sorting ? "WEIGH  •  MARK  •  RECLAIM"
                         : "WE BUY WHAT THE SKY FORGETS",
                 3_000.0, 625.0);
         g.setTextAlign(TextAlignment.LEFT);
@@ -16427,37 +16458,55 @@ public class BirdGame3 {
     }
 
     private void drawCarrionSortingLine(GraphicsContext g, Color accent, double pulse) {
-        for (int chute = 0; chute < 4; chute++) {
-            double x = 750.0 + chute * 1_390.0;
-            g.setStroke(Color.web("#334C49", 0.96));
-            g.setLineWidth(44.0);
-            g.strokeLine(x + 80.0, 315.0, x + 245.0, 830.0);
-            g.strokeLine(x + 245.0, 830.0, x + 500.0, 990.0);
-            g.setStroke(accent.deriveColor(0, 0.82, 0.92, 0.76));
-            g.setLineWidth(10.0);
-            g.strokeLine(x + 80.0, 315.0, x + 245.0, 830.0);
-            g.strokeLine(x + 245.0, 830.0, x + 500.0, 990.0);
+        for (Platform tray : platforms) {
+            if (!tray.carrionSortingTray) continue;
 
+            double restingCenter = tray.restingX + tray.w * 0.5;
+            double leftAnchor = restingCenter - 175.0;
+            double rightAnchor = restingCenter + 175.0;
+
+            // The cables terminate at the live collision surface, so the art
+            // cannot drift away from the platform the fighters stand on.
+            g.setStroke(Color.web("#17191D", 0.98));
+            g.setLineWidth(32.0);
+            g.strokeLine(leftAnchor, 315.0, tray.x + 72.0, tray.y + 8.0);
+            g.strokeLine(rightAnchor, 315.0, tray.x + tray.w - 72.0, tray.y + 8.0);
+            g.setStroke(Color.web("#8D785E", 0.92));
+            g.setLineWidth(11.0);
+            g.strokeLine(leftAnchor, 315.0, tray.x + 72.0, tray.y + 8.0);
+            g.strokeLine(rightAnchor, 315.0, tray.x + tray.w - 72.0, tray.y + 8.0);
+
+            double bodyHeight = 300.0;
+            g.setFill(Color.web("#070A0D", 0.96));
+            g.fillRoundRect(tray.x - 16.0, tray.y + 14.0,
+                    tray.w + 32.0, bodyHeight + 24.0, 38.0, 38.0);
             g.setFill(Color.web("#11201F", 0.98));
-            g.fillRoundRect(x + 80.0, 940.0, 640.0, 390.0, 42.0, 42.0);
-            g.setStroke(accent.deriveColor(0, 0.90, 1.0, 0.88));
-            g.setLineWidth(14.0);
-            g.strokeRoundRect(x + 80.0, 940.0, 640.0, 390.0, 42.0, 42.0);
-            g.setFill(accent.deriveColor(0, 0.65, 0.80, 0.15 + pulse * 0.04));
-            g.fillRoundRect(x + 115.0, 985.0, 570.0, 300.0, 24.0, 24.0);
-            g.setFill(Color.web("#DFFFF8"));
-            g.setFont(Font.font("Consolas", FontWeight.BOLD, 78.0));
-            g.setTextAlign(TextAlignment.CENTER);
-            g.fillText(String.format(Locale.ROOT, "%02d", chute + 1), x + 400.0, 1_135.0);
-            g.setFont(Font.font("Consolas", FontWeight.BOLD, 25.0));
-            g.fillText(switch (chute) {
-                case 0 -> "BONE";
-                case 1 -> "BRASS";
-                case 2 -> "SIGNAL";
-                default -> "UNCLAIMED";
-            }, x + 400.0, 1_215.0);
+            g.fillRoundRect(tray.x, tray.y, tray.w, bodyHeight, 34.0, 34.0);
+            g.setStroke(accent.deriveColor(0, 0.90, 1.0, 0.94));
+            g.setLineWidth(15.0);
+            g.strokeRoundRect(tray.x, tray.y, tray.w, bodyHeight, 34.0, 34.0);
+
+            // A bright, thick lip clearly communicates a standable top.
+            g.setFill(accent.deriveColor(0, 0.80, 1.0, 0.82));
+            g.fillRoundRect(tray.x + 14.0, tray.y + 10.0,
+                    tray.w - 28.0, Math.max(18.0, tray.h - 20.0), 12.0, 12.0);
+            g.setFill(Color.web("#0D1717", 0.96));
+            g.fillRoundRect(tray.x + 42.0, tray.y + 82.0,
+                    tray.w - 84.0, bodyHeight - 126.0, 24.0, 24.0);
+
+            // Simple motion chevrons replace the old bins' numbers and labels.
+            g.setStroke(accent.deriveColor(0, 0.72, 0.92, 0.26 + pulse * 0.08));
+            g.setLineWidth(18.0);
+            double centerX = tray.x + tray.w * 0.5;
+            double centerY = tray.y + 185.0;
+            for (int chevron = -1; chevron <= 1; chevron++) {
+                double offset = chevron * 105.0;
+                g.strokeLine(centerX - 42.0 + offset, centerY - 42.0,
+                        centerX + offset, centerY);
+                g.strokeLine(centerX + offset, centerY,
+                        centerX - 42.0 + offset, centerY + 42.0);
+            }
         }
-        g.setTextAlign(TextAlignment.LEFT);
 
         g.setFill(Color.web("#11201F"));
         g.fillRoundRect(720.0, GROUND_Y - 690.0, 4_560.0, 135.0, 28.0, 28.0);
@@ -16529,6 +16578,7 @@ public class BirdGame3 {
         Color frame = Color.web(core ? "#864735" : sorting ? "#4D8178" : "#876847");
         double supportFloor = GROUND_Y + 300.0;
         for (Platform p : platforms) {
+            if (p.carrionSortingTray) continue;
             if (p.y >= GROUND_Y + 80.0) continue;
             boolean mainDeck = Math.abs(p.y - battlefieldIslandY) < 2.0 && p.w > 3_000.0;
             double center = p.x + p.w * 0.5;
@@ -73387,6 +73437,7 @@ public class BirdGame3 {
             return !matchEnded;
         }
         simTick++;
+        updateSwingingPlatformsFixed();
         for (int i = 0; i < activePlayers; i++) {
             if (players[i] != null) {
                 players[i].update(1.0);
@@ -75511,6 +75562,13 @@ public class BirdGame3 {
         platforms.add(new Platform(2_650.0, floorY - 285.0, 700.0, 60.0));
         platforms.add(new Platform(3_190.0, floorY - 475.0, 760.0, 52.0));
         platforms.add(new Platform(4_270.0, floorY - 300.0, 1_080.0, 54.0));
+        for (int tray = 0; tray < 4; tray++) {
+            Platform platform = new Platform(830.0 + tray * 1_390.0, 940.0, 640.0, 70.0)
+                    .asCarrionSortingTray(625.0, 7.0,
+                            300 + tray * 18, tray * 67);
+            platform.updateSwing(simTick);
+            platforms.add(platform);
+        }
         battlefieldIslandX = 420.0;
         battlefieldIslandW = 5_160.0;
         battlefieldIslandY = floorY;

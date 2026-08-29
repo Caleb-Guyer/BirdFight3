@@ -12,6 +12,7 @@ import static com.example.birdgame3.BirdGame3.StageChoice;
 import static com.example.birdgame3.BirdGame3.StageRandomPool;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MapVariantTest {
@@ -223,6 +224,40 @@ class MapVariantTest {
         unlocked.setBoolean(game, true);
         assertTrue(game.availableStageChoices(StageRandomPool.VARIANTS).stream()
                 .anyMatch(choice -> choice.variant() == MapVariant.FROZEN_CALDERA));
+    }
+
+    @Test
+    void sortingFloorTraysAreStandableSwingingPlatformsThatCarryRiders() throws Exception {
+        BirdGame3 game = buildVariant(MapVariant.SORTING_FLOOR);
+        List<Platform> trays = game.platforms.stream()
+                .filter(platform -> platform.carrionSortingTray)
+                .toList();
+
+        assertEquals(4, trays.size());
+        assertTrue(trays.stream().allMatch(platform -> platform.swinging
+                        && platform.w == 640.0 && platform.h >= 60.0),
+                "every hanging tray should expose a broad collision surface");
+
+        Platform tray = trays.getFirst();
+        Bird rider = new Bird(tray.x + tray.w * 0.5 - 40.0,
+                BirdGame3.BirdType.PIGEON, 0, game);
+        rider.y = tray.y - rider.bodyHeight();
+        game.players[0] = rider;
+
+        double previousTrayX = tray.x;
+        double previousTrayY = tray.y;
+        double previousRiderX = rider.x;
+        double previousRiderY = rider.y;
+        game.simTick++;
+        game.updateSwingingPlatformsFixed();
+
+        assertTrue(Math.abs(tray.x - previousTrayX) > 0.01
+                        || Math.abs(tray.y - previousTrayY) > 0.01,
+                "the tray should advance along its pendulum path each sim tick");
+        assertEquals(tray.x - previousTrayX, rider.x - previousRiderX, 0.000_001);
+        assertEquals(tray.y - previousTrayY, rider.y - previousRiderY, 0.000_001);
+        assertSame(tray, rider.findCurrentSupportPlatform(),
+                "a carried fighter must remain grounded on the moving surface");
     }
 
     @Test
