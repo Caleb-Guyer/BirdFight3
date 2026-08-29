@@ -633,34 +633,41 @@ final class GooseSpecials {
     }
 
     private static void applyNestAura(Bird bird) {
-        if (bird.gooseNest == null || bird.gooseNest.lifeFrames <= 0 || bird.health <= 0) {
+        GooseNest nest = bird.gooseNest;
+        if (nest == null || nest.lifeFrames <= 0 || bird.health <= 0) {
             return;
         }
         for (Bird other : bird.game.players) {
             if (!bird.canDamageTarget(other)) {
                 continue;
             }
-            double dx = Math.abs(other.bodyCenterX() - bird.gooseNest.x);
-            double dy = Math.abs(other.bodyCenterY() - bird.gooseNest.y);
-            if (dx > (bird.gooseNest.ultimate ? 132.0 : 112.0) * bird.sizeMultiplier + other.combatHalfWidth()
-                    || dy > (bird.gooseNest.ultimate ? 74.0 : 58.0) * bird.sizeMultiplier + other.combatHalfHeight()) {
+            double dx = Math.abs(other.bodyCenterX() - nest.x);
+            double dy = Math.abs(other.bodyCenterY() - nest.y);
+            if (dx > (nest.ultimate ? 132.0 : 112.0) * bird.sizeMultiplier + other.combatHalfWidth()
+                    || dy > (nest.ultimate ? 74.0 : 58.0) * bird.sizeMultiplier + other.combatHalfHeight()) {
                 continue;
             }
-            other.vx *= bird.gooseNest.ultimate ? 0.88 : 0.92;
-            if (bird.gooseNest.pulseCooldown <= 0) {
-                int dealt = bird.applyTrackedSpecialDamage(other, bird.gooseNest.ultimate ? 6 : 3);
+            other.vx *= nest.ultimate ? 0.88 : 0.92;
+            if (nest.pulseCooldown <= 0) {
+                int dealt = bird.applyTrackedSpecialDamage(other, nest.ultimate ? 6 : 3);
                 if (dealt > 0) {
-                    double dir = Math.signum(other.bodyCenterX() - bird.gooseNest.x);
+                    double dir = Math.signum(other.bodyCenterX() - nest.x);
                     if (dir == 0.0) {
                         dir = bird.facingDirection();
                     }
-                    other.vx += dir * (bird.gooseNest.ultimate ? 4.0 : 2.6);
-                    other.vy -= bird.gooseNest.ultimate ? 2.2 : 1.3;
-                    other.applyStun(bird.gooseNest.ultimate ? 6 : 4);
+                    other.vx += dir * (nest.ultimate ? 4.0 : 2.6);
+                    other.vy -= nest.ultimate ? 2.2 : 1.3;
+                    other.applyStun(nest.ultimate ? 6 : 4);
                     addTerritory(bird, 8.0);
-                    emitHitBurst(bird, other, bird.gooseNest.ultimate ? Color.GOLD : Color.web("#8BC5A1"), 10);
+                    emitHitBurst(bird, other, nest.ultimate ? Color.GOLD : Color.web("#8BC5A1"), 10);
                 }
-                bird.gooseNest.pulseCooldown = bird.gooseNest.ultimate ? 24 : 32;
+                // Damage can complete a campaign phase and reset the Goose while this
+                // update is still unwinding. Mutate the captured nest only; a newly
+                // prepared phase must not inherit this pulse cooldown.
+                nest.pulseCooldown = nest.ultimate ? 24 : 32;
+                if (bird.gooseNest != nest) {
+                    return;
+                }
             }
         }
     }

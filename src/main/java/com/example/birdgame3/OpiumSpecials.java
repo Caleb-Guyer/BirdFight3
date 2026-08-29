@@ -4,7 +4,7 @@ import com.example.birdgame3.BirdGame3.MapType;
 import javafx.scene.paint.Color;
 
 import java.util.Arrays;
-import java.util.Iterator;
+import java.util.List;
 
 final class OpiumSpecials {
     private OpiumSpecials() {
@@ -669,8 +669,13 @@ final class OpiumSpecials {
         if (bird.opiumTraps.isEmpty()) {
             return;
         }
-        for (Iterator<Bird.OpiumTrap> it = bird.opiumTraps.iterator(); it.hasNext(); ) {
-            Bird.OpiumTrap trap = it.next();
+        // Damage callbacks can create or clear traps. Iterate the tick-start snapshot so those
+        // deterministic state changes take effect next tick instead of invalidating this traversal.
+        List<Bird.OpiumTrap> trapsAtTickStart = List.copyOf(bird.opiumTraps);
+        for (Bird.OpiumTrap trap : trapsAtTickStart) {
+            if (!bird.opiumTraps.contains(trap)) {
+                continue;
+            }
             trap.ageFrames++;
             trap.lifeFrames--;
             for (int i = 0; i < trap.hitCooldown.length; i++) {
@@ -679,18 +684,18 @@ final class OpiumSpecials {
                 }
             }
             if (bird.health <= 0) {
-                it.remove();
+                bird.opiumTraps.remove(trap);
                 continue;
             }
             if (trap.heisen) {
-                handleHeisenTrap(bird, trap, it);
+                handleHeisenTrap(bird, trap);
                 continue;
             }
-            handleOpiumTrap(bird, trap, it);
+            handleOpiumTrap(bird, trap);
         }
     }
 
-    private static void handleHeisenTrap(Bird bird, Bird.OpiumTrap trap, Iterator<Bird.OpiumTrap> it) {
+    private static void handleHeisenTrap(Bird bird, Bird.OpiumTrap trap) {
         if (birdStandingInTrap(bird, bird, trap, 74.0, 42.0)) {
             bird.refillOpiumResource(Bird.HEISEN_NODE_REFILL_PER_FRAME);
             if ((trap.ageFrames & 5) == 0) {
@@ -728,13 +733,13 @@ final class OpiumSpecials {
         }
         if (trap.lifeFrames <= 0) {
             explodeHeisenTrap(bird, trap);
-            it.remove();
+            bird.opiumTraps.remove(trap);
         }
     }
 
-    private static void handleOpiumTrap(Bird bird, Bird.OpiumTrap trap, Iterator<Bird.OpiumTrap> it) {
+    private static void handleOpiumTrap(Bird bird, Bird.OpiumTrap trap) {
         if (trap.lifeFrames <= 0) {
-            it.remove();
+            bird.opiumTraps.remove(trap);
             return;
         }
         if (birdStandingInTrap(bird, bird, trap, 108.0, 42.0)) {

@@ -90,7 +90,8 @@ final class AdventureBalanceLab {
                           int cutoffs,
                           double clearRate,
                           double averageTicks,
-                          double averageDamageDealt) {
+                          double averageDamageDealt,
+                          String failurePhases) {
         boolean meetsTarget() {
             return matches > 0 && targetBand.contains(clearRate);
         }
@@ -154,8 +155,8 @@ final class AdventureBalanceLab {
             }
 
             sb.append("\n## Mission results\n\n");
-            sb.append("| # | Mission | Difficulty | Map | Objectives | W-L-C | Clear rate | Target | Avg time | Damage | Read |\n");
-            sb.append("|---:|---|---|---|---|---:|---:|---:|---:|---:|---|\n");
+            sb.append("| # | Mission | Difficulty | Map | Objectives | W-L-C | Clear rate | Target | Avg time | Damage | Loss phases | Read |\n");
+            sb.append("|---:|---|---|---|---|---:|---:|---:|---:|---:|---|---|\n");
             for (MissionSummary summary : summaries) {
                 sb.append("| ").append(summary.missionNumber())
                         .append(" | ").append(escape(summary.missionTitle()))
@@ -169,6 +170,7 @@ final class AdventureBalanceLab {
                         .append(percent(summary.targetBand().maximum())).append(')')
                         .append(" | ").append(String.format(Locale.ROOT, "%.1fs", summary.averageTicks() / 60.0))
                         .append(" | ").append(String.format(Locale.ROOT, "%.0f", summary.averageDamageDealt()))
+                        .append(" | ").append(summary.failurePhases())
                         .append(" | ").append(balanceRead(summary))
                         .append(" |\n");
             }
@@ -311,7 +313,21 @@ final class AdventureBalanceLab {
                 targetBand(difficulty, missionNumber, isBossMission(mission), mission.finalBoss()), matches,
                 wins, losses, cutoffs, attemptClearRate(wins, matches),
                 matches == 0 ? 0.0 : totalTicks / (double) matches,
-                matches == 0 ? 0.0 : totalDamage / (double) matches);
+                matches == 0 ? 0.0 : totalDamage / (double) matches,
+                failurePhaseRead(outcomes));
+    }
+
+    private static String failurePhaseRead(List<MissionOutcome> outcomes) {
+        Map<Integer, Long> counts = outcomes.stream()
+                .filter(MissionOutcome::lost)
+                .collect(Collectors.groupingBy(
+                        MissionOutcome::endingPhaseIndex,
+                        LinkedHashMap::new,
+                        Collectors.counting()));
+        if (counts.isEmpty()) return "—";
+        return counts.entrySet().stream()
+                .map(entry -> "P" + (entry.getKey() + 1) + ":" + entry.getValue())
+                .collect(Collectors.joining(", "));
     }
 
     static double attemptClearRate(int wins, int matches) {

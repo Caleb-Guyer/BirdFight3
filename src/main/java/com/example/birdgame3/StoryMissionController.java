@@ -14,6 +14,19 @@ import java.util.Set;
 final class StoryMissionController {
     enum Outcome { RUNNING, PHASE_ADVANCED, COMPLETE, FAILED }
 
+    record ObjectiveSurface(double minX, double maxX, double surfaceY) {
+        ObjectiveSurface {
+            if (maxX < minX) {
+                double swap = minX;
+                minX = maxX;
+                maxX = swap;
+            }
+        }
+    }
+
+    private record ObjectiveAnchor(double x, double surfaceY) {
+    }
+
     private static final double CAPTURE_ZONE_CENTER_Y_OFFSET = 110.0;
     private static final double CAPTURE_ZONE_VERTICAL_RADIUS = 210.0;
 
@@ -41,6 +54,7 @@ final class StoryMissionController {
     private final double arenaFloorY;
     private final double objectiveMinX;
     private final double objectiveMaxX;
+    private final List<ObjectiveSurface> objectiveSurfaces;
     private final Set<String> firedEvents = new HashSet<>();
     private int phaseIndex;
     private int checkpointPhaseIndex;
@@ -69,6 +83,14 @@ final class StoryMissionController {
     StoryMissionController(StoryCampaign.Mission mission, StoryCampaign.Difficulty difficulty,
                            double arenaWidth, double arenaFloorY,
                            double objectiveMinX, double objectiveMaxX, int startPhaseIndex) {
+        this(mission, difficulty, arenaWidth, arenaFloorY,
+                objectiveMinX, objectiveMaxX, startPhaseIndex, List.of());
+    }
+
+    StoryMissionController(StoryCampaign.Mission mission, StoryCampaign.Difficulty difficulty,
+                           double arenaWidth, double arenaFloorY,
+                           double objectiveMinX, double objectiveMaxX, int startPhaseIndex,
+                           List<ObjectiveSurface> objectiveSurfaces) {
         this.mission = mission;
         this.difficulty = difficulty == null ? StoryCampaign.Difficulty.NORMAL : difficulty;
         this.arenaWidth = Math.max(640.0, arenaWidth);
@@ -81,6 +103,15 @@ final class StoryMissionController {
         }
         this.objectiveMinX = boundedMinX;
         this.objectiveMaxX = boundedMaxX;
+        this.objectiveSurfaces = objectiveSurfaces == null
+                ? List.of()
+                : objectiveSurfaces.stream()
+                .filter(surface -> surface != null
+                        && Double.isFinite(surface.minX())
+                        && Double.isFinite(surface.maxX())
+                        && Double.isFinite(surface.surfaceY())
+                        && surface.maxX() - surface.minX() >= 80.0)
+                .toList();
         this.phaseIndex = Math.clamp(startPhaseIndex, 0, Math.max(0, mission.phases().size() - 1));
         this.checkpointPhaseIndex = this.phaseIndex;
     }
@@ -160,7 +191,12 @@ final class StoryMissionController {
                         ? zoneCenterX(capturedTargets, targetCount)
                         : Double.NaN;
             }
-            case REACH_EXIT -> objectiveMaxX - 120.0;
+            case REACH_EXIT -> objectiveSurfaces.isEmpty()
+                    // Aim beyond the leading edge of the legacy exit marker.
+                    // Campaign AI releases steering inside its arrival tolerance;
+                    // -40 keeps the fallback target past the -180 completion line.
+                    ? objectiveMaxX - 40.0
+                    : exitAnchor().x();
             default -> Double.NaN;
         };
     }
@@ -173,8 +209,30 @@ final class StoryMissionController {
         return arenaFloorY;
     }
 
+    double captureZoneSurfaceY(int index, int total) {
+        return captureAnchor(index, total).surfaceY();
+    }
+
+    double reachExitSurfaceY() {
+        return exitAnchor().surfaceY();
+    }
+
+    double objectiveAssistTargetY() {
+        if (complete || failed || !Double.isFinite(objectiveAssistTargetX())) {
+            return Double.NaN;
+        }
+        StoryCampaign.MissionPhase phase = currentPhase();
+        return switch (phase.objective()) {
+            case CAPTURE, HOLD_ZONE -> captureAnchor(
+                    capturedTargets, Math.max(1, phase.targetCount())).surfaceY()
+                    - CAPTURE_ZONE_CENTER_Y_OFFSET;
+            case REACH_EXIT -> exitAnchor().surfaceY() - CAPTURE_ZONE_CENTER_Y_OFFSET;
+            default -> Double.NaN;
+        };
+    }
+
     double reachExitMarkerX() {
-        return objectiveMaxX - 180.0;
+        return objectiveSurfaces.isEmpty() ? objectiveMaxX - 180.0 : exitAnchor().x();
     }
 
     boolean complete() {
@@ -192,7 +250,7 @@ final class StoryMissionController {
                     Math.clamp(phaseTicks / (double) Math.max(1, scaledTargetTicks(phase)), 0.0, 1.0);
             case CAPTURE, HOLD_ZONE -> {
                 int targetCount = Math.max(1, phase.targetCount());
-                double partial = objectiveProgressTicks / 120.0;
+                double partial = objectiveProgressTicks / (double) requiredCaptureTicks();
                 yield Math.clamp((capturedTargets + partial) / targetCount, 0.0, 1.0);
             }
             case BOSS_PHASES -> Math.clamp(bossSegment / (double) Math.max(1, phase.targetCount()), 0.0, 1.0);
@@ -229,14 +287,17 @@ final class StoryMissionController {
         if (capturedTargets >= targetCount) {
             return true;
         }
-        double zoneX = zoneCenterX(capturedTargets, targetCount);
+        ObjectiveAnchor anchor = captureAnchor(capturedTargets, targetCount);
+        double zoneX = anchor.x();
         boolean allyPresent = roster.stream()
-                .anyMatch(p -> p.team() == 1 && isInsideCaptureZone(p, zoneX, 145.0));
+                .anyMatch(p -> p.team() == 1 && isInsideCaptureZone(
+                        p, zoneX, anchor.surfaceY(), 145.0));
         boolean contested = roster.stream()
-                .anyMatch(p -> p.team() == 2 && isInsideCaptureZone(p, zoneX, 175.0));
+                .anyMatch(p -> p.team() == 2 && isInsideCaptureZone(
+                        p, zoneX, anchor.surfaceY(), 175.0));
         if (allyPresent && !contested) {
             objectiveProgressTicks++;
-            if (objectiveProgressTicks >= 120) {
+            if (objectiveProgressTicks >= requiredCaptureTicks()) {
                 capturedTargets++;
                 objectiveProgressTicks = 0;
             }
@@ -250,19 +311,25 @@ final class StoryMissionController {
     }
 
     private boolean isInsideCaptureZone(Participant participant, double zoneX,
+                                        double surfaceY,
                                         double horizontalRadius) {
         if (participant == null || !participant.alive()) {
             return false;
         }
-        double zoneY = arenaFloorY - CAPTURE_ZONE_CENTER_Y_OFFSET;
+        double zoneY = surfaceY - CAPTURE_ZONE_CENTER_Y_OFFSET;
         return Math.abs(participant.x() - zoneX) <= horizontalRadius
                 && Math.abs(participant.y() - zoneY) <= CAPTURE_ZONE_VERTICAL_RADIUS;
     }
 
     private boolean tickReachExit(StoryCampaign.MissionPhase phase, List<Participant> roster) {
-        boolean reached = roster.stream()
-                .anyMatch(p -> p.team() == 1 && p.alive()
-                        && p.x() >= reachExitMarkerX());
+        ObjectiveAnchor exit = exitAnchor();
+        boolean reached = objectiveSurfaces.isEmpty()
+                ? roster.stream().anyMatch(p -> p.team() == 1 && p.alive()
+                        && p.x() >= reachExitMarkerX())
+                : roster.stream().anyMatch(p -> p.team() == 1 && p.alive()
+                        && Math.abs(p.x() - exit.x()) <= 145.0
+                        && Math.abs(p.y() - (exit.surfaceY() - CAPTURE_ZONE_CENTER_Y_OFFSET))
+                        <= CAPTURE_ZONE_VERTICAL_RADIUS);
         if (!reached && phase.targetTicks() > 0 && phaseTicks > scaledTargetTicks(phase)) {
             failed = true;
         }
@@ -323,7 +390,15 @@ final class StoryMissionController {
         if (phase.targetTicks() <= 0) {
             return Integer.MAX_VALUE;
         }
-        return Math.max(1, (int) Math.round(phase.targetTicks() * difficulty.objectiveWindowScale));
+        double missionScale = AdventureMissionTuning.objectiveWindowScale(
+                mission, difficulty, phase.objective());
+        return Math.max(1, (int) Math.round(
+                phase.targetTicks() * difficulty.objectiveWindowScale * missionScale));
+    }
+
+    private int requiredCaptureTicks() {
+        return Math.max(30, (int) Math.round(120.0
+                * AdventureMissionTuning.captureDurationScale(mission, difficulty)));
     }
 
     private boolean noLivingTeam(List<Participant> roster, int team) {
@@ -336,13 +411,46 @@ final class StoryMissionController {
     }
 
     private double zoneCenterX(int index, int total) {
+        return captureAnchor(index, total).x();
+    }
+
+    private ObjectiveAnchor captureAnchor(int index, int total) {
         double objectiveWidth = objectiveMaxX - objectiveMinX;
+        double desiredX;
         if (total <= 1) {
-            return objectiveMinX + objectiveWidth * 0.5;
+            desiredX = objectiveMinX + objectiveWidth * 0.5;
+        } else {
+            int boundedIndex = Math.clamp(index, 0, total - 1);
+            desiredX = objectiveMinX
+                    + objectiveWidth * (0.24 + 0.52 * boundedIndex / (double) (total - 1));
         }
-        int boundedIndex = Math.clamp(index, 0, total - 1);
-        return objectiveMinX
-                + objectiveWidth * (0.24 + 0.52 * boundedIndex / (double) (total - 1));
+        return anchorNearest(desiredX);
+    }
+
+    private ObjectiveAnchor exitAnchor() {
+        return anchorNearest(objectiveMaxX - 180.0);
+    }
+
+    private ObjectiveAnchor anchorNearest(double desiredX) {
+        if (objectiveSurfaces.isEmpty()) {
+            return new ObjectiveAnchor(desiredX, arenaFloorY);
+        }
+        ObjectiveSurface best = null;
+        double bestX = desiredX;
+        double bestScore = Double.POSITIVE_INFINITY;
+        for (ObjectiveSurface surface : objectiveSurfaces) {
+            double candidateX = Math.clamp(desiredX, surface.minX(), surface.maxX());
+            double score = Math.abs(candidateX - desiredX)
+                    + Math.abs(surface.surfaceY() - arenaFloorY) * 0.30;
+            if (score < bestScore) {
+                best = surface;
+                bestX = candidateX;
+                bestScore = score;
+            }
+        }
+        return best == null
+                ? new ObjectiveAnchor(desiredX, arenaFloorY)
+                : new ObjectiveAnchor(bestX, best.surfaceY());
     }
 
     private static long mix(long hash, long value) {

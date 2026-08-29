@@ -17851,9 +17851,9 @@ public class BirdGame3 {
             case CAPTURE, HOLD_ZONE -> {
                 int total = Math.max(1, phase.targetCount());
                 int cleared = campaignMissionController.capturedTargets();
-                double floorY = campaignMissionController.objectiveFloorY();
                 for (int i = 0; i < total; i++) {
                     double x = campaignMissionController.captureZoneCenterX(i, total);
+                    double floorY = campaignMissionController.captureZoneSurfaceY(i, total);
                     boolean complete = i < cleared;
                     boolean active = i == cleared;
                     Color accent = complete ? Color.web("#69F0AE")
@@ -17874,7 +17874,7 @@ public class BirdGame3 {
             }
             case REACH_EXIT -> {
                 double x = campaignMissionController.reachExitMarkerX();
-                double floorY = campaignMissionController.objectiveFloorY();
+                double floorY = campaignMissionController.reachExitSurfaceY();
                 g.setFill(Color.web("#FFE082", 0.12 + pulse * 0.20));
                 g.fillRoundRect(x - 100, floorY - 520, 200, 520, 42, 42);
                 g.setStroke(Color.web("#FFE082", pulse));
@@ -50038,6 +50038,8 @@ public class BirdGame3 {
             }
         }
 
+        applyCampaignMissionTuningToCurrentRoster(mission);
+
         campaignMissionController = new StoryMissionController(
                 mission,
                 stillSkyProgress.difficulty,
@@ -50045,6 +50047,41 @@ public class BirdGame3 {
                 campaignRetryPhaseIndex
         );
         campaignRetryPhaseIndex = 0;
+    }
+
+    private void applyCampaignMissionTuningToCurrentRoster(StoryCampaign.Mission mission) {
+        if (mission == null) return;
+        for (int i = 0; i < activePlayers; i++) {
+            Bird bird = players[i];
+            if (bird == null) continue;
+            applyCampaignMissionTuningToBird(
+                    bird, mission, getEffectiveTeam(i), i == 0);
+            campaignStartingHealth[i] = bird.health;
+        }
+    }
+
+    private void applyCampaignMissionTuningToBird(Bird bird,
+                                                   StoryCampaign.Mission mission,
+                                                   int team,
+                                                   boolean playerControlledSlot) {
+        if (bird == null || mission == null) return;
+        StoryCampaign.Difficulty difficulty = stillSkyProgress.difficulty;
+        double healthScale;
+        double powerScale;
+        if (team == 2) {
+            healthScale = AdventureMissionTuning.enemyHealthScale(mission, difficulty);
+            powerScale = AdventureMissionTuning.enemyPowerScale(mission, difficulty);
+        } else {
+            healthScale = playerControlledSlot
+                    ? AdventureMissionTuning.playerHealthScale(mission, difficulty)
+                    : AdventureMissionTuning.alliedHealthScale(mission, difficulty);
+            powerScale = AdventureMissionTuning.alliedPowerScale(mission, difficulty);
+        }
+        bird.health = Math.max(1.0, bird.health * healthScale);
+        bird.setBaseMultipliers(
+                bird.baseSizeMultiplier,
+                bird.basePowerMultiplier * powerScale,
+                bird.baseSpeedMultiplier);
     }
 
     private boolean shouldReserveCampaignBoss(StoryCampaign.Mission mission,
@@ -50080,9 +50117,27 @@ public class BirdGame3 {
                 objectiveFloorY,
                 objectiveMinX,
                 objectiveMaxX,
-                startPhaseIndex
+                startPhaseIndex,
+                campaignObjectiveSurfaces(objectiveMinX, objectiveMaxX)
         );
         campaignRetryPhaseIndex = 0;
+    }
+
+    private List<StoryMissionController.ObjectiveSurface> campaignObjectiveSurfaces(
+            double objectiveMinX, double objectiveMaxX) {
+        List<StoryMissionController.ObjectiveSurface> surfaces = new ArrayList<>();
+        for (Platform platform : platforms) {
+            if (platform == null || platform.w < 180.0 || platform.h <= 0.0
+                    || platform.y < 80.0 || platform.y > GROUND_Y + 180.0) {
+                continue;
+            }
+            double inset = Math.min(110.0, Math.max(36.0, platform.w * 0.12));
+            double minX = Math.max(objectiveMinX, platform.x + inset);
+            double maxX = Math.min(objectiveMaxX, platform.x + platform.w - inset);
+            if (maxX - minX < 80.0) continue;
+            surfaces.add(new StoryMissionController.ObjectiveSurface(minX, maxX, platform.y));
+        }
+        return List.copyOf(surfaces);
     }
 
     private Bird createCampaignFighter(StoryCampaign.Fighter fighter, int slot, double x, boolean enemy) {
@@ -50215,6 +50270,7 @@ public class BirdGame3 {
             throw new IllegalStateException("The Null Rock duel is missing its authored boss");
         }
         Bird boss = createCampaignFighter(fighter, 1, 4_050, true);
+        applyCampaignMissionTuningToBird(boss, currentCampaignMission, 2, false);
         campaignStartingHealth[1] = boss.health;
 
         setupCampaignNullRockDuelArena();
@@ -71881,20 +71937,37 @@ public class BirdGame3 {
         }
     }
 
-    double campaignObjectiveAssistTargetX(Bird ally) {
+    record CampaignObjectiveTarget(double x, double y) {
+    }
+
+    CampaignObjectiveTarget campaignObjectiveAssistTarget(Bird ally) {
         if (!campaignModeActive || campaignMissionController == null || ally == null
-                || ally.health <= 0.0 || ally.playerIndex <= 0
-                || ally.playerIndex >= activePlayers || !isAI[ally.playerIndex]
-                || getEffectiveTeam(ally.playerIndex) != 1) {
-            return Double.NaN;
+                || ally.health <= 0.0 || ally.playerIndex < 0
+                || ally.playerIndex >= activePlayers || !isAI[ally.playerIndex]) {
+            return null;
+        }
+        int team = getEffectiveTeam(ally.playerIndex);
+        if (team != 1) {
+            return null;
+        }
+        double targetX = campaignMissionController.objectiveAssistTargetX();
+        double targetY = campaignMissionController.objectiveAssistTargetY();
+        if (!Double.isFinite(targetX) || !Double.isFinite(targetY)) {
+            return null;
         }
         for (int i = 0; i < activePlayers; i++) {
             Bird candidate = players[i];
             if (candidate != null && candidate.health > 0.0 && getEffectiveTeam(i) == 2) {
-                return Double.NaN;
+                // Route toward authored objectives even while defenders remain,
+                // but hand control back to combat AI once the bird reaches the
+                // objective. This lets CPUs contest a capture instead of either
+                // ignoring it forever or standing passive inside an enemy-held zone.
+                return Math.abs(ally.bodyCenterX() - targetX) > 95.0
+                        || Math.abs(ally.bodyCenterY() - targetY) > 185.0
+                        ? new CampaignObjectiveTarget(targetX, targetY) : null;
             }
         }
-        return campaignMissionController.objectiveAssistTargetX();
+        return new CampaignObjectiveTarget(targetX, targetY);
     }
 
     private void updateCampaignFrontlineRotation(boolean force) {
@@ -71957,6 +72030,8 @@ public class BirdGame3 {
                         : WORLD_WIDTH * 0.70;
                 double floorY = battlefieldIslandW > 0.0 ? battlefieldIslandY : GROUND_Y;
                 Bird boss = createCampaignFighter(fighter, slot, centerX, true);
+                applyCampaignMissionTuningToBird(
+                        boss, currentCampaignMission, 2, false);
                 campaignEnemyEliminated[slot] = false;
                 boss.x = centerX - boss.bodyWidth() * 0.5;
                 boss.y = floorY - boss.bodyHeight();

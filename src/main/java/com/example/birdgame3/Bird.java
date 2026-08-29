@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
@@ -28,6 +29,8 @@ import java.util.Random;
  * Handles physics, abilities, AI, rendering, and collision detection.
  */
 public class Bird {
+
+    private static final int CAMPAIGN_COMBATANT_TRACKING_CAPACITY = 24;
 
     private enum GrabThrowDirection {
         NONE,
@@ -1139,20 +1142,20 @@ public class Bird {
     boolean batWingcutUltimate = false;
     boolean batWingcutAmbush = false;
     boolean batWingcutFromHang = false;
-    final boolean[] batWingcutHit = new boolean[4];
+    final boolean[] batWingcutHit = new boolean[CAMPAIGN_COMBATANT_TRACKING_CAPACITY];
     int batMoonriseTimer = 0;
     boolean batMoonriseUsed = false;
     boolean batMoonriseUltimate = false;
     boolean batMoonriseBurstResolved = false;
     boolean batMoonriseAmbush = false;
-    final boolean[] batMoonriseHit = new boolean[4];
+    final boolean[] batMoonriseHit = new boolean[CAMPAIGN_COMBATANT_TRACKING_CAPACITY];
     int batSilentStallTimer = 0;
     int batSilentDiveTimer = 0;
     int batSilentReuseTimer = 0;
     boolean batSilentFromHang = false;
     boolean batSilentUltimate = false;
     boolean batSilentAmbush = false;
-    final boolean[] batSilentHit = new boolean[4];
+    final boolean[] batSilentHit = new boolean[CAMPAIGN_COMBATANT_TRACKING_CAPACITY];
     private int batAmbushWindowTimer = 0;
     int batCathedralTimer = 0;
     int batCathedralPulseCooldown = 0;
@@ -10456,11 +10459,11 @@ public class Bird {
         updateAIPerception(target, cpuLevel, error);
         boolean onGround = isOnGround();
         Platform standing = findCurrentSupportPlatform();
-        double campaignObjectiveX = game.campaignObjectiveAssistTargetX(this);
-        if (Double.isFinite(campaignObjectiveX)) {
+        BirdGame3.CampaignObjectiveTarget campaignObjective = game.campaignObjectiveAssistTarget(this);
+        if (campaignObjective != null) {
             resetAIDropCommit();
             if (!applyAIVoidRecoveryInputs(onGround, standing)) {
-                applyAICampaignObjectiveInputs(campaignObjectiveX, onGround, standing);
+                applyAICampaignObjectiveInputs(campaignObjective.x(), campaignObjective.y(), onGround, standing);
             }
             aiLastHealth = currentDurability;
             return;
@@ -11228,15 +11231,33 @@ public class Bird {
         aiNavigationEscapeDir = 0;
     }
 
-    private void applyAICampaignObjectiveInputs(double targetCenterX, boolean onGround, Platform standing) {
+    private void applyAICampaignObjectiveInputs(double targetCenterX, double targetCenterY,
+                                                boolean onGround, Platform standing) {
         double centerX = bodyCenterX();
+        double centerY = bodyCenterY();
         double dx = targetCenterX - centerX;
-        if (Math.abs(dx) <= 95.0) {
+        double dy = targetCenterY - centerY;
+        if (Math.abs(dx) <= 95.0 && Math.abs(dy) <= 185.0) {
             return;
         }
 
         boolean movingRight = dx > 0.0;
-        game.setAiControlKey(playerIndex, movingRight ? rightKey() : leftKey(), true);
+        double navigationX = targetCenterX;
+        Platform climbPlatform = null;
+        if (dy < -150.0) {
+            climbPlatform = findClimbPlatform(targetCenterX, 700.0);
+            if (climbPlatform != null) {
+                navigationX = climbPlatform.x + climbPlatform.w * 0.5;
+            }
+        } else if (dy > 190.0 && onGround && standing != null && !isBoundaryPlatform(standing)) {
+            navigationX = targetCenterX < centerX
+                    ? standing.x - 34.0 : standing.x + standing.w + 34.0;
+        }
+        double navigationDx = navigationX - centerX;
+        movingRight = navigationDx > 0.0;
+        if (Math.abs(navigationDx) > 32.0) {
+            game.setAiControlKey(playerIndex, movingRight ? rightKey() : leftKey(), true);
+        }
         facingRight = movingRight;
 
         boolean approachingPlatformEdge = false;
@@ -11250,10 +11271,20 @@ public class Bird {
         boolean stalled = Math.abs(dx) > 180.0
                 && Math.abs(vx) < 0.45
                 && Math.floorMod(game.simTick + playerIndex * 17L, 42L) == 0L;
-        if (onGround && aiJumpCooldown <= 0 && (approachingPlatformEdge || stalled)) {
+        boolean alignedForClimb = climbPlatform == null
+                || Math.abs(centerX - (climbPlatform.x + climbPlatform.w * 0.5)) < 170.0;
+        if (onGround && aiJumpCooldown <= 0
+                && (approachingPlatformEdge || stalled || (dy < -150.0 && alignedForClimb))) {
             game.setAiControlKey(playerIndex, jumpKey(), true);
             aiJumpCooldown = 14;
-        } else if (!onGround && y > BirdGame3.GROUND_Y - 130.0 && currentFlyUpForce() > 0.0) {
+        } else if (!onGround && dy > 150.0) {
+            // Objective routes frequently cross map updrafts. Holding down
+            // engages the normal fast-fall path after its one-frame input edge,
+            // allowing the CPU to leave an updraft instead of hovering above a
+            // relay until its authored objective window expires.
+            game.setAiControlKey(playerIndex, blockKey(), true);
+        } else if (!onGround && currentFlyUpForce() > 0.0
+                && (dy < -80.0 || y > BirdGame3.GROUND_Y - 130.0)) {
             game.setAiControlKey(playerIndex, jumpKey(), true);
         }
     }
@@ -11573,8 +11604,14 @@ public class Bird {
     }
 
     private void handleRavenQuills() {
-        for (Iterator<RavenQuill> it = ravenQuills.iterator(); it.hasNext(); ) {
-            RavenQuill quill = it.next();
+        // Damage callbacks may end/reset a phase and clear the live projectile list.
+        // Process only the quills present at tick start so those changes cannot
+        // invalidate traversal or make newly spawned quills update immediately.
+        List<RavenQuill> quillsAtTickStart = List.copyOf(ravenQuills);
+        for (RavenQuill quill : quillsAtTickStart) {
+            if (!ravenQuills.contains(quill)) {
+                continue;
+            }
             double prevX = quill.x;
             double prevY = quill.y;
             quill.x += quill.vx;
@@ -11600,7 +11637,7 @@ public class Bird {
                 break;
             }
             if (consumed) {
-                it.remove();
+                ravenQuills.remove(quill);
                 continue;
             }
 
@@ -11609,7 +11646,7 @@ public class Bird {
                 addRavenGroundPortent(quill.x, surfaceY, quill.ultimate);
                 emitRavenBurst(quill.x, surfaceY - 10.0 * sizeMultiplier, quill.ultimate ? 18 : 12,
                         quill.ultimate ? Color.GOLD : ravenAccentColor());
-                it.remove();
+                ravenQuills.remove(quill);
                 continue;
             }
             if (quill.lifeFrames <= 0
@@ -11617,7 +11654,7 @@ public class Bird {
                     || quill.x > BirdGame3.WORLD_WIDTH + 40.0
                     || quill.y < -80.0
                     || quill.y > BirdGame3.GROUND_Y + 80.0) {
-                it.remove();
+                ravenQuills.remove(quill);
             }
         }
     }
@@ -21903,20 +21940,23 @@ public class Bird {
         state.batWingcutUltimate = batWingcutUltimate;
         state.batWingcutAmbush = batWingcutAmbush;
         state.batWingcutFromHang = batWingcutFromHang;
-        System.arraycopy(batWingcutHit, 0, state.batWingcutHit, 0, batWingcutHit.length);
+        System.arraycopy(batWingcutHit, 0, state.batWingcutHit, 0,
+                Math.min(batWingcutHit.length, state.batWingcutHit.length));
         state.batMoonriseTimer = batMoonriseTimer;
         state.batMoonriseUsed = batMoonriseUsed;
         state.batMoonriseUltimate = batMoonriseUltimate;
         state.batMoonriseBurstResolved = batMoonriseBurstResolved;
         state.batMoonriseAmbush = batMoonriseAmbush;
-        System.arraycopy(batMoonriseHit, 0, state.batMoonriseHit, 0, batMoonriseHit.length);
+        System.arraycopy(batMoonriseHit, 0, state.batMoonriseHit, 0,
+                Math.min(batMoonriseHit.length, state.batMoonriseHit.length));
         state.batSilentStallTimer = batSilentStallTimer;
         state.batSilentDiveTimer = batSilentDiveTimer;
         state.batSilentReuseTimer = batSilentReuseTimer;
         state.batSilentFromHang = batSilentFromHang;
         state.batSilentUltimate = batSilentUltimate;
         state.batSilentAmbush = batSilentAmbush;
-        System.arraycopy(batSilentHit, 0, state.batSilentHit, 0, batSilentHit.length);
+        System.arraycopy(batSilentHit, 0, state.batSilentHit, 0,
+                Math.min(batSilentHit.length, state.batSilentHit.length));
         state.batAmbushWindowTimer = batAmbushWindowTimer;
         state.batCathedralTimer = batCathedralTimer;
         state.batCathedralPulseCooldown = batCathedralPulseCooldown;

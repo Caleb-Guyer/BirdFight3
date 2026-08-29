@@ -211,18 +211,23 @@ class StoryCampaignContentTest {
         StoryMissionController.Participant deadRaven =
                 new StoryMissionController.Participant(2, 2, 4000, 0, 100);
 
-        StoryMissionController.TickResult result = null;
+        StoryMissionController.TickResult phaseAdvance = null;
         for (int target = 0; target < 3; target++) {
             double zoneX = controller.captureZoneCenterX(target, 3);
             StoryMissionController.Participant player =
                     new StoryMissionController.Participant(0, 1, zoneX, 100, 100);
-            for (int tick = 0; tick < 120; tick++) {
-                result = controller.tick(List.of(player, deadVulture, deadRaven));
+            for (int tick = 0; tick < 240 && controller.phaseIndex() == 0; tick++) {
+                StoryMissionController.TickResult result =
+                        controller.tick(List.of(player, deadVulture, deadRaven));
+                if (result.outcome() == StoryMissionController.Outcome.PHASE_ADVANCED) {
+                    phaseAdvance = result;
+                    break;
+                }
             }
         }
 
-        assertNotNull(result);
-        assertEquals(StoryMissionController.Outcome.PHASE_ADVANCED, result.outcome());
+        assertNotNull(phaseAdvance);
+        assertEquals(StoryMissionController.Outcome.PHASE_ADVANCED, phaseAdvance.outcome());
         assertEquals(StoryMissionController.Outcome.COMPLETE,
                 controller.tick(List.of(
                         new StoryMissionController.Participant(0, 1, 3000, 100, 100),

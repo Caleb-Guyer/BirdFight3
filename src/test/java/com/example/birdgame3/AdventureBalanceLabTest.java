@@ -149,6 +149,85 @@ class AdventureBalanceLabTest {
                 "The mission must finish without a crow-passive concurrent modification crash.");
     }
 
+    @Test
+    void harborEngineTrapCallbacksCannotMutateTheActiveTrapTraversal() {
+        AdventureBalanceLab.Config config = new AdventureBalanceLab.Config(
+                List.of("harbor_engine"), List.of(StoryCampaign.Difficulty.EASY),
+                24, 6L * 60L * 60L, 20260828L, 5);
+
+        AdventureBalanceLab.Report report = AdventureBalanceLab.runWithoutTuningReload(config, null);
+
+        assertEquals(1, report.summaries().size());
+        assertEquals(24, report.summaries().getFirst().matches());
+        assertEquals(0, report.summaries().getFirst().cutoffs(),
+                "Harbor Engine must complete without trap traversal crashes or harness hangs.");
+    }
+
+    @Test
+    void crowCountryDamageCallbacksCannotMutateTheActiveQuillTraversal() {
+        try {
+            AdventureMissionTuning.harnessOverrideAdvantage(
+                    "crow_country", StoryCampaign.Difficulty.NORMAL, 2.75);
+            AdventureBalanceLab.Config config = new AdventureBalanceLab.Config(
+                    List.of("crow_country"), List.of(StoryCampaign.Difficulty.NORMAL),
+                    24, 6L * 60L * 60L, 20260828L, 5);
+
+            AdventureBalanceLab.Report report = AdventureBalanceLab.runWithoutTuningReload(config, null);
+
+            assertEquals(1, report.summaries().size());
+            assertEquals(24, report.summaries().getFirst().matches());
+            assertEquals(0, report.summaries().getFirst().cutoffs(),
+                    "Crow Country must complete without Raven quill traversal crashes.");
+        } finally {
+            AdventureMissionTuning.harnessClearAdvantageOverrides();
+        }
+    }
+
+    @Test
+    void objectiveAiCanAdvanceNeedleRouteCapture() {
+        BirdGame3 game = freshGame();
+        game.harnessPrepareAdventureMission(
+                "needle_route", StoryCampaign.Difficulty.EASY,
+                BirdGame3.BirdType.HUMMINGBIRD, 5, 0x0B1EC71EL);
+        for (int i = 1; i < game.activePlayers; i++) {
+            if (game.players[i] != null && game.getEffectiveTeam(i) == 2) {
+                game.players[i].health = 0.0;
+            }
+        }
+
+        long ticks = 0L;
+        while (ticks < 4_200L && game.harnessCampaignPhaseIndex() == 0 && game.harnessTick()) {
+            ticks++;
+        }
+
+        Bird player = game.players[0];
+        BirdGame3.CampaignObjectiveTarget target = game.campaignObjectiveAssistTarget(player);
+        assertTrue(game.harnessCampaignPhaseIndex() > 0,
+                "Objective AI never advanced the capture phase after " + ticks
+                        + " ticks; player=" + player.bodyCenterX() + "," + player.bodyCenterY()
+                        + " health=" + player.health + " target=" + target);
+    }
+
+    @Test
+    void objectiveAiCanReachBellkeeperRelay() {
+        BirdGame3 game = freshGame();
+        game.harnessPrepareAdventureMission(
+                "master_key", StoryCampaign.Difficulty.EASY,
+                BirdGame3.BirdType.MOCKINGBIRD, 5, 0xBE11C0DEL);
+
+        long ticks = 0L;
+        while (ticks < 3_000L && game.harnessCampaignPhaseIndex() == 0 && game.harnessTick()) {
+            ticks++;
+        }
+
+        Bird player = game.players[0];
+        BirdGame3.CampaignObjectiveTarget target = game.campaignObjectiveAssistTarget(player);
+        assertTrue(game.harnessCampaignPhaseIndex() > 0,
+                "Objective AI never reached the Bellkeeper relay after " + ticks
+                        + " ticks; player=" + player.bodyCenterX() + "," + player.bodyCenterY()
+                        + " health=" + player.health + " target=" + target);
+    }
+
     private static int firstLivingEnemySlot(BirdGame3 game) {
         for (int i = 1; i < game.activePlayers; i++) {
             if (game.players[i] != null && game.getEffectiveTeam(i) == 2) return i;

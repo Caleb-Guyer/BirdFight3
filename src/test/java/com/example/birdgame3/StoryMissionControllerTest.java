@@ -330,10 +330,12 @@ class StoryMissionControllerTest {
             }
         }
 
-        assertEquals(5880.0, controller.objectiveAssistTargetX(), 0.0001);
+        assertEquals(5960.0, controller.objectiveAssistTargetX(), 0.0001,
+                "AI steering should carry fighters safely past the visible exit line.");
         assertEquals(StoryMissionController.Outcome.COMPLETE,
                 controller.tick(List.of(player,
-                        new StoryMissionController.Participant(1, 1, 5880, 100, 100))).outcome());
+                        new StoryMissionController.Participant(
+                                1, 1, controller.objectiveAssistTargetX(), 100, 100))).outcome());
         assertTrue(Double.isNaN(controller.objectiveAssistTargetX()));
     }
 
@@ -363,7 +365,7 @@ class StoryMissionControllerTest {
             }
         }
 
-        assertEquals(3480.0, controller.objectiveAssistTargetX(), 0.0001);
+        assertEquals(3560.0, controller.objectiveAssistTargetX(), 0.0001);
         assertEquals(3420.0, controller.reachExitMarkerX(), 0.0001);
         StoryMissionController.Participant playerAtExit =
                 new StoryMissionController.Participant(
@@ -377,7 +379,7 @@ class StoryMissionControllerTest {
         List<Long> hashes = new ArrayList<>();
         double[] zones = {1440, 3000, 4560};
         for (double zone : zones) {
-            for (int tick = 0; tick < 120; tick++) {
+            for (int tick = 0; tick < 180; tick++) {
                 controller.tick(List.of(
                         new StoryMissionController.Participant(0, 1, zone, 100, 100),
                         new StoryMissionController.Participant(1, 1, 1000, 100, 100)

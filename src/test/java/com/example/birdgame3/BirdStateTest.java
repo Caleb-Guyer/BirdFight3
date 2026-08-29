@@ -11073,7 +11073,7 @@ class BirdStateTest {
     }
 
     @Test
-    void campaignAllyWalksTowardObjectiveAfterEnemiesAreCleared() throws Exception {
+    void campaignAllyWalksTowardObjectiveAndThenResumesCombat() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.campaignModeActive = true;
         game.campaignTeamMode = true;
@@ -11097,10 +11097,21 @@ class BirdStateTest {
         game.campaignTeams[1] = 1;
         game.campaignTeams[2] = 2;
 
-        assertTrue(Double.isNaN(game.campaignObjectiveAssistTargetX(charles)),
-                "Allies should keep fighting while an enemy remains.");
+        BirdGame3.CampaignObjectiveTarget contestedTarget = game.campaignObjectiveAssistTarget(charles);
+        assertNotNull(contestedTarget,
+                "Allies should route toward a contested campaign objective instead of ignoring it.");
+        assertEquals(1440.0, contestedTarget.x(), 0.0001);
+        assertEquals(controller.objectiveAssistTargetY(), contestedTarget.y(), 0.0001);
+        charles.x = contestedTarget.x() - charles.combatHalfWidth();
+        charles.y = contestedTarget.y() - charles.combatHalfHeight();
+        assertNull(game.campaignObjectiveAssistTarget(charles),
+                "Once at the contested objective, the normal combat AI should take over.");
+
         defeatedEnemy.health = 0.0;
-        assertEquals(1440.0, game.campaignObjectiveAssistTargetX(charles), 0.0001);
+        charles.x = 1000.0;
+        BirdGame3.CampaignObjectiveTarget clearedTarget = game.campaignObjectiveAssistTarget(charles);
+        assertNotNull(clearedTarget);
+        assertEquals(1440.0, clearedTarget.x(), 0.0001);
 
         invokePrivateVoid(charles, "aiControl");
 
@@ -11163,7 +11174,14 @@ class BirdStateTest {
         heisenbird.health = 0.0;
         razorbill.health = 0.0;
 
-        for (int tick = 0; tick < 1_600; tick++) {
+        StoryCampaign.MissionPhase survival = mission.phases().get(1);
+        int scaledSurvivalTicks = (int) Math.round(
+                survival.targetTicks()
+                        * progress.difficulty.objectiveWindowScale
+                        * AdventureMissionTuning.objectiveWindowScale(
+                        mission, progress.difficulty, survival.objective()));
+        int runningCheckTicks = Math.max(1, scaledSurvivalTicks - 60);
+        for (int tick = 0; tick < runningCheckTicks; tick++) {
             assertTrue(game.harnessTick(), "Harbor Lock should still be running at tick " + tick);
         }
 
