@@ -18843,13 +18843,9 @@ public class BirdGame3 {
         g.setLineWidth(6.0);
         g.strokeLine(p.x + 12.0, p.y - 3.0, p.x + p.w - 12.0, p.y - 3.0);
 
-        if (p.signText != null && !p.signText.isBlank() && p.w > 700.0) {
-            g.setFont(Font.font("Arial Black", FontWeight.BOLD, Math.min(34.0, p.w / 30.0)));
-            g.setTextAlign(TextAlignment.CENTER);
-            g.setFill(edge.deriveColor(0, 0.55, 1.05, 0.82));
-            g.fillText(p.signText, p.x + p.w * 0.5, p.y + p.h * 0.72);
-            g.setTextAlign(TextAlignment.LEFT);
-        }
+        // Natural ledges stay unlettered. Platform signText may still carry
+        // authored route metadata, but only purpose-built signs and machinery
+        // should turn that metadata into visible scenery.
     }
 
     private void drawSkyVariantGround(GraphicsContext g, Color shadow, Color body, Color edge) {
@@ -19965,14 +19961,6 @@ public class BirdGame3 {
 
         for (Platform platform : platforms) {
             drawFrozenCalderaPlatform(g, platform, thaw);
-
-            if (platform.signText != null) {
-                g.setTextAlign(TextAlignment.CENTER);
-                g.setFont(Font.font("Arial Black", FontWeight.BOLD, 27));
-                g.setFill(Color.web("#E9FCFF", 0.88));
-                g.fillText(platform.signText, platform.x + platform.w * 0.5,
-                        platform.y + Math.min(platform.h * 0.70, 58.0));
-            }
         }
 
         for (WindVent vent : windVents) {
@@ -21172,13 +21160,6 @@ public class BirdGame3 {
             }
         }
 
-        if (p.signText != null) {
-            g.setTextAlign(TextAlignment.CENTER);
-            g.setFont(Font.font("Arial Black", FontWeight.BOLD, 25));
-            g.setFill(Color.web("#E8FDFF", 0.82));
-            g.fillText(p.signText, p.x + p.w * 0.5,
-                    p.y + Math.min(67.0, p.h * 0.70));
-        }
     }
 
     private void drawLastIceShelfVent(GraphicsContext g, WindVent vent,
@@ -21500,13 +21481,6 @@ public class BirdGame3 {
             drawStillwaterRootPlatform(g, platform, mainRoot);
         }
 
-        if (platform.signText != null) {
-            g.setTextAlign(TextAlignment.CENTER);
-            g.setFont(Font.font("Arial Black", FontWeight.BOLD, 25));
-            g.setFill(Color.web("#D8F1D2", 0.76));
-            g.fillText(platform.signText, platform.x + platform.w * 0.5,
-                    platform.y + Math.min(65.0, platform.h * 0.70));
-        }
     }
 
     private void drawStillwaterRootPlatform(GraphicsContext g, Platform platform, boolean mainRoot) {
@@ -65557,13 +65531,7 @@ public class BirdGame3 {
             g.setStroke(Color.web(stillKingArena ? "#FFE082" : "#FFD180", stillKingArena ? 0.90 : 0.72));
             g.setLineWidth(4);
             g.strokeRoundRect(p.x, p.y, p.w, p.h, 24, 24);
-            if (stillKingArena && p.w >= 3_000.0) {
-                g.setFont(Font.font("Arial Black", 34));
-                g.setTextAlign(TextAlignment.CENTER);
-                g.setFill(Color.web("#FFE6A3", 0.92));
-                g.fillText("THE FINAL STILLNESS", p.x + p.w * 0.5, p.y + 78.0);
-                g.setTextAlign(TextAlignment.LEFT);
-            } else if (!stillKingArena) {
+            if (!stillKingArena) {
                 for (double stripe = p.x + 80; stripe < p.x + p.w - 40; stripe += 210) {
                     g.setFill(Color.web("#FFF3C4", 0.78));
                     g.fillRoundRect(stripe, p.y + p.h * 0.62, 92, 8, 5, 5);

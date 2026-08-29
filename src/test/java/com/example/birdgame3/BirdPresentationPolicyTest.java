@@ -74,6 +74,45 @@ class BirdPresentationPolicyTest {
                 "Manually offset text breaks when a previous renderer leaves RIGHT alignment active");
     }
 
+    @Test
+    void naturalStagePlatformsDoNotPaintMetadataAsDecorativeLabels() throws IOException {
+        String source = Files.readString(Path.of(
+                "src", "main", "java", "com", "example", "birdgame3", "BirdGame3.java"));
+
+        assertRendererDoesNotPaintText(source, "private void drawSkyVariantRockPlatform",
+                "private void drawSkyVariantGround");
+        assertRendererDoesNotPaintText(source, "private void drawFrozenCalderaPlatform",
+                "private double longWinterThawProgress");
+        assertRendererDoesNotPaintText(source, "private void drawLastIceShelfPlatform",
+                "private void drawLastIceShelfVent");
+        assertRendererDoesNotPaintText(source, "private void drawStillwaterPlatform",
+                "private void drawStillwaterRootPlatform");
+
+        int redlineStart = source.indexOf("private void drawRedlineCanyonArena");
+        int redlineEnd = source.indexOf("private void drawRedlineRoadFoundation", redlineStart);
+        assertTrue(redlineStart >= 0 && redlineEnd > redlineStart,
+                "Could not locate the Redline Canyon renderer");
+        assertFalse(source.substring(redlineStart, redlineEnd).contains("THE FINAL STILLNESS"),
+                "Boss-arena titles must not be painted directly onto fighting surfaces");
+
+        int citySignStart = source.indexOf("private void drawCityNeonSigns");
+        int citySignEnd = source.indexOf("private void drawCrownDuelArenaDetails", citySignStart);
+        assertTrue(citySignStart >= 0 && citySignEnd > citySignStart,
+                "Could not locate the intentional city-sign renderer");
+        assertTrue(source.substring(citySignStart, citySignEnd).contains("g.fillText(text,"),
+                "Purpose-built city signs should remain visible in-world lettering");
+    }
+
+    private static void assertRendererDoesNotPaintText(String source, String declaration,
+                                                       String followingDeclaration) {
+        int rendererStart = source.indexOf(declaration);
+        int rendererEnd = source.indexOf(followingDeclaration, rendererStart);
+        assertTrue(rendererStart >= 0 && rendererEnd > rendererStart,
+                "Could not locate renderer: " + declaration);
+        assertFalse(source.substring(rendererStart, rendererEnd).contains("fillText("),
+                declaration + " must not paint platform metadata onto natural scenery");
+    }
+
     private static int countOccurrences(String source, String needle) {
         int count = 0;
         int offset = 0;

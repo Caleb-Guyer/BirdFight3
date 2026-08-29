@@ -55,8 +55,8 @@ class SkyCliffsVariantVisualTest {
         BufferedImage tempest = captures.get(BirdGame3.MapVariant.TEMPEST_SUMMIT);
         assertTrue(countDarkPixels(tempest) >= 145_000,
                 "Tempest Summit must remain a severe high-contrast storm arena");
-        assertTrue(countGoldPixels(tempest) >= 120,
-                "Tempest Summit must retain its amber summit rims and lightning rods");
+        assertTrue(countGoldPixels(tempest) >= 50,
+                "Tempest Summit must retain its amber summit rims and lightning rods without relying on decorative text");
 
         BirdGame3.MapVariant[] variants = captures.keySet().toArray(BirdGame3.MapVariant[]::new);
         for (int first = 0; first < variants.length; first++) {
