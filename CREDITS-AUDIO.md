@@ -68,3 +68,17 @@ game and carry the game's license.
 | sfx-fallwhistle.wav | descending cartoon fall whistle | zombie-falling |
 | sfx-fighter-ready.wav | sharp lightning-strike ready stinger | all fighters selected |
 | sfx-rebirth-nova.wav | layered phoenix cry, ignition crack, and flame bloom | Phoenix Rebirth Nova |
+| sfx-swing-light.wav | short bright feather/wing cut | fast normal attacks |
+| sfx-swing-heavy.wav | broad low pressure wake | heavyweight normal attacks |
+| sfx-impact-light.wav | compact peck/jab transient | light attack contacts |
+| sfx-impact-medium.wav | crack layered over a rounded body thud | standard attack contacts |
+| sfx-impact-heavy.wav | low body impact with controlled crunch | charged and heavyweight contacts |
+| sfx-launch-tail.wav | rising air wake with a low launch body | high-knockback launches and finishers |
+| sfx-shield-block.wav | resonant energy-surface strike | blocked attacks |
+| sfx-shield-parry.wav | bright upward confirmation with glassy harmonics | perfect parries |
+| sfx-shield-break.wav | low rupture with staggered fragments | depleted shields |
+| sfx-attack-clank.wav | short multi-tone metallic disagreement | attack-on-attack clashes |
+
+The expanded combat set is reproducible with
+`scripts/generate-combat-sfx.ps1`; its seeded noise and oscillator layers do
+not contain third-party recordings.

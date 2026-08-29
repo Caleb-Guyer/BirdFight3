@@ -1300,12 +1300,76 @@ public class BirdGame3 {
     );
 
     public void playHitSound(double intensity) {
-        double volume = Math.min(1.0, intensity / 40.0);
-        // Heavier hits play slightly lower-pitched so big impacts sound beefier;
-        // the random spread keeps rapid combos from sounding machine-gun identical.
-        double heaviness = Math.clamp(intensity / 60.0, 0.0, 1.0);
-        double baseRate = 1.06 - heaviness * 0.18;
-        playManagedSfxVaried(bonkClip, volume, baseRate, 0.10);
+        playCombatImpactSfx(intensity, 0.0, false);
+    }
+
+    void playCombatImpactSfx(double damage, double launchSpeed, boolean finisher) {
+        double safeDamage = Math.max(0.0, damage);
+        double safeLaunchSpeed = Math.max(0.0, launchSpeed);
+        double weight = Math.max(safeDamage, safeLaunchSpeed * 0.62);
+        double normalized = Math.clamp(weight / 38.0, 0.0, 1.0);
+
+        AudioClip primary;
+        double volume;
+        double rate;
+        double spread;
+        int priority;
+        if (finisher || weight >= 23.0) {
+            primary = impactHeavyClip != null ? impactHeavyClip : bonkClip;
+            volume = 0.62 + normalized * 0.30;
+            rate = 1.03 - normalized * 0.12;
+            spread = 0.028;
+            priority = finisher ? 8 : 5;
+        } else if (weight >= 8.0) {
+            primary = impactMediumClip != null ? impactMediumClip : bonkClip;
+            volume = 0.42 + normalized * 0.34;
+            rate = 1.08 - normalized * 0.10;
+            spread = 0.045;
+            priority = 3;
+        } else {
+            primary = impactLightClip != null ? impactLightClip : bonkClip;
+            volume = 0.24 + normalized * 0.42;
+            rate = 1.16 - normalized * 0.10;
+            spread = 0.065;
+            priority = 1;
+        }
+        playManagedSfxVaried(primary, volume, rate, spread, priority);
+
+        boolean launched = finisher || safeLaunchSpeed >= 18.0 || weight >= 31.0;
+        if (launched && launchTailClip != null) {
+            double launchVolume = finisher
+                    ? 0.72
+                    : Math.clamp(0.25 + safeLaunchSpeed / 70.0, 0.28, 0.62);
+            double launchRate = Math.clamp(1.12 - safeLaunchSpeed / 180.0, 0.82, 1.08);
+            playManagedSfxVaried(launchTailClip, launchVolume, launchRate, 0.025,
+                    finisher ? 7 : 4);
+        }
+    }
+
+    void playShieldImpactSfx(double damage, boolean parried) {
+        double strength = Math.clamp(Math.max(0.0, damage) / 28.0, 0.0, 1.0);
+        AudioClip clip = parried ? shieldParryClip : shieldBlockClip;
+        if (clip == null) clip = vaseBreakingClip;
+        playManagedSfxVaried(
+                clip,
+                (parried ? 0.62 : 0.36) + strength * (parried ? 0.24 : 0.30),
+                parried ? 1.04 + strength * 0.06 : 1.10 - strength * 0.15,
+                parried ? 0.018 : 0.032,
+                parried ? 7 : 4
+        );
+    }
+
+    void playShieldBreakSfx() {
+        AudioClip clip = shieldBreakClip != null ? shieldBreakClip : vaseBreakingClip;
+        playManagedSfxVaried(clip, 0.92, 0.96, 0.018, 8);
+    }
+
+    void playAttackClankSfx(double strength) {
+        double weight = Math.clamp(Math.max(0.0, strength) / 24.0, 0.0, 1.0);
+        AudioClip clip = attackClankClip != null ? attackClankClip : shieldBlockClip;
+        if (clip == null) clip = vaseBreakingClip;
+        playManagedSfxVaried(clip, 0.44 + weight * 0.32,
+                1.14 - weight * 0.16, 0.028, 5);
     }
 
     public boolean isSfxEnabled() {
@@ -1383,6 +1447,16 @@ public class BirdGame3 {
         if (cherrybombClip != null) cherrybombClip.setVolume(sfx);
         if (fightReadyClip != null) fightReadyClip.setVolume(sfx);
         if (rebirthNovaClip != null) rebirthNovaClip.setVolume(sfx);
+        if (swingLightClip != null) swingLightClip.setVolume(sfx);
+        if (swingHeavyClip != null) swingHeavyClip.setVolume(sfx);
+        if (impactLightClip != null) impactLightClip.setVolume(sfx);
+        if (impactMediumClip != null) impactMediumClip.setVolume(sfx);
+        if (impactHeavyClip != null) impactHeavyClip.setVolume(sfx);
+        if (launchTailClip != null) launchTailClip.setVolume(sfx);
+        if (shieldBlockClip != null) shieldBlockClip.setVolume(sfx);
+        if (shieldParryClip != null) shieldParryClip.setVolume(sfx);
+        if (shieldBreakClip != null) shieldBreakClip.setVolume(sfx);
+        if (attackClankClip != null) attackClankClip.setVolume(sfx);
     }
 
     private void setMusicVolume(double value) {
@@ -1415,13 +1489,18 @@ public class BirdGame3 {
      * Uses {@link #audioRandom}, never the sim RNG — audio is presentation only.
      */
     void playManagedSfxVaried(AudioClip clip, double baseVolume, double baseRate, double pitchSpread) {
+        playManagedSfxVaried(clip, baseVolume, baseRate, pitchSpread, 0);
+    }
+
+    private void playManagedSfxVaried(AudioClip clip, double baseVolume, double baseRate,
+                                      double pitchSpread, int priority) {
         if (clip == null) return;
         double effective = sanitizeVolume(baseVolume) * effectiveSfxVolume();
         if (effective <= 0.0) return;
         double rate = baseRate + (audioRandom.nextDouble() * 2.0 - 1.0) * pitchSpread;
         rate = Math.clamp(rate, 0.5, 2.0);
         double volumeJitter = 1.0 - audioRandom.nextDouble() * 0.12;
-        clip.play(Math.clamp(effective * volumeJitter, 0.0, 1.0), 0.0, rate, 0.0, 0);
+        clip.play(Math.clamp(effective * volumeJitter, 0.0, 1.0), 0.0, rate, 0.0, priority);
     }
 
     void playButterSfx() {
@@ -1443,27 +1522,32 @@ public class BirdGame3 {
 
     void playEagleAttackWhoosh(double chargeRatio) {
         double charge = Math.clamp(chargeRatio, 0.0, 1.0);
-        playManagedSfxVaried(swingClip, 0.62 + charge * 0.22, 0.88 - charge * 0.12, 0.035);
+        playManagedSfxVaried(swingHeavyClip != null ? swingHeavyClip : swingClip,
+                0.62 + charge * 0.22, 0.98 - charge * 0.10, 0.025);
     }
 
     void playFalconAttackWhoosh(double chargeRatio) {
         double charge = Math.clamp(chargeRatio, 0.0, 1.0);
-        playManagedSfxVaried(swingClip, 0.54 + charge * 0.18, 1.42 - charge * 0.20, 0.05);
+        playManagedSfxVaried(swingLightClip != null ? swingLightClip : swingClip,
+                0.54 + charge * 0.18, 1.18 - charge * 0.14, 0.045);
     }
 
     void playPhoenixAttackWhoosh(double chargeRatio) {
         double charge = Math.clamp(chargeRatio, 0.0, 1.0);
         playManagedSfxVaried(swingClip, 0.60 + charge * 0.24, 1.12 - charge * 0.16, 0.045);
+        playManagedSfxVaried(jalapenoClip, 0.10 + charge * 0.08, 1.42 - charge * 0.10, 0.025);
     }
 
     void playHummingbirdAttackWhoosh(double chargeRatio) {
         double charge = Math.clamp(chargeRatio, 0.0, 1.0);
-        playManagedSfxVaried(swingClip, 0.46 + charge * 0.16, 1.56 - charge * 0.18, 0.055);
+        playManagedSfxVaried(swingLightClip != null ? swingLightClip : swingClip,
+                0.46 + charge * 0.16, 1.32 - charge * 0.16, 0.055);
     }
 
     void playTurkeyAttackWhoosh(double chargeRatio) {
         double charge = Math.clamp(chargeRatio, 0.0, 1.0);
-        playManagedSfxVaried(swingClip, 0.62 + charge * 0.24, 0.86 - charge * 0.14, 0.045);
+        playManagedSfxVaried(swingHeavyClip != null ? swingHeavyClip : swingClip,
+                0.62 + charge * 0.24, 0.96 - charge * 0.12, 0.028);
     }
 
     void playRoosterAttackWhoosh(double chargeRatio) {
@@ -1473,27 +1557,32 @@ public class BirdGame3 {
 
     void playRoadrunnerAttackWhoosh(double chargeRatio) {
         double charge = Math.clamp(chargeRatio, 0.0, 1.0);
-        playManagedSfxVaried(swingClip, 0.48 + charge * 0.18, 1.48 - charge * 0.10, 0.06);
+        playManagedSfxVaried(swingLightClip != null ? swingLightClip : swingClip,
+                0.48 + charge * 0.18, 1.28 - charge * 0.08, 0.06);
     }
 
     void playPenguinAttackWhoosh(double chargeRatio) {
         double charge = Math.clamp(chargeRatio, 0.0, 1.0);
         playManagedSfxVaried(swingClip, 0.52 + charge * 0.20, 1.06 - charge * 0.12, 0.045);
+        playManagedSfxVaried(vaseBreakingClip, 0.07 + charge * 0.05, 1.64 - charge * 0.10, 0.018);
     }
 
     void playShoebillAttackWhoosh(double chargeRatio) {
         double charge = Math.clamp(chargeRatio, 0.0, 1.0);
-        playManagedSfxVaried(swingClip, 0.56 + charge * 0.22, 0.88 - charge * 0.10, 0.035);
+        playManagedSfxVaried(swingHeavyClip != null ? swingHeavyClip : swingClip,
+                0.56 + charge * 0.22, 0.94 - charge * 0.08, 0.024);
     }
 
     void playCharlesAttackWhoosh(double chargeRatio) {
         double charge = Math.clamp(chargeRatio, 0.0, 1.0);
-        playManagedSfxVaried(swingClip, 0.48 + charge * 0.19, 1.34 - charge * 0.14, 0.055);
+        playManagedSfxVaried(swingLightClip != null ? swingLightClip : swingClip,
+                0.48 + charge * 0.19, 1.12 - charge * 0.12, 0.052);
     }
 
     void playRazorbillAttackWhoosh(double chargeRatio) {
         double charge = Math.clamp(chargeRatio, 0.0, 1.0);
-        playManagedSfxVaried(swingClip, 0.52 + charge * 0.21, 1.48 - charge * 0.16, 0.045);
+        playManagedSfxVaried(swingLightClip != null ? swingLightClip : swingClip,
+                0.52 + charge * 0.21, 1.24 - charge * 0.13, 0.040);
     }
 
     void playGrinchHawkAttackWhoosh(double chargeRatio) {
@@ -1503,7 +1592,8 @@ public class BirdGame3 {
 
     void playVultureAttackWhoosh(double chargeRatio) {
         double charge = Math.clamp(chargeRatio, 0.0, 1.0);
-        playManagedSfxVaried(swingClip, 0.54 + charge * 0.24, 0.80 - charge * 0.08, 0.04);
+        playManagedSfxVaried(swingHeavyClip != null ? swingHeavyClip : swingClip,
+                0.54 + charge * 0.24, 0.90 - charge * 0.07, 0.026);
     }
 
     void playOpiumBirdAttackWhoosh(double chargeRatio) {
@@ -1513,7 +1603,9 @@ public class BirdGame3 {
 
     void playHeisenbirdAttackWhoosh(double chargeRatio) {
         double charge = Math.clamp(chargeRatio, 0.0, 1.0);
-        playManagedSfxVaried(swingClip, 0.46 + charge * 0.22, 1.20 - charge * 0.12, 0.035);
+        playManagedSfxVaried(swingLightClip != null ? swingLightClip : swingClip,
+                0.46 + charge * 0.22, 1.08 - charge * 0.10, 0.034);
+        playManagedSfxVaried(vaseBreakingClip, 0.08 + charge * 0.06, 1.72 - charge * 0.14, 0.016);
     }
 
     void playRavenAttackWhoosh(double chargeRatio) {
@@ -1523,27 +1615,32 @@ public class BirdGame3 {
 
     void playGooseAttackWhoosh(double chargeRatio) {
         double charge = Math.clamp(chargeRatio, 0.0, 1.0);
-        playManagedSfxVaried(swingClip, 0.56 + charge * 0.24, 0.84 - charge * 0.08, 0.035);
+        playManagedSfxVaried(swingHeavyClip != null ? swingHeavyClip : swingClip,
+                0.56 + charge * 0.24, 0.93 - charge * 0.07, 0.024);
     }
 
     void playKiwiAttackWhoosh(double chargeRatio) {
         double charge = Math.clamp(chargeRatio, 0.0, 1.0);
-        playManagedSfxVaried(swingClip, 0.52 + charge * 0.23, 0.94 - charge * 0.10, 0.04);
+        playManagedSfxVaried(swingHeavyClip != null ? swingHeavyClip : swingClip,
+                0.52 + charge * 0.23, 1.02 - charge * 0.08, 0.028);
     }
 
     void playTitmouseAttackWhoosh(double chargeRatio) {
         double charge = Math.clamp(chargeRatio, 0.0, 1.0);
-        playManagedSfxVaried(swingClip, 0.44 + charge * 0.18, 1.50 - charge * 0.16, 0.055);
+        playManagedSfxVaried(swingLightClip != null ? swingLightClip : swingClip,
+                0.44 + charge * 0.18, 1.30 - charge * 0.14, 0.055);
     }
 
     void playBatAttackWhoosh(double chargeRatio) {
         double charge = Math.clamp(chargeRatio, 0.0, 1.0);
-        playManagedSfxVaried(swingClip, 0.46 + charge * 0.20, 1.34 - charge * 0.16, 0.055);
+        playManagedSfxVaried(swingLightClip != null ? swingLightClip : swingClip,
+                0.46 + charge * 0.20, 1.16 - charge * 0.13, 0.052);
     }
 
     void playPelicanAttackWhoosh(double chargeRatio) {
         double charge = Math.clamp(chargeRatio, 0.0, 1.0);
-        playManagedSfxVaried(swingClip, 0.58 + charge * 0.25, 0.80 - charge * 0.08, 0.035);
+        playManagedSfxVaried(swingHeavyClip != null ? swingHeavyClip : swingClip,
+                0.58 + charge * 0.25, 0.90 - charge * 0.07, 0.024);
     }
 
     void playPigeonFeatherBurstSfx(boolean ultimate) {
@@ -1574,12 +1671,6 @@ public class BirdGame3 {
     void playPigeonLightImpactSfx(double damage) {
         double intensity = Math.clamp(damage / 8.0, 0.25, 1.0);
         playManagedSfxVaried(bonkClip, 0.22 + intensity * 0.22, 1.18 - intensity * 0.10, 0.045);
-    }
-
-    void playPigeonBlockedAttackSfx(double damage, boolean parried) {
-        double intensity = Math.clamp(damage / 24.0, 0.25, 1.0);
-        playManagedSfxVaried(vaseBreakingClip, 0.24 + intensity * 0.24,
-                parried ? 1.48 : 1.18, 0.025);
     }
 
     void playHugewaveSfx() {
@@ -1949,7 +2040,9 @@ public class BirdGame3 {
         try { disposeAllManagedMediaPlayers(); } catch (Throwable ignore) {}
         for (AudioClip clip : new AudioClip[]{bonkClip, butterClip, jalapenoClip, swingClip, hugewaveClip,
                 vaseBreakingClip, cherrybombClip, steamAchievementClip, buttonClickClip, zombieFallingClip,
-                fightReadyClip, rebirthNovaClip}) {
+                fightReadyClip, rebirthNovaClip, swingLightClip, swingHeavyClip,
+                impactLightClip, impactMediumClip, impactHeavyClip, launchTailClip,
+                shieldBlockClip, shieldParryClip, shieldBreakClip, attackClankClip}) {
             try { if (clip != null) clip.stop(); } catch (Throwable ignore) {}
         }
     }
@@ -1989,6 +2082,16 @@ public class BirdGame3 {
             steamAchievementClip = new AudioClip(resourceUrl(p + "sfx-achievement.wav"));
             fightReadyClip = new AudioClip(resourceUrl(p + "sfx-fighter-ready.wav"));
             rebirthNovaClip = new AudioClip(resourceUrl(p + "sfx-rebirth-nova.wav"));
+            swingLightClip = new AudioClip(resourceUrl(p + "sfx-swing-light.wav"));
+            swingHeavyClip = new AudioClip(resourceUrl(p + "sfx-swing-heavy.wav"));
+            impactLightClip = new AudioClip(resourceUrl(p + "sfx-impact-light.wav"));
+            impactMediumClip = new AudioClip(resourceUrl(p + "sfx-impact-medium.wav"));
+            impactHeavyClip = new AudioClip(resourceUrl(p + "sfx-impact-heavy.wav"));
+            launchTailClip = new AudioClip(resourceUrl(p + "sfx-launch-tail.wav"));
+            shieldBlockClip = new AudioClip(resourceUrl(p + "sfx-shield-block.wav"));
+            shieldParryClip = new AudioClip(resourceUrl(p + "sfx-shield-parry.wav"));
+            shieldBreakClip = new AudioClip(resourceUrl(p + "sfx-shield-break.wav"));
+            attackClankClip = new AudioClip(resourceUrl(p + "sfx-attack-clank.wav"));
 
             // === MENU & RESULT MUSIC ===
             menuMusicPlayer = new MediaPlayer(new Media(resourceUrl(p + "music-menu.mp3")));
@@ -5062,6 +5165,8 @@ public class BirdGame3 {
     // === SOUND & MUSIC ===
     public AudioClip bonkClip, butterClip, jalapenoClip, swingClip, hugewaveClip, buttonClickClip, zombieFallingClip,
             vaseBreakingClip, cherrybombClip, steamAchievementClip, fightReadyClip, rebirthNovaClip;
+    private AudioClip swingLightClip, swingHeavyClip, impactLightClip, impactMediumClip, impactHeavyClip,
+            launchTailClip, shieldBlockClip, shieldParryClip, shieldBreakClip, attackClankClip;
     public MediaPlayer musicPlayer, menuMusicPlayer, victoryMusicPlayer, defeatMusicPlayer;
     private String musicPlayerTrack;
 
@@ -14453,8 +14558,10 @@ public class BirdGame3 {
                     4.0, finisher ? 22.0 : 14.0));
             hitstopFrames = Math.min(25, Math.max(hitstopFrames, impactStop));
         }
-        if (damage >= 8.0 || finisher) {
-            playHitSound(Math.max(damage, finisher ? 42.0 : damage));
+        if ("Attack Clank".equals(moveName)) {
+            playAttackClankSfx(damage);
+        } else {
+            playCombatImpactSfx(Math.max(damage, finisher ? 42.0 : damage), launchSpeed, finisher);
         }
         if (finisher) {
             int hitstopBeforeFlash = hitstopFrames;

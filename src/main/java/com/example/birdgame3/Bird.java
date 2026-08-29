@@ -6238,6 +6238,7 @@ public class Bird {
         vy = Math.min(vy, -4.8);
         spawnShieldParticles(Color.web("#FFF176"), 24, 6.0);
         shieldHoldVisual = 0.0;
+        game.playShieldBreakSfx();
         game.hitstopFrames = Math.max(game.hitstopFrames, 6);
         game.shakeIntensity = Math.max(game.shakeIntensity, 9.0);
         if (attacker != null && attacker != this) {
@@ -6267,9 +6268,7 @@ public class Bird {
                 attacker.vx *= 0.35;
             }
             spawnShieldParticles(Color.web("#D0F8FF"), 18, 4.6);
-            if (attacker != null && attacker.type == BirdGame3.BirdType.PIGEON) {
-                game.playPigeonBlockedAttackSfx(scaledDamage, true);
-            }
+            game.playShieldImpactSfx(scaledDamage, true);
             game.hitstopFrames = Math.max(game.hitstopFrames, SHIELD_PARRY_HITSTOP_FRAMES);
             game.shakeIntensity = Math.max(game.shakeIntensity, 6.0);
             if (attacker != null && attacker != this) {
@@ -6321,9 +6320,7 @@ public class Bird {
 
         shieldHoldVisual = Math.min(1.0, shieldHoldVisual + 0.08);
         spawnShieldParticles(Color.web("#64B5F6"), 10 + (int) Math.min(8.0, scaledDamage * 0.35), 3.0);
-        if (attacker != null && attacker.type == BirdGame3.BirdType.PIGEON) {
-            game.playPigeonBlockedAttackSfx(scaledDamage, false);
-        }
+        game.playShieldImpactSfx(scaledDamage, false);
         game.hitstopFrames = Math.max(game.hitstopFrames, (int) Math.min(4, 1 + scaledDamage / 10.0));
         // Raise shake to the block-impact level (capped at 8) without ever
         // lowering stronger existing shake. Math.clamp(v, current, 8) threw
