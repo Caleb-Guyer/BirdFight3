@@ -10621,7 +10621,8 @@ public class Bird {
                 double maxRise = 520 + 180 * skill;
                 climbPlatform = findClimbPlatform(targetX + 40, maxRise);
                 if (climbPlatform != null) {
-                    goalX = climbPlatform.x + climbPlatform.w / 2.0 - 40 * sizeMultiplier;
+                    goalX = aiClimbLandingCenterX(climbPlatform, targetX + 40)
+                            - bodyWidth() * 0.5;
                     verticalPlan = true;
                 }
             } else if (dyToTarget > 180 && onGround) {
@@ -11244,10 +11245,12 @@ public class Bird {
         boolean movingRight = dx > 0.0;
         double navigationX = targetCenterX;
         Platform climbPlatform = null;
+        double climbLandingX = targetCenterX;
         if (dy < -150.0) {
             climbPlatform = findClimbPlatform(targetCenterX, 700.0);
             if (climbPlatform != null) {
-                navigationX = climbPlatform.x + climbPlatform.w * 0.5;
+                climbLandingX = aiClimbLandingCenterX(climbPlatform, targetCenterX);
+                navigationX = climbLandingX;
             }
         } else if (dy > 190.0 && onGround && standing != null && !isBoundaryPlatform(standing)) {
             navigationX = targetCenterX < centerX
@@ -11272,7 +11275,7 @@ public class Bird {
                 && Math.abs(vx) < 0.45
                 && Math.floorMod(game.simTick + playerIndex * 17L, 42L) == 0L;
         boolean alignedForClimb = climbPlatform == null
-                || Math.abs(centerX - (climbPlatform.x + climbPlatform.w * 0.5)) < 170.0;
+                || Math.abs(centerX - climbLandingX) < 170.0;
         if (onGround && aiJumpCooldown <= 0
                 && (approachingPlatformEdge || stalled || (dy < -150.0 && alignedForClimb))) {
             game.setAiControlKey(playerIndex, jumpKey(), true);
@@ -11287,6 +11290,26 @@ public class Bird {
                 && (dy < -80.0 || y > BirdGame3.GROUND_Y - 130.0)) {
             game.setAiControlKey(playerIndex, jumpKey(), true);
         }
+        if (!onGround && climbPlatform != null && dy < -150.0
+                && vy >= -1.0 && aiSpecialCooldown <= 0) {
+            // A normal jump is not tall enough to reach every authored objective
+            // shelf. Trigger the directional up-special at the jump apex instead
+            // of repeating the same short hop beneath the platform.
+            game.setAiControlKey(playerIndex, jumpKey(), true);
+            game.setAiControlKey(playerIndex, specialKey(), true);
+            aiSpecialCooldown = 24;
+        }
+    }
+
+    private double aiClimbLandingCenterX(Platform platform, double targetCenterX) {
+        double bodyHalfWidth = bodyWidth() * 0.5;
+        double inset = Math.min(platform.w * 0.28, Math.max(34.0, bodyHalfWidth + 14.0));
+        double safeLeft = platform.x + inset;
+        double safeRight = platform.x + platform.w - inset;
+        if (safeRight < safeLeft) {
+            return platform.x + platform.w * 0.5;
+        }
+        return Math.clamp(targetCenterX, safeLeft, safeRight);
     }
 
     boolean applyBatAIHangRelease(Bird target, double dist) {
@@ -13667,16 +13690,16 @@ public class Bird {
     private Platform findClimbPlatform(double targetX, double maxRise) {
         Platform best = null;
         double bestScore = -Double.MAX_VALUE;
-        double myCx = x + 40;
+        double myCx = bodyCenterX();
         double practicalRise = Math.min(maxRise, aiPlatformRiseReach());
         for (Platform p : game.platforms) {
             if (isBoundaryPlatform(p)) continue;
             if (p.y >= y - 40) continue;
             double rise = y - p.y;
             if (rise <= 0 || rise > practicalRise) continue;
-            double centerX = p.x + p.w / 2.0;
-            double dxTarget = Math.abs(centerX - targetX);
-            double dxMe = Math.abs(centerX - myCx);
+            double landingCenterX = aiClimbLandingCenterX(p, targetX);
+            double dxTarget = Math.abs(landingCenterX - targetX);
+            double dxMe = Math.abs(landingCenterX - myCx);
             double horizontalReach = aiPlatformHorizontalReach(rise);
             if (dxMe > horizontalReach && dxTarget > horizontalReach * 1.25) continue;
             double score = 0;
@@ -13685,7 +13708,8 @@ public class Bird {
             score -= dxTarget * 0.72;
             score -= dxMe * 0.4;
             score += progress * 0.45;
-            if ((centerX >= Math.min(myCx, targetX) && centerX <= Math.max(myCx, targetX))) {
+            if (landingCenterX >= Math.min(myCx, targetX)
+                    && landingCenterX <= Math.max(myCx, targetX)) {
                 score += 26.0;
             }
             if (rise < practicalRise * 0.65) {

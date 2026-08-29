@@ -2,6 +2,7 @@ package com.example.birdgame3;
 
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Field;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -226,6 +227,56 @@ class AdventureBalanceLabTest {
                 "Objective AI never reached the Bellkeeper relay after " + ticks
                         + " ticks; player=" + player.bodyCenterX() + "," + player.bodyCenterY()
                         + " health=" + player.health + " target=" + target);
+    }
+
+    @Test
+    void breakwaterGooseCanClimbFromBelowTheSeaGate() throws Exception {
+        BirdGame3 game = freshGame();
+        game.harnessPrepareAdventureMission(
+                "breakwater_run", StoryCampaign.Difficulty.NORMAL,
+                BirdGame3.BirdType.PELICAN, 5, 0xB4EA_7E12L);
+
+        StoryMissionController controller = campaignController(game);
+        setIntField(controller, "phaseIndex", 1);
+        setIntField(controller, "checkpointPhaseIndex", 1);
+        Bird goose = game.players[1];
+        assertEquals(BirdGame3.BirdType.GOOSE, goose.type);
+
+        // Recreate the lower-water approach visible during the second objective:
+        // Goose is horizontally close to the right-hand gate but must climb up
+        // through the bridge before it can land in the objective zone.
+        BirdGame3.CampaignObjectiveTarget target = game.campaignObjectiveAssistTarget(goose);
+        assertNotNull(target);
+        goose.x = target.x() - 250.0 - goose.combatHalfWidth();
+        goose.y = BirdGame3.GROUND_Y - goose.bodyHeight();
+        goose.vx = 0.0;
+        goose.vy = 0.0;
+        game.players[0].health = 0.0;
+        for (int i = 2; i < game.activePlayers; i++) {
+            game.players[i].health = 0.0;
+        }
+
+        long ticks = 0L;
+        while (ticks < 900L && game.harnessCampaignPhaseIndex() == 1 && game.harnessTick()) {
+            ticks++;
+        }
+
+        assertTrue(game.harnessCampaignMissionWon(),
+                "Goose kept cycling below the sea gate for " + ticks
+                        + " ticks; goose=" + goose.bodyCenterX() + "," + goose.bodyCenterY()
+                        + " target=" + target);
+    }
+
+    private static StoryMissionController campaignController(BirdGame3 game) throws Exception {
+        Field field = BirdGame3.class.getDeclaredField("campaignMissionController");
+        field.setAccessible(true);
+        return (StoryMissionController) field.get(game);
+    }
+
+    private static void setIntField(Object target, String name, int value) throws Exception {
+        Field field = target.getClass().getDeclaredField(name);
+        field.setAccessible(true);
+        field.setInt(target, value);
     }
 
     private static int firstLivingEnemySlot(BirdGame3 game) {
