@@ -25183,6 +25183,7 @@ public class BirdGame3 {
 
 
     private void drawPlayerTag(GraphicsContext g, Bird b) {
+        g.save();
         String tag = "P" + (b.playerIndex + 1);
         Font font = Font.font("Arial Black", 20);
         Text text = new Text(tag);
@@ -25204,7 +25205,9 @@ public class BirdGame3 {
         g.strokeRoundRect(boxX, boxY, boxW, boxH, 10, 10);
         g.setFill(Color.WHITE);
         g.setFont(font);
-        g.fillText(tag, centerX - textW / 2.0, boxY + boxH - 4);
+        g.setTextAlign(TextAlignment.CENTER);
+        g.fillText(tag, centerX, boxY + boxH - 4);
+        g.restore();
     }
 
     private void drawPowerUpSprite(GraphicsContext g, PowerUp p, double offset) {

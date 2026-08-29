@@ -54,6 +54,26 @@ class BirdPresentationPolicyTest {
                 "Eagle and Falcon must remain excluded from the legacy world-space cooldown bar");
     }
 
+    @Test
+    void playerTagsExplicitlyCenterTextInsideTheirBadges() throws IOException {
+        String source = Files.readString(Path.of(
+                "src", "main", "java", "com", "example", "birdgame3", "BirdGame3.java"));
+        int rendererStart = source.indexOf("private void drawPlayerTag(GraphicsContext g, Bird b)");
+        int rendererEnd = source.indexOf("private void drawPowerUpSprite", rendererStart);
+        assertTrue(rendererStart >= 0 && rendererEnd > rendererStart,
+                "Could not locate the player-tag renderer");
+
+        String renderer = source.substring(rendererStart, rendererEnd);
+        assertTrue(renderer.contains("g.save();") && renderer.contains("g.restore();"),
+                "Player tags must isolate text alignment inherited from earlier world rendering");
+        assertTrue(renderer.contains("g.setTextAlign(TextAlignment.CENTER);"),
+                "P1-P4 labels must explicitly use their badge center as the text anchor");
+        assertTrue(renderer.contains("g.fillText(tag, centerX,"),
+                "Player tag text must be painted from the same center used by its badge");
+        assertFalse(renderer.contains("centerX - textW / 2.0"),
+                "Manually offset text breaks when a previous renderer leaves RIGHT alignment active");
+    }
+
     private static int countOccurrences(String source, String needle) {
         int count = 0;
         int offset = 0;
