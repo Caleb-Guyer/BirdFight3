@@ -25929,6 +25929,18 @@ public class BirdGame3 {
         }
     }
 
+    private int officialTrailerExportFrameRate() {
+        String configured = System.getenv("BIRDFIGHT3_TRAILER_EXPORT_FPS");
+        if (configured == null || configured.isBlank()) {
+            return 60;
+        }
+        try {
+            return (int) Math.clamp(Integer.parseInt(configured.trim()), 24, 60);
+        } catch (NumberFormatException ignored) {
+            return 60;
+        }
+    }
+
     private Pane buildBirdFightTitleWordmark(boolean compact) {
         double width = compact ? 760 : 1020;
         double height = compact ? 390 : 520;
@@ -45289,6 +45301,7 @@ public class BirdGame3 {
                     canvas,
                     renderAt,
                     officialTrailerExportDuration(trailerEnd),
+                    officialTrailerExportFrameRate(),
                     java.nio.file.Path.of(exportPath)
             );
             shutdownAndExit();
@@ -45530,6 +45543,7 @@ public class BirdGame3 {
     private void exportOfficialTrailerOffscreen(Canvas canvas,
                                                  Consumer<Double> renderAt,
                                                  double durationSeconds,
+                                                 int frameRate,
                                                  java.nio.file.Path outputPath) {
         String ffmpegPath = System.getenv("BIRDFIGHT3_TRAILER_FFMPEG");
         if (ffmpegPath == null || ffmpegPath.isBlank()) {
@@ -45550,14 +45564,14 @@ public class BirdGame3 {
                     "-f", "rawvideo",
                     "-pixel_format", "bgra",
                     "-video_size", WIDTH + "x" + HEIGHT,
-                    "-framerate", "30",
+                    "-framerate", Integer.toString(frameRate),
                     "-i", "-",
                     "-an",
                     "-c:v", "libx264",
-                    "-preset", "fast",
-                    "-crf", "15",
+                    "-preset", "medium",
+                    "-crf", "14",
                     "-profile:v", "high",
-                    "-level:v", "4.1",
+                    "-level:v", frameRate > 30 ? "4.2" : "4.1",
                     "-pix_fmt", "yuv420p",
                     "-color_primaries", "bt709",
                     "-color_trc", "bt709",
@@ -45571,10 +45585,10 @@ public class BirdGame3 {
             Process encoder = builder.start();
             WritableImage image = new WritableImage(WIDTH, HEIGHT);
             byte[] pixels = new byte[WIDTH * HEIGHT * 4];
-            int totalFrames = (int) Math.round(durationSeconds * 30.0);
+            int totalFrames = (int) Math.round(durationSeconds * frameRate);
             try (OutputStream encoderInput = new BufferedOutputStream(encoder.getOutputStream(), pixels.length * 2)) {
                 for (int frame = 0; frame < totalFrames; frame++) {
-                    renderAt.accept(frame / 30.0);
+                    renderAt.accept(frame / (double) frameRate);
                     canvas.snapshot(null, image);
                     image.getPixelReader().getPixels(
                             0, 0, WIDTH, HEIGHT,
@@ -45959,6 +45973,9 @@ public class BirdGame3 {
         g.setFill(Color.web("#FFB300", 0.08));
         g.fillOval(WIDTH / 2.0 - 610, HEIGHT / 2.0 - 420, 1220, 790);
         g.setTextAlign(TextAlignment.CENTER);
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, 24));
+        g.setFill(Color.web("#FFB74D"));
+        g.fillText("THE FULL RELEASE", WIDTH / 2.0, HEIGHT * 0.30);
         g.setFont(Font.font("Arial Black", FontWeight.BOLD, 142));
         g.setStroke(Color.web("#170A00", 0.98));
         g.setLineWidth(18);
@@ -46202,7 +46219,7 @@ public class BirdGame3 {
     }
 
     private void drawOfficialTrailerModeGrid(GraphicsContext g, int activeIndex, double phase) {
-        String[] modes = {"STORY CAMPAIGN", "CLASSIC", "BOSS RUSH", "TOURNAMENTS", "TRAINING"};
+        String[] modes = {"VERSUS", "STORY CAMPAIGN", "CLASSIC", "BOSS RUSH", "TOURNAMENTS", "TRAINING"};
         Color[] accents = {Color.web("#FFD54F"), Color.web("#4FC3F7"), Color.web("#EF5350"),
                 Color.web("#66BB6A"), Color.web("#AB47BC"), Color.web("#26C6DA")};
         g.setFill(Color.web("#02050B", 0.64));
@@ -46307,7 +46324,7 @@ public class BirdGame3 {
         g.fillText("FLAP. FIGHT. RULE THE SKIES.", WIDTH / 2.0, HEIGHT * 0.59);
         g.setFont(Font.font("Consolas", FontWeight.BOLD, 27));
         g.setFill(Color.web("#D7E3EA"));
-        g.fillText("AVAILABLE NOW ON WINDOWS", WIDTH / 2.0, HEIGHT * 0.70);
+        g.fillText("FULL RELEASE  /  AVAILABLE NOW ON WINDOWS", WIDTH / 2.0, HEIGHT * 0.70);
         g.setFont(Font.font("Consolas", FontWeight.BOLD, 25));
         g.setFill(Color.web("#90CAF9"));
         g.fillText("github.com/Caleb-Guyer/BirdFight3", WIDTH / 2.0, HEIGHT * 0.76);
