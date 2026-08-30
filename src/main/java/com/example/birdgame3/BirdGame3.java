@@ -525,6 +525,8 @@ public class BirdGame3 {
     // Fixed-tick counter for the current match; the sim's only clock. Reset in startMatch.
     long simTick = 0L;
     private boolean gameplayFrameExceptionReported = false;
+    private final GameplayFrameFailureGuard gameplayFrameFailureGuard = new GameplayFrameFailureGuard(3);
+    private boolean gameplayFrameRecoveryQueued = false;
 
     private StackPane gameRoot;
     private GameplayRenderSurface gameplayRenderSurface;
@@ -12536,6 +12538,68 @@ public class BirdGame3 {
         recoverTransientFrameState(ex);
         accumulator = 0L;
         lastUpdate = System.nanoTime();
+        if (gameplayFrameFailureGuard.recordFailure()) {
+            queueRecoveryFromRepeatedGameplayFrameFailure();
+        }
+    }
+
+    private void markGameplayFrameSuccessful(boolean simulationAdvanced) {
+        if (simulationAdvanced) {
+            gameplayFrameFailureGuard.recordSuccess();
+        }
+    }
+
+    private void queueRecoveryFromRepeatedGameplayFrameFailure() {
+        if (gameplayFrameRecoveryQueued) {
+            return;
+        }
+        gameplayFrameRecoveryQueued = true;
+        stopGameplayTimer();
+        Stage stage = currentStage;
+        if (stage == null) {
+            return;
+        }
+        javafx.application.Platform.runLater(() -> {
+            try {
+                closePauseMenuWithoutResuming();
+                resetMatchStats();
+                showMenu(stage);
+                showErrorAlert(stage,
+                        "Match Recovered",
+                        "The match hit a repeated internal error.",
+                        "Bird Fight 3 returned to the hub instead of freezing. A diagnostic report was saved to birdgame3-gameplay-frame.txt on the Desktop.");
+            } catch (RuntimeException recoveryFailure) {
+                ThrowableLogSupport.log(LOGGER, Level.SEVERE,
+                        "Failed to return to the hub after repeated gameplay frame errors", recoveryFailure);
+            } finally {
+                gameplayFrameRecoveryQueued = false;
+            }
+        });
+    }
+
+    static final class GameplayFrameFailureGuard {
+        private final int threshold;
+        private int consecutiveFailures;
+
+        GameplayFrameFailureGuard(int threshold) {
+            if (threshold < 1) {
+                throw new IllegalArgumentException("threshold must be positive");
+            }
+            this.threshold = threshold;
+        }
+
+        boolean recordFailure() {
+            consecutiveFailures++;
+            return consecutiveFailures >= threshold;
+        }
+
+        void recordSuccess() {
+            consecutiveFailures = 0;
+        }
+
+        int consecutiveFailures() {
+            return consecutiveFailures;
+        }
     }
 
     private void recoverTransientFrameState(RuntimeException ex) {
@@ -76332,13 +76396,17 @@ public class BirdGame3 {
         renderSnapshotTaken = false;
         resetRenderTimer();
         gameplayFrameExceptionReported = false;
+        gameplayFrameFailureGuard.recordSuccess();
+        gameplayFrameRecoveryQueued = false;
 
         timer = new AnimationTimer() {
             @Override
             public void handle(long now) {
                 framePerformance.beginFrame();
+                long simTickBeforeFrame = simTick;
                 try {
                     gameTick();
+                    boolean simulationAdvanced = simTick != simTickBeforeFrame;
                     updateMusicDucking();
                     if (lanModeActive && lanIsHost) {
                         boolean hasClients = lanHost != null && lanHost.hasClients();
@@ -76361,6 +76429,7 @@ public class BirdGame3 {
                     if (!shouldRenderFrame(now)) {
                         recordFrameEntityCounts();
                         framePerformance.finishFrame();
+                        markGameplayFrameSuccessful(simulationAdvanced);
                         return;
                     }
                     renderSurface.beginLogicalFrame();
@@ -76389,6 +76458,7 @@ public class BirdGame3 {
                     }
                     recordFrameEntityCounts();
                     framePerformance.finishFrame();
+                    markGameplayFrameSuccessful(simulationAdvanced);
                 } catch (RuntimeException ex) {
                     framePerformance.finishFrame();
                     handleGameplayFrameException(ex);
