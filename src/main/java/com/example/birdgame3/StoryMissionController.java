@@ -141,6 +141,11 @@ final class StoryMissionController {
             case REACH_EXIT -> tickReachExit(phase, roster);
             case BOSS_PHASES -> tickBossPhase(phase, roster);
         };
+        if (!success && !failed
+                && phase.objective() != StoryCampaign.ObjectiveType.SURVIVE
+                && allHostilesDefeated(roster)) {
+            success = true;
+        }
         if (failed) {
             return new TickResult(Outcome.FAILED, phaseIndex, checkpointPhaseIndex,
                     mission.id() + ":phase:" + phaseIndex + ":failed", "Objective failed");
@@ -330,24 +335,10 @@ final class StoryMissionController {
                         && Math.abs(p.x() - exit.x()) <= 145.0
                         && Math.abs(p.y() - (exit.surfaceY() - CAPTURE_ZONE_CENTER_Y_OFFSET))
                         <= CAPTURE_ZONE_VERTICAL_RADIUS);
-        boolean chaseTargetDefeated = nextPhaseIsCombat()
-                && allHostilesDefeated(roster);
-        if (!reached && !chaseTargetDefeated
-                && phase.targetTicks() > 0 && phaseTicks > scaledTargetTicks(phase)) {
+        if (!reached && phase.targetTicks() > 0 && phaseTicks > scaledTargetTicks(phase)) {
             failed = true;
         }
-        return reached || chaseTargetDefeated;
-    }
-
-    private boolean nextPhaseIsCombat() {
-        int nextPhaseIndex = phaseIndex + 1;
-        if (nextPhaseIndex >= mission.phases().size()) {
-            return false;
-        }
-        return switch (mission.phases().get(nextPhaseIndex).objective()) {
-            case ELIMINATION, GAUNTLET, BOSS_PHASES -> true;
-            default -> false;
-        };
+        return reached;
     }
 
     private boolean tickBossPhase(StoryCampaign.MissionPhase phase, List<Participant> roster) {

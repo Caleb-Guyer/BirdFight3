@@ -226,6 +226,35 @@ class StoryMissionControllerTest {
     }
 
     @Test
+    void enemyWipeCannotStrandAnyAuthoredMissionPhase() {
+        StoryCampaign campaign = StoryCampaignContent.create();
+        StoryMissionController.Participant player =
+                new StoryMissionController.Participant(0, 1, 3000, 100, 100);
+        StoryMissionController.Participant defeatedEnemy =
+                new StoryMissionController.Participant(1, 2, 3900, 0, 100);
+        List<StoryMissionController.Participant> clearedRoster =
+                List.of(player, defeatedEnemy);
+
+        for (StoryCampaign.Mission mission : campaign.orderedMissions) {
+            for (int phaseIndex = 0; phaseIndex < mission.phases().size(); phaseIndex++) {
+                if (mission.phases().get(phaseIndex).objective()
+                        == StoryCampaign.ObjectiveType.SURVIVE) {
+                    continue;
+                }
+                StoryMissionController controller = new StoryMissionController(
+                        mission, StoryCampaign.Difficulty.NORMAL, 6000, phaseIndex);
+                StoryMissionController.Outcome expected = phaseIndex == mission.phases().size() - 1
+                        ? StoryMissionController.Outcome.COMPLETE
+                        : StoryMissionController.Outcome.PHASE_ADVANCED;
+
+                assertEquals(expected, controller.tick(clearedRoster).outcome(),
+                        () -> mission.id() + " phase " + controller.phaseIndex()
+                                + " remained active after every hostile was defeated");
+            }
+        }
+    }
+
+    @Test
     void timedCombatPhaseDoesNotEarlyClearBeforeAnyEnemyHasSpawned() {
         StoryMissionController.Participant player =
                 new StoryMissionController.Participant(0, 1, 3000, 100, 100);
