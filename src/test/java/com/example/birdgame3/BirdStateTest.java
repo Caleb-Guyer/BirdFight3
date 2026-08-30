@@ -7,7 +7,9 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -11545,7 +11547,7 @@ class BirdStateTest {
     }
 
     @Test
-    void nullRockFinaleFieldsEveryBirdOnceAsOneCoalition() throws Exception {
+    void nullRockFinaleFieldsEveryStillSkyBirdAndReservesThreeEchoSlots() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.headlessHarnessMode = true;
         game.campaignModeActive = true;
@@ -11561,21 +11563,98 @@ class BirdStateTest {
         setupRoster.invoke(game, mission);
 
         boolean[] present = new boolean[BirdGame3.BirdType.values().length];
-        assertEquals(StoryCampaign.STILL_SKY_ROSTER.size(), game.activePlayers);
-        for (int slot = 0; slot < game.activePlayers; slot++) {
+        assertEquals(BirdGame3.MAX_COMBATANTS, game.activePlayers);
+        for (int slot = 0; slot < StoryCampaign.STILL_SKY_ROSTER.size(); slot++) {
             Bird bird = game.players[slot];
-            assertNotNull(bird, "Every finale slot must contain a coalition bird.");
+            assertNotNull(bird, "Every coalition slot must contain a Still Sky bird.");
             assertFalse(present[bird.type.ordinal()], bird.type.name + " appeared twice.");
             present[bird.type.ordinal()] = true;
             assertEquals(1, game.campaignTeams[slot],
                     "The background commander must not consume a fighter slot.");
+        }
+        for (int slot = StoryCampaign.STILL_SKY_ROSTER.size();
+             slot < BirdGame3.MAX_COMBATANTS; slot++) {
+            assertNull(game.players[slot], "Echo slots must stay empty before the invasion.");
+            assertEquals(2, game.campaignTeams[slot]);
         }
         for (BirdGame3.BirdType type : StoryCampaign.STILL_SKY_ROSTER) {
             assertTrue(present[type.ordinal()], "The finale omitted " + type.name + '.');
         }
         assertFalse(present[BirdGame3.BirdType.KIWI.ordinal()],
                 "Kiwi belongs to a later story and must not be inserted into The Still Sky.");
+
+        invokePrivateVoid(game, "setupMatchArenaGeometry");
+        Method applyArena = BirdGame3.class.getDeclaredMethod(
+                "applyCampaignMissionArenaModifiers", StoryCampaign.Mission.class);
+        applyArena.setAccessible(true);
+        applyArena.invoke(game, mission);
+        assertTrue(getPrivateDouble(game, "battlefieldIslandW") >= 5_500.0,
+                "The full coalition needs a nearly world-wide opening battlefield.");
+        assertEquals(9, game.platforms.size());
         assertEquals("music-null-rock.mp3", invokePrivateObjectMethod(game, "gameplayMusicFile"));
+    }
+
+    @Test
+    void nullRockCorruptedInvasionDropsEveryPlayableBirdInDeterministicWaves() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.headlessHarnessMode = true;
+        game.campaignModeActive = true;
+        game.campaignTeamMode = true;
+        game.selectedMap = BirdGame3.MapType.BEACON_CROWN;
+
+        StoryCampaign.Mission mission = StoryCampaignContent.create().mission("the_null_rock");
+        setPrivateObject(game, "currentCampaignMission", mission);
+        setPrivateObject(game, "campaignSelectedBird", BirdGame3.BirdType.PIGEON);
+        setPrivateInt(game, "campaignRetryPhaseIndex", 2);
+        Method setupRoster = BirdGame3.class.getDeclaredMethod(
+                "setupCampaignMissionRoster", StoryCampaign.Mission.class);
+        setupRoster.setAccessible(true);
+        setupRoster.invoke(game, mission);
+        invokePrivateVoid(game, "setupMatchArenaGeometry");
+        Method applyArena = BirdGame3.class.getDeclaredMethod(
+                "applyCampaignMissionArenaModifiers", StoryCampaign.Mission.class);
+        applyArena.setAccessible(true);
+        applyArena.invoke(game, mission);
+        Method setupController = BirdGame3.class.getDeclaredMethod(
+                "setupCampaignMissionController", StoryCampaign.Mission.class);
+        setupController.setAccessible(true);
+        setupController.invoke(game, mission);
+
+        Set<BirdGame3.BirdType> spawnedTypes = EnumSet.noneOf(BirdGame3.BirdType.class);
+        int firstEchoSlot = StoryCampaign.STILL_SKY_ROSTER.size();
+        int safety = 0;
+        while (spawnedTypes.size() < BirdGame3.BirdType.values().length && safety++ < 20) {
+            invokePrivateVoid(game, "applyCampaignMissionRuntimeEffects");
+            int livingWave = 0;
+            for (int slot = firstEchoSlot; slot < game.activePlayers; slot++) {
+                Bird echo = game.players[slot];
+                if (echo == null || echo.health <= 0.0) continue;
+                livingWave++;
+                spawnedTypes.add(echo.type);
+                assertEquals(BirdGame3.CAMPAIGN_NULL_ECHO_SKIN, echo.appliedSkinKey);
+                assertEquals(2, game.campaignTeams[slot]);
+                assertTrue(game.isAI[slot]);
+                assertTrue(echo.y <= BirdGame3.CEILING_Y + 285.0,
+                        "Each Null echo should enter by falling from the sky.");
+                assertTrue(echo.vy > 0.0);
+                echo.health = 0.0;
+            }
+            assertTrue(livingWave >= 1 && livingWave <= 3);
+            game.checkCampaignMissionCompletion();
+        }
+
+        assertEquals(EnumSet.allOf(BirdGame3.BirdType.class), spawnedTypes,
+                "The Null Rock must copy every playable bird, including Kiwi.");
+        assertEquals(8, getPrivateInt(game, "campaignNullEchoWave"));
+
+        for (int slot = firstEchoSlot; slot < game.activePlayers; slot++) {
+            if (game.players[slot] != null) game.players[slot].health = 0.0;
+        }
+        game.checkCampaignMissionCompletion();
+        StoryMissionController controller =
+                (StoryMissionController) getPrivateObject(game, "campaignMissionController");
+        assertEquals(3, controller.phaseIndex(),
+                "Only clearing the last corrupted wave may advance to Penguin's charge.");
     }
 
     @Test
@@ -11589,7 +11668,7 @@ class BirdStateTest {
         StoryCampaign.Mission mission = StoryCampaignContent.create().mission("the_null_rock");
         setPrivateObject(game, "currentCampaignMission", mission);
         setPrivateObject(game, "campaignSelectedBird", BirdGame3.BirdType.PIGEON);
-        setPrivateInt(game, "campaignRetryPhaseIndex", 3);
+        setPrivateInt(game, "campaignRetryPhaseIndex", 4);
         Method setupRoster = BirdGame3.class.getDeclaredMethod(
                 "setupCampaignMissionRoster", StoryCampaign.Mission.class);
         setupRoster.setAccessible(true);

@@ -1035,10 +1035,10 @@ Crown System|Combat response updated. The next containment phase is active.
 [dynamic_null_rock_duel]
 Penguin|Charge is set. Everybody clear the center.|WIDE|IDLE
 The Null Rock|No.|REVEAL|RISE
-Falcon|It's coming through the wall! Move!|ACTION|RECOIL
+Falcon|The floor is splitting under every flock! Move!|ACTION|RECOIL
 The Null Rock|Still.|ACTION|ATTACK
-Penguin|It knocked the whole line into the evacuation tunnels. The charge is still live.|WIDE|EXIT_LEFT
-Eagle|Only one bird is still inside its reach.|CLOSE|RECOIL
+Penguin|The breach scattered the whole line through separate evacuation tunnels. The charge is still live.|WIDE|EXIT_LEFT
+Eagle|The walls sealed between us. Only one bird is still inside its reach.|CLOSE|RECOIL
 {hero}|Then stop talking and seal the door behind me.|CLOSE|RISE
 The Null Rock|Alone.|REVEAL|IDLE
 {hero}|Not the same thing.|ACTION|ATTACK

@@ -129,10 +129,13 @@ class StoryCampaignContentTest {
         assertEquals(List.of(
                         StoryCampaign.ObjectiveType.CAPTURE,
                         StoryCampaign.ObjectiveType.HOLD_ZONE,
+                        StoryCampaign.ObjectiveType.GAUNTLET,
                         StoryCampaign.ObjectiveType.CAPTURE,
                         StoryCampaign.ObjectiveType.BOSS_PHASES),
                 finale.phases().stream().map(StoryCampaign.MissionPhase::objective).toList());
-        assertEquals("Plant Penguin's cavern charge", finale.phases().get(2).label());
+        assertEquals("Defeat every corrupted reflection", finale.phases().get(2).label());
+        assertEquals(BirdGame3.BirdType.values().length, finale.phases().get(2).targetCount());
+        assertEquals("Plant Penguin's cavern charge", finale.phases().get(3).label());
         assertEquals("Defeat The Null Rock one-on-one", finale.phases().getLast().label());
         assertEquals(9, StoryCampaignContent.nullRockDuelDialogue(
                 "Pigeon", BirdGame3.BirdType.PIGEON).size());

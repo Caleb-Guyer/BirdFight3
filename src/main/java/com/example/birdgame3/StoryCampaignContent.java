@@ -816,7 +816,7 @@ final class StoryCampaignContent {
 
     private static StoryCampaign.Mission nullRock() {
         return mission("the_null_rock", "The Null Rock",
-                "Break the living core's command network, plant Penguin's charge, then face The Null Rock directly when it tears through the cavern wall.",
+                "Unite every flock on the living core, survive its corrupted reflections, plant Penguin's charge, then face The Null Rock when the cavern tears the coalition apart.",
                 BEACON_CROWN, BirdGame3.MapVariant.VOID_CROWN, NULL_ROCK,
                 StoryCampaign.PlayablePolicy.fullRoster(),
                 List.of(),
@@ -824,6 +824,8 @@ final class StoryCampaignContent {
                 phases(
                         phase(CAPTURE, "Break the command roosts", 54, 4, true),
                         phase(HOLD_ZONE, "Join every flock signature", 48, 6, true),
+                        phase(GAUNTLET, "Defeat every corrupted reflection", 0,
+                                BirdGame3.BirdType.values().length, true),
                         phase(CAPTURE, "Plant Penguin's cavern charge", 38, 2, true),
                         phase(BOSS_PHASES, "Defeat The Null Rock one-on-one", 0, 5, true)
                 ),

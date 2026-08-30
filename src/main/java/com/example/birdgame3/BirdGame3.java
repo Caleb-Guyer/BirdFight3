@@ -6652,6 +6652,8 @@ public class BirdGame3 {
     private int campaignCrownDuelStage = 0;
     private int campaignNullRockPhaseAnnounced = -1;
     private int campaignNullRockWave = 0;
+    private int campaignNullEchoNextRosterIndex = 0;
+    private int campaignNullEchoWave = 0;
     private int campaignNullRockDuelStage = 0;
     boolean campaignTeamMode = false;
     final int[] campaignTeams = createPvETeamArray();
@@ -50230,6 +50232,8 @@ public class BirdGame3 {
         campaignCrownDuelStage = 0;
         campaignNullRockPhaseAnnounced = -1;
         campaignNullRockWave = 0;
+        campaignNullEchoNextRosterIndex = 0;
+        campaignNullEchoWave = 0;
         campaignNullRockDuelStage = 0;
 
         if (mission.arenaVariant() == StoryCampaign.ArenaVariant.NULL_ROCK) {
@@ -50439,7 +50443,10 @@ public class BirdGame3 {
     }
 
     private void setupCampaignFinalCoalition(StoryCampaign.Mission mission) {
-        activePlayers = Math.min(MAX_COMBATANTS, StoryCampaign.STILL_SKY_ROSTER.size());
+        // The three spare combatant slots are reserved for falling Null echoes.
+        // The authored coalition remains the 21-bird Still Sky cast; Kiwi only
+        // appears later as an anomalous reflection of the complete game roster.
+        activePlayers = MAX_COMBATANTS;
         Bird player = createStoryBird(820, campaignSelectedBird, 0,
                 "You: " + campaignSelectedBird.name, 120, 1.0, 1.0, false);
         applySkinChoiceToBird(player, campaignSelectedBird, campaignSelectedSkinKey);
@@ -50458,6 +50465,10 @@ public class BirdGame3 {
             slot++;
         }
         updateCampaignFrontlineRotation(true);
+    }
+
+    private int campaignCoalitionSlotCount() {
+        return Math.min(activePlayers, StoryCampaign.STILL_SKY_ROSTER.size());
     }
 
     private StoryCampaign.Fighter campaignNullRockFighter(StoryCampaign.Mission mission) {
@@ -50543,6 +50554,40 @@ public class BirdGame3 {
         battlefieldIslandY = islandY;
     }
 
+    /**
+     * The ordinary Void Crown geometry is a deliberately cramped boss island.
+     * The coalition opening needs room for all 21 story birds plus a falling
+     * enemy wave, so the finale gets its own connected, nearly world-wide field.
+     */
+    private void setupCampaignNullRockCoalitionArena() {
+        platforms.clear();
+        windVents.clear();
+        powerUps.clear();
+        crowMinions.clear();
+        chickMinions.clear();
+        mockingbirdShadowMinions.clear();
+        activeArenaGeometryVariant = MapVariant.VOID_CROWN;
+
+        double islandX = 180.0;
+        double islandW = WORLD_WIDTH - 360.0;
+        double islandY = GROUND_Y - 110.0;
+        platforms.add(new Platform(islandX, islandY, islandW, 112.0));
+
+        double laneW = 920.0;
+        platforms.add(new Platform(420.0, islandY - 315.0, laneW, 46.0));
+        platforms.add(new Platform(1_640.0, islandY - 315.0, laneW, 46.0));
+        platforms.add(new Platform(2_860.0, islandY - 315.0, laneW, 46.0));
+        platforms.add(new Platform(4_080.0, islandY - 315.0, laneW, 46.0));
+        platforms.add(new Platform(1_030.0, islandY - 640.0, 1_080.0, 48.0));
+        platforms.add(new Platform(2_460.0, islandY - 720.0, 1_080.0, 48.0));
+        platforms.add(new Platform(3_890.0, islandY - 640.0, 1_080.0, 48.0));
+        platforms.add(new Platform(2_410.0, islandY - 1_040.0, 1_180.0, 52.0));
+
+        battlefieldIslandX = islandX;
+        battlefieldIslandW = islandW;
+        battlefieldIslandY = islandY;
+    }
+
     private void placeCampaignNullRockDuelists(Bird player, Bird boss) {
         if (player == null || boss == null) return;
         player.x = battlefieldIslandX + 360.0 - player.bodyWidth() * 0.5;
@@ -50564,7 +50609,12 @@ public class BirdGame3 {
 
     private void applyCampaignMissionArenaModifiers(StoryCampaign.Mission mission) {
         if (mission == null) return;
-        applyMapVariantArena(activeCampaignMissionMapVariant(mission));
+        if (mission.arenaVariant() == StoryCampaign.ArenaVariant.NULL_ROCK
+                && !isNullRockDuelPhase()) {
+            setupCampaignNullRockCoalitionArena();
+        } else {
+            applyMapVariantArena(activeCampaignMissionMapVariant(mission));
+        }
         int authoredTicks = mission.phases().stream()
                 .mapToInt(StoryCampaign.MissionPhase::targetTicks)
                 .sum();
@@ -50611,7 +50661,7 @@ public class BirdGame3 {
                     placeCampaignNullRockDuelists(players[0], players[1]);
                     addToKillFeed("FINAL DUEL: The Null Rock has entered the arena.");
                 } else {
-                    addToKillFeed("THE NULL ROCK: Four-bird frontlines rotate through the final assault.");
+                    addToKillFeed("THE NULL ROCK: Every flock has room to enter the living core.");
                     shakeIntensity = Math.max(shakeIntensity, 26);
                     windVents.add(new WindVent(1150, GROUND_Y - 520, 520));
                     windVents.add(new WindVent(3000, GROUND_Y - 740, 640));
@@ -71899,11 +71949,20 @@ public class BirdGame3 {
             String message = switch (phase) {
                 case 0 -> "NULL ROCK: Break the roosts that command its shadow flock.";
                 case 1 -> "ALL WINGS: Hold the center while every signature joins the counter-pulse.";
+                case 2 -> "CORRUPTED FLOCK: Every stolen reflection is falling from the void.";
                 default -> "FINAL CHARGE: Reach the exposed cavern heart and arm the breach.";
             };
             addToKillFeed(message);
             shakeIntensity = Math.max(shakeIntensity, 18.0 + phase * 5.0);
             playManagedSfxVaried(hugewaveClip, 0.64 + phase * 0.07, 0.72 - phase * 0.06, 0.018);
+            if (isCampaignNullEchoPhase()) {
+                prepareCampaignCoalitionForNullEchoes();
+            }
+        }
+
+        if (isCampaignNullEchoPhase()) {
+            updateCampaignNullEchoInvasion();
+            return;
         }
 
         long interval = Math.max(210L, 430L - phase * 70L);
@@ -71923,6 +71982,106 @@ public class BirdGame3 {
             campaignNullRockWave++;
             addToKillFeed("THE NULL ROCK CALLS SHADOW WING " + campaignNullRockWave + ".");
         }
+    }
+
+    private boolean isCampaignNullEchoPhase() {
+        return isNullRockCampaign()
+                && campaignMissionController != null
+                && campaignMissionController.currentPhase().objective()
+                == StoryCampaign.ObjectiveType.GAUNTLET;
+    }
+
+    private void prepareCampaignCoalitionForNullEchoes() {
+        int coalitionSlots = campaignCoalitionSlotCount();
+        double[] centers = buildIslandSpawnCenters(
+                coalitionSlots,
+                battlefieldIslandX + 260.0,
+                battlefieldIslandX + battlefieldIslandW - 260.0);
+        for (int slot = 0; slot < coalitionSlots; slot++) {
+            Bird ally = players[slot];
+            if (ally == null) continue;
+            ally.health = Math.max(ally.health,
+                    Math.max(1.0, campaignStartingHealth[slot]) * 0.70);
+            ally.x = centers[slot] - ally.bodyWidth() * 0.5;
+            ally.y = battlefieldIslandY - ally.bodyHeight();
+            ally.prevX = ally.x;
+            ally.prevY = ally.y;
+            ally.vx = 0.0;
+            ally.vy = 0.0;
+            if (slot > 0) {
+                isAI[slot] = true;
+            }
+        }
+        crowMinions.clear();
+        addToKillFeed("ALL WINGS ENGAGED: The full coalition holds the core.");
+    }
+
+    /**
+     * Cycles every playable bird through the three slots left above the full
+     * Still Sky coalition. Spawns are fixed by roster order and wave number so
+     * replays and the headless campaign lab see exactly the same invasion.
+     */
+    private void updateCampaignNullEchoInvasion() {
+        if (!isCampaignNullEchoPhase()) return;
+        int firstEchoSlot = campaignCoalitionSlotCount();
+        if (firstEchoSlot >= activePlayers) return;
+
+        boolean livingEcho = false;
+        for (int slot = firstEchoSlot; slot < activePlayers; slot++) {
+            Bird echo = players[slot];
+            if (echo != null && echo.health > 0.0 && !campaignEnemyEliminated[slot]) {
+                livingEcho = true;
+                break;
+            }
+        }
+        if (livingEcho) return;
+
+        for (int slot = firstEchoSlot; slot < activePlayers; slot++) {
+            players[slot] = null;
+            isAI[slot] = false;
+            campaignEnemyEliminated[slot] = false;
+            campaignStartingHealth[slot] = 0.0;
+            campaignTeams[slot] = 2;
+        }
+
+        BirdType[] echoRoster = BirdType.values();
+        if (campaignNullEchoNextRosterIndex >= echoRoster.length) {
+            return;
+        }
+
+        int spawned = 0;
+        for (int slot = firstEchoSlot;
+             slot < activePlayers && campaignNullEchoNextRosterIndex < echoRoster.length;
+             slot++) {
+            BirdType type = echoRoster[campaignNullEchoNextRosterIndex++];
+            double centerX = battlefieldIslandX + battlefieldIslandW
+                    * (0.27 + spawned * 0.23);
+            Bird echo = createStoryBird(centerX, type, slot,
+                    "Null " + type.name, 170.0, 1.08, 1.06, true);
+            applyPreviewSkinChoiceToBird(echo, type, CAMPAIGN_NULL_ECHO_SKIN);
+            applyCampaignMissionTuningToBird(echo, currentCampaignMission, 2, false);
+            echo.x = centerX - echo.bodyWidth() * 0.5;
+            echo.y = CEILING_Y + 125.0 + spawned * 80.0;
+            echo.prevX = echo.x;
+            echo.prevY = echo.y - 120.0;
+            echo.vx = (spawned - 1) * 1.8;
+            echo.vy = 13.0 + spawned * 1.6;
+            echo.facingRight = centerX < WORLD_WIDTH * 0.5;
+            campaignTeams[slot] = 2;
+            campaignStartingHealth[slot] = echo.health;
+            campaignBossSlots[slot] = false;
+            campaignReservedBossSlots[slot] = false;
+            campaignEnemyEliminated[slot] = false;
+            spawned++;
+        }
+
+        campaignNullEchoWave++;
+        int totalWaves = (echoRoster.length + (activePlayers - firstEchoSlot) - 1)
+                / (activePlayers - firstEchoSlot);
+        addToKillFeed("NULL FLOCK " + campaignNullEchoWave + "/" + totalWaves
+                + ": corrupted birds are falling in.");
+        shakeIntensity = Math.max(shakeIntensity, 24.0);
+        playManagedSfxVaried(hugewaveClip, 0.78, 0.66, 0.014);
     }
 
     private void applyCampaignNullRockDuelRuntimeEffects() {
@@ -72082,6 +72241,9 @@ public class BirdGame3 {
             return;
         }
         enforcePermanentCampaignEnemyEliminations();
+        // A cleared Null flock is replaced before GAUNTLET observes an empty
+        // hostile team. Only the final roster wave is allowed to advance it.
+        updateCampaignNullEchoInvasion();
         updateCampaignFrontlineRotation(false);
         updateCampaignSignatureAssist();
         List<StoryMissionController.Participant> snapshot = new ArrayList<>();
@@ -72225,7 +72387,13 @@ public class BirdGame3 {
                 || activePlayers < 3) {
             return;
         }
-        int supportEnd = activePlayers;
+        int supportEnd = campaignCoalitionSlotCount();
+        if (isCampaignNullEchoPhase()) {
+            for (int slot = 1; slot < supportEnd; slot++) {
+                isAI[slot] = players[slot] != null && players[slot].health > 0.0;
+            }
+            return;
+        }
         int supportCount = Math.max(1, supportEnd - 1);
         int window = (int) (simTick / (5L * 60L));
         if (!force && window == campaignFrontlineWindow) {
@@ -72249,7 +72417,7 @@ public class BirdGame3 {
                 || simTick <= 0 || simTick % 75L != 0L) {
             return;
         }
-        int supportEnd = activePlayers;
+        int supportEnd = campaignCoalitionSlotCount();
         int supportCount = Math.max(1, supportEnd - 1);
         int supportSlot = 1 + (int) (((simTick / 75L) - 1L) % supportCount);
         Bird support = players[supportSlot];

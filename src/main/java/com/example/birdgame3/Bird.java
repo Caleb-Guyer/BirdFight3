@@ -33795,11 +33795,13 @@ public class Bird {
         drawRespawnAura(g, drawSize);
         drawDodgeAura(g, drawSize);
         drawNullRockShield(g, drawSize);
+        drawNullEchoAura(g, drawSize);
         drawSpecialCooldown(g);
         drawLounge(g);
         drawEagleGroundShadow(g, drawSize, currentBirdAnimationState());
         drawTurkeyGroundShadow(g, drawSize, currentPhotoTurkeyAnimationState());
         drawCharacterBody(g, drawSize, attackPose);
+        drawNullEchoCorruption(g, drawSize);
         drawHummingbirdNectarCoating(g, drawSize);
         drawTurkeyStuffedEffect(g, drawSize);
         drawTitmouseMarkEffect(g, drawSize);
@@ -33816,6 +33818,69 @@ public class Bird {
         drawDirectionalAttackFx(g, drawSize);
         drawStunEffect(g, drawSize);
         drawVineGrapple(g);
+    }
+
+    private boolean isNullEchoSkin() {
+        return BirdGame3.CAMPAIGN_NULL_ECHO_SKIN.equals(appliedSkinKey);
+    }
+
+    /** Presentation-only void distortion; it never consumes simulation RNG. */
+    private void drawNullEchoAura(GraphicsContext g, double drawSize) {
+        if (!isNullEchoSkin()) return;
+        double s = sizeMultiplier;
+        double cx = bodyCenterX();
+        double cy = bodyCenterY();
+        double pulse = 0.5 + 0.5 * Math.sin(game.simTick * 0.12 + playerIndex * 0.77);
+
+        g.save();
+        g.setFill(Color.web("#120819", 0.28 + pulse * 0.10));
+        g.fillOval(cx - drawSize * 0.68, cy - drawSize * 0.58,
+                drawSize * 1.36, drawSize * 1.20);
+        g.setStroke(Color.web("#FF315E", 0.48 + pulse * 0.34));
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setLineWidth(2.6 * s);
+        g.strokeArc(cx - drawSize * 0.61, cy - drawSize * 0.53,
+                drawSize * 1.22, drawSize * 1.06,
+                game.simTick * 3.2 + playerIndex * 31.0, 118.0, ArcType.OPEN);
+        g.setStroke(Color.web("#9C4DFF", 0.38 + pulse * 0.24));
+        g.setLineWidth(1.8 * s);
+        g.strokeArc(cx - drawSize * 0.74, cy - drawSize * 0.64,
+                drawSize * 1.48, drawSize * 1.28,
+                -game.simTick * 2.2 - playerIndex * 19.0, 92.0, ArcType.OPEN);
+        g.restore();
+    }
+
+    private void drawNullEchoCorruption(GraphicsContext g, double drawSize) {
+        if (!isNullEchoSkin()) return;
+        double s = sizeMultiplier;
+        double dir = facingRight ? 1.0 : -1.0;
+        double cx = bodyCenterX();
+        double cy = bodyCenterY();
+        double flicker = 0.5 + 0.5 * Math.sin(game.simTick * 0.21 + type.ordinal());
+
+        g.save();
+        g.setStroke(Color.web("#FF5252", 0.72 + flicker * 0.22));
+        g.setLineWidth(2.2 * s);
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.strokeLine(cx - 21.0 * dir * s, cy - 24.0 * s,
+                cx - 5.0 * dir * s, cy - 8.0 * s);
+        g.strokeLine(cx - 5.0 * dir * s, cy - 8.0 * s,
+                cx - 14.0 * dir * s, cy + 9.0 * s);
+        g.strokeLine(cx - 5.0 * dir * s, cy - 8.0 * s,
+                cx + 18.0 * dir * s, cy + 2.0 * s);
+        g.setFill(Color.web("#FF1744", 0.86));
+        g.fillOval(cx + dir * 15.0 * s - 3.8 * s, cy - 22.0 * s,
+                7.6 * s, 7.6 * s);
+
+        g.setStroke(Color.web("#B388FF", 0.34 + flicker * 0.20));
+        g.setLineWidth(1.2 * s);
+        for (int i = 0; i < 3; i++) {
+            double offset = (i - 1) * 14.0 * s;
+            double shift = ((game.simTick + i * 7L + playerIndex * 3L) % 19L) * 0.55 * s;
+            g.strokeLine(cx - drawSize * 0.45 + shift, cy + offset,
+                    cx + drawSize * 0.36 + shift, cy + offset);
+        }
+        g.restore();
     }
 
     private void drawClassicBonusTarget(GraphicsContext g) {
