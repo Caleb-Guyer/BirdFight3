@@ -105,6 +105,16 @@ final class BirdCoinLedger {
         return true;
     }
 
+    void refundSpend(int amount) {
+        if (infiniteBalance) {
+            synchronize();
+            return;
+        }
+        int safeAmount = Math.max(0, amount);
+        spent = Math.max(0, spent - safeAmount);
+        synchronize();
+    }
+
     private int saturatingNonNegativeAdd(int current, int delta) {
         long total = (long) current + Math.max(0, delta);
         if (total <= 0L) {

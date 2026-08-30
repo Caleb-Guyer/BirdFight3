@@ -43082,22 +43082,12 @@ public class BirdGame3 {
             final int purchaseCost = effectiveCost;
             String buyLabel = owned ? "OWNED" : (available ? "BUY" : "COMPLETE");
             String buyColor = owned ? "#455A64" : (available ? "#00C853" : "#455A64");
+            Button[] buyRef = new Button[1];
             Button buy = uiFactory.action(buyLabel, 240, 64, 28, buyColor, 20, () -> {
                 if (owned || !available) return;
-                if (!spendBirdCoins(purchaseCost)) {
-                    playErrorSound();
-                    return;
-                }
-                ShopPackResult result = item.purchase.get();
-                saveAchievements();
-                runAfterUnlockCards(stage, () -> {
-                    if (result == null) {
-                        showShop(stage);
-                    } else {
-                        showPackResult(stage, result);
-                    }
-                });
+                beginShopPackPurchase(stage, item, purchaseCost, buyRef[0]);
             });
+            buyRef[0] = buy;
             buy.setDisable(owned || !available);
             HBox row = new HBox(buy);
             row.setAlignment(Pos.CENTER);
@@ -43138,6 +43128,63 @@ public class BirdGame3 {
         applyConsoleHighlight(scene);
         setScenePreservingFullscreen(stage, scene);
         back.requestFocus();
+    }
+
+    private void beginShopPackPurchase(Stage stage, ShopItem item, int purchaseCost, Button buyButton) {
+        if (stage == null || item == null || buyButton == null || buyButton.isDisabled()) return;
+        Scene shopScene = stage.getScene();
+        buyButton.setDisable(true);
+        buyButton.setText("OPENING...");
+
+        // Do not replace the live fullscreen Scene while its BUY event is still
+        // bubbling. That can leave the transferred shop root visible after its
+        // input filters have already been removed, which looks like a frozen game.
+        javafx.application.Platform.runLater(() -> {
+            if (stage.getScene() != shopScene) return;
+            ShopPurchaseTransaction.Result attempt = ShopPurchaseTransaction.execute(
+                    birdCoinLedger, purchaseCost, item.purchase);
+            if (attempt.status() == ShopPurchaseTransaction.Status.INSUFFICIENT_FUNDS) {
+                playErrorSound();
+                int shortfall = Math.max(0, purchaseCost - birdCoinLedger.balance());
+                buyButton.setText(shortfall > 0 ? "NEED " + shortfall : "BUY");
+                buyButton.setDisable(false);
+                return;
+            }
+            if (attempt.status() == ShopPurchaseTransaction.Status.FAILED) {
+                saveAchievements();
+                ThrowableLogSupport.log(LOGGER, Level.SEVERE,
+                        "Shop purchase failed for " + item.name + "; Bird Coins refunded", attempt.failure());
+                playErrorSound();
+                showShop(stage);
+                return;
+            }
+
+            ShopPackResult result = attempt.receipt();
+            saveAchievements();
+            Runnable showReceipt = () -> {
+                if (result == null) {
+                    showShop(stage);
+                } else {
+                    showPackResult(stage, result);
+                }
+            };
+            try {
+                runAfterUnlockCards(stage, showReceipt);
+            } catch (RuntimeException failure) {
+                // Rewards are already committed. Recover to the receipt (or the
+                // shop as a final fallback) rather than stranding a dead Scene.
+                ThrowableLogSupport.log(LOGGER, Level.SEVERE,
+                        "Shop reward reveal failed for " + item.name + "; recovering navigation", failure);
+                try {
+                    showReceipt.run();
+                } catch (RuntimeException receiptFailure) {
+                    failure.addSuppressed(receiptFailure);
+                    ThrowableLogSupport.log(LOGGER, Level.SEVERE,
+                            "Shop receipt recovery failed for " + item.name, failure);
+                    showShop(stage);
+                }
+            }
+        });
     }
 
     private void showPackResult(Stage stage, ShopPackResult result) {

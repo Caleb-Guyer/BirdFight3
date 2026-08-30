@@ -81,4 +81,18 @@ class BirdCoinLedgerTest {
         assertTrue(ledger.spend(500));
         assertEquals(40, ledger.balance());
     }
+
+    @Test
+    void failedPurchaseCanRefundOnlyTheMostRecentSpend() {
+        BirdCoinLedger ledger = new BirdCoinLedger(TEST_SALT, "balance", "earned", "spent", "checksum");
+        ledger.grant(200);
+        assertTrue(ledger.spend(80));
+        assertEquals(120, ledger.balance());
+
+        ledger.refundSpend(80);
+
+        assertEquals(200, ledger.balance());
+        ledger.refundSpend(80);
+        assertEquals(200, ledger.balance(), "A repeated recovery cannot mint Bird Coins");
+    }
 }
