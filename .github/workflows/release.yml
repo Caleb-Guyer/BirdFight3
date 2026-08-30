@@ -23,6 +23,20 @@ jobs:
           java-version: "21"
           cache: maven
 
+      - name: Verify release metadata
+        shell: pwsh
+        run: |
+          [xml]$pom = Get-Content pom.xml
+          $projectVersion = [string]$pom.project.version
+          $tagVersion = $env:GITHUB_REF_NAME.TrimStart("v")
+          if ($projectVersion -ne $tagVersion) {
+            throw "Tag version $tagVersion does not match pom.xml version $projectVersion."
+          }
+          $notesPath = "docs/releases/$($env:GITHUB_REF_NAME).md"
+          if (-not (Test-Path $notesPath)) {
+            throw "Release notes are missing: $notesPath"
+          }
+
       - name: Run tests
         shell: pwsh
         run: ./scripts/test.cmd -NoAudioAudit
@@ -48,6 +62,7 @@ jobs:
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
+          body_path: docs/releases/${{ github.ref_name }}.md
           files: |
             target/*-dist.zip
             target/BirdFight3-*-win.zip

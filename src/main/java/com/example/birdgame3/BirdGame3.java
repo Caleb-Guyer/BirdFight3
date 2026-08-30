@@ -1293,7 +1293,7 @@ public class BirdGame3 {
                     "The foundation update: platform fighter rules, unlocks, modes, records, and the full bird roster.",
                     "#4FC3F7",
                     List.of(
-                            "Twenty-one playable birds with unique specials, ultimates, skins, and matchup identities.",
+                            "Twenty-two playable birds with unique specials, ultimates, skins, and matchup identities.",
                             "Adventure, Classic, Boss Rush, Tournament, Training Academy, LAN, replays, and match history.",
                             "Power-ups, stage hazards, AI battles, achievements, Featherpedia, and profile progression.",
                             "Vector bird art, procedural sound effects, public-domain music, and packaged auto-update support."

@@ -1,248 +1,145 @@
 # Bird Fight 3
 
-A chaotic JavaFX multiplayer platformer with epic bird battles, power-ups, AI opponents, and custom maps like forests, cities, and cliffs. Built for fun fights and unlocks—flap to victory!
+Bird Fight 3 is a feature-complete JavaFX platform fighter with a 22-bird
+roster, authored single-player campaigns, local and direct-connect multiplayer,
+and code-drawn vector presentation.
 
-## Overview
+## Project status
 
-Bird Fight 3 is a feature-rich platform fighter that supports local play, AI opponents, LAN matches, unlockables, and multiple single-player modes. Battle as various bird characters with unique abilities, collect power-ups, and compete in tournaments and authored Classic routes.
+**Feature complete and in maintenance mode.** Version 1.5.0 is the definitive
+content release. New work is expected to be focused bug fixes and explicitly
+chosen improvements rather than an open-ended roadmap. The issue tracker stays
+open, and future maintenance releases may still be published.
 
-## Features
+Download the latest portable Windows package from
+[GitHub Releases](https://github.com/Caleb-Guyer/BirdFight3/releases). Extract
+`BirdFight3-<version>-win.zip` and run **Bird Fight 3.exe**. The portable package
+contains its own Java runtime.
 
-- **Multiple Game Modes**
-  - Local multiplayer battles
-  - AI-powered opponents with varying difficulty
-  - LAN multiplayer matches for network play
-  - Direct-connect internet matches by public IP or DNS name
-  - Tournament setup and play
-  - Single-player campaign progression
+## Highlights
 
-- **Bird Characters & Abilities**
-  - Unique playable bird characters (with AI variants like CrowMinion, ChickMinion)
-  - Special attacks and movements
-  - Character unlocks through progression
+- **22 distinct fighters** with authored normals, directional specials,
+  ultimates, skins, frame data, matchup identities, and CPU behavior.
+- **The Still Sky**, a 40-mission campaign with three difficulties, objective
+  missions, recruitable allies, boss phases, cutscenes, and credits.
+- **22 Classic routes**, each with authored encounters, an objective round,
+  bosses, rewards, and an ending.
+- **Smash and Stamina battles**, a full rules editor, local multiplayer, CPU
+  opponents, Tournament, Squad Strike, Boss Rush, and Training Academy.
+- **21 main stages and 26 stage variants**, including campaign, Classic, and
+  boss arenas with hazards and traversal mechanics.
+- **Progression and collection** through profiles, achievements, Bird Coins,
+  reward packs, the Shop, fighter records, match history, cutscene galleries,
+  music, and unlock guides.
+- **Self-contained replays** that preserve the seed, rules, roster, stage, and
+  per-tick inputs for deterministic playback.
+- **LAN and direct internet play** using deterministic lockstep simulation.
+- Keyboard, Xbox-compatible gamepad, and configurable Wii Remote support.
+- Procedural sound effects, public-domain music, vector bird art, optional
+  sprite-sheet overrides, packaged auto-update, and save-safe upgrades.
 
-- **Dynamic Gameplay**
-  - Multiple custom map environments (forests, cities, cliffs, docks)
-  - Interactive hazards and environmental elements (Piranha, WindVent, SwingingVine, FrostbiteSnowbank)
-  - Power-ups and rewards system
-  - Particle effects and visual feedback
+## Playing
 
-- **Input Support**
-  - Keyboard and gamepad controls
-  - Native Wii Remote support with customizable button mapping
-  - Xbox controller support
-  - Directional input stabilization and hold detection
+Controls are configurable and shown in the in-game move guide and settings.
+Keyboard and controller prompts adapt to the active input device.
 
-- **Progression & Unlocks**
-  - Achievement system with categories
-  - Bird Coin currency for shop purchases
-  - Rarity-based reward packs
-  - Match history tracking
-  - Profile-based progression
+### Internet multiplayer
 
-- **Customization**
-  - Global settings management
-  - Multiple menu themes
-  - UI factory for flexible UI generation
-
-## Requirements
-
-- **JDK 21 or newer**
-- `JAVA_HOME` environment variable pointing to that JDK
-- PowerShell or another shell that can run the Maven wrapper
-
-This project targets Java 21 in `pom.xml`. Maven Enforcer fails fast on older JDKs. If `.\mvnw` fails with `JAVA_HOME not found` or launches under Java 8, point it at a JDK 21+ install first.
-
-## Getting Started
-
-### Build the Project
-
-```bash
-./mvnw clean compile
-```
-
-### Run the Game
-
-```bash
-./mvnw clean javafx:run
-```
-
-The game will launch with the main menu. Choose your game mode and start battling!
-
-## Project Structure
-
-```
-src/main/java/com/example/birdgame3/
-|-- Launcher.java                          # Entry point for the application
-|-- BirdGame3.java                         # Main game controller
-|-- Bird.java                              # Base bird character class
-|-- MatchController.java                   # Match game logic
-|-- MenuLayout.java & MenuTheme.java       # UI framework
-|-- UIFactory.java                         # Dynamic UI generation
-|
-|-- Game Modes
-|   |-- BirdGame3TournamentSetupUi.java
-|   `-- BirdGame3TournamentUi.java
-|
-|-- Characters & Minions
-|   |-- ChickMinion.java
-|   |-- CrowMinion.java
-|   `-- various bird AI implementations
-|
-|-- Maps & Environment
-|   |-- Platform.java                      # Map platforms
-|   |-- PiranhaHazard.java                 # Water hazard
-|   |-- WindVent.java                      # Air hazard
-|   |-- SwingingVine.java                  # Interactive element
-|   |-- FrostbiteSnowbank.java             # Snow hazard
-|   |-- DockShipBomb.java                  # Explosive hazard
-|   `-- NectarNode.java                    # Collectible
-|
-|-- Power-ups & Items
-|   |-- PowerUp.java & PowerUpType.java
-|   |-- ShopItem.java
-|   |-- ShopPackResult.java
-|   |-- ShopRarity.java
-|   `-- PackReward.java
-|
-|-- Input & Controls
-|   |-- WiimoteController.java             # Wii Remote support
-|   |-- WiimoteInputManager.java
-|   |-- WiimoteControlMapper.java
-|   |-- XboxInputManager.java              # Xbox controller support
-|   `-- DirectionalSecretCode.java         # Input pattern detection
-|
-|-- Networking (LAN)
-|   |-- LanClient.java
-|   |-- LanHostServer.java
-|   |-- LanPayloadRouter.java
-|   |-- LanProtocol.java
-|   `-- NetworkSessionClient/Host.java
-|
-|-- Progression & Unlocks
-|   |-- BirdGame3AchievementProfile.java   # Achievement tracking
-|   |-- BirdGame3AchievementEvaluator.java
-|   |-- BirdCoinLedger.java                # Currency system
-|   |-- GameSaveRepository.java            # Save data persistence
-|   |-- BirdGame3ProfileProgressState.java
-|   `-- BirdGame3ProgressionService.java
-|
-`-- Utilities
-    |-- Particle.java                      # Visual effects
-    |-- FrameRateLimiter.java              # Performance control
-    |-- DigitalHoldStabilizer.java         # Input smoothing
-    `-- ThrowableLogSupport.java           # Debugging
-
-```
-
-## Technologies & Dependencies
-
-- **JavaFX 21.0.6** - GUI framework
-- **JNA 5.18.1** - Java Native Access for system integration
-- **hid4java 0.8.0** - Human Interface Device support (Wii Remote)
-- **JUnit 5** - Unit testing framework
-- **Maven** - Build automation
-
-## Wii Remote Support
-
-Bird Fight 3 natively supports Wii remotes for enhanced gameplay. Connect your Wii remote and customize button mappings through the settings menu.
-
-## Controls
-
-### Keyboard/Gamepad
-- **Movement**: Arrow Keys / Left Stick
-- **Jump**: Space / A Button
-- **Attack**: Z / X / Y Button
-- **Special**: Shift / RT/LT Buttons
-
-### Wii Remote
-- Customizable button mapping in settings
-- Motion controls available
-- See in-game settings for detailed control schemes
-
-## Internet Multiplayer
-
-Bird Fight 3 supports direct internet host/join matches for up to four players.
-The combat simulation uses the same deterministic lockstep system as LAN play,
-with a larger eight-tick input buffer for regional network latency.
+Internet play is direct peer-to-peer host/join for up to four players. It has
+no central account, matchmaking, NAT traversal, or relay service.
 
 To host:
 
 1. Open **NETWORK PLAY → INTERNET PLAY → HOST INTERNET**.
 2. Allow Bird Fight 3 through the operating-system firewall.
-3. Forward the selected **TCP** port (default `28999`) in the router to the
-   hosting computer.
-4. Share the public IP address or DNS name and port with the invited players.
+3. Forward the selected **TCP** port (default `28999`) to the host computer.
+4. Share the public IP address or DNS name and port with invited players.
 
-To join, open **JOIN INTERNET** and enter `host:port`, for example
-`games.example.com:28999`. All players must run the same Bird Fight 3 version.
-At match start, the host's active `bird-stats.properties` tuning is used for
-everyone so preserved local balance files cannot desynchronize the simulation.
+To join, enter `host:port`, such as `games.example.com:28999`. Everyone should
+run the same game version. The host supplies the authoritative rules and active
+`bird-stats.properties` tuning snapshot for the match. Participants can see one
+another's IP addresses, so connect only with people you trust. Wired, nearby
+connections provide the best lockstep response.
 
-Internet play is peer-to-peer direct connect: there is no central account,
-matchmaking, NAT traversal, or relay service. Participants can see one another's
-IP addresses, so only connect with people you trust. Wired connections and
-geographically nearby players give the best lockstep response.
+## Development
 
-## Building & Development
-
-### Prerequisites
-- JDK 21+
-- Maven 3.6+
-
-### Maven Commands
-
-```bash
-# Clean and compile
-./mvnw clean compile
-
-# Run tests
-./mvnw test
-
-# Run the application
-./mvnw javafx:run
-
-# Create distribution package
-./mvnw package
-```
-
-The package command creates `target/BirdGame3-1.0-SNAPSHOT-dist.zip` and an expanded
-`target/BirdGame3-1.0-SNAPSHOT-dist/` directory. On Windows, run the packaged game
-with:
+The project is a Java 21 Maven application. Windows packaging requires a JDK
+that includes `jpackage`; MSI or EXE installers also require the WiX Toolset.
 
 ```powershell
-.\target\BirdGame3-1.0-SNAPSHOT-dist\BirdGame3-1.0-SNAPSHOT\bin\birdfight3.cmd
+# Run the complete regular test suite and audio audit
+.\scripts\test.cmd
+
+# Run from source
+.\mvnw.cmd javafx:run
+
+# Build and verify the jar-based distribution
+.\mvnw.cmd package
+.\scripts\verify-dist.cmd
+
+# Build the self-contained Windows app image and portable zip
+.\build-installer.ps1 -RunTests
 ```
 
-## Troubleshooting
+The Maven package is written to `target/BirdGame3-1.5.0-dist.zip`. The portable
+Windows package is written to `target/BirdFight3-1.5.0-win.zip`.
 
-**"JAVA_HOME not found" or Maven launches with Java 8**
-- Verify `JAVA_HOME` environment variable points to JDK 21+
-- Run: `echo $JAVA_HOME` (Linux/Mac) or `echo %JAVA_HOME%` (Windows)
-- Set it explicitly before running Maven
+If Maven reports that `JAVA_HOME` is missing or selects Java 8, set `JAVA_HOME`
+to a JDK 21 or newer. `scripts/test.cmd` and `build-installer.ps1` can also find
+compatible JDK installations in common Windows locations.
 
-**Wii Remote not detected**
-- Ensure hid4java drivers are properly installed
-- Check system permissions for USB device access
-- Try re-pairing the Wii Remote
+### Balance and regression labs
 
-**Performance issues**
-- Check frame rate limiter settings in global settings
-- Reduce particle effects if needed
-- Ensure sufficient system resources
+```powershell
+# Full roster AI-vs-AI audit
+.\mvnw.cmd test -Dtest=BalanceLabRun
 
-## Resources
+# All authored Classic routes
+.\mvnw.cmd test -Dtest=ClassicBalanceLabRun -DclassicBird=ALL -DclassicMatches=64
 
-- **Official Bird Fight 3 Wiki**: https://bird-fight-3.fandom.com/wiki/Bird_Fight_3_Wiki
+# All 40 Still Sky missions on Easy, Normal, and Hard
+.\mvnw.cmd test -Dtest=AdventureBalanceLabRun -DadventureMatches=24
+```
 
-## License
+The lab reports in `audit/` are playtest leads rather than automatic balance
+orders. Objective results also measure CPU navigation.
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+## Repository guide
 
-## Contributing
+- `src/main/java/com/example/birdgame3/` — game, simulation, UI, networking,
+  progression, campaign, and fighter systems
+- `src/main/resources/` — story text, stage previews, music, sound effects, and
+  legacy image assets
+- `src/test/java/com/example/birdgame3/` — gameplay, determinism, persistence,
+  transport, UI, visual-policy, and content regression tests
+- `sprites/` — optional sprite-sheet pipeline and the Pigeon example
+- `scripts/` — tests, distribution verification, visual tools, and audio audit
+- `docs/` — release notes, asset records, and implementation documentation
+- `audit/` — generated balance and audio reports
 
-Contributions are welcome! Please feel free to submit pull requests or open issues for bugs and feature requests.
+Developers and coding assistants should read `AGENTS.md` before changing
+simulation, replay, networking, save, updater, or packaging code.
 
----
+## Known boundaries
 
-**Made with love and lots of flapping!**
+- Internet play requires direct reachability and manual port forwarding.
+- High-latency play uses lockstep rather than rollback.
+- Most fighters use code-drawn vector art; real per-fighter sprite art remains
+  optional.
+- The large `BirdGame3.java` and `Bird.java` classes are known technical debt,
+  not a release blocker.
+
+## Contributing and maintenance
+
+Bug reports and deliberately scoped improvements are welcome through
+[GitHub Issues](https://github.com/Caleb-Guyer/BirdFight3/issues). See
+`CONTRIBUTING.md` and `SECURITY.md` for reporting guidance. Maintenance work
+should preserve deterministic simulation, save compatibility, and replay/LAN
+protocol invariants.
+
+## Credits and license
+
+Bird Fight 3 is released under the MIT License. Music and image attribution is
+recorded in `CREDITS-AUDIO.md` and `CREDITS-IMAGES.md`. Bundled music is public
+domain or CC0 as documented; bundled sound effects are original procedural
+assets.

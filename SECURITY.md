@@ -7,7 +7,7 @@ The following versions of Bird Fight 3 currently receive security updates:
 | Version | Supported |
 | ------- | ---------- |
 | Latest release | Yes |
-| Development branch (main) | Yes |
+| Development branch (`master`) | Yes |
 | Older versions | No |
 
 If you are using an older version, you should update to the latest release to ensure you receive security fixes.

@@ -1,7 +1,10 @@
 # Contributing to Bird Fight 3
 
 Thank you for your interest in contributing to Bird Fight 3.  
-These guidelines explain how to propose changes, report issues, and participate in development.
+These guidelines explain how to propose changes, report issues, and participate in maintenance.
+
+Bird Fight 3 is feature complete. Focus contributions on reproducible bugs,
+compatibility, accessibility, documentation, and deliberately scoped improvements.
 
 ---
 
@@ -30,7 +33,7 @@ Before opening a pull request:
 - Verify that existing characters still behave correctly  
 
 ### 5. Submit a Pull Request
-Open a pull request to the main branch with:
+Open a pull request to the `master` branch with:
 
 - A clear title  
 - A concise description of the changes  
@@ -69,7 +72,9 @@ Clear reports help maintainers resolve issues faster.
 
 ## Suggesting Features
 
-Feature requests should be submitted through GitHub Issues.  
+Feature requests should be submitted through GitHub Issues. The project does not
+maintain an open-ended feature roadmap, so explain why the change is worth
+reopening a completed area of the game.
 Include:
 
 - A clear description of the feature  

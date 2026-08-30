@@ -36,11 +36,25 @@ param(
     [ValidateSet("app-image", "msi", "exe")]
     [string]$Type = "app-image",
     [switch]$RunTests,
-    [string]$AppVersion = "1.0.0"
+    [string]$AppVersion = ""
 )
 
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
+
+# --- keep Maven, jpackage, and the release tag on one version ---
+[xml]$pom = Get-Content "pom.xml"
+$projectVersion = [string]$pom.project.version
+$artifactId = [string]$pom.project.artifactId
+$distName = "$artifactId-$projectVersion"
+if ([string]::IsNullOrWhiteSpace($AppVersion)) {
+    $AppVersion = $projectVersion
+} elseif ($AppVersion -ne $projectVersion) {
+    throw "AppVersion $AppVersion does not match pom.xml version $projectVersion."
+}
+if ($AppVersion -match "-SNAPSHOT$") {
+    throw "jpackage requires a release version; pom.xml currently contains $AppVersion."
+}
 
 # --- locate a JDK that ships jpackage ---
 $javaHome = $env:JAVA_HOME
@@ -62,19 +76,23 @@ $env:JAVA_HOME = $javaHome
 $jpackage = Join-Path $javaHome "bin\jpackage.exe"
 Write-Host "Using JDK: $javaHome"
 
+# Maven's old clean plugin is unreliable when removing a previous Windows
+# app-image. Clear that known staging directory with native PowerShell first.
+$staging = "target\installer"
+if (Test-Path $staging) { Remove-Item $staging -Recurse -Force }
+
 # --- build the game ---
 $mvnArgs = @("-q")
 if (-not $RunTests) { $mvnArgs += "-DskipTests" }
-$mvnArgs += "package"
+$mvnArgs += @("clean", "package")
 & .\mvnw.cmd @mvnArgs
 if ($LASTEXITCODE -ne 0) { throw "Maven build failed." }
 
 # --- stage jpackage inputs: JavaFX modules apart from classpath jars ---
-$libDir = Get-ChildItem "target\*-dist\*\lib" -Directory | Select-Object -First 1
-if (-not $libDir) { throw "Distribution lib folder not found under target; did the assembly run?" }
+$libPath = "target\$distName-dist\$distName\lib"
+$libDir = Get-Item $libPath -ErrorAction SilentlyContinue
+if (-not $libDir) { throw "Distribution lib folder not found: $libPath" }
 
-$staging = "target\installer"
-if (Test-Path $staging) { Remove-Item $staging -Recurse -Force }
 $appDir = New-Item -ItemType Directory -Path "$staging\app" -Force
 $moduleDir = New-Item -ItemType Directory -Path "$staging\modules" -Force
 
@@ -88,7 +106,7 @@ foreach ($jar in Get-ChildItem $libDir.FullName -Filter *.jar) {
     } else {
         # Game jar + automatic modules (hid4java, jna): classpath.
         Copy-Item $jar.FullName $appDir.FullName
-        if ($jar.Name -like "BirdGame3-*.jar") { $mainJar = $jar.Name }
+        if ($jar.Name -eq "$distName.jar") { $mainJar = $jar.Name }
     }
 }
 if (-not $mainJar) { throw "Main game jar not found in $($libDir.FullName)." }

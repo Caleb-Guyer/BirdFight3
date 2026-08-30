@@ -26,7 +26,7 @@ If applicable, add screenshots or a short video to help explain the problem.
 **System Information**
  - OS: [e.g. Windows 11, macOS, Linux]
  - Java Version: [e.g. OpenJDK 21]
- - Game Version / Commit: [e.g. v0.9.1 or commit hash]
+ - Game Version / Commit: [e.g. v1.5.0 or commit hash]
 
 **Controller Information (if applicable)**
  - Controller type: [e.g. Xbox, DualShock, generic USB]
