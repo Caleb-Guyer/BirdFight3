@@ -18291,6 +18291,14 @@ public class Bird {
 
             double leftBound = batHangPlatform.x + 10;
             double rightBound = batHangPlatform.x + batHangPlatform.w - (80 * sizeMultiplier) - 10;
+            if (rightBound < leftBound) {
+                // Size-changing effects can make a previously valid ceiling too
+                // narrow to contain Bat.  Passing the reversed range to
+                // Math.clamp throws every simulation frame and presents as a
+                // frozen match, so detach cleanly instead.
+                releaseBatHang(false);
+                return false;
+            }
             x = Math.clamp(x, leftBound, rightBound);
             y = batHangPlatform.y + batHangPlatform.h + 2;
             vy = 0;
@@ -18304,6 +18312,7 @@ public class Bird {
                 vx *= 0.55;
             }
             x += vx;
+            x = Math.clamp(x, leftBound, rightBound);
             if (Math.abs(vx) > 0.05) facingRight = vx > 0;
 
             if (jumpPressed()) {
@@ -18376,7 +18385,7 @@ public class Bird {
         double bestDist = Double.MAX_VALUE;
         double centerX = x + 40 * sizeMultiplier;
         for (Platform p : game.platforms) {
-            if (p.w < 120) continue;
+            if (p.w < Math.max(120.0, bodyWidth() + 20.0)) continue;
             if (centerX < p.x + 20 || centerX > p.x + p.w - 20) continue;
 
             double undersideY = p.y + p.h;

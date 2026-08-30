@@ -8361,6 +8361,40 @@ class BirdStateTest {
     }
 
     @Test
+    void enlargedBatSafelyDropsFromCeilingThatNoLongerFits() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        Platform narrowCeiling = new Platform(1_000.0, 480.0, 120.0, 40.0);
+        game.platforms.add(narrowCeiling);
+
+        Bird bat = new Bird(1_020.0, BirdGame3.BirdType.BAT, 0, game);
+        bat.sizeMultiplier = 2.40;
+        bat.y = narrowCeiling.y + narrowCeiling.h + 2.0;
+        bat.batHanging = true;
+        game.players[0] = bat;
+
+        Field batHangPlatformField = Bird.class.getDeclaredField("batHangPlatform");
+        batHangPlatformField.setAccessible(true);
+        batHangPlatformField.set(bat, narrowCeiling);
+
+        Method handleBatHanging = Bird.class.getDeclaredMethod("handleBatHanging", boolean.class);
+        handleBatHanging.setAccessible(true);
+
+        assertFalse((boolean) handleBatHanging.invoke(bat, false),
+                "An enlarged Bat should drop instead of entering an invalid ceiling clamp.");
+        assertFalse(bat.batHanging);
+        assertNull(batHangPlatformField.get(bat));
+
+        bat.y = narrowCeiling.y + narrowCeiling.h + 10.0;
+        bat.vy = -3.5;
+        setPrivateInt(bat, "batRehangCooldownTimer", 0);
+        Method findHangable = Bird.class.getDeclaredMethod("findBatHangablePlatform");
+        findHangable.setAccessible(true);
+        assertNull(findHangable.invoke(bat),
+                "The same undersized ceiling must not be reacquired on the next frame.");
+    }
+
+    @Test
     void batAiDropsFromCeilingWhenItsTargetLeavesTheAmbushLane() {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;
