@@ -21,6 +21,7 @@ final class StoryCampaignContent {
     private static final String NULL_ROCK_SKIN = "NULL_ROCK_VULTURE";
     private static final String TIDE_VULTURE_SKIN = "TIDE_VULTURE";
     private static final String CAMPAIGN_PHASE_DIALOGUE_ID = "dynamic_campaign_phase";
+    private static final String NULL_ECHO_RELAY_DIALOGUE_ID = "dynamic_null_echo_relay";
     private static final String NULL_ROCK_DUEL_DIALOGUE_ID = "dynamic_null_rock_duel";
     private static final Map<String, String> DIALOGUE_SCRIPTS = StoryDialogueScripts.loadBundled();
 
@@ -102,6 +103,7 @@ final class StoryCampaignContent {
             sceneIds.add(scene.id());
         }
         sceneIds.add(CAMPAIGN_PHASE_DIALOGUE_ID);
+        sceneIds.add(NULL_ECHO_RELAY_DIALOGUE_ID);
         sceneIds.add(NULL_ROCK_DUEL_DIALOGUE_ID);
         Set<String> missing = new LinkedHashSet<>(sceneIds);
         missing.removeAll(DIALOGUE_SCRIPTS.keySet());
@@ -904,6 +906,10 @@ final class StoryCampaignContent {
                         line.shot(), line.motion(), line.whenSelected(), line.musicCue())
                         : line)
                 .toList();
+    }
+
+    static List<StoryCampaign.DialogueLine> nullEchoRelayDialogue() {
+        return parseScript(StoryDialogueScripts.require(DIALOGUE_SCRIPTS, NULL_ECHO_RELAY_DIALOGUE_ID));
     }
 
     private static String musicFor(BirdGame3.MapType map, boolean finale) {

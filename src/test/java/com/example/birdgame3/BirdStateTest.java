@@ -11604,7 +11604,7 @@ class BirdStateTest {
     }
 
     @Test
-    void nullRockCorruptedInvasionDropsEveryPlayableBirdInDeterministicWaves() throws Exception {
+    void nullRockCorruptedInvasionRunsDeterministicFourVersusThreeRelay() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.headlessHarnessMode = true;
         game.campaignModeActive = true;
@@ -11631,9 +11631,19 @@ class BirdStateTest {
 
         Set<BirdGame3.BirdType> spawnedTypes = EnumSet.noneOf(BirdGame3.BirdType.class);
         int firstEchoSlot = StoryCampaign.STILL_SKY_ROSTER.size();
+        boolean[] activeRelayAllies = (boolean[]) getPrivateObject(
+                game, "campaignNullRelayActiveAllies");
+        int permanentlyLostAllySlot = -1;
+        boolean verifiedBenchProtection = false;
         int safety = 0;
         while (spawnedTypes.size() < BirdGame3.BirdType.values().length && safety++ < 20) {
             invokePrivateVoid(game, "applyCampaignMissionRuntimeEffects");
+            int activeAllies = 0;
+            for (int slot = 1; slot < firstEchoSlot; slot++) {
+                if (activeRelayAllies[slot]) activeAllies++;
+            }
+            assertEquals(3, activeAllies,
+                    "Each relay pass should launch exactly three CPU allies beside the player.");
             int livingWave = 0;
             for (int slot = firstEchoSlot; slot < game.activePlayers; slot++) {
                 Bird echo = game.players[slot];
@@ -11643,23 +11653,48 @@ class BirdStateTest {
                 assertEquals(BirdGame3.CAMPAIGN_NULL_ECHO_SKIN, echo.appliedSkinKey);
                 assertEquals(2, game.campaignTeams[slot]);
                 assertTrue(game.isAI[slot]);
-                assertTrue(echo.y <= BirdGame3.CEILING_Y + 285.0,
-                        "Each Null echo should enter by falling from the sky.");
-                assertTrue(echo.vy > 0.0);
+                assertTrue(echo.bodyCenterX() > BirdGame3.WORLD_WIDTH * 0.72,
+                        "Corrupted counterparts should launch from the right-hand formation.");
+                assertTrue(echo.vx < 0.0);
+                if (!verifiedBenchProtection) {
+                    for (int allySlot = 1; allySlot < firstEchoSlot; allySlot++) {
+                        Bird benchedAlly = game.players[allySlot];
+                        if (activeRelayAllies[allySlot] || benchedAlly == null || benchedAlly.health <= 0.0) {
+                            continue;
+                        }
+                        assertTrue(game.isCampaignNullRelayBenched(benchedAlly));
+                        assertFalse(game.canDamage(echo, benchedAlly),
+                                "Waiting allies must not be valid combat targets.");
+                        assertFalse(game.canDamage(benchedAlly, echo),
+                                "Waiting allies must not attack from the formation.");
+                        verifiedBenchProtection = true;
+                        break;
+                    }
+                }
                 echo.health = 0.0;
             }
             assertTrue(livingWave >= 1 && livingWave <= 3);
+            if (permanentlyLostAllySlot < 0) {
+                for (int slot = 1; slot < firstEchoSlot; slot++) {
+                    if (!activeRelayAllies[slot]) continue;
+                    permanentlyLostAllySlot = slot;
+                    game.players[slot].health = 0.0;
+                    break;
+                }
+            }
             game.checkCampaignMissionCompletion();
+            if (permanentlyLostAllySlot >= 0) {
+                assertFalse(activeRelayAllies[permanentlyLostAllySlot],
+                        "A defeated ally must not fly back or re-enter a later relay pass.");
+                assertFalse(game.isAI[permanentlyLostAllySlot]);
+            }
         }
 
         assertEquals(EnumSet.allOf(BirdGame3.BirdType.class), spawnedTypes,
                 "The Null Rock must copy every playable bird, including Kiwi.");
+        assertTrue(verifiedBenchProtection);
         assertEquals(8, getPrivateInt(game, "campaignNullEchoWave"));
 
-        for (int slot = firstEchoSlot; slot < game.activePlayers; slot++) {
-            if (game.players[slot] != null) game.players[slot].health = 0.0;
-        }
-        game.checkCampaignMissionCompletion();
         StoryMissionController controller =
                 (StoryMissionController) getPrivateObject(game, "campaignMissionController");
         assertEquals(3, controller.phaseIndex(),
