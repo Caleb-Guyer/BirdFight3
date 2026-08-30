@@ -76230,15 +76230,6 @@ public class BirdGame3 {
     }
 
     private void drawUnitedFinaleRaidHud(GraphicsContext g) {
-        Bird player = players[0];
-        Bird boss = unitedFinaleBoss();
-        if (player != null && player.health > 0) {
-            drawHealthBar(g, player, 24);
-        }
-        if (boss != null) {
-            drawHealthBar(g, boss, WIDTH - 424);
-        }
-
         int livingAllies = 0;
         int totalAllies = 0;
         for (Bird b : players) {
@@ -77343,7 +77334,10 @@ public class BirdGame3 {
                 hudBirds.add(players[i]);
             }
         }
-        if (hudBirds.isEmpty() || hudBirds.size() > 6 || (isUnitedFinaleMassBattleContext() && activePlayers > 6)) {
+        if (isUnitedFinaleMassBattleContext() && activePlayers > 6) {
+            return buildUnitedFinaleFightHudPanels();
+        }
+        if (hudBirds.isEmpty() || hudBirds.size() > 6) {
             return List.of();
         }
 
@@ -77384,6 +77378,37 @@ public class BirdGame3 {
                     portraitSize
             );
             layouts.add(new FightHudPanelLayout(hudBirds.get(i), panelRect, portraitRect));
+        }
+        return List.copyOf(layouts);
+    }
+
+    private List<FightHudPanelLayout> buildUnitedFinaleFightHudPanels() {
+        Bird player = players[0];
+        if (player == null) {
+            return List.of();
+        }
+
+        double panelWidth = 430.0;
+        double panelHeight = 146.0;
+        double panelY = HEIGHT - panelHeight - 22.0;
+        double portraitSize = 88.0;
+        List<FightHudPanelLayout> layouts = new ArrayList<>();
+        layouts.add(new FightHudPanelLayout(
+                player,
+                new Rectangle2D(42.0, panelY, panelWidth, panelHeight),
+                new Rectangle2D(60.0, panelY + 25.0, portraitSize, portraitSize)
+        ));
+
+        // The adventure climax has one true raid boss. Campaign Null echoes are
+        // ordinary wave fighters, so presenting one of them as a boss is misleading.
+        Bird boss = isUnitedFinaleClimaxContext() ? unitedFinaleBoss() : null;
+        if (boss != null) {
+            double panelX = WIDTH - 42.0 - panelWidth;
+            layouts.add(new FightHudPanelLayout(
+                    boss,
+                    new Rectangle2D(panelX, panelY, panelWidth, panelHeight),
+                    new Rectangle2D(panelX + 18.0, panelY + 25.0, portraitSize, portraitSize)
+            ));
         }
         return List.copyOf(layouts);
     }
@@ -77643,13 +77668,12 @@ public class BirdGame3 {
             drawFightHudTimer(g, layout.timerRect());
         }
         drawClassicStaminaBossHud(g);
+        for (FightHudPanelLayout panel : layout.panels()) {
+            if (isClassicStaminaBoss(panel.bird())) continue;
+            drawFightHudPanel(g, panel);
+        }
         if (isUnitedFinaleMassBattleContext() && activePlayers > 6) {
             drawUnitedFinaleRaidHud(g);
-        } else {
-            for (FightHudPanelLayout panel : layout.panels()) {
-                if (isClassicStaminaBoss(panel.bird())) continue;
-                drawFightHudPanel(g, panel);
-            }
         }
         drawFightStartCountdown(g);
     }

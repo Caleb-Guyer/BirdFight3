@@ -11583,6 +11583,15 @@ class BirdStateTest {
         assertFalse(present[BirdGame3.BirdType.KIWI.ordinal()],
                 "Kiwi belongs to a later story and must not be inserted into The Still Sky.");
 
+        @SuppressWarnings("unchecked")
+        List<Object> finaleHudPanels = (List<Object>) invokePrivateObjectMethod(
+                game, "buildFightHudPanels");
+        assertEquals(1, finaleHudPanels.size(),
+                "The coalition battle should keep the modern player card without flooding the HUD.");
+        Method hudBirdAccessor = finaleHudPanels.getFirst().getClass().getDeclaredMethod("bird");
+        hudBirdAccessor.setAccessible(true);
+        assertSame(game.players[0], hudBirdAccessor.invoke(finaleHudPanels.getFirst()));
+
         invokePrivateVoid(game, "setupMatchArenaGeometry");
         Method applyArena = BirdGame3.class.getDeclaredMethod(
                 "applyCampaignMissionArenaModifiers", StoryCampaign.Mission.class);
