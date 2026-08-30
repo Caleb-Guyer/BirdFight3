@@ -84,6 +84,7 @@ final class StoryCutscenePlayer {
     private Button textModeButton;
     private Runnable onFinished;
     private boolean resumeGameplayOnFinish;
+    private boolean trailerFrameActive;
 
     StoryCutscenePlayer(BirdGame3 game) {
         this.game = game;
@@ -248,14 +249,21 @@ final class StoryCutscenePlayer {
         accumulatedPauseNanos = 0L;
         long now = (long) (Math.max(0.0, lineElapsedSeconds) * 1_000_000_000.0);
 
-        g.save();
-        drawBackground(g, now);
         StoryCampaign.DialogueLine line = lines.get(lineIndex);
-        drawShot(g, line, now);
-        drawCinematicOverlay(g, line, now);
-        drawSubtitle(g, line);
-        drawLetterbox(g);
-        g.restore();
+        g.save();
+        trailerFrameActive = true;
+        try {
+            drawBackground(g, now);
+            drawTrailerSetDressing(g, line, now / 1_000_000_000.0);
+            drawShot(g, line, now);
+            drawTrailerSacrificeForeground(g, line, now / 1_000_000_000.0);
+            drawCinematicOverlay(g, line, now);
+            drawSubtitle(g, line);
+            drawLetterbox(g);
+        } finally {
+            trailerFrameActive = false;
+            g.restore();
+        }
     }
 
     private void prepareActors(String selectedSkinKey) {
@@ -363,6 +371,242 @@ final class StoryCutscenePlayer {
         double time = now / 1_000_000_000.0;
         drawEnvironment(g, time);
         drawAtmosphere(g, time);
+    }
+
+    /**
+     * Adds trailer-only production design to the generic campaign locations.
+     * The normal story player keeps its established presentation, while the
+     * exported trailer gets sets that identify the Lounge, the west-corridor
+     * seal, the Null Roc lab, and the final release chamber at a glance.
+     */
+    private void drawTrailerSetDressing(GraphicsContext g,
+                                        StoryCampaign.DialogueLine line,
+                                        double elapsed) {
+        if (scene == null || line == null) return;
+        g.save();
+        switch (scene.id()) {
+            case "s40_lounge_falls" -> {
+                g.setFill(Color.web("#03060A", 0.82));
+                g.fillRect(0, 545, LOGICAL_WIDTH, PICTURE_BOTTOM - 545);
+                g.setFill(Color.web("#11131A", 0.96));
+                g.fillPolygon(new double[]{0, 0, 520, 780, 1180, 1450, LOGICAL_WIDTH, LOGICAL_WIDTH},
+                        new double[]{PICTURE_BOTTOM, 605, 650, 586, 684, 610, 650, PICTURE_BOTTOM}, 8);
+                g.setStroke(Color.web("#78909C", 0.24));
+                g.setLineWidth(9);
+                for (int i = 0; i < 8; i++) {
+                    double x = 65 + i * 265.0;
+                    g.strokeLine(x, 575 + i % 2 * 42, x + 118, PICTURE_BOTTOM);
+                }
+                double flicker = 0.42 + 0.22 * Math.sin(elapsed * 8.0)
+                        + 0.12 * Math.sin(elapsed * 17.0);
+                g.save();
+                g.translate(355, 430);
+                g.rotate(-7.0);
+                g.setFill(Color.web("#020307", 0.94));
+                g.fillRoundRect(-245, -82, 490, 164, 16, 16);
+                g.setStroke(Color.web("#80DEEA", Math.clamp(flicker, 0.12, 0.72)));
+                g.setLineWidth(7);
+                g.strokeRoundRect(-232, -69, 464, 138, 13, 13);
+                g.setFont(Font.font("Arial Black", FontWeight.BOLD, 49));
+                g.setTextAlign(TextAlignment.CENTER);
+                g.setFill(Color.web("#B2EBF2", Math.clamp(flicker + 0.18, 0.20, 0.88)));
+                g.fillText("THE LOUNGE", 0, 18);
+                g.restore();
+                g.setTextAlign(TextAlignment.LEFT);
+                g.setFill(Color.web("#FF8A65", 0.20));
+                for (int i = 0; i < 11; i++) {
+                    double x = 130 + i * 171.0;
+                    double y = 710 + (i % 3) * 22.0;
+                    g.fillOval(x, y, 9 + i % 4 * 4, 6 + i % 2 * 5);
+                }
+            }
+            case "s44_old_sparrow_death" -> {
+                g.setFill(new LinearGradient(0, 150, 0, PICTURE_BOTTOM, false, CycleMethod.NO_CYCLE,
+                        new Stop(0, Color.web("#101421", 0.94)),
+                        new Stop(1, Color.web("#03050A", 0.98))));
+                g.fillRect(0, 130, LOGICAL_WIDTH, PICTURE_BOTTOM - 130);
+                g.setStroke(Color.web("#607D8B", 0.36));
+                g.setLineWidth(7);
+                for (int i = 0; i < 7; i++) {
+                    double inset = i * 115.0;
+                    g.strokeLine(inset, PICTURE_BOTTOM, 510 + inset * 0.36, 250);
+                    g.strokeLine(LOGICAL_WIDTH - inset, PICTURE_BOTTOM,
+                            LOGICAL_WIDTH - 510 - inset * 0.36, 250);
+                }
+                g.setFill(Color.web("#04070D", 0.96));
+                g.fillRoundRect(185, 128, 755, 662, 24, 24);
+                g.setStroke(Color.web("#90A4AE", 0.46));
+                g.setLineWidth(13);
+                g.strokeRoundRect(185, 128, 755, 662, 24, 24);
+                for (int i = 0; i < 5; i++) {
+                    double lampX = 1110 + i * 155.0;
+                    double pulse = 0.30 + 0.24 * (0.5 + 0.5 * Math.sin(elapsed * 5.4 + i));
+                    g.setFill(Color.web("#FF5252", pulse));
+                    g.fillOval(lampX, 205, 26, 26);
+                    g.setFill(Color.web("#FF1744", pulse * 0.18));
+                    g.fillOval(lampX - 32, 173, 90, 90);
+                }
+                g.setStroke(Color.web("#FFD180", 0.26));
+                g.setLineWidth(6);
+                for (int i = 0; i < 9; i++) {
+                    double x = 1020 + i * 104.0;
+                    g.strokeLine(x, 690, x + 74, 760);
+                }
+            }
+            case "s63_world_still" -> {
+                g.setFill(Color.web("#E3F2FD", 0.09));
+                g.fillRect(0, 310, LOGICAL_WIDTH, 270);
+                g.setStroke(Color.web("#E1F5FE", 0.24));
+                g.setLineWidth(3);
+                for (int i = 0; i < 9; i++) {
+                    double y = 330 + i * 31.0;
+                    double width = 780 - i * 42.0;
+                    g.strokeLine(LOGICAL_WIDTH / 2.0 - width, y,
+                            LOGICAL_WIDTH / 2.0 + width, y);
+                }
+                g.setFill(Color.web("#07101B", 0.50));
+                for (int i = 0; i < 13; i++) {
+                    double x = 110 + i * 142.0;
+                    double y = 245 + (i % 4) * 64.0;
+                    g.fillPolygon(new double[]{x, x + 18, x + 37, x + 14},
+                            new double[]{y, y - 6, y + 2, y + 8}, 4);
+                }
+            }
+            case "s66_null_roc_wakes" -> {
+                g.setFill(Color.web("#03060B", 0.90));
+                g.fillRect(0, 150, LOGICAL_WIDTH, PICTURE_BOTTOM - 150);
+                g.setStroke(Color.web("#455A64", 0.50));
+                g.setLineWidth(8);
+                for (int i = 0; i < 9; i++) {
+                    double x = 115 + i * 218.0;
+                    g.strokeLine(x, 150, x, PICTURE_BOTTOM);
+                }
+                double pulse = 0.5 + 0.5 * Math.sin(elapsed * 3.2);
+                g.setFill(Color.web("#16091D", 0.94));
+                g.fillRoundRect(575, 165, 770, 405, 36, 36);
+                g.setStroke(Color.web("#CE93D8", 0.30 + pulse * 0.28));
+                g.setLineWidth(10);
+                g.strokeRoundRect(575, 165, 770, 405, 36, 36);
+                for (int i = 0; i < 5; i++) {
+                    double radius = 72 + i * 55.0 + pulse * 10.0;
+                    g.setStroke(Color.web(i % 2 == 0 ? "#CE93D8" : "#80DEEA", 0.26 - i * 0.025));
+                    g.setLineWidth(5 - i * 0.45);
+                    g.strokeOval(960 - radius, 365 - radius, radius * 2, radius * 2);
+                }
+                g.setStroke(Color.web("#78909C", 0.38));
+                g.setLineWidth(6);
+                for (int i = 0; i < 7; i++) {
+                    double x = 360 + i * 205.0;
+                    g.strokeArc(x, 80, 330, 280 + i % 2 * 80, 185, 150, ArcType.OPEN);
+                }
+            }
+            case "s77_null_roc_before", "s78_shell_falls" -> {
+                double pulse = 0.5 + 0.5 * Math.sin(elapsed * 2.6);
+                g.setFill(Color.web("#010107", 0.54));
+                g.fillOval(535, -380, 850, 850);
+                g.setStroke(Color.web("#7C4DFF", 0.22 + pulse * 0.15));
+                g.setLineWidth(12);
+                for (int i = 0; i < 4; i++) {
+                    double radius = 220 + i * 105.0;
+                    g.strokeArc(960 - radius, 210 - radius * 0.55,
+                            radius * 2, radius * 1.10, 8 + i * 5, 164, ArcType.OPEN);
+                }
+                g.setFill(Color.web("#D1C4E9", 0.18));
+                for (int i = 0; i < 15; i++) {
+                    double angle = i * 0.91 + elapsed * (i % 2 == 0 ? 0.08 : -0.06);
+                    double radius = 260 + i % 5 * 92.0;
+                    double x = 960 + Math.cos(angle) * radius;
+                    double y = 340 + Math.sin(angle) * radius * 0.46;
+                    g.fillPolygon(new double[]{x, x + 18, x + 7},
+                            new double[]{y, y + 8, y + 25}, 3);
+                }
+            }
+            case "s80_eagle_end" -> {
+                g.setFill(Color.web("#03020A", 0.62));
+                g.fillRect(0, 120, LOGICAL_WIDTH, PICTURE_BOTTOM - 120);
+                g.setStroke(Color.web("#9575CD", 0.30));
+                g.setLineWidth(13);
+                for (int i = 0; i < 5; i++) {
+                    double radius = 145 + i * 98.0;
+                    g.strokeArc(520 - radius, 405 - radius,
+                            radius * 2, radius * 2, -72, 144, ArcType.OPEN);
+                }
+                g.setStroke(Color.web("#B0BEC5", 0.32));
+                g.setLineWidth(9);
+                for (int i = 0; i < 8; i++) {
+                    double x = 1000 + i * 145.0;
+                    g.strokeLine(x, 180, x - 260, PICTURE_BOTTOM);
+                }
+                g.setFill(Color.web("#070910", 0.92));
+                g.fillRect(0, 724, LOGICAL_WIDTH, PICTURE_BOTTOM - 724);
+                g.setStroke(Color.web("#CFD8DC", 0.22));
+                g.setLineWidth(4);
+                for (int i = 0; i < 12; i++) {
+                    double x = 70 + i * 168.0;
+                    g.strokeLine(x, 742, x + 85, 810);
+                }
+            }
+            default -> {
+                // The generic campaign environment is already sufficient.
+            }
+        }
+        g.restore();
+    }
+
+    private void drawTrailerSacrificeForeground(GraphicsContext g,
+                                                 StoryCampaign.DialogueLine line,
+                                                 double elapsed) {
+        if (scene == null || line == null || line.motion() != StoryCampaign.ActorMotion.FALL) return;
+        if ("s44_old_sparrow_death".equals(scene.id())) {
+            double progress = smoothStep(Math.clamp((elapsed - 0.10) / 2.25, 0.0, 1.0));
+            double sealBottom = 178 + progress * 610.0;
+            g.save();
+            g.setFill(new LinearGradient(0, 80, 0, sealBottom, false, CycleMethod.NO_CYCLE,
+                    new Stop(0, Color.web("#1D2630", 0.99)),
+                    new Stop(1, Color.web("#080B10", 0.99))));
+            g.fillRoundRect(190, 58, 760, Math.max(80, sealBottom - 58), 18, 18);
+            g.setStroke(Color.web("#78909C", 0.58));
+            g.setLineWidth(9);
+            g.strokeRoundRect(190, 58, 760, Math.max(80, sealBottom - 58), 18, 18);
+            g.setStroke(Color.web("#455A64", 0.70));
+            g.setLineWidth(5);
+            for (int i = 0; i < 5; i++) {
+                double y = 115 + i * 112.0;
+                if (y < sealBottom - 24) g.strokeLine(222, y, 918, y);
+            }
+            double spark = Math.sin(progress * Math.PI);
+            g.setStroke(Color.web("#FFD180", 0.78 * spark));
+            g.setLineWidth(4);
+            for (int i = 0; i < 12; i++) {
+                double x = 230 + i * 61.0;
+                double reach = 28 + i % 4 * 16.0;
+                g.strokeLine(x, sealBottom, x + (i % 2 == 0 ? -reach : reach),
+                        sealBottom + 28 + i % 3 * 18.0);
+            }
+            g.setFill(Color.web("#CFD8DC", 0.18 * spark));
+            g.fillOval(130, sealBottom - 35, 900, 105);
+            g.restore();
+        } else if ("s80_eagle_end".equals(scene.id())) {
+            double progress = smoothStep(Math.clamp((elapsed - 0.08) / 2.35, 0.0, 1.0));
+            double radius = 190 + progress * 680.0;
+            g.save();
+            g.setFill(new RadialGradient(0, 0, 530, 390, radius, false, CycleMethod.NO_CYCLE,
+                    new Stop(0, Color.web("#FFF8E1", 0.50 * progress)),
+                    new Stop(0.30, Color.web("#CE93D8", 0.25 * progress)),
+                    new Stop(1, Color.TRANSPARENT)));
+            g.fillOval(530 - radius, 390 - radius, radius * 2, radius * 2);
+            g.setStroke(Color.web("#E1F5FE", 0.18 + progress * 0.28));
+            g.setLineWidth(5);
+            for (int i = 0; i < 12; i++) {
+                double y = 190 + i * 43.0;
+                double startX = 420 + i % 3 * 38.0;
+                g.strokeLine(startX, y, 1020 + progress * 520.0 + i * 22.0, y - 28);
+            }
+            double whiteout = Math.clamp((progress - 0.82) / 0.18, 0.0, 1.0);
+            g.setFill(Color.web("#FFFDF5", whiteout * 0.46));
+            g.fillRect(0, 0, LOGICAL_WIDTH, PICTURE_BOTTOM);
+            g.restore();
+        }
     }
 
     private void drawEnvironment(GraphicsContext g, double time) {
@@ -663,6 +907,18 @@ final class StoryCutscenePlayer {
                 yield new MotionOffset(480 * progress, -30 * progress);
             }
             case FALL -> {
+                if (trailerFrameActive && scene != null
+                        && "s44_old_sparrow_death".equals(scene.id())) {
+                    progress = smoothStep(Math.clamp(elapsed / 2.20, 0.0, 1.0));
+                    yield new MotionOffset(-24 * progress,
+                            7 * progress + Math.sin(progress * Math.PI) * 4.0);
+                }
+                if (trailerFrameActive && scene != null
+                        && "s80_eagle_end".equals(scene.id())) {
+                    progress = smoothStep(Math.clamp(elapsed / 2.20, 0.0, 1.0));
+                    yield new MotionOffset(-46 * progress,
+                            -22 * Math.sin(progress * Math.PI) + 10 * progress);
+                }
                 progress = Math.min(1.0, elapsed / 1.35);
                 yield new MotionOffset(-28 * progress, progress * progress * 260);
             }
@@ -869,6 +1125,11 @@ final class StoryCutscenePlayer {
                         7 * scale, 7 * scale);
             }
         } else if (motion == StoryCampaign.ActorMotion.FALL) {
+            if (trailerFrameActive && scene != null
+                    && ("s44_old_sparrow_death".equals(scene.id())
+                    || "s80_eagle_end".equals(scene.id()))) {
+                return;
+            }
             g.setStroke(Color.web("#B0BEC5", Math.max(0.0, 0.35 - elapsed * 0.12)));
             g.setLineWidth(4 * scale);
             for (int i = -1; i <= 1; i++) {

@@ -127,6 +127,7 @@ $sounds = Join-Path $projectRoot 'src\main\resources\sounds'
 $audioInputs = @(
     'music-farewell.mp3',
     'music-grinch-bellkeeper.mp3',
+    'music-farewell.mp3',
     'sfx-boom.wav',
     'sfx-whoosh.wav',
     'sfx-impact-heavy.wav',
@@ -145,19 +146,20 @@ foreach ($audioInput in $audioInputs) {
 
 # The story cut starts with the campaign's farewell score, moves onto a measured
 # 150 BPM battle cue at 27.825 seconds (its first beat lands at 28.000), then
-# returns to a later passage of the farewell theme for Eagle's final choice.
+# returns to an independently decoded passage of the farewell theme for Eagle's
+# final choice. Keeping the outro on its own input prevents an early-ended split
+# branch from leaving the final title card silent.
 $filterGraph = @'
-[1:a]asplit=2[farewell_intro_src][farewell_end_src];
-[farewell_intro_src]atrim=start=0:end=30.0,asetpts=PTS-STARTPTS,afade=t=in:st=0:d=1.6,afade=t=out:st=25.8:d=4.2,volume=0.54[sad];
-[2:a]atrim=start=0:end=55.2,asetpts=PTS-STARTPTS,adelay=27825|27825,afade=t=in:st=0:d=0.35,afade=t=out:st=52.975:d=2.225,volume=0.62[battle];
-[farewell_end_src]atrim=start=55.0:end=72.2,asetpts=PTS-STARTPTS,adelay=80800|80800,afade=t=in:st=0:d=2.0,afade=t=out:st=14.0:d=3.2,volume=0.60[farewell];
-[3:a]asplit=5[boom0][boom1][boom2][boom3][boom4];
+[1:a]atrim=start=0:end=30.0,asetpts=PTS-STARTPTS,afade=t=in:st=0:d=1.6,afade=t=out:st=25.8:d=4.2,volume=0.54[sad];
+[2:a]atrim=start=0:end=55.2,asetpts=PTS-STARTPTS,afade=t=in:st=0:d=0.35,afade=t=out:st=52.975:d=2.225,volume=0.62,adelay=27825|27825[battle];
+[3:a]atrim=start=45.0:end=62.2,asetpts=PTS-STARTPTS,afade=t=in:st=0:d=1.2,afade=t=out:st=15.6:d=1.6,volume=0.68,adelay=80800|80800[farewell];
+[4:a]asplit=5[boom0][boom1][boom2][boom3][boom4];
 [boom0]adelay=12000|12000,volume=0.72[b0];
 [boom1]adelay=28000|28000,volume=0.92[b1];
 [boom2]adelay=54000|54000,volume=0.96[b2];
 [boom3]adelay=70000|70000,volume=1.00[b3];
 [boom4]adelay=90800|90800,volume=0.92[b4];
-[4:a]asplit=9[whoosh0][whoosh1][whoosh2][whoosh3][whoosh4][whoosh5][whoosh6][whoosh7][whoosh8];
+[5:a]asplit=9[whoosh0][whoosh1][whoosh2][whoosh3][whoosh4][whoosh5][whoosh6][whoosh7][whoosh8];
 [whoosh0]adelay=27880|27880,volume=0.62[w0];
 [whoosh1]adelay=31100|31100,volume=0.70[w1];
 [whoosh2]adelay=34300|34300,volume=0.70[w2];
@@ -167,7 +169,7 @@ $filterGraph = @'
 [whoosh6]adelay=69900|69900,volume=0.80[w6];
 [whoosh7]adelay=73100|73100,volume=0.80[w7];
 [whoosh8]adelay=79500|79500,volume=0.86[w8];
-[5:a]asplit=11[impact0][impact1][impact2][impact3][impact4][impact5][impact6][impact7][impact8][impact9][impact10];
+[6:a]asplit=11[impact0][impact1][impact2][impact3][impact4][impact5][impact6][impact7][impact8][impact9][impact10];
 [impact0]adelay=28000|28000,volume=0.86[i0];
 [impact1]adelay=31200|31200,volume=0.90[i1];
 [impact2]adelay=34400|34400,volume=0.90[i2];
@@ -179,20 +181,20 @@ $filterGraph = @'
 [impact8]adelay=73200|73200,volume=0.96[i8];
 [impact9]adelay=76400|76400,volume=1.00[i9];
 [impact10]adelay=79600|79600,volume=1.00[i10];
-[6:a]asplit=2[shatter0][shatter1];
+[7:a]asplit=2[shatter0][shatter1];
 [shatter0]adelay=12000|12000,volume=0.72[s0];
 [shatter1]adelay=82800|82800,volume=0.64[s1];
-[7:a]asplit=2[bigwave0][bigwave1];
+[8:a]asplit=2[bigwave0][bigwave1];
 [bigwave0]adelay=63600|63600,volume=0.78[g0];
 [bigwave1]adelay=70000|70000,volume=0.88[g1];
-[8:a]asplit=4[thwump0][thwump1][thwump2][thwump3];
+[9:a]asplit=4[thwump0][thwump1][thwump2][thwump3];
 [thwump0]adelay=46000|46000,volume=0.70[t0];
 [thwump1]adelay=48000|48000,volume=0.72[t1];
 [thwump2]adelay=50000|50000,volume=0.76[t2];
 [thwump3]adelay=52000|52000,volume=0.82[t3];
-[9:a]adelay=69600|69600,volume=0.78[nova];
-[10:a]adelay=89150|89150,volume=0.34[fall];
-[11:a]adelay=90600|90600,volume=0.64[ready];
+[10:a]adelay=69600|69600,volume=0.78[nova];
+[11:a]adelay=89150|89150,volume=0.34[fall];
+[12:a]adelay=90600|90600,volume=0.64[ready];
 [sad][battle][farewell][b0][b1][b2][b3][b4][w0][w1][w2][w3][w4][w5][w6][w7][w8][i0][i1][i2][i3][i4][i5][i6][i7][i8][i9][i10][s0][s1][g0][g1][t0][t1][t2][t3][nova][fall][ready]amix=inputs=39:normalize=0:dropout_transition=0,apad=pad_dur=99,aformat=sample_rates=48000:channel_layouts=stereo,loudnorm=I=-14:TP=-1.0:LRA=11,volume=-1.5dB,alimiter=limit=0.749894:attack=5:release=80:level=0,atrim=duration=98.0,asetpts=N/SR/TB[aout]
 '@
 

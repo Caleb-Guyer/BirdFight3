@@ -46099,26 +46099,6 @@ public class BirdGame3 {
             g.fillOval(WIDTH * 0.16, -HEIGHT * 0.34, WIDTH * 0.68, HEIGHT * 1.05);
         }
         drawOfficialTrailerLetterbox(g);
-
-        String chapter = switch (sceneIndex) {
-            case 4 -> "THEY FOUGHT TO KEEP EVERY ROUTE OPEN";
-            case 7 -> "EVERY FLOCK ANSWERED";
-            case 9 -> cutIndex < 2
-                    ? "THE CROWN SENT EVERYTHING"
-                    : "THEN THE SECOND HEARTBEAT ANSWERED";
-            default -> "THE STILL SKY";
-        };
-        double localPhase = phase * officialTrailerCutCount(sceneIndex) - cutIndex;
-        double alpha = smoothStep01(localPhase / 0.18)
-                * (1.0 - smoothStep01((localPhase - 0.78) / 0.18));
-        g.save();
-        g.setGlobalAlpha(alpha * 0.92);
-        g.setTextAlign(TextAlignment.CENTER);
-        g.setFill(sceneIndex == 9 && cutIndex >= 2 ? Color.web("#E1BEE7") : Color.web("#ECEFF1"));
-        g.setFont(Font.font("Consolas", FontWeight.BOLD, 19));
-        g.fillText(chapter, WIDTH / 2.0, HEIGHT - 24);
-        g.restore();
-        g.setTextAlign(TextAlignment.LEFT);
     }
 
     private void drawOfficialTrailerArena(GraphicsContext g) {
