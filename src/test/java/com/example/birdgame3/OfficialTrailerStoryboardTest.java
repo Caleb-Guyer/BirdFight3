@@ -20,7 +20,6 @@ class OfficialTrailerStoryboardTest {
         assertTrue(BirdGame3.isOfficialTrailerGraphicScene(0));
         assertTrue(BirdGame3.isOfficialTrailerGraphicScene(3));
         assertTrue(BirdGame3.isOfficialTrailerGraphicScene(5));
-        assertTrue(BirdGame3.isOfficialTrailerGraphicScene(7));
         assertTrue(BirdGame3.isOfficialTrailerGraphicScene(10));
         assertTrue(BirdGame3.isOfficialTrailerGraphicScene(14));
         assertTrue(BirdGame3.isOfficialTrailerGraphicScene(16));
@@ -32,6 +31,7 @@ class OfficialTrailerStoryboardTest {
     void fightingCrescendoUsesRealGameplay() {
         assertTrue(BirdGame3.isOfficialTrailerGameplayScene(4));
         assertTrue(BirdGame3.isOfficialTrailerGameplayScene(6));
+        assertTrue(BirdGame3.isOfficialTrailerGameplayScene(7));
         assertTrue(BirdGame3.isOfficialTrailerGameplayScene(8));
         assertTrue(BirdGame3.isOfficialTrailerGameplayScene(9));
         assertTrue(BirdGame3.isOfficialTrailerGameplayScene(11));
@@ -51,7 +51,8 @@ class OfficialTrailerStoryboardTest {
     }
 
     @Test
-    void rosterHeaderClearsTheFirstCharacterRow() {
-        assertTrue(BirdGame3.officialTrailerRosterHeaderClearance() >= 40.0);
+    void modeReelUsesFullScreenGameplayInsteadOfTheOldGraphicGrid() {
+        assertTrue(BirdGame3.isOfficialTrailerGameplayScene(7));
+        assertFalse(BirdGame3.isOfficialTrailerGraphicScene(7));
     }
 }

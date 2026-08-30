@@ -127,7 +127,7 @@ $sounds = Join-Path $projectRoot 'src\main\resources\sounds'
 $audioInputs = @(
     'music-prologue.mp3',
     'music-razorbill-worldseam.mp3',
-    'music-razorbill-seamreaver.mp3',
+    'music-grinch-bellkeeper.mp3',
     'sfx-boom.wav',
     'sfx-whoosh.wav',
     'sfx-impact-heavy.wav',
@@ -160,7 +160,9 @@ foreach ($audioInput in $audioInputs) {
 # Three acts use separate decodes so every transition and the end card retain
 # independent music. Fades stay before adelay; delayed timestamps applied to
 # afade would otherwise erase late cues. Action cuts are spaced in six-beat
-# phrases at 102.5 BPM, then eight-beat phrases at 129 BPM for the climax.
+# phrases at 102.5 BPM. The finale switches to the orchestral/percussion-heavy
+# Bellkeeper battle score; its cuts land on eight- or twelve-beat phrases at
+# 143.55 BPM after trimming to the measured first downbeat.
 $filterParts = [Collections.Generic.List[string]]::new()
 $mixLabels = [Collections.Generic.List[string]]::new()
 
@@ -189,8 +191,8 @@ function Add-DelayedAudioClips {
 }
 
 $filterParts.Add('[1:a]atrim=start=0:end=20.4,asetpts=PTS-STARTPTS,afade=t=in:st=0:d=1.4,afade=t=out:st=16.7:d=3.7,volume=0.48[story]') | Out-Null
-$filterParts.Add('[2:a]atrim=start=0:end=70.50,asetpts=PTS-STARTPTS,afade=t=in:st=0:d=0.20,afade=t=out:st=68.30:d=2.20,volume=0.46,adelay=19940|19940[release]') | Out-Null
-$filterParts.Add('[3:a]atrim=start=0:end=64.806,asetpts=PTS-STARTPTS,afade=t=in:st=0:d=0.22,afade=t=out:st=62.40:d=2.406,volume=0.85,adelay=90194|90194[climax]') | Out-Null
+$filterParts.Add('[2:a]atrim=start=0:end=75.55,asetpts=PTS-STARTPTS,afade=t=in:st=0:d=0.20,afade=t=out:st=72.70:d=2.85,volume=0.46,adelay=19940|19940[release]') | Out-Null
+$filterParts.Add('[3:a]atrim=start=0.068:end=65.481,asetpts=PTS-STARTPTS,afade=t=in:st=0:d=0.18,afade=t=out:st=62.20:d=3.213,volume=0.88,adelay=95220|95220[climax]') | Out-Null
 $mixLabels.Add('[story]') | Out-Null
 $mixLabels.Add('[release]') | Out-Null
 $mixLabels.Add('[climax]') | Out-Null
@@ -198,11 +200,13 @@ $mixLabels.Add('[climax]') | Out-Null
 $actionCuts = [double[]]@(
     20.000, 23.512, 27.024, 30.536,
     41.073, 44.585, 48.097, 51.609,
-    62.146, 65.658, 69.171, 72.683,
-    76.195, 79.707,
-    90.244, 93.965, 97.686, 101.407,
-    110.709, 114.430, 118.151, 121.872,
-    136.756, 140.477, 144.198
+    55.122, 56.622, 58.122, 59.622, 61.122, 62.622, 64.122, 65.622,
+    67.122, 70.634, 74.146, 77.658,
+    81.171, 84.683,
+    95.220, 98.564, 101.908, 105.251,
+    114.176, 117.520, 120.864, 124.207,
+    127.551, 132.567, 137.582,
+    142.598, 145.942, 149.286
 )
 $swingTimes = [double[]]($actionCuts | ForEach-Object { $_ + 0.48 })
 $impactTimes = [double[]]($actionCuts | ForEach-Object { $_ + 0.66 })
@@ -220,28 +224,28 @@ Add-DelayedAudioClips $filterParts $mixLabels 13 'impact' $impactTimes 0.48
 Add-DelayedAudioClips $filterParts $mixLabels 16 'heavy' $heavyTimes 0.40
 Add-DelayedAudioClips $filterParts $mixLabels 15 'hit' $hitTimes 0.38
 
-Add-DelayedAudioClips $filterParts $mixLabels 4 'boom' ([double[]]@(9.50, 20.00, 55.122, 83.220, 90.244, 105.128, 110.709, 125.593, 147.919)) 0.66
-Add-DelayedAudioClips $filterParts $mixLabels 7 'shatter' ([double[]]@(9.50, 105.128, 133.035)) 0.52
-Add-DelayedAudioClips $filterParts $mixLabels 8 'wave' ([double[]]@(62.146, 90.244, 110.709, 125.593, 147.919)) 0.58
-Add-DelayedAudioClips $filterParts $mixLabels 9 'thwump' ([double[]]@(96.20, 102.70, 106.20, 108.70)) 0.42
-Add-DelayedAudioClips $filterParts $mixLabels 10 'nova' ([double[]]@(24.05, 111.20, 144.55)) 0.54
+Add-DelayedAudioClips $filterParts $mixLabels 4 'boom' ([double[]]@(9.50, 20.00, 41.073, 67.122, 88.196, 95.220, 108.595, 114.176, 127.551, 142.598, 152.629)) 0.66
+Add-DelayedAudioClips $filterParts $mixLabels 7 'shatter' ([double[]]@(9.50, 108.595, 137.582)) 0.52
+Add-DelayedAudioClips $filterParts $mixLabels 8 'wave' ([double[]]@(55.122, 88.196, 95.220, 114.176, 127.551, 142.598, 152.629)) 0.58
+Add-DelayedAudioClips $filterParts $mixLabels 9 'thwump' ([double[]]@(96.34, 102.15, 106.08, 128.90, 134.20, 139.10)) 0.42
+Add-DelayedAudioClips $filterParts $mixLabels 10 'nova' ([double[]]@(24.05, 115.05, 138.05, 149.72)) 0.54
 Add-DelayedAudioClips $filterParts $mixLabels 11 'fall' ([double[]]@(15.65)) 0.25
-Add-DelayedAudioClips $filterParts $mixLabels 12 'ready' ([double[]]@(20.00, 90.244, 147.919)) 0.48
-Add-DelayedAudioClips $filterParts $mixLabels 18 'block' ([double[]]@(45.25, 66.35, 80.42, 95.20, 115.25, 141.45)) 0.44
-Add-DelayedAudioClips $filterParts $mixLabels 19 'parry' ([double[]]@(27.82, 49.00, 73.10, 99.00, 119.20, 145.00)) 0.48
-Add-DelayedAudioClips $filterParts $mixLabels 20 'shieldbreak' ([double[]]@(53.00, 102.62, 122.92)) 0.52
-Add-DelayedAudioClips $filterParts $mixLabels 21 'launch' ([double[]]@(31.65, 52.82, 74.85, 81.50, 103.72, 124.48, 145.82)) 0.54
-Add-DelayedAudioClips $filterParts $mixLabels 22 'clank' ([double[]]@(91.30, 125.82, 129.55, 133.30)) 0.50
-Add-DelayedAudioClips $filterParts $mixLabels 23 'achievement' ([double[]]@(83.22, 148.02)) 0.42
-Add-DelayedAudioClips $filterParts $mixLabels 24 'sizzle' ([double[]]@(24.25, 111.42, 144.72)) 0.36
-Add-DelayedAudioClips $filterParts $mixLabels 25 'click' ([double[]]@(34.048, 55.122, 83.220)) 0.38
+Add-DelayedAudioClips $filterParts $mixLabels 12 'ready' ([double[]]@(20.00, 55.122, 95.220, 127.551, 142.598, 152.629)) 0.48
+Add-DelayedAudioClips $filterParts $mixLabels 18 'block' ([double[]]@(45.25, 61.92, 75.15, 99.22, 118.34, 133.45, 146.70)) 0.44
+Add-DelayedAudioClips $filterParts $mixLabels 19 'parry' ([double[]]@(27.82, 49.00, 64.88, 78.20, 102.52, 121.76, 136.75, 149.85)) 0.48
+Add-DelayedAudioClips $filterParts $mixLabels 20 'shieldbreak' ([double[]]@(53.00, 106.82, 125.44, 140.55)) 0.52
+Add-DelayedAudioClips $filterParts $mixLabels 21 'launch' ([double[]]@(31.65, 52.82, 66.74, 80.40, 107.62, 126.82, 141.25, 151.15)) 0.54
+Add-DelayedAudioClips $filterParts $mixLabels 22 'clank' ([double[]]@(96.42, 128.82, 130.05, 132.65, 134.10, 136.88, 139.22, 141.32)) 0.50
+Add-DelayedAudioClips $filterParts $mixLabels 23 'achievement' ([double[]]@(88.196, 152.72)) 0.42
+Add-DelayedAudioClips $filterParts $mixLabels 24 'sizzle' ([double[]]@(24.25, 115.25, 138.22, 149.90)) 0.36
+Add-DelayedAudioClips $filterParts $mixLabels 25 'click' ([double[]]@(34.048, 55.122, 56.622, 58.122, 59.622, 61.122, 62.622, 64.122, 65.622, 88.196)) 0.38
 
 $filterGraph = ($filterParts -join ";`n") + ";`n" + ($mixLabels -join '') +
     "amix=inputs=$($mixLabels.Count):normalize=0:dropout_transition=0," +
-    'apad=pad_dur=156,aformat=sample_rates=48000:channel_layouts=stereo,' +
+    'apad=pad_dur=161.7,aformat=sample_rates=48000:channel_layouts=stereo,' +
     'loudnorm=I=-14:TP=-1.0:LRA=11,volume=-1.5dB,' +
     'alimiter=limit=0.749894:attack=5:release=80:level=0,' +
-    'atrim=duration=155.0,asetpts=N/SR/TB[aout]'
+    'atrim=duration=160.633,asetpts=N/SR/TB[aout]'
 
 $ffmpegArguments += @(
     '-filter_complex', $filterGraph,

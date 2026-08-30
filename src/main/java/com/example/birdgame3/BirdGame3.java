@@ -45298,10 +45298,10 @@ public class BirdGame3 {
 
         final double[] sceneEnds = {
                 3.5, 9.5, 16.5, 20.0,
-                34.048, 41.073, 55.122, 62.146,
-                76.195, 83.220, 90.244, 105.128,
-                110.709, 125.593, 136.756, 147.919,
-                155.0
+                34.048, 41.073, 55.122, 67.122,
+                81.171, 88.196, 95.220, 108.595,
+                114.176, 127.551, 142.598, 152.629,
+                160.633
         };
         final double trailerEnd = sceneEnds[sceneEnds.length - 1];
 
@@ -45371,7 +45371,7 @@ public class BirdGame3 {
     }
 
     static boolean isOfficialTrailerGameplayScene(int sceneIndex) {
-        return sceneIndex == 4 || sceneIndex == 6 || sceneIndex == 8
+        return sceneIndex == 4 || sceneIndex == 6 || sceneIndex == 7 || sceneIndex == 8
                 || sceneIndex == 9 || sceneIndex == 11 || sceneIndex == 13
                 || sceneIndex == 15;
     }
@@ -45382,7 +45382,7 @@ public class BirdGame3 {
 
     static boolean isOfficialTrailerGraphicScene(int sceneIndex) {
         return sceneIndex == 0 || sceneIndex == 3 || sceneIndex == 5
-                || sceneIndex == 7 || sceneIndex == 10 || sceneIndex == 14
+                || sceneIndex == 10 || sceneIndex == 14
                 || sceneIndex == 16;
     }
 
@@ -45425,6 +45425,8 @@ public class BirdGame3 {
             playback.lastElapsed = elapsed;
             if (isOfficialTrailerGameplayScene(sceneIndex)) {
                 prepareOfficialTrailerCombatClip(sceneIndex, arena);
+            } else if (sceneIndex == 14) {
+                prepareOfficialTrailerArena(arena.map(), arena.variant());
             } else if (!isOfficialTrailerCutsceneScene(sceneIndex)
                     && !isOfficialTrailerGraphicScene(sceneIndex)) {
                 prepareOfficialTrailerArena(arena.map(), arena.variant());
@@ -45491,6 +45493,21 @@ public class BirdGame3 {
                 case 2 -> new BirdType[]{BirdType.GRINCHHAWK, BirdType.VULTURE};
                 default -> new BirdType[]{BirdType.OPIUMBIRD, BirdType.TITMOUSE};
             };
+            case 7 -> switch (arena.cutIndex()) {
+                case 0 -> new BirdType[]{BirdType.PIGEON, BirdType.EAGLE,
+                        BirdType.FALCON, BirdType.PHOENIX};
+                case 1 -> new BirdType[]{BirdType.PIGEON, BirdType.MOCKINGBIRD,
+                        BirdType.EAGLE};
+                case 2 -> new BirdType[]{BirdType.ROADRUNNER, BirdType.RAVEN};
+                case 3 -> new BirdType[]{BirdType.PIGEON, BirdType.PHOENIX,
+                        BirdType.EAGLE, BirdType.VULTURE};
+                case 4 -> new BirdType[]{BirdType.HUMMINGBIRD, BirdType.RAZORBILL,
+                        BirdType.GOOSE, BirdType.PELICAN};
+                case 5 -> new BirdType[]{BirdType.TITMOUSE, BirdType.TURKEY,
+                        BirdType.ROOSTER, BirdType.GRINCHHAWK};
+                case 6 -> new BirdType[]{BirdType.PENGUIN, BirdType.SHOEBILL};
+                default -> new BirdType[]{BirdType.FALCON, BirdType.HEISENBIRD};
+            };
             case 8 -> switch (arena.cutIndex()) {
                 case 0 -> new BirdType[]{BirdType.BAT, BirdType.PELICAN};
                 case 1 -> new BirdType[]{BirdType.HEISENBIRD, BirdType.RAVEN};
@@ -45532,12 +45549,43 @@ public class BirdGame3 {
                 ^ ((long) arena.cutIndex() << 20)
                 ^ ((long) arena.map().ordinal() << 8)
                 ^ arena.variant().ordinal();
-        boolean nullRockBattle = sceneIndex == 13 && arena.cutIndex() == 3;
+        boolean nullRockBattle = (sceneIndex == 13 && arena.cutIndex() == 3)
+                || (sceneIndex == 7 && arena.cutIndex() == 3);
         int bossIndex = sceneIndex == 11
                 || (sceneIndex == 13 && arena.cutIndex() >= 1)
+                || (sceneIndex == 7 && arena.cutIndex() == 3)
                 ? fighters.length - 1 : -1;
         prepareOfficialTrailerAiMatch(fighters, arena, seed,
                 bossIndex, nullRockBattle);
+        if (sceneIndex == 7) {
+            configureOfficialTrailerModeClip(arena.cutIndex());
+        }
+    }
+
+    private void configureOfficialTrailerModeClip(int modeIndex) {
+        trainingModeActive = modeIndex == 6;
+        competitionModeEnabled = modeIndex == 4;
+        teamModeEnabled = modeIndex == 1 || modeIndex == 3 || modeIndex == 5;
+        Arrays.fill(playerTeams, 1);
+        if (teamModeEnabled) {
+            for (int i = 0; i < activePlayers; i++) {
+                playerTeams[i] = switch (modeIndex) {
+                    case 1 -> i < 2 ? 1 : 2;
+                    case 3 -> i == activePlayers - 1 ? 2 : 1;
+                    case 5 -> i % 2 == 0 ? 1 : 2;
+                    default -> 1;
+                };
+            }
+        }
+        if (modeIndex == 6 && activePlayers > 1) {
+            isAI[1] = false;
+            players[1].health = 999;
+            players[1].vx = 0;
+            players[1].vy = 0;
+        }
+        if (modeIndex == 7) {
+            replayPlaybackActive = true;
+        }
     }
 
     private void prepareOfficialTrailerAiMatch(BirdType[] fighterTypes,
@@ -45545,6 +45593,11 @@ public class BirdGame3 {
                                                 long seed,
                                                 int bossIndex,
                                                 boolean nullRockBoss) {
+        trainingModeActive = false;
+        competitionModeEnabled = false;
+        teamModeEnabled = false;
+        replayPlaybackActive = false;
+        Arrays.fill(playerTeams, 1);
         BirdType left = fighterTypes.length > 0 ? fighterTypes[0] : BirdType.PIGEON;
         BirdType right = fighterTypes.length > 1 ? fighterTypes[1] : BirdType.EAGLE;
         harnessPrepareMatch(left, right, seed, arena.map());
@@ -45685,7 +45738,7 @@ public class BirdGame3 {
 
     private OfficialTrailerArena officialTrailerArena(int sceneIndex, double phase) {
         return switch (sceneIndex) {
-            case 0, 3, 5, 7, 10, 14, 16 ->
+            case 0, 3, 5, 10, 16 ->
                     new OfficialTrailerArena(MapType.BEACON_CROWN, MapVariant.VOID_CROWN, 0);
             case 1 -> new OfficialTrailerArena(MapType.CITY, MapVariant.STANDARD,
                     Math.min(2, (int) (phase * 3.0)));
@@ -45707,6 +45760,19 @@ public class BirdGame3 {
                     case 1 -> new OfficialTrailerArena(MapType.DOCK, MapVariant.TITAN_DOCK, cut);
                     case 2 -> new OfficialTrailerArena(MapType.DESERT, MapVariant.STANDARD, cut);
                     default -> new OfficialTrailerArena(MapType.CAVE, MapVariant.STANDARD, cut);
+                };
+            }
+            case 7 -> {
+                int cut = Math.min(7, (int) (phase * 8.0));
+                yield switch (cut) {
+                    case 0 -> new OfficialTrailerArena(MapType.BATTLEFIELD, MapVariant.STANDARD, cut);
+                    case 1 -> new OfficialTrailerArena(MapType.CITY, MapVariant.PARLIAMENT_ROOFTOPS, cut);
+                    case 2 -> new OfficialTrailerArena(MapType.DESERT, MapVariant.STANDARD, cut);
+                    case 3 -> new OfficialTrailerArena(MapType.BEACON_CROWN, MapVariant.VOID_CROWN, cut);
+                    case 4 -> new OfficialTrailerArena(MapType.STORMGLASS_REFINERY, MapVariant.EYE_OF_THE_SUPERCELL, cut);
+                    case 5 -> new OfficialTrailerArena(MapType.FOREST, MapVariant.HARVEST_TRIBUNAL, cut);
+                    case 6 -> new OfficialTrailerArena(MapType.GLASSWIND_CAUSEWAY, MapVariant.STANDARD, cut);
+                    default -> new OfficialTrailerArena(MapType.SKYCLIFFS, MapVariant.TEMPEST_SUMMIT, cut);
                 };
             }
             case 8 -> {
@@ -45745,6 +45811,8 @@ public class BirdGame3 {
                     default -> new OfficialTrailerArena(MapType.BEACON_CROWN, MapVariant.VOID_CROWN, cut);
                 };
             }
+            case 14 -> new OfficialTrailerArena(MapType.BEACON_CROWN, MapVariant.VOID_CROWN,
+                    Math.min(2, (int) (phase * 3.0)));
             case 15 -> {
                 int cut = Math.min(2, (int) (phase * 3.0));
                 yield switch (cut) {
@@ -45965,14 +46033,7 @@ public class BirdGame3 {
         } else if (sceneIndex == 3) {
             drawOfficialTrailerStoryPromise(g, phase);
         } else if (sceneIndex == 5) {
-            if (phase < 0.5) {
-                drawOfficialTrailerRoster(g, roster, phase * 2.0);
-            } else {
-                drawOfficialTrailerSkins(g, skinCast, elapsed);
-            }
-        } else if (sceneIndex == 7) {
-            drawOfficialTrailerBackdrop(g, Color.web("#02050B"), Color.web("#15112A"));
-            drawOfficialTrailerModeGrid(g, Math.min(7, (int) (phase * 8.0)), phase);
+            drawOfficialTrailerRosterFlight(g, roster, skinCast, phase, elapsed);
         } else if (sceneIndex == 10) {
             drawOfficialTrailerReleaseScope(g, phase);
         } else if (sceneIndex == 14) {
@@ -45987,7 +46048,11 @@ public class BirdGame3 {
             drawGame(g);
             drawFightHud(g, hudLayout);
             drawOfficialTrailerCinematicGameplay(g, sceneIndex, phase, arena.cutIndex());
-            drawOfficialTrailerGameplayFeatureBug(g, sceneIndex, phase);
+            if (sceneIndex == 7) {
+                drawOfficialTrailerModeShowcase(g, arena.cutIndex(), phase);
+            } else {
+                drawOfficialTrailerGameplayFeatureBug(g, sceneIndex, phase);
+            }
         } else {
             g.save();
             double impactShake = sceneIndex == 11 && phase > 0.56
@@ -46016,16 +46081,16 @@ public class BirdGame3 {
     private void drawOfficialTrailerSilentOpen(GraphicsContext g, double phase) {
         drawOfficialTrailerBackdrop(g, Color.web("#000000"), Color.web("#071019"));
         double first = smoothStep01((phase - 0.08) / 0.18)
-                * (1.0 - smoothStep01((phase - 0.46) / 0.14));
-        double second = smoothStep01((phase - 0.50) / 0.18)
+                * (1.0 - smoothStep01((phase - 0.38) / 0.10));
+        double second = smoothStep01((phase - 0.52) / 0.12)
                 * (1.0 - smoothStep01((phase - 0.90) / 0.10));
         g.save();
         g.setTextAlign(TextAlignment.CENTER);
         g.setFont(Font.font("Consolas", FontWeight.BOLD, 72));
         g.setFill(Color.web("#D7E7EF", first));
-        g.fillText("THE WIND STOPPED.", WIDTH / 2.0, HEIGHT / 2.0);
+        g.fillText("THE SKY WENT SILENT.", WIDTH / 2.0, HEIGHT / 2.0);
         g.setFill(Color.web("#F3E5D0", second));
-        g.fillText("EVERY BIRD FELT IT.", WIDTH / 2.0, HEIGHT / 2.0);
+        g.fillText("THE FLOCK DID NOT.", WIDTH / 2.0, HEIGHT / 2.0);
         g.setStroke(Color.web("#90CAF9", 0.08));
         g.setLineWidth(2);
         for (int i = 0; i < 11; i++) {
@@ -46103,16 +46168,16 @@ public class BirdGame3 {
                                               double phase,
                                               int cutIndex) {
         String sceneId = switch (sceneIndex) {
-            case 1 -> "s40_lounge_falls";
+            case 1 -> "s43_sparrow_corridor";
             case 2 -> "s44_old_sparrow_death";
-            case 12 -> "s66_null_roc_wakes";
+            case 12 -> "s77_null_roc_before";
             default -> "s01_dead_air";
         };
         int lineIndex = switch (sceneIndex) {
             case 1 -> switch (cutIndex) {
-                case 0 -> 1;
-                case 1 -> 4;
-                default -> 6;
+                case 0 -> 0;
+                case 1 -> 6;
+                default -> 9;
             };
             case 2 -> switch (cutIndex) {
                 case 0 -> 1;
@@ -46121,8 +46186,8 @@ public class BirdGame3 {
                 default -> 9;
             };
             case 12 -> switch (cutIndex) {
-                case 0 -> 3;
-                default -> 7;
+                case 0 -> 0;
+                default -> 9;
             };
             default -> 0;
         };
@@ -46135,9 +46200,9 @@ public class BirdGame3 {
                 lineIndex, 0.10 + Math.clamp(linePhase, 0.0, 1.0) * 2.55
         );
         String chapter = switch (sceneIndex) {
-            case 1 -> "SOME THINGS CANNOT BE SAVED";
+            case 1 -> "EIGHT MINUTES TO SAVE A CITY";
             case 2 -> "ONE BIRD HELD THE GATE";
-            case 12 -> "THE SECOND HEARTBEAT";
+            case 12 -> "THE WEAPON BORROWED THEIR VOICES";
             default -> "THE STILL SKY";
         };
         drawOfficialTrailerLetterbox(g);
@@ -46155,6 +46220,7 @@ public class BirdGame3 {
         return switch (sceneIndex) {
             case 1, 15 -> 3;
             case 2, 4, 6, 8, 11, 13 -> 4;
+            case 7 -> 8;
             case 5, 9, 12 -> 2;
             case 14 -> 3;
             default -> 1;
@@ -46368,6 +46434,218 @@ public class BirdGame3 {
         g.setTextAlign(TextAlignment.LEFT);
     }
 
+    private void drawOfficialTrailerRosterFlight(GraphicsContext g,
+                                                 List<Bird> roster,
+                                                 List<Bird> skinCast,
+                                                 double phase,
+                                                 double elapsed) {
+        boolean showingSkins = phase >= 0.62;
+        double local = showingSkins
+                ? Math.clamp((phase - 0.62) / 0.38, 0.0, 1.0)
+                : Math.clamp(phase / 0.62, 0.0, 1.0);
+        drawOfficialTrailerBackdrop(g,
+                Color.web(showingSkins ? "#17051F" : "#03111B"),
+                Color.web(showingSkins ? "#321044" : "#11324A"));
+
+        g.setStroke(Color.web(showingSkins ? "#CE93D8" : "#90CAF9", 0.16));
+        g.setLineWidth(3);
+        for (int i = 0; i < 18; i++) {
+            double drift = (elapsed * (180.0 + i * 7.0) + i * 149.0) % (WIDTH + 420.0) - 210.0;
+            double y = 160.0 + i * 52.0;
+            g.strokeLine(drift, y, drift + 190.0 + i * 7.0, y - 18.0);
+        }
+
+        g.save();
+        g.setTextAlign(TextAlignment.CENTER);
+        g.setFill(showingSkins ? Color.web("#FFD180") : Color.web("#80D8FF"));
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, 22));
+        g.fillText(showingSkins ? "UNLOCKABLE LOOKS • EARNED IN PLAY" : "THE COMPLETE ROSTER",
+                WIDTH / 2.0, 74);
+        g.setFill(Color.web("#FFF8E8"));
+        g.setFont(Font.font("Arial Black", FontWeight.BOLD, showingSkins ? 58 : 68));
+        g.fillText(showingSkins ? "MAKE EVERY FIGHTER YOURS"
+                : BirdType.values().length + " FIGHTERS. " + BirdType.values().length + " MOVESETS.",
+                WIDTH / 2.0, 144);
+
+        if (!showingSkins) {
+            int columns = 6;
+            for (int i = 0; i < roster.size(); i++) {
+                Bird bird = roster.get(i);
+                int row = i / columns;
+                int col = i % columns;
+                int rowCount = Math.min(columns, roster.size() - row * columns);
+                double rowWidth = (rowCount - 1) * 300.0;
+                double targetX = WIDTH / 2.0 - rowWidth / 2.0 + col * 300.0;
+                double targetY = 276.0 + row * 202.0;
+                double reveal = smoothStep01((local - i * 0.012) / 0.28);
+                double startX = row % 2 == 0 ? -260.0 - col * 55.0 : WIDTH + 260.0 + col * 55.0;
+                double x = lerp(startX, targetX, reveal);
+                double y = targetY + Math.sin(elapsed * 2.4 + i * 0.73) * 9.0;
+                g.setStroke(bird.type.color.deriveColor(0, 1, 1, 0.34 * reveal));
+                g.setLineWidth(4);
+                g.strokeLine(x + (row % 2 == 0 ? -110 : 110), y + 12,
+                        x + (row % 2 == 0 ? -42 : 42), y + 4);
+                g.save();
+                g.setGlobalAlpha(reveal);
+                drawOfficialTrailerBirdCentered(g, bird, x, y, 118.0, row % 2 == 0);
+                g.setFill(Color.web("#F4F8FA", 0.88));
+                g.setFont(Font.font("Consolas", FontWeight.BOLD, 14));
+                g.fillText(bird.type.name.toUpperCase(Locale.ROOT), x, y + 77.0);
+                g.restore();
+            }
+        } else {
+            double formation = smoothStep01(local / 0.42);
+            for (int i = 0; i < skinCast.size(); i++) {
+                Bird bird = skinCast.get(i);
+                double targetX = WIDTH / 2.0 + (i - (skinCast.size() - 1) / 2.0) * 350.0;
+                double targetY = 520.0 + Math.abs(i - 2) * 42.0;
+                double startX = i < skinCast.size() / 2 ? -320.0 - i * 90.0 : WIDTH + 320.0 + i * 90.0;
+                double x = lerp(startX, targetX, formation);
+                double y = targetY + Math.sin(elapsed * 2.8 + i) * 14.0;
+                double halo = 156.0 + Math.sin(elapsed * 2.0 + i) * 14.0;
+                g.setFill(bird.type.color.deriveColor(0, 0.9, 0.92, 0.15));
+                g.fillOval(x - halo, y - halo, halo * 2.0, halo * 2.0);
+                g.save();
+                g.setGlobalAlpha(formation);
+                drawOfficialTrailerBirdCentered(g, bird, x, y, i == 2 ? 245.0 : 205.0,
+                        x <= WIDTH / 2.0);
+                g.setFill(Color.web("#FFF4E4"));
+                g.setFont(Font.font("Consolas", FontWeight.BOLD, 16));
+                g.fillText(bird.name.toUpperCase(Locale.ROOT), x, y + 165.0);
+                g.restore();
+            }
+            g.setFill(Color.web("#E1BEE7", 0.92));
+            g.setFont(Font.font("Consolas", FontWeight.BOLD, 21));
+            g.fillText("BIRDS • SKINS • MAPS • MODES • REWARDS • SECRETS", WIDTH / 2.0, 940);
+        }
+        g.restore();
+        g.setTextAlign(TextAlignment.LEFT);
+    }
+
+    private void drawOfficialTrailerModeShowcase(GraphicsContext g, int modeIndex, double phase) {
+        String[] names = {"VERSUS", "THE STILL SKY", "CLASSIC", "BOSS RUSH",
+                "TOURNAMENTS", "SQUAD STRIKE", "TRAINING", "REPLAYS"};
+        String[] descriptions = {
+                "FOUR-PLAYER FREE-FOR-ALL",
+                "40 MISSIONS • OBJECTIVES • CHOICES",
+                "22 AUTHORED CHARACTER ROUTES",
+                "EVERY BOSS. ONE RUN.",
+                "BRACKETS • SEEDING • BEST-OF SERIES",
+                "BUILD TWO TEAMS. WIN THE RELAY.",
+                "FRAME DATA • HITBOXES • RECORDING",
+                "FULL MATCH PLAYBACK • SAVED HISTORY"
+        };
+        Color[] accents = {Color.web("#FFD54F"), Color.web("#4FC3F7"), Color.web("#EF5350"),
+                Color.web("#66BB6A"), Color.web("#CE93D8"), Color.web("#FF8A65"),
+                Color.web("#26C6DA"), Color.web("#42A5F5")};
+        int index = Math.clamp(modeIndex, 0, names.length - 1);
+        Color accent = accents[index];
+        double local = Math.clamp(phase * names.length - index, 0.0, 1.0);
+        double alpha = smoothStep01(local / 0.12)
+                * (1.0 - smoothStep01((local - 0.88) / 0.12));
+
+        g.save();
+        g.setGlobalAlpha(alpha);
+        g.setFill(Color.web("#02050A", 0.82));
+        g.fillRoundRect(WIDTH / 2.0 - 610, 28, 1220, 122, 24, 24);
+        g.setStroke(accent.deriveColor(0, 1, 1, 0.94));
+        g.setLineWidth(4);
+        g.strokeRoundRect(WIDTH / 2.0 - 610, 28, 1220, 122, 24, 24);
+        g.setTextAlign(TextAlignment.CENTER);
+        g.setFill(accent);
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, 17));
+        g.fillText(String.format(Locale.ROOT, "MODE %02d / %02d", index + 1, names.length),
+                WIDTH / 2.0, 60);
+        g.setFill(Color.web("#FFF8E8"));
+        g.setFont(Font.font("Arial Black", FontWeight.BOLD, 42));
+        g.fillText(names[index], WIDTH / 2.0, 108);
+        g.setFill(Color.web("#DCE7EE"));
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, 17));
+        g.fillText(descriptions[index], WIDTH / 2.0, 137);
+
+        switch (index) {
+            case 1 -> drawOfficialTrailerObjectivePanel(g, accent,
+                    "MISSION 28 • SPARROW'S CORRIDOR", "CLEAR THE WEST CORRIDOR", "01:34");
+            case 2 -> drawOfficialTrailerObjectivePanel(g, accent,
+                    "ROADRUNNER ROUTE • ROUND 5", "REDLINE GAUNTLET", "2 / 3 WAVES");
+            case 3 -> {
+                g.setFill(Color.web("#020208", 0.84));
+                g.fillRoundRect(390, 176, 1140, 56, 18, 18);
+                g.setFill(Color.web("#5C1328"));
+                g.fillRoundRect(410, 192, 1100, 24, 12, 12);
+                g.setFill(Color.web("#FF1744"));
+                g.fillRoundRect(410, 192, 825, 24, 12, 12);
+                g.setFill(Color.web("#FFF8E8"));
+                g.setFont(Font.font("Consolas", FontWeight.BOLD, 16));
+                g.fillText("BOSS 04 / 08  •  THE NULL ROCK", WIDTH / 2.0, 215);
+            }
+            case 4 -> drawOfficialTrailerObjectivePanel(g, accent,
+                    "CHAMPIONSHIP BRACKET", "SEMIFINAL • BEST OF 3", "GAME 2");
+            case 5 -> drawOfficialTrailerObjectivePanel(g, accent,
+                    "TEAM A  2", "SQUAD STRIKE RELAY", "1  TEAM B");
+            case 6 -> {
+                drawOfficialTrailerObjectivePanel(g, accent,
+                        "TRAINING DATA", "COMBO  06  •  DAMAGE  84.7", "ADVANTAGE +12");
+                g.setFill(Color.web("#02050A", 0.78));
+                g.fillRoundRect(36, 720, 340, 250, 22, 22);
+                g.setTextAlign(TextAlignment.LEFT);
+                g.setFont(Font.font("Consolas", FontWeight.BOLD, 17));
+                g.setFill(Color.web("#E0F7FA"));
+                g.fillText("INPUT HISTORY", 64, 758);
+                g.fillText("→  →  A  ↑A  S  ULT", 64, 802);
+                g.fillText("HITBOXES        ON", 64, 856);
+                g.fillText("CPU DI          RANDOM", 64, 900);
+                g.fillText("FRAME ADVANCE   READY", 64, 944);
+            }
+            case 7 -> {
+                g.setFill(Color.web("#02050A", 0.86));
+                g.fillRoundRect(150, 900, 1620, 100, 22, 22);
+                g.setStroke(accent.deriveColor(0, 1, 1, 0.70));
+                g.setLineWidth(3);
+                g.strokeRoundRect(150, 900, 1620, 100, 22, 22);
+                g.setFill(accent);
+                g.fillRoundRect(250, 950, 940, 10, 5, 5);
+                g.setFill(Color.web("#37474F"));
+                g.fillRoundRect(1190, 950, 470, 10, 5, 5);
+                g.setFill(Color.web("#FFF8E8"));
+                g.setFont(Font.font("Consolas", FontWeight.BOLD, 19));
+                g.fillText("▶  01:42 / 02:31     1.0×     CAMERA: DYNAMIC     HIDE HUD", WIDTH / 2.0, 936);
+            }
+            default -> {
+            }
+        }
+
+        for (int i = 0; i < names.length; i++) {
+            double x = WIDTH / 2.0 - 210.0 + i * 60.0;
+            g.setFill(i == index ? accent : Color.web("#78909C", 0.48));
+            g.fillOval(x - 7, 1018, 14, 14);
+        }
+        g.restore();
+        g.setTextAlign(TextAlignment.LEFT);
+    }
+
+    private void drawOfficialTrailerObjectivePanel(GraphicsContext g,
+                                                   Color accent,
+                                                   String top,
+                                                   String middle,
+                                                   String bottom) {
+        g.setFill(Color.web("#02050A", 0.80));
+        g.fillRoundRect(1290, 720, 570, 238, 24, 24);
+        g.setStroke(accent.deriveColor(0, 1, 1, 0.82));
+        g.setLineWidth(4);
+        g.strokeRoundRect(1290, 720, 570, 238, 24, 24);
+        g.setTextAlign(TextAlignment.CENTER);
+        g.setFill(accent);
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, 17));
+        g.fillText(top, 1575, 770);
+        g.setFill(Color.web("#FFF8E8"));
+        g.setFont(Font.font("Arial Black", FontWeight.BOLD, 23));
+        g.fillText(middle, 1575, 836);
+        g.setFill(Color.web("#D5E3EA"));
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
+        g.fillText(bottom, 1575, 900);
+    }
+
     private void drawOfficialTrailerModeGrid(GraphicsContext g, int activeIndex, double phase) {
         String[] modes = {"VERSUS", "STORY", "CLASSIC", "BOSS RUSH",
                 "TOURNAMENTS", "SQUAD STRIKE", "TRAINING", "REPLAYS"};
@@ -46552,98 +46830,144 @@ public class BirdGame3 {
                                               List<Bird> corruptedArmy,
                                               double phase,
                                               double elapsed) {
-        drawOfficialTrailerBackdrop(g, Color.web("#071827"), Color.web("#1B0826"));
         int cut = Math.min(2, (int) (phase * 3.0));
         double local = Math.clamp(phase * 3.0 - cut, 0.0, 1.0);
         double charge = smoothStep01(local);
+        double centerX = WORLD_WIDTH * 0.5;
+        double battleZoom = 0.50;
+        double battleCamX = Math.clamp(centerX - WIDTH / (2.0 * battleZoom),
+                0.0, cameraMaxXForZoom(battleZoom));
+        double battleCamY = Math.clamp(GROUND_Y - 1050.0 - HEIGHT / (2.0 * battleZoom),
+                0.0, cameraMaxYForZoom(battleZoom));
 
-        g.setFill(new LinearGradient(0, 0, WIDTH, 0, false, CycleMethod.NO_CYCLE,
-                new Stop(0.0, Color.web("#1565C0", 0.24)),
-                new Stop(0.48, Color.web("#90CAF9", 0.04)),
-                new Stop(0.52, Color.web("#CE93D8", 0.05)),
-                new Stop(1.0, Color.web("#6A1B9A", 0.30))));
-        g.fillRect(0, 0, WIDTH, HEIGHT);
-        g.setStroke(Color.web("#E3F2FD", 0.13));
-        g.setLineWidth(3);
-        for (int i = 0; i < 22; i++) {
-            double y = 170 + i * 38.0;
-            double wave = Math.sin(elapsed * 2.0 + i * 0.7) * 24.0;
-            g.strokeLine(0, y + wave, 440 + i * 18.0, y - 20 + wave);
-            g.setStroke(Color.web("#CE93D8", 0.10 + i % 3 * 0.025));
-            g.strokeLine(WIDTH, y - wave, WIDTH - 440 - i * 18.0, y - 20 - wave);
-            g.setStroke(Color.web("#E3F2FD", 0.13));
-        }
+        g.save();
+        g.scale(battleZoom, battleZoom);
+        g.translate(-battleCamX, -battleCamY);
+        drawOfficialTrailerArena(g);
 
-        double advance = switch (cut) {
-            case 0 -> 0.0;
-            case 1 -> 70.0 + charge * 120.0;
-            default -> 185.0 + charge * 175.0;
-        };
-        double liftScale = cut == 0 ? 1.0 : cut == 1 ? 1.08 : 1.16;
+        g.setFill(new LinearGradient(centerX - 1900, 0, centerX + 1900, 0,
+                false, CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.web("#1565C0", 0.18)),
+                new Stop(0.48, Color.TRANSPARENT),
+                new Stop(0.52, Color.TRANSPARENT),
+                new Stop(1.0, Color.web("#6A1B9A", 0.24))));
+        g.fillRect(centerX - 2100, battleCamY, 4200, HEIGHT / battleZoom);
+
         int count = Math.min(normalArmy.size(), corruptedArmy.size());
         for (int i = 0; i < count; i++) {
-            int row = i / 8;
-            int col = i % 8;
-            double baseY = 320 + row * 225.0;
-            double battleWave = cut == 2
-                    ? Math.sin(i * 1.31 + local * Math.PI * 3.0) * 42.0
-                    : Math.sin(elapsed * 1.6 + i) * 8.0;
-            double normalX = 76 + col * 108.0 + advance;
-            double corruptX = WIDTH - 76 - col * 108.0 - advance;
-            if (cut == 2) {
-                normalX += (i % 3) * 24.0 * charge;
-                corruptX -= (i % 4) * 19.0 * charge;
+            int lane = i % 6;
+            int rank = i / 6;
+            double laneY = GROUND_Y - 170.0 - lane * 300.0;
+            double formationWave = Math.sin(elapsed * 2.2 + i * 0.79) * 20.0;
+            double entry = smoothStep01((local - i * 0.008) / 0.32);
+            double normalStart = centerX - 1820.0 - rank * 80.0;
+            double corruptStart = centerX + 1820.0 + rank * 80.0;
+            double collisionX = centerX + (rank - 1.5) * 250.0
+                    + Math.sin(lane * 1.7) * 75.0;
+            double normalX;
+            double corruptX;
+            double birdY;
+            int normalAttack = 0;
+            int corruptedAttack = 0;
+
+            if (cut == 0) {
+                normalX = lerp(normalStart - 720.0, normalStart, entry);
+                corruptX = lerp(corruptStart + 720.0, corruptStart, entry);
+                birdY = laneY + formationWave;
+            } else if (cut == 1) {
+                double delayedCharge = smoothStep01((local - i * 0.004) / 0.78);
+                normalX = lerp(normalStart, collisionX - 115.0, delayedCharge);
+                corruptX = lerp(corruptStart, collisionX + 115.0, delayedCharge);
+                birdY = laneY + Math.sin(elapsed * 7.0 + i) * (24.0 + delayedCharge * 34.0);
+                normalAttack = delayedCharge > 0.62 ? 8 + (i * 5) % 18 : 0;
+                corruptedAttack = delayedCharge > 0.68 ? 9 + (i * 7) % 17 : 0;
+                g.setStroke(Color.web("#E3F2FD", 0.18 + delayedCharge * 0.28));
+                g.setLineWidth(5);
+                g.strokeLine(normalX - 190.0, birdY + 18.0, normalX - 55.0, birdY + 4.0);
+                g.setStroke(Color.web("#CE93D8", 0.18 + delayedCharge * 0.30));
+                g.strokeLine(corruptX + 190.0, birdY - 18.0, corruptX + 55.0, birdY - 4.0);
+            } else {
+                double fightClock = local * 7.0 + i * 0.41;
+                double exchange = Math.sin(fightClock * Math.PI * 2.0);
+                double recoil = Math.max(0.0, -exchange) * (45.0 + i % 4 * 12.0);
+                normalX = collisionX - 92.0 - recoil;
+                corruptX = collisionX + 92.0 + Math.max(0.0, exchange) * (48.0 + i % 3 * 14.0);
+                birdY = laneY + Math.sin(fightClock * Math.PI) * 62.0;
+                normalAttack = 7 + (int) Math.floor(fightClock * 11.0) % 23;
+                corruptedAttack = 8 + (int) Math.floor(fightClock * 13.0 + 5.0) % 22;
+                normalArmy.get(i).setTrailerSmashDamagePercent(18.0 + local * 92.0 + i % 5 * 7.0);
+                corruptedArmy.get(i).setTrailerSmashDamagePercent(26.0 + local * 104.0 + i % 4 * 8.0);
+
+                double hitCycle = (local * 5.2 + i * 0.173) % 1.0;
+                if (hitCycle < 0.095 && (i + (int) (local * 20.0)) % 3 == 0) {
+                    double impact = 1.0 - hitCycle / 0.095;
+                    drawOfficialTrailerImpact(g, (normalX + corruptX) * 0.5,
+                            birdY + (i % 2 == 0 ? -22.0 : 28.0),
+                            i % 2 == 0 ? Color.web("#FFF59D") : Color.web("#E040FB"),
+                            0.42 + impact * 0.58);
+                }
             }
-            boolean attack = cut > 0 && (i + cut) % 3 != 0;
+
+            double extent = (i == count - 1 ? 170.0 : 128.0)
+                    * (cut == 2 ? 1.06 : 1.0);
             drawOfficialTrailerArmyBird(g, normalArmy.get(i), normalX,
-                    baseY + battleWave, 72.0 * liftScale, true, false,
-                    attack ? 7 + i % 9 : 0);
+                    birdY, extent, true, false, normalAttack);
             drawOfficialTrailerArmyBird(g, corruptedArmy.get(i), corruptX,
-                    baseY - battleWave, 72.0 * liftScale, false, true,
-                    attack ? 8 + (i * 3) % 10 : 0);
+                    birdY - formationWave * 0.35, extent, false, true, corruptedAttack);
         }
 
-        if (cut == 2) {
-            double impact = Math.clamp(1.0 - Math.abs(local - 0.56) / 0.28, 0.0, 1.0);
-            double radius = 150 + impact * 580.0;
-            g.setFill(new RadialGradient(0, 0, WIDTH / 2.0, 590, radius,
-                    false, CycleMethod.NO_CYCLE,
-                    new Stop(0.0, Color.web("#FFFFFF", 0.72 * impact)),
-                    new Stop(0.20, Color.web("#FFD54F", 0.44 * impact)),
-                    new Stop(0.48, Color.web("#CE93D8", 0.28 * impact)),
-                    new Stop(1.0, Color.TRANSPARENT)));
-            g.fillOval(WIDTH / 2.0 - radius, 590 - radius, radius * 2, radius * 2);
-            g.setStroke(Color.web("#FFF59D", 0.75 * impact));
-            g.setLineWidth(9);
-            for (int i = 0; i < 20; i++) {
-                double angle = i * Math.PI * 2.0 / 20.0;
-                double inner = 95 + i % 4 * 24.0;
-                double outer = inner + 270.0 * impact;
-                g.strokeLine(WIDTH / 2.0 + Math.cos(angle) * inner,
-                        590 + Math.sin(angle) * inner,
-                        WIDTH / 2.0 + Math.cos(angle) * outer,
-                        590 + Math.sin(angle) * outer);
+        if (cut == 1) {
+            double firstCollision = Math.clamp((local - 0.72) / 0.18, 0.0, 1.0);
+            if (firstCollision > 0.01) {
+                drawOfficialTrailerImpact(g, centerX, GROUND_Y - 920.0,
+                        Color.web("#FFF59D"), firstCollision);
             }
         }
+        g.restore();
 
-        String title = switch (cut) {
-            case 0 -> "EVERY BIRD ANSWERS.";
-            case 1 -> "EVERY SHADOW RISES.";
-            default -> "46 BIRDS. ONE LAST SKY.";
-        };
         g.save();
         g.setTextAlign(TextAlignment.CENTER);
-        g.setFill(Color.web("#02040A", 0.76));
-        g.fillRoundRect(WIDTH / 2.0 - 660, 38, 1320, 128, 24, 24);
-        g.setStroke(Color.web(cut == 2 ? "#FFD54F" : "#CE93D8", 0.78));
+        g.setFill(Color.web("#02040A", 0.86));
+        g.fillRoundRect(42, 30, 500, 94, 22, 22);
+        g.fillRoundRect(WIDTH - 542, 30, 500, 94, 22, 22);
+        g.fillRoundRect(WIDTH / 2.0 - 350, 36, 700, 82, 22, 22);
+        g.setStroke(Color.web("#64B5F6", 0.90));
         g.setLineWidth(4);
-        g.strokeRoundRect(WIDTH / 2.0 - 660, 38, 1320, 128, 24, 24);
+        g.strokeRoundRect(42, 30, 500, 94, 22, 22);
+        g.setStroke(Color.web("#CE93D8", 0.90));
+        g.strokeRoundRect(WIDTH - 542, 30, 500, 94, 22, 22);
+        double flockStrength = cut < 2 ? 1.0 : Math.max(0.54, 1.0 - local * 0.35);
+        double corruptStrength = cut < 2 ? 1.0 : Math.max(0.48, 1.0 - local * 0.42);
+        g.setFill(Color.web("#1565C0", 0.92));
+        g.fillRoundRect(64, 91, 456 * flockStrength, 14, 7, 7);
+        g.setFill(Color.web("#7B1FA2", 0.92));
+        g.fillRoundRect(WIDTH - 520, 91, 456 * corruptStrength, 14, 7, 7);
+        g.setFill(Color.web("#E3F2FD"));
+        g.setFont(Font.font("Arial Black", FontWeight.BOLD, 27));
+        g.fillText("THE FLOCK  •  23", 292, 75);
+        g.setFill(Color.web("#F3E5F5"));
+        g.fillText("23  •  CORRUPTED", WIDTH - 292, 75);
         g.setFill(Color.web("#B0BEC5"));
-        g.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
-        g.fillText("CINEMATIC WAR OF THE FLOCKS", WIDTH / 2.0, 78);
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, 16));
+        g.fillText("RELEASE-TRAILER IN-ENGINE CINEMATIC", WIDTH / 2.0, 66);
         g.setFill(Color.web("#FFF8E8"));
-        g.setFont(Font.font("Arial Black", FontWeight.BOLD, 48));
-        g.fillText(title, WIDTH / 2.0, 137);
+        g.setFont(Font.font("Arial Black", FontWeight.BOLD, 28));
+        g.fillText("23  VS  23", WIDTH / 2.0, 101);
+
+        if (cut < 2) {
+            double titleAlpha = smoothStep01(local / 0.14)
+                    * (1.0 - smoothStep01((local - 0.76) / 0.20));
+            g.setGlobalAlpha(titleAlpha);
+            g.setFill(Color.web("#02040A", 0.76));
+            g.fillRoundRect(WIDTH / 2.0 - 520, 875, 1040, 112, 24, 24);
+            g.setStroke(Color.web(cut == 0 ? "#90CAF9" : "#FFD54F", 0.82));
+            g.setLineWidth(4);
+            g.strokeRoundRect(WIDTH / 2.0 - 520, 875, 1040, 112, 24, 24);
+            g.setFill(Color.web("#FFF8E8"));
+            g.setFont(Font.font("Arial Black", FontWeight.BOLD, 43));
+            g.fillText(cut == 0 ? "EVERY WING ANSWERS." : "CHARGE THE CROWN.",
+                    WIDTH / 2.0, 946);
+        }
         g.restore();
         g.setTextAlign(TextAlignment.LEFT);
     }
