@@ -13,6 +13,41 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class BirdGame3BossBalanceTest {
     @Test
+    void dynamicCameraTracksScaledFighterBounds() {
+        BirdGame3 game = new BirdGame3();
+        Bird giant = new Bird(420.0, BirdGame3.BirdType.RAVEN, 0, game);
+        giant.y = 260.0;
+        giant.sizeMultiplier = 2.40;
+
+        Rectangle2D bounds = game.dynamicCameraTrackingBounds(giant);
+
+        assertEquals(giant.bodyCenterX(), bounds.getMinX() + bounds.getWidth() * 0.5, 0.0001);
+        assertEquals(giant.bodyCenterY(), bounds.getMinY() + bounds.getHeight() * 0.5, 0.0001);
+        assertEquals(giant.bodyWidth(), bounds.getWidth(), 0.0001);
+        assertEquals(giant.bodyHeight(), bounds.getHeight(), 0.0001);
+    }
+
+    @Test
+    void campaignProtectMarkerTracksSmallAndLargeAllyGeometry() {
+        BirdGame3 game = new BirdGame3();
+        Bird ally = new Bird(420.0, BirdGame3.BirdType.PENGUIN, 1, game);
+        ally.y = 260.0;
+
+        ally.sizeMultiplier = 0.55;
+        Rectangle2D small = game.campaignProtectMarkerBounds(ally, 0.0);
+        assertEquals(ally.bodyCenterX(), small.getMinX() + small.getWidth() * 0.5, 0.0001);
+        assertEquals(ally.bodyCenterY(), small.getMinY() + small.getHeight() * 0.5, 0.0001);
+        assertTrue(small.getWidth() > ally.bodyWidth());
+
+        ally.sizeMultiplier = 2.40;
+        Rectangle2D large = game.campaignProtectMarkerBounds(ally, 0.0);
+        assertEquals(ally.bodyCenterX(), large.getMinX() + large.getWidth() * 0.5, 0.0001);
+        assertEquals(ally.bodyCenterY(), large.getMinY() + large.getHeight() * 0.5, 0.0001);
+        assertEquals(2.40 / 0.55, large.getWidth() / small.getWidth(), 0.0001);
+        assertTrue(large.getWidth() > ally.bodyWidth());
+    }
+
+    @Test
     void campaignBossMarkerTracksSmallAndLargeBossGeometry() {
         BirdGame3 game = new BirdGame3();
         Bird boss = new Bird(420.0, BirdGame3.BirdType.RAVEN, 1, game);

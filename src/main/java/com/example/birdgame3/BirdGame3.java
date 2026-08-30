@@ -12830,10 +12830,11 @@ public class BirdGame3 {
                 double desiredLeadY = Math.clamp(b.vy * (CAMERA_LOOKAHEAD_FRAMES * 0.7), -280.0, 280.0);
                 cameraLeadX[i] = easeCameraLead(cameraLeadX[i], desiredLeadX);
                 cameraLeadY[i] = easeCameraLead(cameraLeadY[i], desiredLeadY);
-                double birdMinX = Math.clamp(b.x, 0.0, WORLD_WIDTH - 80.0);
-                double birdMaxX = Math.clamp(b.x + 80.0, 80.0, WORLD_WIDTH);
-                double birdMinY = Math.clamp(b.y, 0.0, WORLD_HEIGHT - 80.0);
-                double birdMaxY = Math.clamp(b.y + 80.0, 80.0, WORLD_HEIGHT);
+                Rectangle2D trackingBounds = dynamicCameraTrackingBounds(b);
+                double birdMinX = trackingBounds.getMinX();
+                double birdMaxX = trackingBounds.getMaxX();
+                double birdMinY = trackingBounds.getMinY();
+                double birdMaxY = trackingBounds.getMaxY();
                 minX = Math.min(minX, birdMinX);
                 maxX = Math.max(maxX, birdMaxX);
                 minY = Math.min(minY, birdMinY);
@@ -12953,13 +12954,28 @@ public class BirdGame3 {
         }
     }
 
+    Rectangle2D dynamicCameraTrackingBounds(Bird bird) {
+        if (bird == null) {
+            return Rectangle2D.EMPTY;
+        }
+        double centerX = bird.bodyCenterX();
+        double centerY = bird.bodyCenterY();
+        double halfWidth = Math.max(bird.bodyWidth() * 0.5, bird.combatHalfWidth());
+        double halfHeight = Math.max(bird.bodyHeight() * 0.5, bird.combatHalfHeight());
+        double minX = Math.clamp(centerX - halfWidth, 0.0, WORLD_WIDTH);
+        double maxX = Math.clamp(centerX + halfWidth, 0.0, WORLD_WIDTH);
+        double minY = Math.clamp(centerY - halfHeight, 0.0, WORLD_HEIGHT);
+        double maxY = Math.clamp(centerY + halfHeight, 0.0, WORLD_HEIGHT);
+        return new Rectangle2D(minX, minY, maxX - minX, maxY - minY);
+    }
+
     private void updateWorldFixed() {
         for (Bird b : players) {
             if (b == null || b.health <= 0) continue;
             for (NectarNode node : nectarNodes) {
                 if (!node.active) continue;
-                double dx = node.x - (b.x + 40);
-                double dy = node.y - (b.y + 40);
+                double dx = node.x - b.bodyCenterX();
+                double dy = node.y - b.bodyCenterY();
                 if (dx * dx + dy * dy < 6400) {
                     node.active = false;
                     if (node.isSpeed) {
@@ -13015,8 +13031,8 @@ public class BirdGame3 {
                 for (Bird b : players) {
                     if (b == null || b.health <= 0) continue;
                     if (c.owner != null && !canDamage(c.owner, b)) continue;
-                    double dx = b.x + 40 - c.x;
-                    double dy = b.y + 40 - c.y;
+                    double dx = b.bodyCenterX() - c.x;
+                    double dy = b.bodyCenterY() - c.y;
                     double distSq = dx * dx + dy * dy;
                     if (distSq < bestSq) {
                         bestSq = distSq;
@@ -13027,8 +13043,8 @@ public class BirdGame3 {
                 c.retargetCooldown = isLargeFightLoad() ? 10 : 5;
             }
             if (closest != null) {
-                double targetX = closest.x + 40;
-                double targetY = closest.y + 40;
+                double targetX = closest.bodyCenterX();
+                double targetY = closest.bodyCenterY();
                 if (isDockWaterActive() && isDockWaterAt(targetX, targetY)) {
                     targetY = dockWaterSurfaceY() - 26;
                 }
@@ -13057,7 +13073,7 @@ public class BirdGame3 {
                     int shownDamage = (int) Math.round(dealtDamage);
                     String source = c.displayName();
                     addToKillFeed(source + " devours " + shortName(closest.name) + "! -" + shownDamage + " HP");
-                    double hitDirection = Math.signum((closest.x + 40.0) - c.x);
+                    double hitDirection = Math.signum(closest.bodyCenterX() - c.x);
                     if (hitDirection == 0.0) {
                         hitDirection = Math.signum(c.vx);
                     }
@@ -13130,8 +13146,8 @@ public class BirdGame3 {
                 double bestSq = Double.MAX_VALUE;
                 for (Bird b : players) {
                     if (b == null || b.health <= 0) continue;
-                    double tx = b.x + 40;
-                    double ty = b.y + 40;
+                    double tx = b.bodyCenterX();
+                    double ty = b.bodyCenterY();
                     boolean inWater = isDockWaterAt(tx, ty);
                     boolean nearSurface = tx >= dockWaterX
                             && tx <= dockWaterX + dockWaterW
@@ -13151,8 +13167,10 @@ public class BirdGame3 {
                 p.retargetCooldown = 10;
             }
 
-            double targetX = target != null ? target.x + 40 : p.x + Math.signum(p.vx == 0 ? 1.0 : p.vx) * 120;
-            double targetY = target != null ? target.y + 48 : dockWaterMidY();
+            double targetX = target != null ? target.bodyCenterX() : p.x + Math.signum(p.vx == 0 ? 1.0 : p.vx) * 120;
+            double targetY = target != null
+                    ? target.bodyCenterY() + 8.0 * target.sizeMultiplier
+                    : dockWaterMidY();
             boolean targetNearSurface = target != null && targetY <= surfaceY + 94;
             boolean breaching = p.y < minY - 2 || p.vy < -3.2;
 
@@ -13304,8 +13322,8 @@ public class BirdGame3 {
                 for (Bird b : players) {
                     if (b == null || b.health <= 0) continue;
                     if (chick.owner != null && !canDamage(chick.owner, b)) continue;
-                    double dx = (b.x + 40) - ccx;
-                    double dy = (b.y + 40) - ccy;
+                    double dx = b.bodyCenterX() - ccx;
+                    double dy = b.bodyCenterY() - ccy;
                     double distSq = dx * dx + dy * dy;
                     if (distSq < bestSq) {
                         bestSq = distSq;
@@ -13321,8 +13339,8 @@ public class BirdGame3 {
             if (!followingOwner && target != null) {
                 double ccx = chick.x + chick.width * 0.5;
                 double ccy = chick.y + chick.height * 0.5;
-                double dx = (target.x + 40) - ccx;
-                double dy = (target.y + 40) - ccy;
+                double dx = target.bodyCenterX() - ccx;
+                double dy = target.bodyCenterY() - ccy;
                 double dir = dx == 0 ? 0 : Math.signum(dx);
                 if (chick.roosterSwarm) {
                     double desiredVx = Math.clamp(dx * 0.18, -chick.speed, chick.speed);
@@ -13403,8 +13421,8 @@ public class BirdGame3 {
                 } else {
                     double ccx = chick.x + chick.width * 0.5;
                     double ccy = chick.y + chick.height * 0.5;
-                    double dx = (target.x + 40) - ccx;
-                    double dy = (target.y + 40) - ccy;
+                    double dx = target.bodyCenterX() - ccx;
+                    double dy = target.bodyCenterY() - ccy;
                     double attackRangeSq = chick.roosterSwarm ? 3600 : 2500;
                     if (dx * dx + dy * dy < attackRangeSq) {
                         int damage = chick.roosterSwarm ? Math.max(1, chick.damage) : chick.damage;
@@ -13471,7 +13489,7 @@ public class BirdGame3 {
                 vent.cooldown = 120;
                 for (Bird b : players) {
                     if (b != null && b.health > 0) {
-                        double dx = b.x + 40 - (vent.x + vent.w / 2);
+                        double dx = b.bodyCenterX() - (vent.x + vent.w / 2);
                         if (Math.abs(dx) < vent.w / 2 + 100 && b.y > vent.y - 300) {
                             if (b.isDownHeld()) {
                                 b.vy *= 0.85;
@@ -18056,14 +18074,15 @@ public class BirdGame3 {
                     }
                 }
                 if (protectedBird != null) {
-                    double radius = 120 + pulse * 18;
-                    double cx = protectedBird.x + 40;
-                    double cy = protectedBird.y + 40;
+                    Rectangle2D marker = campaignProtectMarkerBounds(protectedBird, pulse);
+                    double radius = marker.getWidth() * 0.5;
+                    double cx = marker.getMinX() + radius;
+                    double cy = marker.getMinY() + radius;
                     g.setFill(Color.web("#69F0AE", 0.10));
-                    g.fillOval(cx - radius, cy - radius, radius * 2, radius * 2);
+                    g.fillOval(marker.getMinX(), marker.getMinY(), marker.getWidth(), marker.getHeight());
                     g.setStroke(Color.web("#69F0AE", pulse));
                     g.setLineWidth(10);
-                    g.strokeOval(cx - radius, cy - radius, radius * 2, radius * 2);
+                    g.strokeOval(marker.getMinX(), marker.getMinY(), marker.getWidth(), marker.getHeight());
                     g.setFont(Font.font("Arial Black", FontWeight.BOLD, 30));
                     g.setTextAlign(TextAlignment.CENTER);
                     g.setFill(Color.web("#E8FFF1"));
@@ -18090,6 +18109,24 @@ public class BirdGame3 {
             }
         }
         g.restore();
+    }
+
+    Rectangle2D campaignProtectMarkerBounds(Bird protectedBird, double pulse) {
+        if (protectedBird == null) {
+            return Rectangle2D.EMPTY;
+        }
+        double scale = Math.max(0.1, protectedBird.sizeMultiplier);
+        double silhouetteRadius = Math.max(
+                Math.max(protectedBird.combatHalfWidth(), protectedBird.combatHalfHeight()),
+                40.0 * scale * rosterSpriteExtentFactor(protectedBird.type, protectedBird.appliedSkinKey)
+        );
+        double radius = silhouetteRadius + (80.0 + Math.max(0.0, pulse) * 18.0) * scale;
+        return new Rectangle2D(
+                protectedBird.bodyCenterX() - radius,
+                protectedBird.bodyCenterY() - radius,
+                radius * 2.0,
+                radius * 2.0
+        );
     }
 
     Rectangle2D campaignBossMarkerBounds(Bird boss) {
@@ -24316,8 +24353,8 @@ public class BirdGame3 {
             double bestSq = Double.MAX_VALUE;
             for (Bird b : players) {
                 if (!isValidAnchoredCrowTarget(c, b)) continue;
-                double dx = b.x + 40 - c.x;
-                double dy = b.y + 40 - c.y;
+                double dx = b.bodyCenterX() - c.x;
+                double dy = b.bodyCenterY() - c.y;
                 double distSq = dx * dx + dy * dy;
                 if (distSq < bestSq) {
                     bestSq = distSq;
@@ -24331,8 +24368,8 @@ public class BirdGame3 {
         double targetX;
         double targetY;
         if (closest != null) {
-            targetX = closest.x + 40;
-            targetY = closest.y + 40;
+            targetX = closest.bodyCenterX();
+            targetY = closest.bodyCenterY();
         } else {
             double orbit = c.anchorOrbitOffset + c.age * 0.055;
             targetX = c.anchorX + Math.cos(orbit) * c.anchorRadius * 0.54;
@@ -24378,8 +24415,8 @@ public class BirdGame3 {
         }
 
         if (isValidAnchoredCrowTarget(c, closest)) {
-            double hitDx = (closest.x + 40) - c.x;
-            double hitDy = (closest.y + 40) - c.y;
+            double hitDx = closest.bodyCenterX() - c.x;
+            double hitDy = closest.bodyCenterY() - c.y;
             if (Math.hypot(hitDx, hitDy) < 48.0) {
                 double oldHealth = closest.health;
                 double dealtDamage = closest.receiveOwnedMinionDamage(c.contactDamage(), c.owner);
@@ -24441,8 +24478,8 @@ public class BirdGame3 {
     private boolean isValidAnchoredCrowTarget(CrowMinion c, Bird b) {
         if (b == null || b.health <= 0) return false;
         if (c.owner != null && !canDamage(c.owner, b)) return false;
-        double dx = b.x + 40 - c.anchorX;
-        double dy = b.y + 40 - c.anchorY;
+        double dx = b.bodyCenterX() - c.anchorX;
+        double dy = b.bodyCenterY() - c.anchorY;
         double allowed = c.anchorRadius + 40.0 * Math.max(0.75, b.sizeMultiplier);
         return dx * dx + dy * dy <= allowed * allowed;
     }

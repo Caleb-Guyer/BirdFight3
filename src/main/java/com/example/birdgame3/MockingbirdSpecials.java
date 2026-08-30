@@ -389,8 +389,8 @@ final class MockingbirdSpecials {
         int preservedHealth = bird.loungeHealth;
         boolean royalLounge = ultimate || (relocatingLivingLounge && bird.loungeRoyal);
         bird.loungeActive = true;
-        bird.loungeX = bird.x + 40;
-        bird.loungeY = bird.y + 40;
+        bird.loungeX = bird.bodyCenterX();
+        bird.loungeY = bird.bodyCenterY();
         bird.loungeMaxHealth = royalLounge ? 200 : Bird.LOUNGE_MAX_HEALTH;
         bird.loungeRoyal = royalLounge;
         bird.loungeHealth = relocatingLivingLounge
