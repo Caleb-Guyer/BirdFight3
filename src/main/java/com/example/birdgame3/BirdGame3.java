@@ -206,7 +206,7 @@ public class BirdGame3 {
     private static final double NULL_ROCK_TRUE_FORM_POWER = 1.78;
     private static final double NULL_ROCK_TRUE_FORM_SPEED = 1.04;
     private static final double NULL_ROCK_TRUE_FORM_SIZE = 3.6;
-    private static final int MAX_COMBATANTS = 24;
+    static final int MAX_COMBATANTS = 24;
     private static final DirectionalSecretCode NULL_ROCK_SELECTOR_CODE =
             new DirectionalSecretCode('U', 'U', 'D', 'D', 'L', 'R');
     private static final double BOSS_HEALTH_EASE_FACTOR = 0.94;

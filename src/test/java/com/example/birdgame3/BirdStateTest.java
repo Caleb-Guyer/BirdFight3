@@ -4089,6 +4089,29 @@ class BirdStateTest {
     }
 
     @Test
+    void lastApproachPlayerCanDamageP5WithNormalAttacks() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.harnessPrepareAdventureMission("last_approach", StoryCampaign.Difficulty.NORMAL,
+                BirdGame3.BirdType.PIGEON, 5, 0x5A17A5L);
+        assertEquals(5, game.activePlayers);
+        Bird attacker = game.players[0];
+        Bird fifthCombatant = game.players[4];
+        assertNotNull(fifthCombatant);
+        assertFalse(game.areAllies(attacker.playerIndex, fifthCombatant.playerIndex));
+        attacker.x = 300.0;
+        fifthCombatant.x = 375.0;
+        attacker.y = BirdGame3.GROUND_Y - attacker.bodyHeight();
+        fifthCombatant.y = BirdGame3.GROUND_Y - fifthCombatant.bodyHeight();
+        attacker.facingRight = true;
+        double startingHealth = fifthCombatant.health;
+
+        performFullSideSmash(attacker);
+
+        assertTrue(fifthCombatant.health < startingHealth,
+                "Authored attacks must not silently skip campaign combatants beyond P4.");
+    }
+
+    @Test
     void strongerGroundedAttackWinsPriorityAndCancelsTheWeakerBox() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;
@@ -5872,6 +5895,28 @@ class BirdStateTest {
                 "Ground Faultfire should no longer spread outward across the floor.");
         assertTrue(centerTarget.vy < 0.0,
                 "The eruption should launch caught targets upward.");
+    }
+
+    @Test
+    void phoenixSpecialsCanHitTheFifthCampaignCombatant() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 5;
+
+        Bird phoenix = new Bird(260.0, BirdGame3.BirdType.PHOENIX, 0, game);
+        Bird fifthCombatant = new Bird(262.0, BirdGame3.BirdType.RAVEN, 4, game);
+        phoenix.y = BirdGame3.GROUND_Y - 80.0;
+        fifthCombatant.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = phoenix;
+        game.players[4] = fifthCombatant;
+        double startingHealth = fifthCombatant.health;
+
+        PhoenixSpecials.down(phoenix, false);
+        for (int i = 0; i < 20; i++) {
+            phoenix.update(1.0);
+        }
+
+        assertTrue(fifthCombatant.health < startingHealth,
+                "Per-target special hit registries must include campaign combatants beyond P4.");
     }
 
     @Test

@@ -671,7 +671,7 @@ public class Bird {
     private int normalAttackTimelineChargeFrames = 0;
     private boolean normalAttackEnvironmentResolved = false;
     private boolean normalAttackConnected = false;
-    private final int[] normalAttackLastHitFrame = {-1, -1, -1, -1};
+    private final int[] normalAttackLastHitFrame = newPerTargetFrameRegistry();
     private boolean attackHeldLastFrame = false;
     private boolean specialHeldLastFrame = false;
     private boolean aerialAttackActive = false;
@@ -811,19 +811,19 @@ public class Bird {
     int titmouseScoldTimer = 0;
     int titmouseScoldReuseTimer = 0;
     boolean titmouseScoldUltimate = false;
-    final boolean[] titmouseScoldHit = new boolean[4];
+    final boolean[] titmouseScoldHit = new boolean[BirdGame3.MAX_COMBATANTS];
     int titmouseBarkskipTimer = 0;
     int titmouseBarkskipReuseTimer = 0;
     int titmouseBarkskipDirection = 1;
     boolean titmouseBarkskipUltimate = false;
     boolean titmouseBarkskipRebounded = false;
-    final boolean[] titmouseBarkskipHit = new boolean[4];
+    final boolean[] titmouseBarkskipHit = new boolean[BirdGame3.MAX_COMBATANTS];
     int titmouseVaultTimer = 0;
     int titmouseVaultReuseTimer = 0;
     boolean titmouseVaultUsed = false;
     boolean titmouseVaultUltimate = false;
     boolean titmouseVaultBoosted = false;
-    final boolean[] titmouseVaultHit = new boolean[4];
+    final boolean[] titmouseVaultHit = new boolean[BirdGame3.MAX_COMBATANTS];
     int titmouseStashReuseTimer = 0;
     boolean titmouseStashCharging = false;
     int titmouseStashHoldFrames = 0;
@@ -882,12 +882,12 @@ public class Bird {
     int vultureGlideTimer = 0;
     int vultureGlideDirection = 1;
     boolean vultureGlideUltimate = false;
-    final boolean[] vultureGlideHit = new boolean[4];
+    final boolean[] vultureGlideHit = new boolean[BirdGame3.MAX_COMBATANTS];
     int vultureSideReuseTimer = 0;
     int vultureThermalTimer = 0;
     boolean vultureThermalUltimate = false;
     boolean vultureUpSpecialUsed = false;
-    final int[] vultureThermalHitCooldown = new int[4];
+    final int[] vultureThermalHitCooldown = new int[BirdGame3.MAX_COMBATANTS];
     VultureBait vultureBait = null;
     int vultureDownReuseTimer = 0;
     int vultureBlackSkyTimer = 0;
@@ -895,7 +895,7 @@ public class Bird {
     int vultureBlackSkyCrowsSpawned = 0;
     int vultureBlackSkyWaveIndex = 0;
     boolean vultureBlackSkyFinalHit = false;
-    final boolean[] vultureBlackSkyHit = new boolean[4];
+    final boolean[] vultureBlackSkyHit = new boolean[BirdGame3.MAX_COMBATANTS];
     int nullRockLaserTimer = 0;
     int nullRockLaserTargetIndex = -1;
     double nullRockLaserTargetX = 0.0;
@@ -965,11 +965,11 @@ public class Bird {
     int opiumSideReuseTimer = 0;
     int opiumSideDirection = 1;
     boolean opiumSideFueled = false;
-    final boolean[] opiumSideHit = new boolean[4];
+    final boolean[] opiumSideHit = new boolean[BirdGame3.MAX_COMBATANTS];
     int opiumUpTimer = 0;
     boolean opiumUpSpecialUsed = false;
     boolean opiumUpFueled = false;
-    final boolean[] opiumUpHit = new boolean[4];
+    final boolean[] opiumUpHit = new boolean[BirdGame3.MAX_COMBATANTS];
     int opiumDownReuseTimer = 0;
     final ArrayList<OpiumTrap> opiumTraps = new ArrayList<>();
     int opiumUltimateTimer = 0;
@@ -984,7 +984,7 @@ public class Bird {
     double heisenUltimateVolleyTargetX = 0.0;
     double heisenUltimateVolleyTargetY = 0.0;
     boolean heisenUltimateVolleyHit = false;
-    final int[] heisenUltimateOrbitHitCooldown = new int[4];
+    final int[] heisenUltimateOrbitHitCooldown = new int[BirdGame3.MAX_COMBATANTS];
     final boolean[] heisenUltimateShardLaunched = new boolean[HEISEN_ULTIMATE_SHARD_COUNT];
     final boolean[] heisenUltimateShardSpent = new boolean[HEISEN_ULTIMATE_SHARD_COUNT];
     final double[] heisenUltimateShardX = new double[HEISEN_ULTIMATE_SHARD_COUNT];
@@ -1004,7 +1004,7 @@ public class Bird {
     public boolean eagleDiveActive = false;
     public boolean eagleAscentActive = false;
     public int eagleAscentFrames = 0;
-    final boolean[] eagleAscentHit = new boolean[4];
+    final boolean[] eagleAscentHit = new boolean[BirdGame3.MAX_COMBATANTS];
     public int bladeStormFrames = 0;
     static final int RAZORBILL_DASH_FRAMES = 20;
     static final int RAZORBILL_DASH_STARTUP_FRAMES = 4;
@@ -1027,13 +1027,13 @@ public class Bird {
     static final int RAZORBILL_GUILLOTINE_WAKE_FRAMES = 150;
     double razorbillDashVX = 0.0;
     double razorbillDashVY = 0.0;
-    final boolean[] razorbillDashHit = new boolean[4];
+    final boolean[] razorbillDashHit = new boolean[BirdGame3.MAX_COMBATANTS];
     int razorbillStormTimer = 0;
     int razorbillStormHoldFrames = 0;
     int razorbillStormReuseTimer = 0;
     boolean razorbillStormUltimate = false;
     boolean razorbillStormReleased = false;
-    final int[] razorbillStormHitCooldown = new int[4];
+    final int[] razorbillStormHitCooldown = new int[BirdGame3.MAX_COMBATANTS];
     int razorbillSideReuseTimer = 0;
     boolean razorbillSideSpecialUsed = false;
     boolean razorbillSideUltimate = false;
@@ -1041,7 +1041,7 @@ public class Bird {
     int razorbillShearDirection = 1;
     boolean razorbillShearUltimate = false;
     boolean razorbillUpSpecialUsed = false;
-    final boolean[] razorbillShearHit = new boolean[4];
+    final boolean[] razorbillShearHit = new boolean[BirdGame3.MAX_COMBATANTS];
     int razorbillCounterTimer = 0;
     int razorbillCounterReuseTimer = 0;
     int razorbillCounterWhiffTimer = 0;
@@ -1064,8 +1064,8 @@ public class Bird {
     double razorbillGuillotineWakeX1 = 0.0;
     double razorbillGuillotineWakeX2 = 0.0;
     double razorbillGuillotineWakeY = 0.0;
-    final int[] razorbillGuillotineHitCooldown = new int[4];
-    final int[] razorbillGuillotineWakeHitCooldown = new int[4];
+    final int[] razorbillGuillotineHitCooldown = new int[BirdGame3.MAX_COMBATANTS];
+    final int[] razorbillGuillotineWakeHitCooldown = new int[BirdGame3.MAX_COMBATANTS];
     public int plungeTimer = 0;
     private static final int PELICAN_CARGO_MAX = 2;
     static final int PELICAN_NEUTRAL_FRAMES = 14;
@@ -1090,18 +1090,18 @@ public class Bird {
     int pelicanNeutralTimer = 0;
     int pelicanNeutralReuseTimer = 0;
     boolean pelicanNeutralUltimate = false;
-    final boolean[] pelicanNeutralHit = new boolean[4];
+    final boolean[] pelicanNeutralHit = new boolean[BirdGame3.MAX_COMBATANTS];
     int pelicanSideTimer = 0;
     int pelicanSideReuseTimer = 0;
     int pelicanSideDirection = 1;
     int pelicanSideCargoSpent = 0;
     boolean pelicanSideUltimate = false;
-    final boolean[] pelicanSideHit = new boolean[4];
+    final boolean[] pelicanSideHit = new boolean[BirdGame3.MAX_COMBATANTS];
     int pelicanUpTimer = 0;
     boolean pelicanUpSpecialUsed = false;
     boolean pelicanUpUltimate = false;
     boolean pelicanKeelDiveActive = false;
-    final boolean[] pelicanUpHit = new boolean[4];
+    final boolean[] pelicanUpHit = new boolean[BirdGame3.MAX_COMBATANTS];
     boolean pelicanDownCharging = false;
     int pelicanDownHoldFrames = 0;
     int pelicanDownReuseTimer = 0;
@@ -1117,7 +1117,7 @@ public class Bird {
     double pelicanMaelstromX = 0.0;
     double pelicanMaelstromY = 0.0;
     int pelicanMaelstromGeyserFxTimer = 0;
-    final boolean[] pelicanMaelstromFinalHit = new boolean[4];
+    final boolean[] pelicanMaelstromFinalHit = new boolean[BirdGame3.MAX_COMBATANTS];
     public boolean batHanging = false;
     private Platform batHangPlatform = null;
     public int batEchoTimer = 0;
@@ -1215,12 +1215,12 @@ public class Bird {
     private double ravenSideStartY = 0.0;
     private double ravenSideEndX = 0.0;
     private double ravenSideEndY = 0.0;
-    final boolean[] ravenSideHit = new boolean[4];
+    final boolean[] ravenSideHit = new boolean[BirdGame3.MAX_COMBATANTS];
     int ravenLiftTimer = 0;
     boolean ravenLiftUsed = false;
     boolean ravenLiftUltimate = false;
     boolean ravenLiftSnapped = false;
-    final boolean[] ravenLiftHit = new boolean[4];
+    final boolean[] ravenLiftHit = new boolean[BirdGame3.MAX_COMBATANTS];
     int ravenDownReuseTimer = 0;
     int ravenUltimateWindupTimer = 0;
     int ravenUltimateFlockTimer = 0;
@@ -1259,34 +1259,34 @@ public class Bird {
     boolean gooseHonkUltimate = false;
     boolean gooseHonkEmpowered = false;
     boolean gooseHonkReleased = false;
-    final boolean[] gooseHonkHit = new boolean[4];
+    final boolean[] gooseHonkHit = new boolean[BirdGame3.MAX_COMBATANTS];
     int gooseBargeTimer = 0;
     int gooseBargeDirection = 1;
     int gooseBargeReuseTimer = 0;
     boolean gooseBargeUltimate = false;
     boolean gooseBargeEmpowered = false;
-    final boolean[] gooseBargeHit = new boolean[4];
+    final boolean[] gooseBargeHit = new boolean[BirdGame3.MAX_COMBATANTS];
     int gooseLiftTimer = 0;
     int gooseLiftDirection = 1;
     int gooseLiftReuseTimer = 0;
     boolean gooseLiftUsed = false;
     boolean gooseLiftUltimate = false;
     boolean gooseLiftEmpowered = false;
-    final boolean[] gooseLiftHit = new boolean[4];
+    final boolean[] gooseLiftHit = new boolean[BirdGame3.MAX_COMBATANTS];
     int gooseNestGuardTimer = 0;
     int gooseNestReuseTimer = 0;
     int gooseNestCounterTimer = 0;
     boolean gooseNestGuardUltimate = false;
     boolean gooseNestCounterUltimate = false;
     boolean gooseNestEmpowered = false;
-    final boolean[] gooseNestCounterHit = new boolean[4];
+    final boolean[] gooseNestCounterHit = new boolean[BirdGame3.MAX_COMBATANTS];
     GooseSpecials.GooseNest gooseNest = null;
     int gooseUltimateTimer = 0;
     int gooseUltimateDirection = 1;
     int gooseUltimateWaveIndex = 0;
     boolean gooseUltimateFinalHitResolved = false;
-    final boolean[] gooseUltimateMarked = new boolean[4];
-    final int[] gooseUltimateHitCooldown = new int[4];
+    final boolean[] gooseUltimateMarked = new boolean[BirdGame3.MAX_COMBATANTS];
+    final int[] gooseUltimateHitCooldown = new int[BirdGame3.MAX_COMBATANTS];
 
     // === KIWI ===
     static final int KIWI_PROBE_FRAMES = 22;
@@ -1303,29 +1303,29 @@ public class Bird {
     int kiwiProbeReuseTimer = 0;
     int kiwiProbeDirection = 1;
     int kiwiProbeStrikeIndex = 0;
-    final boolean[] kiwiProbeHit = new boolean[4];
+    final boolean[] kiwiProbeHit = new boolean[BirdGame3.MAX_COMBATANTS];
     int kiwiBurrowTimer = 0;
     int kiwiBurrowReuseTimer = 0;
     int kiwiBurrowDirection = 1;
     boolean kiwiBurrowGrounded = false;
     boolean kiwiBurrowErupted = false;
-    final boolean[] kiwiBurrowHit = new boolean[4];
+    final boolean[] kiwiBurrowHit = new boolean[BirdGame3.MAX_COMBATANTS];
     int kiwiSpringTimer = 0;
     int kiwiSpringReuseTimer = 0;
     int kiwiSpringDirection = 1;
     boolean kiwiSpringUsed = false;
-    final boolean[] kiwiSpringHit = new boolean[4];
+    final boolean[] kiwiSpringHit = new boolean[BirdGame3.MAX_COMBATANTS];
     int kiwiStompTimer = 0;
     int kiwiStompReuseTimer = 0;
     boolean kiwiStompAirborne = false;
     boolean kiwiStompImpactResolved = false;
     int kiwiStompImpactFxTimer = 0;
-    final boolean[] kiwiStompHit = new boolean[4];
+    final boolean[] kiwiStompHit = new boolean[BirdGame3.MAX_COMBATANTS];
     int kiwiUltimateTimer = 0;
     int kiwiUltimateDirection = 1;
     int kiwiUltimateWaveIndex = 0;
     boolean kiwiUltimateFinalResolved = false;
-    final int[] kiwiUltimateHitCooldown = new int[4];
+    final int[] kiwiUltimateHitCooldown = new int[BirdGame3.MAX_COMBATANTS];
     private boolean ledgeHanging = false;
     private Platform ledgePlatform = null;
     private boolean ledgeGrabOnRightSide = false;
@@ -1449,7 +1449,7 @@ public class Bird {
     private int ultimateFxTimer = 0;
     int roadrunnerSandstormTimer = 0;
     int roadrunnerSandGustTimer = 0;
-    final int[] roadrunnerSandHitCooldown = new int[4];
+    final int[] roadrunnerSandHitCooldown = new int[BirdGame3.MAX_COMBATANTS];
     int pigeonFeatherBurstTimer = 0;
     boolean pigeonFeatherCharging = false;
     int pigeonFeatherChargeFrames = 0;
@@ -1458,16 +1458,16 @@ public class Bird {
     int pigeonRushTimer = 0;
     boolean pigeonRushGrounded = false;
     boolean pigeonRushUltimate = false;
-    final boolean[] pigeonRushHit = new boolean[4];
+    final boolean[] pigeonRushHit = new boolean[BirdGame3.MAX_COMBATANTS];
     int pigeonFlutterTimer = 0;
     boolean pigeonFlutterUltimate = false;
-    final boolean[] pigeonFlutterHit = new boolean[4];
+    final boolean[] pigeonFlutterHit = new boolean[BirdGame3.MAX_COMBATANTS];
     int pigeonScavengeTimer = 0;
     int pigeonScavengeHoldFrames = 0;
     boolean pigeonScavengeAirborne = false;
     boolean pigeonScavengeUltimate = false;
     boolean pigeonScavengeResolved = false;
-    final int[] pigeonScavengeHitCooldown = new int[4];
+    final int[] pigeonScavengeHitCooldown = new int[BirdGame3.MAX_COMBATANTS];
     boolean pigeonUpSpecialUsed = false;
     // Retain the legacy field names because they are part of the LAN state wire format.
     // They now carry Pigeon's Skyward Seed Wave state rather than Rooftop Coronation.
@@ -1477,8 +1477,8 @@ public class Bird {
     double pigeonCoronationY = 0.0;
     boolean pigeonCoronationFinalResolved = false;
     boolean pigeonCoronationStayedInside = false;
-    final int[] pigeonCoronationTickCooldown = new int[4];
-    final boolean[] pigeonCoronationFinalHit = new boolean[4];
+    final int[] pigeonCoronationTickCooldown = new int[BirdGame3.MAX_COMBATANTS];
+    final boolean[] pigeonCoronationFinalHit = new boolean[BirdGame3.MAX_COMBATANTS];
     int raptorCryTimer = 0;
     boolean raptorCryUltimate = false;
     boolean raptorEggCharging = false;
@@ -1499,11 +1499,11 @@ public class Bird {
     double raptorRushChargeRatio = 0.0;
     boolean raptorRushGrounded = false;
     int raptorRushDirection = 1;
-    final boolean[] raptorRushHit = new boolean[4];
+    final boolean[] raptorRushHit = new boolean[BirdGame3.MAX_COMBATANTS];
     int raptorClimbTimer = 0;
     boolean raptorClimbUltimate = false;
     int raptorClimbDirection = 1;
-    final boolean[] raptorClimbHit = new boolean[4];
+    final boolean[] raptorClimbHit = new boolean[BirdGame3.MAX_COMBATANTS];
     int raptorCryReuseTimer = 0;
     int raptorRushReuseTimer = 0;
     boolean raptorUpSpecialUsed = false;
@@ -1514,7 +1514,7 @@ public class Bird {
     double eagleSkySovereignTargetY = 0.0;
     double eagleSkySovereignDiveStartY = 0.0;
     boolean eagleSkySovereignHitResolved = false;
-    final boolean[] eagleSkySovereignHit = new boolean[4];
+    final boolean[] eagleSkySovereignHit = new boolean[BirdGame3.MAX_COMBATANTS];
     boolean falconTerminalVelocityActive = false;
     boolean falconTerminalVelocityStriking = false;
     boolean falconTerminalVelocityHitAny = false;
@@ -1524,7 +1524,7 @@ public class Bird {
     double falconTerminalVelocityStartY = 0.0;
     double falconTerminalVelocityEndX = 0.0;
     double falconTerminalVelocityEndY = 0.0;
-    final boolean[] falconTerminalVelocityHit = new boolean[4];
+    final boolean[] falconTerminalVelocityHit = new boolean[BirdGame3.MAX_COMBATANTS];
 
     // === NECTAR BOOST (Jungle) ===
     public double speedBoostTimer = 0;
@@ -1559,7 +1559,7 @@ public class Bird {
     int mockingbirdMicChargeFrames = 0;
     int mockingbirdMicSwingTimer = 0;
     int mockingbirdMicDirection = 1;
-    final boolean[] mockingbirdMicHit = new boolean[4];
+    final boolean[] mockingbirdMicHit = new boolean[BirdGame3.MAX_COMBATANTS];
     int mockingbirdUpFxTimer = 0;
     int mockingbirdUpReuseTimer = 0;
     boolean mockingbirdUpSpecialUsed = false;
@@ -1912,22 +1912,22 @@ public class Bird {
     static final int SHOEBILL_FINAL_STILLNESS_BEAM_FRAMES = 30;
     double penguinIceFxTimer = 0;
     int penguinDashDamageTimer = 0;
-    final boolean[] penguinDashHit = new boolean[4];
+    final boolean[] penguinDashHit = new boolean[BirdGame3.MAX_COMBATANTS];
     boolean penguinBellyCharging = false;
     int penguinBellyChargeFrames = 0;
     int penguinBellySlideTimer = 0;
     int penguinBellyReuseTimer = 0;
     int penguinBellyDirection = 1;
     boolean penguinBellyUltimate = false;
-    final boolean[] penguinBellyHit = new boolean[4];
+    final boolean[] penguinBellyHit = new boolean[BirdGame3.MAX_COMBATANTS];
     int penguinIcebergReuseTimer = 0;
     final ArrayList<PenguinIceObject> penguinIceObjects = new ArrayList<>();
     int penguinRocketTimer = 0;
     int penguinFlopTimer = 0;
     boolean penguinRocketUltimate = false;
     boolean penguinUpSpecialUsed = false;
-    final boolean[] penguinRocketHit = new boolean[4];
-    final boolean[] penguinFlopHit = new boolean[4];
+    final boolean[] penguinRocketHit = new boolean[BirdGame3.MAX_COMBATANTS];
+    final boolean[] penguinFlopHit = new boolean[BirdGame3.MAX_COMBATANTS];
     int penguinSnowFortReuseTimer = 0;
     PenguinSnowFort penguinSnowFort = null;
     int penguinFortGuardFxTimer = 0;
@@ -1942,18 +1942,18 @@ public class Bird {
     int shoebillThrustReuseTimer = 0;
     int shoebillThrustDirection = 1;
     boolean shoebillThrustUltimate = false;
-    final boolean[] shoebillThrustHit = new boolean[4];
+    final boolean[] shoebillThrustHit = new boolean[BirdGame3.MAX_COMBATANTS];
     int shoebillMarshLiftTimer = 0;
     boolean shoebillMarshLiftUltimate = false;
     boolean shoebillUpSpecialUsed = false;
-    final boolean[] shoebillMarshLiftHit = new boolean[4];
+    final boolean[] shoebillMarshLiftHit = new boolean[BirdGame3.MAX_COMBATANTS];
     int shoebillStatueTimer = 0;
     int shoebillStatueReuseTimer = 0;
     boolean shoebillStatueUltimate = false;
     boolean shoebillStatueCountered = false;
     int shoebillCounterBurstTimer = 0;
     boolean shoebillCounterBurstUltimate = false;
-    final boolean[] shoebillCounterHit = new boolean[4];
+    final boolean[] shoebillCounterHit = new boolean[BirdGame3.MAX_COMBATANTS];
     int shoebillFinalStillnessTimer = 0;
     int shoebillFinalStillnessTargetIndex = -1;
     double shoebillFinalStillnessStatueX = 0.0;
@@ -1982,7 +1982,7 @@ public class Bird {
     double hummingFrenzyLastStartY = 0.0;
     double hummingFrenzyLastEndX = 0.0;
     double hummingFrenzyLastEndY = 0.0;
-    final int[] hummingFrenzyHitCooldown = new int[4];
+    final int[] hummingFrenzyHitCooldown = new int[BirdGame3.MAX_COMBATANTS];
     static final int HUMMING_NEEDLE_COMBO_WINDOW_FRAMES = 96;
     static final int HUMMING_NEEDLE_ACTIVE_FRAMES = 8;
     static final int HUMMING_NEEDLE_REUSE_FRAMES = 12;
@@ -1999,12 +1999,12 @@ public class Bird {
     int hummingNeedleReuseTimer = 0;
     int hummingNeedleDirection = 1;
     boolean hummingNeedleUltimate = false;
-    final boolean[] hummingNeedleHit = new boolean[4];
+    final boolean[] hummingNeedleHit = new boolean[BirdGame3.MAX_COMBATANTS];
     int hummingFlashSipTimer = 0;
     int hummingFlashSipReuseTimer = 0;
     int hummingFlashSipDirection = 1;
     boolean hummingFlashSipUltimate = false;
-    final boolean[] hummingFlashSipHit = new boolean[4];
+    final boolean[] hummingFlashSipHit = new boolean[BirdGame3.MAX_COMBATANTS];
     int hummingHoverBurstTimer = 0;
     int hummingHoverBurstReuseTimer = 0;
     boolean hummingHoverBurstUltimate = false;
@@ -2036,18 +2036,18 @@ public class Bird {
     boolean turkeyGobbleCharging = false;
     boolean turkeyGobbleUltimate = false;
     boolean turkeyGobbleCountered = false;
-    final boolean[] turkeyGobbleHit = new boolean[4];
+    final boolean[] turkeyGobbleHit = new boolean[BirdGame3.MAX_COMBATANTS];
     int turkeyStampedeTimer = 0;
     int turkeyStampedeHoldFrames = 0;
     int turkeyStampedeReuseTimer = 0;
     int turkeyStampedeDirection = 1;
     boolean turkeyStampedeUltimate = false;
-    final int[] turkeyStampedeHitCooldown = new int[4];
+    final int[] turkeyStampedeHitCooldown = new int[BirdGame3.MAX_COMBATANTS];
     int turkeyPanicFlapTimer = 0;
     int turkeyPanicFlapReuseTimer = 0;
     boolean turkeyPanicFlapUltimate = false;
     boolean turkeyPanicFlapUsed = false;
-    final boolean[] turkeyPanicFlapHit = new boolean[4];
+    final boolean[] turkeyPanicFlapHit = new boolean[BirdGame3.MAX_COMBATANTS];
     int turkeyFeastTrapReuseTimer = 0;
     int turkeyStuffedTimer = 0;
     int turkeyStuffedOwnerIndex = -1;
@@ -2057,7 +2057,7 @@ public class Bird {
     double turkeyHarvestTribunalX = 0.0;
     double turkeyHarvestTribunalY = 0.0;
     boolean turkeyHarvestTribunalFinalResolved = false;
-    final boolean[] turkeyHarvestTribunalFinalHit = new boolean[4];
+    final boolean[] turkeyHarvestTribunalFinalHit = new boolean[BirdGame3.MAX_COMBATANTS];
     double roadrunnerMomentum = 0.0;
     int roadrunnerMomentumFxTimer = 0;
     int roadrunnerMomentumGraceTimer = 0;
@@ -2068,18 +2068,18 @@ public class Bird {
     int roadrunnerBeepReuseTimer = 0;
     int roadrunnerBeepDirection = 1;
     boolean roadrunnerBeepUltimate = false;
-    final boolean[] roadrunnerBeepHit = new boolean[4];
+    final boolean[] roadrunnerBeepHit = new boolean[BirdGame3.MAX_COMBATANTS];
     int roadrunnerRicochetTimer = 0;
     int roadrunnerRicochetReuseTimer = 0;
     int roadrunnerRicochetDirection = 1;
     int roadrunnerRicochetBounces = 0;
     double roadrunnerRicochetSpeed = 0.0;
     boolean roadrunnerRicochetUltimate = false;
-    final int[] roadrunnerRicochetHitCooldown = new int[4];
+    final int[] roadrunnerRicochetHitCooldown = new int[BirdGame3.MAX_COMBATANTS];
     int roadrunnerDustDevilTimer = 0;
     boolean roadrunnerDustDevilUsed = false;
     boolean roadrunnerDustDevilUltimate = false;
-    final boolean[] roadrunnerDustDevilHit = new boolean[4];
+    final boolean[] roadrunnerDustDevilHit = new boolean[BirdGame3.MAX_COMBATANTS];
     int roadrunnerPaintedRoadReuseTimer = 0;
     int roadrunnerRoadBoostTimer = 0;
     final ArrayList<RoadrunnerPaintedRoad> roadrunnerPaintedRoads = new ArrayList<>();
@@ -2103,7 +2103,7 @@ public class Bird {
     double roadrunnerRedlineLastStartY = 0.0;
     double roadrunnerRedlineLastEndX = 0.0;
     double roadrunnerRedlineLastEndY = 0.0;
-    final boolean[] roadrunnerRedlineCaught = new boolean[4];
+    final boolean[] roadrunnerRedlineCaught = new boolean[BirdGame3.MAX_COMBATANTS];
     static final int GRINCH_HEART_SNATCH_FRAMES = 18;
     static final int GRINCH_HEART_SNATCH_STARTUP_FRAMES = 5;
     static final int GRINCH_HEART_SNATCH_ACTIVE_FRAMES = 2;
@@ -2120,7 +2120,7 @@ public class Bird {
     static final int GRINCH_MIDNIGHT_GIFTSTORM_FINAL_ACTIVE_FRAMES = 18;
     int grinchHeartSnatchTimer = 0;
     boolean grinchHeartSnatchUltimate = false;
-    final boolean[] grinchHeartSnatchHit = new boolean[4];
+    final boolean[] grinchHeartSnatchHit = new boolean[BirdGame3.MAX_COMBATANTS];
     boolean grinchSleighActive = false;
     boolean grinchSleighRiding = false;
     int grinchSleighTimer = 0;
@@ -2128,11 +2128,11 @@ public class Bird {
     double grinchSleighX = 0.0;
     double grinchSleighY = 0.0;
     boolean grinchSleighUltimate = false;
-    final boolean[] grinchSleighHit = new boolean[4];
+    final boolean[] grinchSleighHit = new boolean[BirdGame3.MAX_COMBATANTS];
     int grinchChimneyFlapTimer = 0;
     boolean grinchChimneyFlapUltimate = false;
     boolean grinchUpSpecialUsed = false;
-    final boolean[] grinchChimneyFlapHit = new boolean[4];
+    final boolean[] grinchChimneyFlapHit = new boolean[BirdGame3.MAX_COMBATANTS];
     GrinchPresent grinchPresent = null;
     int grinchGiftstormTimer = 0;
     int grinchGiftstormDropIndex = 0;
@@ -2148,7 +2148,7 @@ public class Bird {
     double grinchGiftstormLastDropY = 0.0;
     int grinchGiftstormLastDropKind = 0;
     int grinchGiftstormDropFxTimer = 0;
-    final boolean[] grinchGiftstormFinalHit = new boolean[4];
+    final boolean[] grinchGiftstormFinalHit = new boolean[BirdGame3.MAX_COMBATANTS];
     static final int ROOSTER_MAX_CHICKS = 5;
     static final int ROOSTER_STARTING_CHICKS = 3;
     static final int ROOSTER_NEUTRAL_REUSE_FRAMES = 34;
@@ -2162,11 +2162,11 @@ public class Bird {
     int roosterCommandFxKind = 0;
     boolean roosterUpSpecialUsed = false;
     int phoenixAfterburnTimer = 0;
-    final int[] phoenixAfterburnHitCooldown = new int[4];
+    final int[] phoenixAfterburnHitCooldown = new int[BirdGame3.MAX_COMBATANTS];
     int phoenixRebirthNovaTimer = 0;
     boolean phoenixRebirthNovaDetonated = false;
     int phoenixRebirthNovaBuffTimer = 0;
-    final boolean[] phoenixRebirthNovaHit = new boolean[4];
+    final boolean[] phoenixRebirthNovaHit = new boolean[BirdGame3.MAX_COMBATANTS];
     private boolean phoenixRebornUsed = false;
     private boolean phoenixRebornActive = false;
     private static final double PHOENIX_REBORN_HEALTH = 20.0;
@@ -2179,7 +2179,7 @@ public class Bird {
         final double x;
         final double targetY;
         final boolean ultimate;
-        final int[] hitCooldown = new int[4];
+        final int[] hitCooldown = new int[BirdGame3.MAX_COMBATANTS];
         double y;
         double vy;
         boolean landed;
@@ -2200,7 +2200,7 @@ public class Bird {
         final double x;
         final double y;
         final boolean ultimate;
-        final int[] hitCooldown = new int[4];
+        final int[] hitCooldown = new int[BirdGame3.MAX_COMBATANTS];
         int lifeFrames;
         int ageFrames;
 
@@ -2217,7 +2217,7 @@ public class Bird {
         final double y;
         final boolean heisen;
         final boolean ultimate;
-        final int[] hitCooldown = new int[4];
+        final int[] hitCooldown = new int[BirdGame3.MAX_COMBATANTS];
         int lifeFrames;
         int ageFrames;
 
@@ -2255,7 +2255,7 @@ public class Bird {
         final double y;
         final int direction;
         final boolean ultimate;
-        final int[] hitCooldown = new int[4];
+        final int[] hitCooldown = new int[BirdGame3.MAX_COMBATANTS];
         int lifeFrames;
         int ageFrames;
         int ownerBoostCooldown;
@@ -2331,7 +2331,7 @@ public class Bird {
         final int direction;
         final boolean ultimate;
         final boolean snowball;
-        final int[] hitCooldown = new int[4];
+        final int[] hitCooldown = new int[BirdGame3.MAX_COMBATANTS];
         int lifeFrames;
         int ageFrames;
         boolean shattered;
@@ -2361,7 +2361,7 @@ public class Bird {
         final double y;
         final int direction;
         final boolean ultimate;
-        final int[] hitCooldown = new int[4];
+        final int[] hitCooldown = new int[BirdGame3.MAX_COMBATANTS];
         int health;
         int lifeFrames;
         int ageFrames;
@@ -2419,7 +2419,7 @@ public class Bird {
         int ageFrames;
         boolean ultimate;
         boolean swapped;
-        final boolean[] hit = new boolean[4];
+        final boolean[] hit = new boolean[BirdGame3.MAX_COMBATANTS];
 
         RavenDecoy(double x, double y, boolean ultimate) {
             this.x = x;
@@ -2487,14 +2487,14 @@ public class Bird {
     int phoenixSpiralTimer = 0;
     boolean phoenixSpiralUsed = false;
     boolean phoenixSpiralUltimate = false;
-    final int[] phoenixSpiralHitCooldown = new int[4];
+    final int[] phoenixSpiralHitCooldown = new int[BirdGame3.MAX_COMBATANTS];
     int phoenixLavaTimer = 0;
     double phoenixLavaX = 0;
     double phoenixLavaY = 0;
     boolean phoenixLavaUltimate = false;
     boolean phoenixLavaAirborne = false;
     int phoenixLavaHoldFrames = 0;
-    final boolean[] phoenixLavaHitCooldown = new boolean[4];
+    final boolean[] phoenixLavaHitCooldown = new boolean[BirdGame3.MAX_COMBATANTS];
     private static final double BASE_BODY_SIZE = 80.0;
     private static final double NULL_ROCK_VISIBLE_VOID_MARGIN = 80.0;
     private static final double NULL_ROCK_COMBAT_HALF_WIDTH = 58.0;
@@ -5744,6 +5744,12 @@ public class Bird {
         if (lastHitFrame < 0) return true;
         return timeline.rehitIntervalFrames() > 0
                 && normalAttackTimelineFrame - lastHitFrame >= timeline.rehitIntervalFrames();
+    }
+
+    private static int[] newPerTargetFrameRegistry() {
+        int[] frames = new int[BirdGame3.MAX_COMBATANTS];
+        Arrays.fill(frames, -1);
+        return frames;
     }
 
     private void markNormalAttackTargetHit(Bird target) {
@@ -21801,7 +21807,7 @@ public class Bird {
         state.mockingbirdMicChargeFrames = mockingbirdMicChargeFrames;
         state.mockingbirdMicSwingTimer = mockingbirdMicSwingTimer;
         state.mockingbirdMicDirection = mockingbirdMicDirection;
-        state.mockingbirdMicHit = Arrays.copyOf(mockingbirdMicHit, mockingbirdMicHit.length);
+        state.mockingbirdMicHit = Arrays.copyOf(mockingbirdMicHit, state.mockingbirdMicHit.length);
         state.mockingbirdUpFxTimer = mockingbirdUpFxTimer;
         state.mockingbirdUpReuseTimer = mockingbirdUpReuseTimer;
         state.mockingbirdUpSpecialUsed = mockingbirdUpSpecialUsed;
@@ -21841,7 +21847,8 @@ public class Bird {
         state.vultureBlackSkyCrowsSpawned = vultureBlackSkyCrowsSpawned;
         state.vultureBlackSkyWaveIndex = vultureBlackSkyWaveIndex;
         state.vultureBlackSkyFinalHit = vultureBlackSkyFinalHit;
-        System.arraycopy(vultureBlackSkyHit, 0, state.vultureBlackSkyHit, 0, vultureBlackSkyHit.length);
+        System.arraycopy(vultureBlackSkyHit, 0, state.vultureBlackSkyHit, 0,
+                Math.min(vultureBlackSkyHit.length, state.vultureBlackSkyHit.length));
         state.leanTimer = leanTimer;
         state.leanCooldown = leanCooldown;
         state.isHigh = isHigh;
@@ -21853,11 +21860,13 @@ public class Bird {
         state.opiumSideReuseTimer = opiumSideReuseTimer;
         state.opiumSideDirection = opiumSideDirection;
         state.opiumSideFueled = opiumSideFueled;
-        System.arraycopy(opiumSideHit, 0, state.opiumSideHit, 0, opiumSideHit.length);
+        System.arraycopy(opiumSideHit, 0, state.opiumSideHit, 0,
+                Math.min(opiumSideHit.length, state.opiumSideHit.length));
         state.opiumUpTimer = opiumUpTimer;
         state.opiumUpSpecialUsed = opiumUpSpecialUsed;
         state.opiumUpFueled = opiumUpFueled;
-        System.arraycopy(opiumUpHit, 0, state.opiumUpHit, 0, opiumUpHit.length);
+        System.arraycopy(opiumUpHit, 0, state.opiumUpHit, 0,
+                Math.min(opiumUpHit.length, state.opiumUpHit.length));
         state.opiumDownReuseTimer = opiumDownReuseTimer;
         state.opiumUltimateTimer = opiumUltimateTimer;
         state.opiumUltimateCollapsePending = opiumUltimateCollapsePending;
@@ -21890,7 +21899,8 @@ public class Bird {
         state.razorbillStormReuseTimer = razorbillStormReuseTimer;
         state.razorbillStormUltimate = razorbillStormUltimate;
         state.razorbillStormReleased = razorbillStormReleased;
-        System.arraycopy(razorbillStormHitCooldown, 0, state.razorbillStormHitCooldown, 0, razorbillStormHitCooldown.length);
+        System.arraycopy(razorbillStormHitCooldown, 0, state.razorbillStormHitCooldown, 0,
+                Math.min(razorbillStormHitCooldown.length, state.razorbillStormHitCooldown.length));
         state.razorbillSideReuseTimer = razorbillSideReuseTimer;
         state.razorbillSideSpecialUsed = razorbillSideSpecialUsed;
         state.razorbillSideUltimate = razorbillSideUltimate;
@@ -21921,26 +21931,30 @@ public class Bird {
         state.razorbillGuillotineWakeX2 = razorbillGuillotineWakeX2;
         state.razorbillGuillotineWakeY = razorbillGuillotineWakeY;
         System.arraycopy(razorbillGuillotineHitCooldown, 0, state.razorbillGuillotineHitCooldown, 0,
-                razorbillGuillotineHitCooldown.length);
+                Math.min(razorbillGuillotineHitCooldown.length, state.razorbillGuillotineHitCooldown.length));
         System.arraycopy(razorbillGuillotineWakeHitCooldown, 0, state.razorbillGuillotineWakeHitCooldown, 0,
-                razorbillGuillotineWakeHitCooldown.length);
+                Math.min(razorbillGuillotineWakeHitCooldown.length,
+                        state.razorbillGuillotineWakeHitCooldown.length));
         state.plungeTimer = plungeTimer;
         state.pelicanCargoCount = pelicanCargoCount;
         state.pelicanNeutralTimer = pelicanNeutralTimer;
         state.pelicanNeutralReuseTimer = pelicanNeutralReuseTimer;
         state.pelicanNeutralUltimate = pelicanNeutralUltimate;
-        System.arraycopy(pelicanNeutralHit, 0, state.pelicanNeutralHit, 0, pelicanNeutralHit.length);
+        System.arraycopy(pelicanNeutralHit, 0, state.pelicanNeutralHit, 0,
+                Math.min(pelicanNeutralHit.length, state.pelicanNeutralHit.length));
         state.pelicanSideTimer = pelicanSideTimer;
         state.pelicanSideReuseTimer = pelicanSideReuseTimer;
         state.pelicanSideDirection = pelicanSideDirection;
         state.pelicanSideCargoSpent = pelicanSideCargoSpent;
         state.pelicanSideUltimate = pelicanSideUltimate;
-        System.arraycopy(pelicanSideHit, 0, state.pelicanSideHit, 0, pelicanSideHit.length);
+        System.arraycopy(pelicanSideHit, 0, state.pelicanSideHit, 0,
+                Math.min(pelicanSideHit.length, state.pelicanSideHit.length));
         state.pelicanUpTimer = pelicanUpTimer;
         state.pelicanUpSpecialUsed = pelicanUpSpecialUsed;
         state.pelicanUpUltimate = pelicanUpUltimate;
         state.pelicanKeelDiveActive = pelicanKeelDiveActive;
-        System.arraycopy(pelicanUpHit, 0, state.pelicanUpHit, 0, pelicanUpHit.length);
+        System.arraycopy(pelicanUpHit, 0, state.pelicanUpHit, 0,
+                Math.min(pelicanUpHit.length, state.pelicanUpHit.length));
         state.pelicanDownCharging = pelicanDownCharging;
         state.pelicanDownHoldFrames = pelicanDownHoldFrames;
         state.pelicanDownReuseTimer = pelicanDownReuseTimer;
@@ -21957,7 +21971,7 @@ public class Bird {
         state.pelicanMaelstromY = pelicanMaelstromY;
         state.pelicanMaelstromGeyserFxTimer = pelicanMaelstromGeyserFxTimer;
         System.arraycopy(pelicanMaelstromFinalHit, 0, state.pelicanMaelstromFinalHit, 0,
-                pelicanMaelstromFinalHit.length);
+                Math.min(pelicanMaelstromFinalHit.length, state.pelicanMaelstromFinalHit.length));
         state.batHanging = batHanging;
         state.batEchoTimer = batEchoTimer;
         state.batNeutralReuseTimer = batNeutralReuseTimer;
@@ -22129,7 +22143,8 @@ public class Bird {
         state.overchargeAttackTimer = overchargeAttackTimer;
         state.roadrunnerSandstormTimer = roadrunnerSandstormTimer;
         state.roadrunnerSandGustTimer = roadrunnerSandGustTimer;
-        System.arraycopy(roadrunnerSandHitCooldown, 0, state.roadrunnerSandHitCooldown, 0, roadrunnerSandHitCooldown.length);
+        System.arraycopy(roadrunnerSandHitCooldown, 0, state.roadrunnerSandHitCooldown, 0,
+                Math.min(roadrunnerSandHitCooldown.length, state.roadrunnerSandHitCooldown.length));
         state.roadrunnerMomentum = roadrunnerMomentum;
         state.roadrunnerMomentumFxTimer = roadrunnerMomentumFxTimer;
         state.roadrunnerMomentumGraceTimer = roadrunnerMomentumGraceTimer;
@@ -22172,11 +22187,11 @@ public class Bird {
         state.roadrunnerRedlineLastEndX = roadrunnerRedlineLastEndX;
         state.roadrunnerRedlineLastEndY = roadrunnerRedlineLastEndY;
         System.arraycopy(roadrunnerRedlineCaught, 0, state.roadrunnerRedlineCaught, 0,
-                roadrunnerRedlineCaught.length);
+                Math.min(roadrunnerRedlineCaught.length, state.roadrunnerRedlineCaught.length));
         state.grinchHeartSnatchTimer = grinchHeartSnatchTimer;
         state.grinchHeartSnatchUltimate = grinchHeartSnatchUltimate;
         System.arraycopy(grinchHeartSnatchHit, 0, state.grinchHeartSnatchHit, 0,
-                grinchHeartSnatchHit.length);
+                Math.min(grinchHeartSnatchHit.length, state.grinchHeartSnatchHit.length));
         state.grinchSleighActive = grinchSleighActive;
         state.grinchSleighRiding = grinchSleighRiding;
         state.grinchSleighTimer = grinchSleighTimer;
@@ -22184,12 +22199,13 @@ public class Bird {
         state.grinchSleighX = grinchSleighX;
         state.grinchSleighY = grinchSleighY;
         state.grinchSleighUltimate = grinchSleighUltimate;
-        System.arraycopy(grinchSleighHit, 0, state.grinchSleighHit, 0, grinchSleighHit.length);
+        System.arraycopy(grinchSleighHit, 0, state.grinchSleighHit, 0,
+                Math.min(grinchSleighHit.length, state.grinchSleighHit.length));
         state.grinchChimneyFlapTimer = grinchChimneyFlapTimer;
         state.grinchChimneyFlapUltimate = grinchChimneyFlapUltimate;
         state.grinchUpSpecialUsed = grinchUpSpecialUsed;
         System.arraycopy(grinchChimneyFlapHit, 0, state.grinchChimneyFlapHit, 0,
-                grinchChimneyFlapHit.length);
+                Math.min(grinchChimneyFlapHit.length, state.grinchChimneyFlapHit.length));
         state.grinchPresentActive = grinchPresent != null;
         if (grinchPresent != null) {
             state.grinchPresentX = grinchPresent.x;
@@ -22213,7 +22229,7 @@ public class Bird {
         state.grinchGiftstormLastDropKind = grinchGiftstormLastDropKind;
         state.grinchGiftstormDropFxTimer = grinchGiftstormDropFxTimer;
         System.arraycopy(grinchGiftstormFinalHit, 0, state.grinchGiftstormFinalHit, 0,
-                grinchGiftstormFinalHit.length);
+                Math.min(grinchGiftstormFinalHit.length, state.grinchGiftstormFinalHit.length));
         state.pigeonFeatherBurstTimer = pigeonFeatherBurstTimer;
         state.pigeonFeatherCharging = pigeonFeatherCharging;
         state.pigeonFeatherChargeFrames = pigeonFeatherChargeFrames;
@@ -22222,17 +22238,19 @@ public class Bird {
         state.pigeonRushTimer = pigeonRushTimer;
         state.pigeonRushGrounded = pigeonRushGrounded;
         state.pigeonRushUltimate = pigeonRushUltimate;
-        System.arraycopy(pigeonRushHit, 0, state.pigeonRushHit, 0, pigeonRushHit.length);
+        System.arraycopy(pigeonRushHit, 0, state.pigeonRushHit, 0,
+                Math.min(pigeonRushHit.length, state.pigeonRushHit.length));
         state.pigeonFlutterTimer = pigeonFlutterTimer;
         state.pigeonFlutterUltimate = pigeonFlutterUltimate;
-        System.arraycopy(pigeonFlutterHit, 0, state.pigeonFlutterHit, 0, pigeonFlutterHit.length);
+        System.arraycopy(pigeonFlutterHit, 0, state.pigeonFlutterHit, 0,
+                Math.min(pigeonFlutterHit.length, state.pigeonFlutterHit.length));
         state.pigeonScavengeTimer = pigeonScavengeTimer;
         state.pigeonScavengeHoldFrames = pigeonScavengeHoldFrames;
         state.pigeonScavengeAirborne = pigeonScavengeAirborne;
         state.pigeonScavengeUltimate = pigeonScavengeUltimate;
         state.pigeonScavengeResolved = pigeonScavengeResolved;
         System.arraycopy(pigeonScavengeHitCooldown, 0, state.pigeonScavengeHitCooldown, 0,
-                pigeonScavengeHitCooldown.length);
+                Math.min(pigeonScavengeHitCooldown.length, state.pigeonScavengeHitCooldown.length));
         state.pigeonUpSpecialUsed = pigeonUpSpecialUsed;
         state.pigeonCoronationActive = pigeonCoronationActive;
         state.pigeonCoronationTimer = pigeonCoronationTimer;
@@ -22241,9 +22259,9 @@ public class Bird {
         state.pigeonCoronationFinalResolved = pigeonCoronationFinalResolved;
         state.pigeonCoronationStayedInside = pigeonCoronationStayedInside;
         System.arraycopy(pigeonCoronationTickCooldown, 0, state.pigeonCoronationTickCooldown, 0,
-                pigeonCoronationTickCooldown.length);
+                Math.min(pigeonCoronationTickCooldown.length, state.pigeonCoronationTickCooldown.length));
         System.arraycopy(pigeonCoronationFinalHit, 0, state.pigeonCoronationFinalHit, 0,
-                pigeonCoronationFinalHit.length);
+                Math.min(pigeonCoronationFinalHit.length, state.pigeonCoronationFinalHit.length));
         state.raptorCryTimer = raptorCryTimer;
         state.raptorCryUltimate = raptorCryUltimate;
         state.raptorEggCharging = raptorEggCharging;
@@ -22263,11 +22281,13 @@ public class Bird {
         state.raptorRushChargeRatio = raptorRushChargeRatio;
         state.raptorRushGrounded = raptorRushGrounded;
         state.raptorRushDirection = raptorRushDirection;
-        System.arraycopy(raptorRushHit, 0, state.raptorRushHit, 0, raptorRushHit.length);
+        System.arraycopy(raptorRushHit, 0, state.raptorRushHit, 0,
+                Math.min(raptorRushHit.length, state.raptorRushHit.length));
         state.raptorClimbTimer = raptorClimbTimer;
         state.raptorClimbUltimate = raptorClimbUltimate;
         state.raptorClimbDirection = raptorClimbDirection;
-        System.arraycopy(raptorClimbHit, 0, state.raptorClimbHit, 0, raptorClimbHit.length);
+        System.arraycopy(raptorClimbHit, 0, state.raptorClimbHit, 0,
+                Math.min(raptorClimbHit.length, state.raptorClimbHit.length));
         state.raptorCryReuseTimer = raptorCryReuseTimer;
         state.raptorRushReuseTimer = raptorRushReuseTimer;
         state.raptorUpSpecialUsed = raptorUpSpecialUsed;
@@ -22279,7 +22299,7 @@ public class Bird {
         state.eagleSkySovereignDiveStartY = eagleSkySovereignDiveStartY;
         state.eagleSkySovereignHitResolved = eagleSkySovereignHitResolved;
         System.arraycopy(eagleSkySovereignHit, 0, state.eagleSkySovereignHit, 0,
-                eagleSkySovereignHit.length);
+                Math.min(eagleSkySovereignHit.length, state.eagleSkySovereignHit.length));
         state.falconTerminalVelocityActive = falconTerminalVelocityActive;
         state.falconTerminalVelocityStriking = falconTerminalVelocityStriking;
         state.falconTerminalVelocityHitAny = falconTerminalVelocityHitAny;
@@ -22290,7 +22310,7 @@ public class Bird {
         state.falconTerminalVelocityEndX = falconTerminalVelocityEndX;
         state.falconTerminalVelocityEndY = falconTerminalVelocityEndY;
         System.arraycopy(falconTerminalVelocityHit, 0, state.falconTerminalVelocityHit, 0,
-                falconTerminalVelocityHit.length);
+                Math.min(falconTerminalVelocityHit.length, state.falconTerminalVelocityHit.length));
         state.speedBoostTimer = speedBoostTimer;
         state.hoverRegenTimer = hoverRegenTimer;
         state.hoverRegenMultiplier = hoverRegenMultiplier;
@@ -22337,18 +22357,21 @@ public class Bird {
         state.shoebillThrustReuseTimer = shoebillThrustReuseTimer;
         state.shoebillThrustDirection = shoebillThrustDirection;
         state.shoebillThrustUltimate = shoebillThrustUltimate;
-        System.arraycopy(shoebillThrustHit, 0, state.shoebillThrustHit, 0, shoebillThrustHit.length);
+        System.arraycopy(shoebillThrustHit, 0, state.shoebillThrustHit, 0,
+                Math.min(shoebillThrustHit.length, state.shoebillThrustHit.length));
         state.shoebillMarshLiftTimer = shoebillMarshLiftTimer;
         state.shoebillMarshLiftUltimate = shoebillMarshLiftUltimate;
         state.shoebillUpSpecialUsed = shoebillUpSpecialUsed;
-        System.arraycopy(shoebillMarshLiftHit, 0, state.shoebillMarshLiftHit, 0, shoebillMarshLiftHit.length);
+        System.arraycopy(shoebillMarshLiftHit, 0, state.shoebillMarshLiftHit, 0,
+                Math.min(shoebillMarshLiftHit.length, state.shoebillMarshLiftHit.length));
         state.shoebillStatueTimer = shoebillStatueTimer;
         state.shoebillStatueReuseTimer = shoebillStatueReuseTimer;
         state.shoebillStatueUltimate = shoebillStatueUltimate;
         state.shoebillStatueCountered = shoebillStatueCountered;
         state.shoebillCounterBurstTimer = shoebillCounterBurstTimer;
         state.shoebillCounterBurstUltimate = shoebillCounterBurstUltimate;
-        System.arraycopy(shoebillCounterHit, 0, state.shoebillCounterHit, 0, shoebillCounterHit.length);
+        System.arraycopy(shoebillCounterHit, 0, state.shoebillCounterHit, 0,
+                Math.min(shoebillCounterHit.length, state.shoebillCounterHit.length));
         state.shoebillFinalStillnessTimer = shoebillFinalStillnessTimer;
         state.shoebillFinalStillnessTargetIndex = shoebillFinalStillnessTargetIndex;
         state.shoebillFinalStillnessStatueX = shoebillFinalStillnessStatueX;
@@ -22363,7 +22386,8 @@ public class Bird {
         state.turkeyHarvestTribunalY = turkeyHarvestTribunalY;
         state.turkeyHarvestTribunalFinalResolved = turkeyHarvestTribunalFinalResolved;
         System.arraycopy(turkeyHarvestTribunalFinalHit, 0, state.turkeyHarvestTribunalFinalHit, 0,
-                turkeyHarvestTribunalFinalHit.length);
+                Math.min(turkeyHarvestTribunalFinalHit.length,
+                        state.turkeyHarvestTribunalFinalHit.length));
         state.hummingFrenzyTimer = hummingFrenzyTimer;
         state.hummingFrenzyTargetIndex = hummingFrenzyTargetIndex;
         state.hummingFrenzyStrikeIndex = hummingFrenzyStrikeIndex;
@@ -22378,12 +22402,13 @@ public class Bird {
         state.hummingFrenzyLastEndX = hummingFrenzyLastEndX;
         state.hummingFrenzyLastEndY = hummingFrenzyLastEndY;
         System.arraycopy(hummingFrenzyHitCooldown, 0, state.hummingFrenzyHitCooldown, 0,
-                hummingFrenzyHitCooldown.length);
+                Math.min(hummingFrenzyHitCooldown.length, state.hummingFrenzyHitCooldown.length));
         state.phoenixAfterburnTimer = phoenixAfterburnTimer;
         state.phoenixRebirthNovaTimer = phoenixRebirthNovaTimer;
         state.phoenixRebirthNovaDetonated = phoenixRebirthNovaDetonated;
         state.phoenixRebirthNovaBuffTimer = phoenixRebirthNovaBuffTimer;
-        System.arraycopy(phoenixRebirthNovaHit, 0, state.phoenixRebirthNovaHit, 0, phoenixRebirthNovaHit.length);
+        System.arraycopy(phoenixRebirthNovaHit, 0, state.phoenixRebirthNovaHit, 0,
+                Math.min(phoenixRebirthNovaHit.length, state.phoenixRebirthNovaHit.length));
         state.phoenixRebornUsed = phoenixRebornUsed;
         state.phoenixRebornActive = phoenixRebornActive;
         state.phoenixChargeTimer = phoenixChargeTimer;
@@ -22415,7 +22440,8 @@ public class Bird {
         state.phoenixLavaUltimate = phoenixLavaUltimate;
         state.phoenixLavaAirborne = phoenixLavaAirborne;
         state.phoenixLavaHoldFrames = phoenixLavaHoldFrames;
-        System.arraycopy(phoenixLavaHitCooldown, 0, state.phoenixLavaHitCooldown, 0, phoenixLavaHitCooldown.length);
+        System.arraycopy(phoenixLavaHitCooldown, 0, state.phoenixLavaHitCooldown, 0,
+                Math.min(phoenixLavaHitCooldown.length, state.phoenixLavaHitCooldown.length));
         state.ultimateMeter = ultimateMeter;
         state.ultimateFxTimer = ultimateFxTimer;
         state.nullRockInvincibilityTimer = nullRockInvincibilityTimer;
@@ -22432,20 +22458,23 @@ public class Bird {
         state.gooseHonkUltimate = gooseHonkUltimate;
         state.gooseHonkEmpowered = gooseHonkEmpowered;
         state.gooseHonkReleased = gooseHonkReleased;
-        System.arraycopy(gooseHonkHit, 0, state.gooseHonkHit, 0, gooseHonkHit.length);
+        System.arraycopy(gooseHonkHit, 0, state.gooseHonkHit, 0,
+                Math.min(gooseHonkHit.length, state.gooseHonkHit.length));
         state.gooseBargeTimer = gooseBargeTimer;
         state.gooseBargeDirection = gooseBargeDirection;
         state.gooseBargeReuseTimer = gooseBargeReuseTimer;
         state.gooseBargeUltimate = gooseBargeUltimate;
         state.gooseBargeEmpowered = gooseBargeEmpowered;
-        System.arraycopy(gooseBargeHit, 0, state.gooseBargeHit, 0, gooseBargeHit.length);
+        System.arraycopy(gooseBargeHit, 0, state.gooseBargeHit, 0,
+                Math.min(gooseBargeHit.length, state.gooseBargeHit.length));
         state.gooseLiftTimer = gooseLiftTimer;
         state.gooseLiftDirection = gooseLiftDirection;
         state.gooseLiftReuseTimer = gooseLiftReuseTimer;
         state.gooseLiftUsed = gooseLiftUsed;
         state.gooseLiftUltimate = gooseLiftUltimate;
         state.gooseLiftEmpowered = gooseLiftEmpowered;
-        System.arraycopy(gooseLiftHit, 0, state.gooseLiftHit, 0, gooseLiftHit.length);
+        System.arraycopy(gooseLiftHit, 0, state.gooseLiftHit, 0,
+                Math.min(gooseLiftHit.length, state.gooseLiftHit.length));
         state.gooseNestGuardTimer = gooseNestGuardTimer;
         state.gooseNestReuseTimer = gooseNestReuseTimer;
         state.gooseNestCounterTimer = gooseNestCounterTimer;
@@ -22453,7 +22482,7 @@ public class Bird {
         state.gooseNestCounterUltimate = gooseNestCounterUltimate;
         state.gooseNestEmpowered = gooseNestEmpowered;
         System.arraycopy(gooseNestCounterHit, 0, state.gooseNestCounterHit, 0,
-                gooseNestCounterHit.length);
+                Math.min(gooseNestCounterHit.length, state.gooseNestCounterHit.length));
         state.gooseNestActive = gooseNest != null;
         if (gooseNest != null) {
             state.gooseNestX = gooseNest.x;
@@ -22468,43 +22497,47 @@ public class Bird {
         state.gooseUltimateWaveIndex = gooseUltimateWaveIndex;
         state.gooseUltimateFinalHitResolved = gooseUltimateFinalHitResolved;
         System.arraycopy(gooseUltimateMarked, 0, state.gooseUltimateMarked, 0,
-                gooseUltimateMarked.length);
+                Math.min(gooseUltimateMarked.length, state.gooseUltimateMarked.length));
         System.arraycopy(gooseUltimateHitCooldown, 0, state.gooseUltimateHitCooldown, 0,
-                gooseUltimateHitCooldown.length);
+                Math.min(gooseUltimateHitCooldown.length, state.gooseUltimateHitCooldown.length));
         state.kiwiProbeTimer = kiwiProbeTimer;
         state.kiwiProbeReuseTimer = kiwiProbeReuseTimer;
         state.kiwiProbeDirection = kiwiProbeDirection;
         state.kiwiProbeStrikeIndex = kiwiProbeStrikeIndex;
-        System.arraycopy(kiwiProbeHit, 0, state.kiwiProbeHit, 0, kiwiProbeHit.length);
+        System.arraycopy(kiwiProbeHit, 0, state.kiwiProbeHit, 0,
+                Math.min(kiwiProbeHit.length, state.kiwiProbeHit.length));
         state.kiwiBurrowTimer = kiwiBurrowTimer;
         state.kiwiBurrowReuseTimer = kiwiBurrowReuseTimer;
         state.kiwiBurrowDirection = kiwiBurrowDirection;
         state.kiwiBurrowGrounded = kiwiBurrowGrounded;
         state.kiwiBurrowErupted = kiwiBurrowErupted;
-        System.arraycopy(kiwiBurrowHit, 0, state.kiwiBurrowHit, 0, kiwiBurrowHit.length);
+        System.arraycopy(kiwiBurrowHit, 0, state.kiwiBurrowHit, 0,
+                Math.min(kiwiBurrowHit.length, state.kiwiBurrowHit.length));
         state.kiwiSpringTimer = kiwiSpringTimer;
         state.kiwiSpringReuseTimer = kiwiSpringReuseTimer;
         state.kiwiSpringDirection = kiwiSpringDirection;
         state.kiwiSpringUsed = kiwiSpringUsed;
-        System.arraycopy(kiwiSpringHit, 0, state.kiwiSpringHit, 0, kiwiSpringHit.length);
+        System.arraycopy(kiwiSpringHit, 0, state.kiwiSpringHit, 0,
+                Math.min(kiwiSpringHit.length, state.kiwiSpringHit.length));
         state.kiwiStompTimer = kiwiStompTimer;
         state.kiwiStompReuseTimer = kiwiStompReuseTimer;
         state.kiwiStompAirborne = kiwiStompAirborne;
         state.kiwiStompImpactResolved = kiwiStompImpactResolved;
         state.kiwiStompImpactFxTimer = kiwiStompImpactFxTimer;
-        System.arraycopy(kiwiStompHit, 0, state.kiwiStompHit, 0, kiwiStompHit.length);
+        System.arraycopy(kiwiStompHit, 0, state.kiwiStompHit, 0,
+                Math.min(kiwiStompHit.length, state.kiwiStompHit.length));
         state.kiwiUltimateTimer = kiwiUltimateTimer;
         state.kiwiUltimateDirection = kiwiUltimateDirection;
         state.kiwiUltimateWaveIndex = kiwiUltimateWaveIndex;
         state.kiwiUltimateFinalResolved = kiwiUltimateFinalResolved;
         System.arraycopy(kiwiUltimateHitCooldown, 0, state.kiwiUltimateHitCooldown, 0,
-                kiwiUltimateHitCooldown.length);
+                Math.min(kiwiUltimateHitCooldown.length, state.kiwiUltimateHitCooldown.length));
         System.arraycopy(titmouseScoldHit, 0, state.titmouseScoldHitSync, 0,
-                titmouseScoldHit.length);
+                Math.min(titmouseScoldHit.length, state.titmouseScoldHitSync.length));
         System.arraycopy(titmouseBarkskipHit, 0, state.titmouseBarkskipHitSync, 0,
-                titmouseBarkskipHit.length);
+                Math.min(titmouseBarkskipHit.length, state.titmouseBarkskipHitSync.length));
         System.arraycopy(titmouseVaultHit, 0, state.titmouseVaultHitSync, 0,
-                titmouseVaultHit.length);
+                Math.min(titmouseVaultHit.length, state.titmouseVaultHitSync.length));
         state.titmouseSeedStashCount = Math.min(titmouseSeedStashes.size(),
                 state.titmouseSeedStashX.length);
         for (int i = 0; i < state.titmouseSeedStashCount; i++) {
