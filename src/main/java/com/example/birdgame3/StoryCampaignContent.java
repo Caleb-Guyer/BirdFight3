@@ -827,7 +827,7 @@ final class StoryCampaignContent {
                         phase(GAUNTLET, "Defeat every corrupted reflection", 0,
                                 BirdGame3.BirdType.values().length, true),
                         phase(CAPTURE, "Plant Penguin's cavern charge", 38, 2, true),
-                        phase(BOSS_PHASES, "Defeat The Null Rock one-on-one", 0, 5, true)
+                        phase(BOSS_PHASES, "Defeat Null Rock", 0, 5, true)
                 ),
                 "s79_null_rock_before", "s80_eagle_end", null, true);
     }

@@ -77317,6 +77317,10 @@ public class BirdGame3 {
         if (timerRect != null) {
             occlusionRects.add(timerRect);
         }
+        Rectangle2D nullRockBossRect = campaignNullRockBossHudRect();
+        if (nullRockBossRect != null) {
+            occlusionRects.add(nullRockBossRect);
+        }
         if (academyActive) {
             occlusionRects.add(new Rectangle2D((WIDTH - 820.0) / 2.0, 28, 820, 326));
         }
@@ -77333,6 +77337,9 @@ public class BirdGame3 {
             if (players[i] != null) {
                 hudBirds.add(players[i]);
             }
+        }
+        if (isNullRockDuelPhase()) {
+            return buildCampaignNullRockDuelFightHudPanels();
         }
         if (isUnitedFinaleMassBattleContext() && activePlayers > 6) {
             return buildUnitedFinaleFightHudPanels();
@@ -77388,29 +77395,33 @@ public class BirdGame3 {
             return List.of();
         }
 
-        double panelWidth = 430.0;
-        double panelHeight = 146.0;
-        double panelY = HEIGHT - panelHeight - 22.0;
-        double portraitSize = 88.0;
         List<FightHudPanelLayout> layouts = new ArrayList<>();
-        layouts.add(new FightHudPanelLayout(
-                player,
-                new Rectangle2D(42.0, panelY, panelWidth, panelHeight),
-                new Rectangle2D(60.0, panelY + 25.0, portraitSize, portraitSize)
-        ));
+        layouts.add(buildWideFightHudPanel(player, 42.0));
 
         // The adventure climax has one true raid boss. Campaign Null echoes are
         // ordinary wave fighters, so presenting one of them as a boss is misleading.
         Bird boss = isUnitedFinaleClimaxContext() ? unitedFinaleBoss() : null;
         if (boss != null) {
-            double panelX = WIDTH - 42.0 - panelWidth;
-            layouts.add(new FightHudPanelLayout(
-                    boss,
-                    new Rectangle2D(panelX, panelY, panelWidth, panelHeight),
-                    new Rectangle2D(panelX + 18.0, panelY + 25.0, portraitSize, portraitSize)
-            ));
+            layouts.add(buildWideFightHudPanel(boss, WIDTH - 42.0 - 430.0));
         }
         return List.copyOf(layouts);
+    }
+
+    private List<FightHudPanelLayout> buildCampaignNullRockDuelFightHudPanels() {
+        Bird player = players[0];
+        return player == null ? List.of() : List.of(buildWideFightHudPanel(player, 42.0));
+    }
+
+    private FightHudPanelLayout buildWideFightHudPanel(Bird bird, double panelX) {
+        double panelWidth = 430.0;
+        double panelHeight = 146.0;
+        double panelY = HEIGHT - panelHeight - 22.0;
+        double portraitSize = 88.0;
+        return new FightHudPanelLayout(
+                bird,
+                new Rectangle2D(panelX, panelY, panelWidth, panelHeight),
+                new Rectangle2D(panelX + 18.0, panelY + 25.0, portraitSize, portraitSize)
+        );
     }
 
     private Rectangle2D buildFightHudInfoRect(List<String> infoLines, Rectangle2D minimapRect) {
@@ -77654,8 +77665,8 @@ public class BirdGame3 {
 
     static boolean campaignObjectiveShowsProgress(StoryCampaign.ObjectiveType objective) {
         return switch (objective) {
-            case SURVIVE, PROTECT, CAPTURE, HOLD_ZONE, BOSS_PHASES -> true;
-            case ELIMINATION, REACH_EXIT, GAUNTLET -> false;
+            case SURVIVE, PROTECT, CAPTURE, HOLD_ZONE -> true;
+            case ELIMINATION, REACH_EXIT, GAUNTLET, BOSS_PHASES -> false;
         };
     }
 
@@ -77668,6 +77679,7 @@ public class BirdGame3 {
             drawFightHudTimer(g, layout.timerRect());
         }
         drawClassicStaminaBossHud(g);
+        drawCampaignNullRockBossHud(g);
         for (FightHudPanelLayout panel : layout.panels()) {
             if (isClassicStaminaBoss(panel.bird())) continue;
             drawFightHudPanel(g, panel);
@@ -77676,6 +77688,116 @@ public class BirdGame3 {
             drawUnitedFinaleRaidHud(g);
         }
         drawFightStartCountdown(g);
+    }
+
+    private Rectangle2D campaignNullRockBossHudRect() {
+        if (!isNullRockDuelPhase() || activePlayers < 2) {
+            return null;
+        }
+        Bird boss = players[1];
+        if (!isCampaignNullRockDuelBoss(boss)) {
+            return null;
+        }
+        double width = Math.min(1_040.0, WIDTH - 720.0);
+        return new Rectangle2D((WIDTH - width) * 0.5, 24.0, width, 116.0);
+    }
+
+    private void drawCampaignNullRockBossHud(GraphicsContext g) {
+        Rectangle2D rect = campaignNullRockBossHudRect();
+        if (rect == null) return;
+        Bird boss = players[1];
+        double startingHealth = campaignStartingHealth[1] > 0.0
+                ? campaignStartingHealth[1] : Math.max(1.0, boss.getMaxHealth());
+        double ratio = Math.clamp(boss.health / startingHealth, 0.0, 1.0);
+        Color phaseColor = ratio > 0.60 ? Color.web("#B56CFF")
+                : ratio > 0.30 ? Color.web("#FF426F") : Color.web("#FF8A3D");
+        double pulse = 0.5 + 0.5 * Math.sin(simTick * 0.12);
+
+        g.save();
+        g.setGlobalAlpha(hudAlphaForRect(rect));
+        g.setFill(Color.BLACK.deriveColor(0, 1, 1, 0.50));
+        g.fillRoundRect(rect.getMinX(), rect.getMinY() + 8.0,
+                rect.getWidth(), rect.getHeight(), 24.0, 24.0);
+        g.setFill(Color.web("#08040E", 0.95));
+        g.fillRoundRect(rect.getMinX(), rect.getMinY(),
+                rect.getWidth(), rect.getHeight(), 24.0, 24.0);
+
+        g.setFill(phaseColor.deriveColor(0, 1, 0.58, 0.36));
+        g.fillPolygon(
+                new double[]{rect.getMinX() - 18.0, rect.getMinX() + 180.0,
+                        rect.getMinX() + 238.0, rect.getMinX() + 14.0},
+                new double[]{rect.getMinY() + 14.0, rect.getMinY() + 14.0,
+                        rect.getMinY() + 68.0, rect.getMinY() + 68.0},
+                4);
+        g.fillPolygon(
+                new double[]{rect.getMaxX() + 18.0, rect.getMaxX() - 180.0,
+                        rect.getMaxX() - 238.0, rect.getMaxX() - 14.0},
+                new double[]{rect.getMinY() + 14.0, rect.getMinY() + 14.0,
+                        rect.getMinY() + 68.0, rect.getMinY() + 68.0},
+                4);
+        g.setStroke(phaseColor.deriveColor(0, 1, 1, 0.92));
+        g.setLineWidth(2.4 + pulse * 0.8);
+        g.strokeRoundRect(rect.getMinX(), rect.getMinY(),
+                rect.getWidth(), rect.getHeight(), 24.0, 24.0);
+        g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.10));
+        g.setLineWidth(1.0);
+        g.strokeRoundRect(rect.getMinX() + 5.0, rect.getMinY() + 5.0,
+                rect.getWidth() - 10.0, rect.getHeight() - 10.0, 19.0, 19.0);
+
+        g.setTextAlign(TextAlignment.LEFT);
+        g.setFill(Color.web("#D7B8FF"));
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, 15));
+        g.fillText("FINAL DUEL", rect.getMinX() + 28.0, rect.getMinY() + 29.0);
+        g.setFill(Color.WHITE);
+        g.setFont(Font.font("Arial Black", FontWeight.BOLD, 31));
+        g.fillText("NULL ROCK", rect.getMinX() + 28.0, rect.getMinY() + 64.0);
+
+        g.setTextAlign(TextAlignment.RIGHT);
+        g.setFill(phaseColor);
+        g.setFont(Font.font("Arial Black", FontWeight.BOLD, 18));
+        g.fillText(nullRockBossPhaseLabel(), rect.getMaxX() - 28.0, rect.getMinY() + 35.0);
+        g.setFill(Color.web("#D7C9DE"));
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, 15));
+        int shownHealth = Math.max(0, (int) Math.ceil(boss.health));
+        int shownMax = Math.max(1, (int) Math.round(startingHealth));
+        g.fillText(shownHealth + " / " + shownMax,
+                rect.getMaxX() - 28.0, rect.getMinY() + 61.0);
+        g.setTextAlign(TextAlignment.LEFT);
+
+        double barX = rect.getMinX() + 28.0;
+        double barY = rect.getMinY() + 78.0;
+        double barW = rect.getWidth() - 56.0;
+        double barH = 22.0;
+        g.setFill(Color.web("#210B1B", 0.96));
+        g.fillRoundRect(barX, barY, barW, barH, 9.0, 9.0);
+        if (ratio > 0.0) {
+            double filledW = Math.max(8.0, barW * ratio);
+            g.setFill(phaseColor);
+            g.fillRoundRect(barX, barY, filledW, barH, 9.0, 9.0);
+            g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.18 + pulse * 0.15));
+            g.fillRoundRect(barX + 3.0, barY + 3.0,
+                    Math.max(2.0, filledW - 6.0), 5.0, 5.0, 5.0);
+        }
+        g.setStroke(Color.web("#F4D7FF", 0.46));
+        g.setLineWidth(1.2);
+        g.strokeRoundRect(barX, barY, barW, barH, 9.0, 9.0);
+        g.setStroke(Color.web("#050208", 0.72));
+        g.setLineWidth(2.0);
+        for (int segment = 1; segment < 5; segment++) {
+            double segmentX = barX + barW * segment / 5.0;
+            g.strokeLine(segmentX, barY + 2.0, segmentX, barY + barH - 2.0);
+        }
+        g.restore();
+    }
+
+    private String nullRockBossPhaseLabel() {
+        return switch (campaignNullRockDuelStage) {
+            case 0 -> "VOID SHELL";
+            case 1 -> "BROKEN SHELL";
+            case 2 -> "CAVERN HEART";
+            case 3 -> "LIVING METEOR";
+            default -> "FINAL FORM";
+        };
     }
 
     private void drawClassicStaminaBossHud(GraphicsContext g) {

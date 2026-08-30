@@ -11702,6 +11702,17 @@ class BirdStateTest {
                 controller.currentPhase().objective());
         assertEquals(5, controller.currentPhase().targetCount());
 
+        @SuppressWarnings("unchecked")
+        List<Object> duelHudPanels = (List<Object>) invokePrivateObjectMethod(
+                game, "buildFightHudPanels");
+        assertEquals(1, duelHudPanels.size(),
+                "Null Rock must use the cinematic boss bar instead of a second fighter card.");
+        Method hudBirdAccessor = duelHudPanels.getFirst().getClass().getDeclaredMethod("bird");
+        hudBirdAccessor.setAccessible(true);
+        assertSame(game.players[0], hudBirdAccessor.invoke(duelHudPanels.getFirst()));
+        assertNotNull(invokePrivateObjectMethod(game, "campaignNullRockBossHudRect"));
+        assertEquals("VOID SHELL", invokePrivateObjectMethod(game, "nullRockBossPhaseLabel"));
+
         Bird boss = game.players[1];
         double bossStartingHealth = boss.health;
         boss.health = bossStartingHealth * 0.74;

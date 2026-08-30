@@ -66,6 +66,12 @@ class FightHudInformationHierarchyTest {
                 captureMission, StoryCampaign.Difficulty.NORMAL, 6000);
         assertEquals("OBJECTIVE 1/2  RESTART THE ROOFTOP VENTS  0%",
                 BirdGame3.campaignObjectiveHudLine(captureMission, capture));
+
+        StoryCampaign.Mission bossMission = campaign.mission("cut_the_lock");
+        StoryMissionController boss = new StoryMissionController(
+                bossMission, StoryCampaign.Difficulty.NORMAL, 6000);
+        assertEquals("OBJECTIVE 1/1  DEFEAT EAGLE ON THE COMMAND BRIDGE",
+                BirdGame3.campaignObjectiveHudLine(bossMission, boss));
     }
 
     @Test
@@ -76,6 +82,8 @@ class FightHudInformationHierarchyTest {
                 StoryCampaign.ObjectiveType.REACH_EXIT));
         assertFalse(BirdGame3.campaignObjectiveShowsProgress(
                 StoryCampaign.ObjectiveType.GAUNTLET));
+        assertFalse(BirdGame3.campaignObjectiveShowsProgress(
+                StoryCampaign.ObjectiveType.BOSS_PHASES));
         assertTrue(BirdGame3.campaignObjectiveShowsProgress(
                 StoryCampaign.ObjectiveType.PROTECT));
         assertTrue(BirdGame3.campaignObjectiveShowsProgress(
