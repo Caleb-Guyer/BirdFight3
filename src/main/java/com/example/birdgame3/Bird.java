@@ -2997,7 +2997,7 @@ public class Bird {
     }
 
     private boolean canStandInVoid() {
-        return isNullRockForm() && isVoidMap() && game.permitsNullRockVoidRecovery(this);
+        return isVoidMap() && game.permitsNullRockVoidRecovery(this);
     }
 
     boolean usesIslandBounds() {
@@ -20957,7 +20957,7 @@ public class Bird {
     }
 
     private boolean handleNullRockVoidRecoveryBoundary() {
-        if (!isNullRockForm() || !isVoidMap() || !game.permitsNullRockVoidRecovery(this)) {
+        if (!isVoidMap() || !game.permitsNullRockVoidRecovery(this)) {
             nullRockVoidRecoveryTimer = 0;
             return false;
         }

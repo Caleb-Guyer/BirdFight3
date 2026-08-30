@@ -71830,12 +71830,26 @@ public class BirdGame3 {
                 && currentCampaignMission.arenaVariant() == StoryCampaign.ArenaVariant.NULL_ROCK;
     }
 
+    private boolean isCampaignNullRocBoss(Bird bird) {
+        if (!campaignModeActive || currentCampaignMission == null
+                || currentCampaignMission.arenaVariant() != StoryCampaign.ArenaVariant.NULL_ROC
+                || bird == null || bird.type != BirdType.VULTURE) {
+            return false;
+        }
+        int slot = bird.playerIndex;
+        return slot > 0 && slot < activePlayers && players[slot] == bird
+                && campaignTeams[slot] == 2 && campaignBossSlots[slot];
+    }
+
     boolean permitsNullRockVoidRecovery(Bird bird) {
-        // Null Rock's story boss keeps its signature refusal of the void. The
-        // Falcon route's Null Roc is a separate two-stock hunt on a vertical
-        // arena, where bottom launch must count or the encounter has no
-        // reliable completion path.
-        return bird != null && !(classicModeActive && classicEncounter != null
+        // Both the authored Tide-armored Null Roc and the true-form Null Rock
+        // refuse the lower void. The Falcon route is a separate two-stock hunt
+        // where bottom launch must count or the encounter has no reliable
+        // completion path.
+        if (bird == null || (!bird.isNullRockForm() && !isCampaignNullRocBoss(bird))) {
+            return false;
+        }
+        return !(classicModeActive && classicEncounter != null
                 && classicEncounter.style == ClassicEncounterStyle.NULL_ROC_BOSS);
     }
 
@@ -73150,6 +73164,10 @@ public class BirdGame3 {
                     h = h * 1099511628211L + Double.doubleToLongBits(b.nullRockSpearY[spear]);
                     h = h * 1099511628211L + (b.nullRockSpearSpent[spear] ? 1 : 0);
                 }
+            } else if (isCampaignNullRocBoss(b)) {
+                h = h * 1099511628211L + b.nullRockVoidRecoveryTimer;
+                h = h * 1099511628211L + Double.doubleToLongBits(b.nullRockVoidRecoveryTargetX);
+                h = h * 1099511628211L + Double.doubleToLongBits(b.nullRockVoidRecoveryTargetY);
             }
         }
         h = h * 1099511628211L + crowMinions.size();

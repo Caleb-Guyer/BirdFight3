@@ -9429,6 +9429,44 @@ class BirdStateTest {
     }
 
     @Test
+    void authoredNullRocBossSwiftlyFliesBackFromTheVoid() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.harnessPrepareAdventureMission("null_roc", StoryCampaign.Difficulty.NORMAL,
+                BirdGame3.BirdType.PIGEON, 5, 0x0A11CE5L);
+        StoryCampaign.Mission mission = StoryCampaignContent.create().mission("null_roc");
+        setPrivateObject(game, "campaignMissionController",
+                new StoryMissionController(mission, StoryCampaign.Difficulty.NORMAL,
+                        BirdGame3.WORLD_WIDTH, 1));
+        invokePrivateVoid(game, "spawnReservedCampaignBossesForCurrentPhase");
+
+        assertEquals(5, game.activePlayers);
+        Bird nullRoc = game.players[4];
+        assertNotNull(nullRoc);
+        assertFalse(nullRoc.isNullRockForm(),
+                "Null Roc is the Tide-armored campaign boss, not the unlockable true form.");
+        assertTrue(game.permitsNullRockVoidRecovery(nullRoc));
+        double healthBefore = nullRoc.health;
+        nullRoc.y = game.battlefieldVoidFloorY() + 400.0;
+        nullRoc.vy = 18.0;
+
+        nullRoc.update(1.0);
+
+        assertTrue(nullRoc.nullRockVoidRecoveryTimer > 0);
+        assertTrue(nullRoc.vy < 0.0, "Null Roc should immediately fly upward out of the void.");
+        assertEquals(healthBefore, nullRoc.health, 0.0001,
+                "The campaign boss must not lose health or die to the lower void.");
+
+        for (int frame = 0; frame < Bird.NULL_ROCK_VOID_RECOVERY_FRAMES + 12; frame++) {
+            nullRoc.update(1.0);
+        }
+
+        assertEquals(0, nullRoc.nullRockVoidRecoveryTimer);
+        assertEquals(game.battlefieldSpawnCenterX(), nullRoc.bodyCenterX(), 0.0001);
+        assertTrue(nullRoc.y < game.battlefieldSpawnY(nullRoc.sizeMultiplier));
+        assertEquals(healthBefore, nullRoc.health, 0.0001);
+    }
+
+    @Test
     void nullRockPickupUsesExpandedBodyBounds() throws Exception {
         BirdGame3 game = new BirdGame3();
         Bird nullRock = new Bird(1000.0, BirdGame3.BirdType.VULTURE, 0, game);
