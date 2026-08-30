@@ -1,5 +1,6 @@
 package com.example.birdgame3;
 
+import javafx.geometry.Rectangle2D;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
@@ -11,6 +12,26 @@ import java.util.Locale;
 import static org.junit.jupiter.api.Assertions.*;
 
 class BirdGame3BossBalanceTest {
+    @Test
+    void campaignBossMarkerTracksSmallAndLargeBossGeometry() {
+        BirdGame3 game = new BirdGame3();
+        Bird boss = new Bird(420.0, BirdGame3.BirdType.RAVEN, 1, game);
+        boss.y = 260.0;
+
+        boss.sizeMultiplier = 0.55;
+        Rectangle2D small = game.campaignBossMarkerBounds(boss);
+        assertEquals(boss.bodyCenterX(), small.getMinX() + small.getWidth() * 0.5, 0.0001);
+        assertEquals(boss.bodyCenterY(), small.getMinY() + small.getHeight() * 0.5, 0.0001);
+        assertTrue(small.getWidth() > boss.bodyWidth());
+
+        boss.sizeMultiplier = 2.40;
+        Rectangle2D large = game.campaignBossMarkerBounds(boss);
+        assertEquals(boss.bodyCenterX(), large.getMinX() + large.getWidth() * 0.5, 0.0001);
+        assertEquals(boss.bodyCenterY(), large.getMinY() + large.getHeight() * 0.5, 0.0001);
+        assertEquals(2.40 / 0.55, large.getWidth() / small.getWidth(), 0.0001);
+        assertTrue(large.getWidth() > boss.bodyWidth());
+    }
+
     @Test
     void createStoryBirdSoftensBossStatsWithoutTouchingNonBossEnemies() throws Exception {
         BirdGame3 game = new BirdGame3();

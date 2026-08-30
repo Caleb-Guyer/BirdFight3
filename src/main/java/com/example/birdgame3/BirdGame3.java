@@ -18079,17 +18079,33 @@ public class BirdGame3 {
                     }
                 }
                 if (boss != null) {
-                    double cx = boss.x + 40;
-                    double cy = boss.y + 40;
+                    Rectangle2D marker = campaignBossMarkerBounds(boss);
                     g.setStroke(Color.web("#FF5252", pulse * 0.82));
                     g.setLineWidth(9);
-                    g.strokeOval(cx - 112, cy - 112, 224, 224);
+                    g.strokeOval(marker.getMinX(), marker.getMinY(),
+                            marker.getWidth(), marker.getHeight());
                 }
             }
             case SURVIVE, ELIMINATION, GAUNTLET -> {
             }
         }
         g.restore();
+    }
+
+    Rectangle2D campaignBossMarkerBounds(Bird boss) {
+        if (boss == null) {
+            return Rectangle2D.EMPTY;
+        }
+        double scale = Math.max(0.1, boss.sizeMultiplier);
+        double silhouetteRadius = 40.0 * scale
+                * rosterSpriteExtentFactor(boss.type, boss.appliedSkinKey);
+        double radius = silhouetteRadius + 54.0 * scale;
+        return new Rectangle2D(
+                boss.bodyCenterX() - radius,
+                boss.bodyCenterY() - radius,
+                radius * 2.0,
+                radius * 2.0
+        );
     }
 
     private void drawUltimateReadyScreenDarken(GraphicsContext g) {
