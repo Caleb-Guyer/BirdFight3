@@ -10,10 +10,8 @@ class OfficialTrailerStoryboardTest {
     void sacrificeAndNullRocBeatsUseTheAuthoredCutsceneRenderer() {
         assertTrue(BirdGame3.isOfficialTrailerCutsceneScene(1));
         assertTrue(BirdGame3.isOfficialTrailerCutsceneScene(2));
-        assertTrue(BirdGame3.isOfficialTrailerCutsceneScene(5));
         assertTrue(BirdGame3.isOfficialTrailerCutsceneScene(6));
-        assertTrue(BirdGame3.isOfficialTrailerCutsceneScene(8));
-        assertTrue(BirdGame3.isOfficialTrailerCutsceneScene(10));
+        assertTrue(BirdGame3.isOfficialTrailerCutsceneScene(9));
         assertFalse(BirdGame3.isOfficialTrailerGameplayScene(6));
     }
 
@@ -21,7 +19,7 @@ class OfficialTrailerStoryboardTest {
     void storyOpenPromiseAndFinalCardUsePurposeBuiltGraphicShots() {
         assertTrue(BirdGame3.isOfficialTrailerGraphicScene(0));
         assertTrue(BirdGame3.isOfficialTrailerGraphicScene(3));
-        assertTrue(BirdGame3.isOfficialTrailerGraphicScene(11));
+        assertTrue(BirdGame3.isOfficialTrailerGraphicScene(10));
         assertFalse(BirdGame3.isOfficialTrailerCutsceneScene(0));
         assertFalse(BirdGame3.isOfficialTrailerGameplayScene(0));
     }
@@ -29,9 +27,10 @@ class OfficialTrailerStoryboardTest {
     @Test
     void fightingCrescendoUsesRealGameplay() {
         assertTrue(BirdGame3.isOfficialTrailerGameplayScene(4));
+        assertTrue(BirdGame3.isOfficialTrailerGameplayScene(5));
         assertTrue(BirdGame3.isOfficialTrailerGameplayScene(7));
-        assertTrue(BirdGame3.isOfficialTrailerGameplayScene(9));
-        assertFalse(BirdGame3.isOfficialTrailerCutsceneScene(9));
+        assertTrue(BirdGame3.isOfficialTrailerGameplayScene(8));
+        assertFalse(BirdGame3.isOfficialTrailerCutsceneScene(8));
     }
 
     @Test

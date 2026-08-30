@@ -45276,8 +45276,9 @@ public class BirdGame3 {
         }
 
         final double[] sceneEnds = {
-                4.0, 12.0, 22.0, 28.0, 37.6, 46.0,
-                54.0, 63.6, 70.0, 82.8, 90.8, 98.0
+                4.0, 12.0, 22.0, 27.0,
+                38.76, 50.52, 56.40, 68.16, 79.92,
+                90.8, 98.0
         };
         final double trailerEnd = sceneEnds[sceneEnds.length - 1];
 
@@ -45346,16 +45347,15 @@ public class BirdGame3 {
     }
 
     static boolean isOfficialTrailerGameplayScene(int sceneIndex) {
-        return sceneIndex == 4 || sceneIndex == 7 || sceneIndex == 9;
+        return sceneIndex == 4 || sceneIndex == 5 || sceneIndex == 7 || sceneIndex == 8;
     }
 
     static boolean isOfficialTrailerCutsceneScene(int sceneIndex) {
-        return sceneIndex == 1 || sceneIndex == 2 || sceneIndex == 5
-                || sceneIndex == 6 || sceneIndex == 8 || sceneIndex == 10;
+        return sceneIndex == 1 || sceneIndex == 2 || sceneIndex == 6 || sceneIndex == 9;
     }
 
     static boolean isOfficialTrailerGraphicScene(int sceneIndex) {
-        return sceneIndex == 0 || sceneIndex == 3 || sceneIndex == 11;
+        return sceneIndex == 0 || sceneIndex == 3 || sceneIndex == 10;
     }
 
     private void renderOfficialTrailerAt(
@@ -45452,16 +45452,24 @@ public class BirdGame3 {
             case 4 -> switch (arena.cutIndex()) {
                 case 0 -> new BirdType[]{BirdType.PIGEON, BirdType.EAGLE};
                 case 1 -> new BirdType[]{BirdType.PHOENIX, BirdType.FALCON};
-                default -> new BirdType[]{BirdType.MOCKINGBIRD, BirdType.RAVEN};
+                case 2 -> new BirdType[]{BirdType.MOCKINGBIRD, BirdType.RAVEN};
+                default -> new BirdType[]{BirdType.ROADRUNNER, BirdType.GOOSE};
+            };
+            case 5 -> switch (arena.cutIndex()) {
+                case 0 -> new BirdType[]{BirdType.PELICAN, BirdType.RAVEN};
+                case 1 -> new BirdType[]{BirdType.FALCON, BirdType.EAGLE};
+                case 2 -> new BirdType[]{BirdType.PIGEON, BirdType.PHOENIX};
+                default -> new BirdType[]{BirdType.GOOSE, BirdType.TURKEY,
+                        BirdType.PELICAN, BirdType.ROADRUNNER};
             };
             case 7 -> switch (arena.cutIndex()) {
-                case 0 -> new BirdType[]{BirdType.ROADRUNNER, BirdType.GOOSE};
-                case 1 -> new BirdType[]{BirdType.PELICAN, BirdType.RAVEN};
-                case 2 -> new BirdType[]{BirdType.FALCON, BirdType.EAGLE};
+                case 0 -> new BirdType[]{BirdType.PIGEON, BirdType.RAVEN};
+                case 1 -> new BirdType[]{BirdType.EAGLE, BirdType.VULTURE};
+                case 2 -> new BirdType[]{BirdType.PHOENIX, BirdType.FALCON};
                 default -> new BirdType[]{BirdType.PIGEON, BirdType.PHOENIX,
                         BirdType.VULTURE, BirdType.EAGLE};
             };
-            case 9 -> switch (arena.cutIndex()) {
+            case 8 -> switch (arena.cutIndex()) {
                 case 0 -> new BirdType[]{BirdType.PIGEON, BirdType.RAVEN};
                 case 1 -> new BirdType[]{BirdType.EAGLE, BirdType.VULTURE};
                 case 2 -> new BirdType[]{BirdType.PIGEON, BirdType.EAGLE, BirdType.VULTURE};
@@ -45476,8 +45484,8 @@ public class BirdGame3 {
                 ^ ((long) arena.cutIndex() << 20)
                 ^ ((long) arena.map().ordinal() << 8)
                 ^ arena.variant().ordinal();
-        boolean nullRockBattle = sceneIndex == 9 && arena.cutIndex() == 3;
-        int bossIndex = sceneIndex == 9 && arena.cutIndex() >= 2
+        boolean nullRockBattle = sceneIndex == 8 && arena.cutIndex() == 3;
+        int bossIndex = sceneIndex == 8 && arena.cutIndex() >= 2
                 ? fighters.length - 1
                 : -1;
         prepareOfficialTrailerAiMatch(fighters, arena, seed,
@@ -45629,35 +45637,41 @@ public class BirdGame3 {
 
     private OfficialTrailerArena officialTrailerArena(int sceneIndex, double phase) {
         return switch (sceneIndex) {
-            case 0, 3, 11 -> new OfficialTrailerArena(MapType.BEACON_CROWN, MapVariant.VOID_CROWN, 0);
+            case 0, 3, 10 -> new OfficialTrailerArena(MapType.BEACON_CROWN, MapVariant.VOID_CROWN, 0);
             case 1 -> new OfficialTrailerArena(MapType.CITY, MapVariant.STANDARD,
                     Math.min(2, (int) (phase * 3.0)));
             case 2 -> new OfficialTrailerArena(MapType.CITY, MapVariant.STANDARD,
                     Math.min(3, (int) (phase * 4.0)));
             case 4 -> {
-                int cut = Math.min(2, (int) (phase * 3.0));
+                int cut = Math.min(3, (int) (phase * 4.0));
                 yield switch (cut) {
                     case 0 -> new OfficialTrailerArena(MapType.CITY, MapVariant.PARLIAMENT_ROOFTOPS, cut);
                     case 1 -> new OfficialTrailerArena(MapType.ASHFALL_CATHEDRAL, MapVariant.ASHFALL_REBIRTH, cut);
-                    default -> new OfficialTrailerArena(MapType.SKYCLIFFS, MapVariant.STANDARD, cut);
+                    case 2 -> new OfficialTrailerArena(MapType.SKYCLIFFS, MapVariant.STANDARD, cut);
+                    default -> new OfficialTrailerArena(MapType.BATTLEFIELD, MapVariant.STANDARD, cut);
                 };
             }
-            case 5 -> new OfficialTrailerArena(MapType.SKYCLIFFS, MapVariant.STANDARD,
-                    Math.min(2, (int) (phase * 3.0)));
+            case 5 -> {
+                int cut = Math.min(3, (int) (phase * 4.0));
+                yield switch (cut) {
+                    case 0 -> new OfficialTrailerArena(MapType.DOCK, MapVariant.TITAN_DOCK, cut);
+                    case 1 -> new OfficialTrailerArena(MapType.PRISON, MapVariant.STANDARD, cut);
+                    case 2 -> new OfficialTrailerArena(MapType.DESERT, MapVariant.STANDARD, cut);
+                    default -> new OfficialTrailerArena(MapType.CAVE, MapVariant.STANDARD, cut);
+                };
+            }
             case 6 -> new OfficialTrailerArena(MapType.PRISON, MapVariant.STANDARD,
-                    Math.min(3, (int) (phase * 4.0)));
+                    Math.min(2, (int) (phase * 3.0)));
             case 7 -> {
                 int cut = Math.min(3, (int) (phase * 4.0));
                 yield switch (cut) {
                     case 0 -> new OfficialTrailerArena(MapType.BATTLEFIELD, MapVariant.STANDARD, cut);
                     case 1 -> new OfficialTrailerArena(MapType.DOCK, MapVariant.TITAN_DOCK, cut);
-                    case 2 -> new OfficialTrailerArena(MapType.FROSTBITE_FJORD, MapVariant.STANDARD, cut);
+                    case 2 -> new OfficialTrailerArena(MapType.ASHFALL_CATHEDRAL, MapVariant.ASHFALL_REBIRTH, cut);
                     default -> new OfficialTrailerArena(MapType.PRISON, MapVariant.STANDARD, cut);
                 };
             }
-            case 8 -> new OfficialTrailerArena(MapType.BEACON_CROWN, MapVariant.NULL_ROC_ASCENDING,
-                    Math.min(3, (int) (phase * 4.0)));
-            case 9 -> {
+            case 8 -> {
                 int cut = Math.min(3, (int) (phase * 4.0));
                 yield switch (cut) {
                     case 0 -> new OfficialTrailerArena(MapType.ASHFALL_CATHEDRAL, MapVariant.ASHFALL_REBIRTH, cut);
@@ -45666,7 +45680,7 @@ public class BirdGame3 {
                     default -> new OfficialTrailerArena(MapType.BEACON_CROWN, MapVariant.VOID_CROWN, cut);
                 };
             }
-            case 10 -> new OfficialTrailerArena(MapType.BEACON_CROWN, MapVariant.VOID_CROWN,
+            case 9 -> new OfficialTrailerArena(MapType.BEACON_CROWN, MapVariant.VOID_CROWN,
                     Math.min(4, (int) (phase * 5.0)));
             default -> new OfficialTrailerArena(MapType.BATTLEFIELD, MapVariant.STANDARD, 0);
         };
@@ -45877,13 +45891,15 @@ public class BirdGame3 {
             drawOfficialTrailerSilentOpen(g, phase);
         } else if (sceneIndex == 3) {
             drawOfficialTrailerStoryPromise(g, phase);
-        } else if (sceneIndex == 11) {
+        } else if (sceneIndex == 10) {
             drawOfficialTrailerFinalCard(g, roster, phase);
         } else if (isOfficialTrailerCutsceneScene(sceneIndex)) {
             drawOfficialTrailerCutscene(g, cutsceneRenderer, sceneIndex, phase, arena.cutIndex());
         } else if (isOfficialTrailerGameplayScene(sceneIndex)) {
-            currentFightHudOcclusionRects = List.of();
+            FightHudLayout hudLayout = buildFightHudLayout();
+            currentFightHudOcclusionRects = hudLayout.occlusionRects();
             drawGame(g);
+            drawFightHud(g, hudLayout);
             drawOfficialTrailerCinematicGameplay(g, sceneIndex, phase, arena.cutIndex());
         } else {
             g.save();
@@ -46006,10 +46022,8 @@ public class BirdGame3 {
         String sceneId = switch (sceneIndex) {
             case 1 -> "s40_lounge_falls";
             case 2 -> "s44_old_sparrow_death";
-            case 5 -> "s63_world_still";
             case 6 -> "s66_null_roc_wakes";
-            case 8 -> cutIndex < 2 ? "s77_null_roc_before" : "s78_shell_falls";
-            case 10 -> "s80_eagle_end";
+            case 9 -> "s80_eagle_end";
             default -> "s01_dead_air";
         };
         int lineIndex = switch (sceneIndex) {
@@ -46024,24 +46038,12 @@ public class BirdGame3 {
                 case 2 -> 8;
                 default -> 9;
             };
-            case 5 -> switch (cutIndex) {
-                case 0 -> 1;
-                case 1 -> 3;
-                default -> 5;
-            };
             case 6 -> switch (cutIndex) {
                 case 0 -> 3;
-                case 1 -> 4;
-                case 2 -> 6;
+                case 1 -> 6;
                 default -> 7;
             };
-            case 8 -> switch (cutIndex) {
-                case 0 -> 0;
-                case 1 -> 4;
-                case 2 -> 4;
-                default -> 9;
-            };
-            case 10 -> switch (cutIndex) {
+            case 9 -> switch (cutIndex) {
                 case 0 -> 24;
                 case 1 -> 25;
                 case 2 -> 26;
@@ -46052,7 +46054,7 @@ public class BirdGame3 {
         };
         int cutCount = officialTrailerCutCount(sceneIndex);
         double linePhase = phase * cutCount - cutIndex;
-        BirdType selectedBird = sceneIndex == 10 ? BirdType.PIGEON : null;
+        BirdType selectedBird = sceneIndex == 9 ? BirdType.PIGEON : null;
         StoryCampaign.Cutscene cutscene = stillSkyCampaign.scene(sceneId);
         cutsceneRenderer.renderTrailerFrame(
                 g, cutscene, selectedBird, null,
@@ -46061,10 +46063,8 @@ public class BirdGame3 {
         String chapter = switch (sceneIndex) {
             case 1 -> "SOME THINGS CANNOT BE SAVED";
             case 2 -> "ONE BIRD HELD THE GATE";
-            case 5 -> "SEVEN MINUTES UNTIL THE SKY CLOSED";
             case 6 -> "THE SECOND HEARTBEAT";
-            case 8 -> "THE WEAPON LEARNED THEIR VOICES";
-            case 10 -> "SOME SACRIFICES CANNOT BE ORDERED";
+            case 9 -> "SOME SACRIFICES CANNOT BE ORDERED";
             default -> "THE STILL SKY";
         };
         drawOfficialTrailerLetterbox(g);
@@ -46080,9 +46080,9 @@ public class BirdGame3 {
 
     private int officialTrailerCutCount(int sceneIndex) {
         return switch (sceneIndex) {
-            case 1, 4, 5 -> 3;
-            case 2, 6, 7, 8, 9 -> 4;
-            case 10 -> 5;
+            case 1, 6 -> 3;
+            case 2, 4, 5, 7, 8 -> 4;
+            case 9 -> 5;
             default -> 1;
         };
     }
@@ -46091,9 +46091,9 @@ public class BirdGame3 {
                                                        int sceneIndex,
                                                        double phase,
                                                        int cutIndex) {
-        g.setFill(Color.web(sceneIndex == 9 ? "#120719" : "#061018", sceneIndex == 9 ? 0.18 : 0.10));
+        g.setFill(Color.web(sceneIndex == 8 ? "#120719" : "#061018", sceneIndex == 8 ? 0.18 : 0.10));
         g.fillRect(0, 0, WIDTH, HEIGHT);
-        if (sceneIndex == 9 && cutIndex >= 2) {
+        if (sceneIndex == 8 && cutIndex >= 2) {
             double eclipse = 0.10 + 0.08 * Math.sin(phase * Math.PI * 8.0);
             g.setFill(Color.web("#4A148C", eclipse));
             g.fillOval(WIDTH * 0.16, -HEIGHT * 0.34, WIDTH * 0.68, HEIGHT * 1.05);
@@ -46640,7 +46640,7 @@ public class BirdGame3 {
         double cutFade = sceneIndex == 0
                 ? 1.0 - smoothStep01(phase / 0.18)
                 : 1.0 - smoothStep01(localPhase / 0.075);
-        double finalFade = sceneIndex == 11 ? smoothStep01((phase - 0.90) / 0.10) : 0.0;
+        double finalFade = sceneIndex == 10 ? smoothStep01((phase - 0.90) / 0.10) : 0.0;
         double alpha = Math.clamp(Math.max(cutFade, finalFade), 0.0, 1.0);
         if (alpha > 0.001) {
             g.setFill(Color.web("#000000", alpha));
@@ -46648,11 +46648,11 @@ public class BirdGame3 {
         }
         if (isOfficialTrailerGameplayScene(sceneIndex) && localPhase < 0.055) {
             double flash = 1.0 - Math.abs(localPhase - 0.0275) / 0.0275;
-            Color flashColor = sceneIndex == 9 ? Color.web("#E1BEE7") : Color.WHITE;
+            Color flashColor = sceneIndex == 8 ? Color.web("#E1BEE7") : Color.WHITE;
             g.setFill(flashColor.deriveColor(0, 1, 1, Math.clamp(flash * 0.46, 0.0, 0.46)));
             g.fillRect(0, 0, WIDTH, HEIGHT);
         }
-        if (sceneIndex == 8 && phase > 0.72) {
+        if (sceneIndex == 6 && phase > 0.72) {
             double pulse = Math.sin((phase - 0.72) * Math.PI * 18.0) * 0.5 + 0.5;
             g.setFill(Color.web("#7C4DFF", pulse * 0.10));
             g.fillRect(0, 0, WIDTH, HEIGHT);

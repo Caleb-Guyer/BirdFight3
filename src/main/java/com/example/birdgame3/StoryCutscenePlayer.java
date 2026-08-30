@@ -556,9 +556,17 @@ final class StoryCutscenePlayer {
     private void drawTrailerSacrificeForeground(GraphicsContext g,
                                                  StoryCampaign.DialogueLine line,
                                                  double elapsed) {
-        if (scene == null || line == null || line.motion() != StoryCampaign.ActorMotion.FALL) return;
-        if ("s44_old_sparrow_death".equals(scene.id())) {
-            double progress = smoothStep(Math.clamp((elapsed - 0.10) / 2.25, 0.0, 1.0));
+        if (scene == null || line == null) return;
+        boolean sparrowSeal = "s44_old_sparrow_death".equals(scene.id())
+                && (line.motion() == StoryCampaign.ActorMotion.FALL
+                || "Charles".equals(line.speaker()));
+        boolean eagleRelease = "s80_eagle_end".equals(scene.id())
+                && line.motion() == StoryCampaign.ActorMotion.FALL;
+        if (!sparrowSeal && !eagleRelease) return;
+        if (sparrowSeal) {
+            double progress = line.motion() == StoryCampaign.ActorMotion.FALL
+                    ? smoothStep(Math.clamp((elapsed - 0.10) / 2.25, 0.0, 1.0))
+                    : 1.0;
             double sealBottom = 178 + progress * 610.0;
             g.save();
             g.setFill(new LinearGradient(0, 80, 0, sealBottom, false, CycleMethod.NO_CYCLE,
@@ -586,7 +594,7 @@ final class StoryCutscenePlayer {
             g.setFill(Color.web("#CFD8DC", 0.18 * spark));
             g.fillOval(130, sealBottom - 35, 900, 105);
             g.restore();
-        } else if ("s80_eagle_end".equals(scene.id())) {
+        } else {
             double progress = smoothStep(Math.clamp((elapsed - 0.08) / 2.35, 0.0, 1.0));
             double radius = 190 + progress * 680.0;
             g.save();
@@ -829,7 +837,13 @@ final class StoryCutscenePlayer {
         g.scale(zoom, zoom);
         g.translate(-LOGICAL_WIDTH / 2.0 + cameraX, -560);
 
-        StoryCampaign.DialogueLine prior = previousDistinctLine(lineIndex, line);
+        boolean sealedSparrowFollowup = trailerFrameActive
+                && scene != null
+                && "s44_old_sparrow_death".equals(scene.id())
+                && "Charles".equals(line.speaker());
+        StoryCampaign.DialogueLine prior = sealedSparrowFollowup
+                ? null
+                : previousDistinctLine(lineIndex, line);
         double actorScale = screenConstantActorScale(zoom);
         MotionOffset currentMotion = motionOffset(line.motion(), elapsed, true);
         if (prior != null) {
@@ -856,7 +870,8 @@ final class StoryCutscenePlayer {
             drawMotionEffects(g, line, centers[1], currentY, currentMotion, elapsed, actorScale, false);
         } else {
             boolean facingRight = actorOnLeft.getOrDefault(line.speaker(), true);
-            double actorX = Math.clamp(960 + currentMotion.x(), ACTOR_STAGE_LEFT, ACTOR_STAGE_RIGHT);
+            double baseX = sealedSparrowFollowup ? actorAnchorX(line) : 960.0;
+            double actorX = Math.clamp(baseX + currentMotion.x(), ACTOR_STAGE_LEFT, ACTOR_STAGE_RIGHT);
             double actorY = 680 + currentMotion.y();
             drawActorLighting(g, actorX, actorY, actorScale, true, elapsed);
             drawMotionEffects(g, line, actorX, actorY, currentMotion, elapsed, actorScale, true);
