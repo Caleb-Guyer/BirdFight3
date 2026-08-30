@@ -1034,11 +1034,11 @@ Crown System|Combat response updated. The next containment phase is active.
 
 [dynamic_null_echo_relay]
 Raven|The reflections have formed opposite our line. Every signature is there—even the lead.|ESTABLISHING|RISE
-Eagle|Then the lead holds center. Three living wings launch beside it; three reflections answer.|WIDE|IDLE
-Penguin|When a group clears its shadows, the survivors return. The next group launches.|TWO_SHOT|IDLE
-Falcon|Any bird that falls stays down. No false second wind.|CLOSE|RECOIL
+Eagle|Then the lead holds center. Three wings enter from the left as three reflections enter from the right.|WIDE|IDLE
+Penguin|When a corrupted group falls, the next group descends. Every surviving wing stays in the fight.|TWO_SHOT|IDLE
+Falcon|The living line keeps growing. Any bird that falls stays down.|CLOSE|RECOIL
 The Null Rock|Every wing. Returned.|REVEAL|RISE
-Eagle|Not returned. Countered. Keep the relay moving until the right-hand line is empty.|ACTION|ATTACK
+Eagle|Not returned. Countered. Keep the assault moving until the right-hand line is empty.|ACTION|ATTACK
 
 [dynamic_null_rock_duel]
 Penguin|Charge is set. Everybody clear the center.|WIDE|IDLE

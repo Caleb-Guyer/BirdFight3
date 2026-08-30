@@ -11604,7 +11604,7 @@ class BirdStateTest {
     }
 
     @Test
-    void nullRockCorruptedInvasionRunsDeterministicFourVersusThreeRelay() throws Exception {
+    void nullRockCorruptedInvasionAccumulatesSurvivingAlliesAcrossDeterministicWaves() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.headlessHarnessMode = true;
         game.campaignModeActive = true;
@@ -11631,19 +11631,45 @@ class BirdStateTest {
 
         Set<BirdGame3.BirdType> spawnedTypes = EnumSet.noneOf(BirdGame3.BirdType.class);
         int firstEchoSlot = StoryCampaign.STILL_SKY_ROSTER.size();
-        boolean[] activeRelayAllies = (boolean[]) getPrivateObject(
-                game, "campaignNullRelayActiveAllies");
+        boolean[] deployedAllies = (boolean[]) getPrivateObject(
+                game, "campaignNullRelayDeployedAllies");
+        boolean[] veteranAllies = new boolean[BirdGame3.MAX_COMBATANTS];
+        boolean[] observedArrival = new boolean[BirdGame3.MAX_COMBATANTS];
         int permanentlyLostAllySlot = -1;
-        boolean verifiedBenchProtection = false;
+        boolean verifiedReserveProtection = false;
+        int lastLivingAllies = -1;
         int safety = 0;
         while (spawnedTypes.size() < BirdGame3.BirdType.values().length && safety++ < 20) {
             invokePrivateVoid(game, "applyCampaignMissionRuntimeEffects");
-            int activeAllies = 0;
+            int livingAllies = 0;
+            int newArrivals = 0;
             for (int slot = 1; slot < firstEchoSlot; slot++) {
-                if (activeRelayAllies[slot]) activeAllies++;
+                Bird ally = game.players[slot];
+                if (!deployedAllies[slot] || ally == null || ally.health <= 0.0) continue;
+                livingAllies++;
+                assertTrue(game.isAI[slot]);
+                if (veteranAllies[slot]) {
+                    assertTrue(deployedAllies[slot],
+                            "Survivors from earlier waves must stay on the battlefield.");
+                }
+                if (!observedArrival[slot]) {
+                    newArrivals++;
+                    assertTrue(ally.bodyCenterX() < game.players[0].bodyCenterX(),
+                            "Good reinforcements should enter from the left of the lead bird.");
+                    assertTrue(ally.vx > 0.0);
+                    observedArrival[slot] = true;
+                }
             }
-            assertEquals(3, activeAllies,
-                    "Each relay pass should launch exactly three CPU allies beside the player.");
+            if (lastLivingAllies < 0) {
+                assertEquals(3, livingAllies,
+                        "The assault should open as the requested four-versus-three fight.");
+            } else {
+                assertTrue(livingAllies >= lastLivingAllies,
+                        "Living allies from earlier waves must remain in the fight.");
+                assertTrue(livingAllies <= lastLivingAllies + 3);
+            }
+            assertTrue(newArrivals >= 2 && newArrivals <= 3,
+                    "Each corrupted wave should be paired with fresh good-side reinforcements.");
             int livingWave = 0;
             for (int slot = firstEchoSlot; slot < game.activePlayers; slot++) {
                 Bird echo = game.players[slot];
@@ -11653,21 +11679,24 @@ class BirdStateTest {
                 assertEquals(BirdGame3.CAMPAIGN_NULL_ECHO_SKIN, echo.appliedSkinKey);
                 assertEquals(2, game.campaignTeams[slot]);
                 assertTrue(game.isAI[slot]);
-                assertTrue(echo.bodyCenterX() > BirdGame3.WORLD_WIDTH * 0.72,
-                        "Corrupted counterparts should launch from the right-hand formation.");
+                assertTrue(echo.bodyCenterX() > game.players[0].bodyCenterX(),
+                        "Corrupted counterparts should enter from the right of the lead bird.");
                 assertTrue(echo.vx < 0.0);
-                if (!verifiedBenchProtection) {
+                if (!verifiedReserveProtection) {
                     for (int allySlot = 1; allySlot < firstEchoSlot; allySlot++) {
-                        Bird benchedAlly = game.players[allySlot];
-                        if (activeRelayAllies[allySlot] || benchedAlly == null || benchedAlly.health <= 0.0) {
+                        Bird reserve = game.players[allySlot];
+                        if (deployedAllies[allySlot] || reserve == null || reserve.health <= 0.0) {
                             continue;
                         }
-                        assertTrue(game.isCampaignNullRelayBenched(benchedAlly));
-                        assertFalse(game.canDamage(echo, benchedAlly),
-                                "Waiting allies must not be valid combat targets.");
-                        assertFalse(game.canDamage(benchedAlly, echo),
-                                "Waiting allies must not attack from the formation.");
-                        verifiedBenchProtection = true;
+                        assertTrue(game.isCampaignNullRelayReserve(reserve));
+                        assertTrue(reserve.bodyCenterX()
+                                        < getPrivateDouble(game, "battlefieldIslandX") - 800.0,
+                                "Undeployed allies must remain beyond the visible arena.");
+                        assertFalse(game.canDamage(echo, reserve),
+                                "Hidden reserves must not be valid combat targets.");
+                        assertFalse(game.canDamage(reserve, echo),
+                                "Hidden reserves must not attack before entering.");
+                        verifiedReserveProtection = true;
                         break;
                     }
                 }
@@ -11676,23 +11705,36 @@ class BirdStateTest {
             assertTrue(livingWave >= 1 && livingWave <= 3);
             if (permanentlyLostAllySlot < 0) {
                 for (int slot = 1; slot < firstEchoSlot; slot++) {
-                    if (!activeRelayAllies[slot]) continue;
+                    if (!deployedAllies[slot]) continue;
                     permanentlyLostAllySlot = slot;
                     game.players[slot].health = 0.0;
+                    veteranAllies[slot] = false;
+                    livingAllies--;
                     break;
                 }
             }
+            for (int slot = 1; slot < firstEchoSlot; slot++) {
+                Bird ally = game.players[slot];
+                veteranAllies[slot] = deployedAllies[slot]
+                        && ally != null && ally.health > 0.0;
+            }
+            lastLivingAllies = livingAllies;
             game.checkCampaignMissionCompletion();
             if (permanentlyLostAllySlot >= 0) {
-                assertFalse(activeRelayAllies[permanentlyLostAllySlot],
-                        "A defeated ally must not fly back or re-enter a later relay pass.");
+                assertTrue(deployedAllies[permanentlyLostAllySlot]);
+                assertEquals(0.0, game.players[permanentlyLostAllySlot].health, 0.0001,
+                        "A defeated ally must stay defeated instead of re-entering later waves.");
                 assertFalse(game.isAI[permanentlyLostAllySlot]);
             }
         }
 
         assertEquals(EnumSet.allOf(BirdGame3.BirdType.class), spawnedTypes,
                 "The Null Rock must copy every playable bird, including Kiwi.");
-        assertTrue(verifiedBenchProtection);
+        assertTrue(verifiedReserveProtection);
+        for (int slot = 1; slot < firstEchoSlot; slot++) {
+            assertTrue(deployedAllies[slot],
+                    "Every good-side reserve should enter before the corrupted roster is exhausted.");
+        }
         assertEquals(8, getPrivateInt(game, "campaignNullEchoWave"));
 
         StoryMissionController controller =

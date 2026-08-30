@@ -142,7 +142,7 @@ class StoryCampaignContentTest {
         assertEquals(6, StoryCampaignContent.nullEchoRelayDialogue().size());
         assertTrue(StoryCampaignContent.nullEchoRelayDialogue().stream()
                 .noneMatch(line -> line.text().toLowerCase().matches(".*\\b(you|your)\\b.*")),
-                "The relay briefing must stay in-world instead of addressing the player.");
+                "The counterpart briefing must stay in-world instead of addressing the player.");
         assertEquals("music-null-rock.mp3", campaign.scene("s79_null_rock_before").musicCue());
         assertEquals("music-null-rock.mp3", campaign.scene("s80_eagle_end").musicCue());
         StoryCampaign.DialogueLine farewell = campaign.scene("s80_eagle_end").lines().stream()

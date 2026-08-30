@@ -6655,15 +6655,10 @@ public class BirdGame3 {
     private int campaignNullEchoNextRosterIndex = 0;
     private int campaignNullEchoWave = 0;
     private static final int CAMPAIGN_NULL_RELAY_ALLY_COUNT = 3;
-    private static final int CAMPAIGN_NULL_RELAY_RETURN_TICKS = 48;
-    private final boolean[] campaignNullRelayActiveAllies = new boolean[MAX_COMBATANTS];
-    private final boolean[] campaignNullRelayReturningAllies = new boolean[MAX_COMBATANTS];
-    private final double[] campaignNullRelayFormationX = new double[MAX_COMBATANTS];
-    private final double[] campaignNullRelayFormationY = new double[MAX_COMBATANTS];
-    private final double[] campaignNullRelayReturnStartX = new double[MAX_COMBATANTS];
-    private final double[] campaignNullRelayReturnStartY = new double[MAX_COMBATANTS];
+    private final boolean[] campaignNullRelayDeployedAllies = new boolean[MAX_COMBATANTS];
+    private final double[] campaignNullRelayReserveX = new double[MAX_COMBATANTS];
+    private final double[] campaignNullRelayReserveY = new double[MAX_COMBATANTS];
     private int campaignNullRelayNextAllyOffset = 0;
-    private int campaignNullRelayReturnTicks = 0;
     private boolean campaignNullRelayWaveActive = false;
     private boolean campaignNullRelayReadyForCompletion = false;
     private int campaignNullRockDuelStage = 0;
@@ -12291,7 +12286,7 @@ public class BirdGame3 {
                 if (!introLocked) {
                     long playerUpdateStart = System.nanoTime();
                     for (int i = 0; i < activePlayers; i++) {
-                        if (players[i] != null && !isCampaignNullRelayBenched(players[i])) {
+                        if (players[i] != null && !isCampaignNullRelayReserve(players[i])) {
                             players[i].update(1.0);
                         }
                     }
@@ -12838,7 +12833,7 @@ public class BirdGame3 {
         double accumulatedLeadY = 0.0;
         for (int i = 0; i < players.length; i++) {
             Bird b = players[i];
-            if (b != null && b.health > 0 && !isCampaignNullRelayBenched(b)) {
+            if (b != null && b.health > 0 && !isCampaignNullRelayReserve(b)) {
                 aliveCount++;
                 double desiredLeadX = Math.clamp(b.vx * CAMERA_LOOKAHEAD_FRAMES, -520.0, 520.0);
                 double desiredLeadY = Math.clamp(b.vy * (CAMERA_LOOKAHEAD_FRAMES * 0.7), -280.0, 280.0);
@@ -15014,7 +15009,7 @@ public class BirdGame3 {
         }
 
         for (Bird b : players) {
-            if (b != null && b.health > 0) {
+            if (b != null && b.health > 0 && !isCampaignNullRelayReserve(b)) {
                 b.drawWorldObjects(g);
             }
         }
@@ -15044,7 +15039,7 @@ public class BirdGame3 {
         drawLaunchTrailEffects(g);
 
         for (Bird b : players) {
-            if (b != null && b.health > 0) {
+            if (b != null && b.health > 0 && !isCampaignNullRelayReserve(b)) {
                 double size = 80 * b.sizeMultiplier;
                 if (isWorldRectOutsideCamera(b.x, b.y, size, size, 220)) {
                     continue;
@@ -50246,14 +50241,10 @@ public class BirdGame3 {
         campaignNullRockWave = 0;
         campaignNullEchoNextRosterIndex = 0;
         campaignNullEchoWave = 0;
-        Arrays.fill(campaignNullRelayActiveAllies, false);
-        Arrays.fill(campaignNullRelayReturningAllies, false);
-        Arrays.fill(campaignNullRelayFormationX, 0.0);
-        Arrays.fill(campaignNullRelayFormationY, 0.0);
-        Arrays.fill(campaignNullRelayReturnStartX, 0.0);
-        Arrays.fill(campaignNullRelayReturnStartY, 0.0);
+        Arrays.fill(campaignNullRelayDeployedAllies, false);
+        Arrays.fill(campaignNullRelayReserveX, 0.0);
+        Arrays.fill(campaignNullRelayReserveY, 0.0);
         campaignNullRelayNextAllyOffset = 0;
-        campaignNullRelayReturnTicks = 0;
         campaignNullRelayWaveActive = false;
         campaignNullRelayReadyForCompletion = false;
         campaignNullRockDuelStage = 0;
@@ -72015,10 +72006,8 @@ public class BirdGame3 {
 
     private void prepareCampaignCoalitionForNullEchoes() {
         int coalitionSlots = campaignCoalitionSlotCount();
-        Arrays.fill(campaignNullRelayActiveAllies, false);
-        Arrays.fill(campaignNullRelayReturningAllies, false);
+        Arrays.fill(campaignNullRelayDeployedAllies, false);
         campaignNullRelayNextAllyOffset = 0;
-        campaignNullRelayReturnTicks = 0;
         campaignNullRelayWaveActive = false;
         campaignNullRelayReadyForCompletion = false;
         for (int slot = 0; slot < coalitionSlots; slot++) {
@@ -72031,15 +72020,10 @@ public class BirdGame3 {
                         - ally.bodyWidth() * 0.5;
                 ally.y = battlefieldIslandY - ally.bodyHeight();
             } else {
-                int formationIndex = slot - 1;
-                int row = formationIndex / 10;
-                int column = formationIndex % 10;
-                campaignNullRelayFormationX[slot] = battlefieldIslandX + 250.0
-                        + column * 142.0 - ally.bodyWidth() * 0.5;
-                campaignNullRelayFormationY[slot] = battlefieldIslandY - ally.bodyHeight()
-                        - row * 122.0;
-                ally.x = campaignNullRelayFormationX[slot];
-                ally.y = campaignNullRelayFormationY[slot];
+                campaignNullRelayReserveX[slot] = battlefieldIslandX - 1_600.0 - slot * 96.0;
+                campaignNullRelayReserveY[slot] = CEILING_Y - 1_200.0 - (slot % 4) * 80.0;
+                ally.x = campaignNullRelayReserveX[slot];
+                ally.y = campaignNullRelayReserveY[slot];
             }
             ally.prevX = ally.x;
             ally.prevY = ally.y;
@@ -72052,33 +72036,21 @@ public class BirdGame3 {
             }
         }
         crowMinions.clear();
-        addToKillFeed("COUNTERPART RELAY: Three wings launch beside the lead.");
+        addToKillFeed("COUNTERPART ASSAULT: reinforcements await beyond the arena.");
     }
 
     /**
-     * Runs the finale as a deterministic four-versus-three relay. The selected
-     * bird remains the human-controlled lead while three surviving coalition
-     * allies launch from the left formation. Three corrupted counterparts launch
-     * from the right; surviving allies return before the next group rotates in.
+     * Runs the finale as a deterministic escalating assault. The selected bird
+     * remains the human-controlled lead. Each corrupted trio enters from the
+     * right as up to three previously hidden allies enter from the left; every
+     * surviving ally remains in the battle for all later waves.
      */
     private void updateCampaignNullEchoInvasion() {
-        updateCampaignNullEchoInvasion(true);
-    }
-
-    private void updateCampaignNullEchoInvasion(boolean advanceReturnAnimation) {
         if (!isCampaignNullEchoPhase()) return;
         int firstEchoSlot = campaignCoalitionSlotCount();
         if (firstEchoSlot >= activePlayers) return;
 
-        anchorCampaignNullRelayBench();
-        if (campaignNullRelayReturnTicks > 0) {
-            if (advanceReturnAnimation) {
-                advanceCampaignNullRelayReturn();
-            }
-            if (campaignNullRelayReturnTicks > 0) {
-                return;
-            }
-        }
+        anchorCampaignNullRelayReserves();
 
         boolean livingEcho = false;
         for (int slot = firstEchoSlot; slot < activePlayers; slot++) {
@@ -72091,11 +72063,7 @@ public class BirdGame3 {
         if (campaignNullRelayWaveActive && livingEcho) return;
 
         if (campaignNullRelayWaveActive) {
-            beginCampaignNullRelayReturn();
             campaignNullRelayWaveActive = false;
-            if (campaignNullRelayReturnTicks > 0) {
-                return;
-            }
         }
 
         for (int slot = firstEchoSlot; slot < activePlayers; slot++) {
@@ -72112,15 +72080,21 @@ public class BirdGame3 {
             return;
         }
 
-        int activeAllies = activateNextCampaignNullRelayAllies();
+        int echoSlots = activePlayers - firstEchoSlot;
+        int totalWaves = (echoRoster.length + echoSlots - 1) / echoSlots;
+        int wavesRemaining = Math.max(1, totalWaves - campaignNullEchoWave);
+        int reservesRemaining = campaignNullRelayReservesRemaining();
+        int reinforcementsThisWave = Math.min(CAMPAIGN_NULL_RELAY_ALLY_COUNT,
+                (reservesRemaining + wavesRemaining - 1) / wavesRemaining);
+        int reinforcements = activateNextCampaignNullRelayAllies(reinforcementsThisWave);
+        double combatCenterX = campaignNullRelayCombatCenterX();
 
         int spawned = 0;
         for (int slot = firstEchoSlot;
              slot < activePlayers && campaignNullEchoNextRosterIndex < echoRoster.length;
              slot++) {
             BirdType type = echoRoster[campaignNullEchoNextRosterIndex++];
-            double centerX = battlefieldIslandX + battlefieldIslandW - 380.0
-                    - spawned * 155.0;
+            double centerX = combatCenterX + 720.0 + spawned * 115.0;
             Bird echo = createStoryBird(centerX, type, slot,
                     "Null " + type.name, 170.0, 1.08, 1.06, true);
             applyPreviewSkinChoiceToBird(echo, type, CAMPAIGN_NULL_ECHO_SKIN);
@@ -72142,125 +72116,68 @@ public class BirdGame3 {
 
         campaignNullEchoWave++;
         campaignNullRelayWaveActive = true;
-        int totalWaves = (echoRoster.length + (activePlayers - firstEchoSlot) - 1)
-                / (activePlayers - firstEchoSlot);
-        addToKillFeed("RELAY " + campaignNullEchoWave + "/" + totalWaves + ": "
-                + (activeAllies + 1) + " wings meet " + spawned + " corrupted counterparts.");
+        addToKillFeed("ASSAULT " + campaignNullEchoWave + "/" + totalWaves + ": "
+                + reinforcements + " reinforcements join against " + spawned + " reflections.");
         shakeIntensity = Math.max(shakeIntensity, 24.0);
         playManagedSfxVaried(hugewaveClip, 0.78, 0.66, 0.014);
     }
 
-    private int activateNextCampaignNullRelayAllies() {
+    private int campaignNullRelayReservesRemaining() {
+        int reserves = 0;
+        for (int slot = 1; slot < campaignCoalitionSlotCount(); slot++) {
+            Bird ally = players[slot];
+            if (!campaignNullRelayDeployedAllies[slot] && ally != null && ally.health > 0.0) {
+                reserves++;
+            }
+        }
+        return reserves;
+    }
+
+    private int activateNextCampaignNullRelayAllies(int requestedAllies) {
         int supportCount = Math.max(0, campaignCoalitionSlotCount() - 1);
         int activated = 0;
         int inspected = 0;
-        while (inspected < supportCount && activated < CAMPAIGN_NULL_RELAY_ALLY_COUNT) {
+        double combatCenterX = campaignNullRelayCombatCenterX();
+        while (inspected < supportCount && activated < requestedAllies) {
             int offset = Math.floorMod(campaignNullRelayNextAllyOffset, supportCount);
             campaignNullRelayNextAllyOffset = Math.floorMod(offset + 1, supportCount);
             inspected++;
             int slot = 1 + offset;
             Bird ally = players[slot];
-            if (ally == null || ally.health <= 0.0) continue;
+            if (campaignNullRelayDeployedAllies[slot] || ally == null || ally.health <= 0.0) continue;
 
-            campaignNullRelayActiveAllies[slot] = true;
-            campaignNullRelayReturningAllies[slot] = false;
+            campaignNullRelayDeployedAllies[slot] = true;
             isAI[slot] = true;
             Arrays.fill(aiActionPressed[slot], false);
-            ally.x = campaignNullRelayFormationX[slot];
-            ally.y = campaignNullRelayFormationY[slot] - 72.0 - activated * 22.0;
+            double centerX = combatCenterX - 720.0 - activated * 115.0;
+            ally.x = centerX - ally.bodyWidth() * 0.5;
+            ally.y = battlefieldIslandY - ally.bodyHeight() - 150.0 - activated * 54.0;
             ally.prevX = ally.x;
             ally.prevY = ally.y;
-            ally.vx = 15.0 + activated * 1.4;
-            ally.vy = -8.0 + activated * 1.1;
+            ally.vx = 17.0 + activated * 1.4;
+            ally.vy = -7.0 + activated * 1.2;
             ally.facingRight = true;
             activated++;
         }
         return activated;
     }
 
-    private void beginCampaignNullRelayReturn() {
-        int survivors = 0;
-        for (int slot = 1; slot < campaignCoalitionSlotCount(); slot++) {
-            if (!campaignNullRelayActiveAllies[slot]) continue;
-            Bird ally = players[slot];
-            campaignNullRelayActiveAllies[slot] = false;
-            isAI[slot] = false;
-            Arrays.fill(aiActionPressed[slot], false);
-            if (ally == null || ally.health <= 0.0) {
-                campaignNullRelayReturningAllies[slot] = false;
-                continue;
-            }
-            campaignNullRelayReturningAllies[slot] = true;
-            campaignNullRelayReturnStartX[slot] = ally.x;
-            campaignNullRelayReturnStartY[slot] = ally.y;
-            ally.vx = 0.0;
-            ally.vy = 0.0;
-            survivors++;
-        }
-
-        campaignNullRelayReturnTicks = headlessHarnessMode || survivors == 0
-                ? 0 : CAMPAIGN_NULL_RELAY_RETURN_TICKS;
-        if (campaignNullRelayReturnTicks == 0) {
-            finishCampaignNullRelayReturn();
-        } else {
-            addToKillFeed("RELAY CLEAR: surviving wings return to formation.");
-        }
+    private double campaignNullRelayCombatCenterX() {
+        double left = battlefieldIslandX + 1_050.0;
+        double right = battlefieldIslandX + battlefieldIslandW - 1_050.0;
+        double leadCenter = players[0] == null
+                ? battlefieldIslandX + battlefieldIslandW * 0.5
+                : players[0].bodyCenterX();
+        return Math.max(left, Math.min(right, leadCenter));
     }
 
-    private void advanceCampaignNullRelayReturn() {
-        int elapsed = CAMPAIGN_NULL_RELAY_RETURN_TICKS - campaignNullRelayReturnTicks + 1;
-        double progress = Math.clamp(elapsed / (double) CAMPAIGN_NULL_RELAY_RETURN_TICKS, 0.0, 1.0);
-        double eased = progress * progress * (3.0 - 2.0 * progress);
+    private void anchorCampaignNullRelayReserves() {
         for (int slot = 1; slot < campaignCoalitionSlotCount(); slot++) {
-            if (!campaignNullRelayReturningAllies[slot]) continue;
-            Bird ally = players[slot];
-            if (ally == null || ally.health <= 0.0) {
-                campaignNullRelayReturningAllies[slot] = false;
-                continue;
-            }
-            double previousX = ally.x;
-            double previousY = ally.y;
-            ally.x = campaignNullRelayReturnStartX[slot]
-                    + (campaignNullRelayFormationX[slot] - campaignNullRelayReturnStartX[slot]) * eased;
-            ally.y = campaignNullRelayReturnStartY[slot]
-                    + (campaignNullRelayFormationY[slot] - campaignNullRelayReturnStartY[slot]) * eased
-                    - Math.sin(progress * Math.PI) * 190.0;
-            ally.prevX = previousX;
-            ally.prevY = previousY;
-            ally.vx = 0.0;
-            ally.vy = 0.0;
-            ally.facingRight = false;
-        }
-        campaignNullRelayReturnTicks--;
-        if (campaignNullRelayReturnTicks <= 0) {
-            finishCampaignNullRelayReturn();
-        }
-    }
-
-    private void finishCampaignNullRelayReturn() {
-        campaignNullRelayReturnTicks = 0;
-        for (int slot = 1; slot < campaignCoalitionSlotCount(); slot++) {
-            if (!campaignNullRelayReturningAllies[slot]) continue;
-            Bird ally = players[slot];
-            campaignNullRelayReturningAllies[slot] = false;
-            if (ally == null || ally.health <= 0.0) continue;
-            ally.x = campaignNullRelayFormationX[slot];
-            ally.y = campaignNullRelayFormationY[slot];
-            ally.prevX = ally.x;
-            ally.prevY = ally.y;
-            ally.vx = 0.0;
-            ally.vy = 0.0;
-            ally.facingRight = true;
-        }
-    }
-
-    private void anchorCampaignNullRelayBench() {
-        for (int slot = 1; slot < campaignCoalitionSlotCount(); slot++) {
-            if (campaignNullRelayActiveAllies[slot] || campaignNullRelayReturningAllies[slot]) continue;
+            if (campaignNullRelayDeployedAllies[slot]) continue;
             Bird ally = players[slot];
             if (ally == null || ally.health <= 0.0) continue;
-            ally.x = campaignNullRelayFormationX[slot];
-            ally.y = campaignNullRelayFormationY[slot];
+            ally.x = campaignNullRelayReserveX[slot];
+            ally.y = campaignNullRelayReserveY[slot];
             ally.prevX = ally.x;
             ally.prevY = ally.y;
             ally.vx = 0.0;
@@ -72271,11 +72188,11 @@ public class BirdGame3 {
         }
     }
 
-    boolean isCampaignNullRelayBenched(Bird bird) {
+    boolean isCampaignNullRelayReserve(Bird bird) {
         if (!isCampaignNullEchoPhase() || bird == null) return false;
         int slot = bird.playerIndex;
         return slot > 0 && slot < campaignCoalitionSlotCount()
-                && !campaignNullRelayActiveAllies[slot];
+                && !campaignNullRelayDeployedAllies[slot];
     }
 
     private void applyCampaignNullRockDuelRuntimeEffects() {
@@ -72437,9 +72354,9 @@ public class BirdGame3 {
         enforcePermanentCampaignEnemyEliminations();
         // A cleared Null flock is replaced before GAUNTLET observes an empty
         // hostile team. Only the final roster wave is allowed to advance it.
-        updateCampaignNullEchoInvasion(false);
+        updateCampaignNullEchoInvasion();
         if (isCampaignNullEchoPhase()
-                && (!campaignNullRelayWaveActive || campaignNullRelayReturnTicks > 0)
+                && !campaignNullRelayWaveActive
                 && !campaignNullRelayReadyForCompletion) {
             return;
         }
@@ -72589,7 +72506,7 @@ public class BirdGame3 {
         int supportEnd = campaignCoalitionSlotCount();
         if (isCampaignNullEchoPhase()) {
             for (int slot = 1; slot < supportEnd; slot++) {
-                isAI[slot] = campaignNullRelayActiveAllies[slot]
+                isAI[slot] = campaignNullRelayDeployedAllies[slot]
                         && players[slot] != null && players[slot].health > 0.0;
             }
             return;
@@ -72727,7 +72644,7 @@ public class BirdGame3 {
         } else if (isCampaignNullEchoPhase()) {
             beat = new StoryCampaign.Cutscene(
                     currentCampaignMission.id() + "_null_echo_relay",
-                    "The Counterpart Relay",
+                    "The Counterpart Assault",
                     selectedMap,
                     "music-null-rock.mp3",
                     StoryCampaignContent.nullEchoRelayDialogue(),
@@ -74513,7 +74430,7 @@ public class BirdGame3 {
     public boolean canDamage(Bird attacker, Bird target) {
         if (attacker == null || target == null || attacker == target) return false;
         if (target.health <= 0) return false;
-        if (isCampaignNullRelayBenched(attacker) || isCampaignNullRelayBenched(target)) return false;
+        if (isCampaignNullRelayReserve(attacker) || isCampaignNullRelayReserve(target)) return false;
         if (target.isCombatInvulnerable()) return false;
         return !areAllies(attacker.playerIndex, target.playerIndex) || versusFriendlyFireEnabled();
     }
@@ -76457,10 +76374,14 @@ public class BirdGame3 {
         String subtitle = "ALLIES AIRBORNE: " + livingAllies + "/" + totalAllies;
         if (isCampaignNullEchoPhase()) {
             int activeWings = players[0] != null && players[0].health > 0.0 ? 1 : 0;
+            int reserves = 0;
             for (int slot = 1; slot < campaignCoalitionSlotCount(); slot++) {
                 Bird ally = players[slot];
-                if (campaignNullRelayActiveAllies[slot] && ally != null && ally.health > 0.0) {
+                if (campaignNullRelayDeployedAllies[slot] && ally != null && ally.health > 0.0) {
                     activeWings++;
+                } else if (!campaignNullRelayDeployedAllies[slot]
+                        && ally != null && ally.health > 0.0) {
+                    reserves++;
                 }
             }
             int livingEchoes = 0;
@@ -76472,8 +76393,9 @@ public class BirdGame3 {
             }
             int shadowsLeft = Math.max(0, BirdType.values().length
                     - campaignNullEchoNextRosterIndex + livingEchoes);
-            title = "COUNTERPART RELAY";
-            subtitle = "WINGS ACTIVE: " + activeWings + "/4   •   SHADOWS LEFT: " + shadowsLeft;
+            title = "COUNTERPART ASSAULT";
+            subtitle = "WINGS " + activeWings + "   •   RESERVE " + reserves
+                    + "   •   SHADOWS " + shadowsLeft;
         }
 
         g.setFill(Color.BLACK.deriveColor(0, 1, 1, 0.72));
@@ -78189,7 +78111,7 @@ public class BirdGame3 {
         g.strokeRoundRect(innerX, innerY, innerW, innerH, 18, 18);
 
         for (Bird b : players) {
-            if (b != null && b.health > 0) {
+            if (b != null && b.health > 0 && !isCampaignNullRelayReserve(b)) {
                 Color dot = fightHudAccentColor(b);
                 g.setFill(dot);
                 double mx = innerX + b.x * scaleX;
@@ -78614,7 +78536,7 @@ public class BirdGame3 {
     private double hudAlphaForRect(Rectangle2D rect) {
         if (rect == null) return 1.0;
         for (Bird b : players) {
-            if (b == null || b.health <= 0) continue;
+            if (b == null || b.health <= 0 || isCampaignNullRelayReserve(b)) continue;
             Rectangle2D bRect = fightHudScreenBounds(b);
             if (rect.intersects(bRect)) {
                 return 0.26;
