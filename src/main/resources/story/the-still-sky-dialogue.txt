@@ -938,7 +938,7 @@ Raven|Ignore the voice. Watch the pylons.
 Penguin|Three armor feeds. Break them before attacking the shell.
 Phoenix|And when the shell opens?
 Vulture|Hit the thing pretending to be me.
-Pigeon|Choose your bird. This fight belongs to all of us.
+Pigeon|Every squad takes a pylon. This fight belongs to all of us.
 
 [s78_shell_falls]
 Null Roc|Recorded voice: They are out. That was the job.
@@ -962,7 +962,7 @@ Eagle|Rotate at each fracture. Don't let it separate anyone.
 Vulture|You're giving orders again.
 Eagle|A recommendation, then.
 Pigeon|We heard you. Each squad moves when it's ready.
-Phoenix|And the player chooses any bird still willing to move.
+Phoenix|Then every bird still willing to move takes a side.
 
 [s80_eagle_end]
 Penguin|Null Rock is down. The charge is armed, but the blast gate has to stay open until everyone clears the cave.|WIDE|EXIT_RIGHT

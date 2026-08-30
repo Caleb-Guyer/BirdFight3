@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -70,5 +71,18 @@ class StoryDialogueScriptsTest {
 
         assertEquals("Pigeon|The routes are open.\nGoose@GOOSE|The sky is ours.",
                 scripts.get("finale"));
+    }
+
+    @Test
+    void bundledDialogueNeverAddressesTheRealPlayer() {
+        String screenplay = String.join("\n", StoryDialogueScripts.loadBundled().values())
+                .toLowerCase();
+
+        for (String fourthWallPhrase : Set.of(
+                "player", "choose your bird", "pick your bird", "selected bird",
+                "press enter", "keyboard", "controller")) {
+            assertFalse(screenplay.contains(fourthWallPhrase),
+                    () -> "Story dialogue broke the fourth wall with: " + fourthWallPhrase);
+        }
     }
 }
