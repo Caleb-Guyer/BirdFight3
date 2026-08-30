@@ -64,7 +64,7 @@ if ($env:JAVA_HOME) {
     }
 }
 
-& $javaExe --dry-run --enable-native-access=ALL-UNNAMED -cp (Join-Path $libRoot "*") com.example.birdgame3.Launcher
+& $javaExe --enable-native-access=ALL-UNNAMED -cp (Join-Path $libRoot "*") com.example.birdgame3.Launcher --dry-run
 if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }

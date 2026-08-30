@@ -8,8 +8,14 @@ import java.util.logging.Logger;
 
 public class Launcher {
     private static final Logger LOGGER = Logger.getLogger(Launcher.class.getName());
+    private static final String DRY_RUN_ARGUMENT = "--dry-run";
 
     public static void main(String[] args) {
+        if (isDryRun(args)) {
+            System.out.println("BirdFight3 launcher verified.");
+            return;
+        }
+
         // Prism chooses its pipeline while JavaFX starts, so this must run
         // before Application.launch. BirdGame3Application is intentionally
         // not the JVM main class: that prevents the Java launcher from
@@ -53,5 +59,17 @@ public class Launcher {
             );
             throw t;
         }
+    }
+
+    static boolean isDryRun(String[] args) {
+        if (args == null) {
+            return false;
+        }
+        for (String argument : args) {
+            if (DRY_RUN_ARGUMENT.equals(argument)) {
+                return true;
+            }
+        }
+        return false;
     }
 }
