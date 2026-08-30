@@ -7,26 +7,31 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class OfficialTrailerStoryboardTest {
     @Test
-    void narrativeBeatsUseTheAuthoredCutsceneRenderer() {
+    void sacrificeAndNullRocBeatsUseTheAuthoredCutsceneRenderer() {
+        assertTrue(BirdGame3.isOfficialTrailerCutsceneScene(1));
+        assertTrue(BirdGame3.isOfficialTrailerCutsceneScene(2));
+        assertTrue(BirdGame3.isOfficialTrailerCutsceneScene(5));
         assertTrue(BirdGame3.isOfficialTrailerCutsceneScene(6));
+        assertTrue(BirdGame3.isOfficialTrailerCutsceneScene(8));
+        assertTrue(BirdGame3.isOfficialTrailerCutsceneScene(10));
         assertFalse(BirdGame3.isOfficialTrailerGameplayScene(6));
     }
 
     @Test
-    void silhouetteTitleAndHeroChoiceUsePurposeBuiltGraphicShots() {
+    void storyOpenPromiseAndFinalCardUsePurposeBuiltGraphicShots() {
         assertTrue(BirdGame3.isOfficialTrailerGraphicScene(0));
-        assertTrue(BirdGame3.isOfficialTrailerGraphicScene(1));
-        assertTrue(BirdGame3.isOfficialTrailerGraphicScene(12));
+        assertTrue(BirdGame3.isOfficialTrailerGraphicScene(3));
+        assertTrue(BirdGame3.isOfficialTrailerGraphicScene(11));
         assertFalse(BirdGame3.isOfficialTrailerCutsceneScene(0));
-        assertFalse(BirdGame3.isOfficialTrailerCutsceneScene(1));
         assertFalse(BirdGame3.isOfficialTrailerGameplayScene(0));
-        assertFalse(BirdGame3.isOfficialTrailerGameplayScene(1));
     }
 
     @Test
-    void nullRockFinaleUsesRealGameplay() {
-        assertTrue(BirdGame3.isOfficialTrailerGameplayScene(11));
-        assertFalse(BirdGame3.isOfficialTrailerCutsceneScene(11));
+    void fightingCrescendoUsesRealGameplay() {
+        assertTrue(BirdGame3.isOfficialTrailerGameplayScene(4));
+        assertTrue(BirdGame3.isOfficialTrailerGameplayScene(7));
+        assertTrue(BirdGame3.isOfficialTrailerGameplayScene(9));
+        assertFalse(BirdGame3.isOfficialTrailerCutsceneScene(9));
     }
 
     @Test
