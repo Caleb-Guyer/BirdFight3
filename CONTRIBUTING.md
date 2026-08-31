@@ -33,7 +33,7 @@ Before opening a pull request:
 - Verify that existing characters still behave correctly  
 
 ### 5. Submit a Pull Request
-Open a pull request to the `master` branch with:
+Open a pull request to the `main` branch with:
 
 - A clear title  
 - A concise description of the changes  
