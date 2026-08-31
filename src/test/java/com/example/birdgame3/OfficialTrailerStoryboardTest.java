@@ -55,4 +55,20 @@ class OfficialTrailerStoryboardTest {
         assertTrue(BirdGame3.isOfficialTrailerGameplayScene(7));
         assertFalse(BirdGame3.isOfficialTrailerGraphicScene(7));
     }
+
+    @Test
+    void customizationReelUsesTheCompletePlayerSkinCatalog() {
+        BirdGame3 game = new BirdGame3();
+
+        assertEquals(49, game.officialTrailerSkinCatalogCount());
+        assertEquals(7, BirdGame3.officialTrailerSkinPageCount(
+                game.officialTrailerSkinCatalogCount()));
+    }
+
+    @Test
+    void massBattleAddsOneStoryFighterToEachCompleteRoster() {
+        assertEquals(BirdGame3.BirdType.values().length + 1,
+                BirdGame3.officialTrailerMassBattleTeamSize());
+        assertEquals(23, BirdGame3.officialTrailerMassBattleTeamSize());
+    }
 }
