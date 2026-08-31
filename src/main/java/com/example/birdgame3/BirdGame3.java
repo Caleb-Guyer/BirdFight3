@@ -45260,6 +45260,9 @@ public class BirdGame3 {
         Bird goose = cast.get(BirdType.GOOSE);
         Bird pelican = cast.get(BirdType.PELICAN);
 
+        Bird oldSparrow = createTrailerBird(
+                BirdType.TITMOUSE, 4, "Old Sparrow", OLD_SPARROW_SKIN);
+        oldSparrow.health = 100;
         Bird nullRock = createTrailerBird(BirdType.VULTURE, 3, "The Null Rock", NULL_ROCK_VULTURE_SKIN);
         nullRock.health = nullRockTrueFormHealth();
 
@@ -45274,6 +45277,7 @@ public class BirdGame3 {
         }
 
         List<Bird> everyBird = new ArrayList<>(cast.values());
+        everyBird.add(oldSparrow);
         everyBird.add(nullRock);
         skinCast.stream().map(OfficialTrailerSkin::bird).forEach(everyBird::add);
         for (Bird bird : everyBird) {
@@ -45304,7 +45308,8 @@ public class BirdGame3 {
                 g, elapsed, sceneEnds, playback, cutsceneRenderer, roster, skinCast,
                 everyBird,
                 pigeon, eagle, falcon, phoenix, hummingbird, turkey,
-                roadrunner, penguin, shoebill, raven, goose, pelican, nullRock
+                roadrunner, penguin, shoebill, raven, goose, pelican,
+                oldSparrow, nullRock
         );
 
         String exportPath = officialTrailerExportPath();
@@ -45415,6 +45420,7 @@ public class BirdGame3 {
             Bird raven,
             Bird goose,
             Bird pelican,
+            Bird oldSparrow,
             Bird nullRock) {
         int sceneIndex = officialTrailerSceneIndex(elapsed, sceneEnds);
         double sceneStart = sceneIndex == 0 ? 0.0 : sceneEnds[sceneIndex - 1];
@@ -45430,7 +45436,9 @@ public class BirdGame3 {
             playback.sceneIndex = sceneIndex;
             playback.arenaKey = nextArenaKey;
             playback.lastElapsed = elapsed;
-            if (isOfficialTrailerGameplayScene(sceneIndex)) {
+            if (sceneIndex >= 0 && sceneIndex <= 2) {
+                prepareOfficialTrailerArena(arena.map(), arena.variant());
+            } else if (isOfficialTrailerGameplayScene(sceneIndex)) {
                 prepareOfficialTrailerCombatClip(sceneIndex, arena);
             } else if (!isOfficialTrailerCutsceneScene(sceneIndex)
                     && !isOfficialTrailerGraphicScene(sceneIndex)) {
@@ -45480,7 +45488,7 @@ public class BirdGame3 {
         drawOfficialTrailerFrame(
                 g, sceneIndex, phase, elapsed, arena, cutsceneRenderer,
                 roster, skinCast, drawBirds,
-                nullRock, pigeon, eagle, phoenix, roadrunner
+                nullRock, pigeon, eagle, phoenix, roadrunner, oldSparrow
         );
     }
 
@@ -45844,12 +45852,10 @@ public class BirdGame3 {
 
     private OfficialTrailerArena officialTrailerArena(int sceneIndex, double phase) {
         return switch (sceneIndex) {
-            case 0, 3, 5, 10, 16 ->
+            case 0 -> new OfficialTrailerArena(MapType.PRISON, MapVariant.STANDARD, 0);
+            case 1 -> new OfficialTrailerArena(MapType.CITY, MapVariant.PARLIAMENT_ROOFTOPS, 0);
+            case 2, 3, 5, 10, 16 ->
                     new OfficialTrailerArena(MapType.BEACON_CROWN, MapVariant.VOID_CROWN, 0);
-            case 1 -> new OfficialTrailerArena(MapType.CITY, MapVariant.STANDARD,
-                    Math.min(2, (int) (phase * 3.0)));
-            case 2 -> new OfficialTrailerArena(MapType.CITY, MapVariant.STANDARD,
-                    Math.min(3, (int) (phase * 4.0)));
             case 4 -> {
                 int cut = Math.min(3, (int) (phase * 4.0));
                 yield switch (cut) {
@@ -46128,13 +46134,14 @@ public class BirdGame3 {
             Bird pigeon,
             Bird eagle,
             Bird phoenix,
-            Bird roadrunner) {
+            Bird roadrunner,
+            Bird oldSparrow) {
         g.clearRect(0, 0, WIDTH, HEIGHT);
         drawOfficialTrailerBackdrop(g, Color.web("#050913"), Color.web("#111A2B"));
 
         if (sceneIndex >= 0 && sceneIndex <= 3) {
             drawOfficialTrailerThunderOpen(g, sceneIndex, phase, elapsed,
-                    nullRock, pigeon, eagle, phoenix, roadrunner);
+                    nullRock, pigeon, eagle, phoenix, roadrunner, oldSparrow);
         } else if (sceneIndex == 5) {
             drawOfficialTrailerRosterFlight(g, roster, skinCast, phase, elapsed);
         } else if (sceneIndex == 10) {
@@ -46187,112 +46194,431 @@ public class BirdGame3 {
                                                  Bird pigeon,
                                                  Bird eagle,
                                                  Bird phoenix,
-                                                 Bird roadrunner) {
-        Color top = switch (screen) {
-            case 0 -> Color.web("#01050A");
-            case 1 -> Color.web("#06101C");
-            case 2 -> Color.web("#09020F");
-            default -> Color.web("#000000");
-        };
-        Color bottom = switch (screen) {
-            case 0 -> Color.web("#15222C");
-            case 1 -> Color.web("#182F46");
-            case 2 -> Color.web("#2A0833");
-            default -> Color.web("#08111D");
-        };
-        drawOfficialTrailerBackdrop(g, top, bottom);
-        double reveal = smoothStep01(phase / 0.10);
+                                                 Bird roadrunner,
+                                                 Bird oldSparrow) {
+        double reveal = smoothStep01(phase / 0.12);
+        drawOfficialTrailerThunderArena(g, screen, phase);
 
         g.save();
         g.setGlobalAlpha(reveal);
         if (screen == 0) {
-            g.setFill(Color.web("#03070B", 0.92));
-            g.fillRect(0, HEIGHT * 0.67, WIDTH, HEIGHT * 0.33);
-            g.setFill(Color.web("#1C2A32", 0.90));
-            for (int i = 0; i < 13; i++) {
-                double x = 105.0 + i * 150.0;
-                g.fillRect(x, 80.0, 28.0, 840.0);
-            }
-            g.setStroke(Color.web("#607D8B", 0.52));
-            g.setLineWidth(18.0);
-            g.strokeLine(70.0, 175.0, WIDTH - 70.0, 175.0);
-            g.strokeLine(70.0, 820.0, WIDTH - 70.0, 820.0);
-            drawOfficialTrailerBirdCentered(g, pigeon, WIDTH * 0.39, HEIGHT * 0.60,
-                    260.0, true);
-            drawOfficialTrailerBirdCentered(g, eagle, WIDTH * 0.61, HEIGHT * 0.56,
-                    300.0, false);
+            drawOfficialTrailerCrownlockTableau(g, phase, oldSparrow, eagle);
         } else if (screen == 1) {
-            g.setFill(Color.web("#02060B", 0.92));
-            for (int i = 0; i < 18; i++) {
-                double buildingX = i * 118.0 - 30.0;
-                double buildingH = 190.0 + (i * 97 % 430);
-                g.fillRect(buildingX, HEIGHT - buildingH, 92.0, buildingH);
-            }
-            double rush = smoothStep01(phase / 0.32);
-            double leftX = lerp(-220.0, WIDTH * 0.34, rush);
-            double rightX = lerp(WIDTH + 220.0, WIDTH * 0.66, rush);
-            drawOfficialTrailerBirdCentered(g, roadrunner, leftX, HEIGHT * 0.57,
-                    250.0, true);
-            drawOfficialTrailerBirdCentered(g, phoenix, rightX, HEIGHT * 0.47,
-                    300.0, false);
-            drawOfficialTrailerImpact(g, WIDTH * 0.50, HEIGHT * 0.52,
-                    Color.web("#FFF59D"), 0.72);
+            drawOfficialTrailerRooftopTableau(g, phase, roadrunner, phoenix);
         } else if (screen == 2) {
-            double pulse = 0.88 + 0.08 * Math.sin(elapsed * 6.0);
-            g.setFill(Color.web("#7C4DFF", 0.15));
-            g.fillOval(WIDTH * 0.50 - 390.0 * pulse, 30.0,
-                    780.0 * pulse, 780.0 * pulse);
-            g.setStroke(Color.web("#CE93D8", 0.68));
-            g.setLineWidth(16.0);
-            g.strokeOval(WIDTH * 0.50 - 335.0 * pulse, 82.0,
-                    670.0 * pulse, 670.0 * pulse);
-            drawOfficialTrailerBirdCentered(g, nullRock, WIDTH * 0.50, HEIGHT * 0.43,
-                    560.0, false);
-            drawOfficialTrailerBirdCentered(g, pigeon, WIDTH * 0.26, HEIGHT * 0.78,
-                    210.0, true);
-            drawOfficialTrailerBirdCentered(g, eagle, WIDTH * 0.74, HEIGHT * 0.76,
-                    245.0, false);
+            drawOfficialTrailerNullRockTableau(g, phase, elapsed,
+                    nullRock, pigeon, eagle);
         } else {
-            double settle = 1.08 - smoothStep01(phase / 0.32) * 0.08;
-            g.translate(WIDTH / 2.0, HEIGHT / 2.0);
-            g.scale(settle, settle);
-            g.translate(-WIDTH / 2.0, -HEIGHT / 2.0);
-            g.setTextAlign(TextAlignment.CENTER);
-            g.setFill(Color.web("#FFB300", 0.12));
-            g.fillOval(WIDTH / 2.0 - 650.0, HEIGHT / 2.0 - 390.0,
-                    1300.0, 760.0);
-            g.setFont(Font.font("Arial Black", FontWeight.BOLD, 150));
-            g.setStroke(Color.web("#110600"));
-            g.setLineWidth(20.0);
-            g.strokeText("BIRD FIGHT 3", WIDTH / 2.0, HEIGHT * 0.50);
-            g.setFill(Color.web("#FFF3D0"));
-            g.fillText("BIRD FIGHT 3", WIDTH / 2.0, HEIGHT * 0.50);
-            g.setFont(Font.font("Consolas", FontWeight.BOLD, 32));
-            g.setFill(Color.web("#FFD180"));
-            g.fillText("FULL RELEASE", WIDTH / 2.0, HEIGHT * 0.62);
+            drawOfficialTrailerStormTitle(g, phase, elapsed,
+                    pigeon, eagle, phoenix, roadrunner, oldSparrow);
+        }
+        drawOfficialTrailerThunderRain(g, screen, elapsed);
+        g.restore();
+
+        double strikeCore = Math.exp(-phase * 46.0);
+        double afterglow = Math.exp(-phase * 8.0) * 0.30;
+        drawOfficialTrailerLightning(g, screen, strikeCore, afterglow);
+        g.setTextAlign(TextAlignment.LEFT);
+    }
+
+    private void drawOfficialTrailerThunderArena(GraphicsContext g,
+                                                  int screen,
+                                                  double phase) {
+        Color top = switch (screen) {
+            case 0 -> Color.web("#010408");
+            case 1 -> Color.web("#020A13");
+            case 2 -> Color.web("#07010D");
+            default -> Color.web("#000103");
+        };
+        Color bottom = switch (screen) {
+            case 0 -> Color.web("#111C24");
+            case 1 -> Color.web("#132A3E");
+            case 2 -> Color.web("#20062C");
+            default -> Color.web("#06101B");
+        };
+        drawOfficialTrailerBackdrop(g, top, bottom);
+
+        if (screen > 2) {
+            g.setFill(new RadialGradient(0, 0, 0.50, 0.42, 0.66, true,
+                    CycleMethod.NO_CYCLE,
+                    new Stop(0.0, Color.web("#21415B", 0.26)),
+                    new Stop(0.48, Color.web("#07131F", 0.22)),
+                    new Stop(1.0, Color.web("#000000", 0.92))));
+            g.fillRect(0, 0, WIDTH, HEIGHT);
+            return;
         }
 
-        g.setStroke(Color.web("#D9F2FF", 0.38));
-        g.setLineWidth(2.2);
-        for (int i = 0; i < 24; i++) {
-            double rainX = (i * 103.0 + elapsed * 460.0) % (WIDTH + 300.0) - 150.0;
-            double rainY = (i * 83.0 + elapsed * 250.0) % (HEIGHT + 180.0) - 90.0;
-            g.strokeLine(rainX, rainY, rainX - 38.0, rainY + 112.0);
+        double cameraX = WORLD_WIDTH * 0.5;
+        double cameraY;
+        double cameraZoom;
+        if (screen == 0) {
+            cameraY = GROUND_Y - 520.0;
+            cameraZoom = 0.70;
+        } else if (screen == 1) {
+            cameraY = GROUND_Y - 900.0;
+            cameraZoom = 0.68;
+        } else {
+            cameraY = GROUND_Y - 760.0;
+            cameraZoom = 0.61;
+        }
+        cameraX += (phase - 0.5) * (screen == 1 ? 150.0 : 70.0);
+        centerOfficialTrailerCamera(cameraX, cameraY, cameraZoom);
+        g.save();
+        g.scale(zoom, zoom);
+        g.translate(-camX, -camY);
+        drawOfficialTrailerArena(g);
+        g.restore();
+
+        Color grade = switch (screen) {
+            case 0 -> Color.web("#02070C", 0.48);
+            case 1 -> Color.web("#00101E", 0.34);
+            default -> Color.web("#120019", 0.38);
+        };
+        g.setFill(grade);
+        g.fillRect(0, 0, WIDTH, HEIGHT);
+        g.setFill(new LinearGradient(0, 0, 0, HEIGHT, false, CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.web("#000000", 0.12)),
+                new Stop(0.54, Color.TRANSPARENT),
+                new Stop(1.0, Color.web("#000000", 0.66))));
+        g.fillRect(0, 0, WIDTH, HEIGHT);
+    }
+
+    private void drawOfficialTrailerCrownlockTableau(GraphicsContext g,
+                                                       double phase,
+                                                       Bird oldSparrow,
+                                                       Bird eagle) {
+        double breathe = Math.sin(phase * Math.PI * 2.0) * 3.0;
+        g.setFill(new RadialGradient(0, 0, 0.36, 0.42, 0.48, true,
+                CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.web("#A9D8E9", 0.25)),
+                new Stop(0.46, Color.web("#355768", 0.08)),
+                new Stop(1.0, Color.TRANSPARENT)));
+        g.fillRect(0, 0, WIDTH, HEIGHT);
+
+        g.setFill(Color.web("#8BC5D9", 0.07));
+        g.fillPolygon(new double[]{350, 910, 1190, 520},
+                new double[]{0, 0, 910, 910}, 4);
+        g.setFill(Color.web("#D5F1FA", 0.10));
+        g.fillOval(390, 760 + breathe, 650, 96);
+        g.setFill(Color.web("#061018", 0.42));
+        g.fillOval(1180, 780, 430, 78);
+
+        drawOfficialTrailerBirdCentered(g, oldSparrow,
+                WIDTH * 0.40, HEIGHT * 0.61 + breathe, 330.0, true);
+
+        g.save();
+        g.setGlobalAlpha(0.38);
+        drawOfficialTrailerBirdCentered(g, eagle,
+                WIDTH * 0.78, HEIGHT * 0.58, 370.0, false);
+        g.setFill(Color.web("#010305", 0.56));
+        g.fillRect(WIDTH * 0.65, 0, WIDTH * 0.35, HEIGHT);
+        g.restore();
+
+        g.setFill(Color.web("#03070A", 0.94));
+        g.fillRect(210, 72, 42, 902);
+        g.fillRect(1130, 72, 42, 902);
+        g.fillRect(210, 72, 962, 48);
+        g.fillRect(210, 922, 962, 52);
+        for (int i = 0; i < 7; i++) {
+            double x = 260.0 + i * 144.0;
+            double slant = (x - 690.0) * 0.025;
+            g.setStroke(Color.web("#010305", 0.96));
+            g.setLineWidth(34.0);
+            g.strokeLine(x - slant, 92, x + slant, 952);
+            g.setStroke(Color.web("#78909C", 0.30));
+            g.setLineWidth(5.0);
+            g.strokeLine(x - slant - 7, 110, x + slant - 7, 934);
+        }
+        g.setStroke(Color.web("#90A4AE", 0.28));
+        g.setLineWidth(6.0);
+        g.strokeRoundRect(222, 84, 938, 878, 12, 12);
+
+        g.setFill(new LinearGradient(0, 780, 0, HEIGHT, false,
+                CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.TRANSPARENT),
+                new Stop(1.0, Color.web("#8BC5D9", 0.10))));
+        g.fillRect(0, 760, WIDTH, HEIGHT - 760);
+    }
+
+    private void drawOfficialTrailerRooftopTableau(GraphicsContext g,
+                                                     double phase,
+                                                     Bird roadrunner,
+                                                     Bird phoenix) {
+        double rush = smoothStep01(phase / 0.38);
+        double recoil = smoothStep01((phase - 0.48) / 0.38);
+        double leftX = lerp(-210.0, WIDTH * 0.43, rush) - recoil * 55.0;
+        double rightX = lerp(WIDTH + 240.0, WIDTH * 0.57, rush) + recoil * 65.0;
+        double impactY = HEIGHT * 0.50;
+
+        g.setFill(new LinearGradient(0, HEIGHT * 0.35, 0, HEIGHT, false,
+                CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.TRANSPARENT),
+                new Stop(1.0, Color.web("#02070B", 0.55))));
+        g.fillRect(0, HEIGHT * 0.30, WIDTH, HEIGHT * 0.70);
+
+        g.save();
+        g.setStroke(Color.web("#73D7FF", 0.26));
+        g.setLineWidth(13.0);
+        for (int i = 0; i < 8; i++) {
+            double y = 340.0 + i * 57.0;
+            g.strokeLine(20.0 - i * 32.0, y + 110.0,
+                    leftX - 105.0 - i * 14.0, y);
+        }
+        g.setStroke(Color.web("#FF8A50", 0.30));
+        for (int i = 0; i < 8; i++) {
+            double y = 280.0 + i * 60.0;
+            g.strokeLine(WIDTH - 20.0 + i * 32.0, y - 100.0,
+                    rightX + 115.0 + i * 13.0, y);
         }
         g.restore();
 
-        double strike = Math.exp(-phase * 34.0);
-        if (strike > 0.01) {
-            g.setFill(Color.web("#EAF7FF", Math.min(0.88, strike)));
-            g.fillRect(0, 0, WIDTH, HEIGHT);
-            g.setStroke(Color.web("#FFFFFF", Math.min(1.0, strike * 1.4)));
-            g.setLineWidth(10.0);
-            double boltX = WIDTH * (0.18 + screen * 0.21);
-            g.strokePolyline(
-                    new double[]{boltX, boltX - 62, boltX + 18, boltX - 45, boltX + 5},
-                    new double[]{0, 180, 310, 505, 690}, 5);
+        g.setFill(Color.web("#41C4F5", 0.10));
+        g.fillOval(leftX - 250, impactY - 155, 470, 310);
+        g.setFill(Color.web("#FF5B22", 0.13));
+        g.fillOval(rightX - 210, impactY - 215, 490, 430);
+        drawOfficialTrailerBirdCentered(g, roadrunner,
+                leftX, impactY + 58, 340.0, true);
+        drawOfficialTrailerBirdCentered(g, phoenix,
+                rightX, impactY - 44, 395.0, false);
+
+        double impact = smoothStep01((phase - 0.16) / 0.18)
+                * (1.0 - smoothStep01((phase - 0.67) / 0.28));
+        if (impact > 0.01) {
+            drawOfficialTrailerImpact(g, WIDTH * 0.50, impactY,
+                    Color.web("#FFF2A6"), 0.62 + impact * 0.38);
+            g.setStroke(Color.web("#FFD180", 0.76 * impact));
+            g.setLineWidth(6.0);
+            for (int i = 0; i < 18; i++) {
+                double angle = -1.15 + i * 2.30 / 17.0;
+                double length = 95.0 + (i % 5) * 29.0;
+                g.strokeLine(WIDTH * 0.50, impactY,
+                        WIDTH * 0.50 + Math.cos(angle) * length,
+                        impactY + Math.sin(angle) * length);
+            }
         }
-        g.setTextAlign(TextAlignment.LEFT);
+
+        g.setFill(Color.web("#020508", 0.68));
+        g.fillPolygon(new double[]{0, WIDTH, WIDTH, 0},
+                new double[]{905, 845, HEIGHT, HEIGHT}, 4);
+        g.setStroke(Color.web("#9CC9DD", 0.20));
+        g.setLineWidth(5.0);
+        g.strokeLine(0, 905, WIDTH, 845);
+    }
+
+    private void drawOfficialTrailerNullRockTableau(GraphicsContext g,
+                                                      double phase,
+                                                      double elapsed,
+                                                      Bird nullRock,
+                                                      Bird pigeon,
+                                                      Bird eagle) {
+        double pulse = 1.0 + Math.sin(elapsed * 5.6) * 0.035;
+        double portalX = WIDTH * 0.50;
+        double portalY = HEIGHT * 0.40;
+        g.setFill(new RadialGradient(0, 0, portalX / WIDTH, portalY / HEIGHT,
+                0.44, true, CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.web("#F2B8FF", 0.24)),
+                new Stop(0.30, Color.web("#7C4DFF", 0.20)),
+                new Stop(0.68, Color.web("#240037", 0.16)),
+                new Stop(1.0, Color.TRANSPARENT)));
+        g.fillRect(0, 0, WIDTH, HEIGHT);
+
+        for (int ring = 0; ring < 4; ring++) {
+            double size = (620.0 + ring * 115.0) * pulse;
+            g.setStroke(Color.web(ring % 2 == 0 ? "#E1BEE7" : "#7C4DFF",
+                    0.56 - ring * 0.09));
+            g.setLineWidth(14.0 - ring * 2.0);
+            g.strokeArc(portalX - size / 2.0, portalY - size / 2.0,
+                    size, size, phase * (ring % 2 == 0 ? 240.0 : -210.0)
+                            + ring * 38.0, 250.0, ArcType.OPEN);
+        }
+        for (int i = 0; i < 22; i++) {
+            double angle = i * Math.PI * 2.0 / 22.0 + phase * 1.6;
+            double radius = 355.0 + (i % 4) * 48.0;
+            double x = portalX + Math.cos(angle) * radius;
+            double y = portalY + Math.sin(angle) * radius * 0.72;
+            double tangentX = -Math.sin(angle) * 28.0;
+            double tangentY = Math.cos(angle) * 18.0;
+            g.setFill(Color.web(i % 3 == 0 ? "#E1BEE7" : "#7E57C2", 0.48));
+            g.fillPolygon(new double[]{x, x + tangentX, x - tangentX * 0.32},
+                    new double[]{y - 14.0, y + tangentY, y - tangentY * 0.42}, 3);
+        }
+
+        g.setFill(Color.web("#020006", 0.34));
+        g.fillOval(portalX - 300, portalY - 260, 600, 620);
+        drawOfficialTrailerBirdCentered(g, nullRock,
+                portalX, portalY + 16.0, 650.0, false);
+
+        g.setFill(Color.web("#05020A", 0.88));
+        g.fillPolygon(new double[]{0, 0, 680, 530},
+                new double[]{HEIGHT, 785, 945, HEIGHT}, 4);
+        g.fillPolygon(new double[]{WIDTH, WIDTH, 1250, 1410},
+                new double[]{HEIGHT, 775, 935, HEIGHT}, 4);
+        drawOfficialTrailerBirdCentered(g, pigeon,
+                WIDTH * 0.21, HEIGHT * 0.79, 255.0, true);
+        drawOfficialTrailerBirdCentered(g, eagle,
+                WIDTH * 0.79, HEIGHT * 0.77, 300.0, false);
+
+        g.setStroke(Color.web("#CE93D8", 0.38));
+        g.setLineWidth(5.0);
+        for (int i = 0; i < 9; i++) {
+            double x = 610 + i * 88.0;
+            double wave = Math.sin(elapsed * 4.0 + i) * 24.0;
+            g.strokeLine(x, 900 + wave, portalX + (i - 4) * 24.0, 650.0);
+        }
+    }
+
+    private void drawOfficialTrailerStormTitle(GraphicsContext g,
+                                                 double phase,
+                                                 double elapsed,
+                                                 Bird pigeon,
+                                                 Bird eagle,
+                                                 Bird phoenix,
+                                                 Bird roadrunner,
+                                                 Bird oldSparrow) {
+        double reveal = smoothStep01(phase / 0.28);
+        double settle = 1.075 - reveal * 0.075;
+        double haloPulse = 0.94 + Math.sin(elapsed * 2.8) * 0.025;
+        g.setFill(new RadialGradient(0, 0, 0.50, 0.43, 0.52 * haloPulse,
+                true, CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.web("#FFD180", 0.18)),
+                new Stop(0.38, Color.web("#4B6073", 0.12)),
+                new Stop(1.0, Color.TRANSPARENT)));
+        g.fillRect(0, 0, WIDTH, HEIGHT);
+
+        g.setStroke(Color.web("#9DBBC9", 0.14));
+        g.setLineWidth(7.0);
+        g.strokeArc(420, -340, 1080, 1080, 198, 144, ArcType.OPEN);
+        g.setStroke(Color.web("#FFB74D", 0.26));
+        g.setLineWidth(3.0);
+        g.strokeArc(500, -260, 920, 920, 197, 146, ArcType.OPEN);
+
+        g.save();
+        g.setGlobalAlpha(reveal);
+        g.translate(WIDTH / 2.0, HEIGHT * 0.48);
+        g.scale(settle, settle);
+        g.translate(-WIDTH / 2.0, -HEIGHT * 0.48);
+        g.setTextAlign(TextAlignment.CENTER);
+        g.setFont(Font.font("Arial Black", FontWeight.BOLD, 174));
+        g.setStroke(Color.web("#030100", 0.98));
+        g.setLineWidth(28.0);
+        g.strokeText("BIRD FIGHT 3", WIDTH / 2.0, HEIGHT * 0.49);
+        g.setStroke(Color.web("#D58A2A", 0.92));
+        g.setLineWidth(5.0);
+        g.strokeText("BIRD FIGHT 3", WIDTH / 2.0, HEIGHT * 0.49);
+        g.setFill(new LinearGradient(0, HEIGHT * 0.34, 0, HEIGHT * 0.52,
+                false, CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.web("#FFFFFF")),
+                new Stop(0.44, Color.web("#FFF3D0")),
+                new Stop(1.0, Color.web("#D99A3D"))));
+        g.fillText("BIRD FIGHT 3", WIDTH / 2.0, HEIGHT * 0.49);
+        g.setFill(Color.web("#F6B64B", 0.94));
+        g.fillRect(WIDTH * 0.31, HEIGHT * 0.555, WIDTH * 0.38, 4.0);
+        g.setFont(Font.font("Consolas", FontWeight.EXTRA_BOLD, 34));
+        g.setFill(Color.web("#FFE1A3"));
+        g.fillText("FULL RELEASE", WIDTH / 2.0, HEIGHT * 0.625);
+        g.restore();
+
+        Bird[] silhouettes = {roadrunner, oldSparrow, pigeon, eagle, phoenix};
+        double[] sizes = {158, 146, 170, 194, 214};
+        for (int i = 0; i < silhouettes.length; i++) {
+            double x = WIDTH * 0.22 + i * WIDTH * 0.14;
+            double y = 918.0 - Math.sin(i * Math.PI / 4.0) * 50.0;
+            g.save();
+            g.setGlobalAlpha(0.36 + i * 0.025);
+            drawOfficialTrailerBirdCentered(g, silhouettes[i], x, y,
+                    sizes[i], i < 3);
+            g.restore();
+        }
+        g.setFill(new LinearGradient(0, 770, 0, HEIGHT, false,
+                CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.TRANSPARENT),
+                new Stop(1.0, Color.web("#000000", 0.90))));
+        g.fillRect(0, 760, WIDTH, HEIGHT - 760);
+    }
+
+    private void drawOfficialTrailerThunderRain(GraphicsContext g,
+                                                  int screen,
+                                                  double elapsed) {
+        int[] counts = {58, 38, 20};
+        double[] speeds = {620.0, 430.0, 285.0};
+        double[] lengths = {146.0, 96.0, 58.0};
+        double[] widths = {3.2, 2.0, 1.1};
+        double[] alphas = {0.30, 0.22, 0.15};
+        for (int layer = 0; layer < counts.length; layer++) {
+            g.setStroke(Color.web(screen == 2 ? "#E5C5FF" : "#D9F2FF",
+                    alphas[layer]));
+            g.setLineWidth(widths[layer]);
+            for (int i = 0; i < counts[layer]; i++) {
+                double seedX = i * (137.0 + layer * 19.0) + layer * 211.0;
+                double seedY = i * (83.0 + layer * 13.0) + layer * 97.0;
+                double x = (seedX + elapsed * speeds[layer] * 0.34)
+                        % (WIDTH + 360.0) - 180.0;
+                double y = (seedY + elapsed * speeds[layer])
+                        % (HEIGHT + 260.0) - 130.0;
+                double length = lengths[layer] * (0.82 + (i % 5) * 0.045);
+                g.strokeLine(x, y, x - length * 0.32, y + length);
+            }
+        }
+    }
+
+    private void drawOfficialTrailerLightning(GraphicsContext g,
+                                                int screen,
+                                                double strikeCore,
+                                                double afterglow) {
+        if (strikeCore <= 0.004 && afterglow <= 0.004) {
+            return;
+        }
+        double baseX = switch (screen) {
+            case 0 -> WIDTH * 0.72;
+            case 1 -> WIDTH * 0.48;
+            case 2 -> WIDTH * 0.22;
+            default -> WIDTH * 0.82;
+        };
+        double[] xs = new double[10];
+        double[] ys = new double[10];
+        for (int i = 0; i < xs.length; i++) {
+            ys[i] = i * HEIGHT * 0.092;
+            xs[i] = baseX + Math.sin((i + 1) * (2.13 + screen * 0.17))
+                    * (28.0 + (i % 3) * 19.0) - i * 4.0;
+        }
+
+        g.save();
+        g.setFill(Color.web("#C9EDFF", Math.min(0.72, strikeCore * 0.82 + afterglow)));
+        g.fillRect(0, 0, WIDTH, HEIGHT);
+        g.setStroke(Color.web("#8BD7FF", Math.min(0.72, strikeCore + afterglow * 0.8)));
+        g.setLineWidth(34.0);
+        g.strokePolyline(xs, ys, xs.length);
+        g.setStroke(Color.web("#E9F9FF", Math.min(0.96, strikeCore * 1.5 + afterglow)));
+        g.setLineWidth(13.0);
+        g.strokePolyline(xs, ys, xs.length);
+        g.setStroke(Color.WHITE.deriveColor(0, 1, 1,
+                Math.min(1.0, strikeCore * 1.9 + afterglow * 0.45)));
+        g.setLineWidth(4.0);
+        g.strokePolyline(xs, ys, xs.length);
+
+        for (int branch = 0; branch < 3; branch++) {
+            int origin = 2 + branch * 2;
+            double direction = branch % 2 == 0 ? -1.0 : 1.0;
+            double[] branchX = {
+                    xs[origin],
+                    xs[origin] + direction * (72.0 + branch * 15.0),
+                    xs[origin] + direction * (142.0 + branch * 20.0),
+                    xs[origin] + direction * (205.0 + branch * 28.0)
+            };
+            double[] branchY = {
+                    ys[origin], ys[origin] + 35.0,
+                    ys[origin] + 105.0, ys[origin] + 154.0
+            };
+            g.setStroke(Color.web("#BDEBFF", Math.min(0.78,
+                    strikeCore * 1.35 + afterglow * 0.4)));
+            g.setLineWidth(7.0);
+            g.strokePolyline(branchX, branchY, branchX.length);
+            g.setStroke(Color.WHITE.deriveColor(0, 1, 1,
+                    Math.min(0.92, strikeCore * 1.7)));
+            g.setLineWidth(2.4);
+            g.strokePolyline(branchX, branchY, branchX.length);
+        }
+        g.restore();
     }
 
     private void drawOfficialTrailerStoryPromise(GraphicsContext g, double phase) {
