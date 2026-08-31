@@ -96,6 +96,35 @@ class BirdStatsTest {
     }
 
     @Test
+    void clampsCoreStatsAndRejectsNonFiniteValues() {
+        Properties props = new Properties();
+        props.setProperty("pigeon.power", "1000");
+        props.setProperty("pigeon.jumpHeight", "1000");
+        props.setProperty("pigeon.speed", "1000");
+        props.setProperty("pigeon.flyUpForce", "1000");
+        props.setProperty("pigeon.damageDealtMult", "1000");
+        props.setProperty("eagle.power", "-1000");
+        props.setProperty("eagle.jumpHeight", "-1000");
+        props.setProperty("eagle.speed", "-1000");
+        props.setProperty("eagle.flyUpForce", "-1000");
+        props.setProperty("falcon.speed", "NaN");
+
+        BirdStats.apply(props);
+
+        assertEquals(BirdStats.MAX_POWER, BirdGame3.BirdType.PIGEON.power);
+        assertEquals(BirdStats.MAX_JUMP_HEIGHT, BirdGame3.BirdType.PIGEON.jumpHeight);
+        assertEquals(BirdStats.MAX_SPEED, BirdGame3.BirdType.PIGEON.speed);
+        assertEquals(BirdStats.MAX_FLY_UP_FORCE, BirdGame3.BirdType.PIGEON.flyUpForce);
+        assertEquals(BirdStats.MAX_MULTIPLIER, BirdGame3.BirdType.PIGEON.damageDealtMult);
+        assertEquals(BirdStats.MIN_POWER, BirdGame3.BirdType.EAGLE.power);
+        assertEquals(BirdStats.MIN_JUMP_HEIGHT, BirdGame3.BirdType.EAGLE.jumpHeight);
+        assertEquals(BirdStats.MIN_SPEED, BirdGame3.BirdType.EAGLE.speed);
+        assertEquals(BirdStats.MIN_FLY_UP_FORCE, BirdGame3.BirdType.EAGLE.flyUpForce);
+        assertEquals(BirdGame3.BirdType.FALCON.defaultSpeed, BirdGame3.BirdType.FALCON.speed,
+                "NaN must be ignored instead of entering the simulation.");
+    }
+
+    @Test
     void templateRoundTripsThroughReload(@TempDir Path dir) throws Exception {
         Path file = dir.resolve("bird-stats.properties");
         assertTrue(BirdStats.writeTemplate(file));

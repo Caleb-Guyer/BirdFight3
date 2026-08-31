@@ -20,6 +20,20 @@ import java.util.Properties;
  */
 final class BirdStats {
     static final String FILE_NAME = "bird-stats.properties";
+    static final int MIN_POWER = 1;
+    static final int MAX_POWER = 25;
+    static final int MIN_JUMP_HEIGHT = 1;
+    static final int MAX_JUMP_HEIGHT = 40;
+    static final double MIN_SPEED = 0.5;
+    static final double MAX_SPEED = 10.0;
+    static final double MIN_FLY_UP_FORCE = 0.0;
+    static final double MAX_FLY_UP_FORCE = 2.0;
+    static final double MIN_MULTIPLIER = 0.1;
+    static final double MAX_MULTIPLIER = 10.0;
+    static final double MIN_GRAVITY = 0.05;
+    static final double MAX_GRAVITY = 5.0;
+    static final double MIN_STARTING_HEALTH = 10.0;
+    static final double MAX_STARTING_HEALTH = 5000.0;
 
     private BirdStats() {
     }
@@ -50,22 +64,22 @@ final class BirdStats {
             String prefix = key(type);
             Integer power = readInt(props, prefix + ".power");
             if (power != null) {
-                type.power = power;
+                type.power = clampPower(power);
                 applied++;
             }
             Integer jumpHeight = readInt(props, prefix + ".jumpHeight");
             if (jumpHeight != null) {
-                type.jumpHeight = jumpHeight;
+                type.jumpHeight = clampJumpHeight(jumpHeight);
                 applied++;
             }
             Double speed = readDouble(props, prefix + ".speed");
             if (speed != null) {
-                type.speed = speed;
+                type.speed = clampSpeed(speed);
                 applied++;
             }
             Double flyUpForce = readDouble(props, prefix + ".flyUpForce");
             if (flyUpForce != null) {
-                type.flyUpForce = flyUpForce;
+                type.flyUpForce = clampFlyUpForce(flyUpForce);
                 applied++;
             }
             Double damageDealtMult = readDouble(props, prefix + ".damageDealtMult");
@@ -91,20 +105,44 @@ final class BirdStats {
         }
         Double gravity = readDouble(props, "global.gravity");
         if (gravity != null) {
-            BirdGame3.GRAVITY = Math.clamp(gravity, 0.05, 5.0);
+            BirdGame3.GRAVITY = clampGravity(gravity);
             applied++;
         }
         Double startingHealth = readDouble(props, "global.startingHealth");
         if (startingHealth != null) {
-            Bird.STARTING_HEALTH = Math.clamp(startingHealth, 10.0, 5000.0);
+            Bird.STARTING_HEALTH = clampStartingHealth(startingHealth);
             applied++;
         }
         return applied;
     }
 
+    static int clampPower(int value) {
+        return Math.clamp(value, MIN_POWER, MAX_POWER);
+    }
+
+    static int clampJumpHeight(int value) {
+        return Math.clamp(value, MIN_JUMP_HEIGHT, MAX_JUMP_HEIGHT);
+    }
+
+    static double clampSpeed(double value) {
+        return Math.clamp(value, MIN_SPEED, MAX_SPEED);
+    }
+
+    static double clampFlyUpForce(double value) {
+        return Math.clamp(value, MIN_FLY_UP_FORCE, MAX_FLY_UP_FORCE);
+    }
+
     /** Keeps combat multipliers inside a sane band so a typo can't zero out the sim. */
-    private static double clampMultiplier(double value) {
-        return Math.clamp(value, 0.1, 10.0);
+    static double clampMultiplier(double value) {
+        return Math.clamp(value, MIN_MULTIPLIER, MAX_MULTIPLIER);
+    }
+
+    static double clampGravity(double value) {
+        return Math.clamp(value, MIN_GRAVITY, MAX_GRAVITY);
+    }
+
+    static double clampStartingHealth(double value) {
+        return Math.clamp(value, MIN_STARTING_HEALTH, MAX_STARTING_HEALTH);
     }
 
     /**
@@ -210,6 +248,8 @@ final class BirdStats {
         sb.append("# Edit values, then press F12 in Training mode to hot-reload.\n");
         sb.append("# Delete a line to fall back to the compiled default.\n");
         sb.append("#\n");
+        sb.append("# Core stat safety ranges (out-of-range values are clamped):\n");
+        sb.append("#   power 1-25, jumpHeight 1-40, speed 0.5-10, flyUpForce 0-2\n");
         sb.append("# The *Mult/*Rate keys are multipliers (1.0 = normal, clamped 0.1-10):\n");
         sb.append("#   damageDealtMult  - scales ALL damage the bird deals (attacks + specials)\n");
         sb.append("#   damageTakenMult  - scales damage received (0.8 = tankier, 1.2 = squishier)\n");
@@ -259,7 +299,8 @@ final class BirdStats {
         String raw = props.getProperty(key);
         if (raw == null) return null;
         try {
-            return Double.parseDouble(raw.trim());
+            double value = Double.parseDouble(raw.trim());
+            return Double.isFinite(value) ? value : null;
         } catch (NumberFormatException e) {
             return null;
         }

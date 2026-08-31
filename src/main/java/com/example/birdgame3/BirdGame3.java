@@ -41162,6 +41162,10 @@ public class BirdGame3 {
             }
         }
         NetworkSimulationConfig simulationConfig = NetworkSimulationConfig.capture(frontEndMatchFlow.rules());
+        // Apply the exact sanitized snapshot locally before broadcasting it. This
+        // keeps the host and clients identical even if a tuning value was changed
+        // programmatically without passing through BirdStats' file safeguards.
+        simulationConfig.apply();
         if (lanHost != null) {
             lanHost.broadcastStart(mapToPlay, selectedMapVariant, lanMatchSeed, networkInputDelayTicks, simulationConfig,
                     lanSlotConnected, lanSelectedBirds, lanSelectedSkinKeys);

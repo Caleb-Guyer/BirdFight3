@@ -40,17 +40,21 @@ final class NetworkSimulationConfig {
         for (int i = 0; i < types.length; i++) {
             BirdType type = types[i];
             birds[i] = new BirdTuning(
-                    type.power,
-                    type.jumpHeight,
-                    type.speed,
-                    type.flyUpForce,
-                    type.damageDealtMult,
-                    type.damageTakenMult,
-                    type.cooldownRate,
-                    type.ultimateRate
+                    BirdStats.clampPower(type.power),
+                    BirdStats.clampJumpHeight(type.jumpHeight),
+                    BirdStats.clampSpeed(type.speed),
+                    BirdStats.clampFlyUpForce(type.flyUpForce),
+                    BirdStats.clampMultiplier(type.damageDealtMult),
+                    BirdStats.clampMultiplier(type.damageTakenMult),
+                    BirdStats.clampMultiplier(type.cooldownRate),
+                    BirdStats.clampMultiplier(type.ultimateRate)
             );
         }
-        return new NetworkSimulationConfig(BirdGame3.GRAVITY, Bird.STARTING_HEALTH, birds, versusRules);
+        return new NetworkSimulationConfig(
+                BirdStats.clampGravity(BirdGame3.GRAVITY),
+                BirdStats.clampStartingHealth(Bird.STARTING_HEALTH),
+                birds,
+                versusRules);
     }
 
     void write(DataOutputStream out) throws IOException {
@@ -71,8 +75,10 @@ final class NetworkSimulationConfig {
     }
 
     static NetworkSimulationConfig read(DataInputStream in) throws IOException {
-        double gravity = readFinite(in, "gravity");
-        double startingHealth = readFinite(in, "starting health");
+        double gravity = readFiniteInRange(in, "gravity",
+                BirdStats.MIN_GRAVITY, BirdStats.MAX_GRAVITY);
+        double startingHealth = readFiniteInRange(in, "starting health",
+                BirdStats.MIN_STARTING_HEALTH, BirdStats.MAX_STARTING_HEALTH);
         int count = in.readInt();
         BirdType[] types = BirdType.values();
         if (count != types.length) {
@@ -80,14 +86,22 @@ final class NetworkSimulationConfig {
         }
         BirdTuning[] birds = new BirdTuning[count];
         for (int i = 0; i < count; i++) {
-            int power = in.readInt();
-            int jumpHeight = in.readInt();
-            double speed = readFinite(in, "bird speed");
-            double flyUpForce = readFinite(in, "bird flight force");
-            double damageDealtMult = readFinite(in, "damage dealt multiplier");
-            double damageTakenMult = readFinite(in, "damage taken multiplier");
-            double cooldownRate = readFinite(in, "cooldown rate");
-            double ultimateRate = readFinite(in, "ultimate rate");
+            int power = readIntInRange(in, "bird power",
+                    BirdStats.MIN_POWER, BirdStats.MAX_POWER);
+            int jumpHeight = readIntInRange(in, "bird jump height",
+                    BirdStats.MIN_JUMP_HEIGHT, BirdStats.MAX_JUMP_HEIGHT);
+            double speed = readFiniteInRange(in, "bird speed",
+                    BirdStats.MIN_SPEED, BirdStats.MAX_SPEED);
+            double flyUpForce = readFiniteInRange(in, "bird flight force",
+                    BirdStats.MIN_FLY_UP_FORCE, BirdStats.MAX_FLY_UP_FORCE);
+            double damageDealtMult = readFiniteInRange(in, "damage dealt multiplier",
+                    BirdStats.MIN_MULTIPLIER, BirdStats.MAX_MULTIPLIER);
+            double damageTakenMult = readFiniteInRange(in, "damage taken multiplier",
+                    BirdStats.MIN_MULTIPLIER, BirdStats.MAX_MULTIPLIER);
+            double cooldownRate = readFiniteInRange(in, "cooldown rate",
+                    BirdStats.MIN_MULTIPLIER, BirdStats.MAX_MULTIPLIER);
+            double ultimateRate = readFiniteInRange(in, "ultimate rate",
+                    BirdStats.MIN_MULTIPLIER, BirdStats.MAX_MULTIPLIER);
             birds[i] = new BirdTuning(power, jumpHeight, speed, flyUpForce,
                     damageDealtMult, damageTakenMult, cooldownRate, ultimateRate);
         }
@@ -145,9 +159,19 @@ final class NetworkSimulationConfig {
         return (hash ^ value) * 1099511628211L;
     }
 
-    private static double readFinite(DataInputStream in, String label) throws IOException {
+    private static int readIntInRange(DataInputStream in, String label,
+                                      int minimum, int maximum) throws IOException {
+        int value = in.readInt();
+        if (value < minimum || value > maximum) {
+            throw new IOException("Invalid network " + label + ".");
+        }
+        return value;
+    }
+
+    private static double readFiniteInRange(DataInputStream in, String label,
+                                             double minimum, double maximum) throws IOException {
         double value = in.readDouble();
-        if (!Double.isFinite(value)) {
+        if (!Double.isFinite(value) || value < minimum || value > maximum) {
             throw new IOException("Invalid network " + label + ".");
         }
         return value;
