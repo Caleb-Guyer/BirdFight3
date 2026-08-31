@@ -48,11 +48,18 @@ and is also dedicated to the public domain under CC0.
 | music-vulture-debt-engine.mp3 | [Heavy Boss Battle 1 — MintoDog](https://opengameart.org/content/heavy-boss-battle-1) (CC0) | The Debt Engine final boss |
 | music-vulture-ending.mp3 | [Blackout — SkyleTheFrench](https://opengameart.org/content/blackout) (CC0) | Vulture's Final Account ending |
 
+## Field recordings (public domain)
+
+| In-game file | Recording | Source / license | Used for |
+|---|---|---|---|
+| sfx-thunder-field-recording.wav | Rain and thunder — David Öhlin (User:Caesar) | [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Rain_and_thunder.ogg), released into the public domain by the recorder; converted to 48 kHz stereo PCM with metadata removed | Release-trailer thunder montage |
+
 ## Sound effects (original)
 
-All `sfx-*.wav` files are original synthesized sounds generated for this
-project (procedural synthesis; no third-party samples). They are part of the
-game and carry the game's license.
+Except for the public-domain field recording listed above, the `sfx-*.wav`
+files are original synthesized sounds generated for this project (procedural
+synthesis; no third-party samples). They are part of the game and carry the
+game's license.
 
 | File | Character | Replaces |
 |---|---|---|

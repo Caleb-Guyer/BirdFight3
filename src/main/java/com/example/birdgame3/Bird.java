@@ -30,7 +30,6 @@ import java.util.Random;
  */
 public class Bird {
 
-    private static final int CAMPAIGN_COMBATANT_TRACKING_CAPACITY = 24;
 
     private enum GrabThrowDirection {
         NONE,
@@ -1142,20 +1141,20 @@ public class Bird {
     boolean batWingcutUltimate = false;
     boolean batWingcutAmbush = false;
     boolean batWingcutFromHang = false;
-    final boolean[] batWingcutHit = new boolean[CAMPAIGN_COMBATANT_TRACKING_CAPACITY];
+    final boolean[] batWingcutHit = new boolean[BirdGame3.MAX_COMBATANTS];
     int batMoonriseTimer = 0;
     boolean batMoonriseUsed = false;
     boolean batMoonriseUltimate = false;
     boolean batMoonriseBurstResolved = false;
     boolean batMoonriseAmbush = false;
-    final boolean[] batMoonriseHit = new boolean[CAMPAIGN_COMBATANT_TRACKING_CAPACITY];
+    final boolean[] batMoonriseHit = new boolean[BirdGame3.MAX_COMBATANTS];
     int batSilentStallTimer = 0;
     int batSilentDiveTimer = 0;
     int batSilentReuseTimer = 0;
     boolean batSilentFromHang = false;
     boolean batSilentUltimate = false;
     boolean batSilentAmbush = false;
-    final boolean[] batSilentHit = new boolean[CAMPAIGN_COMBATANT_TRACKING_CAPACITY];
+    final boolean[] batSilentHit = new boolean[BirdGame3.MAX_COMBATANTS];
     private int batAmbushWindowTimer = 0;
     int batCathedralTimer = 0;
     int batCathedralPulseCooldown = 0;

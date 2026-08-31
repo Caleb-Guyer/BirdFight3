@@ -11597,7 +11597,7 @@ class BirdStateTest {
         setupRoster.invoke(game, mission);
 
         boolean[] present = new boolean[BirdGame3.BirdType.values().length];
-        assertEquals(BirdGame3.MAX_COMBATANTS, game.activePlayers);
+        assertEquals(BirdGame3.STANDARD_MASS_COMBATANTS, game.activePlayers);
         for (int slot = 0; slot < StoryCampaign.STILL_SKY_ROSTER.size(); slot++) {
             Bird bird = game.players[slot];
             assertNotNull(bird, "Every coalition slot must contain a Still Sky bird.");
@@ -11607,7 +11607,7 @@ class BirdStateTest {
                     "The background commander must not consume a fighter slot.");
         }
         for (int slot = StoryCampaign.STILL_SKY_ROSTER.size();
-             slot < BirdGame3.MAX_COMBATANTS; slot++) {
+             slot < BirdGame3.STANDARD_MASS_COMBATANTS; slot++) {
             assertNull(game.players[slot], "Echo slots must stay empty before the invasion.");
             assertEquals(2, game.campaignTeams[slot]);
         }
