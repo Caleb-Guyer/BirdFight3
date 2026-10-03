@@ -329,6 +329,14 @@ public class BirdGame3 {
     private MatchReplay activeReplay = null;
     private int replayFrameCursor = 0;
     private int replayDashCursor = 0;
+    private final ReplayStudioState replayStudio = new ReplayStudioState();
+    private ReplayStudioPane replayStudioPane;
+    private String replayStudioStatus = "";
+    private ReplayClipExport replayClipExport;
+    private WritableImage replayClipImage;
+    private boolean replayExportFrameDue;
+    private int replayControllerHeld;
+    private final int[] replayObservedStocks = new int[MAX_COMBATANTS];
     private final boolean[][] replayActionPressed = new boolean[MAX_COMBATANTS][ControlAction.values().length];
     private final boolean[] replayAttackUpHeld = new boolean[MAX_COMBATANTS];
     private final boolean[] replayAttackDownHeld = new boolean[MAX_COMBATANTS];
@@ -1402,6 +1410,7 @@ public class BirdGame3 {
     }
 
     private double effectiveSfxVolume() {
+        if (replayPlaybackActive && (replayStudio.seeking() || replayClipExport != null)) return 0.0;
         return sfxEnabled ? sanitizeVolume(sfxVolume) : 0.0;
     }
 
@@ -2037,6 +2046,7 @@ public class BirdGame3 {
 
     private void performFxShutdownCleanup() {
         if (!shutdownCoordinator.claimFxCleanup()) return;
+        cancelReplayClipExport();
         try { if (timer != null) timer.stop(); } catch (Throwable ignore) {}
         timer = null;
         try { if (wiimoteMenuTimer != null) wiimoteMenuTimer.stop(); } catch (Throwable ignore) {}
@@ -12213,7 +12223,13 @@ public class BirdGame3 {
     }
 
     private void gameTick() {
-        if (lastUpdate == 0) {
+        gameTick(-1L);
+    }
+
+    // An explicit elapsed duration also lets regression tests compare replay speeds
+    // without depending on the wall clock. Every path uses the same fixed sim body.
+    private void gameTick(long elapsedOverride) {
+        if (lastUpdate == 0 && elapsedOverride < 0) {
             lastUpdate = System.nanoTime();
             return;
         }
@@ -12223,7 +12239,7 @@ public class BirdGame3 {
         // anything past this is dropped instead of fast-forwarded.
         final long MAX_ELAPSED = 250_000_000L;
         long frameNow = System.nanoTime();
-        long elapsed = Math.min(frameNow - lastUpdate, MAX_ELAPSED);
+        long elapsed = elapsedOverride >= 0 ? elapsedOverride : Math.min(frameNow - lastUpdate, MAX_ELAPSED);
         lastUpdate = frameNow;
 
         if (trainingModeActive && trainingFrameAdvancePause && trainingFrameAdvanceRequests <= 0) {
@@ -12233,28 +12249,61 @@ public class BirdGame3 {
 
         pollWiimoteGameplayInputs();
 
+        int replayTickBudget = -1;
+        replayExportFrameDue = false;
+        if (replayPlaybackActive) {
+            if (!updateReplayClipExport()) { accumulator = 0; return; }
+            if (completeReplaySeek()) {
+                accumulator = 0;
+                return;
+            }
+            if (replayStudio.seeking()) {
+                replayTickBudget = 180;
+            } else if (replayClipExport != null) {
+                replayTickBudget = 2; // exactly 60 fixed ticks / 30 output frames
+                replayExportFrameDue = true;
+            } else if (replayStudio.consumeStepRequest()) {
+                replayTickBudget = 1;
+            } else if (replayStudio.paused()) {
+                accumulator = 0;
+                return;
+            }
+        }
+
         // Under lockstep every machine (host and clients) runs the full sim.
         boolean lanClientViewOnly = lanModeActive && lanIsClient && lockstepSession == null;
         if (lanModeActive && lanIsHost && lanMatchActive && lockstepSession == null) {
             applyLanInputMasks();
         }
 
-        if (trainingModeActive && trainingFrameAdvancePause) {
+        if (replayTickBudget >= 0) {
+            accumulator = FRAME_TIME * replayTickBudget;
+        } else if (trainingModeActive && trainingFrameAdvancePause) {
             accumulator = FRAME_TIME;
         } else {
             double elapsedScale = trainingModeActive && trainingSlowMotionEnabled ? TRAINING_SLOW_MOTION_SCALE : 1.0;
             // Never stack slow-mo on top of hitstop: hitstop consumes sim ticks, so a
             // slowed clock would stretch the freeze into a multi-second hang.
-            if (dramaticSlowMoTicks > 0 && hitstopFrames <= 0) {
+            if (replayPlaybackActive) {
+                elapsedScale = replayStudio.speed();
+            } else if (dramaticSlowMoTicks > 0 && hitstopFrames <= 0) {
                 elapsedScale *= DRAMATIC_SLOW_MO_SCALE;
             }
             accumulator += (long) (elapsed * elapsedScale);
         }
 
-        final long MAX_UPDATES = 6;
+        final long MAX_UPDATES = replayTickBudget >= 0 ? replayTickBudget : 6;
         int updates = 0;
 
         while (accumulator >= FRAME_TIME && updates < MAX_UPDATES) {
+            if (replayPlaybackActive && (completeReplaySeek()
+                    || activeReplay == null || replayFrameCursor >= activeReplay.frames.size()
+                    || (replayClipExport != null && !replayStudio.seeking()
+                        && replayFrameCursor >= replayStudio.clipEnd()))) {
+                replayStudio.setPaused(true);
+                accumulator = 0;
+                break;
+            }
             snapshotRenderPositions();
             if (hitstopFrames > 0) {
                 hitstopFrames--;
@@ -12334,6 +12383,7 @@ public class BirdGame3 {
                 if (shakeIntensity < 0.5) shakeIntensity = 0;
             }
             framePerformance.recordFixedUpdate(playerUpdateNs, worldUpdateNs, effectsUpdateNs);
+            captureReplayKnockouts();
 
             accumulator -= FRAME_TIME;
             updates++;
@@ -12398,6 +12448,7 @@ public class BirdGame3 {
 
     private double computeRenderAlpha() {
         if (!renderSnapshotTaken) return 1.0;
+        if (replayPlaybackActive && (replayStudio.paused() || replayStudio.seeking() || replayClipExport != null)) return 1.0;
         if (trainingModeActive && trainingFrameAdvancePause) return 1.0;
         if (hitstopFrames > 0) return 1.0;
         return Math.clamp(accumulator / (double) FIXED_STEP_NS, 0.0, 1.0);
@@ -12565,6 +12616,7 @@ public class BirdGame3 {
         }
         gameplayFrameRecoveryQueued = true;
         stopGameplayTimer();
+        if (replayPlaybackActive) clearReplayPlaybackState();
         Stage stage = currentStage;
         if (stage == null) {
             return;
@@ -60818,7 +60870,8 @@ public class BirdGame3 {
         boolean stormBeaconAscent = encounter.variant == MapVariant.SKYBREAK_SPIRES;
         boolean peregrineRun = encounter.variant == MapVariant.PEREGRINE_RUN;
         boolean rebirthRelay = "Bonus: Rebirth Relay".equals(encounter.name);
-        boolean buriedMarkers = "Bonus: Buried Markers".equals(encounter.name);
+        boolean buriedMarkers = "Bonus: Buried Markers".equals(encounter.name)
+                || "Bonus: Fossil Fragments".equals(encounter.name);
         Bird player = players[0];
         if (player != null) {
             player.x = buriedMarkers ? 620.0
@@ -74282,12 +74335,11 @@ public class BirdGame3 {
             uiInputTracker.note(keyboardPlayerForKey(code), UiInputPrompts.Device.KEYBOARD_MOUSE);
         }
         if (replayPlaybackActive) {
-            if (code == KeyCode.ESCAPE) {
-                endReplayPlayback(stage);
-            } else if (code == KeyCode.F11) {
-                fullscreenEnabled = !fullscreenEnabled;
-                applyDisplaySettings(stage);
+            if (pressedKeys.add(code)) {
+                handleReplayStudioKey(stage, code);
+                if (replayPlaybackActive) pressedKeys.add(code); // a backward seek rebuilds the Scene
             }
+            e.consume();
             return;
         }
         if (lanModeActive && lanIsClient) {
@@ -74659,6 +74711,18 @@ public class BirdGame3 {
             replay.slotInitialHealth[i] = b.health;
         }
         replayRecording = replay;
+        System.arraycopy(scores, 0, replayObservedStocks, 0, scores.length);
+    }
+
+    private void captureReplayKnockouts() {
+        if (replayPlaybackActive || replayRecording == null || replayRecording.overflowed) return;
+        for (int i = 0; i < activePlayers; i++) {
+            if (scores[i] < replayObservedStocks[i] && players[i] != null) {
+                replayRecording.knockouts.add(new MatchReplay.Knockout(replayRecording.frames.size(),
+                        players[i].shortName() + " KO · " + Math.max(0, scores[i]) + " stocks left"));
+            }
+            replayObservedStocks[i] = scores[i];
+        }
     }
 
     /** Called once per sim tick (after simTick increments) while recording. */
@@ -74744,6 +74808,9 @@ public class BirdGame3 {
         }
         activeReplay = replay;
         replayPlaybackActive = true;
+        replayStudio.reset(replay.frames.size());
+        replayStudioStatus = replay.knockouts.isEmpty() ? "This replay has no saved KO bookmarks." : "";
+        replayControllerHeld = 0;
         clearReplayInputs();
         startMatch(stage);
         applyReplayInitialState(replay);
@@ -74830,11 +74897,8 @@ public class BirdGame3 {
     }
 
     void endReplayPlayback(Stage stage) {
-        replayPlaybackActive = false;
-        activeReplay = null;
-        clearReplayInputs();
+        clearReplayPlaybackState();
         if (timer != null) timer.stop();
-        restoreReplayMenuSnapshot();
         resetMatchStats();
         if (replayReturnToBrowser) {
             replayReturnToBrowser = false;
@@ -74844,18 +74908,241 @@ public class BirdGame3 {
         }
     }
 
-    private void drawReplayOverlay(GraphicsContext g) {
-        g.setFill(Color.BLACK.deriveColor(0, 1, 1, 0.55));
-        g.fillRoundRect(WIDTH / 2.0 - 210, 150, 420, 54, 16, 16);
-        g.setStroke(Color.web("#4FC3F7"));
-        g.setLineWidth(2);
-        g.strokeRoundRect(WIDTH / 2.0 - 210, 150, 420, 54, 16, 16);
-        g.setFill(Color.web("#E1F5FE"));
-        g.setFont(Font.font("Arial", FontWeight.BOLD, 26));
-        g.setTextAlign(TextAlignment.CENTER);
-        String exitInput = UiInputPrompts.inputFor(uiInputTracker.activeDevice(), UiInputPrompts.Command.BACK);
-        g.fillText("REPLAY  ·  " + exitInput + "  EXIT", WIDTH / 2.0, 186);
-        g.setTextAlign(TextAlignment.LEFT);
+    private void clearReplayPlaybackState() {
+        cancelReplayClipExport();
+        replayPlaybackActive = false;
+        activeReplay = null;
+        replayStudioPane = null;
+        replayStudio.reset(0);
+        clearReplayInputs();
+        restoreReplayMenuSnapshot();
+    }
+
+    private String replayStudioInputHint() {
+        UiInputPrompts.Device device = uiInputTracker.activeDevice();
+        if (device == UiInputPrompts.Device.KEYBOARD_MOUSE) {
+            return "Click the timeline to seek. J / K find KOs. I / O select a clip. ESC exits.";
+        }
+        return UiInputPrompts.inputFor(device, UiInputPrompts.Command.PAUSE) + " pauses · "
+                + UiInputPrompts.inputFor(device, UiInputPrompts.Command.BACK)
+                + " exits · D-pad left / right seeks; up / down changes speed.";
+    }
+
+    private void installReplayStudio(Stage stage) {
+        Canvas canvas = gameplayRenderSurface.canvas();
+        // Reserve space for editing controls so damage/stocks stay visible.
+        // Export snapshots use the Canvas itself at their independent resolution.
+        double viewHeight = HEIGHT - 270.0;
+        canvas.setScaleX(viewHeight / canvas.getHeight());
+        canvas.setScaleY(viewHeight / canvas.getHeight());
+        canvas.setTranslateY(-(canvas.getHeight() - viewHeight) / 2.0);
+        StackPane.setAlignment(canvas, Pos.TOP_CENTER);
+        replayStudioPane = new ReplayStudioPane(replayStudio, !activeReplay.knockouts.isEmpty(),
+                new ReplayStudioPane.Actions(
+                        () -> toggleReplayPause(stage), replayStudio::requestStep,
+                        replayStudio::slower, replayStudio::faster,
+                        () -> seekReplayKnockout(stage, -1), () -> seekReplayKnockout(stage, 1),
+                        () -> markReplayClip(true), () -> markReplayClip(false),
+                        () -> startReplayClipExport(stage), this::cancelReplayClipExport,
+                        () -> endReplayPlayback(stage), frame -> seekReplayFrame(stage, frame)));
+        StackPane.setAlignment(replayStudioPane, Pos.BOTTOM_CENTER);
+        StackPane.setMargin(replayStudioPane, new Insets(0, 22, 20, 22));
+        gameRoot.getChildren().add(replayStudioPane);
+    }
+
+    private void toggleReplayPause(Stage stage) {
+        if (replayClipExport != null) return;
+        if (replayStudio.seeking()) replayStudio.cancelSeek();
+        if (replayFrameCursor >= replayStudio.totalFrames()) {
+            seekReplayFrame(stage, 0);
+            replayStudio.cancelSeek();
+            replayStudio.setPaused(false);
+        } else {
+            replayStudio.togglePaused();
+        }
+        accumulator = 0;
+    }
+
+    private void handleReplayStudioKey(Stage stage, KeyCode code) {
+        if (code == KeyCode.ESCAPE) {
+            if (replayClipExport != null) cancelReplayClipExport();
+            else endReplayPlayback(stage);
+            return;
+        }
+        if (code == KeyCode.F11) {
+            fullscreenEnabled = !fullscreenEnabled;
+            applyDisplaySettings(stage);
+            return;
+        }
+        if (replayClipExport != null) return;
+        switch (code) {
+            case SPACE, ENTER -> toggleReplayPause(stage);
+            case PERIOD -> replayStudio.requestStep();
+            case MINUS, SUBTRACT -> replayStudio.slower();
+            case EQUALS, PLUS, ADD -> replayStudio.faster();
+            case LEFT -> seekReplayFrame(stage, replayFrameCursor - 300);
+            case RIGHT -> seekReplayFrame(stage, replayFrameCursor + 300);
+            case HOME -> seekReplayFrame(stage, 0);
+            case J -> seekReplayKnockout(stage, -1);
+            case K -> seekReplayKnockout(stage, 1);
+            case I -> markReplayClip(true);
+            case O -> markReplayClip(false);
+            case E -> startReplayClipExport(stage);
+            default -> { }
+        }
+    }
+
+    private void seekReplayFrame(Stage stage, int frame) {
+        if (activeReplay == null || stage == null) return;
+        int target = Math.max(0, Math.min(activeReplay.frames.size(), frame));
+        if (target < replayFrameCursor) {
+            // Restart from the same seed/configuration, preserving the original menu
+            // snapshot and Studio selection. No guessed snapshots of mutable fighters.
+            resetMatchStats();
+            applyReplayConfig(activeReplay);
+            startMatch(stage);
+            applyReplayInitialState(activeReplay);
+        }
+        replayStudio.seek(target);
+        replayStudioStatus = "Seeking to " + ReplayStudioState.formatTimestamp(target) + "…";
+        accumulator = 0;
+    }
+
+    private boolean completeReplaySeek() {
+        boolean complete = replayStudio.reachedSeek(replayFrameCursor);
+        if (complete && replayStudioStatus.startsWith("Seeking to ")) replayStudioStatus = "Seek complete.";
+        return complete;
+    }
+
+    private void seekReplayKnockout(Stage stage, int direction) {
+        if (activeReplay == null || replayClipExport != null) return;
+        MatchReplay.Knockout selected = null;
+        for (MatchReplay.Knockout knockout : activeReplay.knockouts) {
+            if (direction > 0 && knockout.frame() > replayFrameCursor
+                    && (selected == null || knockout.frame() < selected.frame())) selected = knockout;
+            if (direction < 0 && knockout.frame() < replayFrameCursor
+                    && (selected == null || knockout.frame() > selected.frame())) selected = knockout;
+        }
+        if (selected == null) {
+            replayStudioStatus = direction > 0 ? "No later KO bookmarks." : "No earlier KO bookmarks.";
+        } else {
+            seekReplayFrame(stage, selected.frame());
+            replayStudioStatus = selected.label();
+        }
+    }
+
+    private void markReplayClip(boolean in) {
+        if (replayClipExport != null) return;
+        boolean marked = in ? replayStudio.markIn(replayFrameCursor) : replayStudio.markOut(replayFrameCursor);
+        replayStudioStatus = marked ? "Clip " + (in ? "start" : "end") + " selected."
+                : "Choose a " + (in ? "start before the replay ends." : "clip end after the first frame.");
+    }
+
+    private void startReplayClipExport(Stage stage) {
+        if (replayClipExport != null || replayStudio.seeking() || !replayStudio.validClip()) return;
+        replayStudio.setPaused(true);
+        try {
+            java.nio.file.Path clips = ReplayStore.defaultDir().resolve("clips");
+            Files.createDirectories(clips);
+            FileChooser chooser = new FileChooser();
+            chooser.setTitle("Export Replay Clip — Silent AVI");
+            chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("AVI video", "*.avi"));
+            chooser.setInitialDirectory(clips.toFile());
+            chooser.setInitialFileName("BirdFight3-clip-" + LocalDateTime.now().format(
+                    DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")) + ".avi");
+            File file = chooser.showSaveDialog(stage);
+            lastUpdate = System.nanoTime();
+            accumulator = 0;
+            if (file == null) return;
+            java.nio.file.Path target = file.toPath().toAbsolutePath();
+            if (!target.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".avi")) {
+                target = target.resolveSibling(target.getFileName() + ".avi");
+            }
+            if (Files.exists(target)) {
+                replayStudioStatus = "That file already exists. Choose a new filename to keep both clips.";
+                return;
+            }
+            beginReplayClipExport(stage, target);
+        } catch (IOException | RuntimeException exception) {
+            failReplayClipExport(exception);
+        }
+    }
+
+    private void beginReplayClipExport(Stage stage, java.nio.file.Path target) {
+        replayClipExport = new ReplayClipExport(target);
+        replayClipImage = new WritableImage(ReplayClipExport.WIDTH, ReplayClipExport.HEIGHT);
+        seekReplayFrame(stage, replayStudio.clipStart());
+        replayStudioStatus = "Preparing clip… ESC cancels.";
+    }
+
+    /** False means encoding is pending; the fixed simulation must wait for it. */
+    private boolean updateReplayClipExport() {
+        ReplayClipExport export = replayClipExport;
+        if (export == null) return true;
+        try {
+            if (!export.ready()) return false;
+            export.checkFailure();
+            if (export.finishing()) {
+                boolean capped = export.frames() >= ReplayClipExport.MAX_FRAMES
+                        && replayFrameCursor < replayStudio.clipEnd();
+                replayStudioStatus = "Saved " + export.target() + (capped ? " (60-second video limit reached)." : "");
+                export.close();
+                replayClipExport = null;
+                replayClipImage = null;
+                replayStudio.setPaused(true);
+                return false;
+            }
+            if (!replayStudio.seeking() && export.frames() > 0
+                    && (replayFrameCursor >= replayStudio.clipEnd() || export.frames() >= ReplayClipExport.MAX_FRAMES)) {
+                replayStudioStatus = "Finishing video…";
+                export.finish();
+                return false;
+            }
+            return true;
+        } catch (RuntimeException exception) {
+            failReplayClipExport(exception);
+            return false;
+        }
+    }
+
+    private void captureReplayClipFrame(Canvas canvas) {
+        if (replayClipExport == null || !replayExportFrameDue || replayStudio.seeking()) return;
+        replayExportFrameDue = false;
+        try {
+            SnapshotParameters snapshot = new SnapshotParameters();
+            snapshot.setFill(Color.BLACK);
+            snapshot.setTransform(javafx.scene.transform.Transform.scale(
+                    ReplayClipExport.WIDTH / (canvas.getWidth() * canvas.getScaleX()),
+                    ReplayClipExport.HEIGHT / (canvas.getHeight() * canvas.getScaleY())));
+            canvas.snapshot(snapshot, replayClipImage);
+            int[] pixels = new int[ReplayClipExport.WIDTH * ReplayClipExport.HEIGHT];
+            replayClipImage.getPixelReader().getPixels(0, 0, ReplayClipExport.WIDTH, ReplayClipExport.HEIGHT,
+                    PixelFormat.getIntArgbInstance(), pixels, 0, ReplayClipExport.WIDTH);
+            replayClipExport.submit(pixels);
+            replayStudioStatus = "Exporting " + replayClipExport.frames() / ReplayClipExport.FPS
+                    + " seconds of video… ESC cancels.";
+        } catch (RuntimeException exception) {
+            failReplayClipExport(exception);
+        }
+    }
+
+    private void cancelReplayClipExport() {
+        if (replayClipExport == null) return;
+        ReplayClipExport export = replayClipExport;
+        export.close();
+        replayClipExport = null;
+        replayClipImage = null;
+        replayExportFrameDue = false;
+        replayStudio.cancelSeek();
+        replayStudio.setPaused(true);
+        replayStudioStatus = export.published() ? "Saved " + export.target() : "Export cancelled.";
+    }
+
+    private void failReplayClipExport(Exception exception) {
+        cancelReplayClipExport();
+        Throwable cause = exception.getCause() == null ? exception : exception.getCause();
+        replayStudioStatus = "Could not export clip: " + Objects.toString(cause.getMessage(), "video write failed");
+        LOGGER.log(Level.WARNING, "Replay clip export failed", exception);
     }
 
     // === LOCKSTEP TICK FLOW ===
@@ -75368,17 +75655,23 @@ public class BirdGame3 {
     private void pollWiimoteGameplayInputs() {
         if (replayPlaybackActive) {
             WiimoteMappedState replayControls = controllerMenuState();
-            boolean replayExitHeld = replayControls.connected()
-                    && (replayControls.menuBack() || replayControls.menuPause());
-            if (replayExitHeld && !wiimoteGameplayPauseHeld[0] && currentStage != null) {
-                wiimoteGameplayPauseHeld[0] = true;
+            int held = !replayControls.connected() ? 0
+                    : (replayControls.menuBackHeld() ? 1 : 0) | (replayControls.menuPauseHeld() ? 2 : 0)
+                    | (replayControls.menuLeftHeld() ? 4 : 0) | (replayControls.menuRightHeld() ? 8 : 0)
+                    | (replayControls.menuUpHeld() ? 16 : 0) | (replayControls.menuDownHeld() ? 32 : 0);
+            int edges = held & ~replayControllerHeld;
+            replayControllerHeld = held;
+            if (edges != 0 && currentStage != null) {
+                Stage replayStage = currentStage;
                 javafx.application.Platform.runLater(() -> {
-                    if (replayPlaybackActive && currentStage != null) {
-                        endReplayPlayback(currentStage);
-                    }
+                    if (!replayPlaybackActive || currentStage != replayStage) return;
+                    if ((edges & 1) != 0) handleReplayStudioKey(replayStage, KeyCode.ESCAPE);
+                    else if ((edges & 2) != 0) handleReplayStudioKey(replayStage, KeyCode.SPACE);
+                    else if ((edges & 4) != 0) handleReplayStudioKey(replayStage, KeyCode.LEFT);
+                    else if ((edges & 8) != 0) handleReplayStudioKey(replayStage, KeyCode.RIGHT);
+                    else if ((edges & 16) != 0) handleReplayStudioKey(replayStage, KeyCode.PLUS);
+                    else if ((edges & 32) != 0) handleReplayStudioKey(replayStage, KeyCode.MINUS);
                 });
-            } else {
-                wiimoteGameplayPauseHeld[0] = replayExitHeld;
             }
             clearActionStates(wiimoteActionPressed);
             Arrays.fill(controllerAttackUpHeld, false);
@@ -77665,7 +77958,8 @@ public class BirdGame3 {
                 }
                 BirdType type = lanModeActive ? lanSelectedBirds[i] : fightSetupSelection.selectedBird(i);
                 boolean randomPick = lanModeActive ? lanRandomBirds[i] : fightSetupSelection.isRandomSelected(i);
-                if (type == null || (lanModeActive && randomPick) || (!lanModeActive && (randomPick || !isBirdUnlocked(type)))) {
+                if (type == null || (lanModeActive && randomPick)
+                        || (!lanModeActive && !replayPlaybackActive && (randomPick || !isBirdUnlocked(type)))) {
                     type = pool.get(setupRandom.nextInt(pool.size()));
                     if (lanModeActive) {
                         lanSelectedBirds[i] = type;
@@ -77805,6 +78099,17 @@ public class BirdGame3 {
         scene.setOnKeyPressed(e -> handleGameplayKeyPress(stage, e));
         scene.setOnKeyReleased(this::handleGameplayKeyRelease);
 
+        if (replayPlaybackActive && activeReplay != null) {
+            installReplayStudio(stage);
+            // Capture Studio keys before a focused toolbar button/slider can use
+            // Space or arrows. Replay input never reaches live fighter controls.
+            scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> handleGameplayKeyPress(stage, e));
+            scene.addEventFilter(KeyEvent.KEY_RELEASED, e -> {
+                handleGameplayKeyRelease(e);
+                e.consume();
+            });
+        }
+
         lastUpdate = 0;
         accumulator = 0;
         renderSnapshotTaken = false;
@@ -77840,7 +78145,7 @@ public class BirdGame3 {
                             }
                         }
                     }
-                    if (!shouldRenderFrame(now)) {
+                    if (!replayExportFrameDue && !shouldRenderFrame(now)) {
                         recordFrameEntityCounts();
                         framePerformance.finishFrame();
                         markGameplayFrameSuccessful(simulationAdvanced);
@@ -77861,11 +78166,15 @@ public class BirdGame3 {
                             drawTrainingLabHud(ui);
                         }
                         framePerformance.recordDrawHud(System.nanoTime() - drawHudStart);
+                        drawFightFlashOverlay(ui);
                         if (replayPlaybackActive) {
-                            drawReplayOverlay(ui);
+                            captureReplayClipFrame(canvas);
+                            if (replayStudioPane != null) {
+                                replayStudioPane.setInputHint(replayStudioInputHint());
+                                replayStudioPane.refresh(replayFrameCursor, replayStudioStatus, replayClipExport != null);
+                            }
                         }
                         drawDebugTelemetryHud(ui);
-                        drawFightFlashOverlay(ui);
                         framePerformance.recordDrawHud(System.nanoTime() - drawHudStart);
                     } finally {
                         restoreRenderPositions();
@@ -83506,8 +83815,9 @@ public class BirdGame3 {
         root.setStyle(MenuTheme.pageBackground());
 
         Button back = uiFactory.action("BACK TO HISTORY", 380, 100, 30, "#D32F2F", 22, () -> showMatchHistory(stage));
-        StackPane title = buildMenuTitleBanner("REPLAYS", 620, 74, 34);
-        List<ReplayStore.SavedReplay> saved = ReplayStore.listAll();
+        StackPane title = buildMenuTitleBanner("REPLAY STUDIO", 620, 74, 34);
+        List<ReplayStore.SavedReplay> saved = new ArrayList<>(ReplayStore.listAll());
+        saved.sort(Comparator.comparing((ReplayStore.SavedReplay entry) -> !ReplayStore.isFavorite(entry.file())));
         StackPane summaryChip = buildMenuChip(saved.size() + " SAVED", "#CE93D8", "#F3E5F5");
         StackPane top = buildMenuTopStrip(back, title, summaryChip);
 
@@ -83563,7 +83873,8 @@ public class BirdGame3 {
         card.setMaxWidth(1480);
         card.setStyle(MenuTheme.panelStyle("#CE93D8", 20));
 
-        Label rosterLabel = new Label(replayRosterLabel(replay));
+        boolean favorite = ReplayStore.isFavorite(entry.file());
+        Label rosterLabel = new Label((favorite ? "★  " : "") + replayRosterLabel(replay));
         rosterLabel.setFont(Font.font("Arial Black", 28));
         rosterLabel.setTextFill(Color.web("#E1BEE7"));
         rosterLabel.setWrapText(true);
@@ -83589,16 +83900,24 @@ public class BirdGame3 {
         }
         headerText.setAlignment(Pos.CENTER_LEFT);
 
-        Button watch = uiFactory.action("WATCH", 220, 74, 26, "#1565C0", 18, () -> {
+        Button watch = uiFactory.action("OPEN STUDIO", 250, 64, 23, "#1565C0", 18, () -> {
             resetMatchStats();
             startReplayPlayback(stage, replay, true);
         });
         watch.setDisable(!replay.compatibleWithCurrentSimulation());
-        Button delete = uiFactory.action("DELETE", 220, 74, 26, "#455A64", 18, () -> {
-            ReplayStore.delete(entry.file());
+        Button favoriteButton = uiFactory.action(favorite ? "★ FAVORITED" : "☆ FAVORITE", 250, 58, 22,
+                favorite ? "#806000" : "#455A64", 18, () -> {
+            if (ReplayStore.setFavorite(entry.file(), !favorite)) showReplayBrowser(stage);
+            else winnerLabel.setText("Could not save favorite. Check folder permissions.");
+        });
+        Button delete = uiFactory.action("DELETE", 250, 58, 22, "#455A64", 18, () -> {
+            if (!ReplayStore.delete(entry.file())) {
+                winnerLabel.setText("Could not fully delete replay. Check folder permissions.");
+                return;
+            }
             showReplayBrowser(stage);
         });
-        VBox actions = new VBox(10, watch, delete);
+        VBox actions = new VBox(8, watch, favoriteButton, delete);
         actions.setAlignment(Pos.CENTER_RIGHT);
 
         Region spacer = new Region();

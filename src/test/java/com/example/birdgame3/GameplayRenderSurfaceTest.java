@@ -55,6 +55,23 @@ class GameplayRenderSurfaceTest {
     }
 
     @Test
+    void leavingReplayStudioRestoresTheSharedCanvasForMatchesAndTrailers() {
+        GameplayRenderSurface surface = new GameplayRenderSurface(BirdGame3.WIDTH, BirdGame3.HEIGHT);
+        surface.attachToFreshRoot();
+        surface.canvas().setScaleX(0.9);
+        surface.canvas().setScaleY(0.9);
+        surface.canvas().setTranslateY(-45);
+        StackPane.setAlignment(surface.canvas(), javafx.geometry.Pos.TOP_CENTER);
+
+        Canvas restored = surface.detachCanvas();
+
+        assertEquals(BirdGame3.WIDTH / restored.getWidth(), restored.getScaleX(), 0.000001);
+        assertEquals(BirdGame3.HEIGHT / restored.getHeight(), restored.getScaleY(), 0.000001);
+        assertEquals(0.0, restored.getTranslateY());
+        org.junit.jupiter.api.Assertions.assertNull(StackPane.getAlignment(restored));
+    }
+
+    @Test
     void logicalFrameTransformMapsGameCoordinatesToBackingPixels() {
         GameplayRenderSurface surface =
                 new GameplayRenderSurface(BirdGame3.WIDTH, BirdGame3.HEIGHT);

@@ -788,6 +788,13 @@ final class MatchController {
         game.matchEndFocusBird = winner;
         game.triggerDramaticSlowMo(32);
 
+        if (game.replayPlaybackActive) {
+            // Studio remains open at the recorded end. A wall-clock results timer
+            // would close slow/paused playback or a seek/export midway through it.
+            game.matchEnded = true;
+            return;
+        }
+
         if (game.lanModeActive) {
             game.matchEnded = true;
             game.lanMatchActive = false;

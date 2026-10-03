@@ -63,6 +63,22 @@ run the same game version. The host supplies the authoritative rules and active
 another's IP addresses, so connect only with people you trust. Wired, nearby
 connections provide the best lockstep response.
 
+### Replay Studio
+
+Open **VAULT → MATCH HISTORY → REPLAYS**, then choose **OPEN STUDIO** to review a
+saved match. Favorite a replay to protect it from automatic history pruning.
+
+- **Space** pauses or resumes playback; **+ / -** changes playback speed.
+- **Period (.)** pauses and advances one frame.
+- **J / K** jumps to the previous or next KO; use the timeline to seek anywhere.
+- **I / O** marks the clip's start and end at the current frame.
+- **E** exports the selected clip; **Esc** leaves Replay Studio.
+
+Exports are silent AVI videos at 1280×720 and 30 fps, always at normal playback
+speed. Each export is limited to 60 seconds of video, including hitstop. Older
+replays that are compatible with the current simulation still play and export,
+but have no recorded KO markers.
+
 ### Flock Run
 
 Open **GAMES & MORE → FLOCK RUN**, choose an unlocked bird, and begin a migration.

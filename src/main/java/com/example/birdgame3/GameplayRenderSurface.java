@@ -80,6 +80,12 @@ final class GameplayRenderSurface {
         if (parent instanceof Pane pane) {
             pane.getChildren().remove(canvas);
         }
+        // Replay Studio reserves room for its toolbar. Restore the full arena
+        // whenever the shared Canvas is reused by a match or a trailer scene.
+        canvas.setScaleX(1.0 / backingScaleX);
+        canvas.setScaleY(1.0 / backingScaleY);
+        canvas.setTranslateY(0.0);
+        StackPane.clearConstraints(canvas);
         beginLogicalFrame();
         return canvas;
     }

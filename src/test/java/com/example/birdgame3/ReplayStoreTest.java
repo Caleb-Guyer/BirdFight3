@@ -42,6 +42,9 @@ class ReplayStoreTest {
         replay.frames.add(new int[]{0, 1 << 30});
         replay.dashTaps.add(new MatchReplay.DashTap(2L, 0, -1));
         replay.dashTaps.add(new MatchReplay.DashTap(3L, 1, 1));
+        replay.knockouts.add(new MatchReplay.Knockout(0, "Opening KO"));
+        replay.knockouts.add(new MatchReplay.Knockout(2, "P1: Eagle KOs P2: Goose"));
+        replay.knockouts.add(new MatchReplay.Knockout(3, "Final KO"));
         return replay;
     }
 
@@ -79,6 +82,7 @@ class ReplayStoreTest {
             assertArrayEquals(original.frames.get(i), loaded.frames.get(i));
         }
         assertEquals(original.dashTaps, loaded.dashTaps);
+        assertEquals(original.knockouts, loaded.knockouts);
         assertTrue(loaded.selfContained());
         assertTrue(loaded.usable());
     }
@@ -120,6 +124,7 @@ class ReplayStoreTest {
         assertFalse(loaded.compatibleWithCurrentSimulation());
         assertEquals(original.frames.size(), loaded.frames.size());
         assertEquals(original.dashTaps, loaded.dashTaps);
+        assertTrue(loaded.knockouts.isEmpty());
         assertEquals(1, ReplayStore.listAll(dir).size(),
                 "Legacy replay must remain visible in the browser model.");
     }
@@ -136,6 +141,127 @@ class ReplayStoreTest {
         assertTrue(loaded.compatibleWithCurrentSimulation());
         assertNull(loaded.mapVariantName);
         assertEquals(original.frames.size(), loaded.frames.size());
+    }
+
+    @Test
+    void versionFiveReplayRetainsConfigurationWithNoKnockoutBookmarks(@TempDir Path dir) throws Exception {
+        MatchReplay original = sampleReplay();
+        Path legacyFile = dir.resolve("legacy-v5" + ReplayStore.FILE_EXTENSION);
+        writeLegacyReplay(legacyFile, original, 5);
+
+        MatchReplay loaded = ReplayStore.load(legacyFile);
+
+        assertNotNull(loaded);
+        assertTrue(loaded.compatibleWithCurrentSimulation());
+        assertEquals(original.mapVariantName, loaded.mapVariantName);
+        assertEquals(original.versusRulesEncoded, loaded.versusRulesEncoded);
+        assertArrayEquals(original.slotInitialStocks, loaded.slotInitialStocks);
+        assertArrayEquals(original.slotInitialHealth, loaded.slotInitialHealth);
+        assertEquals(original.frames.size(), loaded.frames.size());
+        assertEquals(original.dashTaps, loaded.dashTaps);
+        assertTrue(loaded.knockouts.isEmpty());
+    }
+
+    @Test
+    void refusesOutOfRangeKnockoutBookmarksWithoutCreatingAReplay(@TempDir Path dir) throws Exception {
+        for (int frame : new int[]{-1, 4}) {
+            MatchReplay replay = sampleReplay();
+            replay.knockouts.add(new MatchReplay.Knockout(frame, "Invalid KO"));
+            assertNull(ReplayStore.save(dir, replay));
+        }
+        try (var files = Files.list(dir)) {
+            assertEquals(0, files.count());
+        }
+    }
+
+    @Test
+    void corruptKnockoutBoundsCountsAndTruncatedEntriesAreRejected(@TempDir Path dir) throws Exception {
+        Path file = dir.resolve("bad-knockouts" + ReplayStore.FILE_EXTENSION);
+        MatchReplay replay = sampleReplay();
+        for (int frame : new int[]{-1, replay.frames.size() + 1}) {
+            replay.knockouts.clear();
+            replay.knockouts.add(new MatchReplay.Knockout(frame, "Invalid KO"));
+            writeLegacyReplay(file, replay, 6);
+            assertNull(ReplayStore.load(file));
+        }
+        replay.knockouts.clear();
+        for (int count : new int[]{-1, MatchReplay.MAX_KNOCKOUTS + 1, 1}) {
+            // Count 1 with no entries also exercises an interrupted/truncated file.
+            writeLegacyReplay(file, replay, 6, count);
+            assertNull(ReplayStore.load(file));
+        }
+        replay.knockouts.add(new MatchReplay.Knockout(0, "x".repeat(257)));
+        writeLegacyReplay(file, replay, 6);
+        assertNull(ReplayStore.load(file));
+        assertTrue(ReplayStore.listAll(dir).isEmpty());
+    }
+
+    @Test
+    void favoritesPersistWithoutChangingReplayBytesAndDeleteCleansMetadata(@TempDir Path dir) throws Exception {
+        Path file = ReplayStore.save(dir, sampleReplay());
+        assertNotNull(file);
+        byte[] original = Files.readAllBytes(file);
+        assertFalse(ReplayStore.isFavorite(file));
+
+        assertTrue(ReplayStore.setFavorite(file, true));
+        assertTrue(ReplayStore.setFavorite(file, true));
+        Path listedFile = ReplayStore.listAll(dir).getFirst().file();
+        assertTrue(ReplayStore.isFavorite(listedFile));
+        assertArrayEquals(original, Files.readAllBytes(file));
+
+        assertTrue(ReplayStore.setFavorite(file, false));
+        assertTrue(ReplayStore.setFavorite(file, false));
+        assertFalse(ReplayStore.isFavorite(file));
+        assertTrue(ReplayStore.setFavorite(file, true));
+        assertTrue(ReplayStore.delete(file));
+        assertFalse(Files.exists(file));
+        assertFalse(ReplayStore.isFavorite(file));
+        try (var files = Files.list(dir)) {
+            assertEquals(0, files.count());
+        }
+    }
+
+    @Test
+    void pruningKeepsAllFavoritesPlusThirtyRecentReplays(@TempDir Path dir) {
+        MatchReplay oldest = sampleReplay();
+        Path favorite = ReplayStore.save(dir, oldest);
+        assertNotNull(favorite);
+        assertTrue(ReplayStore.setFavorite(favorite, true));
+        for (int i = 1; i <= ReplayStore.MAX_KEPT + 2; i++) {
+            MatchReplay current = sampleReplay();
+            current.timestampMillis += i * 1_000L;
+            assertNotNull(ReplayStore.save(dir, current));
+        }
+
+        ReplayStore.prune(dir);
+
+        assertTrue(Files.exists(favorite));
+        assertTrue(ReplayStore.isFavorite(favorite));
+        List<ReplayStore.SavedReplay> remaining = ReplayStore.listAll(dir);
+        assertEquals(ReplayStore.MAX_KEPT + 1, remaining.size());
+        assertEquals(oldest.timestampMillis + 3_000L,
+                remaining.stream().filter(entry -> !ReplayStore.isFavorite(entry.file()))
+                        .mapToLong(entry -> entry.replay().timestampMillis).min().orElseThrow());
+
+        assertTrue(ReplayStore.setFavorite(favorite, false));
+        ReplayStore.prune(dir);
+        assertFalse(Files.exists(favorite));
+        assertEquals(ReplayStore.MAX_KEPT, ReplayStore.listAll(dir).size());
+    }
+
+    @Test
+    void favoriteAndDeleteFailuresAreReported(@TempDir Path dir) throws Exception {
+        assertFalse(ReplayStore.setFavorite(dir.resolve("missing" + ReplayStore.FILE_EXTENSION), true));
+        Path file = ReplayStore.save(dir, sampleReplay());
+        assertNotNull(file);
+        Path marker = file.resolveSibling(file.getFileName() + ".favorite");
+        Files.createDirectory(marker);
+        Files.writeString(marker.resolve("obstruction"), "leave this file alone");
+        assertFalse(ReplayStore.setFavorite(file, true));
+        assertFalse(ReplayStore.setFavorite(file, false));
+        assertTrue(ReplayStore.isFavorite(file), "An unreadable marker must conservatively protect the replay.");
+        assertFalse(ReplayStore.delete(file), "Metadata cleanup failures must be observable.");
+        assertTrue(Files.exists(marker.resolve("obstruction")));
     }
 
     @Test
@@ -164,6 +290,11 @@ class ReplayStoreTest {
     }
 
     private static void writeLegacyReplay(Path file, MatchReplay replay, int version) throws IOException {
+        writeLegacyReplay(file, replay, version, replay.knockouts.size());
+    }
+
+    private static void writeLegacyReplay(Path file, MatchReplay replay, int version, int knockoutCount)
+            throws IOException {
         Files.createDirectories(file.getParent());
         try (DataOutputStream out = new DataOutputStream(
                 new GZIPOutputStream(Files.newOutputStream(file)))) {
@@ -175,10 +306,16 @@ class ReplayStoreTest {
             out.writeLong(replay.seed);
             out.writeInt(replay.playerCount);
             out.writeUTF(nullToEmpty(replay.mapName));
+            if (version >= 3) {
+                out.writeUTF(nullToEmpty(replay.mapVariantName));
+            }
             out.writeLong(replay.timestampMillis);
             out.writeUTF(nullToEmpty(replay.winnerLabel));
             out.writeBoolean(replay.teamModeEnabled);
             out.writeBoolean(replay.mutatorModeEnabled);
+            if (version >= 4) {
+                out.writeUTF(nullToEmpty(replay.versusRulesEncoded));
+            }
             for (int i = 0; i < replay.playerCount; i++) {
                 out.writeUTF(nullToEmpty(replay.slotBirdTypes[i]));
                 out.writeBoolean(replay.slotIsAi[i]);
@@ -187,6 +324,10 @@ class ReplayStoreTest {
                 out.writeDouble(replay.slotBaseSize[i]);
                 out.writeDouble(replay.slotBasePower[i]);
                 out.writeDouble(replay.slotBaseSpeed[i]);
+                if (version >= 5) {
+                    out.writeInt(replay.slotInitialStocks[i]);
+                    out.writeDouble(replay.slotInitialHealth[i]);
+                }
             }
             out.writeInt(replay.dashTaps.size());
             for (MatchReplay.DashTap tap : replay.dashTaps) {
@@ -198,6 +339,13 @@ class ReplayStoreTest {
             for (int[] masks : replay.frames) {
                 for (int player = 0; player < replay.playerCount; player++) {
                     out.writeInt(player < masks.length ? masks[player] : 0);
+                }
+            }
+            if (version >= 6) {
+                out.writeInt(knockoutCount);
+                for (MatchReplay.Knockout knockout : replay.knockouts) {
+                    out.writeInt(knockout.frame());
+                    out.writeUTF(nullToEmpty(knockout.label()));
                 }
             }
         }

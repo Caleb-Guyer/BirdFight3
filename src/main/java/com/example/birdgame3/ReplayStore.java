@@ -3,7 +3,9 @@ package com.example.birdgame3;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -21,8 +23,8 @@ import java.util.zip.GZIPOutputStream;
 /**
  * Saves and loads {@link MatchReplay}s as versioned, gzip-compressed binary
  * files in the {@code replays/} folder next to the game. A typical match is a
- * few dozen kilobytes. The store keeps the newest {@link #MAX_KEPT} current-
- * revision files and prunes the rest. Legacy replays remain visible and are
+ * few dozen kilobytes. The store keeps the newest {@link #MAX_KEPT} unfavorited
+ * current-revision files and prunes the rest. Favorites and legacy replays are
  * never automatically removed; corrupt or future-versioned files are skipped.
  */
 final class ReplayStore {
@@ -31,7 +33,9 @@ final class ReplayStore {
     static final String FILE_EXTENSION = ".bf3replay";
     static final int MAX_KEPT = 30;
     private static final int MAGIC = 0x42463352; // "BF3R"
-    static final int VERSION = 5;
+    static final int VERSION = 6;
+    private static final String FAVORITE_EXTENSION = ".favorite";
+    private static final int MAX_KNOCKOUT_LABEL_LENGTH = 256;
     private static final DateTimeFormatter FILE_STAMP =
             DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss", Locale.ROOT);
 
@@ -59,6 +63,7 @@ final class ReplayStore {
             return null;
         }
         try {
+            validateKnockouts(replay);
             Files.createDirectories(dir);
             String stamp = LocalDateTime.ofInstant(
                     Instant.ofEpochMilli(replay.timestampMillis > 0 ? replay.timestampMillis : System.currentTimeMillis()),
@@ -115,11 +120,54 @@ final class ReplayStore {
         return result;
     }
 
-    static boolean delete(Path file) {
+    private static Path favoriteFile(Path file) {
+        return file.resolveSibling(file.getFileName().toString() + FAVORITE_EXTENSION);
+    }
+
+    /** An adjacent marker persists favorites without rewriting a replay's input data. */
+    static boolean isFavorite(Path file) {
+        return file != null && Files.exists(favoriteFile(file), LinkOption.NOFOLLOW_LINKS);
+    }
+
+    /** Returns true only when the requested state was stored successfully. */
+    static boolean setFavorite(Path file, boolean favorite) {
+        if (file == null) {
+            return false;
+        }
         try {
-            return Files.deleteIfExists(file);
-        } catch (IOException e) {
-            LOGGER.log(Level.FINE, "Failed to delete replay " + file, e);
+            Path marker = favoriteFile(file);
+            if (favorite) {
+                if (!Files.isRegularFile(file)) {
+                    return false;
+                }
+                try {
+                    Files.createFile(marker);
+                } catch (FileAlreadyExistsException e) {
+                    if (!Files.isRegularFile(marker, LinkOption.NOFOLLOW_LINKS)) {
+                        throw new IOException("Favorite marker is not a regular file: " + marker, e);
+                    }
+                }
+            } else {
+                Files.deleteIfExists(marker);
+            }
+            return true;
+        } catch (IOException | SecurityException e) {
+            LOGGER.log(Level.WARNING, "Failed to update replay favorite " + file, e);
+            return false;
+        }
+    }
+
+    /** Returns false if either the replay deletion or its favorite cleanup fails. */
+    static boolean delete(Path file) {
+        if (file == null) {
+            return false;
+        }
+        try {
+            boolean deleted = Files.deleteIfExists(file);
+            Files.deleteIfExists(favoriteFile(file));
+            return deleted;
+        } catch (IOException | SecurityException e) {
+            LOGGER.log(Level.WARNING, "Failed to delete replay or its favorite " + file, e);
             return false;
         }
     }
@@ -131,6 +179,7 @@ final class ReplayStore {
         try (var files = Files.list(dir)) {
             List<Path> sorted = files
                     .filter(p -> p.getFileName().toString().endsWith(FILE_EXTENSION))
+                    .filter(p -> !isFavorite(p))
                     .sorted(Comparator.comparing((Path p) -> p.getFileName().toString()).reversed())
                     .filter(p -> {
                         MatchReplay replay = load(p);
@@ -182,6 +231,11 @@ final class ReplayStore {
             for (int p = 0; p < replay.playerCount; p++) {
                 out.writeInt(p < masks.length ? masks[p] : 0);
             }
+        }
+        out.writeInt(replay.knockouts.size());
+        for (MatchReplay.Knockout knockout : replay.knockouts) {
+            out.writeInt(knockout.frame());
+            out.writeUTF(nullToEmpty(knockout.label()));
         }
     }
 
@@ -249,7 +303,36 @@ final class ReplayStore {
             }
             replay.frames.add(masks);
         }
+        if (version >= 6) {
+            int knockoutCount = in.readInt();
+            if (knockoutCount < 0 || knockoutCount > MatchReplay.MAX_KNOCKOUTS) {
+                throw new IOException("Corrupt replay: knockoutCount " + knockoutCount);
+            }
+            for (int i = 0; i < knockoutCount; i++) {
+                MatchReplay.Knockout knockout = new MatchReplay.Knockout(in.readInt(), in.readUTF());
+                validateKnockout(knockout, frameCount);
+                replay.knockouts.add(knockout);
+            }
+        }
         return replay;
+    }
+
+    private static void validateKnockouts(MatchReplay replay) throws IOException {
+        if (replay.knockouts.size() > MatchReplay.MAX_KNOCKOUTS) {
+            throw new IOException("Too many replay knockout bookmarks");
+        }
+        for (MatchReplay.Knockout knockout : replay.knockouts) {
+            validateKnockout(knockout, replay.frames.size());
+        }
+    }
+
+    private static void validateKnockout(MatchReplay.Knockout knockout, int frameCount) throws IOException {
+        if (knockout == null || knockout.frame() < 0 || knockout.frame() > frameCount) {
+            throw new IOException("Replay knockout bookmark is outside the input stream");
+        }
+        if (knockout.label() != null && knockout.label().length() > MAX_KNOCKOUT_LABEL_LENGTH) {
+            throw new IOException("Replay knockout bookmark label is too long");
+        }
     }
 
     private static String nullToEmpty(String value) {

@@ -26,13 +26,15 @@ class UiDevicePromptCoverageTest {
     @Test
     void replayAndTrailerPromptsFollowTheDeviceTheyActuallyAccept() throws IOException {
         String source = Files.readString(GAME_SOURCE);
-        String replayOverlay = methodBody(source, "private void drawReplayOverlay");
+        String replayOverlay = methodBody(source, "private String replayStudioInputHint");
         String replayInput = methodBody(source, "private void pollWiimoteGameplayInputs");
         String trailer = methodBody(source, "private void showUpdateTrailer");
 
         assertTrue(replayOverlay.contains("UiInputPrompts.inputFor"));
         assertFalse(replayOverlay.contains("ESC TO EXIT"));
-        assertTrue(replayInput.contains("replayControls.menuBack() || replayControls.menuPause()"));
+        assertTrue(replayInput.contains("replayControls.menuBackHeld()"));
+        assertTrue(replayInput.contains("replayControls.menuPauseHeld()"));
+        assertTrue(replayInput.contains("handleReplayStudioKey(replayStage, KeyCode.SPACE)"));
         assertTrue(trailer.contains("uiInputTracker.activeInputProperty()"));
         assertTrue(trailer.contains("UiInputPrompts.Command.SELECT, \"REPLAY\""));
         assertFalse(trailer.contains("ESC BACK   R / SPACE / ENTER REPLAY"));

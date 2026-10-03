@@ -17,6 +17,8 @@ import java.util.List;
 final class MatchReplay {
     /** Hard cap: 10 minutes at 60 ticks/s. Recording gives up beyond this. */
     static final int MAX_FRAMES = 60 * 60 * 10;
+    /** Presentation bookmarks are bounded independently of the input stream. */
+    static final int MAX_KNOCKOUTS = MAX_FRAMES;
     /**
      * Bumped whenever a deterministic gameplay change makes older input streams
      * unsafe to play with the current simulation.
@@ -26,11 +28,16 @@ final class MatchReplay {
     record DashTap(long tick, int playerIndex, int dir) {
     }
 
+    /** Frame is the number of replay inputs consumed when the knockout occurred. */
+    record Knockout(int frame, String label) {
+    }
+
     final long seed;
     final int playerCount;
     final int simulationRevision;
     final List<int[]> frames = new ArrayList<>();
     final List<DashTap> dashTaps = new ArrayList<>();
+    final List<Knockout> knockouts = new ArrayList<>();
     boolean overflowed = false;
 
     // Match configuration captured at record time, making playback self-contained:
