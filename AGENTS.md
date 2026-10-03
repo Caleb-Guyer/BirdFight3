@@ -53,6 +53,11 @@ causes silent desyncs. Rules:
 
 ## Key systems and where they live
 
+- **Stage presentation**: keep arena text purposeful: City building signs,
+  hazard warnings, portal directions, and interaction/objective cues. Do not
+  add large stage-name banners, slogans, or decorative machine/location labels
+  to the playfield. Regenerate affected `stage-previews/` captures when arena
+  art changes so selection cards match gameplay.
 - **Game loop**: `BirdGame3.gameTick()` — accumulator, hitstop, lockstep gate,
   replay capture/inject, then per-tick sim body. Render interpolation:
   `snapshotRenderPositions`/`applyRenderInterpolation` (prev/curr lerp with

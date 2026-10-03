@@ -15846,8 +15846,8 @@ public class BirdGame3 {
             int cycle = Math.floorMod((int) simTick, 360);
             boolean warning = cycle >= 230 && cycle < 290;
             boolean active = cycle >= 290 && cycle < 326;
-            for (int index = 0; index < CARRION_MAGNET_X.length; index++) {
-                drawCarrionMagnet(g, CARRION_MAGNET_X[index], index, warning, active, pulse, sorting);
+            for (double magnetX : CARRION_MAGNET_X) {
+                drawCarrionMagnet(g, magnetX, warning, active, pulse, sorting);
             }
         }
 
@@ -15974,17 +15974,6 @@ public class BirdGame3 {
             g.strokeArc(-160.0 + (wave % 2) * 210.0, y, WORLD_WIDTH + 320.0, 150.0,
                     8.0, 164.0, ArcType.OPEN);
         }
-
-        g.setFill(Color.web("#041019", 0.92));
-        g.fillRoundRect(2_340.0, 180.0, 1_320.0, 138.0, 28.0, 28.0);
-        g.setStroke(supercell ? amber : crystal);
-        g.setLineWidth(7.0);
-        g.strokeRoundRect(2_340.0, 180.0, 1_320.0, 138.0, 28.0, 28.0);
-        g.setTextAlign(TextAlignment.CENTER);
-        g.setFont(Font.font("Consolas", FontWeight.BOLD, 50.0));
-        g.setFill(Color.WHITE);
-        g.fillText(supercell ? "EYE OF THE SUPERCELL" : "STORMGLASS REFINERY", 3_000.0, 270.0);
-        g.setTextAlign(TextAlignment.LEFT);
     }
 
     private void drawStormglassInstalledArcs(GraphicsContext g, Color crystal, Color amber,
@@ -16048,7 +16037,6 @@ public class BirdGame3 {
         drawOneiricTerraceSupports(g, glass, gold);
         drawOneiricTerraces(g, waking, glass, gold);
         if (waking) drawOneiricWakingGate(g, glass, gold, pulse);
-        drawOneiricObservatoryPlaque(g, waking, glass, gold);
         g.setTextAlign(TextAlignment.LEFT);
         g.setLineDashes();
     }
@@ -16415,29 +16403,6 @@ public class BirdGame3 {
         g.fillOval(x - 31.0, floorY - 348.0, 62.0, 62.0);
     }
 
-    private void drawOneiricObservatoryPlaque(GraphicsContext g, boolean waking,
-                                               Color glass, Color gold) {
-        double plaqueWidth = waking ? 2_040.0 : 2_220.0;
-        double plaqueX = 3_000.0 - plaqueWidth * 0.5;
-        double plaqueY = battlefieldIslandY + 18.0;
-        g.setFill(Color.web("#03050D", 0.96));
-        g.fillRoundRect(plaqueX, plaqueY, plaqueWidth, 78.0, 22.0, 22.0);
-        g.setStroke(gold.deriveColor(0, 0.76, 1.0, 0.88));
-        g.setLineWidth(7.0);
-        g.strokeRoundRect(plaqueX, plaqueY, plaqueWidth, 78.0, 22.0, 22.0);
-        g.setFill(Color.web("#F7F4FF"));
-        g.setFont(Font.font("Consolas", FontWeight.BOLD, 35.0));
-        g.setTextAlign(TextAlignment.CENTER);
-        g.fillText(waking ? "WAKING CHAMBER  •  THE TWELFTH LENS"
-                        : "ONEIRIC OBSERVATORY  •  NO FUTURE IS FINAL",
-                3_000.0, plaqueY + 52.0);
-        g.setStroke(glass.deriveColor(0, 0.86, 1.0, 0.72));
-        g.setLineWidth(5.0);
-        g.strokeLine(plaqueX + 70.0, plaqueY + 12.0, plaqueX + 300.0, plaqueY + 12.0);
-        g.strokeLine(plaqueX + plaqueWidth - 300.0, plaqueY + 12.0,
-                plaqueX + plaqueWidth - 70.0, plaqueY + 12.0);
-    }
-
     private void drawCarrionExchangeSky(GraphicsContext g, boolean core, boolean sorting, double pulse) {
         Color top = Color.web(core ? "#09050C" : sorting ? "#071315" : "#100C18");
         Color horizon = Color.web(core ? "#6A1D12" : sorting ? "#244A43" : "#69341F");
@@ -16538,34 +16503,6 @@ public class BirdGame3 {
         }
         g.setFill(accent.deriveColor(0, 0.82, 1.0, 0.72));
         g.fillRect(390.0, 158.0, 5_220.0, 13.0);
-
-        // Sorting Floor is already identified by its moving suspended trays;
-        // leave the playfield clean instead of covering it with a giant label.
-        if (sorting) return;
-
-        // The other Exchange layouts retain their location marquee.
-        double signWidth = core ? 1_480.0 : 1_780.0;
-        double signX = 3_000.0 - signWidth * 0.5;
-        g.setStroke(Color.web("#655746", 0.92));
-        g.setLineWidth(14.0);
-        g.strokeLine(signX + 140.0, 315.0, signX + 140.0, 455.0);
-        g.strokeLine(signX + signWidth - 140.0, 315.0, signX + signWidth - 140.0, 455.0);
-        g.setFill(Color.web("#0B0C12", 0.97));
-        g.fillRoundRect(signX, 440.0, signWidth, 235.0, 42.0, 42.0);
-        g.setStroke(accent.deriveColor(0, 0.90, 1.05, 0.95));
-        g.setLineWidth(15.0);
-        g.strokeRoundRect(signX, 440.0, signWidth, 235.0, 42.0, 42.0);
-        g.setTextAlign(TextAlignment.CENTER);
-        g.setFill(Color.web("#FFF0C8"));
-        g.setFont(Font.font("Impact", FontWeight.BOLD, 86.0));
-        g.fillText(core ? "RECLAMATION CORE" : "CARRION EXCHANGE",
-                3_000.0, 565.0);
-        g.setFill(accent.deriveColor(0, 0.84, 1.08, 0.90));
-        g.setFont(Font.font("Consolas", FontWeight.BOLD, 29.0));
-        g.fillText(core ? "ALL DEBTS RETURN TO THE FURNACE"
-                        : "WE BUY WHAT THE SKY FORGETS",
-                3_000.0, 625.0);
-        g.setTextAlign(TextAlignment.LEFT);
     }
 
     private void drawCarrionMarketBackground(GraphicsContext g, Color accent, double pulse) {
@@ -16806,7 +16743,7 @@ public class BirdGame3 {
         }
     }
 
-    private void drawCarrionMagnet(GraphicsContext g, double x, int index,
+    private void drawCarrionMagnet(GraphicsContext g, double x,
                                    boolean warning, boolean active, double pulse,
                                    boolean sorting) {
         Color state = active ? Color.web("#6BE7FF")
@@ -16851,10 +16788,6 @@ public class BirdGame3 {
 
         g.setFill(state.deriveColor(0, 1.0, 1.0, active ? 0.95 : warning ? 0.82 : 0.48));
         g.fillOval(x - 18.0, headY - 9.0, 36.0, 36.0);
-        g.setFill(Color.web("#FFF7D6"));
-        g.setFont(Font.font("Consolas", FontWeight.BOLD, 24.0));
-        g.setTextAlign(TextAlignment.CENTER);
-        g.fillText("M" + (index + 1), x, headY + 66.0);
 
         if (warning || active) {
             double alpha = active ? 0.22 + pulse * 0.10 : 0.08 + pulse * 0.06;
@@ -16868,7 +16801,6 @@ public class BirdGame3 {
                         radius * 2.0, radius * 0.62, 0.0, 180.0, ArcType.OPEN);
             }
         }
-        g.setTextAlign(TextAlignment.LEFT);
     }
 
     private void drawMidnightWorkshopGears(GraphicsContext g, Color accent, double time, boolean ambientFx) {
@@ -24183,14 +24115,6 @@ public class BirdGame3 {
                 WORLD_WIDTH / 2.0 - 20, gateY + 208);
         g.strokeLine(WORLD_WIDTH / 2.0 + 20, gateY + 175,
                 WORLD_WIDTH / 2.0 + 20, gateY + 208);
-        g.setFont(Font.font("Arial Black", FontWeight.BOLD, 38));
-        g.setFill(Color.web("#CFD8DC", 0.82));
-        g.setTextAlign(TextAlignment.CENTER);
-        g.fillText("CROWNLOCK // TRANSFER", WORLD_WIDTH / 2.0, gateY + 335);
-        g.setFont(Font.font("Consolas", FontWeight.BOLD, 23));
-        g.setFill(Color.web("#FF5252", 0.78));
-        g.fillText("LOCKDOWN FAILED  •  SURFACE BREACH", WORLD_WIDTH / 2.0, gateY + 380);
-        g.setTextAlign(TextAlignment.LEFT);
     }
 
     private void drawPrisonSearchlight(GraphicsContext g, double originX, double originY,
@@ -24250,14 +24174,6 @@ public class BirdGame3 {
                 g.strokeLine(gx, PRISON_MAIN_Y + 120, gx, PRISON_MAIN_Y + 184);
             }
         }
-        g.setFont(Font.font("Consolas", FontWeight.BOLD, 27));
-        g.setFill(Color.web("#78909C", 0.72));
-        g.fillText("CELL BLOCK A", 170, PRISON_MAIN_Y + 245);
-        g.setTextAlign(TextAlignment.CENTER);
-        g.fillText("TRANSFER FLOOR 07", WORLD_WIDTH / 2.0, PRISON_MAIN_Y + 245);
-        g.setTextAlign(TextAlignment.RIGHT);
-        g.fillText("CELL BLOCK B", WORLD_WIDTH - 170, PRISON_MAIN_Y + 245);
-        g.setTextAlign(TextAlignment.LEFT);
     }
 
     private void drawPrisonPlatforms(GraphicsContext g) {
