@@ -49127,11 +49127,13 @@ public class Bird {
         double hx = 19 + ax * reach, hy = 22 + ay * 8 + (pose == null ? 0 : pose.headLift() * 0.22);
         double nx = -ay, ny = ax;
         if (ny < 0 || (Math.abs(ny) < 0.01 && nx < 0)) { nx = -nx; ny = -ny; }
-        Color outline = Color.web("#3B2924");
         Color bone = Color.web("#E9DDBB");
         Color body = isCampaignFactionSkin() ? campaignFactionPrimaryColor() : Color.web("#A46B43");
         Color light = isCampaignFactionSkin() ? campaignFactionSecondaryColor() : Color.web("#C68B59");
         Color membrane = Color.web("#D69B6F");
+        // Match the roster's tinted, translucent contours rather than an ink border.
+        Color outline = (fossil ? Color.web("#82745D") : body.darker())
+                .deriveColor(0, 1, 0.86, 0.34);
         double openness = pterodactylWingOpenness();
         boolean airborne = !isOnGround();
 
@@ -49147,26 +49149,23 @@ public class Bird {
         g.setFill(fossil ? bone : body.darker());
         g.beginPath(); g.moveTo(-17, 54); g.quadraticCurveTo(-34, 58, -34, 47);
         g.quadraticCurveTo(-25, 51, -14, 45); g.closePath(); g.fill();
-        g.setStroke(outline); g.setLineWidth(2); g.stroke();
+        g.setStroke(outline); g.setLineWidth(0.9); g.stroke();
         double step = isOnGround() && Math.abs(vx) > 0.5
                 ? Math.sin(animationGlobalFrame * 0.65) * 4 : 0;
         for (int side : new int[]{-1, 1}) {
             double footX = side * 9 + side * step;
             double footY = airborne ? 74 : 78;
-            g.setStroke(outline); g.setLineWidth(5);
-            g.strokeLine(side * 9, 62, footX, footY - 4);
-            g.setStroke(fossil ? bone : Color.web("#D5AA62")); g.setLineWidth(3);
+            g.setStroke(fossil ? bone : Color.web("#C49A5E")); g.setLineWidth(1.8);
             g.strokeLine(side * 9, 62, footX, footY - 4);
             g.strokeLine(footX - 3, footY, footX + 7, footY);
             g.strokeLine(footX, footY - 3, footX + 6, footY - 1);
         }
-        g.setFill(fossil ? bone : body); g.setStroke(outline); g.setLineWidth(2.4);
+        g.setFill(fossil ? bone : body); g.setStroke(outline); g.setLineWidth(1.15);
         g.fillOval(-24, 24, 48, 47); g.strokeOval(-24, 24, 48, 47);
-        g.setFill(fossil ? Color.web("#4B4137") : light);
+        g.setFill(fossil ? Color.web("#695E4B") : light.deriveColor(0, 0.85, 1.04, 0.48));
         g.fillOval(-8, 36, 27, 30);
         if (fossil) {
-            // Bold ribs read as a skeleton without turning the silhouette into wire art.
-            g.setStroke(bone); g.setLineWidth(3.2);
+            g.setStroke(bone); g.setLineWidth(2.0);
             g.strokeLine(6, 36, 6, 66);
             for (int rib = 0; rib < 3; rib++) {
                 double ribY = 40 + rib * 8;
@@ -49174,20 +49173,27 @@ public class Bird {
                 g.bezierCurveTo(-12, ribY + 8, 21, ribY + 8, 17, ribY - 2); g.stroke();
             }
         } else {
-            g.setFill(light.brighter().deriveColor(0, 0.75, 1, 0.42));
-            g.fillOval(-12, 29, 20, 8);
+            // Use the same small lighting patches as the shared vector birds.
+            g.setFill(Color.BLACK.deriveColor(0, 1, 1, 0.12));
+            g.fillOval(-16, 55, 32, 12);
+            g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.13));
+            g.fillOval(-15, 29, 23, 11);
+            g.setFill(light.brighter().deriveColor(0, 0.65, 1.08, 0.12));
+            g.fillOval(-14, 39, 24, 17);
         }
         if (openness <= 0.35) drawPterodactylWing(g, -1, openness, fossil, body, membrane, outline, bone);
 
         // Rounded neck connects cleanly to a large head, with a single swept crest.
-        g.setFill(fossil ? bone : body); g.setStroke(outline); g.setLineWidth(2.4);
+        g.setFill(fossil ? bone : body); g.setStroke(outline); g.setLineWidth(0.9);
         g.beginPath(); g.moveTo(7, 42); g.quadraticCurveTo(7, 26, hx - 9, hy + 2);
-        g.lineTo(hx + 9, hy + 10); g.quadraticCurveTo(19, 33, 20, 46); g.closePath(); g.fill(); g.stroke();
+        g.lineTo(hx + 9, hy + 10); g.quadraticCurveTo(19, 33, 20, 46); g.closePath(); g.fill();
         g.beginPath(); g.moveTo(hx - 15, hy + 1);
         g.quadraticCurveTo(hx - 25, hy - 12, hx - 35, hy - 15);
         g.quadraticCurveTo(hx - 18, hy - 18, hx + 1, hy - 12); g.closePath(); g.fill(); g.stroke();
         g.setFill(fossil ? bone : light);
         g.fillOval(hx - 19, hy - 17, 38, 34); g.strokeOval(hx - 19, hy - 17, 38, 34);
+        g.setFill((fossil ? bone : light).brighter().deriveColor(0, 0.65, 1.08, 0.16));
+        g.fillOval(hx - 12, hy - 12, 20, 10);
 
         double rootX = hx + ax * 14 + nx * 7, rootY = hy + ay * 14 + ny * 7;
         double tipX = rootX + ax * 36, tipY = rootY + ay * 36;
@@ -49195,7 +49201,9 @@ public class Bird {
         g.beginPath(); g.moveTo(rootX - nx * 7, rootY - ny * 7);
         g.quadraticCurveTo(rootX + ax * 20 - nx * 5, rootY + ay * 20 - ny * 5, tipX, tipY);
         g.quadraticCurveTo(rootX + ax * 19 + nx * 5, rootY + ay * 19 + ny * 5, rootX + nx * 7, rootY + ny * 7);
-        g.closePath(); g.fill(); g.setStroke(outline); g.setLineWidth(1.8); g.stroke();
+        g.closePath(); g.fill(); g.setStroke(outline); g.setLineWidth(0.8); g.stroke();
+        g.setStroke((fossil ? Color.web("#82745D") : Color.web("#A57747")).deriveColor(0, 1, 1, 0.48));
+        g.setLineWidth(0.7);
         g.strokeLine(rootX + ax * 3, rootY + ay * 3, tipX - ax * 2, tipY - ay * 2);
         if (fossil) {
             g.setFill(Color.web("#75634B"));
@@ -49205,17 +49213,17 @@ public class Bird {
         double eyeX = hx + 3, eyeY = hy - 3, eyeRadius = 8;
         g.setFill(fossil ? Color.web("#312E29") : Color.web("#FFF8E9"));
         g.fillOval(eyeX - eyeRadius, eyeY - eyeRadius, eyeRadius * 2, eyeRadius * 2);
-        g.setStroke(outline); g.setLineWidth(1.2);
+        g.setStroke(outline); g.setLineWidth(0.55);
         g.strokeOval(eyeX - eyeRadius, eyeY - eyeRadius, eyeRadius * 2, eyeRadius * 2);
         g.setFill(fossil ? Color.web("#D4BF8C") : Color.web("#201D19"));
         g.fillOval(eyeX - 1, eyeY - 4, 6, 9);
         g.setFill(fossil ? bone : Color.WHITE);
         g.fillOval(eyeX, eyeY - 3.5, 2.6, 2.6);
         if (!fossil) {
-            g.setFill(body.darker().deriveColor(0, 1, 1, 0.60));
+            g.setFill(body.darker().deriveColor(0, 1, 1, 0.22));
             g.fillOval(hx - 11, hy + 5, 10, 5);
         } else {
-            g.setStroke(Color.web("#A18B66")); g.setLineWidth(1.3);
+            g.setStroke(Color.web("#A18B66", 0.55)); g.setLineWidth(0.7);
             g.strokePolyline(new double[]{hx - 12, hx - 8, hx - 10}, new double[]{hy - 11, hy - 6, hy - 2}, 3);
         }
         g.restore();
@@ -49256,24 +49264,27 @@ public class Bird {
         double tipX = side * (25 + 47 * openness), tipY = 58 - 40 * openness;
         double trailingX = side * (18 + 35 * openness), trailingY = 64 - 10 * openness;
         g.setFill(fossil ? Color.web("#82735A", 0.18) : membrane);
-        g.setStroke(outline); g.setLineWidth(2.4);
+        g.setStroke(outline); g.setLineWidth(0.9);
         g.beginPath(); g.moveTo(rootX, 34); g.quadraticCurveTo(side * 17, 28, wristX, wristY);
-        g.lineTo(tipX, tipY); g.quadraticCurveTo(side * (22 + 27 * openness), 41, trailingX, trailingY);
+        g.quadraticCurveTo(wristX + side * 9 * openness, wristY - 2, tipX, tipY);
+        g.quadraticCurveTo(side * (22 + 27 * openness), 41, trailingX, trailingY);
         g.quadraticCurveTo(side * 16, 64, rootX, 59); g.closePath(); g.fill();
         if (!fossil) {
-            g.stroke(); g.setFill(body.deriveColor(0, 0.9, 1.05, 0.65));
-            g.beginPath(); g.moveTo(rootX, 35); g.lineTo(wristX, wristY + 3); g.lineTo(tipX - side * 4, tipY + 4);
+            g.stroke(); g.setFill(body.deriveColor(0, 0.9, 1.05, 0.28));
+            g.beginPath(); g.moveTo(rootX, 35); g.quadraticCurveTo(side * 17, 30, wristX, wristY + 3);
+            g.quadraticCurveTo(wristX + side * 8 * openness, wristY + 3, tipX - side * 4, tipY + 4);
             g.quadraticCurveTo(side * 25, 44, rootX, 57); g.closePath(); g.fill();
         }
-        g.setStroke(fossil ? outline : body.darker()); g.setLineWidth(fossil ? 5 : 2.2);
+        g.setStroke(fossil ? outline : body.darker().deriveColor(0, 1, 0.92, 0.28));
+        g.setLineWidth(fossil ? 2.8 : 0.9);
         g.strokePolyline(new double[]{rootX, wristX, tipX}, new double[]{34, wristY, tipY}, 3);
         g.strokeLine(wristX, wristY, trailingX, trailingY);
         g.strokeLine(wristX, wristY, rootX, 59);
         if (fossil) {
-            g.setStroke(bone); g.setLineWidth(3);
+            g.setStroke(bone); g.setLineWidth(2.0);
             g.strokePolyline(new double[]{rootX, wristX, tipX}, new double[]{34, wristY, tipY}, 3);
             g.strokeLine(wristX, wristY, trailingX, trailingY); g.strokeLine(wristX, wristY, rootX, 59);
-            g.setFill(bone); g.fillOval(wristX - 3, wristY - 3, 6, 6);
+            g.setFill(bone); g.fillOval(wristX - 2, wristY - 2, 4, 4);
         }
     }
 

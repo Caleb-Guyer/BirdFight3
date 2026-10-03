@@ -168,7 +168,9 @@ causes silent desyncs. Rules:
   directional specials away from its catch lane. State is serialized
   by `LanBirdState` and included in lockstep hashes. Fossilized Pterodactyl is
   its Classic reward; rounded body/head proportions, large eyes, folded grounded
-  wings, and exposed fossil bones are Canvas presentation only. The
+  wings, and exposed fossil bones are Canvas presentation only. Keep contours
+  thin and tinted with translucent shading like the shared vector birds;
+  opaque dark outlines and heavy wing seams clash with the roster. The
   authored route, ending, Academy drill, collectible unlock, and Flock Run use
   existing systems. Opt-in audits: `PterodactylBalanceAuditRun` and
   `BirdVisualAuditRun -DvisualAuditBird=PTERODACTYL

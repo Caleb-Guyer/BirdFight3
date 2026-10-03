@@ -2,6 +2,7 @@ package com.example.birdgame3;
 
 import javafx.application.Platform;
 import javafx.scene.Parent;
+import javafx.scene.SnapshotParameters;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
@@ -43,6 +44,8 @@ class PterodactylVisualAuditRun {
             Stage stage = new Stage();
             try {
                 renderStyleComparison(new BirdGame3(prefs), output.resolve("05-style-comparison.png"));
+                renderSelectionRoster(game, output.resolve("06-roster-selection.png"));
+                renderSmashSelections(game, stage, output);
                 game.showFlockRun(stage);
                 Parent root = stage.getScene().getRoot(); root.applyCss(); root.layout();
                 assertEquals(BirdGame3.BirdType.values().length, root.lookup("#flockRunRoster").lookupAll(".button").size());
@@ -79,6 +82,48 @@ class PterodactylVisualAuditRun {
         stage.getScene().getRoot().applyCss(); stage.getScene().getRoot().layout();
         WritableImage image = stage.getScene().snapshot(null);
         writeImage(image, path);
+    }
+    private static void renderSmashSelections(BirdGame3 game, Stage stage, Path output) throws Exception {
+        Field picks = BirdGame3.class.getDeclaredField("fightSetupSelection"); picks.setAccessible(true);
+        FightSetupSelectionState selection = (FightSetupSelectionState) picks.get(game);
+        selection.selectBird(0, BirdGame3.BirdType.PTERODACTYL);
+        selection.selectBird(1, BirdGame3.BirdType.PIGEON);
+        game.activePlayers = 2;
+        Method show = BirdGame3.class.getDeclaredMethod("showFightSetup", Stage.class); show.setAccessible(true);
+        show.invoke(game, stage);
+        snapshot(stage, output.resolve("07-smash-base.png"));
+        selection.setSelectedSkinKey(0, "CLASSIC_SKIN_PTERODACTYL");
+        show.invoke(game, stage);
+        snapshot(stage, output.resolve("08-smash-fossil.png"));
+    }
+    private static void renderSelectionRoster(BirdGame3 game, Path path) throws Exception {
+        Canvas sheet = new Canvas(1440, 850); GraphicsContext g = sheet.getGraphicsContext2D();
+        g.setFill(Color.web("#151B22")); g.fillRect(0, 0, 1440, 850);
+        g.setFill(Color.web("#FFE082")); g.setFont(Font.font("Arial", FontWeight.BOLD, 22));
+        g.fillText("ROSTER COMPARISON · SELECTION PORTRAITS AND SMALL ICONS", 24, 34);
+        Method draw = BirdGame3.class.getDeclaredMethod("drawRosterSprite", Canvas.class,
+                BirdGame3.BirdType.class, String.class, boolean.class, boolean.class);
+        draw.setAccessible(true);
+        SnapshotParameters transparent = new SnapshotParameters();
+        transparent.setFill(Color.TRANSPARENT);
+        BirdGame3.BirdType[] types = BirdGame3.BirdType.values();
+        for (int slot = 0; slot <= types.length; slot++) {
+            boolean fossil = slot == types.length;
+            BirdGame3.BirdType type = fossil ? BirdGame3.BirdType.PTERODACTYL : types[slot];
+            double cx = slot % 6 * 240, cy = 58 + slot / 6 * 194;
+            g.setFill(Color.web("#2C3642")); g.fillRoundRect(cx + 8, cy, 224, 180, 14, 14);
+            Canvas portrait = new Canvas(128, 128), icon = new Canvas(64, 64);
+            String skin = fossil ? "CLASSIC_SKIN_PTERODACTYL" : null;
+            draw.invoke(game, portrait, type, skin, false, true);
+            draw.invoke(game, icon, type, skin, false, true);
+            g.drawImage(portrait.snapshot(transparent, null), cx + 14, cy + 8);
+            g.drawImage(icon.snapshot(transparent, null), cx + 154, cy + 45);
+            g.setFill(type == BirdGame3.BirdType.PTERODACTYL ? Color.web("#FFE082") : Color.web("#EAF0F5"));
+            g.setFont(Font.font("Arial", FontWeight.BOLD, 13)); g.setTextAlign(TextAlignment.CENTER);
+            g.fillText(fossil ? "FOSSILIZED PTERODACTYL" : type.name.toUpperCase(java.util.Locale.ROOT), cx + 120, cy + 160);
+            g.setTextAlign(TextAlignment.LEFT);
+        }
+        writeImage(sheet.snapshot(null, null), path);
     }
     private static void renderStyleComparison(BirdGame3 game, Path path) throws Exception {
         Canvas canvas = new Canvas(1140, 570); GraphicsContext g = canvas.getGraphicsContext2D();
