@@ -65234,10 +65234,10 @@ public class BirdGame3 {
             classicTurkeyStuffedFrames--;
             player.turkeyStuffedTimer = Math.max(player.turkeyStuffedTimer, 2);
             if (player.shrinkTimer <= 0 && player.titanTimer <= 0) {
-                player.sizeMultiplier = Math.max(player.sizeMultiplier, player.baseSizeMultiplier * 1.12);
+                player.resizeKeepingGroundContact(Math.max(player.sizeMultiplier, player.baseSizeMultiplier * 1.12));
             }
             if (classicTurkeyStuffedFrames == 0 && player.shrinkTimer <= 0 && player.titanTimer <= 0) {
-                player.sizeMultiplier = player.baseSizeMultiplier;
+                player.resizeKeepingGroundContact(player.baseSizeMultiplier);
             }
         }
         if (classicTurkeyFamineFrames > 0) {

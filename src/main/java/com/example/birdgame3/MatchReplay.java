@@ -21,7 +21,7 @@ final class MatchReplay {
      * Bumped whenever a deterministic gameplay change makes older input streams
      * unsafe to play with the current simulation.
      */
-    static final int CURRENT_SIMULATION_REVISION = 13;
+    static final int CURRENT_SIMULATION_REVISION = 14;
 
     record DashTap(long tick, int playerIndex, int dir) {
     }

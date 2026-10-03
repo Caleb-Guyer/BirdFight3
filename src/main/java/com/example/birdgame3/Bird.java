@@ -2717,7 +2717,7 @@ public class Bird {
         baseSizeMultiplier = size;
         basePowerMultiplier = power;
         baseSpeedMultiplier = speed;
-        sizeMultiplier = size;
+        resizeKeepingGroundContact(size);
         powerMultiplier = power;
         speedMultiplier = speed;
     }
@@ -2923,8 +2923,22 @@ public class Bird {
             spawnNullRockShieldBurst();
             return;
         }
-        sizeMultiplier = baseSizeMultiplier * 0.6;
+        resizeKeepingGroundContact(baseSizeMultiplier * 0.6);
         shrinkTimer = Math.max(shrinkTimer, 360);
+    }
+
+    void resizeKeepingGroundContact(double size) {
+        if (sizeMultiplier == size) return;
+        boolean grounded = isOnGround();
+        double feet = bodyBottomY();
+        double centerX = bodyCenterX();
+        sizeMultiplier = size;
+        if (grounded) {
+            // Growing must not put the feet beneath the support surface;
+            // shrinking should keep the same point of contact as well.
+            x = centerX - bodyWidth() / 2.0;
+            y = feet - bodyHeight();
+        }
     }
 
     double bodyWidth() {
@@ -3062,8 +3076,7 @@ public class Bird {
         Platform respawnNest = activeRespawnNestPlatform();
         if (respawnNest != null
                 && bodyCenterX() >= respawnNest.x && bodyCenterX() <= respawnNest.x + respawnNest.w
-                && bottom >= respawnNest.y && bottom <= respawnNest.y + respawnNest.h
-                && y <= respawnNest.y + 1) {
+                && Math.abs(bottom - respawnNest.y) <= 0.000_001) {
             return true;
         }
         for (Platform p : game.platforms) {
@@ -3071,9 +3084,10 @@ public class Bird {
             boolean isCaveCeiling = game.selectedMap == MapType.CAVE &&
                     p.y <= 1 && p.h >= 60 && p.w >= BirdGame3.WORLD_WIDTH - 10;
             if (isCaveCeiling) continue;
+            // Collision resolution puts the feet on the top surface. Merely
+            // overlapping the slab from below must not refresh air resources.
             if (bodyCenterX() >= p.x && bodyCenterX() <= p.x + p.w &&
-                    bottom >= p.y && bottom <= p.y + p.h &&
-                    y <= p.y + 1)
+                    Math.abs(bottom - p.y) <= 0.000_001)
                 return true;
         }
         return false;
@@ -3305,11 +3319,12 @@ public class Bird {
         resetMockingbirdNeutralReuseLocks();
     }
 
-    private void handleVerticalCollision(boolean wasAirborne) {
+    private void handleVerticalCollision(boolean wasAirborne, double prevX, double prevY) {
         if (onVine || batHanging || ledgeHanging) return;
 
         boolean hit = false;
         double newY = y;
+        double firstLandingTime = Double.POSITIVE_INFINITY;
         double impactVy = vy;
         boolean downHeld = stunTime <= 0 && blockPressed();
 
@@ -3328,22 +3343,20 @@ public class Bird {
                 continue;
             }
 
-            // Land only when descending onto the top surface to avoid snapping onto platforms from below.
-            if (bodyCenterX() >= p.x && bodyCenterX() <= p.x + p.w &&
-                    bodyBottomY() > p.y && y < p.y + p.h &&
-                    vy >= 0 && y <= p.y) {
+            // Use the swept feet position, so fast falls cannot skip thin
+            // platforms and overlapping candidates resolve in contact order.
+            double landingTime = platformLandingTime(p, prevX, prevY);
+            if (landingTime < firstLandingTime) {
+                firstLandingTime = landingTime;
                 newY = p.y - bodyHeight();
                 hit = true;
-                break;
             }
         }
 
         Platform respawnNest = activeRespawnNestPlatform();
         boolean onNestThisFrame = false;
-        if (!hit && respawnNest != null && !downHeld
-                && bodyCenterX() >= respawnNest.x && bodyCenterX() <= respawnNest.x + respawnNest.w
-                && bodyBottomY() > respawnNest.y && y < respawnNest.y + respawnNest.h
-                && vy >= 0 && y <= respawnNest.y) {
+        if (respawnNest != null && !downHeld
+                && platformLandingTime(respawnNest, prevX, prevY) < firstLandingTime) {
             newY = respawnNest.y - bodyHeight();
             hit = true;
             onNestThisFrame = true;
@@ -3399,6 +3412,20 @@ public class Bird {
                 handleTurkeyGroundPound();
             }
         }
+    }
+
+    private double platformLandingTime(Platform platform, double prevX, double prevY) {
+        double previousFeet = prevY + bodyHeight();
+        double feet = bodyBottomY();
+        if (vy < 0 || feet < previousFeet || previousFeet > platform.y + 0.000_001
+                || feet < platform.y || bodyCenterX() < platform.x || bodyCenterX() > platform.x + platform.w) {
+            return Double.POSITIVE_INFINITY;
+        }
+        double time = feet > previousFeet
+                ? Math.clamp((platform.y - previousFeet) / (feet - previousFeet), 0.0, 1.0) : 0.0;
+        double crossingX = prevX + bodyWidth() * 0.5 + (x - prevX) * time;
+        return crossingX >= platform.x && crossingX <= platform.x + platform.w
+                ? time : Double.POSITIVE_INFINITY;
     }
 
     private void snapToLedge() {
@@ -15697,6 +15724,8 @@ public class Bird {
         vy += BirdGame3.GRAVITY * gameSpeed;
         if (vy > FAST_FALL_MAX) vy = FAST_FALL_MAX;
 
+        double prevX = x;
+        double prevY = y;
         x += vx;
         y += vy;
         vx *= 0.94;
@@ -15723,7 +15752,7 @@ public class Bird {
             vy = Math.max(vy, 0);
         }
 
-        handleVerticalCollision(false);
+        handleVerticalCollision(false, prevX, prevY);
         if (y > BirdGame3.WORLD_HEIGHT + 400) {
             y = BirdGame3.WORLD_HEIGHT + 400;
             vx = 0;
@@ -16344,7 +16373,7 @@ public class Bird {
         if (isShrinkImmune()) {
             shrinkTimer = 0;
             if (sizeMultiplier < baseSizeMultiplier) {
-                sizeMultiplier = baseSizeMultiplier;
+                resizeKeepingGroundContact(baseSizeMultiplier);
             }
         }
     }
@@ -17764,15 +17793,15 @@ public class Bird {
             powerMultiplier = basePowerMultiplier;
         }
         if (shrinkTimer <= 0 && !titanActive) {
-            sizeMultiplier = baseSizeMultiplier;
+            resizeKeepingGroundContact(baseSizeMultiplier);
         }
         if (titanActive) {
             if (titanTimer <= 0) {
                 titanActive = false;
-                if (shrinkTimer <= 0) sizeMultiplier = baseSizeMultiplier;
+                if (shrinkTimer <= 0) resizeKeepingGroundContact(baseSizeMultiplier);
                 if (rageTimer <= 0) powerMultiplier = basePowerMultiplier;
             } else {
-                if (shrinkTimer <= 0) sizeMultiplier = baseSizeMultiplier * 1.35;
+                if (shrinkTimer <= 0) resizeKeepingGroundContact(baseSizeMultiplier * 1.35);
                 if (rageTimer <= 0) powerMultiplier = basePowerMultiplier * 1.4;
             }
         }
@@ -17780,7 +17809,7 @@ public class Bird {
             thermalLift = 0.0;
         }
         if (plungeTimer <= 0 && enlargedByPlunge) {
-            sizeMultiplier /= 1.18;
+            resizeKeepingGroundContact(sizeMultiplier / 1.18);
             enlargedByPlunge = false;
         }
     }
@@ -20289,7 +20318,7 @@ public class Bird {
         baseSizeMultiplier *= PHOENIX_REBORN_SIZE_SCALE;
         basePowerMultiplier *= PHOENIX_REBORN_POWER_SCALE;
         baseSpeedMultiplier *= PHOENIX_REBORN_SPEED_SCALE;
-        sizeMultiplier = baseSizeMultiplier;
+        resizeKeepingGroundContact(baseSizeMultiplier);
         powerMultiplier = basePowerMultiplier;
         speedMultiplier = baseSpeedMultiplier;
 
@@ -21093,7 +21122,7 @@ public class Bird {
             if (type == BirdGame3.BirdType.VULTURE) isFlying = false;
         }
 
-        handleVerticalCollision(wasAirborne);
+        handleVerticalCollision(wasAirborne, prevX, prevY);
 
         if (game.selectedMap == MapType.DOCK && isDockDrownDepthReached()) {
             if (smashRules) {
@@ -21392,7 +21421,7 @@ public class Bird {
                 titanActive = true;
                 titanTimer = 420;
                 if (shrinkTimer <= 0) {
-                    sizeMultiplier = baseSizeMultiplier * 1.35;
+                    resizeKeepingGroundContact(baseSizeMultiplier * 1.35);
                 }
                 powerMultiplier = Math.max(powerMultiplier, basePowerMultiplier * 1.4);
                 game.addToKillFeed(shortName() + " entered TITAN FORM! (attack + defense)");

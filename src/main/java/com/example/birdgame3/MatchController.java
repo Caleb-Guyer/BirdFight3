@@ -85,7 +85,7 @@ final class MatchController {
                     b.titanActive = true;
                     b.titanTimer = Math.max(b.titanTimer, BirdGame3.MUTATOR_BUFF_FRAMES);
                     if (b.shrinkTimer <= 0) {
-                        b.sizeMultiplier = b.baseSizeMultiplier * 1.35;
+                        b.resizeKeepingGroundContact(b.baseSizeMultiplier * 1.35);
                     }
                     b.powerMultiplier = Math.max(b.powerMultiplier, b.basePowerMultiplier * 1.4);
                 }
@@ -493,7 +493,7 @@ final class MatchController {
                     b.titanActive = true;
                     b.titanTimer = Math.max(b.titanTimer, BirdGame3.MUTATOR_BUFF_FRAMES);
                     if (b.shrinkTimer <= 0) {
-                        b.sizeMultiplier = b.baseSizeMultiplier * 1.35;
+                        b.resizeKeepingGroundContact(b.baseSizeMultiplier * 1.35);
                     }
                     b.powerMultiplier = Math.max(b.powerMultiplier, b.basePowerMultiplier * 1.4);
                 }

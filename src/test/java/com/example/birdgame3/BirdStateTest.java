@@ -10592,8 +10592,9 @@ class BirdStateTest {
                 method = target.getClass().getDeclaredMethod("performAttack", int.class);
                 args = new Object[]{0};
             } else if ("handleVerticalCollision".equals(methodName)) {
-                method = target.getClass().getDeclaredMethod(methodName, boolean.class);
-                args = new Object[]{false};
+                method = target.getClass().getDeclaredMethod(methodName, boolean.class, double.class, double.class);
+                Bird bird = (Bird) target;
+                args = new Object[]{false, bird.x, bird.y - Math.max(0.0, bird.vy)};
             } else {
                 throw ex;
             }

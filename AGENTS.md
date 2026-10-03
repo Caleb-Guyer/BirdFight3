@@ -27,6 +27,10 @@ are known debt — work within them; don't attempt a grand refactor.
   `.\mvnw.cmd test -Dtest=AdventureBalanceLabRun -DadventureMatches=24`
   → writes `audit/adventure-balance-report.md`; narrow with `-DadventureMission=dead_air`
   or `-DadventureDifficulty=HARD`; add `-DadventureEnforceTargets=true` to fail on target-band misses
+- Focused gameplay polish audit: `.\mvnw.cmd test -Dtest=GameplayPolishAuditRun`
+  → writes `target/gameplay-polish-after.md`; 1,008 seeded matches for Titmouse,
+  Pelican, and Raven across Battlefield, Forest, Worldseam, and Cave. See
+  `audit/gameplay-polish.md` for the before/after comparison and human playtest notes.
 
 ## THE DETERMINISM CONTRACT (most important thing in this file)
 
@@ -53,11 +57,20 @@ causes silent desyncs. Rules:
   replay capture/inject, then per-tick sim body. Render interpolation:
   `snapshotRenderPositions`/`applyRenderInterpolation` (prev/curr lerp with
   teleport snap).
+- **Platform landings**: `Bird.handleVerticalCollision` uses the previous and
+  current feet positions to resolve the first crossed top surface. Keep the
+  crossing and final horizontal checks so walking off an edge stays airborne.
+  `isOnGround` requires feet on the platform top; underside slab overlap must
+  never refresh recovery abilities. Moving platforms carry riders before bird
+  movement, so their support still matches the resolved top surface. Runtime
+  size effects use `resizeKeepingGroundContact` so growth and shrinking preserve
+  a grounded fighter's feet and center instead of pushing them through a platform.
 - **Replays**: `MatchReplay` (seed + config + per-tick input masks + dash
   taps), `ReplayStore` (gzip binary in `replays/`, keeps 30), browser via
   MATCH HISTORY → REPLAYS. Playback is self-contained (restores roster/map)
-  and suppresses all progression side effects.
-- **Lockstep netcode**: `LockstepSession` + `LanProtocol` v65. All machines run
+  and suppresses all progression side effects. Current simulation revision is
+  14; older recordings remain stored but require their matching simulation.
+- **Lockstep netcode**: `LockstepSession` + `LanProtocol` v75. All machines run
   the full sim; host relays per-tick input bundles; 4-tick LAN input delay; state
   hashes exchanged every 120 ticks, desync → kill feed warning. During
   lockstep the sim reads ONLY `lanActionPressed` (bundle-applied) — live local
