@@ -125,6 +125,19 @@ causes silent desyncs. Rules:
 - **Balance lab**: `BalanceLab` + harness bridge (`harnessPrepareMatch`/
   `harnessTick` in BirdGame3, `headlessHarnessMode` gate in
   MatchController.triggerMatchEnd). No JavaFX toolkit, no UI, no progression.
+- **Flock Run**: `FlockRunState` owns the seeded eight-encounter route, health,
+  six temporary perks, drafts, and medals; `FlockRunProgress` saves checkpoints
+  and per-bird medals through the normal profile save gates. Combat reuses
+  Classic stamina / Boss Rush arenas under `flockRunMatchActive`, but intercepts
+  results before their rewards. Perks are per-`Bird` multipliers, never global
+  tuning. Defeat or timeout ends the run; pause exit resumes the opening
+  encounter checkpoint. Menu generation uses a separate seeded `Random`.
+  Fighter selection shares `showSoloBirdSelect` with Classic/Boss Rush; keep
+  its skins, portraits, and input behavior shared. Checkpoints retain the
+  chosen skin and read the original skinless format. Route/perk/results pages
+  use `MenuTheme`, `UIFactory`, and the shared title/progress components.
+  `harnessPrepareFlockRunEncounter` exercises the same combat without writes;
+  `FlockRunVisualAuditRun` is an opt-in isolated-profile JavaFX audit.
 - **Classic balance lab**: `ClassicBalanceLab` runs authored route encounters
   headlessly with their real teams, map variants, mutators, difficulty, stocks,
   timers, and route mechanics. It reports each combat round independently;

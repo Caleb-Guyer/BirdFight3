@@ -1434,6 +1434,11 @@ public class Bird {
     boolean classicBonusTarget = false;
     boolean classicBonusTargetRewardClaimed = false;
     double classicMaxHealthOverride = 0.0;
+    // Per-instance Flock Run perks. New fighters in other modes retain 1.0.
+    double flockDamageMultiplier = 1.0;
+    double flockIncomingMultiplier = 1.0;
+    double flockCooldownMultiplier = 1.0;
+    double flockUltimateMultiplier = 1.0;
     public int speedTimer = 0;
     public int rageTimer = 0;
     public int shrinkTimer = 0;
@@ -16131,7 +16136,7 @@ public class Bird {
         }
         // Cooldowns recover at a tunable per-bird rate; the fractional carry keeps
         // non-integer rates deterministic (rate 1.25 = an extra tick every 4th frame).
-        cooldownRecoveryCarry += gameSpeed * (type != null ? type.cooldownRate : 1.0);
+        cooldownRecoveryCarry += gameSpeed * (type != null ? type.cooldownRate : 1.0) * flockCooldownMultiplier;
         int cooldownTicks = (int) cooldownRecoveryCarry;
         cooldownRecoveryCarry -= cooldownTicks;
         if (specialCooldown > 0) specialCooldown = Math.max(0, specialCooldown - cooldownTicks);
@@ -19088,7 +19093,7 @@ public class Bird {
         if (type != null) {
             amount *= type.ultimateRate;
         }
-        ultimateMeter = Math.min(ULTIMATE_MAX, ultimateMeter + amount);
+        ultimateMeter = Math.min(ULTIMATE_MAX, ultimateMeter + amount * flockUltimateMultiplier);
     }
 
     void gainUltimateFromMinionDamage(double dealtDamage) {
@@ -20103,7 +20108,7 @@ public class Bird {
         // whole-kit tuning multiplier apply exactly once.
         double ownerScaledDamage = rawDamage;
         if (owner != null && owner != this && owner.type != null) {
-            ownerScaledDamage *= owner.type.damageDealtMult * owner.outgoingSizeDamageMultiplier();
+            ownerScaledDamage *= owner.type.damageDealtMult * owner.outgoingSizeDamageMultiplier() * owner.flockDamageMultiplier;
         }
         double dealtDamage = receiveExternalDamage(ownerScaledDamage);
         if (dealtDamage > 0 && owner != null && owner != this) {
@@ -20137,12 +20142,13 @@ public class Bird {
         // Tuning-file combat multipliers: every point of damage in the game flows
         // through here, so these two factors tune a bird's whole kit at once.
         if (attacker != null && attacker != this && attacker.type != null) {
-            scaledDamage *= attacker.type.damageDealtMult;
+            scaledDamage *= attacker.type.damageDealtMult * attacker.flockDamageMultiplier;
             scaledDamage *= game.versusDamageRateMultiplier();
         }
         if (type != null) {
             scaledDamage *= type.damageTakenMult;
         }
+        scaledDamage *= flockIncomingMultiplier;
         if (game.isClassicStaminaBoss(this)) {
             // Charles's copied voices resonate against the Hollow Score. The
             // larger displayed stamina pool keeps three readable movements,

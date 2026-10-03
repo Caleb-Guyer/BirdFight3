@@ -26,6 +26,8 @@ contains its own Java runtime.
   bosses, rewards, and an ending.
 - **Smash and Stamina battles**, a full rules editor, local multiplayer, CPU
   opponents, Tournament, Squad Strike, Boss Rush, and Training Academy.
+- **Flock Run**, an eight-encounter solo survival mode with branching routes,
+  temporary perk drafts, recovery stops, three boss finales, and performance medals.
 - **21 main stages and 26 stage variants**, including campaign, Classic, and
   boss arenas with hazards and traversal mechanics.
 - **Progression and collection** through profiles, achievements, Bird Coins,
@@ -60,6 +62,27 @@ run the same game version. The host supplies the authoritative rules and active
 `bird-stats.properties` tuning snapshot for the match. Participants can see one
 another's IP addresses, so connect only with people you trust. Wired, nearby
 connections provide the best lockstep response.
+
+### Flock Run
+
+Open **GAMES & MORE → FLOCK RUN**, choose an unlocked bird, and begin a migration.
+The standard fighter grid includes your unlocked skins; your selection stays
+with the run, including when you save and resume.
+Your health carries between encounters. Sheltered passages award one perk;
+elite fights award two and more score. Up to two recovery roosts restore 45 HP
+each, using an encounter slot without awarding a perk. The eighth encounter is
+Ashen Phoenix, Titan Pelican, or Carrion Regent in their existing boss arena.
+
+Six perks improve damage, defense, speed, cooldown recovery, ultimate charge,
+or healing, with three ranks each. A victory restores 6 HP plus Field Medicine.
+Defeat or timeout ends the run. **Save & Exit Run** in the pause menu preserves
+the encounter's opening checkpoint; resuming restores its opening health and perks.
+Progress and best medals are saved separately for each profile.
+
+Clear for Bronze, reach 1,100 points for Silver, or 1,550 for Gold. Sheltered
+fights score 100, elites 250, and the guardian 350; quick victories and health
+remaining at the finish add bonuses. Perks expire when the run ends and never
+change normal fighter tuning. Flock Run encounters are not recorded as replays.
 
 ## Development
 

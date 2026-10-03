@@ -108,10 +108,10 @@ class HubUiSimplificationTest {
         int backEnd = encounterIntro.indexOf("menu.setLayoutX", backStart);
         String backAction = encounterIntro.substring(backStart, backEnd);
 
-        assertEquals(5, occurrences(games, "registerHubInteractiveNode("));
+        assertEquals(6, occurrences(games, "registerHubInteractiveNode("));
         assertTrue(games.contains("HubPresentationModel.ExtraMode.CLASSIC.description()"));
         assertTrue(games.contains("HubPresentationModel.ExtraMode.TRAINING.description()"));
-        assertEquals(5, occurrences(games, "installHubSelectionPreview("));
+        assertEquals(6, occurrences(games, "installHubSelectionPreview("));
         assertTrue(games.contains("updateGamesMoreHeroArt("));
         assertTrue(games.contains("playFightMenuEntrance("));
         assertTrue(games.contains("animateFightMenuExit("));

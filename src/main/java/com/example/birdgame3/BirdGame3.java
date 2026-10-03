@@ -5807,6 +5807,10 @@ public class BirdGame3 {
     static final double LAST_ICE_EXIT_X = 5_220.0;
     static final double LAST_ICE_EXIT_TRIGGER_X = LAST_ICE_EXIT_X - 90.0;
     private boolean bossRushModeActive = false;
+    boolean flockRunMatchActive = false;
+    private FlockRunProgress flockRunProgress = new FlockRunProgress();
+    private BirdType flockRunSelectedBird = BirdType.PIGEON;
+    private String flockRunSelectedSkinKey;
     private long bossRushRunStartMillis = 0L;
     private long bossRushBestClearMillis = Long.MAX_VALUE;
     private BirdType bossRushBestBird = null;
@@ -27029,6 +27033,7 @@ public class BirdGame3 {
     }
 
     private void showMenu(Stage stage) {
+        flockRunMatchActive = false;
         vaultSubpageActive = false;
         campaignModeActive = false;
         currentCampaignMission = null;
@@ -35563,6 +35568,7 @@ public class BirdGame3 {
     }
 
     private void showClassicMoreMenu(Stage stage) {
+        flockRunMatchActive = false;
         clearActiveDailyChallengeRun();
         clearBossRushState();
         clearAshfallTrialState();
@@ -35614,8 +35620,8 @@ public class BirdGame3 {
         Button classicBtn = buildGamesMoreModeButton(
                 "FEATURED ROUTE",
                 "CLASSIC MODE",
-                980, 330, 58,
-                new Insets(24, 230, 34, 42),
+                620, 330, 48,
+                new Insets(24, 110, 34, 30),
                 40,
                 hubIconClassic(), 5.2, 0.17,
                 new Insets(18, 34, 18, 18),
@@ -35633,9 +35639,24 @@ public class BirdGame3 {
         AnchorPane.setTopAnchor(classicBtn, 112.0);
         AnchorPane.setLeftAnchor(classicBtn, 0.0);
 
+        Button flockRunBtn = buildGamesMoreModeButton(
+                "BUILD YOUR RUN", "FLOCK RUN", 340, 330, 36,
+                new Insets(20, 34, 30, 26), 32,
+                gamesMoreIconBossRush(), 3.6, 0.20, new Insets(24, 26, 18, 18),
+                () -> animateFightMenuExit(frame, () -> showFlockRun(stage)));
+        registerHubInteractiveNode(flockRunBtn, modeButtons, helpTitle, helpBody,
+                buildGamesMoreCardStyle("#00897B", "#123B47", "#80CBC4", 32, false),
+                buildGamesMoreCardStyle("#00897B", "#123B47", "#E0F2F1", 32, true),
+                HubPresentationModel.ExtraMode.FLOCK_RUN.title(),
+                HubPresentationModel.ExtraMode.FLOCK_RUN.description(), null, null);
+        AnchorPane.setTopAnchor(flockRunBtn, 112.0);
+        AnchorPane.setLeftAnchor(flockRunBtn, 640.0);
+
         StackPane heroArt = buildGamesMoreHeroArt();
         installHubSelectionPreview(classicBtn,
                 () -> updateGamesMoreHeroArt(heroArt, HubPresentationModel.ExtraMode.CLASSIC, true));
+        installHubSelectionPreview(flockRunBtn,
+                () -> updateGamesMoreHeroArt(heroArt, HubPresentationModel.ExtraMode.FLOCK_RUN, true));
         AnchorPane.setTopAnchor(heroArt, 112.0);
         AnchorPane.setLeftAnchor(heroArt, 1000.0);
 
@@ -35747,6 +35768,7 @@ public class BirdGame3 {
         frame.getChildren().addAll(
                 topStrip,
                 classicBtn,
+                flockRunBtn,
                 heroArt,
                 ashfallTrialBtn,
                 bossRushBtn,
@@ -35766,7 +35788,7 @@ public class BirdGame3 {
             classicBtn.requestFocus();
             setConsoleHighlightActive(true, scene);
             refreshUltimateHubButtons(modeButtons, helpTitle, helpBody, null, null);
-            playFightMenuEntrance(frame, List.of(classicBtn, heroArt, ashfallTrialBtn,
+            playFightMenuEntrance(frame, List.of(classicBtn, flockRunBtn, heroArt, ashfallTrialBtn,
                     bossRushBtn, episodesBtn, trainingBtn));
         });
     }
@@ -35845,6 +35867,7 @@ public class BirdGame3 {
             case BOSS_RUSH -> fightPreviewShellStyle("#250307", "#8A1018", "#FFCDD2");
             case LEGACY -> fightPreviewShellStyle("#16082A", "#5D2387", "#E1BEE7");
             case TRAINING -> fightPreviewShellStyle("#032B39", "#00778A", "#B2EBF2");
+            case FLOCK_RUN -> fightPreviewShellStyle("#07141D", "#00796B", "#80CBC4");
         };
         swapFightPreview(shell, resolved, buildGamesMoreHeroScene(resolved), style, animated);
     }
@@ -35874,6 +35897,15 @@ public class BirdGame3 {
                         false, 170, 414, 60, -8);
                 kicker = "A ROUTE FOR EVERY BIRD";
                 callout = "EIGHT ROUNDS · ONE FINAL BOSS";
+            }
+            case FLOCK_RUN -> {
+                addGamesMoreRouteMotif(art);
+                addFightPreviewBird(art, BirdType.PIGEON, Bird.VisualAuditPose.ATTACK,
+                        false, 200, 48, 64, -5);
+                addFightPreviewBird(art, BirdType.PHOENIX, Bird.VisualAuditPose.FLAP,
+                        true, 236, 326, 12, 7);
+                kicker = "THE BROKEN MIGRATION";
+                callout = "CHOOSE YOUR PATH · BUILD YOUR PERKS";
             }
             case ASHFALL -> {
                 addGamesMoreFlameMotif(art);
@@ -57893,8 +57925,223 @@ public class BirdGame3 {
         return ex;
     }
 
+    void showFlockRun(Stage stage) {
+        stopGameplayTimer();
+        flockRunMatchActive = false;
+        classicModeActive = false;
+        classicTeamMode = false;
+        classicEncounter = null;
+        classicRun.clear();
+        clearBossRushState();
+        playMenuMusic();
+        FlockRunState run = flockRunProgress.run;
+        if (run == null) {
+            showSoloBirdSelect(stage, true);
+            return;
+        }
+        Canvas portrait = new Canvas(230, 150);
+        drawRosterSprite(portrait, run.bird, run.skinKey, false, true);
+        FlockRunUi.Page page = FlockRunUi.build(run, uiFactory,
+                new FlockRunUi.Art(portrait, buildClassicRouteStrip(run.encounter(), 8, true),
+                        route -> flockRunRouteArt(run, route)),
+                new FlockRunUi.Actions(() -> showSoloBirdSelect(stage, true),
+                        () -> startFlockRunEncounter(stage), () -> {
+                            run.abandon();
+                            saveAchievements();
+                            showFlockRun(stage);
+                        }, route -> {
+                            if (!run.chooseRoute(route)) return;
+                            saveAchievements();
+                            if (run.phase() == FlockRunState.Phase.BATTLE) startFlockRunEncounter(stage);
+                            else showFlockRun(stage);
+                        }, perk -> {
+                            if (!run.choosePerk(perk)) return;
+                            saveAchievements();
+                            showFlockRun(stage);
+                        }, route -> {
+                            if (route == FlockRunState.Route.REST) return "No battle · No perk reward";
+                            ClassicEncounter encounter = flockRunEncounter(run, route);
+                            String arena = route == FlockRunState.Route.BOSS ? switch (run.boss()) {
+                                case PHOENIX -> "Ashfall Cathedral"; case PELICAN -> "Titan Dock"; case VULTURE -> "Carrion Throne";
+                            } : mapDisplayName(encounter.map);
+                            return arena + " · " + encounter.timerFrames / 60 + " seconds";
+                        }));
+        Button back = uiFactory.action("BACK", 156, 56, 22, "#B5121B", 16, () -> showClassicMoreMenu(stage));
+        page.root().setTop(buildMenuTopStrip(back, buildMenuTitleBanner("FLOCK RUN", 440, 72, 34),
+                buildMenuChip("BEST SCORE  " + flockRunProgress.bestScore(), "#8D6E00", "#FFF59D")));
+        HBox prompts = buildAdaptivePromptBar(
+                UiInputPrompts.prompt(UiInputPrompts.Command.MOVE, "CHOOSE"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.SELECT, "CONFIRM"),
+                UiInputPrompts.prompt(UiInputPrompts.Command.BACK, "GAMES & MORE"));
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        HBox footer = new HBox(20, prompts, spacer, page.footerAction());
+        footer.setAlignment(Pos.CENTER);
+        footer.setPadding(new Insets(6, 26, 0, 26));
+        page.root().setBottom(footer);
+        StackPane root = new StackPane(page.root());
+        root.getProperties().put("noAutoScale", true);
+        root.setStyle(MenuTheme.pageBackground());
+        lockRegionSize(page.root(), 1600, 900);
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, back);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        bindFixedFrameScale(scene, page.root(), 0.0, 1600, 900);
+        setScenePreservingFullscreen(stage, scene);
+        page.initialFocus().requestFocus();
+    }
+
+    private Node flockRunRouteArt(FlockRunState run, FlockRunState.Route route) {
+        Canvas arena = new Canvas(422, 130);
+        if (route == FlockRunState.Route.REST) {
+            StagePreviewRenderer.drawMainMap(arena, MapType.FOREST);
+        } else {
+            ClassicEncounter encounter = flockRunEncounter(run, route);
+            StageChoice choice = route != FlockRunState.Route.BOSS ? new StageChoice(encounter.map, encounter.variant)
+                    : switch (run.boss()) {
+                        case PHOENIX -> StageChoice.main(MapType.ASHFALL_CATHEDRAL);
+                        case PELICAN -> new StageChoice(MapType.DOCK, MapVariant.TITAN_DOCK);
+                        case VULTURE -> new StageChoice(MapType.VIBRANT_JUNGLE, MapVariant.CARRION_THRONE);
+                    };
+            StagePreviewRenderer.draw(arena, choice);
+        }
+        Canvas fighter = new Canvas(132, 112);
+        if (route == FlockRunState.Route.REST) drawRosterSprite(fighter, run.bird, run.skinKey, false, true);
+        else {
+            ClassicFighter enemy = flockRunEncounter(run, route).enemies[0];
+            drawClassicFighterPortrait(fighter, enemy.type, enemy.skinKey, false, enemy.title);
+        }
+        StackPane art = new StackPane(arena, fighter);
+        lockRegionSize(art, 422, 130);
+        art.setStyle(MenuTheme.insetPanelStyle("#F8C528", 12));
+        return art;
+    }
+
+    ClassicEncounter flockRunEncounter(FlockRunState run, FlockRunState.Route route) {
+        if (route == FlockRunState.Route.BOSS) {
+            int index = switch (run.boss()) { case PHOENIX -> 1; case PELICAN -> 2; case VULTURE -> 4; };
+            return buildBossRushRun().get(index);
+        }
+        Random setup = new Random(run.encounterSeed(route));
+        BirdType[] opponents = {BirdType.PIGEON, BirdType.TURKEY, BirdType.GOOSE, BirdType.FALCON,
+                BirdType.EAGLE, BirdType.PELICAN, BirdType.BAT, BirdType.ROADRUNNER};
+        MapType[] arenas = {MapType.FOREST, MapType.CITY, MapType.BATTLEFIELD, MapType.SKYCLIFFS};
+        BirdType opponent = opponents[setup.nextInt(opponents.length)];
+        MapType arena = arenas[setup.nextInt(arenas.length)];
+        boolean elite = route == FlockRunState.Route.ELITE;
+        int node = run.encounter();
+        ClassicEncounter encounter = new ClassicEncounter(elite ? "Storm Front" : "Sheltered Passage", "Wayfinder",
+                "Win before time runs out. Your remaining health carries into the next encounter.", arena,
+                MatchMutator.NONE, ClassicTwist.MEDIC_CACHE, 120 * 60, new ClassicFighter[0],
+                new ClassicFighter[]{new ClassicFighter(opponent, (elite ? "Elite: " : "Rival: ") + opponent.name,
+                        elite ? 115 + 10 * node : 80 + 6 * node,
+                        elite ? 0.98 + 0.03 * node : 0.75 + 0.03 * node, elite ? 1.06 : 0.96)}, false);
+        encounter.cpuLevel = elite ? 6 + node / 4 : 4 + node / 3;
+        return encounter;
+    }
+
+    private void configureFlockRunEncounter(FlockRunState run) {
+        flockRunProgress.run = run;
+        clearActiveDailyChallengeRun();
+        clearAshfallTrialState();
+        clearBossRushState();
+        flockRunMatchActive = true;
+        classicModeActive = true;
+        // Reuse the stamina boss arenas and runtime mechanics, without authored Classic route rules.
+        bossRushModeActive = true;
+        storyModeActive = false;
+        adventureModeActive = false;
+        campaignModeActive = false;
+        trainingModeActive = false;
+        tournamentModeActive = false;
+        squadStrikeModeActive = false;
+        competitionModeEnabled = false;
+        mutatorModeEnabled = false;
+        teamModeEnabled = false;
+        classicSelectedBird = run.bird;
+        classicSelectedSkinKey = run.skinKey;
+        classicRunCodename = "FLOCK RUN";
+        classicRoundIndex = 0;
+        classicDeaths = 0;
+        classicRunScore = 0;
+        classicBonusCoins = 0;
+        classicRun.clear();
+        classicEncounter = flockRunEncounter(run, run.route());
+        classicRun.add(classicEncounter);
+        selectedMap = classicEncounter.map;
+        selectedMapVariant = classicEncounter.variant;
+    }
+
+    private void startFlockRunEncounter(Stage stage) {
+        FlockRunState run = flockRunProgress.run;
+        if (run == null || run.phase() != FlockRunState.Phase.BATTLE) return;
+        configureFlockRunEncounter(run);
+        resetMatchStats();
+        startMatch(stage);
+    }
+
+    private void applyFlockRunPerks() {
+        if (!flockRunMatchActive || flockRunProgress.run == null || players[0] == null) return;
+        FlockRunState run = flockRunProgress.run;
+        Bird player = players[0];
+        player.health = run.health();
+        player.classicMaxHealthOverride = FlockRunState.MAX_HEALTH;
+        player.flockDamageMultiplier = run.damageMultiplier();
+        player.flockIncomingMultiplier = run.incomingMultiplier();
+        player.flockCooldownMultiplier = run.cooldownMultiplier();
+        player.flockUltimateMultiplier = run.ultimateMultiplier();
+        player.setBaseMultipliers(player.baseSizeMultiplier, player.basePowerMultiplier,
+                player.baseSpeedMultiplier * run.speedMultiplier());
+    }
+
+    void captureFlockRunOutcome(Bird winner) {
+        if (!flockRunMatchActive || flockRunProgress.run == null) return;
+        Bird player = players[0];
+        boolean survived = player != null && player.health > 0;
+        boolean won = survived && winner != null && getEffectiveTeam(winner.playerIndex) == 1;
+        flockRunProgress.run.finishBattle(won, survived ? player.health : 0, simTick);
+    }
+
+    private void finishFlockRunEncounter(Stage stage, Bird winner) {
+        captureFlockRunOutcome(winner);
+        if (profileProgressionWritesAllowed()) {
+            flockRunProgress.recordCompletedRun();
+            saveAchievements();
+        }
+        showFlockRun(stage);
+    }
+
+    ClassicEncounter harnessPrepareFlockRunEncounter(FlockRunState run, int playerCpuLevel) {
+        if (run == null || run.phase() != FlockRunState.Phase.BATTLE) throw new IllegalArgumentException("Choose a combat route first");
+        resetHeadlessHarness(run.encounterSeed());
+        resetMatchStats();
+        configureFlockRunEncounter(run);
+        Arrays.fill(players, null);
+        Arrays.fill(isAI, false);
+        Arrays.fill(scores, 0);
+        setupClassicEncounterRoster(classicEncounter);
+        isAI[0] = true;
+        classicCpuLevels[0] = Math.clamp(playerCpuLevel, 1, 9);
+        smashCombatRulesActive = false;
+        setupMatchArenaGeometry();
+        applySelectedMapVariantArena();
+        applyClassicEncounterArenaModifiers(classicEncounter);
+        matchTimer = classicEncounter.timerFrames;
+        configureMatchModes();
+        positionBattlefieldSpawns();
+        positionClassicEncounterSpawns(classicEncounter);
+        matchIntroOverlayFrames = 0;
+        matchIntroLastAnnouncedPhase = -1;
+        return classicEncounter;
+    }
+
     private void showClassicBirdSelect(Stage stage) {
-        boolean bossRush = bossRushModeActive;
+        showSoloBirdSelect(stage, false);
+    }
+
+    private void showSoloBirdSelect(Stage stage, boolean flockRun) {
+        boolean bossRush = !flockRun && bossRushModeActive;
         storyModeActive = false;
         storyReplayMode = false;
         adventureModeActive = false;
@@ -57916,6 +58163,7 @@ public class BirdGame3 {
         final double layoutH = 900.0;
         StackPane root = new StackPane();
         root.getProperties().put("noAutoScale", true);
+        if (flockRun) root.setId("flockRunFighterSelect");
         root.setStyle("-fx-background-color: linear-gradient(to bottom, #06070A, #0D1017 34%, #171B22 100%);");
 
         BorderPane content = new BorderPane();
@@ -57925,27 +58173,33 @@ public class BirdGame3 {
         root.getChildren().add(content);
 
         Button back = uiFactory.action("BACK", 156, 56, 22, "#B5121B", 16, () -> {
-            if (bossRush) {
+            if (flockRun) {
+                if (flockRunProgress.run == null) showClassicMoreMenu(stage);
+                else showFlockRun(stage);
+            } else if (bossRush) {
                 clearBossRushState();
                 showClassicMoreMenu(stage);
             } else {
                 showMenu(stage);
             }
         });
-        StackPane titleBanner = buildMenuTitleBanner(bossRush ? "BOSS RUSH" : "CLASSIC MODE",
+        StackPane titleBanner = buildMenuTitleBanner(flockRun ? "FLOCK RUN" : bossRush ? "BOSS RUSH" : "CLASSIC MODE",
                 440, 72, 34);
         StackPane statusChip = buildMenuChip(
-                bossRush ? "BOSS GAUNTLET" : "COINS  " + birdCoinBalanceText(),
+                flockRun ? "BEST SCORE  " + flockRunProgress.bestScore() : bossRush ? "BOSS GAUNTLET" : "COINS  " + birdCoinBalanceText(),
                 bossRush ? "#6A1B9A" : "#8D6E00", bossRush ? "#E1BEE7" : "#FFF59D");
         content.setTop(buildMenuTopStrip(back, titleBanner, statusChip));
 
         List<BirdType> availableBirds = unlockedBirdPool();
-        BirdType initialPick = isBirdUnlocked(classicSelectedBird) ? classicSelectedBird : firstUnlockedBird();
+        BirdType previousPick = flockRun ? flockRunSelectedBird : classicSelectedBird;
+        String previousSkin = flockRun ? flockRunSelectedSkinKey : classicSelectedSkinKey;
+        BirdType initialPick = isBirdUnlocked(previousPick) ? previousPick : firstUnlockedBird();
         if (initialPick == null && !availableBirds.isEmpty()) initialPick = availableBirds.getFirst();
         final BirdType[] selected = new BirdType[]{initialPick};
-        final String[] selectedSkin = new String[]{normalizeAdventureSkinChoice(initialPick, classicSelectedSkinKey)};
+        final String[] selectedSkin = new String[]{normalizeAdventureSkinChoice(initialPick, previousSkin)};
 
         GridPane rosterGrid = new GridPane();
+        if (flockRun) rosterGrid.setId("flockRunRoster");
         rosterGrid.setHgap(8);
         rosterGrid.setVgap(8);
         rosterGrid.setAlignment(Pos.CENTER);
@@ -57959,10 +58213,11 @@ public class BirdGame3 {
         int columns = Math.max(7, (int) Math.ceil(availableBirds.size() / 3.0));
         double tileW = (1490.0 - (columns - 1) * 8.0) / columns;
         double tileH = 108.0;
-        double iconSize = Math.clamp(tileH - 48.0, 70.0, 92.0);
+        double iconSize = Math.clamp(tileH - 48.0, 56.0, 92.0);
         for (int i = 0; i < availableBirds.size(); i++) {
             BirdType birdType = availableBirds.get(i);
-            Node icon = buildRosterSelectionIcon(birdType, false, iconSize, bossRush);
+            Node icon = flockRun ? buildRosterSelectionIcon(birdType, false, iconSize)
+                    : buildRosterSelectionIcon(birdType, false, iconSize, bossRush);
             Label birdName = new Label(rosterSelectionTileLabel(birdType, false));
             birdName.setFont(Font.font("Arial Black", echoBaseBird(birdType) == null ? 13 : 10));
             birdName.setTextFill(Color.WHITE);
@@ -57970,17 +58225,20 @@ public class BirdGame3 {
             birdName.setAlignment(Pos.CENTER);
             birdName.setWrapText(true);
             birdName.setMaxWidth(tileW - 14);
+            birdName.setMinHeight(Region.USE_PREF_SIZE);
             VBox graphic = new VBox(1, icon, birdName);
             graphic.setAlignment(Pos.CENTER);
 
             Button tile = new Button();
             tile.setGraphic(graphic);
+            tile.setAccessibleText(birdType.name);
+            if (flockRun) tile.setId("flockRunBird-" + birdType.name());
             lockRegionSize(tile, tileW, tileH);
             tile.setOnAction(e -> {
                 playButtonClick();
                 selected[0] = birdType;
                 selectedSkin[0] = normalizeAdventureSkinChoice(birdType,
-                        birdType == classicSelectedBird ? classicSelectedSkinKey : null);
+                        birdType == previousPick ? previousSkin : null);
                 if (refreshRef[0] != null) refreshRef[0].run();
             });
 
@@ -58011,7 +58269,7 @@ public class BirdGame3 {
         fighterPanel.setAlignment(Pos.CENTER);
         lockRegionSize(fighterPanel, 390, 224);
 
-        Label routeEyebrow = new Label(bossRush ? "BOSS GAUNTLET" : "SELECTED ROUTE");
+        Label routeEyebrow = new Label(flockRun ? "EIGHT ENCOUNTERS · SIX PERKS · ONE LIFE" : bossRush ? "BOSS GAUNTLET" : "SELECTED ROUTE");
         routeEyebrow.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
         routeEyebrow.setTextFill(Color.web("#F8C528"));
         Label routeTitle = new Label();
@@ -58021,12 +58279,12 @@ public class BirdGame3 {
         routeTitle.setTextAlignment(TextAlignment.CENTER);
         routeTitle.setAlignment(Pos.CENTER);
         routeTitle.setMaxWidth(920);
-        HBox routeStrip = buildClassicRouteStrip(0, 8, false);
+        HBox routeStrip = buildClassicRouteStrip(0, 8, flockRun);
 
-        Label difficultyCaption = new Label("DIFFICULTY");
+        Label difficultyCaption = new Label(flockRun ? "STARTING HP" : "DIFFICULTY");
         difficultyCaption.setFont(Font.font("Consolas", FontWeight.BOLD, 15));
         difficultyCaption.setTextFill(Color.web("#CFD8DC"));
-        Label difficulty = new Label(bossRush ? "AUTO" : String.format(Locale.US, "%.1f", CLASSIC_STARTING_DIFFICULTY));
+        Label difficulty = new Label(flockRun ? "112" : bossRush ? "AUTO" : String.format(Locale.US, "%.1f", CLASSIC_STARTING_DIFFICULTY));
         difficulty.setFont(Font.font("Arial Black", 34));
         difficulty.setTextFill(Color.web("#FFE45C"));
         VBox difficultyBlock = new VBox(-2, difficultyCaption, difficulty);
@@ -58039,8 +58297,8 @@ public class BirdGame3 {
         coinContinue.setTextFill(Color.WHITE);
         coinContinue.setPadding(new Insets(12, 18, 12, 18));
         coinContinue.setStyle(MenuTheme.chipStyle("#263238", "#78909C", 14));
-        coinContinue.setVisible(!bossRush);
-        coinContinue.setManaged(!bossRush);
+        coinContinue.setVisible(!bossRush && !flockRun);
+        coinContinue.setManaged(!bossRush && !flockRun);
         Label record = new Label();
         record.setFont(Font.font("Consolas", FontWeight.BOLD, 16));
         record.setTextFill(Color.web("#B3E5FC"));
@@ -58065,14 +58323,22 @@ public class BirdGame3 {
 
         Button start = uiFactory.action("START", 330, 66, 27, "#00C853", 20, () -> {
             if (selected[0] == null) return;
+            if (flockRun) {
+                flockRunSelectedBird = selected[0];
+                flockRunSelectedSkinKey = normalizeAdventureSkinChoice(selected[0], selectedSkin[0]);
+                flockRunProgress.run = new FlockRunState(System.nanoTime(), selected[0], flockRunSelectedSkinKey);
+                saveAchievements();
+                showFlockRun(stage);
+                return;
+            }
             classicSelectedBird = selected[0];
             classicSelectedSkinKey = normalizeAdventureSkinChoice(selected[0], selectedSkin[0]);
             showClassicRunBriefing(stage, selected[0]);
         });
         Button endingGallery = uiFactory.action("ENDING GALLERY", 300, 66, 22, "#5E35B1", 18,
                 () -> showClassicEndingGallery(stage));
-        endingGallery.setVisible(!bossRush);
-        endingGallery.setManaged(!bossRush);
+        endingGallery.setVisible(!bossRush && !flockRun);
+        endingGallery.setManaged(!bossRush && !flockRun);
 
         skin.setOnAction(e -> {
             playButtonClick();
@@ -58096,11 +58362,11 @@ public class BirdGame3 {
                 selectedSkin[0] = normalizeAdventureSkinChoice(pick, selectedSkin[0]);
                 drawRosterSprite(portrait, pick, selectedSkin[0], false, true);
                 selectedName.setText(pick.name.toUpperCase(Locale.ROOT));
-                routeTitle.setText(bossRush ? "THE CROWN GAUNTLET" : classicRouteTitle(pick));
+                routeTitle.setText(flockRun ? "THE BROKEN MIGRATION" : bossRush ? "THE CROWN GAUNTLET" : classicRouteTitle(pick));
                 List<String> skins = adventureSkinOptions(pick);
                 skin.setText(adventureSkinLabel(pick, selectedSkin[0]));
                 skin.setDisable(skins.size() <= 1);
-                record.setText(bossRush ? bossRushBestStatusForBird(pick)
+                record.setText(flockRun ? "BEST MEDAL  ·  " + flockRunProgress.medal(pick) : bossRush ? bossRushBestStatusForBird(pick)
                         : (isClassicCompleted(pick) ? "BADGE EARNED" : "BADGE LOCKED"));
             }
             start.setDisable(!hasPick);
@@ -59544,10 +59810,10 @@ public class BirdGame3 {
                         && encounter.style != ClassicEncounterStyle.RAZORBILL_SPLINTERS
                         && encounter.style != ClassicEncounterStyle.SEAM_WARDEN_GAUNTLET
                         && encounter.style != ClassicEncounterStyle.SEAMREAVER_BOSS
-                        && classicSelectedBird != BirdType.ROADRUNNER
+                        && (flockRunMatchActive || (classicSelectedBird != BirdType.ROADRUNNER
                         && classicSelectedBird != BirdType.PENGUIN
                         && classicSelectedBird != BirdType.SHOEBILL
-                        && classicSelectedBird != BirdType.TITMOUSE);
+                        && classicSelectedBird != BirdType.TITMOUSE)));
                 if (enemy.skinKey != null) {
                     applyPreviewSkinChoiceToBird(enemyBird, enemy.type, enemy.skinKey);
                 }
@@ -59563,6 +59829,7 @@ public class BirdGame3 {
         } else if (!dailyChallengeModeActive && !ashfallTrialModeActive) {
             applyAuthoredClassicRosterModifiers(encounter);
         }
+        applyFlockRunPerks();
     }
 
     private int resolvedClassicFighterCpuLevel(ClassicFighter fighter, ClassicEncounter encounter) {
@@ -60675,7 +60942,7 @@ public class BirdGame3 {
             platforms.add(new Platform(3_860, ASHFALL_MAIN_Y - 610, 320, 32));
             addToKillFeed("REBIRTH RELAY: the three narrow cinder ledges will collapse in sequence.");
         }
-        addToKillFeed((ashfallTrialModeActive ? "ASHFALL TRIAL TWIST: " : (bossRushModeActive ? "BOSS RUSH TWIST: " : "CLASSIC TWIST: ")) + encounter.twist.label);
+        addToKillFeed((flockRunMatchActive ? "FLOCK RUN: " : ashfallTrialModeActive ? "ASHFALL TRIAL TWIST: " : (bossRushModeActive ? "BOSS RUSH TWIST: " : "CLASSIC TWIST: ")) + encounter.twist.label);
         switch (encounter.twist) {
             case STORM_LIFTS -> {
                 windVents.add(new WindVent(900, GROUND_Y - 380, 420));
@@ -68920,6 +69187,10 @@ public class BirdGame3 {
     }
 
     private void handleClassicMatchEnd(Stage stage, Bird winner) {
+        if (flockRunMatchActive) {
+            finishFlockRunEncounter(stage, winner);
+            return;
+        }
         if (!classicModeActive || classicEncounter == null) {
             if (dailyChallengeModeActive) {
                 showDailyChallengeSetup(stage);
@@ -74847,6 +75118,8 @@ public class BirdGame3 {
     }
 
     private void resetHeadlessHarness(long seed) {
+        flockRunMatchActive = false;
+        clearBossRushState();
         headlessHarnessMode = true;
         harnessWinner = null;
         currentMatchSeed = seed;
@@ -77280,6 +77553,8 @@ public class BirdGame3 {
         pauseSelectedPlayerIndex = 0;
         if (replayPlaybackActive && activeReplay != null) {
             currentMatchSeed = activeReplay.seed;
+        } else if (flockRunMatchActive && flockRunProgress.run != null) {
+            currentMatchSeed = flockRunProgress.run.encounterSeed();
         } else {
             currentMatchSeed = lanModeActive ? lanMatchSeed : System.nanoTime();
         }
@@ -78894,6 +79169,15 @@ public class BirdGame3 {
 
     private List<String> fightHudInfoLines() {
         List<String> lines = new ArrayList<>();
+        if (flockRunMatchActive && flockRunProgress.run != null) {
+            FlockRunState run = flockRunProgress.run;
+            lines.add("FLOCK RUN  " + Math.min(8, run.encounter() + 1) + "/8  |  " + classicEncounter.name.toUpperCase(Locale.ROOT));
+            lines.add("SCORE " + run.score() + "  |  ONE LIFE  |  WIN BEFORE TIME RUNS OUT");
+            String perks = Arrays.stream(FlockRunState.Perk.values()).filter(p -> run.rank(p) > 0)
+                    .map(p -> p.title + " " + run.rank(p)).collect(Collectors.joining(" · "));
+            if (!perks.isEmpty()) lines.add(perks);
+            return compactFightHudInfoLines(lines);
+        }
         if (campaignModeActive && currentCampaignMission != null && campaignMissionController != null) {
             lines.add("THE STILL SKY  |  " + currentCampaignMission.title().toUpperCase(Locale.ROOT));
             lines.add(campaignObjectiveHudLine(currentCampaignMission, campaignMissionController));
@@ -79575,13 +79859,13 @@ public class BirdGame3 {
         g.setFont(Font.font("Arial Black", FontWeight.BOLD, 15));
         g.fillText(slotLabel, rect.getMinX() + 24, rect.getMinY() + 28);
 
-        boolean staminaRules = usesVersusStaminaRules();
+        boolean staminaRules = usesVersusStaminaRules() || flockRunMatchActive;
         double shownDamage = staminaRules ? displayedStaminaForBird(bird) : displayedDamageForBird(bird);
         int shownHealth = (int) Math.round(shownDamage);
         String damageText = Integer.toString(shownHealth);
         FightHudMeterLayout meterLayout = fightHudMeterLayout(rect.getHeight());
 
-        String name = shortName(bird.name);
+        String name = flockRunMatchActive && bird.type != null ? bird.type.name : shortName(bird.name);
         if (name.isBlank()) {
             name = bird.type != null ? bird.type.name.toUpperCase(Locale.ROOT) : "PLAYER";
         }
@@ -80344,6 +80628,7 @@ public class BirdGame3 {
     }
 
     private String currentMatchHistoryMode() {
+        if (flockRunMatchActive) return "FLOCK RUN";
         if (lanModeActive) {
             return networkSessionMode == NetworkSessionMode.INTERNET ? "INTERNET" : "LAN";
         }
@@ -80434,6 +80719,10 @@ public class BirdGame3 {
     }
 
     void showMatchSummary(Stage stage, Bird winner) {
+        if (flockRunMatchActive) {
+            finishFlockRunEncounter(stage, winner);
+            return;
+        }
         playMatchSummaryMusic(matchSummaryMusicCue(campaignModeActive, campaignMissionWon));
 
         if (ashfallTrialModeActive && classicModeActive) {
@@ -82294,6 +82583,7 @@ public class BirdGame3 {
     }
 
     void recordBalanceOutcome(Bird winner) {
+        if (flockRunMatchActive) return;
         if (balanceOutcomeRecorded) return;
         balanceOutcomeRecorded = true;
 
@@ -82512,6 +82802,7 @@ public class BirdGame3 {
         birdCoinLedger.load(prefs);
         suspendedTournamentRun = TournamentRunState.loadFrom(prefs);
         suspendedSquadStrikeRun = SquadStrikeRunState.loadFrom(prefs);
+        flockRunProgress = FlockRunProgress.load(prefs);
     }
 
     void requestProgressSave() {
@@ -82587,6 +82878,7 @@ public class BirdGame3 {
         SquadStrikeRunState strikeRun = squadStrikeModeActive
                 ? captureSquadStrikeRunState() : suspendedSquadStrikeRun;
         SquadStrikeRunState.saveTo(prefs, strikeRun);
+        flockRunProgress.save(prefs);
     }
 
     private BirdGame3ProfileProgressState.Schema profileProgressSchema() {
@@ -84997,6 +85289,7 @@ public class BirdGame3 {
     }
 
     private String pauseModeLabel() {
+        if (flockRunMatchActive) return "FLOCK RUN";
         if (trainingModeActive) {
             return trainingAcademyMode == TrainingAcademyMode.GUIDED_TUTORIAL
                     ? "TRAINING ACADEMY"
@@ -85016,6 +85309,9 @@ public class BirdGame3 {
     }
 
     private String pauseContextLabel() {
+        if (flockRunMatchActive && flockRunProgress.run != null) {
+            return "ENCOUNTER " + Math.min(8, flockRunProgress.run.encounter() + 1) + " / 8  ·  " + classicEncounter.name.toUpperCase(Locale.ROOT);
+        }
         if (classicModeActive && classicEncounter != null) {
             return "ROUND " + (classicRoundIndex + 1) + "  /  " + classicEncounter.name.toUpperCase(Locale.ROOT);
         }
@@ -85427,6 +85723,7 @@ public class BirdGame3 {
     }
 
     private String pauseRestartLabel() {
+        if (flockRunMatchActive) return "END RUN";
         if (trainingModeActive && trainingAcademyMode == TrainingAcademyMode.GUIDED_TUTORIAL) return "RESTART LESSON";
         if (trainingModeActive) return "RESTART TRAINING";
         if (classicModeActive) return "FORFEIT ENCOUNTER";
@@ -85435,6 +85732,7 @@ public class BirdGame3 {
     }
 
     private String pauseExitLabel() {
+        if (flockRunMatchActive) return "SAVE & EXIT RUN";
         if (trainingModeActive) return "EXIT TO TRAINING";
         if (campaignModeActive) return "EXIT TO STORY";
         if (storyModeActive) return "EXIT EPISODE";
@@ -85461,6 +85759,7 @@ public class BirdGame3 {
     }
 
     private String pauseRestartWarning() {
+        if (flockRunMatchActive) return "Forfeit this encounter and end your Flock Run? Your best medals remain saved.";
         if (trainingModeActive && trainingAcademyMode == TrainingAcademyMode.GUIDED_TUTORIAL) {
             return "Reset this lesson to its opening positions? Completed lesson progress is preserved.";
         }
@@ -85473,6 +85772,7 @@ public class BirdGame3 {
     }
 
     private String pauseExitWarning() {
+        if (flockRunMatchActive) return "Save and return to the run map? Resuming restarts this encounter with its opening health and perks.";
         if (classicModeActive && (ashfallTrialModeActive || bossRushModeActive)) {
             return "Leave this challenge and return to Games & More? Current challenge progress will be reset.";
         }
@@ -85542,6 +85842,13 @@ public class BirdGame3 {
 
     private void exitPausedMatch(Stage stage) {
         if (stage == null) return;
+        if (flockRunMatchActive) {
+            closePauseMenuWithoutResuming();
+            stopGameplayTimer();
+            saveAchievements();
+            showFlockRun(stage);
+            return;
+        }
         PauseExitDestination destination = pauseExitDestination();
 
         closePauseMenuWithoutResuming();

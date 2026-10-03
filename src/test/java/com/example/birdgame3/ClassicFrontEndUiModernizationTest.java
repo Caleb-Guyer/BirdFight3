@@ -16,7 +16,7 @@ class ClassicFrontEndUiModernizationTest {
     @Test
     void classicBirdSelectUsesSharedChromeAndActiveDevicePrompts() throws IOException {
         String source = Files.readString(GAME_SOURCE);
-        String select = methodBody(source, "showClassicBirdSelect");
+        String select = methodBody(source, "showSoloBirdSelect");
 
         assertTrue(select.contains("buildMenuTopStrip("));
         assertTrue(select.contains("buildMenuTitleBanner("));
@@ -35,9 +35,9 @@ class ClassicFrontEndUiModernizationTest {
 
     @Test
     void bossRushDoesNotAdvertiseClassicContinueCurrency() throws IOException {
-        String select = methodBody(Files.readString(GAME_SOURCE), "showClassicBirdSelect");
-        assertTrue(select.contains("coinContinue.setVisible(!bossRush)"));
-        assertTrue(select.contains("coinContinue.setManaged(!bossRush)"));
+        String select = methodBody(Files.readString(GAME_SOURCE), "showSoloBirdSelect");
+        assertTrue(select.contains("coinContinue.setVisible(!bossRush && !flockRun)"));
+        assertTrue(select.contains("coinContinue.setManaged(!bossRush && !flockRun)"));
         assertTrue(select.contains("bossRush ? \"BOSS GAUNTLET\" : \"COINS  \" + birdCoinBalanceText()"));
     }
 

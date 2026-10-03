@@ -39,7 +39,8 @@ final class HubPresentationModel {
         ASHFALL("ASHFALL TRIAL", "A three-rite Phoenix challenge."),
         BOSS_RUSH("BOSS RUSH", "Fight the boss roster back to back."),
         LEGACY("LEGACY STORIES", "Replay the original adventures and episodes."),
-        TRAINING("TRAINING", "Practice movement and combat.");
+        TRAINING("TRAINING", "Practice movement and combat."),
+        FLOCK_RUN("FLOCK RUN", "Build a perk loadout across eight encounters.");
 
         private final String title;
         private final String description;

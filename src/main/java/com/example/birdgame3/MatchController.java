@@ -536,6 +536,10 @@ final class MatchController {
         if (game.trainingModeActive || game.matchEnded) {
             return;
         }
+        if (game.flockRunMatchActive && game.matchTimer <= 0) {
+            triggerMatchEnd(null);
+            return;
+        }
 
         if (game.isClassicNectarDashActive() && game.matchTimer <= 0) {
             game.finishClassicNectarDashFromTimeout();
@@ -622,6 +626,10 @@ final class MatchController {
     }
 
     void checkForMatchCompletion() {
+        if (game.flockRunMatchActive && (game.players[0] == null || game.players[0].health <= 0)) {
+            triggerMatchEnd(null);
+            return;
+        }
         if (game.isClassicNectarDashActive()) {
             return;
         }
@@ -768,6 +776,7 @@ final class MatchController {
 
     void triggerMatchEnd(Bird winner) {
         if (game.matchEnded) return;
+        game.captureFlockRunOutcome(winner);
 
         if (game.headlessHarnessMode) {
             // Balance-lab matches: record the outcome, no timers, no UI.
