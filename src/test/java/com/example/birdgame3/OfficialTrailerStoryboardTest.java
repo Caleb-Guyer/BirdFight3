@@ -63,7 +63,7 @@ class OfficialTrailerStoryboardTest {
     void customizationReelUsesTheCompletePlayerSkinCatalog() {
         BirdGame3 game = new BirdGame3();
 
-        assertEquals(49, game.officialTrailerSkinCatalogCount());
+        assertEquals(50, game.officialTrailerSkinCatalogCount());
         assertEquals(5, BirdGame3.officialTrailerSkinPageCount(
                 game.officialTrailerSkinCatalogCount()));
     }
@@ -72,8 +72,8 @@ class OfficialTrailerStoryboardTest {
     void massBattleAddsOneStoryFighterToEachCompleteRoster() {
         assertEquals(BirdGame3.BirdType.values().length + 1,
                 BirdGame3.officialTrailerMassBattleTeamSize());
-        assertEquals(23, BirdGame3.officialTrailerMassBattleTeamSize());
-        assertEquals(46, BirdGame3.MAX_COMBATANTS);
+        assertEquals(24, BirdGame3.officialTrailerMassBattleTeamSize());
+        assertEquals(48, BirdGame3.MAX_COMBATANTS);
         assertEquals(24, BirdGame3.STANDARD_MASS_COMBATANTS);
     }
 
@@ -82,7 +82,7 @@ class OfficialTrailerStoryboardTest {
         BirdGame3 game = new BirdGame3();
         game.harnessPrepareOfficialTrailerMassBattle(0x23_23_46L);
 
-        assertEquals(46, game.activePlayers);
+        assertEquals(48, game.activePlayers);
         int flock = 0;
         int corrupted = 0;
         for (int slot = 0; slot < game.activePlayers; slot++) {
@@ -91,8 +91,8 @@ class OfficialTrailerStoryboardTest {
             if (game.getEffectiveTeam(slot) == 1) flock++;
             if (game.getEffectiveTeam(slot) == 2) corrupted++;
         }
-        assertEquals(23, flock);
-        assertEquals(23, corrupted);
+        assertEquals(24, flock);
+        assertEquals(24, corrupted);
 
         for (int tick = 0; tick < 720 && game.harnessTick(); tick++) {
             // Advance exactly through the normal Bird.update/world combat path.

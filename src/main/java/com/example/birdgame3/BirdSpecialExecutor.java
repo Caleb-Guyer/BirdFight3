@@ -27,6 +27,7 @@ final class BirdSpecialExecutor {
             case RAVEN -> RavenSpecials.use(bird, ultimateTriggered);
             case GOOSE -> GooseSpecials.use(bird, ultimateTriggered);
             case KIWI -> KiwiSpecials.use(bird, ultimateTriggered);
+            case PTERODACTYL -> PterodactylSpecials.use(bird, ultimateTriggered);
         }
     }
 }

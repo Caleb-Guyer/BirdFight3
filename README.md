@@ -1,6 +1,6 @@
 # Bird Fight 3
 
-Bird Fight 3 is a feature-complete JavaFX platform fighter with a 22-bird
+Bird Fight 3 is a feature-complete JavaFX platform fighter with a 23-bird
 roster, authored single-player campaigns, local and direct-connect multiplayer,
 and code-drawn vector presentation.
 
@@ -11,6 +11,9 @@ content release. New work is expected to be focused bug fixes and explicitly
 chosen improvements rather than an open-ended roadmap. The issue tracker stays
 open, and future maintenance releases may still be published.
 
+The current source includes Pterodactyl. That addition has not been published
+in a GitHub release yet.
+
 Download the latest portable Windows package from
 [GitHub Releases](https://github.com/Caleb-Guyer/BirdFight3/releases). Extract
 `BirdFight3-<version>-win.zip` and run **Bird Fight 3.exe**. The portable package
@@ -18,11 +21,11 @@ contains its own Java runtime.
 
 ## Highlights
 
-- **22 distinct fighters** with authored normals, directional specials,
+- **23 distinct fighters** with authored normals, directional specials,
   ultimates, skins, frame data, matchup identities, and CPU behavior.
 - **The Still Sky**, a 40-mission campaign with three difficulties, objective
   missions, recruitable allies, boss phases, cutscenes, and credits.
-- **22 Classic routes**, each with authored encounters, an objective round,
+- **23 Classic routes**, each with authored encounters, an objective round,
   bosses, rewards, and an ending.
 - **Smash and Stamina battles**, a full rules editor, local multiplayer, CPU
   opponents, Tournament, Squad Strike, Boss Rush, and Training Academy.
@@ -44,6 +47,24 @@ contains its own Java runtime.
 
 Controls are configurable and shown in the in-game move guide and settings.
 Keyboard and controller prompts adapt to the active input device.
+
+### Pterodactyl
+
+Pterodactyl is an aerial grappler unlocked through card packs. Hold Jump for
+free flight, with slower turning than Bat. Its four specials are Wing Gust,
+Beak Lunge, Updraft, and Sky Snatch. Updraft refreshes on landing. Sky Snatch
+has a visible windup, catches one opponent, and carries them upward: hold
+Special to continue the carry or release early to throw. Left/Right choose
+the throw direction; Jump throws upward and Down drops the opponent. Captives
+can escape by pressing fresh inputs, and a missed swoop has recovery time.
+
+Extinction Dive catches an opponent and slams into the stage for heavy damage;
+an offstage timeout releases the captive without a slam. Complete **The Sky
+Before Feathers** Classic route to earn the **Fossilized Pterodactyl** skeleton
+skin and its ending. A dedicated Academy drill teaches all four specials and
+the catch/throw sequence. The fighter uses the shared selectors, profile saves,
+Flock Run, replay history, and multiplayer. This simulation requires replay
+revision 16 and network protocol 77; older replays remain stored.
 
 ### Internet multiplayer
 

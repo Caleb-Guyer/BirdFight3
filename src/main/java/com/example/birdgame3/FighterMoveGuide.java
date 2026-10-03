@@ -210,6 +210,14 @@ final class FighterMoveGuide {
                     move("SIDE", "Bite and Barge", "Bites into a forceful horizontal shove."),
                     recovery("UP", "V-Formation Lift", "Calls formation support to carry Goose upward."),
                     move("DOWN", "Nest Guard", "Plants the nest, completes Territory, and counters hits near it."));
+            case PTERODACTYL -> guide(
+                    "Aerial grappler",
+                    "Hold Jump to fly freely. Sky Snatch has visible startup; hold Special to carry, release to throw, and choose Left/Right plus Jump or Down for the launch. A captive can mash fresh inputs to escape.",
+                    "Extinction Dive", "Swoops to catch one opponent, climbs briefly, then dives into the stage for a heavy slam. A miss leaves Pterodactyl exposed.",
+                    move("NEUTRAL", "Wing Gust", "A broad, low-damage gust pushes opponents away after a short windup."),
+                    move("SIDE", "Beak Lunge", "Commits to a narrow horizontal rush with a strong beak hit."),
+                    recovery("UP", "Updraft", "A steep climb with one use per airtime; land to refresh it."),
+                    move("DOWN", "Sky Snatch", "Swoops diagonally, catches one opponent, and carries them upward before a brief-stun throw."));
             case KIWI -> guide(
                     "Dependable grounded all-rounder",
                     "Kiwi has no resource or setup. Each direction provides one direct tool: peck, charge, recover, or stomp.",

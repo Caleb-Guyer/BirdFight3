@@ -261,7 +261,7 @@ class BirdVisualAuditRun {
     @Timeout(value = 90, unit = TimeUnit.SECONDS)
     void renderEveryBirdAndSkinToReviewableContactSheets() throws Exception {
         System.setProperty("prism.order", "sw");
-        Path outputDir = Path.of("audit", "visual").toAbsolutePath().normalize();
+        Path outputDir = Path.of(System.getProperty("visualAuditOutput", "audit/visual")).toAbsolutePath().normalize();
         Files.createDirectories(outputDir);
         deletePreviousOutputs(outputDir);
 
@@ -294,6 +294,11 @@ class BirdVisualAuditRun {
         BirdGame3 game = new BirdGame3(Preferences.userRoot().node(
                 "/birdfight3-tests/visual-audit-run/" + UUID.randomUUID()));
         List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins();
+        String focusedBird = System.getProperty("visualAuditBird", "").trim();
+        if (!focusedBird.isEmpty()) {
+            BirdGame3.BirdType bird = BirdGame3.BirdType.valueOf(focusedBird.toUpperCase(java.util.Locale.ROOT));
+            entries = entries.stream().filter(entry -> entry.bird() == bird).toList();
+        }
         List<String> failures = new ArrayList<>();
         List<String> warnings = new ArrayList<>();
         Map<String, Long> baseIdleSignatures = new HashMap<>();
@@ -332,7 +337,8 @@ class BirdVisualAuditRun {
                         || entry.bird() == BirdGame3.BirdType.HEISENBIRD
                         || entry.bird() == BirdGame3.BirdType.RAVEN
                         || entry.bird() == BirdGame3.BirdType.GOOSE
-                        || entry.bird() == BirdGame3.BirdType.KIWI) {
+                        || entry.bird() == BirdGame3.BirdType.KIWI
+                        || entry.bird() == BirdGame3.BirdType.PTERODACTYL) {
                     checkPolishedFacingMirror(game, entry, failures);
                 }
 

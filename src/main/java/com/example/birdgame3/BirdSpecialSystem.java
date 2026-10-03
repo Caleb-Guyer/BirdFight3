@@ -89,7 +89,7 @@ final class BirdSpecialSystem {
 
         boolean ultimateTriggered = ultimateReady && bird.consumeUltimate();
         if (ultimateTriggered) {
-            triggerUltimateStartEffects(bird);
+            triggerUltimateStartEffects(bird, bird.type != BirdGame3.BirdType.PTERODACTYL);
         }
 
         playSpecialSound(bird, ultimateTriggered);
@@ -120,6 +120,8 @@ final class BirdSpecialSystem {
             game.recordUltimateMoveUse(bird, VultureSpecials.BLACK_SKY_FEAST_MOVE);
         } else if (ultimateTriggered && bird.type == BirdGame3.BirdType.KIWI) {
             game.recordUltimateMoveUse(bird, KiwiSpecials.MIDNIGHT_STAMPEDE_MOVE);
+        } else if (ultimateTriggered && bird.type == BirdGame3.BirdType.PTERODACTYL) {
+            game.recordUltimateMoveUse(bird, PterodactylSpecials.EXTINCTION_DIVE);
         } else {
             game.recordSpecialMoveUse(bird, input, ultimateTriggered);
         }

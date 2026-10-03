@@ -496,6 +496,25 @@ final class ClassicEndingContent {
                             beat("I buried the Crown intact beneath the oldest fern. Its command sank into the soil until no bird could wear it.", Tableau.CROWN_TRANSFORMATION),
                             beat("Now weak foundations warn before they fail, buried doors open toward shelter, and every nest stands on ground made equally strong.", Tableau.CHANGED_WORLD),
                             beat("The sky may forget us. The ground never does.", Tableau.FINAL_PORTRAIT)
+                    )),
+            ending(
+                    BirdGame3.BirdType.PTERODACTYL,
+                    "THE SKY BEFORE FEATHERS",
+                    "EVERY AGE, AN OPEN SKY",
+                    "MEMORY - The Crown becomes a chain of thermal beacons that preserve the past without commanding the future.",
+                    Alignment.HOPEFUL,
+                    BirdGame3.BirdType.EAGLE,
+                    "The Last Sovereign",
+                    "SKY_KING_EAGLE",
+                    BirdGame3.MapType.BEACON_CROWN,
+                    "music-skycliffs.mp3",
+                    monologue(
+                            beat("The Last Sovereign fell calling the oldest sky his inheritance.", Tableau.BOSS_AFTERMATH),
+                            beat("The Crown offered me every lost flight, every ancient coast, and every wing that never returned.", Tableau.CROWN_DISCOVERY),
+                            beat("I remember a world before feathers. Remembering it does not make the next world mine.", Tableau.DECISION),
+                            beat("I broke its command into thermal beacons. Each holds a memory; none can give an order.", Tableau.CROWN_TRANSFORMATION),
+                            beat("Now young wings find safe currents above the old stone, and the past guides them without choosing their destination.", Tableau.CHANGED_WORLD),
+                            beat("Let the earth keep our bones. Let the sky keep opening.", Tableau.FINAL_PORTRAIT)
                     ))
     );
 

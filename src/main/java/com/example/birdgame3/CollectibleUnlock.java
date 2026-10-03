@@ -11,6 +11,7 @@ enum CollectibleUnlock {
     PELICAN("CHAR_PELICAN", BirdType.PELICAN, null, "Pelican"),
     GOOSE("CHAR_GOOSE", BirdType.GOOSE, null, "Goose"),
     KIWI("CHAR_KIWI", BirdType.KIWI, null, "Kiwi Bird"),
+    PTERODACTYL("CHAR_PTERODACTYL", BirdType.PTERODACTYL, null, "Pterodactyl"),
     FROSTBITE_FJORD("MAP_FROSTBITE_FJORD", null, MapType.FROSTBITE_FJORD, "Frostbite Fjord Map"),
     ASHFALL_CATHEDRAL("MAP_ASHFALL_CATHEDRAL", null, MapType.ASHFALL_CATHEDRAL, "Ashfall Cathedral Map"),
     PREMIUM_PIGEON("PREMIUM_PIGEON", BirdType.PIGEON, null, "Premium Pigeon"),

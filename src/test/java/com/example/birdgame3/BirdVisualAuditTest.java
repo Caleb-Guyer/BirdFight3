@@ -31,7 +31,8 @@ class BirdVisualAuditTest {
             BirdGame3.BirdType.HEISENBIRD,
             BirdGame3.BirdType.RAVEN,
             BirdGame3.BirdType.GOOSE,
-            BirdGame3.BirdType.KIWI
+            BirdGame3.BirdType.KIWI,
+            BirdGame3.BirdType.PTERODACTYL
     );
 
     private static BirdGame3 freshGame() {

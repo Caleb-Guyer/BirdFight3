@@ -5,6 +5,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 
 class LanBirdState {
+    final PterodactylSpecials.State pterodactyl = new PterodactylSpecials.State();
     int typeOrdinal;
     double x;
     double y;
@@ -781,6 +782,7 @@ class LanBirdState {
     int[] titmouseMobbingNodeTargetIndex = {-1, -1, -1, -1};
 
     void write(DataOutputStream out) throws IOException {
+        pterodactyl.write(out);
         out.writeInt(typeOrdinal);
         out.writeDouble(x);
         out.writeDouble(y);
@@ -1635,6 +1637,7 @@ class LanBirdState {
 
     static LanBirdState read(DataInputStream in) throws IOException {
         LanBirdState state = new LanBirdState();
+        state.pterodactyl.read(in);
         state.typeOrdinal = in.readInt();
         state.x = in.readDouble();
         state.y = in.readDouble();

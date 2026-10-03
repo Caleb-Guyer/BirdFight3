@@ -5,7 +5,7 @@ and project state that are not obvious from the code.
 
 ## What this is
 
-A feature-complete JavaFX 2D platform fighter (Smash-style) with 22 playable
+A feature-complete JavaFX 2D platform fighter (Smash-style) with 23 playable
 birds, built by a solo developer (Caleb) with AI pair-programming. Java 21,
 Maven, single module.
 Everything is code-drawn vector art on Canvas unless sprite sheets are provided
@@ -69,8 +69,8 @@ causes silent desyncs. Rules:
   taps), `ReplayStore` (gzip binary in `replays/`, keeps 30), browser via
   MATCH HISTORY → REPLAYS. Playback is self-contained (restores roster/map)
   and suppresses all progression side effects. Current simulation revision is
-  14; older recordings remain stored but require their matching simulation.
-- **Lockstep netcode**: `LockstepSession` + `LanProtocol` v75. All machines run
+  16; older recordings remain stored but require their matching simulation.
+- **Lockstep netcode**: `LockstepSession` + `LanProtocol` v77. All machines run
   the full sim; host relays per-tick input bundles; 4-tick LAN input delay; state
   hashes exchanged every 120 ticks, desync → kill feed warning. During
   lockstep the sim reads ONLY `lanActionPressed` (bundle-applied) — live local
@@ -155,6 +155,24 @@ causes silent desyncs. Rules:
 - **Null Rock cooldowns**: player-controlled Null Rock uses four independent
   directional reuse timers; CPU Null Rock deliberately retains one shared,
   difficulty-scaled boss timer so higher difficulties increase cadence safely.
+- **Pterodactyl**: appended after Kiwi to preserve saved/network roster ordinals.
+  `PterodactylSpecials` owns its tick-driven move/cooldown state; normal attacks
+  remain in `Bird`. Free flight follows Bat's gravity/lift with slower turning.
+  Sky Snatch uses the shared reciprocal grab links and input-mash escape path;
+  its captive must remain above crossed platform tops during a low carry.
+  Extinction Dive pays its heavy damage only on stage impact and releases on
+  interruption, death, escape, or a bounded offstage timeout. Its 120-frame hold
+  allows a 12-tick lift and slam to finish against ordinary escape inputs;
+  rapid fresh-input mashing remains a counter. CPU lunges require vertical
+  alignment and safe landing support, and a stored ultimate must not disable
+  directional specials away from its catch lane. State is serialized
+  by `LanBirdState` and included in lockstep hashes. Fossilized Pterodactyl is
+  its Classic reward; rounded body/head proportions, large eyes, folded grounded
+  wings, and exposed fossil bones are Canvas presentation only. The
+  authored route, ending, Academy drill, collectible unlock, and Flock Run use
+  existing systems. Opt-in audits: `PterodactylBalanceAuditRun` and
+  `BirdVisualAuditRun -DvisualAuditBird=PTERODACTYL
+  -DvisualAuditOutput=target/pterodactyl-visual`.
 
 ## Releases
 
@@ -187,6 +205,19 @@ under KO slow-mo.
 
 AI-vs-AI results — treat as "where to look," not verdicts (the AI can't pilot
 technical kits like Razorbill/Charles):
+- Pterodactyl is newly added and has not yet received the owner's human feel
+  pass. Its 2026-10-02 polish fixed premature ultimate escapes, unsafe/off-axis
+  CPU lunges, and Classic stock/pacing mismatches while replacing the rigid art
+  with the roster's rounded proportions. The 440-match focused roster audit
+  has no draws/timeouts and a 26.6% win rate (initially 27.0%); Forest is 12.5%
+  and Worldseam 37.5%. CPU weakness remains a pilot/human-playtest lead.
+  Classic's 448 attempts now place all seven scored combats in the 40–71%
+  target band, with no cutoffs; the final boss rose from 0% to 50.0%. The
+  opening/giant/2-on-1 rounds give the player two stocks; the finale gives
+  three against a two-stock Eagle, with recovery drops replacing extra vents.
+  Reports are `target/pterodactyl-balance.md` and
+  `target/pterodactyl-classic-polish.md`. Do not claim competitive balance is
+  accepted or apply a global multiplier based only on these CPU results.
 - The post defense/ledge/recovery audit completed 19,404 matches across 21 maps
   with 6 draws/timeouts. Results range from Tufted Titmouse at 26.2% to Raven
   at 71.2%; the 45.0-point spread is wider than the preceding 40.0-point audit.

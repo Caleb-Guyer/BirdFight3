@@ -207,10 +207,10 @@ public class BirdGame3 {
     private static final double NULL_ROCK_TRUE_FORM_SPEED = 1.04;
     private static final double NULL_ROCK_TRUE_FORM_SIZE = 3.6;
     // Normal modes top out at 24 simultaneous combatants. The backing storage
-    // is larger so the standalone release trailer can run its literal 23v23
+    // is larger so the standalone release trailer can run two complete rosters
     // showcase through the same Bird.update/combat pipeline as ordinary play.
     static final int STANDARD_MASS_COMBATANTS = 24;
-    static final int MAX_COMBATANTS = 46;
+    static final int MAX_COMBATANTS = 48;
     private static final DirectionalSecretCode NULL_ROCK_SELECTOR_CODE =
             new DirectionalSecretCode('U', 'U', 'D', 'D', 'L', 'R');
     private static final double BOSS_HEALTH_EASE_FACTOR = 0.94;
@@ -6082,7 +6082,8 @@ public class BirdGame3 {
         RAVEN_FORETOLD_FATES,
         RAVEN_LAST_DAWN_BOSS,
         GOOSE_BORDER_KING_BOSS,
-        KIWI_ZENITH_BOSS
+        KIWI_ZENITH_BOSS,
+        PTERODACTYL_LAST_SOVEREIGN_BOSS
     }
 
     static boolean isClassicObjectiveEncounterStyle(ClassicEncounterStyle style) {
@@ -11820,7 +11821,9 @@ public class BirdGame3 {
         // Keep new roster additions at the end: replay and LAN formats persist enum ordinals.
         KIWI("Kiwi Bird", 8, 14, 3.8, Color.web("#66503A"), 0.0,
                 "Rapid Probe / Burrow Charge / Spring Kick / Earth Stomp / Midnight Stampede",
-                0.86, 1.10, 0.92, 0.90);
+                0.86, 1.10, 0.92, 0.90),
+        PTERODACTYL("Pterodactyl", 9, 16, 3.5, Color.web("#7B5642"), 0.74,
+                "Wing Gust / Beak Lunge / Updraft / Sky Snatch / Extinction Dive");
 
         final String name;
         // Tunable balance stats: mutable so BirdStats can hot-reload overrides from
@@ -12112,6 +12115,15 @@ public class BirdGame3 {
                 "Kiwi has no meter or setup. Each direction gives one dependable move: peck, charge, recover, or stomp.",
                 MapType.FOREST,
                 BirdType.KIWI,
+                BirdType.PIGEON,
+                TrainingDummyBehavior.IDLE
+        ),
+        PTERODACTYL_DRILL(
+                "Pterodactyl Sky Control",
+                "Use all four specials, then catch and throw the dummy with Sky Snatch.",
+                "Hold Jump for free flight. Down + Special begins a readable swoop. Hold Special to carry or release early to throw; captives can mash fresh inputs to escape.",
+                MapType.BATTLEFIELD,
+                BirdType.PTERODACTYL,
                 BirdType.PIGEON,
                 TrainingDummyBehavior.IDLE
         ),
@@ -28335,6 +28347,7 @@ public class BirdGame3 {
         }
         double baseExtent = switch (type) {
             case BAT -> 1.46;
+            case PTERODACTYL -> 1.90;
             case SHOEBILL -> 1.84;
             case ROADRUNNER -> 1.90;
             case HUMMINGBIRD -> 1.66;
@@ -54210,6 +54223,7 @@ public class BirdGame3 {
             case RAZORBILL -> GuidedTutorialLesson.RAZORBILL_DRILL;
             case GRINCHHAWK -> GuidedTutorialLesson.GRINCHHAWK_DRILL;
             case KIWI -> GuidedTutorialLesson.KIWI_DRILL;
+            case PTERODACTYL -> GuidedTutorialLesson.PTERODACTYL_DRILL;
             default -> null;
         };
     }
@@ -54241,6 +54255,7 @@ public class BirdGame3 {
             case RAZORBILL_DRILL -> BirdType.RAZORBILL;
             case GRINCHHAWK_DRILL -> BirdType.GRINCHHAWK;
             case KIWI_DRILL -> BirdType.KIWI;
+            case PTERODACTYL_DRILL -> BirdType.PTERODACTYL;
             default -> null;
         };
     }
@@ -54302,6 +54317,7 @@ public class BirdGame3 {
             case RAVEN -> "Nightshade Raven";
             case GOOSE -> "Royal Guard Goose";
             case KIWI -> "Silver Fern Kiwi";
+            case PTERODACTYL -> "Fossilized Pterodactyl";
         };
     }
 
@@ -54450,6 +54466,7 @@ public class BirdGame3 {
             case RAVEN -> Color.web("#263238");
             case GOOSE -> Color.web("#7CB342");
             case KIWI -> Color.web("#607D5A");
+            case PTERODACTYL -> Color.web("#D8C8A3");
             case EAGLE -> Color.GOLD;
             case PIGEON -> Color.rgb(18, 18, 18);
         };
@@ -54475,6 +54492,7 @@ public class BirdGame3 {
             case RAVEN -> Color.web("#B0BEC5");
             case GOOSE -> Color.web("#FFF59D");
             case KIWI -> Color.web("#DDE8C8");
+            case PTERODACTYL -> Color.web("#F5E8C9");
             case EAGLE -> Color.web("#FFF176");
             case PIGEON -> Color.web("#F44336");
         };
@@ -55032,6 +55050,9 @@ public class BirdGame3 {
         }
         if (useAuthoredRoutes && playerType == BirdType.KIWI) {
             return buildKiwiClassicRun();
+        }
+        if (useAuthoredRoutes && playerType == BirdType.PTERODACTYL) {
+            return buildPterodactylClassicRun();
         }
         List<ClassicEncounter> run = new ArrayList<>();
         Set<MapType> usedMaps = new HashSet<>();
@@ -57748,6 +57769,62 @@ public class BirdGame3 {
         return run;
     }
 
+    private List<ClassicEncounter> buildPterodactylClassicRun() {
+        List<ClassicEncounter> run = new ArrayList<>();
+        run.add(new ClassicEncounter("Before the First Feather", "Skycliffs",
+                "Falcon challenges the oldest wings. Read the rush, take the thermal, and punish the landing.",
+                MapType.SKYCLIFFS, MatchMutator.NONE, ClassicTwist.STORM_LIFTS, 120 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{classicFighter(BirdType.FALCON, "Cliff Scout", 78, 0.48, 1.00)}, false));
+        run.add(new ClassicEncounter("Small Wings, Wide Sky", "Heartbloom Sanctuary",
+                "Three small scouts share the air. Wing Gust makes room; Sky Snatch catches only one opponent at a time.",
+                MapType.VIBRANT_JUNGLE, MapVariant.HEARTBLOOM_SANCTUARY, MatchMutator.NONE,
+                ClassicTwist.NECTAR_BLOOM, ClassicEncounterStyle.MINIATURE_FLOCK, 125 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{
+                classicFighter(BirdType.HUMMINGBIRD, "Nectar Scout", 62, 0.58, 1.00),
+                classicFighter(BirdType.TITMOUSE, "Canopy Scout", 64, 0.60, 1.00)}, false)
+                .withWaves(new ClassicFighter[]{classicFighter(BirdType.HUMMINGBIRD, "Last Scout", 70, 0.64, 1.00)}));
+        run.add(new ClassicEncounter("The Night Remembers", "Cave",
+                "Bat remembers the ancient passage. Keep your ally safe while Raven and Vulture close the cave.",
+                MapType.CAVE, MatchMutator.NONE, ClassicTwist.SHADOW_CACHE, 135 * 60,
+                new ClassicFighter[]{classicFighter(BirdType.BAT, "Ally: Night Guide", 98, 0.80, 1.00)},
+                new ClassicFighter[]{classicFighter(BirdType.RAVEN, "Cave Sentinel", 90, 0.70, 1.00),
+                        classicFighter(BirdType.VULTURE, "Stone Sentinel", 94, 0.72, 1.00)}, false));
+        run.add(new ClassicEncounter("A Weight from Another Age", "Harvest Tribunal",
+                "The giant Turkey guards a buried skyway. Commit to grabs carefully; the greater weight still fights back.",
+                MapType.FOREST, MapVariant.HARVEST_TRIBUNAL, MatchMutator.NONE,
+                ClassicTwist.RAGE_RITUAL, ClassicEncounterStyle.GIANT, 140 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{classicFighter(BirdType.TURKEY, "Giant: Ancient Gatekeeper", 80, 0.42, 0.86)}, true));
+        run.add(new ClassicEncounter("Wings Against the Crosswind", "Redline Canyon",
+                "Roadrunner and Goose hold opposite lanes. Fly above the rush and land where the formation breaks.",
+                MapType.DESERT, MapVariant.REDLINE_CANYON, MatchMutator.TURBO_BRAWL,
+                ClassicTwist.WIND_RALLY, ClassicEncounterStyle.STANDARD, 135 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{classicFighter(BirdType.ROADRUNNER, "Ground Runner", 68, 0.50, 1.04),
+                        classicFighter(BirdType.GOOSE, "Wind Guard", 72, 0.50, 1.00)}, false));
+        run.add(new ClassicEncounter("Bonus: Fossil Fragments", "Forest Floor",
+                "Break three exposed fossil markers with ordinary attacks before their history is buried again.",
+                MapType.FOREST, MapVariant.STANDARD, MatchMutator.NONE,
+                ClassicTwist.HIDDEN_CACHES, ClassicEncounterStyle.BONUS_RELAY, 80 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{classicFighter(BirdType.TITMOUSE, "Fossil Marker I", 30, 0.05, 0.05),
+                        classicFighter(BirdType.TITMOUSE, "Fossil Marker II", 30, 0.05, 0.05),
+                        classicFighter(BirdType.TITMOUSE, "Fossil Marker III", 30, 0.05, 0.05)}, false));
+        run.add(new ClassicEncounter("The Sky That Turned to Stone", "Worldseam",
+                "A fossilized reflection chose to preserve the sky by freezing every wing. Break the stillness with your ordinary moves.",
+                MapType.WORLDSEAM, MatchMutator.NONE, ClassicTwist.SHADOW_CACHE, 150 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{classicFighter(BirdType.PTERODACTYL, "Elite: The Stone Wing", 160, 0.94, 1.00,
+                "CLASSIC_SKIN_PTERODACTYL")}, true));
+        run.add(new ClassicEncounter("The Sky Before Feathers", "Beacon Crown",
+                "The Last Sovereign calls history a claim to the sky. Defeat the Crown's guardian and let every age fly free.",
+                MapType.BEACON_CROWN, MapVariant.STANDARD, MatchMutator.NONE, ClassicTwist.MEDIC_CACHE,
+                ClassicEncounterStyle.PTERODACTYL_LAST_SOVEREIGN_BOSS, 195 * 60,
+                new ClassicFighter[0], new ClassicFighter[]{classicFighter(BirdType.EAGLE, "Boss: The Last Sovereign", 190, 1.04, 1.00,
+                "SKY_KING_EAGLE")}, true));
+        for (int i = 0; i < run.size(); i++) run.get(i).cpuLevel = Math.min(8, 3 + i);
+        run.get(4).cpuLevel = 5;
+        run.get(5).cpuLevel = 1;
+        run.get(7).cpuLevel = 7;
+        return run;
+    }
+
     private ClassicEncounter buildShoebillSwiftTrailEncounter() {
         ClassicEncounter encounter = new ClassicEncounter(
                 "Swift Trail", "Redline Track",
@@ -59935,6 +60012,10 @@ public class BirdGame3 {
                     scaleBossRushBird(bird, 1.48, 0.80, 0.92);
                 } else if (classicSelectedBird == BirdType.RAVEN) {
                     scaleBossRushBird(bird, 1.46, 0.90, 0.92);
+                } else if (classicSelectedBird == BirdType.PTERODACTYL) {
+                    // Keep the giant readable and launchable for an aerial
+                    // grappler rather than multiplying generic giant resistance.
+                    scaleBossRushBird(bird, 1.42, 0.90, 0.92);
                 } else if (classicSelectedBird == BirdType.GOOSE) {
                     // Both Goose giants are formation-breaking centerpieces.
                     // Keep their real kits, but make contesting the enormous
@@ -60172,6 +60253,10 @@ public class BirdGame3 {
                 // route powers or an inflated damage race.
                 bird.health = Math.max(1.0, 170.0 * enemyHealthScale);
                 bird.setBaseMultipliers(1.16, 0.75 * enemyPowerScale, 0.94);
+                bird.setUltimateEnabled(false);
+            } else if (encounter.style == ClassicEncounterStyle.PTERODACTYL_LAST_SOVEREIGN_BOSS) {
+                bird.health = Math.max(1.0, 135.0 * enemyHealthScale);
+                bird.setBaseMultipliers(0.96, 0.36 * enemyPowerScale, 0.88);
                 bird.setUltimateEnabled(false);
             } else if (encounter.style == ClassicEncounterStyle.HOARDMASTER_BOSS) {
                 bird.health = Math.max(1.0, 190.0 * enemyHealthScale);
@@ -70644,7 +70729,7 @@ public class BirdGame3 {
                  ROOSTER_DRILL, PELICAN_DRILL, HUMMINGBIRD_DRILL,
                  TURKEY_DRILL, PENGUIN_DRILL, SHOEBILL_DRILL,
                  MOCKINGBIRD_DRILL, RAZORBILL_DRILL, GRINCHHAWK_DRILL,
-                 KIWI_DRILL -> {
+                 KIWI_DRILL, PTERODACTYL_DRILL -> {
                 setTrainingBirdStandingPosition(player, stageCenter - 150, groundY);
                 setTrainingBirdStandingPosition(dummy, stageCenter + 130, groundY);
             }
@@ -71390,6 +71475,12 @@ public class BirdGame3 {
                 if (hasCompletedDirectionalSpecialLesson()) {
                     markTrainingAcademyDrillCompleted(BirdType.KIWI);
                     queueTrainingAcademyCompletion("Kiwi groundwork cleared");
+                }
+            }
+            case PTERODACTYL_DRILL -> {
+                if (hasCompletedDirectionalSpecialLesson() && trainingAcademyGrabSeen && trainingAcademyThrowSeen) {
+                    markTrainingAcademyDrillCompleted(BirdType.PTERODACTYL);
+                    queueTrainingAcademyCompletion("Pterodactyl sky control cleared");
                 }
             }
             case DEFENSE_AND_PUNISH -> {
@@ -72747,8 +72838,18 @@ public class BirdGame3 {
                 default -> scores[0];
             };
         }
+        if (classicSelectedBird == BirdType.PTERODACTYL) {
+            // Learning, multi-opponent, and giant encounters need a second
+            // attempt; the long aerial finale gives the player three lives.
+            scores[0] = switch (classicRoundIndex) {
+                case 0, 3, 4 -> 2;
+                case 7 -> 3;
+                default -> scores[0];
+            };
+        }
         int enemyStocks = switch (classicEncounter.style) {
-            case STORM_TYRANT_BOSS, PHOENIX_REBIRTH, BLIGHTWING_BOSS, ICEWORKS_MIRROR -> 2;
+            case STORM_TYRANT_BOSS, PHOENIX_REBIRTH, BLIGHTWING_BOSS, ICEWORKS_MIRROR,
+                    PTERODACTYL_LAST_SOVEREIGN_BOSS -> 2;
             case NULL_ROC_BOSS, STILL_KING_BOSS -> 2;
             case LONG_WINTER_BOSS, DEVOURER_BOSS, BROODBREAKER_BOSS,
                     LAST_SUN_BOSS, HOARDMASTER_BOSS, RAVEN_LAST_DAWN_BOSS,
@@ -75240,6 +75341,7 @@ public class BirdGame3 {
             h = h * 1099511628211L + b.mockingbirdMicSwingTimer;
             h = h * 1099511628211L + b.mockingbirdMicDirection;
             h = h * 1099511628211L + b.deterministicGrabStateHash();
+            h = h * 1099511628211L + b.pterodactyl.hash();
             h = h * 1099511628211L + b.deterministicLedgeStateHash();
             h = h * 1099511628211L + b.deterministicRecoveryStateHash();
             h = h * 1099511628211L + b.deterministicMovementStateHash();
@@ -78614,6 +78716,8 @@ public class BirdGame3 {
                 case RAZORBILL_DRILL -> trainingRazorbillDrillProgressText();
                 case GRINCHHAWK_DRILL -> trainingGrinchhawkDrillProgressText();
                 case KIWI_DRILL -> trainingDirectionalSpecialProgressText();
+                case PTERODACTYL_DRILL -> trainingDirectionalSpecialProgressText()
+                        + " | Catch: " + yesNoText(trainingAcademyGrabSeen) + "  Throw: " + yesNoText(trainingAcademyThrowSeen);
                 default -> specialMoveGuideNote(player.type);
             };
         }
@@ -79196,6 +79300,11 @@ public class BirdGame3 {
                         + "  Burrow: " + yesNoText(trainingAcademySideSpecialSeen)
                         + "  Spring: " + yesNoText(trainingAcademyUpSpecialSeen)
                         + "  Stomp: " + yesNoText(trainingAcademyDownSpecialSeen);
+                case PTERODACTYL_DRILL -> "Gust: " + yesNoText(trainingAcademyNeutralSpecialSeen)
+                        + "  Lunge: " + yesNoText(trainingAcademySideSpecialSeen)
+                        + "  Updraft: " + yesNoText(trainingAcademyUpSpecialSeen)
+                        + "  Snatch: " + yesNoText(trainingAcademyDownSpecialSeen)
+                        + "  Catch: " + yesNoText(trainingAcademyGrabSeen) + "  Throw: " + yesNoText(trainingAcademyThrowSeen);
                 case DEFENSE_AND_PUNISH -> "Blocked: " + yesNoText(trainingAcademyShieldHitSeen)
                         + "  Punish: " + yesNoText(trainingAcademyPunishReady && trainingAcademyHitsLanded > 0)
                         + "  Grab: " + yesNoText(trainingAcademyGrabSeen)
@@ -81927,6 +82036,7 @@ public class BirdGame3 {
                 0.00,
                 0.00);
         VictoryPortraitLayout baseLayout = switch (type) {
+            case PTERODACTYL -> new VictoryPortraitLayout(1.90, 0.90, 1.25, 0.00, 0.02);
             case BAT -> new VictoryPortraitLayout(winnerPose ? 1.48 : 1.60,
                     winnerPose ? 1.05 : 0.92,
                     winnerPose ? 1.60 : 1.28,
@@ -85568,6 +85678,7 @@ public class BirdGame3 {
             case RAVEN -> "Marks and routes set up larger follow-ups, including the ultimate.";
             case GOOSE -> "Territory empowers the next special. Nest Guard counters hits near the nest.";
             case KIWI -> "No meter or setup. Ultimate: Midnight Stampede chains three charges into one broad eruption.";
+            case PTERODACTYL -> "Hold Jump to fly. Sky Snatch carries one opponent; release Special to throw early, steer Left/Right, and choose Jump or Down for vertical launch. Captives can mash fresh inputs to escape. Ultimate: Extinction Dive catches and slams into the stage.";
             case HUMMINGBIRD -> "Ultimate: Needleheart Overdrive locks on, chains three flash pierces, then detonates a nectar final stab.";
             case MOCKINGBIRD -> "Ultimate: Shadow Court summons three fragile dark copies from the Lounge.";
             case ROOSTER -> "Ultimate: Dawn Stampede floods the stage with fast flying swarm chicks.";

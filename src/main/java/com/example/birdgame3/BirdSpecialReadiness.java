@@ -30,6 +30,7 @@ final class BirdSpecialReadiness {
             case RAVEN -> bird.canStartRavenSpecial();
             case GOOSE -> bird.canStartGooseSpecial();
             case KIWI -> bird.canStartKiwiSpecial();
+            case PTERODACTYL -> PterodactylSpecials.canStart(bird);
         };
     }
 
@@ -43,7 +44,7 @@ final class BirdSpecialReadiness {
         return switch (bird.type) {
             case EAGLE, FALCON, HUMMINGBIRD, TURKEY, ROOSTER, ROADRUNNER, PENGUIN,
                     SHOEBILL, MOCKINGBIRD, RAZORBILL, GRINCHHAWK, VULTURE,
-                    OPIUMBIRD, HEISENBIRD, TITMOUSE, BAT, PELICAN, RAVEN, GOOSE, KIWI -> false;
+                    OPIUMBIRD, HEISENBIRD, TITMOUSE, BAT, PELICAN, RAVEN, GOOSE, KIWI, PTERODACTYL -> false;
             case PIGEON, PHOENIX -> true;
         };
     }

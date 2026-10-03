@@ -1413,6 +1413,7 @@ public class Bird {
     private int grabStartupTimer = 0;
     private Bird grabbedTarget = null;
     private Bird grabbedBy = null;
+    final PterodactylSpecials.State pterodactyl = new PterodactylSpecials.State();
     private int grabHoldTimer = 0;
     private int grabThrowLockTimer = 0;
     private int grabEscapeProgress = 0;
@@ -3318,6 +3319,7 @@ public class Bird {
             case RAVEN -> resetRavenSpecialState(false);
             case GOOSE -> resetGooseSpecialState(false);
             case KIWI -> KiwiSpecials.reset(this);
+            case PTERODACTYL -> PterodactylSpecials.reset(this, false);
             case ROOSTER, MOCKINGBIRD -> {
             }
         }
@@ -3964,6 +3966,9 @@ public class Bird {
         if (type == BirdGame3.BirdType.PELICAN) {
             return pelicanNormalAttackProfile(variant, facingDir);
         }
+        if (type == BirdGame3.BirdType.PTERODACTYL) {
+            return pterodactylNormalAttackProfile(variant, facingDir);
+        }
         return switch (variant) {
             case NEUTRAL -> new NormalAttackProfile(104.0, 84.0, facingDir * 14.0, -2.0,
                     0.80, 0.76, 0.92, 0.82, 0.82, 18, 8, AERIAL_LANDING_LAG_FRAMES);
@@ -3995,6 +4000,41 @@ public class Bird {
                     0.88, 0.90, 1.08, 0.70, 0.70, 27, 13, AERIAL_LANDING_LAG_FRAMES);
             case GETUP_ATTACK -> new NormalAttackProfile(142.0, 76.0, 0.0, 16.0,
                     0.84, 0.86, 0.96, 0.62, 0.62, 30, 15, AERIAL_LANDING_LAG_FRAMES);
+        };
+    }
+
+    private NormalAttackProfile pterodactylNormalAttackProfile(NormalAttackVariant variant, double facingDir) {
+        return switch (variant) {
+            case NEUTRAL -> new NormalAttackProfile(132, 78, facingDir * 24, -4,
+                    0.78, 0.80, 0.94, 0.76, 0.76, 22, 10, AERIAL_LANDING_LAG_FRAMES);
+            case SIDE_TILT -> new NormalAttackProfile(156, 78, facingDir * 36, -4,
+                    0.94, 0.98, 1.16, 0.68, 0.68, 26, 12, AERIAL_LANDING_LAG_FRAMES);
+            case UP_TILT -> new NormalAttackProfile(96, 150, 0, -40,
+                    0.86, 0.96, 0.58, 1.60, 1.60, 25, 12, AERIAL_LANDING_LAG_FRAMES);
+            case DOWN_TILT -> new NormalAttackProfile(128, 66, facingDir * 20, 24,
+                    0.84, 0.86, 0.84, 0.28, 0.28, 24, 11, AERIAL_LANDING_LAG_FRAMES);
+            case SIDE_SMASH -> new NormalAttackProfile(176, 92, facingDir * 46, 0,
+                    1.20, 1.30, 1.52, 0.86, 0.86, 40, 16, AERIAL_LANDING_LAG_FRAMES);
+            case UP_SMASH -> new NormalAttackProfile(120, 174, 0, -48,
+                    1.08, 1.20, 0.70, 1.94, 1.94, 38, 15, AERIAL_LANDING_LAG_FRAMES);
+            case DOWN_SMASH -> new NormalAttackProfile(154, 86, 0, 28,
+                    1.12, 1.22, 1.06, 0.44, 0.44, 40, 16, AERIAL_LANDING_LAG_FRAMES);
+            case NEUTRAL_AIR -> new NormalAttackProfile(156, 112, 0, -4,
+                    0.92, 0.98, 1.04, 1.06, 1.06, 30, 13, 8);
+            case FORWARD_AIR -> new NormalAttackProfile(160, 82, facingDir * 42, -6,
+                    1.04, 1.10, 1.34, 0.80, 0.80, 32, 14, 10);
+            case BACK_AIR -> new NormalAttackProfile(150, 88, -facingDir * 34, -2,
+                    1.00, 1.04, 1.24, 0.74, 0.74, 29, 13, 9);
+            case UP_AIR -> new NormalAttackProfile(106, 166, 0, -44,
+                    0.90, 1.02, 0.58, 1.86, 1.86, 28, 12, 8);
+            case DOWN_AIR -> new NormalAttackProfile(108, 152, 0, 48,
+                    1.02, 1.08, 0.68, 0.30, -1.12, 34, 14, 12);
+            case DASH_ATTACK -> new NormalAttackProfile(164, 82, facingDir * 36, 2,
+                    1.02, 1.06, 1.28, 0.72, 0.72, 33, 14, AERIAL_LANDING_LAG_FRAMES);
+            case LEDGE_ATTACK -> new NormalAttackProfile(146, 80, facingDir * 30, 4,
+                    0.88, 0.92, 1.08, 0.70, 0.70, 29, 12, AERIAL_LANDING_LAG_FRAMES);
+            case GETUP_ATTACK -> new NormalAttackProfile(164, 78, 0, 18,
+                    0.86, 0.90, 1.00, 0.60, 0.60, 31, 13, AERIAL_LANDING_LAG_FRAMES);
         };
     }
 
@@ -4058,10 +4098,14 @@ public class Bird {
                 || type == BirdGame3.BirdType.KIWI
                 || type == BirdGame3.BirdType.TITMOUSE
                 || type == BirdGame3.BirdType.BAT
-                || type == BirdGame3.BirdType.PELICAN;
+                || type == BirdGame3.BirdType.PELICAN
+                || type == BirdGame3.BirdType.PTERODACTYL;
     }
 
     private NormalAttackTimeline normalAttackTimeline(NormalAttackVariant variant) {
+        if (type == BirdGame3.BirdType.PTERODACTYL) {
+            return pterodactylNormalAttackTimeline(variant);
+        }
         if (type == BirdGame3.BirdType.PIGEON) {
             return pigeonNormalAttackTimeline(variant);
         }
@@ -4157,11 +4201,28 @@ public class Bird {
         };
     }
 
-    /**
-     * Eagle commits to broad, deliberate talon arcs. Its active windows are
-     * forgiving, but the slower startup gives opponents a readable warning and
-     * its recovery makes a missed royal swing meaningfully punishable.
-     */
+    /** Broad wing arcs and precise bill hits commit the aerial grappler to recovery. */
+    private NormalAttackTimeline pterodactylNormalAttackTimeline(NormalAttackVariant variant) {
+        return switch (variant) {
+            case NEUTRAL -> noSweetSpotTimeline(4, 3, 5, 0, 0);
+            case SIDE_TILT -> sweetSpotTimeline(5, 3, 7, 0, 0, 0.65, 1.08, 1.10, 0.95, 0.94);
+            case UP_TILT -> noSweetSpotTimeline(5, 5, 6, 0, 0);
+            case DOWN_TILT -> noSweetSpotTimeline(4, 4, 6, 0, 0);
+            case SIDE_SMASH -> sweetSpotTimeline(9, 4, 10, 0, 0, 0.68, 1.12, 1.15, 0.94, 0.92);
+            case UP_SMASH -> noSweetSpotTimeline(8, 5, 9, 0, 0);
+            case DOWN_SMASH -> noSweetSpotTimeline(9, 5, 10, 0, 0);
+            case NEUTRAL_AIR -> noSweetSpotTimeline(4, 8, 6, 5, 2);
+            case FORWARD_AIR -> sweetSpotTimeline(6, 5, 8, 6, 2, 0.66, 1.10, 1.13, 0.95, 0.93);
+            case BACK_AIR -> noSweetSpotTimeline(5, 5, 7, 5, 2);
+            case UP_AIR -> noSweetSpotTimeline(5, 6, 6, 5, 2);
+            case DOWN_AIR -> sweetSpotTimeline(7, 5, 9, 8, 2, 0.68, 1.10, 1.14, 0.95, 0.92);
+            case DASH_ATTACK -> noSweetSpotTimeline(6, 5, 9, 0, 0);
+            case LEDGE_ATTACK -> noSweetSpotTimeline(5, 4, 8, 0, 0);
+            case GETUP_ATTACK -> noSweetSpotTimeline(6, 5, 8, 0, 0);
+        };
+    }
+
+    /** Eagle's deliberate talon arcs trade readable startup for forgiving active windows. */
     private NormalAttackTimeline eagleNormalAttackTimeline(NormalAttackVariant variant) {
         return switch (variant) {
             case NEUTRAL -> sweetSpotTimeline(2, 3, 3, 0, 0,
@@ -6595,6 +6656,8 @@ public class Bird {
         if (target == null) {
             return false;
         }
+        if (PterodactylSpecials.carrying(this) && !stunned && !inDockWater
+                && target.health > 0 && target.grabbedBy == this) return false;
         if (stunned || inDockWater || !isOnGround() || target.health <= 0 || target.grabbedBy != this) {
             releaseGrabState(true);
             return false;
@@ -6680,6 +6743,7 @@ public class Bird {
             case TITMOUSE -> "Titmouse Seed Tap";
             case BAT -> "Bat Echo Bite";
             case PELICAN -> "Pelican Pouch Press";
+            case PTERODACTYL -> "Pterodactyl Ancient Bite";
             default -> type.name + " Pummel";
         };
         game.recordNormalMoveUse(this, moveName);
@@ -6783,6 +6847,19 @@ public class Bird {
         double targetGroundY = bodyBottomY();
         target.x = targetCenterX - target.bodyWidth() / 2.0;
         target.y = targetGroundY - target.bodyHeight();
+        if (PterodactylSpecials.carrying(this)) {
+            target.x = bodyCenterX() - target.bodyWidth() / 2;
+            target.y = bodyBottomY() - target.bodyHeight() * 0.20;
+            // A low swoop may catch just above a platform. Keep the captive
+            // above that surface until the carrier has climbed clear of it.
+            for (Platform platform : game.platforms) {
+                if (target.x + target.bodyWidth() > platform.x && target.x < platform.x + platform.w
+                        && bodyBottomY() <= platform.y + 1.0
+                        && target.bodyBottomY() > platform.y) {
+                    target.y = platform.y - target.bodyHeight();
+                }
+            }
+        }
         target.vx = 0.0;
         target.vy = 0.0;
         target.facingRight = !facingRight;
@@ -7024,6 +7101,14 @@ public class Bird {
                 case FORWARD, NONE -> new ThrowProfile(10, facingDir * 20.8, -6.6, 19, "cargo-cast");
             };
         }
+        if (type == BirdGame3.BirdType.PTERODACTYL) {
+            return switch (direction) {
+                case BACK -> new ThrowProfile(8, -facingDir * 19.5, -7.5, 18, "wing-reversed");
+                case UP -> new ThrowProfile(7, facingDir * 3, -19, 20, "thermal-heaved");
+                case DOWN -> new ThrowProfile(9, facingDir * 5, -3.3, 21, "stone-pressed");
+                case FORWARD, NONE -> new ThrowProfile(8, facingDir * 19, -6.5, 17, "cliff-cast");
+            };
+        }
         return switch (direction) {
             case BACK -> new ThrowProfile(THROW_BACK_DAMAGE, -facingDir * 20.0, -8.2, 18, "back-threw");
             case UP -> new ThrowProfile(THROW_UP_DAMAGE, facingDir * 4.2, -17.0, 20, "up-threw");
@@ -7033,6 +7118,14 @@ public class Bird {
     }
 
     private String throwTelemetryName(GrabThrowDirection direction) {
+        if (type == BirdGame3.BirdType.PTERODACTYL) {
+            return "Pterodactyl " + switch (direction) {
+                case BACK -> "Wing Reversal";
+                case UP -> "Thermal Heave";
+                case DOWN -> "Stone Press";
+                case FORWARD, NONE -> "Cliff Cast";
+            };
+        }
         if (type == BirdGame3.BirdType.PIGEON) {
             return switch (direction) {
                 case BACK -> "Pigeon Gutter Toss";
@@ -7283,6 +7376,68 @@ public class Bird {
         releaseGrabState(true);
     }
 
+    boolean pterodactylCanAct() {
+        return type == BirdGame3.BirdType.PTERODACTYL && health > 0 && stunTime <= 0
+                && grabbedBy == null && grabbedTarget == null && !isDodging()
+                && !normalAttackTimelineActive && !isChargingAttack() && !isGroundAttackPending()
+                && !onVine && !ledgeHanging && !isGrappling
+                && (!isBlocking || (selectDirectionalSpecialInput() == DirectionalSpecialInput.DOWN && shieldStunFrames <= 0));
+    }
+
+    Bird pterodactylTarget() {
+        return grabbedTarget != null && grabbedTarget.grabbedBy == this && grabbedTarget.health > 0 ? grabbedTarget : null;
+    }
+
+    boolean pterodactylCanGrab(Bird target) {
+        return target != null && target != this && target.health > 0 && canDamageTarget(target)
+                && grabbedBy == null && grabbedTarget == null && target.grabbedBy == null && target.grabbedTarget == null
+                && target.grabReleaseLockTimer <= 0 && !target.isCombatInvulnerable()
+                && !target.onVine && !target.batHanging && !target.ledgeHanging && !target.isGrappling
+                && !target.isInDockWater() && !isInDockWater();
+    }
+
+    void pterodactylGrab(Bird target, int holdFrames) {
+        beginGrabOn(target);
+        grabHoldTimer = holdFrames;
+        grabThrowLockTimer = 0;
+    }
+
+    boolean pterodactylAdvanceHold() {
+        Bird target = pterodactylTarget();
+        if (target == null) { releaseGrabState(true); return false; }
+        if (--grabHoldTimer <= 0) { releaseGrabbedTargetAfterEscape(target); return false; }
+        return true;
+    }
+
+    void pterodactylRelease(boolean attack, boolean slam) {
+        syncGrabbedTargetPosition();
+        Bird target = pterodactylTarget();
+        double supportY = bodyBottomY();
+        boolean grounded = isOnGround();
+        releaseGrabState(true);
+        if (target == null || !attack) return;
+        if (slam && grounded) target.y = supportY - target.bodyHeight();
+        String moveName = slam ? PterodactylSpecials.EXTINCTION_DIVE : "Pterodactyl Sky Snatch";
+        double oldHealth = target.health;
+        double dealt = applyUnshieldedDamageTo(target, slam ? 40 : 11, moveName);
+        game.damageDealt[playerIndex] += (int) Math.round(dealt);
+        if (dealt > 0) game.recordSpecialImpact(playerIndex, (int) Math.round(dealt), true);
+        if (target.health <= 0 && oldHealth > 0) {
+            game.eliminations[playerIndex]++;
+            game.recordMoveKo(this, target, moveName);
+        }
+        int dir = horizontalInputDirection();
+        if (dir == 0) dir = facingDirection();
+        target.vx = dir * (slam ? 8 : 10);
+        target.vy = slam ? (grounded ? -18 : 25) : jumpPressed() ? -13 : blockPressed() ? 7 : -6;
+        target.grabReleaseLockTimer = Math.max(target.grabReleaseLockTimer, 35);
+        if (target.health > 0) {
+            target.applyStun(slam ? 30 : 12);
+            target.applyPendingSmashLaunch();
+        }
+        game.recordTrainingThrow(this);
+    }
+
     private boolean isChargingAttack() {
         return attackChargeFrames > 0;
     }
@@ -7494,6 +7649,25 @@ public class Bird {
     }
 
     private String normalAttackTelemetryName(NormalAttackVariant variant) {
+        if (type == BirdGame3.BirdType.PTERODACTYL) {
+            return "Pterodactyl " + switch (variant) {
+                case NEUTRAL -> "Fossil Peck";
+                case SIDE_TILT -> "Bill Sweep";
+                case UP_TILT -> "Crest Lift";
+                case DOWN_TILT -> "Cliff Rake";
+                case SIDE_SMASH -> "Ancient Lance";
+                case UP_SMASH -> "Thermal Breaker";
+                case DOWN_SMASH -> "Stone Talons";
+                case NEUTRAL_AIR -> "Membrane Wheel";
+                case FORWARD_AIR -> "Sky Spear";
+                case BACK_AIR -> "Wingback";
+                case UP_AIR -> "Cloud Cutter";
+                case DOWN_AIR -> "Prehistoric Talons";
+                case DASH_ATTACK -> "Runway Rush";
+                case LEDGE_ATTACK -> "Cliff Snap";
+                case GETUP_ATTACK -> "Dustwing";
+            };
+        }
         if (type == BirdGame3.BirdType.PIGEON) {
             return switch (variant) {
                 case NEUTRAL -> "Pigeon Rooftop Peck";
@@ -9510,6 +9684,7 @@ public class Bird {
             case RAVEN -> ultimateReady || ravenNeutralReuseTimer <= 0;
             case GOOSE -> ultimateReady || gooseHonkReuseTimer <= 0;
             case KIWI -> ultimateReady || kiwiProbeReuseTimer <= 0;
+            case PTERODACTYL -> specialCooldown <= 0;
             default -> throw new IllegalStateException("Unexpected value: " + source);
         };
     }
@@ -9548,6 +9723,7 @@ public class Bird {
             case RAVEN -> ravenQuillCharging;
             case GOOSE -> gooseHonkTimer > 0;
             case KIWI -> kiwiProbeTimer > 0;
+            case PTERODACTYL -> PterodactylSpecials.active(this);
             case MOCKINGBIRD -> false;
         };
     }
@@ -9836,6 +10012,10 @@ public class Bird {
     }
 
     private boolean shouldReserveJumpForSpecial() {
+        if (type == BirdGame3.BirdType.PTERODACTYL) {
+            return specialJustPressed() && PterodactylSpecials.canStart(this)
+                    && selectDirectionalSpecialInput() == DirectionalSpecialInput.UP;
+        }
         if (!specialJustPressed()) {
             return false;
         }
@@ -9943,6 +10123,10 @@ public class Bird {
     }
 
     private boolean shouldReserveBlockForSpecial() {
+        if (type == BirdGame3.BirdType.PTERODACTYL) {
+            return specialJustPressed() && PterodactylSpecials.canStart(this)
+                    && selectDirectionalSpecialInput() == DirectionalSpecialInput.DOWN;
+        }
         if (!specialJustPressed()) {
             return false;
         }
@@ -10260,6 +10444,7 @@ public class Bird {
             case RAVEN -> new AIKitProfile(218, 250, 390, 460, 0.66, 0.72, 0.86, 0.34, 0.74, 0.70);
             case GOOSE -> new AIKitProfile(164, 245, 360, 320, 0.84, 0.18, 0.62, 0.62, 0.52, 0.36);
             case KIWI -> new AIKitProfile(176, 226, 340, 360, 0.82, 0.08, 0.16, 0.18, 0.72, 0.42);
+            case PTERODACTYL -> new AIKitProfile(220, 250, 360, 460, 0.72, 0.36, 0.30, 0.22, 0.84, 0.90);
         };
     }
 
@@ -10480,6 +10665,14 @@ public class Bird {
             return;
         }
         if (grabbedTarget != null) {
+            if (PterodactylSpecials.carrying(this)) {
+                // Aerial snatches use their own release window, not grounded pummels.
+                // Keep facing and choose a throw while the tick-driven carry finishes.
+                game.setAiControlKey(playerIndex, facingRight ? rightKey() : leftKey(), true);
+                if (!pterodactyl.ultimate) game.setAiControlKey(playerIndex, jumpKey(), true);
+                aiLastHealth = currentDurability;
+                return;
+            }
             applyAIGrabFollowupInputs(grabbedTarget, cpuLevel, skill);
             aiLastHealth = currentDurability;
             return;
@@ -13139,7 +13332,7 @@ public class Bird {
         ceiling = Math.max(140.0, ceiling);
         return switch (type) {
             case HUMMINGBIRD -> ceiling - 140.0;
-            case EAGLE, FALCON, PHOENIX, BAT -> ceiling - 60.0;
+            case EAGLE, FALCON, PHOENIX, BAT, PTERODACTYL -> ceiling - 60.0;
             case ROADRUNNER -> roadrunnerSandstormActive() ? ceiling - 40.0 : ceiling;
             default -> ceiling;
         };
@@ -13158,7 +13351,7 @@ public class Bird {
         double allowance = 8.0;
         switch (type) {
             case HUMMINGBIRD -> allowance = 360.0 + altitude * 0.18 + Math.max(0.0, -vy) * 10.0;
-            case EAGLE, FALCON, PHOENIX, BAT -> allowance = 240.0 + altitude * 0.14 + Math.max(0.0, -vy) * 7.0;
+            case EAGLE, FALCON, PHOENIX, BAT, PTERODACTYL -> allowance = 240.0 + altitude * 0.14 + Math.max(0.0, -vy) * 7.0;
             case TITMOUSE, OPIUMBIRD, HEISENBIRD, RAVEN -> allowance = 210.0 + altitude * 0.12 + Math.max(0.0, -vy) * 6.0;
             case VULTURE -> {
                 double launch = grounded ? 0.0 : Math.max(0.0, -vy) * 18.0;
@@ -13401,6 +13594,7 @@ public class Bird {
             case RAVEN -> !ravenLiftUsed;
             case GOOSE -> !gooseLiftUsed;
             case KIWI -> !kiwiSpringUsed;
+            case PTERODACTYL -> !pterodactyl.upUsed && pterodactyl.cooldowns[2] <= 0;
             case HUMMINGBIRD -> false;
         };
     }
@@ -13619,6 +13813,8 @@ public class Bird {
                     && (depth > 92.0 || (offstage && (offstageDistance > 16.0 || movingAway || vy > 2.0)));
             case BAT -> !batMoonriseUsed
                     && (depth > 88.0 || (offstage && (offstageDistance > 16.0 || movingAway || vy > 2.0)));
+            case PTERODACTYL -> !pterodactyl.upUsed && pterodactyl.cooldowns[2] <= 0
+                    && (depth > 88.0 || (offstage && (offstageDistance > 16.0 || movingAway || vy > 2.0)));
             case OPIUMBIRD, HEISENBIRD -> !opiumUpSpecialUsed
                     && (depth > 96.0 || (offstage && (offstageDistance > 16.0 || movingAway || vy > 2.0)));
             case GOOSE -> !gooseLiftUsed
@@ -13797,6 +13993,10 @@ public class Bird {
                     reach += 150.0;
                 }
             }
+            case PTERODACTYL -> {
+                reach += 95.0;
+                if (!pterodactyl.upUsed) reach += 150.0;
+            }
             case VULTURE -> {
                 if (!isOnGround() || isFlying) {
                     reach += 80.0 + Math.max(0.0, -vy) * 12.0;
@@ -13848,6 +14048,10 @@ public class Bird {
                     reach += 42.0;
                 }
             }
+            case PTERODACTYL -> {
+                reach += 55.0;
+                if (!pterodactyl.upUsed) reach += 42.0;
+            }
             case TURKEY, PELICAN, GRINCHHAWK, ROOSTER -> reach += 35.0;
             default -> {
             }
@@ -13874,6 +14078,7 @@ public class Bird {
             case ROOSTER -> 195;
             case RAVEN -> 210;
             case KIWI -> 176;
+            case PTERODACTYL -> 220;
         };
     }
 
@@ -14016,6 +14221,7 @@ public class Bird {
         boolean enemyActive = aiTargetHasActiveThreat(target);
         boolean targetSettingUp = aiTargetHasSetupPressure(target);
         if (isUltimateReady()) {
+            if (type == BirdGame3.BirdType.PTERODACTYL) return PterodactylSpecials.aiInput(this, target);
             return DirectionalSpecialInput.NEUTRAL;
         }
 
@@ -14135,6 +14341,7 @@ public class Bird {
             }
             case KIWI -> chooseKiwiAISpecialInput(
                     target, dist, onGround, targetAbove, targetBelow, enemyActive);
+            case PTERODACTYL -> PterodactylSpecials.aiInput(this, target);
         };
     }
 
@@ -14613,6 +14820,7 @@ public class Bird {
     private boolean shouldUseSpecialAI(Bird target, double dist, boolean onGround, boolean lowHealth) {
         double dy = target.y - y;
         if (isUltimateReady()) {
+            if (type == BirdGame3.BirdType.PTERODACTYL) return PterodactylSpecials.shouldAIUse(this, target);
             return true;
         }
         AIKitProfile own = aiOwnKit();
@@ -14691,6 +14899,8 @@ public class Bird {
                 return shouldTitmouseAIUseSpecial(target, dist, onGround, enemySetup);
             case BAT:
                 return dist < 360 && (Math.abs(dy) < 220 || !onGround || targetVulnerable);
+            case PTERODACTYL:
+                return PterodactylSpecials.shouldAIUse(this, target);
             case PELICAN:
                 return pelicanDownCharging
                         || (pelicanCargoCount <= 0 && onGround && dist > 240 && dist < 560 && !enemyActive)
@@ -15456,6 +15666,7 @@ public class Bird {
             resetTitmouseSpecialState(false);
             resetBatSpecialState(false);
             resetPelicanSpecialState(false);
+            PterodactylSpecials.reset(this, false);
             resetOpiumSpecialState();
             resetGooseSpecialState(false);
             KiwiSpecials.reset(this);
@@ -15512,7 +15723,7 @@ public class Bird {
 
         // === GRAVITY ===
         double gravityScale = 1.0;
-        if (type == BirdGame3.BirdType.BAT && !isOnGround()) {
+        if ((type == BirdGame3.BirdType.BAT || type == BirdGame3.BirdType.PTERODACTYL) && !isOnGround()) {
             gravityScale = 0.66;
         }
         if (inDockWater) {
@@ -15542,7 +15753,7 @@ public class Bird {
         }
 
         // === FLY/GLIDE ===
-        if (!stunned && jumpPressed() && airborne && !inDockWater
+        if (!stunned && jumpPressed() && airborne && !inDockWater && !PterodactylSpecials.active(this)
                 && !(type == BirdGame3.BirdType.PIGEON && pigeonFlutterTimer > 0)
                 && !(isRaptor() && raptorClimbTimer > 0)) {
             double flyLift = currentFlyUpForce();
@@ -15572,7 +15783,7 @@ public class Bird {
                     if (vy < limitedFlightThermalCap && !aboveCameraReach) vy = limitedFlightThermalCap;
                 }
             }
-            if (type == BirdGame3.BirdType.BAT && !aboveCameraReach) {
+            if ((type == BirdGame3.BirdType.BAT || type == BirdGame3.BirdType.PTERODACTYL) && !aboveCameraReach) {
                 // Bat gets stronger sustained lift so it can truly dogfight in the air.
                 vy -= 0.55 * flightLiftScale;
                 if (vy < -11.5) vy = -11.5;
@@ -15644,6 +15855,7 @@ public class Bird {
         handleTitmouseSpecialState();
         handlePelicanSpecialState();
         handleBatSpecialState();
+        PterodactylSpecials.tick(this, specialHeld);
         handleRavenSpecialState(specialHeld);
         handleOpiumSpecialState();
         GooseSpecials.handleState(this, specialHeld);
@@ -15680,7 +15892,7 @@ public class Bird {
         handleRavenPostMoveSpecialState();
         GooseSpecials.handlePostMoveState(this);
         KiwiSpecials.handlePostMoveState(this);
-        if (tryGrabUniversalLedge(prevX, inDockWater)) {
+        if (!PterodactylSpecials.active(this) && tryGrabUniversalLedge(prevX, inDockWater)) {
             rememberFrameInputs(jumpHeld, specialHeld, blockHeld, grabHeld, leftHeld, rightHeld);
             handleTaunts();
             if (tauntTimer > 0) tauntTimer--;
@@ -15702,6 +15914,7 @@ public class Bird {
 
         // === BOUNDARIES ===
         handleBoundaries(gameSpeed, airborne, prevX, prevY);
+        PterodactylSpecials.postMove(this, prevX, prevY);
 
         // === EAGLE DIVE / ASCENT DAMAGE ===
         handleEagleDiveImpact();
@@ -16139,6 +16352,7 @@ public class Bird {
         cooldownRecoveryCarry += gameSpeed * (type != null ? type.cooldownRate : 1.0) * flockCooldownMultiplier;
         int cooldownTicks = (int) cooldownRecoveryCarry;
         cooldownRecoveryCarry -= cooldownTicks;
+        PterodactylSpecials.cooldowns(this, cooldownTicks);
         if (specialCooldown > 0) specialCooldown = Math.max(0, specialCooldown - cooldownTicks);
         if (crowSwarmCooldown > 0) crowSwarmCooldown = Math.max(0, crowSwarmCooldown - cooldownTicks);
         if (nullRockNeutralReuseTimer > 0) nullRockNeutralReuseTimer = Math.max(0, nullRockNeutralReuseTimer - cooldownTicks);
@@ -17509,6 +17723,7 @@ public class Bird {
                                   boolean leftPressed, boolean rightPressed, boolean jumpPressed,
                                   boolean directionalDownPressed,
                                   boolean leftJustPressed, boolean rightJustPressed) {
+        if (type == BirdGame3.BirdType.PTERODACTYL && PterodactylSpecials.active(this)) return;
         if ((type == BirdGame3.BirdType.PIGEON && PigeonSpecials.active(this))
                 || (isRaptor() && RaptorSpecials.active(this))) {
             return;
@@ -18437,6 +18652,7 @@ public class Bird {
     private void handleHorizontalMovement(boolean stunned, boolean airborne,
                                           boolean jumpHeld, boolean jumpJustPressed,
                                           double gameSpeed) {
+        if (type == BirdGame3.BirdType.PTERODACTYL && PterodactylSpecials.active(this)) return;
         if (!stunned) {
             if (dashCooldown > 0) dashCooldown--;
             if (dashTimer > 0) dashTimer--;
@@ -18574,6 +18790,11 @@ public class Bird {
                 moveSpeed *= airborne ? 1.48 : 0.62;
                 airFric = airborne ? 0.93 : 0.70;
                 accel = airborne ? 0.28 : 0.34;
+            }
+            if (type == BirdGame3.BirdType.PTERODACTYL) {
+                moveSpeed *= airborne ? 1.40 : 0.85;
+                airFric = airborne ? 0.95 : 0.75;
+                accel = airborne ? 0.17 : 0.30;
             }
             if (type == BirdGame3.BirdType.PELICAN) {
                 int cargo = pelicanEffectiveCargo();
@@ -18745,6 +18966,8 @@ public class Bird {
                     ? canConvertShieldIntoGooseDownSpecial()
                     : type == BirdGame3.BirdType.KIWI
                     ? canConvertShieldIntoKiwiDownSpecial()
+                    : type == BirdGame3.BirdType.PTERODACTYL
+                    ? selectDirectionalSpecialInput() == DirectionalSpecialInput.DOWN && isBlocking && shieldStunFrames <= 0
                     : isOpiumEchoPair()
                     ? canConvertShieldIntoOpiumDownSpecial()
                     : isRaptor() && canConvertShieldIntoRaptorDownSpecial(selectRaptorSpecialVariant());
@@ -21485,6 +21708,7 @@ public class Bird {
     }
 
     private void onDefeated() {
+        PterodactylSpecials.reset(this, true);
         if (health <= 0.0) {
             game.markCampaignEnemyEliminated(playerIndex);
         }
@@ -21752,6 +21976,7 @@ public class Bird {
 
     LanBirdState toLanState() {
         LanBirdState state = new LanBirdState();
+        state.pterodactyl.copyFrom(pterodactyl);
         state.typeOrdinal = type.ordinal();
         state.x = x;
         state.y = y;
@@ -22605,6 +22830,7 @@ public class Bird {
 
     void applyLanState(LanBirdState state) {
         if (state == null) return;
+        pterodactyl.copyFrom(state.pterodactyl);
         BirdGame3.BirdType[] types = BirdGame3.BirdType.values();
         if (state.typeOrdinal >= 0 && state.typeOrdinal < types.length) {
             this.type = types[state.typeOrdinal];
@@ -24109,6 +24335,7 @@ public class Bird {
     }
 
     private void resetSmashCombatState() {
+        PterodactylSpecials.reset(this, true);
         smashDamage = 0.0;
         recentSmashAttackerIndex = -1;
         recentSmashAttackerFrames = 0;
@@ -41327,6 +41554,30 @@ public class Bird {
     }
 
     private boolean drawDirectedSpecialReadiness(GraphicsContext g) {
+        if (type == BirdGame3.BirdType.PTERODACTYL) {
+            if (suppressSelectEffects || health <= 0) return true;
+            DirectionalSpecialInput input = selectDirectionalSpecialInput();
+            int cooldown = pterodactyl.cooldowns[input.ordinal()];
+            boolean ready = PterodactylSpecials.canStart(this);
+            boolean spent = input == DirectionalSpecialInput.UP && pterodactyl.upUsed;
+            String label = switch (input) {
+                case NEUTRAL -> "GUST";
+                case SIDE -> "LUNGE";
+                case UP -> "UPDRAFT";
+                case DOWN -> "SNATCH";
+            };
+            if (pterodactyl.ultimate) label = "EXTINCT";
+            String state = pterodactyl.phase == PterodactylSpecials.SLAM ? "SLAM"
+                    : pterodactyl.phase == PterodactylSpecials.WINDUP ? "WINDUP"
+                    : PterodactylSpecials.carrying(this) ? "CARRY"
+                    : PterodactylSpecials.active(this) ? "ACTIVE"
+                    : input == DirectionalSpecialInput.NEUTRAL && isUltimateReady() ? "ULT READY"
+                    : spent ? "LAND" : ready ? "READY" : cooldownFramesText(cooldown);
+            int max = switch (input) { case NEUTRAL -> 70; case SIDE -> 80; case UP -> 48; case DOWN -> 125; };
+            drawSpecialReadinessPanel(g, label, state, spent ? 0 : cooldownProgress(cooldown, max),
+                    ready, spent, Color.web("#C4E6E4"));
+            return true;
+        }
         if (isNullRockForm()) {
             if (!suppressSelectEffects && health > 0 && !VultureSpecials.usesGlobalNullRockCooldown(this)) {
                 drawNullRockSpecialReadiness(g);
@@ -41987,6 +42238,10 @@ public class Bird {
         }
         if (type == BirdGame3.BirdType.BAT) {
             drawBatBody(g, drawSize, pose);
+            return;
+        }
+        if (type == BirdGame3.BirdType.PTERODACTYL) {
+            drawPterodactylBody(g, drawSize, pose);
             return;
         }
         if (type == BirdGame3.BirdType.PELICAN) {
@@ -48641,7 +48896,8 @@ public class Bird {
                 || type == BirdGame3.BirdType.PELICAN
                 || type == BirdGame3.BirdType.HEISENBIRD
                 || type == BirdGame3.BirdType.RAVEN
-                || type == BirdGame3.BirdType.GOOSE) return;
+                || type == BirdGame3.BirdType.GOOSE
+                || type == BirdGame3.BirdType.PTERODACTYL) return;
         Color accent = game.classicSkinAccentColor(type);
         g.setStroke(accent.deriveColor(0, 1, 1, 0.9));
         g.setLineWidth(3.2 * sizeMultiplier);
@@ -48847,6 +49103,178 @@ public class Bird {
         g.setLineWidth((fortress ? 4.2 : 2.8) * sizeMultiplier);
         g.strokeOval(x - auraPad * 0.64, y - auraPad * 0.56, drawSize + auraPad * 1.28,
                 drawSize + auraPad * (fortress ? 1.20 : 1.22));
+    }
+
+    private void drawPterodactylBody(GraphicsContext g, double drawSize, AttackVisualPose pose) {
+        double s = sizeMultiplier;
+        double cx = x + 40 * s;
+        boolean fossil = isClassicSkin;
+        double dir = facingRight ? 1 : -1;
+        double aim = pose == null ? (facingRight ? 0 : Math.PI) : pose.aimAngleRadians();
+        if (PterodactylSpecials.active(this)) {
+            double localAim = switch (pterodactyl.phase) {
+                case PterodactylSpecials.DIVE, PterodactylSpecials.SLAM -> Math.toRadians(58);
+                case PterodactylSpecials.UPDRAFT -> Math.toRadians(-58);
+                case PterodactylSpecials.WINDUP -> Math.toRadians(-18);
+                default -> 0;
+            };
+            aim = facingRight ? localAim : Math.PI - localAim;
+        }
+        // Work in the same compact, rounded proportions as the rest of the roster.
+        // The long bill and swept crest carry the identity; the face stays readable at HUD size.
+        double ax = Math.cos(aim) * dir, ay = Math.sin(aim);
+        double reach = pose == null ? 0 : pose.headReachBonus() * 0.22;
+        double hx = 19 + ax * reach, hy = 22 + ay * 8 + (pose == null ? 0 : pose.headLift() * 0.22);
+        double nx = -ay, ny = ax;
+        if (ny < 0 || (Math.abs(ny) < 0.01 && nx < 0)) { nx = -nx; ny = -ny; }
+        Color outline = Color.web("#3B2924");
+        Color bone = Color.web("#E9DDBB");
+        Color body = isCampaignFactionSkin() ? campaignFactionPrimaryColor() : Color.web("#A46B43");
+        Color light = isCampaignFactionSkin() ? campaignFactionSecondaryColor() : Color.web("#C68B59");
+        Color membrane = Color.web("#D69B6F");
+        double openness = pterodactylWingOpenness();
+        boolean airborne = !isOnGround();
+
+        g.save();
+        g.translate(cx, y);
+        g.scale(dir * s, s);
+        g.setLineJoin(javafx.scene.shape.StrokeLineJoin.ROUND);
+        g.setLineCap(javafx.scene.shape.StrokeLineCap.ROUND);
+        drawPterodactylWing(g, -1, openness, fossil, body.darker(), membrane.darker(), outline, bone);
+        if (openness > 0.35) drawPterodactylWing(g, 1, openness, fossil, body, membrane, outline, bone);
+
+        // Small claws and a curved tail sit behind the round body, as on other fighters.
+        g.setFill(fossil ? bone : body.darker());
+        g.beginPath(); g.moveTo(-17, 54); g.quadraticCurveTo(-34, 58, -34, 47);
+        g.quadraticCurveTo(-25, 51, -14, 45); g.closePath(); g.fill();
+        g.setStroke(outline); g.setLineWidth(2); g.stroke();
+        double step = isOnGround() && Math.abs(vx) > 0.5
+                ? Math.sin(animationGlobalFrame * 0.65) * 4 : 0;
+        for (int side : new int[]{-1, 1}) {
+            double footX = side * 9 + side * step;
+            double footY = airborne ? 74 : 78;
+            g.setStroke(outline); g.setLineWidth(5);
+            g.strokeLine(side * 9, 62, footX, footY - 4);
+            g.setStroke(fossil ? bone : Color.web("#D5AA62")); g.setLineWidth(3);
+            g.strokeLine(side * 9, 62, footX, footY - 4);
+            g.strokeLine(footX - 3, footY, footX + 7, footY);
+            g.strokeLine(footX, footY - 3, footX + 6, footY - 1);
+        }
+        g.setFill(fossil ? bone : body); g.setStroke(outline); g.setLineWidth(2.4);
+        g.fillOval(-24, 24, 48, 47); g.strokeOval(-24, 24, 48, 47);
+        g.setFill(fossil ? Color.web("#4B4137") : light);
+        g.fillOval(-8, 36, 27, 30);
+        if (fossil) {
+            // Bold ribs read as a skeleton without turning the silhouette into wire art.
+            g.setStroke(bone); g.setLineWidth(3.2);
+            g.strokeLine(6, 36, 6, 66);
+            for (int rib = 0; rib < 3; rib++) {
+                double ribY = 40 + rib * 8;
+                g.beginPath(); g.moveTo(-6, ribY - 2);
+                g.bezierCurveTo(-12, ribY + 8, 21, ribY + 8, 17, ribY - 2); g.stroke();
+            }
+        } else {
+            g.setFill(light.brighter().deriveColor(0, 0.75, 1, 0.42));
+            g.fillOval(-12, 29, 20, 8);
+        }
+        if (openness <= 0.35) drawPterodactylWing(g, -1, openness, fossil, body, membrane, outline, bone);
+
+        // Rounded neck connects cleanly to a large head, with a single swept crest.
+        g.setFill(fossil ? bone : body); g.setStroke(outline); g.setLineWidth(2.4);
+        g.beginPath(); g.moveTo(7, 42); g.quadraticCurveTo(7, 26, hx - 9, hy + 2);
+        g.lineTo(hx + 9, hy + 10); g.quadraticCurveTo(19, 33, 20, 46); g.closePath(); g.fill(); g.stroke();
+        g.beginPath(); g.moveTo(hx - 15, hy + 1);
+        g.quadraticCurveTo(hx - 25, hy - 12, hx - 35, hy - 15);
+        g.quadraticCurveTo(hx - 18, hy - 18, hx + 1, hy - 12); g.closePath(); g.fill(); g.stroke();
+        g.setFill(fossil ? bone : light);
+        g.fillOval(hx - 19, hy - 17, 38, 34); g.strokeOval(hx - 19, hy - 17, 38, 34);
+
+        double rootX = hx + ax * 14 + nx * 7, rootY = hy + ay * 14 + ny * 7;
+        double tipX = rootX + ax * 36, tipY = rootY + ay * 36;
+        g.setFill(fossil ? bone : Color.web("#E8BA71"));
+        g.beginPath(); g.moveTo(rootX - nx * 7, rootY - ny * 7);
+        g.quadraticCurveTo(rootX + ax * 20 - nx * 5, rootY + ay * 20 - ny * 5, tipX, tipY);
+        g.quadraticCurveTo(rootX + ax * 19 + nx * 5, rootY + ay * 19 + ny * 5, rootX + nx * 7, rootY + ny * 7);
+        g.closePath(); g.fill(); g.setStroke(outline); g.setLineWidth(1.8); g.stroke();
+        g.strokeLine(rootX + ax * 3, rootY + ay * 3, tipX - ax * 2, tipY - ay * 2);
+        if (fossil) {
+            g.setFill(Color.web("#75634B"));
+            g.fillOval(rootX + ax * 6 - 1.5, rootY + ay * 6 - 4, 3, 3);
+        }
+
+        double eyeX = hx + 3, eyeY = hy - 3, eyeRadius = 8;
+        g.setFill(fossil ? Color.web("#312E29") : Color.web("#FFF8E9"));
+        g.fillOval(eyeX - eyeRadius, eyeY - eyeRadius, eyeRadius * 2, eyeRadius * 2);
+        g.setStroke(outline); g.setLineWidth(1.2);
+        g.strokeOval(eyeX - eyeRadius, eyeY - eyeRadius, eyeRadius * 2, eyeRadius * 2);
+        g.setFill(fossil ? Color.web("#D4BF8C") : Color.web("#201D19"));
+        g.fillOval(eyeX - 1, eyeY - 4, 6, 9);
+        g.setFill(fossil ? bone : Color.WHITE);
+        g.fillOval(eyeX, eyeY - 3.5, 2.6, 2.6);
+        if (!fossil) {
+            g.setFill(body.darker().deriveColor(0, 1, 1, 0.60));
+            g.fillOval(hx - 11, hy + 5, 10, 5);
+        } else {
+            g.setStroke(Color.web("#A18B66")); g.setLineWidth(1.3);
+            g.strokePolyline(new double[]{hx - 12, hx - 8, hx - 10}, new double[]{hy - 11, hy - 6, hy - 2}, 3);
+        }
+        g.restore();
+        lastVisualHeadBounds = new VisualFeatureBounds(cx + (dir * hx - 19) * s, y + (hy - 17) * s,
+                cx + (dir * hx + 19) * s, y + (hy + 17) * s);
+        lastVisualEye = new VisualFeatureCircle(cx + dir * eyeX * s, y + eyeY * s, eyeRadius * s);
+        recordVisualBeak(cx + dir * rootX * s, y + rootY * s, cx + dir * tipX * s, y + tipY * s);
+        if (pterodactyl.phase == PterodactylSpecials.GUST || pterodactyl.phase == PterodactylSpecials.DIVE
+                || pterodactyl.phase == PterodactylSpecials.SLAM) {
+            g.setStroke(pterodactyl.ultimate ? Color.web("#F4B85D", 0.65) : Color.web("#C4E6E4", 0.55));
+            g.setLineWidth(2 * s);
+            for (int i = 0; i < 2; i++) g.strokeArc(cx - (42 + i * 11) * s, y + (21 - i * 6) * s,
+                    (86 + i * 22) * s, (43 + i * 12) * s, 195, 95, ArcType.OPEN);
+        }
+    }
+
+    private double pterodactylWingOpenness() {
+        if (suppressSelectEffects) return 0.18;
+        return switch (pterodactyl.phase) {
+            case PterodactylSpecials.GUST -> 0.55 + 0.42 * Math.sin(Math.min(1, pterodactyl.elapsed / 16.0) * Math.PI);
+            case PterodactylSpecials.WINDUP -> 0.92;
+            case PterodactylSpecials.DIVE, PterodactylSpecials.SLAM -> 0.28;
+            case PterodactylSpecials.UPDRAFT, PterodactylSpecials.CARRY -> 0.75 + 0.20 * Math.sin(animationGlobalFrame * 0.65);
+            case PterodactylSpecials.LUNGE -> 0.43;
+            default -> switch (currentBirdAnimationState()) {
+                case FLAP -> 0.72 + 0.25 * Math.sin(animationGlobalFrame * 0.58);
+                case FALL -> 0.76;
+                case ATTACK -> isOnGround() ? 0.48 : 0.87;
+                case HITSTUN, KO, DODGE -> 0.18;
+                default -> isOnGround() ? 0.12 + 0.04 * Math.sin(animationGlobalFrame * 0.65) : 0.68;
+            };
+        };
+    }
+
+    private void drawPterodactylWing(GraphicsContext g, int side, double openness, boolean fossil,
+                                    Color body, Color membrane, Color outline, Color bone) {
+        double rootX = side * 8, wristX = side * (17 + 14 * openness), wristY = 33 - 17 * openness;
+        double tipX = side * (25 + 47 * openness), tipY = 58 - 40 * openness;
+        double trailingX = side * (18 + 35 * openness), trailingY = 64 - 10 * openness;
+        g.setFill(fossil ? Color.web("#82735A", 0.18) : membrane);
+        g.setStroke(outline); g.setLineWidth(2.4);
+        g.beginPath(); g.moveTo(rootX, 34); g.quadraticCurveTo(side * 17, 28, wristX, wristY);
+        g.lineTo(tipX, tipY); g.quadraticCurveTo(side * (22 + 27 * openness), 41, trailingX, trailingY);
+        g.quadraticCurveTo(side * 16, 64, rootX, 59); g.closePath(); g.fill();
+        if (!fossil) {
+            g.stroke(); g.setFill(body.deriveColor(0, 0.9, 1.05, 0.65));
+            g.beginPath(); g.moveTo(rootX, 35); g.lineTo(wristX, wristY + 3); g.lineTo(tipX - side * 4, tipY + 4);
+            g.quadraticCurveTo(side * 25, 44, rootX, 57); g.closePath(); g.fill();
+        }
+        g.setStroke(fossil ? outline : body.darker()); g.setLineWidth(fossil ? 5 : 2.2);
+        g.strokePolyline(new double[]{rootX, wristX, tipX}, new double[]{34, wristY, tipY}, 3);
+        g.strokeLine(wristX, wristY, trailingX, trailingY);
+        g.strokeLine(wristX, wristY, rootX, 59);
+        if (fossil) {
+            g.setStroke(bone); g.setLineWidth(3);
+            g.strokePolyline(new double[]{rootX, wristX, tipX}, new double[]{34, wristY, tipY}, 3);
+            g.strokeLine(wristX, wristY, trailingX, trailingY); g.strokeLine(wristX, wristY, rootX, 59);
+            g.setFill(bone); g.fillOval(wristX - 3, wristY - 3, 6, 6);
+        }
     }
 
     private void drawBatBody(GraphicsContext g, double drawSize, AttackVisualPose pose) {
@@ -50512,6 +50940,9 @@ public class Bird {
             return;
         }
         if (type == BirdGame3.BirdType.BAT) {
+            return;
+        }
+        if (type == BirdGame3.BirdType.PTERODACTYL) {
             return;
         }
         if (type == BirdGame3.BirdType.PHOENIX) {
